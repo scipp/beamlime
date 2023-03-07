@@ -1,0 +1,6 @@
+{data-stream-interface-name}
+  input-channel: # kafka/fileio/stdio
+  type: # EVENT/EVENTS-CHUNK/REDUCTION-RESULT, this field decide which handler it will use.
+  output-channel: # kafka/fileio/stdio
+  max-wait: 1 # [s], default 1
+  chuck-size: 8
