@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+# @author Sunyoung Yoo
+#
+# Depenencies on other templates:
+#   data-stream-interface.yaml.template
+#   data-stream-mapping.yaml.template
+#   data-reduction-target.yaml.template
+#   data-reduction-workflow.yaml.template
+#   data-reduction-mapping.yaml.template
+
+general:
+  user:
+  name:
+  last-updated:
+  log-dir: # default "~/.peek-data/log/"
+
+dashboard:
+  update-frequency: # default 5[Hz]
+  css:
+  display-targets:
+    - index:
+      type:
+      method:
+      interactive:
+
+data-stream:
+  interfaces:
+    # - interface-name-1
+    # - interface-name-2
+    # - interface-name-3
+  interface-mapping:
+    # - from: interface-name-2
+    #   to: interface-name-1
+    # - from: interface-name-2
+    #   to: interface-name-3,interface-name-4
+
+data-reduction:
+  workflow-target-mapping:
+    - workflow: # workflow-name-1
+      targets: # target-name-1
+    - workflow: # workflow-name-2
+      targets:
+        #  - target-name-1
+        #  - target-name-2
+  targets:
+    # - target-name-1: ...
+    # - target-name-2: ...
+  workflows:
+    # - workflow-name-1: ...
+    # - workflow-name-2: ...

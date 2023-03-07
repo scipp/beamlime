@@ -1,6 +1,6 @@
 # how to retrieve the target data
 
 {target-data-name}:
-  index: # 'chopper,0,frequency' will retrieve raw_data['chopper'][0]['frequency']
+  index: # 'chopper,0' will retrieve raw_data['chopper'][0]['frequency']
   new-input: # ADD|APPEND|REPLACE|SKIP
   new-result: # ADD|APPEND|REPLACE|SKIP
