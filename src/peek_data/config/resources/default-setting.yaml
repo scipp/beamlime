@@ -1,43 +1,70 @@
-# This file is auto-generated.
-# Don't update it manually.
+# THIS FILE IS AUTO-GENERATED.
+# Please don't update it manually.
+# Use `tox -e config-build` to generate a new one.
 
 general:
-  user:
-  name:
   last-updated:
-  log-dir: # default "~/.peek-data/log/"
+  log-dir: ~/.peek-data/log/
+  name:
+  root-dir: ~/.peek-data/
+  user:
+
+dashboard:
+  css:
+  display-targets:
+  - index:
+    interactive:
+    method:
+    type:
+  update-frequency: 5
 
 data-stream:
+  custom-handler-dir: ~/.peek-data/custom-handlers/
+  interface-mapping: "-from: \n to:"
   interfaces:
-    data-stream-name-1:
-      input-channel: # kafka/fileio/stdio
-      type: # EVENT/EVENTS-CHUNK/REDUCTION-RESULT, this field decide which handler it will use.
-      output-channel: # kafka/fileio/stdio
-      max-wait: 1 # [s], default 1
-      chuck-size: 8
-    data-stream-name-2:
-      input-channel: # kafka/fileio/stdio
-      type: # EVENT/EVENTS-CHUNK/REDUCTION-RESULT, this field decide which handler it will use.
-      output-channel: # kafka/fileio/stdio
-      max-wait: 1 # [s], default 1
-      chuck-size: 8
-  interface-mapping:
-    # - output: data-stream-name-2
-    #   input: data-stream-name-1
-    # - output: data-stream-name-2
-    #   input: data-stream-name-3,data-stream-name-4
+  - kafka:
+      chunk-size: 8
+      data-handler:
+      input-channel:
+        config:
+          topic: test
+        type: kafka
+      max-wait: 1
+      output-channel:
+        config:
+        type:
+      type:
+  - data-reduction:
+      chunk-size: 8
+      data-handler:
+      input-channel:
+        config:
+        type:
+      max-wait: 1
+      output-channel:
+        config:
+        type:
+      type:
+    type: byte
+  - dashboard:
+      chunk-size: 8
+      data-handler:
+      input-channel:
+        config:
+        type:
+      max-wait: 1
+      output-channel:
+        config:
+        type:
+      type:
 
 data-reduction:
-  workflow-target-mapping:
-    - workflow: # workflow-name-1
-      targets: # target-name-1
-    - workflow: # workflow-name-2
-      targets:
-        # - target-name-1
-        # - target-name-2
+  input-interface:
   targets:
-#   - target-name-1: ...
-#   - target-name-2: ...
+  workflow-target-mapping:
+  - targets:
+    workflow:
+  - targets:
+    workflow:
   workflows:
-#   - workflow-name-1: ...
-#   - workflow-name-2: ...
+

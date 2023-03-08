@@ -1,4 +1,4 @@
-# This is a template of each workflow that will be included 
+# This is a template of each workflow that will be included
 # in the data-reduction section of the configuration.
 
 {workflow-name}:
@@ -9,4 +9,3 @@
   new-input: # ADD|APPEND|REPLACE|SKIP
   new-result: # ADD|APPEND|REPLACE|SKIP
   save: # true/false
-  
