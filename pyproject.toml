@@ -26,7 +26,7 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dynamic = ["version"]
-dependencies = []
+dependencies = ["pyyaml"]
 
 [project.urls]
     "Documentation" = ""
@@ -44,3 +44,4 @@ skip = "./.git,./.tox,*/*_cache"
 skip_gitignore = true
 line_length = 88
 multi_line_output = 2  # for compatibility with yapf
+skip_glob = ["src/peek_data/config/__init__.py"]
