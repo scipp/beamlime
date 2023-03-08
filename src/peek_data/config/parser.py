@@ -1,6 +1,4 @@
-from typing import _KT, _VT, overload
 import yaml
-from yaml.loader import SafeLoader
 from .resources import load_default_config_yaml, load_user_config_yaml
 
 

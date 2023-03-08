@@ -13,7 +13,9 @@ general:
   user:
   name:
   last-updated:
-  log-dir: # default "~/.peek-data/log/"
+  root-dir: # default "~/.peek-data/"
+  log-dir: # default "{root-dir}/log/"
+  
 
 dashboard:
   update-frequency: # default 5[Hz]
@@ -25,17 +27,21 @@ dashboard:
       interactive:
 
 data-stream:
-  interfaces:
+  interfaces: # Each interface will be run in different process if possible.
     # - interface-name-1
     # - interface-name-2
     # - interface-name-3
-  interface-mapping:
+  interface-mapping: # Define communication between interfaces here.
     # - from: interface-name-2
     #   to: interface-name-1
     # - from: interface-name-2
     #   to: interface-name-3,interface-name-4
+  custom-handler-dir: # default "{root-dir}/custom-handlers/" 
+                      # Only if you're using custom handlers.
 
-data-reduction:
+data-reduction: # Each workflow will be run asynchronously but in one process. 
+                # Can be split into multi-processes by the data-reduction-manager process if needed.
+  input-interface: #interface-name-1
   workflow-target-mapping:
     - workflow: # workflow-name-1
       targets: # target-name-1
