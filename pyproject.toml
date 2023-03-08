@@ -7,16 +7,40 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 
-[tool.isort]
-skip_gitignore = true
-line_length = 88
-multi_line_output = 3
-include_trailing_comma = true
+[project]
+name = "peek_data"
+description = "Live Data Reduction Dashboard"
+license = { "file" = "LICENSE" }
+readme = "README.md"
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+requires-python = ">=3.8"
+dynamic = ["version"]
+dependencies = []
+
+[project.urls]
+    "Documentation" = ""
+    "Bug Tracker" = "https://github.com/scipp/peek-data/issues"
+    "Source" = "https://github.com/scipp/peek-data"
 
 [tool.bandit]
 # Excluding tests because bandit doesn't like `assert`.
-exclude_dirs = ["docs/conf.py", "tests"]
+exclude_dirs = ["tests"]
 
-[tool.mypy]
-mypy_path = "src"
-ignore_missing_imports = true
+[tool.codespell]
+skip = "./.git,./.tox,*/*_cache"
+
+[tool.isort]
+skip_gitignore = true
+line_length = 88
+multi_line_output = 2  # for compatibility with yapf
