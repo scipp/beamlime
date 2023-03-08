@@ -28,9 +28,9 @@ requires-python = ">=3.8"
 dynamic = ["version"]
 dependencies = ["pyyaml"]
 [project.urls]
-    "Documentation" = "https://github.com/scipp/peek-data#readme"
-    "Bug Tracker" = "https://github.com/scipp/peek-data/issues"
-    "Source" = "https://github.com/scipp/peek-data"
+    "Documentation" = "https://github.com/scipp/beamlime#readme"
+    "Bug Tracker" = "https://github.com/scipp/beamlime/issues"
+    "Source" = "https://github.com/scipp/beamlime"
 
 [tool.bandit]
 # Excluding tests because bandit doesn't like `assert`.
