@@ -27,7 +27,6 @@ classifiers = [
 requires-python = ">=3.8"
 dynamic = ["version"]
 dependencies = ["pyyaml"]
-
 [project.urls]
     "Documentation" = ""
     "Bug Tracker" = "https://github.com/scipp/peek-data/issues"
