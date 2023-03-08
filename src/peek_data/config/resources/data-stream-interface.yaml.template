@@ -1,6 +1,7 @@
 {data-stream-interface-name}
   input-channel: # kafka/fileio/stdio
-  type: # EVENT/EVENTS-CHUNK/REDUCTION-RESULT, this field decide which handler to be used.
+  type: # EVENT/EVENTS-CHUNK/REDUCTION-RESULT/CUSTOM, this field decide which handler to be used.
+  data-handler: # If the interface type is `CUSTOM`, write a lambda function or name of the handler function or class.
   output-channel: # kafka/fileio/stdio
   max-wait: 1 # [s], default 1
   chunk-size: 8
