@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "peek_data"
 description = "Live Data Reduction Dashboard"
-license = { "file" = "LICENSE" }
+license = { file = "LICENSE" }
 readme = "README.md"
 classifiers = [
     "Intended Audience :: Science/Research",
@@ -23,12 +23,11 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dynamic = ["version"]
-dependencies = []
-
+dependencies = ["pyyaml"]
 [project.urls]
-    "Documentation" = ""
+    "Documentation" = "https://github.com/scipp/peek-data#readme"
     "Bug Tracker" = "https://github.com/scipp/peek-data/issues"
     "Source" = "https://github.com/scipp/peek-data"
 
@@ -42,4 +41,5 @@ skip = "./.git,./.tox,*/*_cache"
 [tool.isort]
 skip_gitignore = true
 line_length = 88
-multi_line_output = 2  # for compatibility with yapf
+use_parentheses = true
+profile = "black" # for compatibility with black
