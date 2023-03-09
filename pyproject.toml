@@ -10,7 +10,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "peek_data"
 description = "Live Data Reduction Dashboard"
-license = { "file" = "LICENSE" }
+license = { file = "LICENSE" }
 readme = "README.md"
 classifiers = [
     "Intended Audience :: Science/Research",
@@ -27,7 +27,7 @@ requires-python = ">=3.9"
 dynamic = ["version"]
 dependencies = ["pyyaml"]
 [project.urls]
-    "Documentation" = ""
+    "Documentation" = "https://github.com/scipp/peek-data#readme"
     "Bug Tracker" = "https://github.com/scipp/peek-data/issues"
     "Source" = "https://github.com/scipp/peek-data"
 

@@ -2,5 +2,5 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # @author Sunyoung Yoo
 
--from: # `from` can have only 1 interface.
- to: # `to` can have multiple interfaces only when their input-channels are the same.
+from: # `from` can have only 1 interface.
+to: # `to` can have multiple interfaces only when their input-channels are the same.

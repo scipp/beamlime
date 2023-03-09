@@ -1,9 +1,6 @@
-from string import Template
-
 import yaml
-from yaml import safe_load
 
-from .loaders import (
+from ..resources.templates import (
     load_config_tpl,
     load_data_stream_interface_tpl,
     load_data_stream_mapping_tpl,
@@ -19,25 +16,33 @@ yaml.add_representer(type(None), represent_none)
 
 
 def build_default_setting():
-    config = safe_load(load_config_tpl())
-    ds_interface = Template(load_data_stream_interface_tpl())
-    kafka_interface = safe_load(ds_interface.substitute(name="kafka"))
-    kafka_interface["kafka"]["input-channel"]["type"] = "kafka"
-    kafka_config = safe_load(load_kafka_tpl())
+    config = load_config_tpl()
+
+    kafka_interface = load_data_stream_interface_tpl()
+    kafka_interface["name"] = "kafka"
+    kafka_interface["input-channel"]["type"] = "kafka"
+    kafka_config = load_kafka_tpl()
     kafka_config["topic"] = "test"
-    kafka_interface["kafka"]["input-channel"]["config"] = kafka_config
-    data_reduction = safe_load(ds_interface.substitute(name="data-reduction"))
-    data_reduction["type"] = "byte"
-    dashboard = safe_load(ds_interface.substitute(name="dashboard"))
+    kafka_interface["input-channel"]["config"] = kafka_config
+
+    data_reduction = load_data_stream_interface_tpl()
+    data_reduction["name"] = "data-reduction"
+    data_reduction["type"] = "internal-stream"
+
+    dashboard = load_data_stream_interface_tpl()
+    dashboard["name"] = "dashboard"
+    dashboard["type"] = "internal-stream"
+
     config["data-stream"]["interfaces"] = [kafka_interface, data_reduction, dashboard]
-    ds_mapping = load_data_stream_mapping_tpl()
-    kafka_dr = safe_load(ds_mapping)
+
+    kafka_dr = load_data_stream_mapping_tpl()
     kafka_dr["from"] = "kafka"
     kafka_dr["to"] = "data-reduction"
-    dr_dashboard = safe_load(ds_mapping)
+    dr_dashboard = load_data_stream_mapping_tpl()
     dr_dashboard["from"] = "data-reduction"
     dr_dashboard["to"] = "dashboard"
-    config["data-stream"]["interface-mapping"] = ds_mapping
+    config["data-stream"]["interface-mapping"] = [kafka_dr, dr_dashboard]
+
     return config
 
 
@@ -52,7 +57,7 @@ def save_default_yaml():
     with open("default-setting.yaml", "w") as file:
         file.write(warning_message)
         for section in order:
-            file.write(yaml.dump({section: default_config[section]}))
+            file.write(yaml.dump({section: default_config[section]}, sort_keys=False))
             file.write("\n")
 
 
