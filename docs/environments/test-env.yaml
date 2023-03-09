@@ -1,0 +1,5 @@
+name: peek-data-test
+dependencies:
+  - python=3.9
+  - jupyterlab
+  - pyyaml
