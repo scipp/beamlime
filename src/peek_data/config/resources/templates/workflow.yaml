@@ -1,5 +1,6 @@
 # This is a template of each workflow that will be included
 # in the data-reduction section of the configuration.
+
 name:
 reference:
 preprocess:
