@@ -43,5 +43,5 @@ skip = "./.git,./.tox,*/*_cache"
 [tool.isort]
 skip_gitignore = true
 line_length = 88
-multi_line_output = 2  # for compatibility with yapf
 use_parentheses = true
+profile = "black" # for compatibility with black
