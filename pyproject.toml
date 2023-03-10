@@ -1,0 +1,45 @@
+[build-system]
+requires = [
+  "setuptools>=42",
+  "setuptools_scm[toml]>=6.2",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+
+[project]
+name = "peek_data"
+description = "Live Data Reduction Dashboard"
+license = { file = "LICENSE" }
+readme = "README.md"
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+requires-python = ">=3.9"
+dynamic = ["version"]
+dependencies = ["pyyaml"]
+[project.urls]
+    "Documentation" = "https://github.com/scipp/peek-data#readme"
+    "Bug Tracker" = "https://github.com/scipp/peek-data/issues"
+    "Source" = "https://github.com/scipp/peek-data"
+
+[tool.bandit]
+# Excluding tests because bandit doesn't like `assert`.
+exclude_dirs = ["tests"]
+
+[tool.codespell]
+skip = "./.git,./.tox,*/*_cache"
+
+[tool.isort]
+skip_gitignore = true
+line_length = 88
+use_parentheses = true
+profile = "black" # for compatibility with black
