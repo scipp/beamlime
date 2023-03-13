@@ -19,11 +19,13 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
 ]
 requires-python = ">=3.9"
+requires-python = ">=3.8"
 dynamic = ["version"]
 dependencies = ["pyyaml"]
 [project.urls]
@@ -40,6 +42,4 @@ skip = "./.git,./.tox,*/*_cache"
 
 [tool.isort]
 skip_gitignore = true
-line_length = 88
-use_parentheses = true
 profile = "black" # for compatibility with black
