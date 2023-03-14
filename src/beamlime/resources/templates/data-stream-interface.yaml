@@ -1,11 +1,5 @@
 name:
-type: # EVENT/EVENTS-CHUNK/REDUCTION-RESULT/CUSTOM, this field decide which handler to be used.
-input-channel:
-  type: # kafka/internal/fileio
-  config:
-output-channel:
-  type: # kafka/internal/fileio
-  config:
-data-handler: # If the interface type is `CUSTOM`, write a lambda function or name of the handler function or class.
+data-handler: DUMMY
+input-channel: QUEUE
+output-channel: QUEUE
 max-wait: 1 # [s], default 1
-chunk-size: 8

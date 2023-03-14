@@ -3,7 +3,7 @@
 
 from functools import partial
 
-from .. import load_yaml
+from ..loaders import load_yaml
 
 
 def _load_tpl(tpl_name):
@@ -19,3 +19,4 @@ load_internal_stream_tpl = partial(_load_tpl, tpl_name="internal-stream")
 load_kafka_tpl = partial(_load_tpl, tpl_name="kafka")
 load_target_tpl = partial(_load_tpl, tpl_name="target")
 load_workflow_tpl = partial(_load_tpl, tpl_name="workflow")
+load_workflow_meta_tpl = partial(_load_tpl, tpl_name="workflow-meta")

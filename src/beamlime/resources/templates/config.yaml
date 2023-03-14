@@ -13,12 +13,6 @@ general:
 
 dashboard:
   update-frequency: 5 # [Hz]
-  css:
-  display-targets:
-    - index:
-      type:
-      method:
-      interactive:
 
 data-stream:
   interfaces: # Each interface will be run in different process if possible.
@@ -34,7 +28,7 @@ data-stream:
 
 data-reduction: # Each workflow will be run asynchronously but in one process.
                 # Can be split into multi-processes by the data-reduction-manager instance if needed.
-  input-interface: #interface-name-1
+  interface: #interface-name-1
   workflow-target-mapping:
     - workflow: # workflow-name-1
       targets: # target-name-1
@@ -46,5 +40,7 @@ data-reduction: # Each workflow will be run asynchronously but in one process.
     # - target-name-1: ...
     # - target-name-2: ...
   workflows:
-    # - workflow-name-1: ...
-    # - workflow-name-2: ...
+    # - name: workflow-name-1
+    #   dir: "~/.beamlime/data-reduction-workflows/"
+    # - name: workflow-name-2
+    #   dir: "~/.beamlime/data-reduction-workflows/"
