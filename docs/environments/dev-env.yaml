@@ -1,3 +1,3 @@
-name: peek-data-dev
+name: beamlime-dev
 dependencies:
-  - yaml
+  - tox

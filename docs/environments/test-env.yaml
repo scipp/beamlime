@@ -1,4 +1,4 @@
-name: peek-data-test
+name: beamlime-test
 dependencies:
   - python=3.9
   - jupyterlab
