@@ -28,7 +28,6 @@ data-stream:
 
 data-reduction: # Each workflow will be run asynchronously but in one process.
                 # Can be split into multi-processes by the data-reduction-manager instance if needed.
-  interface: #interface-name-1
   workflow-target-mapping:
     - workflow: # workflow-name-1
       targets: # target-name-1

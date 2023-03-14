@@ -9,6 +9,5 @@ from .loaders import (
     load_internal_stream_tpl,
     load_kafka_tpl,
     load_target_tpl,
-    load_workflow_meta_tpl,
     load_workflow_tpl,
 )

@@ -11,7 +11,7 @@ def build_default_interface(name: str):
     return tpl
 
 
-def build_sample_workflow_config():
+def _sample_workflow_config():
     tpl = load_workflow_tpl()
     tpl["name"] = "sample-workflow"
     tpl.pop("reference")
@@ -41,11 +41,10 @@ def build_default_config():
         {"from": "interface-0", "to": "interface-1"}
     ]
     # Data Reduction
-    tpl["data-reduction"]["interface"] = "interface-1"
     tpl["data-reduction"]["workflow-target-mapping"] = [
         {"workflow": "sample-workflow", "targets": ["raw-data"]}
     ]
     tpl["data-reduction"]["targets"] = [{"name": "raw-data", "index": ""}]
-    tpl["data-reduction"]["workflows"] = [build_sample_workflow_config()]
+    tpl["data-reduction"]["workflows"] = [_sample_workflow_config()]
 
     return tpl

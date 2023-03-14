@@ -15,6 +15,3 @@ def _load_generated_yaml(filename):
 load_static_default_config = partial(
     _load_generated_yaml, filename="default-setting.yaml"
 )
-load_static_sample_workflow_config = partial(
-    _load_generated_yaml, filename="sample-workflow.yaml"
-)
