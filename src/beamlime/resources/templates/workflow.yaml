@@ -1,5 +1,6 @@
-# This is a template of each workflow that will be included
-# in the data-reduction section of the configuration.
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+# Data reduction workflow configuration template
 
 name:
 reference:
