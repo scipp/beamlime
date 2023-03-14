@@ -1,5 +1,5 @@
 name:
-data-handler: DUMMY
+data-handler: DATAREDUCTION
 input-channel: QUEUE
 output-channel: QUEUE
 max-wait: 1 # [s], default 1
