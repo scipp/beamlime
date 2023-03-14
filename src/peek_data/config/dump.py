@@ -46,7 +46,7 @@ def build_default_setting():
     return config
 
 
-def save_default_yaml(dir: str = "./", filename: str = "default-setting.yml"):
+def save_default_yaml(dir: str = "./", filename: str = "default-setting.yaml"):
     import os
 
     warning_message = (
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("directory")
-    parser.add_argument("name")
+    parser.add_argument("--directory", default="./")
+    parser.add_argument("--name", default="default-setting.yaml")
     args = parser.parse_args()
     save_default_yaml(dir=args.directory, filename=args.name)
