@@ -46,8 +46,9 @@ def build_default_setting():
     return config
 
 
-def save_default_yaml(dir: str="./", filename: str="default-setting.yml"):
+def save_default_yaml(dir: str = "./", filename: str = "default-setting.yml"):
     import os
+
     warning_message = (
         "# THIS FILE IS AUTO-GENERATED.\n"
         "# Please don't update it manually.\n"
@@ -64,6 +65,7 @@ def save_default_yaml(dir: str="./", filename: str="default-setting.yml"):
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("directory")
     parser.add_argument("name")
