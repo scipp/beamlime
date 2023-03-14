@@ -1,6 +1,6 @@
 import yaml
 
-from ..config.builders import build_default_config, build_sample_workflow_config
+from ..config.builders import _sample_workflow_config, build_default_config
 
 
 def represent_none(self, _):
@@ -79,7 +79,7 @@ def export_sample_workflow_yaml(
     directory: str = "./",
     overwrite: bool = False,
 ):
-    workflow_config = build_sample_workflow_config()
+    workflow_config = _sample_workflow_config()
     export_yaml(
         workflow_config,
         filename=filename,
