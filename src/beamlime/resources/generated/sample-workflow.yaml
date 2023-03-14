@@ -1,0 +1,11 @@
+# THIS FILE IS AUTO-GENERATED.
+# Please don't update it manually.
+# Use `tox -e config-build` to generate a new one.
+
+name: sample-workflow
+preprocess: pass
+process: 'lambda x: x'
+postprocess: pass
+new-input: APPEND
+new-result: REPLACE
+save: false

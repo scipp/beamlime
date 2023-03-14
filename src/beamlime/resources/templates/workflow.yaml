@@ -4,8 +4,8 @@
 name:
 reference:
 preprocess:
+process:
 postprocess:
-output:
 new-input: # ADD|APPEND|REPLACE|SKIP
 new-result: # ADD|APPEND|REPLACE|SKIP
 save: # true/false
