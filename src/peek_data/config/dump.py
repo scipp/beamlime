@@ -46,7 +46,8 @@ def build_default_setting():
     return config
 
 
-def save_default_yaml():
+def save_default_yaml(dir: str="./", filename: str="default-setting.yml"):
+    import os
     warning_message = (
         "# THIS FILE IS AUTO-GENERATED.\n"
         "# Please don't update it manually.\n"
@@ -54,7 +55,7 @@ def save_default_yaml():
     )
     default_config = build_default_setting()
     order = ["general", "dashboard", "data-stream", "data-reduction"]
-    with open("default-setting.yaml", "w") as file:
+    with open(os.path.join(dir, filename), "w") as file:
         file.write(warning_message)
         for section in order:
             file.write(yaml.dump({section: default_config[section]}, sort_keys=False))
@@ -62,4 +63,9 @@ def save_default_yaml():
 
 
 if __name__ == "__main__":
-    save_default_yaml()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("directory")
+    parser.add_argument("name")
+    args = parser.parse_args()
+    save_default_yaml(dir=args.directory, filename=args.name)
