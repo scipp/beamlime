@@ -8,8 +8,8 @@ general:
   user:
   name:
   last-updated:
-  root-dir: "~/.peek-data/"
-  log-dir: "~/.peek-data/log/"
+  root-dir: "~/.beamlime/"
+  log-dir: "~/.beamlime/log/"
 
 dashboard:
   update-frequency: 5 # [Hz]
@@ -30,7 +30,7 @@ data-stream:
     #   to: interface-name-1
     # - from: interface-name-2
     #   to: interface-name-3,interface-name-4
-  custom-handler-dir: "~/.peek-data/custom-handlers/"
+  custom-handler-dir: "~/.beamlime/custom-handlers/"
 
 data-reduction: # Each workflow will be run asynchronously but in one process.
                 # Can be split into multi-processes by the data-reduction-manager instance if needed.

@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools_scm]
 
 [project]
-name = "peek_data"
+name = "beamlime"
 description = "Live Data Reduction Dashboard"
 license = { file = "LICENSE" }
 readme = "README.md"

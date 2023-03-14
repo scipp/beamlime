@@ -6,8 +6,8 @@ general:
   user:
   name:
   last-updated:
-  root-dir: ~/.peek-data/
-  log-dir: ~/.peek-data/log/
+  root-dir: ~/.beamlime/
+  log-dir: ~/.beamlime/log/
 
 dashboard:
   update-frequency: 5
@@ -59,7 +59,7 @@ data-stream:
     to: data-reduction
   - from: data-reduction
     to: dashboard
-  custom-handler-dir: ~/.peek-data/custom-handlers/
+  custom-handler-dir: ~/.beamlime/custom-handlers/
 
 data-reduction:
   input-interface:
