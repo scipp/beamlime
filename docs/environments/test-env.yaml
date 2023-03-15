@@ -1,4 +1,6 @@
-name: beamlime-test
+name: lime-test
+channels:
+  - conda-forge
 dependencies:
   - python=3.9
   - jupyterlab

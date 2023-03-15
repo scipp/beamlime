@@ -1,3 +1,5 @@
-name: beamlime-dev
+name: lime-dev
+channels:
+  - conda-forge
 dependencies:
   - tox
