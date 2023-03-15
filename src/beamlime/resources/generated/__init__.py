@@ -2,4 +2,4 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # flake8: noqa F401
 
-from .loaders import load_static_default_config, load_static_sample_workflow_config
+from .loaders import load_static_default_config

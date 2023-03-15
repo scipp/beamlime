@@ -16,7 +16,7 @@ def _sample_workflow_config():
     tpl["name"] = "sample-workflow"
     tpl.pop("reference")
     tpl["preprocess"] = "pass"
-    tpl["process"] = "lambda x: x"
+    tpl["process"] = "times_ten"
     tpl["postprocess"] = "pass"
     tpl["new-input"] = "APPEND"
     tpl["new-result"] = "REPLACE"
@@ -44,7 +44,7 @@ def build_default_config():
     tpl["data-reduction"]["workflow-target-mapping"] = [
         {"workflow": "sample-workflow", "targets": ["raw-data"]}
     ]
-    tpl["data-reduction"]["targets"] = [{"name": "raw-data", "index": ""}]
+    tpl["data-reduction"]["targets"] = [{"name": "raw-data", "index": "data"}]
     tpl["data-reduction"]["workflows"] = [_sample_workflow_config()]
 
     return tpl
