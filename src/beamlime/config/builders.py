@@ -37,6 +37,7 @@ def build_default_config():
         build_default_interface("interface-0"),
         build_default_interface("interface-1"),
     ]
+    tpl["data-stream"]["interfaces"][0]["data-handler"] = "DUMMY"
     tpl["data-stream"]["interface-mapping"] = [
         {"from": "interface-0", "to": "interface-1"}
     ]
