@@ -39,10 +39,9 @@ jobs:
         submodules: true
         fetch-depth: 0  # history required so cmake can determine version
 
-    - uses: pypa/cibuildwheel@v2.12.1
-      env:
-        CIBW_BUILD: ${{ matrix.build }}-*
-        MACOSX_DEPLOYMENT_TARGET: "10.15"
+    - name: Build wheels
+      run: pip wheel -w DEST_DIR .
+      shell: bash
 
     - name: Verify clean directory
       run: git diff --exit-code
