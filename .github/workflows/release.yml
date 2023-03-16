@@ -8,9 +8,6 @@ on:
     types: [published]
   workflow_dispatch:
 
-defaults:
-  run:
-
 jobs:
   build_wheels:
     name: Wheels
