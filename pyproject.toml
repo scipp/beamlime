@@ -25,7 +25,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
 ]
 requires-python = ">=3.8"
-dynamic = ["version"]
+version = "23.03.0dev0"
+# dynamic = ["version"]
 dependencies = ["pyyaml"]
 [project.urls]
     "Documentation" = "https://github.com/scipp/beamlime#readme"
