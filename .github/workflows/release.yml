@@ -40,18 +40,17 @@ jobs:
         fetch-depth: 0  # history required so cmake can determine version
 
     - name: Build wheels
-      run: pip wheel -w wheelhouse .
-      shell: bash
+      run: python -m build
 
     - name: Verify clean directory
       run: git diff --exit-code
       shell: bash
 
     - name: Upload wheels
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: dist
-        path: wheelhouse/*.whl
+        path: dist
 
   upload_pypi:
     name: Deploy PyPI
