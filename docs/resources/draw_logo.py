@@ -39,7 +39,7 @@ def draw_lime_line(lime_center):
     return lines
 
 
-class CreateText(Scene):
+class CreateLogo(Scene):
     def construct(self):
         drc = "#78BE21"
 
