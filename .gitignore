@@ -9,3 +9,4 @@ html
 doctrees
 build
 .vscode
+.ipynb_checkpoints
