@@ -114,3 +114,13 @@ class CreateLogoImage(LimeScene):
         self.add(text)
         self.add(*beam_lines)
         self.add(*lime_lines)
+
+
+class CreateIconImage(LimeScene):
+    def construct(self):
+        lime_lines = build_lime(
+            center=[-0.5, -0.5, 0],
+            radius=5,
+            color=self.lime_color,
+        )
+        self.add(*lime_lines)
