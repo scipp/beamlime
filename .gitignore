@@ -5,3 +5,8 @@ _skbuild
 *.egg-info
 coverage_html
 .coverage
+html
+doctrees
+build
+.vscode
+.ipynb_checkpoints
