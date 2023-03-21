@@ -21,3 +21,4 @@ def load_yaml(filename: str, module: str = __parent__) -> dict:
     filepath = find_source(filename, module=module)
     with open(filepath) as file:
         return yaml.safe_load(file)
+
