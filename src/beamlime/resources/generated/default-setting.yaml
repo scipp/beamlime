@@ -1,0 +1,47 @@
+# THIS FILE IS AUTO-GENERATED.
+# Please don't update it manually.
+# Use `tox -e config-build` to generate a new one.
+
+general:
+  user: scipp
+  name: default configuration
+  last-updated: '2023-03-15 15:32:52.892530'
+  root-dir: ~/.beamlime/
+  log-dir: ~/.beamlime/log/
+
+dashboard:
+  update-frequency: 5
+
+data-stream:
+  interfaces:
+  - name: interface-0
+    data-handler: DUMMY
+    input-channel: QUEUE
+    output-channel: QUEUE
+    max-wait: 1
+  - name: interface-1
+    data-handler: DATAREDUCTION
+    input-channel: QUEUE
+    output-channel: QUEUE
+    max-wait: 1
+  interface-mapping:
+  - from: interface-0
+    to: interface-1
+  custom-handler-dir: ~/.beamlime/custom-handlers/
+
+data-reduction:
+  workflow-target-mapping:
+  - workflow: sample-workflow
+    targets:
+    - raw-data
+  targets:
+  - name: raw-data
+    index: data
+  workflows:
+  - name: sample-workflow
+    preprocess: pass
+    process: times_ten
+    postprocess: pass
+    new-input: APPEND
+    new-result: REPLACE
+    save: false

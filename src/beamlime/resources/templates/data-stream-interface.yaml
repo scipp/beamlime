@@ -1,11 +1,9 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+# Single interface configuration template
+
 name:
-type: # EVENT/EVENTS-CHUNK/REDUCTION-RESULT/CUSTOM, this field decide which handler to be used.
-input-channel:
-  type: # kafka/internal/fileio
-  config:
-output-channel:
-  type: # kafka/internal/fileio
-  config:
-data-handler: # If the interface type is `CUSTOM`, write a lambda function or name of the handler function or class.
+data-handler: DATAREDUCTION
+input-channel: QUEUE
+output-channel: QUEUE
 max-wait: 1 # [s], default 1
-chunk-size: 8

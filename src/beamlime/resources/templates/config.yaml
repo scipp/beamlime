@@ -2,7 +2,10 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # @author Sunyoung Yoo
 #
-# Dependencies on other templates:
+# Dependencies on other templates: data-stream-interface.yaml,
+#                                  data-stream-mapping.yaml,
+#                                  target.yaml,
+#                                  workflow.yaml
 
 general:
   user:
@@ -13,38 +16,34 @@ general:
 
 dashboard:
   update-frequency: 5 # [Hz]
-  css:
-  display-targets:
-    - index:
-      type:
-      method:
-      interactive:
 
 data-stream:
   interfaces: # Each interface will be run in different process if possible.
-    # - interface-name-1
-    # - interface-name-2
-    # - interface-name-3
+    # - name: interface-name-1
+    #   ...
+    # - name: interface-name-2
+    #   ...
+    # - name: interface-name-3
+    #   ...
   interface-mapping: # Define communication between interfaces here.
-    # - from: interface-name-2
-    #   to: interface-name-1
-    # - from: interface-name-2
-    #   to: interface-name-3,interface-name-4
+    # - from: interface-name-1
+    #   to:
+    #       - interface-name-2
+    #       - interface-name-3
   custom-handler-dir: "~/.beamlime/custom-handlers/"
 
 data-reduction: # Each workflow will be run asynchronously but in one process.
                 # Can be split into multi-processes by the data-reduction-manager instance if needed.
-  input-interface: #interface-name-1
   workflow-target-mapping:
     - workflow: # workflow-name-1
-      targets: # target-name-1
-    - workflow: # workflow-name-2
       targets:
         #  - target-name-1
         #  - target-name-2
   targets:
-    # - target-name-1: ...
-    # - target-name-2: ...
+    # - name: target-name-1
+    #   index: ''
+    # - name: target-name-2
+    #   index: geometry
   workflows:
-    # - workflow-name-1: ...
-    # - workflow-name-2: ...
+    # - name: workflow-name-1
+    #   ...

@@ -2,7 +2,6 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
 import importlib.resources
-from functools import partial
 from importlib.abc import Traversable
 
 import yaml
@@ -22,6 +21,3 @@ def load_yaml(filename: str, module: str = __parent__) -> dict:
     filepath = find_source(filename, module=module)
     with open(filepath) as file:
         return yaml.safe_load(file)
-
-
-load_default_config = partial(load_yaml, filename="default-setting.yaml")

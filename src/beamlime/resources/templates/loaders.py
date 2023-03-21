@@ -3,7 +3,7 @@
 
 from functools import partial
 
-from .. import load_yaml
+from ..loaders import load_yaml
 
 
 def _load_tpl(tpl_name):
