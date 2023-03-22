@@ -2,15 +2,29 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
 from functools import partial
-from beamlime.resources.loaders import find_source
-import pickle
+
+import numpy as np
+from PIL import Image
+
+from ..loaders import find_source
 
 
-def _load_img(img_name):
-    from beamlime.resources.images import __name__
-    filepath = find_source(img_name + ".pickle", module=__name__)
-    with open(filepath, "rb") as file:
-        return pickle.load(file)
+def load_image(filename: str, module: str = __package__) -> np.ndarray:
+    """
+    Load an image using ``PIL.Image`` and
+    return the image as an numpy array with dtype ``np.float64``.
+    Resize the image if ``resize_to`` is not ``None``.
+    """
+    filepath = find_source(filename, module=module)
+    with Image.open(filepath) as img:
+        return np.asarray(img, dtype=np.float64)
 
 
-load_icon_img = partial(_load_img, img_name="icon")
+def _load_png(img_name: str) -> np.ndarray:
+    """
+    Load an image that is included in the module beamlime.resources.images.
+    """
+    return load_image(img_name + ".png")
+
+
+load_icon_img = partial(_load_png, img_name="icon")
