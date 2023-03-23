@@ -64,5 +64,8 @@ def fake_2d_detector_img_generator(
 
     if noise_range != 0:
         frames = add_noise(clean_frames, noise_range=noise_range)
-    for frame in frames.T:
-        yield frame
+        for frame in frames.T:
+            yield frame
+    else:
+        for frame in clean_frames.T:
+            yield frame
