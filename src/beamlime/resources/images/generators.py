@@ -36,7 +36,7 @@ def add_noise(frame: np.ndarray, noise_range=0.2) -> np.ndarray:
 
 def fake_2d_detector_img_generator(
     seed_img: np.ndarray, num_frame: int = 128, threshold=0.5, noise_range=0
-):
+) -> np.ndarray:
     """
     Split the ``seed_img`` into mupltiple frames and yield each frame.
     All the pixels that has less intensity (average of all channel)
