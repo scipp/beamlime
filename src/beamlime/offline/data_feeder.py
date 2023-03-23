@@ -47,7 +47,7 @@ class Fake2dDetectorImageFeeder:
             await Fake2dDetectorImageFeeder.send_data(queue, fake_data)
             print(
                 f"\033[0;31m {iframe}th sent fake data"
-                " with sample id: {fake_data['sample_id']}"
+                f" with sample id: {fake_data['sample_id']}"
             )
 
     def create_task(self):
