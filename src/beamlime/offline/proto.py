@@ -1,10 +1,62 @@
 import asyncio
 from queue import Empty, Queue
-from random import SystemRandom
+from typing import Iterable, List, Union
+
+import numpy as np
 
 from beamlime.resources.generated import load_static_default_config
 
-method_map = {"times_ten": lambda x: x * 10}
+
+def average(data: dict):
+    return np.average(np.array(data))
+
+
+method_map = {"average": average}
+
+
+def wrap_target_index(indices: Union[str, int, List]) -> List:
+    """
+    In the configuration file, the `index` of the target can be
+    a string, an integer or a list[str, int].
+    If the `index` is a single string or integer,
+    it needs to be wrapped to be used in the `nested_data_get`.
+
+    The check could be done in the `nested_data_get`
+    but then it will check every items in the list since it is run recursively.
+    """
+    if isinstance(indices, List):
+        for item in indices:
+            if not isinstance(item, (str, int)):
+                raise TypeError(
+                    "Each index in `indices` should be either `str` or `int`."
+                )
+        return indices
+    return [indices]
+
+
+def nested_data_get(nested_obj: Iterable, *indices):
+    """
+
+    >>> nested_obj = {'a': {'b': [1,2,3]}}
+    >>> nested_data_get(nested_obj, 'a', 'b', 0)
+    1
+    """
+    idx = indices[0]
+    try:
+        child = nested_obj[idx]
+    except TypeError:
+        raise TypeError(
+            f"Index {idx} with type {type(idx)}"
+            f"doesn't match the key/index type of {type(nested_obj)}"
+        )
+    except KeyError:
+        raise KeyError(f"{nested_obj} doesn't have the key {idx}")
+    except IndexError:
+        raise IndexError(f"{idx} is out of the range of {len(nested_obj)-1}")
+    if len(indices) == 1:
+        return child
+    else:
+        return nested_data_get(child, *indices[1:])
 
 
 class TmpDataReductionInterface:
@@ -41,27 +93,26 @@ class TmpDataReductionInterface:
         return None
 
     @staticmethod
-    async def process(new_data, config, workflow_map, target_map):
+    def process(new_data, config, workflow_map, target_map):
         result_map = dict()
         for mapping in config["workflow-target-mapping"]:
             wf = mapping["workflow"]
-            # func_str = workflow_map[wf]["process"]
-            # ldic = locals()
-            # exec(f"func = {func_str}", globals(), ldic)
-            # func = ldic["func"]
-            func = method_map[workflow_map[wf]["process"]]
-            tg_indices = [target_map[t]["index"] for t in mapping["targets"]]
-            tgs = [new_data[tg_idx] for tg_idx in tg_indices]
-            result_map[wf] = func(*tgs)
+            process_id = workflow_map[wf]["process"]
+            func = method_map[process_id]
+            tg_indices = [
+                wrap_target_index(target_map[t]["index"]) for t in mapping["targets"]
+            ]
+            tgs = [nested_data_get(new_data, *tg_idx) for tg_idx in tg_indices]
+            result_map[wf] = {"process": process_id, "result": func(*tgs)}
         return result_map
 
     @staticmethod
     async def _run(queue, config, workflow_map, target_map):
-        await asyncio.sleep(2)
+        await asyncio.sleep(1)
         new_data = await TmpDataReductionInterface.retrieve_new_data(queue)
         while new_data is not None:
-            await asyncio.sleep(0.1)
-            result = await TmpDataReductionInterface.process(
+            await asyncio.sleep(0.2)
+            result = TmpDataReductionInterface.process(
                 new_data, config, workflow_map, target_map
             )
             new_data = await TmpDataReductionInterface.retrieve_new_data(queue)
@@ -78,43 +129,27 @@ class TmpDataReductionInterface:
         )
 
 
-class DummyInterface:
-    queue = None
-
-    def __init__(self) -> None:
-        pass
-
-    def set_queue(self, queue: Queue):
-        self.queue = queue
-
-    def get_queue(self) -> Queue:
-        return self.queue
-
-    @staticmethod
-    async def send_data(queue, data):
-        queue.put(data)
-
-    @staticmethod
-    async def _run(queue):
-        rd = SystemRandom()
-        for _ in range(10):
-            await asyncio.sleep(0.3)
-            dummy_data = {"data": rd.random()}
-            await DummyInterface.send_data(queue, dummy_data)
-            print(f"\033[0;31m sent dummy data {dummy_data}")
-
-    def create_task(self):
-        return asyncio.create_task(self._run(queue=self.queue))
-
-
 def build_instances(config: dict):
+    from importlib import import_module
+
     itf_map = dict()
     for itf in config["data-stream"]["interfaces"]:
         itf_map[itf["name"]] = itf
-        if itf["data-handler"] == "DATAREDUCTION":
-            itf["instance"] = TmpDataReductionInterface(config["data-reduction"])
-        elif itf["data-handler"] == "DUMMY":
-            itf["instance"] = DummyInterface()
+        handler_name = itf["data-handler"].split(".")
+        dh_parent = ".".join(handler_name[:-1])
+        dh_class = handler_name[-1]
+        if len(dh_parent) > 0:
+            parent_module = import_module(dh_parent)
+        else:
+            parent_module = import_module(__name__)
+
+        handler = getattr(parent_module, dh_class)
+
+        # This if statements will be replaced parsed arguments from configuration.
+        if dh_class == "TmpDataReductionInterface":
+            itf["instance"] = handler(config["data-reduction"])
+        elif dh_class == "Fake2dDetectorImageFeeder":
+            itf["instance"] = handler(num_frame=12)
     return itf_map
 
 
