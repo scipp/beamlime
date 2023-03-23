@@ -16,7 +16,7 @@ def _sample_workflow_config():
     tpl["name"] = "sample-workflow"
     tpl.pop("reference")
     tpl["preprocess"] = "pass"
-    tpl["process"] = "times_ten"
+    tpl["process"] = "average"
     tpl["postprocess"] = "pass"
     tpl["new-input"] = "APPEND"
     tpl["new-result"] = "REPLACE"
@@ -37,15 +37,20 @@ def build_default_config():
         build_default_interface("interface-0"),
         build_default_interface("interface-1"),
     ]
-    tpl["data-stream"]["interfaces"][0]["data-handler"] = "DUMMY"
+    tpl["data-stream"]["interfaces"][0][
+        "data-handler"
+    ] = "beamlime.offline.data_feeder.Fake2dDetectorImageFeeder"
+    tpl["data-stream"]["interfaces"][1]["data-handler"] = "TmpDataReductionInterface"
     tpl["data-stream"]["interface-mapping"] = [
         {"from": "interface-0", "to": "interface-1"}
     ]
     # Data Reduction
     tpl["data-reduction"]["workflow-target-mapping"] = [
-        {"workflow": "sample-workflow", "targets": ["raw-data"]}
+        {"workflow": "sample-workflow", "targets": ["fake-2d-image"]}
     ]
-    tpl["data-reduction"]["targets"] = [{"name": "raw-data", "index": "data"}]
+    tpl["data-reduction"]["targets"] = [
+        {"name": "fake-2d-image", "index": ["detector-data", "image"]}
+    ]
     tpl["data-reduction"]["workflows"] = [_sample_workflow_config()]
 
     return tpl

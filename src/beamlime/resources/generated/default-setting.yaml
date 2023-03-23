@@ -5,7 +5,7 @@
 general:
   user: scipp
   name: default configuration
-  last-updated: '2023-03-15 15:32:52.892530'
+  last-updated: '2023-03-23 14:14:41.485206'
   root-dir: ~/.beamlime/
   log-dir: ~/.beamlime/log/
 
@@ -15,12 +15,12 @@ dashboard:
 data-stream:
   interfaces:
   - name: interface-0
-    data-handler: DUMMY
+    data-handler: beamlime.offline.data_feeder.Fake2dDetectorImageFeeder
     input-channel: QUEUE
     output-channel: QUEUE
     max-wait: 1
   - name: interface-1
-    data-handler: DATAREDUCTION
+    data-handler: TmpDataReductionInterface
     input-channel: QUEUE
     output-channel: QUEUE
     max-wait: 1
@@ -33,14 +33,16 @@ data-reduction:
   workflow-target-mapping:
   - workflow: sample-workflow
     targets:
-    - raw-data
+    - fake-2d-image
   targets:
-  - name: raw-data
-    index: data
+  - name: fake-2d-image
+    index:
+    - detector-data
+    - image
   workflows:
   - name: sample-workflow
     preprocess: pass
-    process: times_ten
+    process: average
     postprocess: pass
     new-input: APPEND
     new-result: REPLACE
