@@ -13,7 +13,6 @@ def load_image(filename: str, module: str = __package__) -> np.ndarray:
     """
     Load an image using ``PIL.Image`` and
     return the image as an numpy array with dtype ``np.float64``.
-    Resize the image if ``resize_to`` is not ``None``.
     """
     filepath = find_source(filename, module=module)
     with Image.open(filepath) as img:
