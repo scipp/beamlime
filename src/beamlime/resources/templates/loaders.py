@@ -7,9 +7,7 @@ from ..loaders import load_yaml
 
 
 def _load_tpl(tpl_name):
-    from . import __name__
-
-    return load_yaml(tpl_name + ".yaml", module=__name__)
+    return load_yaml(tpl_name + ".yaml", module=__package__)
 
 
 load_config_tpl = partial(_load_tpl, tpl_name="config")
