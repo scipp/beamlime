@@ -20,29 +20,50 @@ data-stream:
     output-channel: QUEUE
     max-wait: 1
   - name: interface-1
-    data-handler: TmpDataReductionInterface
+    data-handler: beamlime.offline.data_reduction.TmpDataReductionInterface
+    input-channel: QUEUE
+    output-channel: QUEUE
+    max-wait: 1
+  - name: interface-2
+    data-handler: RealtimePlot
     input-channel: QUEUE
     output-channel: QUEUE
     max-wait: 1
   interface-mapping:
   - from: interface-0
     to: interface-1
+  - from: interface-1
+    to: interface-2
   custom-handler-dir: ~/.beamlime/custom-handlers/
 
 data-reduction:
   workflow-target-mapping:
-  - workflow: sample-workflow
+  - workflow: heatmap
     targets:
     - fake-2d-image
+  - workflow: counting
+    targets:
+    - frame-number
   targets:
   - name: fake-2d-image
     index:
     - detector-data
     - image
+  - name: frame-number
+    index:
+    - detector-data
+    - frame-number
   workflows:
-  - name: sample-workflow
+  - name: heatmap
     preprocess: pass
-    process: average
+    process: fake_2d_image_filter
+    postprocess: pass
+    new-input: APPEND
+    new-result: REPLACE
+    save: false
+  - name: counting
+    preprocess: pass
+    process: handover
     postprocess: pass
     new-input: APPEND
     new-result: REPLACE

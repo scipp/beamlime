@@ -11,10 +11,24 @@ from beamlime.resources.images.generators import fake_2d_detector_img_generator
 
 class Fake2dDetectorImageFeeder:
     queue = None
+    receiving_queue = None
+    sending_queue = None
 
     def __init__(self, detector_size: tuple = (64, 64), num_frame: int = 128) -> None:
         self.detector_size = detector_size
         self.num_frame = num_frame
+
+    def set_ear(self, queue: Queue):
+        self.receiving_queue = queue
+
+    def set_mouth(self, queue: Queue):
+        self.sending_queue = queue
+
+    def get_ear(self):
+        return self.receiving_queue
+
+    def get_mouth(self):
+        return self.sending_queue
 
     def set_queue(self, queue: Queue):
         self.queue = queue
@@ -38,10 +52,10 @@ class Fake2dDetectorImageFeeder:
             await asyncio.sleep(0.3)
             fake_data = {
                 "sample_id": "typical-lime-intaglio-0",
-                "timestamp": iframe,
                 "detector-data": {
                     "detector-id": "unknown-2d-detector",
                     "image": frame.tolist(),
+                    "frame-number": iframe,
                 },
             }
             await Fake2dDetectorImageFeeder.send_data(queue, fake_data)
