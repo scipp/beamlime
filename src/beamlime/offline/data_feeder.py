@@ -20,13 +20,9 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
         super().__init__(config, verbose, verbose_option)
 
     def parse_config(self, config: dict) -> None:
-        if "detector-size" not in config:
-            config["detector-size"] = (64, 64)
-        self.detector_size = tuple(config.get("detector-size"))
-
-        if "num-frame" not in config:
-            config["num-frame"] = 128
-        self.num_frame = int(config.get("num-frame"))
+        self.detector_size = tuple(config.get("detector-size", (64, 64)))
+        self.num_frame = int(config.get("num-frame", 128))
+        self.noise_range = float(config.get("noise-range", 0.5))
 
     @staticmethod
     async def _run(self) -> None:
@@ -36,7 +32,9 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
 
         await asyncio.sleep(0.1)
         for iframe, frame in enumerate(
-            fake_2d_detector_img_generator(seed_img, num_frame=self.num_frame)
+            fake_2d_detector_img_generator(
+                seed_img, num_frame=self.num_frame, noise_range=self.noise_range
+            )
         ):
             await asyncio.sleep(0.1)
             fake_data = {
