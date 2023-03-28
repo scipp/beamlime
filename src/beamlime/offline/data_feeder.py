@@ -1,55 +1,44 @@
 import asyncio
-from queue import Queue
 
 import numpy as np
+from colorama import Fore, Style
 from PIL import Image
 from PIL.ImageOps import flip
 
-from beamlime.resources import load_icon_img
-from beamlime.resources.images.generators import fake_2d_detector_img_generator
+from ..core.application import BeamlimeApplicationInterface
+from ..resources.images import load_icon_img
+from ..resources.images.generators import fake_2d_detector_img_generator
 
 
-class Fake2dDetectorImageFeeder:
-    queue = None
-    receiving_queue = None
-    sending_queue = None
+class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
+    detector_size = None
+    num_frame = None
 
-    def __init__(self, detector_size: tuple = (64, 64), num_frame: int = 128) -> None:
-        self.detector_size = detector_size
-        self.num_frame = num_frame
+    def __init__(
+        self, config: dict, verbose: bool = False, verbose_option: str = Fore.BLUE
+    ) -> None:
+        super().__init__(config, verbose, verbose_option)
 
-    def set_ear(self, queue: Queue):
-        self.receiving_queue = queue
+    def parse_config(self, config: dict) -> None:
+        if "detector-size" not in config:
+            config["detector-size"] = (64, 64)
+        self.detector_size = tuple(config.get("detector-size"))
 
-    def set_mouth(self, queue: Queue):
-        self.sending_queue = queue
-
-    def get_ear(self):
-        return self.receiving_queue
-
-    def get_mouth(self):
-        return self.sending_queue
-
-    def set_queue(self, queue: Queue):
-        self.queue = queue
-
-    def get_queue(self) -> Queue:
-        return self.queue
+        if "num-frame" not in config:
+            config["num-frame"] = 128
+        self.num_frame = int(config.get("num-frame"))
 
     @staticmethod
-    async def send_data(queue: Queue, data: dict) -> None:
-        queue.put(data)
-
-    @staticmethod
-    async def _run(queue: Queue, detector_size: tuple, num_frame: int) -> None:
+    async def _run(self) -> None:
         original_img = Image.fromarray(np.uint8(load_icon_img()))
-        resized_img = original_img.resize(detector_size)
+        resized_img = original_img.resize(self.detector_size)
         seed_img = np.asarray(flip(resized_img), dtype=np.float64)
 
+        await asyncio.sleep(0.1)
         for iframe, frame in enumerate(
-            fake_2d_detector_img_generator(seed_img, num_frame=num_frame)
+            fake_2d_detector_img_generator(seed_img, num_frame=self.num_frame)
         ):
-            await asyncio.sleep(0.3)
+            await asyncio.sleep(0.1)
             fake_data = {
                 "sample_id": "typical-lime-intaglio-0",
                 "detector-data": {
@@ -58,17 +47,6 @@ class Fake2dDetectorImageFeeder:
                     "frame-number": iframe,
                 },
             }
-            await Fake2dDetectorImageFeeder.send_data(queue, fake_data)
-            print(
-                f"\033[0;31m {iframe}th sent fake data"
-                f" with sample id: {fake_data['sample_id']}"
-            )
-
-    def create_task(self):
-        return asyncio.create_task(
-            self._run(
-                queue=self.queue,
-                detector_size=self.detector_size,
-                num_frame=self.num_frame,
-            )
-        )
+            await self.send_data(fake_data)
+            if self.verbose:
+                print(self.verbose_option, f"Sending {iframe}th frame", Style.RESET_ALL)
