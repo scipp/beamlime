@@ -18,18 +18,18 @@ dashboard:
   update-frequency: 5 # [Hz]
 
 data-stream:
-  interfaces: # Each interface will be run in different process if possible.
-    # - name: interface-name-1
+  applications: # Each application will be run in different process if possible.
+    # - name: application-name-1
     #   ...
-    # - name: interface-name-2
+    # - name: application-name-2
     #   ...
-    # - name: interface-name-3
+    # - name: application-name-3
     #   ...
-  interface-mapping: # Define communication between interfaces here.
-    # - from: interface-name-1
+  application-mapping: # Define communication between interfaces here.
+    # - from: application-name-1
     #   to:
-    #       - interface-name-2
-    #       - interface-name-3
+    #       - application-name-2
+    #       - application-name-3
   custom-handler-dir: "~/.beamlime/custom-handlers/"
 
 data-reduction: # Each workflow will be run asynchronously but in one process.

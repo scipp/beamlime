@@ -3,7 +3,10 @@
 # @author Sunyoung Yoo
 
 
-from beamlime.config.builders import build_default_config, build_default_interface
+from beamlime.config.builders import (
+    _build_default_application_config,
+    build_default_config,
+)
 
 
 def is_config_complete(config: dict):
@@ -14,5 +17,5 @@ def is_config_complete(config: dict):
 
 
 def test_default_config_completion():
-    assert is_config_complete(build_default_interface("interface-0"))
+    assert is_config_complete(_build_default_application_config("interface-0"))
     assert is_config_complete(build_default_config())

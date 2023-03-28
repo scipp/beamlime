@@ -4,9 +4,13 @@
 
 name:
 reference:
-preprocess:
 process:
-postprocess:
-new-input: # ADD|APPEND|REPLACE|SKIP
-new-result: # ADD|APPEND|REPLACE|SKIP
-save: # true/false
+input-policy: REPLACE # SKIP|STACK|APPEND|REPLACE
+output-policy: REPLACE # SKIP|STACK|APPEND|REPLACE
+process-args:
+  # - arg1
+  # - arg2
+process-kwargs:
+  # kwarg1: value1
+  # kwarg2: value2
+  # ...

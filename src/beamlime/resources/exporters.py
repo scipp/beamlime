@@ -1,6 +1,6 @@
 import yaml
 
-from ..config.builders import _sample_workflow_config, build_default_config
+from ..config.builders import build_default_config
 
 
 def represent_none(self, _):
@@ -70,24 +70,5 @@ def export_default_yaml(
             "# Use `tox -e config-build` to generate a new one.\n\n"
         ),
         order=["general", "dashboard", "data-stream", "data-reduction"],
-        overwrite=overwrite,
-    )
-
-
-def export_sample_workflow_yaml(
-    filename: str = "sample-workflow.yaml",
-    directory: str = "./",
-    overwrite: bool = False,
-):
-    workflow_config = _sample_workflow_config()
-    export_yaml(
-        workflow_config,
-        filename=filename,
-        directory=directory,
-        header=(
-            "# THIS FILE IS AUTO-GENERATED.\n"
-            "# Please don't update it manually.\n"
-            "# Use `tox -e config-build` to generate a new one.\n\n"
-        ),
         overwrite=overwrite,
     )
