@@ -11,9 +11,8 @@ def _load_tpl(tpl_name):
 
 
 load_config_tpl = partial(_load_tpl, tpl_name="config")
-load_data_stream_interface_tpl = partial(_load_tpl, tpl_name="data-stream-interface")
+load_data_stream_app_tpl = partial(_load_tpl, tpl_name="data-stream-application")
+load_data_stream_app_spec_tpl = partial(_load_tpl, tpl_name="data-stream-application")
 load_data_stream_mapping_tpl = partial(_load_tpl, tpl_name="data-stream-mapping")
-load_internal_stream_tpl = partial(_load_tpl, tpl_name="internal-stream")
-load_kafka_tpl = partial(_load_tpl, tpl_name="kafka")
 load_target_tpl = partial(_load_tpl, tpl_name="target")
 load_workflow_tpl = partial(_load_tpl, tpl_name="workflow")

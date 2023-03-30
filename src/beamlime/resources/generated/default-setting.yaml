@@ -5,7 +5,7 @@
 general:
   user: scipp
   name: default configuration
-  last-updated: '2023-03-28 18:38:00.378307'
+  last-updated: '2023-03-30 09:42:53.037300'
   root-dir: ~/.beamlime/
   log-dir: ~/.beamlime/log/
 
@@ -18,17 +18,30 @@ data-stream:
     data-handler: beamlime.offline.data_feeder.Fake2dDetectorImageFeeder
     input-channel: QUEUE
     output-channel: QUEUE
-    max-wait: 1
+    keep-alive: false
   - name: data-reduction
     data-handler: beamlime.offline.data_reduction.BeamLimeDataReductionApplication
     input-channel: QUEUE
     output-channel: QUEUE
-    max-wait: 1
+    keep-alive: false
   - name: visualization
-    data-handler: RealtimePlot
+    data-handler: beamlime.offline.visualization.RealtimePlot
     input-channel: QUEUE
     output-channel: QUEUE
-    max-wait: 1
+    keep-alive: false
+  application-specs:
+    data-feeder:
+      detector-size:
+      - 64
+      - 64
+      min-intensity: 0.5
+      num-frame: 32
+      signal-mu: 0.7
+      signal-err: 0.2
+      noise-mu: 0.5
+      noise-err: 0.2
+    data-reduction: {}
+    visualization: {}
   applications-mapping:
   - from: data-feeder
     to: data-reduction

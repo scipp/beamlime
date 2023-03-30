@@ -5,8 +5,8 @@
 name:
 reference:
 process:
-input-policy: REPLACE # SKIP|STACK|APPEND|REPLACE
-output-policy: REPLACE # SKIP|STACK|APPEND|REPLACE
+input-policy: REPLACE # SKIP|STACK|APPEND|REPLACE|AVERAGE
+output-policy: REPLACE # SKIP|STACK|APPEND|REPLACE|AGERAVE
 process-args:
   # - arg1
   # - arg2

@@ -3,13 +3,13 @@
 
 from ..resources.templates import (
     load_config_tpl,
-    load_data_stream_interface_tpl,
+    load_data_stream_app_tpl,
     load_workflow_tpl,
 )
 
 
 def _build_default_application_config(name: str):
-    tpl = load_data_stream_interface_tpl()
+    tpl = load_data_stream_app_tpl()
     tpl["name"] = name
     return tpl
 
@@ -25,23 +25,37 @@ def _build_workflow_config(name=str):
 
 def _build_default_data_stream_config() -> dict:
     config = dict()
+    app_names = ["data-feeder", "data-reduction", "visualization"]
+    # Placeholders
     config["applications"] = [
-        _build_default_application_config("data-feeder"),
-        _build_default_application_config("data-reduction"),
-        _build_default_application_config("visualization"),
+        _build_default_application_config(app_name) for app_name in app_names
     ]
+    config["application-specs"] = {app_name: {} for app_name in app_names}
+    # Application configurations
     config["applications"][0][
         "data-handler"
     ] = "beamlime.offline.data_feeder.Fake2dDetectorImageFeeder"
     config["applications"][1][
         "data-handler"
     ] = "beamlime.offline.data_reduction.BeamLimeDataReductionApplication"
-    config["applications"][2]["data-handler"] = "RealtimePlot"
-
+    config["applications"][2][
+        "data-handler"
+    ] = "beamlime.offline.visualization.RealtimePlot"
+    # Application mapping
     config["applications-mapping"] = [
         {"from": "data-feeder", "to": "data-reduction"},
         {"from": "data-reduction", "to": "visualization"},
     ]
+    # Application specs
+    config["application-specs"]["data-feeder"] = {
+        "detector-size": [64, 64],
+        "min-intensity": 0.5,
+        "num-frame": 32,
+        "signal-mu": 0.7,
+        "signal-err": 0.2,
+        "noise-mu": 0.5,
+        "noise-err": 0.2,
+    }
     return config
 
 

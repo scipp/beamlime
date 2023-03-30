@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+# Data reduction target configuration template
+
+name: # target-name
+index:
+  # - chopper
+  # - 0
+# It will retrieve raw_data['chopper'][0]['frequency']
