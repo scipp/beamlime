@@ -13,8 +13,6 @@ from colorama.ansi import AnsiBack, AnsiFore, AnsiStyle
 class BeamlimeApplicationInterface(ABC):
     _input_ch = None
     _output_ch = None
-    verbose = None
-    verbose_option = None
 
     def __init__(
         self,
@@ -54,7 +52,12 @@ class BeamlimeApplicationInterface(ABC):
             return None
 
     async def send_data(self, data, *args, **kwargs) -> None:
-        self.output_channel.put(data, *args, **kwargs)
+        try:
+            self.output_channel.put(data, *args, **kwargs)
+            return True
+        except:  # noqa: E722,B001
+            # TODO: Update I/O interface to have common exception.
+            return False
 
     @abstractstaticmethod
     async def _run(self) -> None:

@@ -10,7 +10,7 @@ from ..core.application import BeamlimeApplicationInterface
 T = TypeVar("T")
 
 
-def heatmap_2d(data, threshold=0.4, binning_size=(64, 64)):
+def heatmap_2d(data, threshold=0.2, binning_size=(64, 64)):
     heatmap = sc.array(dims=["x", "y"], values=np.array(data))
     da = sc.DataArray(
         data=heatmap,
@@ -24,7 +24,7 @@ def heatmap_2d(data, threshold=0.4, binning_size=(64, 64)):
         },
     )
     threshold_mask = (da.values > threshold) * np.ones(da.shape)
-    da.values *= threshold_mask
+    da.values = threshold_mask
     return da
 
 
@@ -77,8 +77,6 @@ def nested_data_get(nested_obj: Iterable, *indices):
 
 
 class BeamLimeDataReductionApplication(BeamlimeApplicationInterface):
-    history = None
-
     def __init__(self, config: dict, verbose: bool = False) -> None:
         from colorama import Fore
 
@@ -94,18 +92,25 @@ class BeamLimeDataReductionApplication(BeamlimeApplicationInterface):
         for workflow in config["workflows"]:
             self.workflow_map[workflow["name"]] = workflow
             self.history[workflow["name"]] = dict()
+            self.history[workflow["name"]]["data-count"] = 0
 
         self.target_map = dict()
         for target in config["targets"]:
             self.target_map[target["name"]] = target
 
-    def apply_policy(self, new_data: T, old_data: T, policy: str) -> T:
+    def apply_policy(
+        self, new_data: T, old_data: T, policy: str, data_count: int = 0
+    ) -> T:
         if old_data is None:
             return new_data
         elif policy == "STACK":
             return new_data + old_data
         elif policy == "APPEND":
             return np.append(new_data, old_data)
+        elif policy == "AVERAGE":
+            return new_data * (data_count / (data_count + 1)) + old_data * (
+                1 / (data_count + 1)
+            )
         # REPLACE or SKIP
         return new_data
 
@@ -134,7 +139,12 @@ class BeamLimeDataReductionApplication(BeamlimeApplicationInterface):
                     nested_data_get(new_data, *tg_idx) for tg_idx in tg_indices
                 ]
                 process_inputs = [
-                    self.apply_policy(tg, otg, policy=input_policy)
+                    self.apply_policy(
+                        tg,
+                        otg,
+                        policy=input_policy,
+                        data_count=self.history[workflow]["data-count"],
+                    )
                     for tg, otg in zip(new_inputs, last_inputs)
                 ]
 
@@ -157,11 +167,15 @@ class BeamLimeDataReductionApplication(BeamlimeApplicationInterface):
             # Update process result based on the output(result) policy
             last_results = self.history[workflow].get("last-result", None)
             result = self.apply_policy(
-                new_data=process_result, old_data=last_results, policy=output_policy
+                new_data=process_result,
+                old_data=last_results,
+                policy=output_policy,
+                data_count=self.history[workflow]["data-count"],
             )
 
             if output_policy != "REPLACE":
                 self.history[workflow]["last-result"] = result
+                self.history[workflow]["data-count"] += 1
 
             # Update workflow-result map
             result_map[workflow] = result
@@ -174,7 +188,9 @@ class BeamLimeDataReductionApplication(BeamlimeApplicationInterface):
         while new_data is not None:
             await asyncio.sleep(0.2)
             result = self.process(new_data)
-            await self.send_data(data=result)
+            send_result = await self.send_data(data=result)
+            if not send_result:
+                break
             new_data = await self.receive_data(timeout=1)
             if self.verbose:
                 print(self.verbose_option, f"Sending {result}", Style.RESET_ALL)
