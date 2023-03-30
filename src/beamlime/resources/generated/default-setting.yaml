@@ -5,9 +5,8 @@
 general:
   user: scipp
   name: default configuration
-  last-updated: '2023-03-30 11:52:18.846867'
-  root-dir: ~/.beamlime/
-  log-dir: ~/.beamlime/log/
+  last-updated: '2023-03-30 18:47:41.361518'
+  log-dir: /home/sunyoung/.beamlime/log
 
 dashboard:
   update-frequency: 5

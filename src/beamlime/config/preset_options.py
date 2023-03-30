@@ -1,15 +1,21 @@
-from enum import Enum
+from enum import Flag
+from typing import Protocol, Union
 
 from .tools import find_home
 
-HOME_DIR = find_home.joinpath("." + __name__)  # ~/.beamlime
-DEFAULT_CONFIG_PATH = HOME_DIR.joinpath(
-    "default-config.yaml"
-)  # ~/.beamlime/default-config.yaml
-DEFAULT_LOG_DIR = HOME_DIR.joinpath("log")  # ~/.beamlime/log
+HOME_DIR = find_home()  # ~/.beamlime
+DEFAULT_CONFIG_PATH = HOME_DIR.joinpath("default-config.yaml")
+DEFAULT_LOG_DIR = HOME_DIR.joinpath("log")
+DEFAULT_CUSTOM_HANDLER_DIR = HOME_DIR.joinpath("custom-handlers")
 
 
-class NewDataPolicyOptions(Enum):
+class PresetOptionProtocol(Protocol):
+    @classmethod
+    def get_default(cls) -> Union[str, int]:
+        pass
+
+
+class NewDataPolicyOptions(Flag):
     """
 
     1. ``REPLACE`` - Default
@@ -62,17 +68,25 @@ class NewDataPolicyOptions(Enum):
     AVERAGE = "AVERAGE"
     APPEND = "APPEND"
 
+    @classmethod
+    def get_default(cls):
+        return cls.REPLACE.value
 
-class CommunicationChannelOptions(Enum):
+
+class CommunicationChannelOptions(Flag):
     """
-    1. ``KAFKA``
-    #TODO: Not implemented yet.
-
-    2. ``QUEUE``
+    1. ``QUEUE``
     Use ``queue.QUEUE`` as a communication interface between two applications.
     #TODO: Currently, async is showing unexpected behaviour on the jupyter notebook.
     We might want to use multiprocess instead of async.
+
+    2. ``KAFKA``
+    #TODO: Not implemented yet.
     """
 
-    KAFKA = "KAFKA"
     QUEUE = "QUEUE"
+    KAFKA = "KAFKA"
+
+    @classmethod
+    def get_default(cls):
+        return cls.QUEUE.value

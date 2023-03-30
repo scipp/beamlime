@@ -2,6 +2,7 @@
 # that are repeatedly used by various ``beamlime`` package for configuration parsing.
 # Therefore it should not have any dependencies on other modules/classes/functions.
 
+from importlib import import_module
 from typing import Any, AnyStr, Iterable, List, Union
 
 
@@ -98,17 +99,12 @@ def list_to_dict(
     >>> items = [{'name': 'lime0', 'price': 1}, {'name': 'lime1', 'price': 2}]
     >>> dict_items = list_to_dict(items, key_field='name')
     >>> dict_items
-    {
-        'lime0': {'name': 'lime0', 'price': 1},
-        'lime1': {'name': 'lime1', 'price': 2}
-    }
+    {'lime0': {'name': 'lime0', 'price': 1}, 'lime1': {'name': 'lime1', 'price': 2}}
 
     >>> smaller_dict_items = list_to_dict(items, key_field='name', value_field='price')
     >>> smaller_dict_items
-    {
-        'lime0': 1,
-        'lime1': 2
-    }
+    {'lime0': 1, 'lime1': 2}
+
     ```
 
     Raises
@@ -154,3 +150,28 @@ def find_home(env_var_key: str = "BEAMLIME_HOME") -> str:
     from beamlime import __name__
 
     return os.environ.get(env_var_key, Path.home().joinpath("." + __name__))
+
+
+def import_object(path: str) -> Any:
+    """
+    Return the object by the path.
+
+    ```
+    >>> from beamlime.config.preset_options import HOME_DIR as home_dir_0
+    >>> home_dir_1 = import_object("beamlime.config.preset_options.HOME_DIR")
+    >>> home_dir_0 is home_dir_1
+    True
+
+    ```
+    """
+    parent_name = ".".join(path.split(".")[:-1])
+    obj_name = path.split(".")[-1]
+
+    if len(parent_name) == 0:
+        parent_module = import_module(parent_name)
+    else:
+        from beamlime.config import preset_options
+
+        parent_module = preset_options
+
+    return getattr(parent_module, obj_name)
