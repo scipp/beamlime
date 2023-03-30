@@ -31,7 +31,7 @@ def heatmap_2d(data, threshold=0.2, binning_size=(64, 64)):
 method_map = {"heatmap_2d": heatmap_2d, "handover": lambda x: x}
 
 
-def wrap_target_index(indices: Union[str, int, List]) -> List:
+def wrap_indices(indices: Union[str, int, List]) -> List:
     """
     In the configuration file, the `index` of the target can be
     a string, an integer or a list[str, int].
@@ -51,29 +51,33 @@ def wrap_target_index(indices: Union[str, int, List]) -> List:
     return [indices]
 
 
-def nested_data_get(nested_obj: Iterable, *indices):
-    """
+def nested_data_get(nested_obj: Iterable, indices: Union[List, str, int]):
+    def _nested_data_get(nested_obj: Iterable, *indices):
+        """
 
-    >>> nested_obj = {'a': {'b': [1,2,3]}}
-    >>> nested_data_get(nested_obj, 'a', 'b', 0)
-    1
-    """
-    idx = indices[0]
-    try:
-        child = nested_obj[idx]
-    except TypeError:
-        raise TypeError(
-            f"Index {idx} with type {type(idx)}"
-            f"doesn't match the key/index type of {type(nested_obj)}"
-        )
-    except KeyError:
-        raise KeyError(f"{nested_obj} doesn't have the key {idx}")
-    except IndexError:
-        raise IndexError(f"{idx} is out of the range of {len(nested_obj)-1}")
-    if len(indices) == 1:
-        return child
-    else:
-        return nested_data_get(child, *indices[1:])
+        >>> nested_obj = {'a': {'b': [1,2,3]}}
+        >>> nested_data_get(nested_obj, 'a', 'b', 0)
+        1
+        """
+        idx = indices[0]
+        try:
+            child = nested_obj[idx]
+        except TypeError:
+            raise TypeError(
+                f"Index {idx} with type {type(idx)}"
+                f"doesn't match the key/index type of {type(nested_obj)}"
+            )
+        except KeyError:
+            raise KeyError(f"{nested_obj} doesn't have the key {idx}")
+        except IndexError:
+            raise IndexError(f"{idx} is out of the range of {len(nested_obj)-1}")
+        if len(indices) == 1:
+            return child
+        else:
+            return _nested_data_get(child, *indices[1:])
+
+    _indices = wrap_indices(indices=indices)
+    return _nested_data_get(nested_obj, *_indices)
 
 
 def list_to_dict(
@@ -137,11 +141,9 @@ class BeamLimeDataReductionApplication(BeamlimeApplicationInterface):
                 last_inputs = self.history[wf_name].get(
                     "last-input", [None] * len(targets)
                 )
-                tg_indices = [
-                    wrap_target_index(self.target_map[t]["index"]) for t in targets
-                ]
                 new_inputs = [
-                    nested_data_get(new_data, *tg_idx) for tg_idx in tg_indices
+                    nested_data_get(new_data, self.target_map[t]["index"])
+                    for t in targets
                 ]
                 process_inputs = [
                     self.apply_policy(
