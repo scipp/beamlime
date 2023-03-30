@@ -4,10 +4,9 @@
 
 from .loaders import (
     load_config_tpl,
-    load_data_stream_interface_tpl,
+    load_data_stream_app_spec_tpl,
+    load_data_stream_app_tpl,
     load_data_stream_mapping_tpl,
-    load_internal_stream_tpl,
-    load_kafka_tpl,
     load_target_tpl,
     load_workflow_tpl,
 )

@@ -5,7 +5,7 @@
 general:
   user: scipp
   name: default configuration
-  last-updated: '2023-03-15 15:32:52.892530'
+  last-updated: '2023-03-30 09:42:53.037300'
   root-dir: ~/.beamlime/
   log-dir: ~/.beamlime/log/
 
@@ -13,35 +13,69 @@ dashboard:
   update-frequency: 5
 
 data-stream:
-  interfaces:
-  - name: interface-0
-    data-handler: DUMMY
+  applications:
+  - name: data-feeder
+    data-handler: beamlime.offline.data_feeder.Fake2dDetectorImageFeeder
     input-channel: QUEUE
     output-channel: QUEUE
-    max-wait: 1
-  - name: interface-1
-    data-handler: DATAREDUCTION
+    keep-alive: false
+  - name: data-reduction
+    data-handler: beamlime.offline.data_reduction.BeamLimeDataReductionApplication
     input-channel: QUEUE
     output-channel: QUEUE
-    max-wait: 1
-  interface-mapping:
-  - from: interface-0
-    to: interface-1
-  custom-handler-dir: ~/.beamlime/custom-handlers/
+    keep-alive: false
+  - name: visualization
+    data-handler: beamlime.offline.visualization.RealtimePlot
+    input-channel: QUEUE
+    output-channel: QUEUE
+    keep-alive: false
+  application-specs:
+    data-feeder:
+      detector-size:
+      - 64
+      - 64
+      min-intensity: 0.5
+      num-frame: 32
+      signal-mu: 0.7
+      signal-err: 0.2
+      noise-mu: 0.5
+      noise-err: 0.2
+    data-reduction: {}
+    visualization: {}
+  applications-mapping:
+  - from: data-feeder
+    to: data-reduction
+  - from: data-reduction
+    to: visualization
 
 data-reduction:
   workflow-target-mapping:
-  - workflow: sample-workflow
+  - workflow: heatmap
     targets:
-    - raw-data
-  targets:
-  - name: raw-data
-    index: data
+    - fake-2d-image
+  - workflow: frame-number-counting
+    targets:
+    - frame-number
   workflows:
-  - name: sample-workflow
-    preprocess: pass
-    process: times_ten
-    postprocess: pass
-    new-input: APPEND
-    new-result: REPLACE
-    save: false
+  - name: heatmap
+    process: heatmap_2d
+    input-policy: REPLACE
+    output-policy: STACK
+    process-kargs:
+      threshold: 0.4
+      binning_size:
+      - 64
+      - 64
+  - name: frame-number-counting
+    process: handover
+    input-policy: REPLACE
+    output-policy: REPLACE
+  targets:
+  - name: fake-2d-image
+    index:
+    - detector-data
+    - image
+  - name: frame-number
+    index:
+    - detector-data
+    - frame-number
