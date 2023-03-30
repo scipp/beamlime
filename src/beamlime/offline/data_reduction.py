@@ -76,6 +76,19 @@ def nested_data_get(nested_obj: Iterable, *indices):
         return nested_data_get(child, *indices[1:])
 
 
+def list_to_dict(
+    items: list,
+    key_field: Union[str, int] = "name",
+    value_field: Union[List, str, int] = None,
+) -> dict:
+    if value_field is None:
+        return {item[key_field]: item for item in items}
+    elif isinstance(value_field, List):
+        {item[key_field]: nested_data_get(item, *value_field) for item in items}
+    else:
+        return {item[key_field]: item[value_field] for item in items}
+
+
 class BeamLimeDataReductionApplication(BeamlimeApplicationInterface):
     def __init__(self, config: dict, verbose: bool = False) -> None:
         from colorama import Fore
@@ -84,19 +97,15 @@ class BeamLimeDataReductionApplication(BeamlimeApplicationInterface):
         super().__init__(config, verbose, verbose_option=Fore.GREEN)
 
     def parse_config(self, config: dict):
-        self.workflow_target_map = dict()
-        for mapping in config["workflow-target-mapping"]:
-            self.workflow_target_map[mapping["workflow"]] = mapping["targets"]
+        self.workflow_target_map = list_to_dict(
+            config["workflow-target-mapping"],
+            key_field="workflow",
+            value_field="targets",
+        )
+        self.workflow_map = list_to_dict(config["workflows"], "name")
+        self.target_map = list_to_dict(config["targets"], "name")
 
-        self.workflow_map = dict()
-        for workflow in config["workflows"]:
-            self.workflow_map[workflow["name"]] = workflow
-            self.history[workflow["name"]] = dict()
-            self.history[workflow["name"]]["data-count"] = 0
-
-        self.target_map = dict()
-        for target in config["targets"]:
-            self.target_map[target["name"]] = target
+        self.history = {wf_name: {"data-count": 0} for wf_name in self.workflow_map}
 
     def apply_policy(
         self, new_data: T, old_data: T, policy: str, data_count: int = 0
