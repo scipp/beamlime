@@ -1,10 +1,11 @@
 import asyncio
-from typing import Iterable, List, TypeVar, Union
+from typing import TypeVar
 
 import numpy as np
 import scipp as sc
 from colorama import Style
 
+from ..config.tools import list_to_dict, nested_data_get
 from ..core.application import BeamlimeApplicationInterface
 
 T = TypeVar("T")
@@ -29,68 +30,6 @@ def heatmap_2d(data, threshold=0.2, binning_size=(64, 64)):
 
 
 method_map = {"heatmap_2d": heatmap_2d, "handover": lambda x: x}
-
-
-def wrap_indices(indices: Union[str, int, List]) -> List:
-    """
-    In the configuration file, the `index` of the target can be
-    a string, an integer or a list[str, int].
-    If the `index` is a single string or integer,
-    it needs to be wrapped to be used in the `nested_data_get`.
-
-    The check could be done in the `nested_data_get`
-    but then it will check every items in the list since it is run recursively.
-    """
-    if isinstance(indices, List):
-        for item in indices:
-            if not isinstance(item, (str, int)):
-                raise TypeError(
-                    "Each index in `indices` should be either `str` or `int`."
-                )
-        return indices
-    return [indices]
-
-
-def nested_data_get(nested_obj: Iterable, indices: Union[List, str, int]):
-    def _nested_data_get(nested_obj: Iterable, *indices):
-        """
-
-        >>> nested_obj = {'a': {'b': [1,2,3]}}
-        >>> nested_data_get(nested_obj, 'a', 'b', 0)
-        1
-        """
-        idx = indices[0]
-        try:
-            child = nested_obj[idx]
-        except TypeError:
-            raise TypeError(
-                f"Index {idx} with type {type(idx)}"
-                f"doesn't match the key/index type of {type(nested_obj)}"
-            )
-        except KeyError:
-            raise KeyError(f"{nested_obj} doesn't have the key {idx}")
-        except IndexError:
-            raise IndexError(f"{idx} is out of the range of {len(nested_obj)-1}")
-        if len(indices) == 1:
-            return child
-        else:
-            return _nested_data_get(child, *indices[1:])
-
-    _indices = wrap_indices(indices=indices)
-    return _nested_data_get(nested_obj, *_indices)
-
-
-def list_to_dict(
-    items: list,
-    key_field: Union[str, int] = "name",
-    value_field: Union[List, str, int] = None,
-) -> dict:
-    if value_field is None:
-        return {item[key_field]: item for item in items}
-    elif isinstance(value_field, List):
-        {item[key_field]: nested_data_get(item, *value_field) for item in items}
-    else:
-        return {item[key_field]: item[value_field] for item in items}
 
 
 class BeamLimeDataReductionApplication(BeamlimeApplicationInterface):
