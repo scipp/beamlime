@@ -61,24 +61,20 @@ def _build_default_data_stream_config() -> dict:
 
 def _build_default_data_reduction_config() -> dict:
     config = dict()
-    # workflow-target mapping
-    config["workflow-target-mapping"] = [
-        {"workflow": "heatmap", "targets": ["fake-2d-image"]},
-        {"workflow": "frame-number-counting", "targets": ["frame-number"]},
-    ]
     # workflows
     config["workflows"] = [
         _build_workflow_config(name="heatmap"),
         _build_workflow_config(name="frame-number-counting"),
     ]
+    config["workflows"][0]["targets"] = ["fake-2d-image"]
     config["workflows"][0]["process"] = "heatmap_2d"
     config["workflows"][0]["process-kargs"] = {
         "threshold": 0.4,
         "binning_size": [64, 64],
     }
-    config["workflows"][0][
-        "output-policy"
-    ] = "STACK"  # heatmap result will be accumulated
+    # heatmap result will be accumulated
+    config["workflows"][0]["output-policy"] = "STACK"
+    config["workflows"][1]["targets"] = ["frame-number"]
     config["workflows"][1]["process"] = "handover"
 
     # targets

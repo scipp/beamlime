@@ -97,11 +97,6 @@ class BeamLimeDataReductionApplication(BeamlimeApplicationInterface):
         super().__init__(config, verbose, verbose_option=Fore.GREEN)
 
     def parse_config(self, config: dict):
-        self.workflow_target_map = list_to_dict(
-            config["workflow-target-mapping"],
-            key_field="workflow",
-            value_field="targets",
-        )
         self.workflow_map = list_to_dict(config["workflows"], "name")
         self.target_map = list_to_dict(config["targets"], "name")
 
@@ -125,20 +120,21 @@ class BeamLimeDataReductionApplication(BeamlimeApplicationInterface):
 
     def process(self, new_data):
         result_map = dict()
-        for workflow, targets in self.workflow_target_map.items():
+        for wf_name, wf_config in self.workflow_map.items():
+            targets = wf_config["targets"]
             # SKIP-able check
-            output_policy = self.workflow_map[workflow]["output-policy"]
-            if output_policy == "SKIP" and "last-result" in self.history[workflow]:
-                result_map[workflow] = self.history[workflow]["last-result"]
+            output_policy = wf_config["output-policy"]
+            if output_policy == "SKIP" and "last-result" in self.history[wf_name]:
+                result_map[wf_name] = self.history[wf_name]["last-result"]
                 continue
 
             # Retrieve arguments for the process based on the input policy
-            input_policy = self.workflow_map[workflow]["input-policy"]
+            input_policy = wf_config["input-policy"]
 
-            if input_policy == "SKIP" and "last-input" in self.workflow_map[workflow]:
-                process_inputs = self.history[workflow]["last-input"]
+            if input_policy == "SKIP" and "last-input" in self.history[wf_name]:
+                process_inputs = self.history[wf_name]["last-input"]
             else:
-                last_inputs = self.history[workflow].get(
+                last_inputs = self.history[wf_name].get(
                     "last-input", [None] * len(targets)
                 )
                 tg_indices = [
@@ -152,42 +148,41 @@ class BeamLimeDataReductionApplication(BeamlimeApplicationInterface):
                         tg,
                         otg,
                         policy=input_policy,
-                        data_count=self.history[workflow]["data-count"],
+                        data_count=self.history[wf_name]["data-count"],
                     )
                     for tg, otg in zip(new_inputs, last_inputs)
                 ]
 
-                if "process-args" in self.workflow_map[workflow]:
-                    process_inputs.extend(self.workflow_map[workflow]["process-args"])
+                process_inputs.extend(wf_config.get("process-args", []))
 
             if input_policy != "REPLACE":
-                self.history[workflow]["last-input"] = process_inputs
+                self.history[wf_name]["last-input"] = process_inputs
 
             # Run the process on the retrieved arguments
-            process_id = self.workflow_map[workflow]["process"]
+            process_id = wf_config["process"]
             func = method_map[process_id]
 
-            if "process-kargs" in self.workflow_map[workflow]:
-                process_kwargs = self.workflow_map[workflow]["process-kargs"]
+            if "process-kargs" in wf_config:
+                process_kwargs = wf_config["process-kargs"]
                 process_result = func(*process_inputs, **process_kwargs)
             else:
                 process_result = func(*process_inputs)
 
             # Update process result based on the output(result) policy
-            last_results = self.history[workflow].get("last-result", None)
+            last_results = self.history[wf_name].get("last-result", None)
             result = self.apply_policy(
                 new_data=process_result,
                 old_data=last_results,
                 policy=output_policy,
-                data_count=self.history[workflow]["data-count"],
+                data_count=self.history[wf_name]["data-count"],
             )
 
             if output_policy != "REPLACE":
-                self.history[workflow]["last-result"] = result
-                self.history[workflow]["data-count"] += 1
+                self.history[wf_name]["last-result"] = result
+                self.history[wf_name]["data-count"] += 1
 
             # Update workflow-result map
-            result_map[workflow] = result
+            result_map[wf_name] = result
         return result_map
 
     @staticmethod

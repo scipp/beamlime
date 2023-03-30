@@ -5,7 +5,7 @@
 general:
   user: scipp
   name: default configuration
-  last-updated: '2023-03-30 09:42:53.037300'
+  last-updated: '2023-03-30 11:52:18.846867'
   root-dir: ~/.beamlime/
   log-dir: ~/.beamlime/log/
 
@@ -49,18 +49,13 @@ data-stream:
     to: visualization
 
 data-reduction:
-  workflow-target-mapping:
-  - workflow: heatmap
-    targets:
-    - fake-2d-image
-  - workflow: frame-number-counting
-    targets:
-    - frame-number
   workflows:
   - name: heatmap
     process: heatmap_2d
     input-policy: REPLACE
     output-policy: STACK
+    targets:
+    - fake-2d-image
     process-kargs:
       threshold: 0.4
       binning_size:
@@ -70,6 +65,8 @@ data-reduction:
     process: handover
     input-policy: REPLACE
     output-policy: REPLACE
+    targets:
+    - frame-number
   targets:
   - name: fake-2d-image
     index:
