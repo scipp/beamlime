@@ -6,7 +6,7 @@ import scipp as sc
 from colorama import Style
 
 from ..config.tools import list_to_dict, nested_data_get
-from ..core.application import BeamlimeApplicationInterface
+from ..core.application import BeamLimeDataReductionInterface
 
 T = TypeVar("T")
 
@@ -32,12 +32,24 @@ def heatmap_2d(data, threshold=0.2, binning_size=(64, 64)):
 method_map = {"heatmap_2d": heatmap_2d, "handover": lambda x: x}
 
 
-class BeamLimeDataReductionApplication(BeamlimeApplicationInterface):
+class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
     def __init__(self, config: dict, verbose: bool = False) -> None:
         from colorama import Fore
 
         self.history = dict()
         super().__init__(config, verbose, verbose_option=Fore.GREEN)
+
+    def pause(self) -> None:
+        pass
+
+    def start(self) -> None:
+        pass
+
+    def resume(self) -> None:
+        pass
+
+    def __del__(self) -> None:
+        pass
 
     def parse_config(self, config: dict):
         self.workflow_map = list_to_dict(config["workflows"], "name")

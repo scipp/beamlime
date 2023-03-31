@@ -4,19 +4,49 @@
 import asyncio
 from abc import ABC, abstractmethod, abstractstaticmethod
 from queue import Empty
-from typing import Union
+from typing import Protocol, Union
 
 from colorama import Style
 from colorama.ansi import AnsiBack, AnsiFore, AnsiStyle
 
 
-class BeamlimeApplicationInterface(ABC):
+class BeamLimeApplicationProtocol(Protocol):
+    @property
+    def input_channel(self) -> object:
+        ...
+
+    @property
+    def output_channel(self) -> object:
+        ...
+
+    @input_channel.setter
+    def input_channel(self, channel) -> None:
+        ...
+
+    @output_channel.setter
+    def output_channel(self, channel) -> None:
+        ...
+
+    def start(self) -> None:
+        ...
+
+    def pause(self) -> None:
+        ...
+
+    def resume(self) -> None:
+        ...
+
+    def __del__(self) -> None:
+        ...
+
+
+class BeamlimeApplicationInterface(ABC, BeamLimeApplicationProtocol):
     _input_ch = None
     _output_ch = None
 
     def __init__(
         self,
-        config: dict,
+        config: dict = None,
         verbose: bool = False,
         verbose_option: Union[AnsiFore, AnsiStyle, AnsiBack, str] = Style.RESET_ALL,
     ) -> None:
@@ -80,3 +110,21 @@ class BeamlimeApplicationInterface(ABC):
 
     def create_task(self):
         return asyncio.create_task(self._run(self))
+
+    @abstractmethod
+    def pause(self) -> None:
+        pass
+
+    @abstractmethod
+    def resume(self) -> None:
+        pass
+
+    @abstractmethod
+    def __del__(self) -> None:
+        pass
+
+
+class BeamLimeDataReductionInterface(BeamlimeApplicationInterface, ABC):
+    @abstractmethod
+    def process(self):
+        pass

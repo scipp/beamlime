@@ -167,7 +167,7 @@ def import_object(path: str) -> Any:
     parent_name = ".".join(path.split(".")[:-1])
     obj_name = path.split(".")[-1]
 
-    if len(parent_name) == 0:
+    if len(parent_name) > 0:
         parent_module = import_module(parent_name)
     else:
         from beamlime.config import preset_options

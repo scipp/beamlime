@@ -5,6 +5,7 @@
 
 name:
 data-handler:
+instance-number: # How many instances you want to create
 input-channel: beamlime.config.preset_options.CommunicationChannelOptions
 output-channel: beamlime.config.preset_options.CommunicationChannelOptions
 keep-alive: FALSE

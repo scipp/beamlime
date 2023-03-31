@@ -16,6 +16,18 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
     ) -> None:
         super().__init__(config, verbose, verbose_option)
 
+    def pause(self) -> None:
+        pass
+
+    def start(self) -> None:
+        pass
+
+    def resume(self) -> None:
+        pass
+
+    def __del__(self) -> None:
+        pass
+
     def parse_config(self, config: dict) -> None:
         self.detector_size = tuple(config.get("detector-size", (64, 64)))
         self.num_frame = int(config.get("num-frame", 128))
