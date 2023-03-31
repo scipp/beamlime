@@ -11,13 +11,13 @@ general:
   user:
   name:
   last-updated:
-  log-dir:
+  log-dir: # ~/.beamlime/log
 
 dashboard:
   update-frequency: 5 # [Hz]
 
 data-stream:
-  custom-handler-dir: beamlime.config.preset_options.DEFAULT_CUSTOM_HANDLER_DIR
+  custom-handler-dir: # ~/.beamlime/custom-handler
   applications: # Each application will be run in different process if possible.
     # - name: application-name-1
     #   ...

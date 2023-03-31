@@ -48,7 +48,7 @@ def _load_tpl(tpl_name: str, replace_symbol: bool = False) -> dict:
     return tpl
 
 
-load_config_tpl = partial(_load_tpl, tpl_name="config", replace_symbol=True)
+load_config_tpl = partial(_load_tpl, tpl_name="config")
 load_data_stream_app_tpl = partial(
     _load_tpl, tpl_name="data-stream-application", replace_symbol=True
 )
