@@ -11,7 +11,7 @@ general:
   user:
   name:
   last-updated:
-  log-dir: beamlime.config.preset_options.DEFAULT_LOG_DIR
+  log-dir:
 
 dashboard:
   update-frequency: 5 # [Hz]

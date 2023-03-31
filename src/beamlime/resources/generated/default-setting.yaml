@@ -5,7 +5,7 @@
 general:
   user: scipp
   name: default configuration
-  last-updated: '2023-03-30 18:47:41.361518'
+  last-updated: '2023-03-31 09:40:03.346088'
   log-dir: /home/sunyoung/.beamlime/log
 
 dashboard:

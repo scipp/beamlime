@@ -20,8 +20,8 @@ def _replace_preset_symbol(tpl: Union[dict, list]):
         if not isinstance(value, str):
             return value
         preset = import_object(value)
-        if hasattr(preset, "get_default"):
-            return preset.get_default()
+        if hasattr(preset, "DEFAULT"):
+            return preset.DEFAULT
         else:
             return str(preset)
 

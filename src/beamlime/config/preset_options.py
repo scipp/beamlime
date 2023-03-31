@@ -11,7 +11,8 @@ DEFAULT_CUSTOM_HANDLER_DIR = HOME_DIR.joinpath("custom-handlers")
 
 class PresetOptionProtocol(Protocol):
     @classmethod
-    def get_default(cls) -> Union[str, int]:
+    @property
+    def DEFAULT(cls) -> Union[str, int]:
         pass
 
 
@@ -69,7 +70,8 @@ class NewDataPolicyOptions(Flag):
     APPEND = "APPEND"
 
     @classmethod
-    def get_default(cls):
+    @property
+    def DEFAULT(cls):
         return cls.REPLACE.value
 
 
@@ -88,5 +90,6 @@ class CommunicationChannelOptions(Flag):
     KAFKA = "KAFKA"
 
     @classmethod
-    def get_default(cls):
+    @property
+    def DEFAULT(cls):
         return cls.QUEUE.value
