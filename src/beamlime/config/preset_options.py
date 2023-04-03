@@ -1,14 +1,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
-from enum import Flag
+import enum
 from typing import Protocol, Union
 
 from .tools import find_home
 
+if hasattr(enum, "StrEnum"):
+    FlagType = enum.StrEnum
+else:
+    FlagType = enum.Flag
+
 HOME_DIR = find_home()  # ~/.beamlime
 DEFAULT_CONFIG_PATH = HOME_DIR.joinpath("default-config.yaml")
-DEFAULT_LOG_DIR = HOME_DIR.joinpath("log")
+DEFAULT_LOG_DIR = HOME_DIR.joinpath("logs")
 DEFAULT_CUSTOM_HANDLER_DIR = HOME_DIR.joinpath("custom-handlers")
 
 
@@ -19,7 +24,7 @@ class PresetOptionProtocol(Protocol):
         pass
 
 
-class NewDataPolicyOptions(Flag):
+class NewDataPolicyOptions(FlagType):
     """
 
     1. ``REPLACE`` - Default
@@ -78,7 +83,7 @@ class NewDataPolicyOptions(Flag):
         return cls.REPLACE.value
 
 
-class CommunicationChannelOptions(Flag):
+class CommunicationChannelOptions(FlagType):
     """
     1. ``QUEUE``
     Use ``queue.QUEUE`` as a communication interface between two applications.
