@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+
 from ..resources.exporters import export_default_yaml
 
 if __name__ == "__main__":

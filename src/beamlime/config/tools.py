@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # ``beamlime.config.tools`` should only contain general helper functions
 # that are repeatedly used by various ``beamlime`` package for configuration parsing.
 # Therefore it should not have any dependencies on other modules/classes/functions.
