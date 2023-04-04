@@ -40,7 +40,27 @@ class BeamLimeApplicationProtocol(Protocol):
         ...
 
 
-class BeamlimeApplicationInterface(ABC, BeamLimeApplicationProtocol):
+class _LogMixin:
+    def _log(self, level: int = DEBUG, msg="", *args):
+        self.logger._log(level, msg={"app_name": self.app_name, "msg": msg}, args=args)
+
+    def debug(self, msg: str) -> None:
+        self._log(level=DEBUG, msg=msg)
+
+    def info(self, msg: str) -> None:
+        self._log(level=INFO, msg=msg)
+
+    def warn(self, msg: str) -> None:
+        self._log(level=WARN, msg=msg)
+
+    def exception(self, msg: str) -> None:
+        self._log(level=ERROR, msg=msg)
+
+    def error(self, msg: str) -> None:
+        self._log(level=ERROR, msg=msg)
+
+
+class BeamlimeApplicationInterface(_LogMixin, ABC, BeamLimeApplicationProtocol):
     _input_ch = None
     _output_ch = None
 
@@ -62,20 +82,6 @@ class BeamlimeApplicationInterface(ABC, BeamLimeApplicationProtocol):
             self.logger = get_logger()
         else:
             self.logger = logger
-        from functools import partial
-
-        self.warn = partial(self._log, level=WARN)
-        self.exception = partial(self._log, level=ERROR)
-        self.error = partial(self._log, level=ERROR)
-
-    def _log(self, level: int = DEBUG, msg="", *args):
-        self.logger._log(level, msg={"app_name": self.app_name, "msg": msg}, args=args)
-
-    def debug(self, msg: str) -> None:
-        self._log(level=DEBUG, msg=msg)
-
-    def info(self, msg: str) -> None:
-        self._log(level=INFO, msg=msg)
 
     @abstractmethod
     def parse_config(self, config: dict) -> None:
