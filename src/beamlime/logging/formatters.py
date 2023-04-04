@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
+from functools import partial
 from logging import Formatter
 from typing import Any, List, Literal, Mapping, TypeAlias
 
@@ -89,7 +90,7 @@ class _HeaderFormatter(Formatter):
         self,
         fmt: str | None = None,
         datefmt: str | None = None,
-        style: _FormatStyle = "%",
+        style: _FormatStyle = "{",
         validate: bool = True,
         *,
         defaults: Mapping[str, Any] | None = None,
@@ -112,47 +113,5 @@ class _HeaderFormatter(Formatter):
         return self._header
 
 
-class BeamlimeFormatter(_HeaderFormatter):
-    def __init__(
-        self,
-        fmt: str | None = None,
-        datefmt: str | None = None,
-        style: _FormatStyle = "{",
-        validate: bool = True,
-        *,
-        defaults: Mapping[str, Any] | None = None,
-        header_sep: _SepStyle = "|",
-        headers: List[LogHeader] = DEFAULT_HEADERS,
-    ) -> None:
-        super().__init__(
-            fmt,
-            datefmt,
-            style,
-            validate,
-            defaults=defaults,
-            header_sep=header_sep,
-            headers=headers,
-        )
-
-
-class BeamlimeAnsiColorFormatter(_HeaderFormatter):
-    def __init__(
-        self,
-        fmt: str | None = None,
-        datefmt: str | None = None,
-        style: _FormatStyle = "{",
-        validate: bool = True,
-        *,
-        defaults: Mapping[str, Any] | None = None,
-        header_sep: _SepStyle = "|",
-        headers: List[LogHeader] = DEFAULT_COLOR_HEADERS,
-    ) -> None:
-        super().__init__(
-            fmt,
-            datefmt,
-            style,
-            validate,
-            defaults=defaults,
-            header_sep=header_sep,
-            headers=headers,
-        )
+BeamlimeFormatter = partial(_HeaderFormatter, headers=DEFAULT_HEADERS)
+BeamlimeAnsiColorFormatter = partial(_HeaderFormatter, headers=DEFAULT_COLOR_HEADERS)

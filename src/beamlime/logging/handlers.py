@@ -3,7 +3,7 @@
 
 from logging import FileHandler, Formatter, StreamHandler
 
-from .formatters import BeamlimeAnsiColorFormatter, BeamlimeFormatter
+from .formatters import BeamlimeAnsiColorFormatter, BeamlimeFormatter, _HeaderFormatter
 from .records import BeamlimeColorLogRecord, BeamlimeLogRecord
 
 
@@ -17,7 +17,7 @@ class _HeaderMixin:
         except RecursionError:
             raise
 
-    def setFormatter(self, fmt: Formatter | BeamlimeFormatter | None) -> None:
+    def setFormatter(self, fmt: _HeaderFormatter | Formatter | None) -> None:
         super().setFormatter(fmt)
         if hasattr(fmt, "header") and self.header:
             self.add_header()
@@ -49,7 +49,7 @@ class BeamlimeStreamHandler(_HeaderMixin, StreamHandler):
         from colorama.ansi import Fore
 
         if not issubclass(logging.getLogRecordFactory(), BeamlimeColorLogRecord):
-            logging.setLogRecordFactory(BeamlimeLogRecord)
+            logging.setLogRecordFactory(BeamlimeColorLogRecord)
         self.header = header
         self.color_list = [
             Fore.BLACK,
