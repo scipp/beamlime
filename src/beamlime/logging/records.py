@@ -45,14 +45,6 @@ class BeamlimeLogRecord(LogRecord):
             name, level, pathname, lineno, self.msg, args, exc_info, func, sinfo
         )
 
-    def getMessage(self) -> str:
-        """
-        Return the message for this BeamlimeLogRecord.
-        Not like the original LogRecord, it does not merge any user-supplied arguments.
-        """
-
-        return str(self.msg)
-
 
 @dataclass
 class BeamlimeColorLogRecord(BeamlimeLogRecord):
