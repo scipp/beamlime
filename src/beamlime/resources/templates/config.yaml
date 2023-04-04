@@ -11,14 +11,13 @@ general:
   user:
   name:
   last-updated:
-  root-dir: "~/.beamlime/"
-  log-dir: "~/.beamlime/log/"
+  log-dir: # ~/.beamlime/log
 
 dashboard:
   update-frequency: 5 # [Hz]
 
 data-stream:
-  custom-handler-dir: "~/.beamlime/custom-handlers/"
+  custom-handler-dir: # ~/.beamlime/custom-handler
   applications: # Each application will be run in different process if possible.
     # - name: application-name-1
     #   ...
@@ -40,11 +39,6 @@ data-stream:
 
 data-reduction: # Each workflow will be run asynchronously but in one process.
                 # Can be split into multi-processes by the data-reduction-manager instance if needed.
-  workflow-target-mapping:
-    - workflow: # workflow-name-1
-      targets:
-        #  - target-name-1
-        #  - target-name-2
   targets:
     # - name: target-name-1
     #   index: ''

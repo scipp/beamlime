@@ -5,8 +5,11 @@
 name:
 reference:
 process:
-input-policy: REPLACE # SKIP|STACK|APPEND|REPLACE|AVERAGE
-output-policy: REPLACE # SKIP|STACK|APPEND|REPLACE|AGERAVE
+input-policy: beamlime.config.preset_options.NewDataPolicyOptions
+output-policy: beamlime.config.preset_options.NewDataPolicyOptions
+targets:
+  # - target-name-1
+  # - target-name-2
 process-args:
   # - arg1
   # - arg2

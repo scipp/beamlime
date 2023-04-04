@@ -5,9 +5,8 @@
 general:
   user: scipp
   name: default configuration
-  last-updated: '2023-03-30 09:42:53.037300'
-  root-dir: ~/.beamlime/
-  log-dir: ~/.beamlime/log/
+  last-updated: '2023-03-31 15:09:15.522559'
+  log-dir:
 
 dashboard:
   update-frequency: 5
@@ -16,16 +15,19 @@ data-stream:
   applications:
   - name: data-feeder
     data-handler: beamlime.offline.data_feeder.Fake2dDetectorImageFeeder
+    instance-number:
     input-channel: QUEUE
     output-channel: QUEUE
     keep-alive: false
   - name: data-reduction
     data-handler: beamlime.offline.data_reduction.BeamLimeDataReductionApplication
+    instance-number:
     input-channel: QUEUE
     output-channel: QUEUE
     keep-alive: false
   - name: visualization
     data-handler: beamlime.offline.visualization.RealtimePlot
+    instance-number:
     input-channel: QUEUE
     output-channel: QUEUE
     keep-alive: false
@@ -49,18 +51,13 @@ data-stream:
     to: visualization
 
 data-reduction:
-  workflow-target-mapping:
-  - workflow: heatmap
-    targets:
-    - fake-2d-image
-  - workflow: frame-number-counting
-    targets:
-    - frame-number
   workflows:
   - name: heatmap
     process: heatmap_2d
     input-policy: REPLACE
     output-policy: STACK
+    targets:
+    - fake-2d-image
     process-kargs:
       threshold: 0.4
       binning_size:
@@ -70,6 +67,8 @@ data-reduction:
     process: handover
     input-policy: REPLACE
     output-policy: REPLACE
+    targets:
+    - frame-number
   targets:
   - name: fake-2d-image
     index:

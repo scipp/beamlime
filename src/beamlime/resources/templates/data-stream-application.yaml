@@ -4,7 +4,8 @@
 # All information that is specifically for each application should go into `application-spec`.
 
 name:
-data-handler: DUMMY
-input-channel: QUEUE
-output-channel: QUEUE
+data-handler:
+instance-number: # How many instances you want to create
+input-channel: beamlime.config.preset_options.CommunicationChannelOptions
+output-channel: beamlime.config.preset_options.CommunicationChannelOptions
 keep-alive: FALSE

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+
 import asyncio
 
 import numpy as np
@@ -15,6 +18,18 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
         self, config: dict, verbose: bool = False, verbose_option: str = Fore.BLUE
     ) -> None:
         super().__init__(config, verbose, verbose_option)
+
+    def pause(self) -> None:
+        pass
+
+    def start(self) -> None:
+        pass
+
+    def resume(self) -> None:
+        pass
+
+    def __del__(self) -> None:
+        pass
 
     def parse_config(self, config: dict) -> None:
         self.detector_size = tuple(config.get("detector-size", (64, 64)))
