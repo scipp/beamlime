@@ -60,8 +60,23 @@ class LogHeader(OrderedDict):
         self.sep = sep
         if len(args) > 1 and isinstance(args[0], LogColumn):
             columns = args
+            if len(columns) == 1:
+                self._fmt = columns[0].formatter
+            else:
+                seps = [
+                    " " * self.padding[0] + self.sep + " " * self.padding[1]
+                    if column.visible and n_column.visible
+                    else ""
+                    for column, n_column in zip(columns[:-1], columns[1:])
+                ]
+                self._fmt = "".join(
+                    [
+                        column.formatter + sep
+                        for column, sep in zip(columns, seps + [""])
+                    ]
+                )
         elif len(args) > 1 and isinstance(args[0], str):
-            fmt = "".join(args)
+            self._fmt = "".join(args)
 
             def wrap_header(fmt_piece: str) -> LogColumn:
                 if ":" in fmt_piece:
@@ -70,27 +85,16 @@ class LogHeader(OrderedDict):
                 else:
                     LogColumn(fmt_piece)
 
-            chunks = fmt.split("{")
+            chunks = self._fmt.split("{")
             fmt_pieces = [chunk.split("}")[0] for chunk in chunks]
             columns = [wrap_header(fmt_piece) for fmt_piece in fmt_pieces]
 
         for column in columns:
             self.__setitem__(column.variable_name, column)
 
-    def to_fmt(self):
-        columns = list(self.values())
-        if len(columns) == 1:
-            return columns[0].formatter
-
-        seps = [
-            " " * self.padding[0] + self.sep + " " * self.padding[1]
-            if column.visible and n_column.visible
-            else ""
-            for column, n_column in zip(columns[:-1], columns[1:])
-        ]
-        return "".join(
-            [column.formatter + sep for column, sep in zip(columns, seps + [""])]
-        )
+    @property
+    def fmt(self):
+        return self._fmt
 
     def __getitem__(self, key: str) -> LogColumn:
         return super().__getitem__(key)
@@ -100,7 +104,7 @@ class LogHeader(OrderedDict):
         return super().__setitem__(key, item)
 
     def format(self) -> str:
-        return self.to_fmt().format(
+        return self.fmt.format(
             **{column.variable_name: column.title for column in self.values()}
         )
 
@@ -136,7 +140,7 @@ class _HeaderFormatter(Formatter):
         headers: LogHeader = DEFAULT_HEADERS,
     ) -> None:
         if fmt is None and headers is not None:
-            fmt = headers.to_fmt()
+            fmt = headers.fmt
         elif fmt is not None:
             headers = LogHeader(fmt, padding=(1, 1), sep=header_sep)
 
