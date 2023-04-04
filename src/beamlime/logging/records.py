@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
-from dataclasses import dataclass
 from logging import LogRecord
 from types import TracebackType
 from typing import Mapping, TypeAlias
@@ -13,10 +12,7 @@ _SysExcInfoType: TypeAlias = (
 _ArgsType: TypeAlias = tuple[object, ...] | Mapping[str, object]
 
 
-@dataclass
 class BeamlimeLogRecord(LogRecord):
-    app_name: str
-
     def __init__(
         self,
         name: str,
@@ -46,10 +42,7 @@ class BeamlimeLogRecord(LogRecord):
         )
 
 
-@dataclass
 class BeamlimeColorLogRecord(BeamlimeLogRecord):
-    ansi_color: str
-
     def __init__(
         self,
         name: str,
