@@ -30,8 +30,14 @@ class BeamlimeLogRecord(LogRecord):
         sinfo: str | None = None,
     ) -> None:
         if isinstance(msg, dict):
-            self.app_name = msg.get("app_name")
-            self.msg = msg.get("msg")
+            if "app_name" in msg:
+                self.app_name = msg.get("app_name")
+                self.msg = msg.get("msg")
+            else:
+                self.msg = str(msg)
+                self.exc_info = Warning(
+                    "Unexpected form of message" " for BeamlimeLogRecord."
+                )
         else:
             self.app_name = ""
             self.msg = msg
