@@ -3,10 +3,10 @@
 
 import logging
 
+from .handlers import BeamlimeFileHandler
 
-def _create_log_file(
-    parent_dir: str, prefix: str = "beamlime", header: str = ""
-) -> str:
+
+def _create_log_file(parent_dir: str, prefix: str = "beamlime") -> str:
     """
     Create a new log file into the ``parent_dir`` and returns the path.
     The log file name is created based on the current ``timestamp``.
@@ -43,10 +43,6 @@ def _create_log_file(
     else:
         new_path = time_based
 
-    with open(new_path, "w") as file:
-        file.write(header)
-        file.write("=" * 56 + "LOG START" + "=" * 56 + "\n")
-
     return new_path
 
 
@@ -65,18 +61,13 @@ def _create_log_root_dir(dir_path: str) -> None:
         os.mkdir(dir_path)
 
 
-class BeamlimeFileHandler(logging.FileHandler):
-    def setFormatter(self, fmt: logging.Formatter | None) -> None:
-        return super().setFormatter(fmt)
-
-
 def initialize_file_handler(config: dict, logger: logging.Logger = None) -> None:
     if logger is None:
         logger = get_logger()
 
     # Find the location where log files will be collected.
     general_config = config["general"]
-    if "log-dir" in general_config:
+    if "log-dir" in general_config and general_config["log-dir"] is not None:
         log_dir = general_config["log-dir"]
     else:
         from ..config.preset_options import DEFAULT_LOG_DIR
@@ -88,16 +79,11 @@ def initialize_file_handler(config: dict, logger: logging.Logger = None) -> None
         )
 
     _create_log_root_dir(log_dir)
-    # TODO: Add application name column like `|APPLICATION: %(app_name)-15s`
-    formatter = "{asctime:25} |{levelname:8} |{message}\n"
-    header = formatter.format(asctime="TIME", levelname="LEVEL", message="MESSAGE")
 
-    log_path = _create_log_file(parent_dir=log_dir, header=header)
+    log_path = _create_log_file(parent_dir=log_dir)
     logger.info(f"Start collecting logs into {log_path}")
 
-    file_handler = logging.FileHandler(log_path)
-    file_handler.setFormatter(logging.Formatter(formatter, style="{"))
-
+    file_handler = BeamlimeFileHandler(log_path, header=True)
     logger.addHandler(file_handler)
 
 

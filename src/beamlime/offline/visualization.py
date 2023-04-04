@@ -5,23 +5,17 @@ import asyncio
 from functools import partial
 
 import plopp as pp
-from colorama import Style
 from scipp import DataArray
 
 from ..core.application import BeamlimeApplicationInterface
 
 
 class RealtimePlot(BeamlimeApplicationInterface):
-    def __init__(
-        self,
-        config: dict = None,
-        verbose: bool = False,
-        verbose_option: str = Style.RESET_ALL,
-    ) -> None:
+    def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
+        super().__init__(config, logger, **kwargs)
         self._plottable_objects = dict()
         self._stream_nodes = dict()
         self._figs = dict()
-        super().__init__(config, verbose, verbose_option)
 
     def pause(self) -> None:
         pass

@@ -6,7 +6,6 @@ from typing import TypeVar
 
 import numpy as np
 import scipp as sc
-from colorama import Style
 
 from ..config.tools import list_to_dict, nested_data_get
 from ..core.application import BeamLimeDataReductionInterface
@@ -36,11 +35,9 @@ method_map = {"heatmap_2d": heatmap_2d, "handover": lambda x: x}
 
 
 class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
-    def __init__(self, config: dict, verbose: bool = False) -> None:
-        from colorama import Fore
-
+    def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
+        super().__init__(config, logger, **kwargs)
         self.history = dict()
-        super().__init__(config, verbose, verbose_option=Fore.GREEN)
 
     def pause(self) -> None:
         pass
@@ -152,5 +149,4 @@ class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
             if not send_result:
                 break
             new_data = await self.receive_data(timeout=1)
-            if self.verbose:
-                print(self.verbose_option, f"Sending {result}", Style.RESET_ALL)
+            self.info(f"Sending {result}")

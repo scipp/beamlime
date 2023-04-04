@@ -3,11 +3,11 @@
 
 import asyncio
 from abc import ABC, abstractmethod, abstractstaticmethod
+from logging import DEBUG, ERROR, INFO, WARN
 from queue import Empty
-from typing import Protocol, Union
+from typing import Protocol
 
-from colorama import Style
-from colorama.ansi import AnsiBack, AnsiFore, AnsiStyle
+from ..config.preset_options import RESERVED_APP_NAME
 
 
 class BeamLimeApplicationProtocol(Protocol):
@@ -44,15 +44,38 @@ class BeamlimeApplicationInterface(ABC, BeamLimeApplicationProtocol):
     _input_ch = None
     _output_ch = None
 
-    def __init__(
-        self,
-        config: dict = None,
-        verbose: bool = False,
-        verbose_option: Union[AnsiFore, AnsiStyle, AnsiBack, str] = Style.RESET_ALL,
-    ) -> None:
+    def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
+        self.app_name = kwargs.get("name", "")
+        if self.app_name == RESERVED_APP_NAME:
+            # TODO: Move this exception raises to earlier point.
+            raise ValueError(
+                f"{self.app_name} is a reserved name. "
+                "Please use another name for the application."
+            )
         self.parse_config(config)
-        self.verbose = verbose
-        self.verbose_option = verbose_option
+        self._init_logger(logger=logger)
+
+    def _init_logger(self, logger=None):
+        if logger is None:
+            from ..logging import get_logger
+
+            self.logger = get_logger()
+        else:
+            self.logger = logger
+        from functools import partial
+
+        self.warn = partial(self._log, level=WARN)
+        self.exception = partial(self._log, level=ERROR)
+        self.error = partial(self._log, level=ERROR)
+
+    def _log(self, level: int = DEBUG, msg="", *args):
+        self.logger._log(level, msg={"app_name": self.app_name, "msg": msg}, args=args)
+
+    def debug(self, msg: str) -> None:
+        self._log(level=DEBUG, msg=msg)
+
+    def info(self, msg: str) -> None:
+        self._log(level=INFO, msg=msg)
 
     @abstractmethod
     def parse_config(self, config: dict) -> None:

@@ -4,7 +4,6 @@
 import asyncio
 
 import numpy as np
-from colorama import Fore, Style
 from PIL import Image
 from PIL.ImageOps import flip
 
@@ -14,10 +13,8 @@ from ..resources.images.generators import fake_2d_detector_img_generator
 
 
 class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
-    def __init__(
-        self, config: dict, verbose: bool = False, verbose_option: str = Fore.BLUE
-    ) -> None:
-        super().__init__(config, verbose, verbose_option)
+    def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
+        super().__init__(config, logger, **kwargs)
 
     def pause(self) -> None:
         pass
@@ -70,5 +67,4 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
             send_result = await self.send_data(data=fake_data)
             if not send_result:
                 break
-            if self.verbose:
-                print(self.verbose_option, f"Sending {iframe}th frame", Style.RESET_ALL)
+            self.info(f"Sending {iframe}th frame")
