@@ -3,7 +3,7 @@
 
 from logging import LogRecord
 from types import TracebackType
-from typing import Mapping, TypeAlias
+from typing import Mapping, TypeAlias, final
 
 _SysExcInfoType: TypeAlias = (
     tuple[type[BaseException], BaseException, TracebackType | None]
@@ -32,7 +32,7 @@ class BeamlimeLogRecord(LogRecord):
             else:
                 self.msg = str(msg)
                 self.exc_info = Warning(
-                    "Unexpected form of message" " for BeamlimeLogRecord."
+                    "Unexpected form of message for BeamlimeLogRecord."
                 )
         else:
             self.app_name = ""
@@ -40,6 +40,22 @@ class BeamlimeLogRecord(LogRecord):
         super().__init__(
             name, level, pathname, lineno, self.msg, args, exc_info, func, sinfo
         )
+
+    @final
+    def getMessage(self) -> str:
+        """
+        Scipp objects are often logged as ``args``,
+        which is formatted by ``%`` style in ``msg``.
+        So if `getMessage` needs to be updated,
+        it should still include the % formatting that ``logging.LogRecord`` has.
+
+        ```
+        msg = str(self.msg)
+        if self.args:
+            msg = msg % self.args
+        ```
+        """
+        return super().getMessage()
 
 
 class BeamlimeColorLogRecord(BeamlimeLogRecord):
