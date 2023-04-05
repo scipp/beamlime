@@ -60,7 +60,7 @@ class _LogMixin:
         self._log(level=ERROR, msg=msg)
 
 
-class BeamlimeApplicationInterface(_LogMixin, ABC, BeamLimeApplicationProtocol):
+class BeamlimeApplicationInterface(_LogMixin, ABC):
     _input_ch = None
     _output_ch = None
 
