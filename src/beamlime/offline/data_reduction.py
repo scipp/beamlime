@@ -129,7 +129,6 @@ class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
                 policy=output_policy,
                 data_count=self.history[wf_name]["data-count"],
             )
-
             if output_policy != "REPLACE":
                 self.history[wf_name]["last-result"] = result
                 self.history[wf_name]["data-count"] += 1

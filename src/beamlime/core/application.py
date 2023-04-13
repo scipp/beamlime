@@ -42,22 +42,22 @@ class BeamLimeApplicationProtocol(Protocol):
 
 class _LogMixin:
     def _log(self, level: int = DEBUG, msg="", *args):
-        self.logger._log(level, msg={"app_name": self.app_name, "msg": msg}, args=args)
+        self.logger._log(level, msg=msg, app_name=self.app_name, args=args)
 
-    def debug(self, msg: str) -> None:
-        self._log(level=DEBUG, msg=msg)
+    def debug(self, msg: str, *args) -> None:
+        self._log(level=DEBUG, msg=msg, *args)
 
-    def info(self, msg: str) -> None:
-        self._log(level=INFO, msg=msg)
+    def info(self, msg: str, *args) -> None:
+        self._log(level=INFO, msg=msg, *args)
 
-    def warn(self, msg: str) -> None:
-        self._log(level=WARN, msg=msg)
+    def warn(self, msg: str, *args) -> None:
+        self._log(level=WARN, msg=msg, *args)
 
-    def exception(self, msg: str) -> None:
-        self._log(level=ERROR, msg=msg)
+    def exception(self, msg: str, *args) -> None:
+        self._log(level=ERROR, msg=msg, *args)
 
-    def error(self, msg: str) -> None:
-        self._log(level=ERROR, msg=msg)
+    def error(self, msg: str, *args) -> None:
+        self._log(level=ERROR, msg=msg, *args)
 
 
 class BeamlimeApplicationInterface(_LogMixin, ABC):

@@ -4,16 +4,17 @@
 from collections import OrderedDict
 from functools import partial
 from logging import Formatter
-from typing import Any, Literal, Mapping, TypeAlias, overload
+from typing import Any, Literal, Mapping, Union, overload
 
-_FormatStyle: TypeAlias = Literal["{"]
-_SepStyle: TypeAlias = Literal["|", ","]
+_FormatStyle = Literal["{"]
+_SepStyle = Literal["|", ","]
 
 
 class LogColumn:
     def __init__(
         self,
         variable_name: str,
+        *,
         title: str = None,
         min_length: int = None,
         style: _FormatStyle = "{",
@@ -54,7 +55,10 @@ class LogHeader(OrderedDict):
         ...
 
     def __init__(
-        self, *args: str | LogColumn, padding: tuple = (1, 1), sep: _SepStyle = "|"
+        self,
+        *args: Union[str, LogColumn],
+        padding: tuple = (1, 1),
+        sep: _SepStyle = "|",
     ):
         self.padding = padding
         self.sep = sep
@@ -130,12 +134,12 @@ DEFAULT_COLOR_HEADERS = LogHeader(
 class _HeaderFormatter(Formatter):
     def __init__(
         self,
-        fmt: str | None = None,
-        datefmt: str | None = None,
+        *,
+        fmt: Union[str, None] = None,
+        datefmt: Union[str, None] = None,
         style: _FormatStyle = "{",
         validate: bool = True,
-        *,
-        defaults: Mapping[str, Any] | None = None,
+        defaults: Union[Mapping[str, Any], None] = None,
         header_sep: _SepStyle = "|",
         headers: LogHeader = DEFAULT_HEADERS,
     ) -> None:
@@ -145,7 +149,8 @@ class _HeaderFormatter(Formatter):
             headers = LogHeader(fmt, padding=(1, 1), sep=header_sep)
 
         self._header = headers.format()
-        super().__init__(fmt, datefmt, style, validate, defaults=defaults)
+        # super().__init__(fmt, datefmt, style, validate, defaults=defaults)
+        super().__init__(fmt, datefmt, style, validate)
 
     @property
     def header(self):

@@ -67,4 +67,4 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
             send_result = await self.send_data(data=fake_data)
             if not send_result:
                 break
-            self.info(f"Sending {iframe}th frame")
+            self.info("Sending %sth frame", str(iframe))

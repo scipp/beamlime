@@ -3,78 +3,73 @@
 
 from logging import LogRecord
 from types import TracebackType
-from typing import Mapping, TypeAlias, final
+from typing import Mapping, Union
 
-_SysExcInfoType: TypeAlias = (
-    tuple[type[BaseException], BaseException, TracebackType | None]
-    | tuple[None, None, None]
-)
-_ArgsType: TypeAlias = tuple[object, ...] | Mapping[str, object]
+_SysExcInfoType = Union[
+    tuple[type[BaseException], BaseException, Union[TracebackType, None]],
+    tuple[None, None, None],
+]
+
+_ArgsType = Union[tuple[object, ...], Mapping[str, object]]
 
 
 class BeamlimeLogRecord(LogRecord):
+    """
+    Note
+    ----
+    First 8 Arguments cannot be keyword-only arguments
+    because of the way ``logging`` creates an empty record.
+    It uses positional arguments to create a record instance.
+    """
+
     def __init__(
         self,
+        *,
         name: str,
         level: int,
-        pathname: str,
-        lineno: int,
         msg: object,
-        args: _ArgsType | None,
-        exc_info: _SysExcInfoType | None,
-        func: str | None = None,
-        sinfo: str | None = None,
+        pathname: Union[str, None] = None,
+        lineno: Union[int, None] = None,
+        func: Union[str, None] = None,
+        sinfo: Union[str, None] = None,
+        args: Union[_ArgsType, None] = None,
+        exc_info: Union[_SysExcInfoType, None] = None,
+        app_name: str = "",
     ) -> None:
-        if isinstance(msg, dict):
-            if "app_name" in msg:
-                self.app_name = msg.get("app_name")
-                _msg = msg.get("msg")
-            else:
-                _msg = str(msg)
-                self.exc_info = Warning(
-                    "Unexpected form of message for BeamlimeLogRecord."
-                )
-        else:
-            self.app_name = ""
-            _msg = msg
+        self.app_name = app_name
         super().__init__(
-            name, level, pathname, lineno, _msg, args, exc_info, func, sinfo
+            name, level, pathname, lineno, msg, args, exc_info, func, sinfo
         )
-
-    @final
-    def getMessage(self) -> str:
-        """
-        Scipp objects are often logged as ``args``,
-        which is formatted by ``%`` style in ``msg``.
-        So if `getMessage` needs to be updated,
-        it should still include the % formatting that ``logging.LogRecord`` has.
-
-        ```
-        msg = str(self.msg)
-        if self.args:
-            msg = msg % self.args
-        ```
-        """
-        return super().getMessage()
 
 
 class BeamlimeColorLogRecord(BeamlimeLogRecord):
     def __init__(
         self,
+        *,
         name: str,
         level: int,
-        pathname: str,
-        lineno: int,
         msg: object,
-        args: _ArgsType | None,
-        exc_info: _SysExcInfoType | None,
-        func: str | None = None,
-        sinfo: str | None = None,
+        pathname: Union[str, None] = None,
+        lineno: Union[int, None] = None,
+        func: Union[str, None] = None,
+        sinfo: Union[str, None] = None,
+        args: Union[_ArgsType, None] = None,
+        exc_info: Union[_SysExcInfoType, None] = None,
+        app_name: str = "",
     ) -> None:
         from colorama import Style
 
         self.ansi_color = ""
         self.reset_color = Style.RESET_ALL
         super().__init__(
-            name, level, pathname, lineno, msg, args, exc_info, func, sinfo
+            name=name,
+            level=level,
+            pathname=pathname,
+            lineno=lineno,
+            msg=msg,
+            args=args,
+            exc_info=exc_info,
+            func=func,
+            sinfo=sinfo,
+            app_name=app_name,
         )

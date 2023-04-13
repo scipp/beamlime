@@ -3,7 +3,9 @@
 
 import logging
 
+from .. import __name__ as beamlime_name
 from .handlers import BeamlimeFileHandler
+from .loggers import BeamlimeLogger
 
 
 def _create_log_file(parent_dir: str, prefix: str = "beamlime") -> str:
@@ -87,7 +89,35 @@ def initialize_file_handler(config: dict, logger: logging.Logger = None) -> None
     logger.addHandler(file_handler)
 
 
-def get_logger() -> logging.Logger:
-    from beamlime import __name__ as beamlime_name
+def _start_new_logger(name: str, logger_class: logging.Logger) -> None:
+    """
+    Save the original logger class to a temporary variable and restore the logger class
+    after getting or instantiating the logger with specific logger class.
+    """
+    _original_logger = logging.getLoggerClass()
+    logging.setLoggerClass(logger_class)
+    _ = logging.getLogger(name)
+    logging.setLoggerClass(_original_logger)
 
+
+def get_logger(
+    name: str = beamlime_name, logger_class: logging.Logger = BeamlimeLogger
+) -> logging.Logger:
+    """
+    Retrieves a logger by ``name``.
+    If the logger does not exist, instantiate a new ``logger_class``.
+
+    Parameters
+    ----------
+    name:
+        The name of the logger.
+        Default is ``beamlime``.
+
+    logger_class:
+        Class of the logger to instantiate with.
+        Default is ``beamlime.logging.logger.BeamlimeLogger``.
+
+    """
+    if name not in logging.root.manager.loggerDict:
+        _start_new_logger(beamlime_name, logger_class)
     return logging.getLogger(beamlime_name)
