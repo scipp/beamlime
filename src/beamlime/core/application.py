@@ -41,13 +41,36 @@ class BeamLimeApplicationProtocol(Protocol):
 
 
 class _LogMixin:
-    def _log(self, level: int = DEBUG, msg="", *args):
-        self.logger._log(level, msg=msg, app_name=self.app_name, args=args)
+    def _add_log(self):
+        from ..logging.loggers import BeamlimeLogger
+
+        if isinstance(self.logger, BeamlimeLogger):
+
+            def _log(level: int = DEBUG, msg="", *args):
+                self.logger._log(level, msg=msg, args=args, app_name=self.app_name)
+
+        else:
+            from ..logging.records import BeamlimeLogRecord
+
+            extra_defaults = {}
+            for hdlr in self.logger.handlers:
+                if hasattr(hdlr, "_logRecordFactory") and issubclass(
+                    hdlr._logRecordFactory, BeamlimeLogRecord
+                ):
+                    extra_defaults.update(hdlr._logRecordFactory._extra_defaults)
+
+            extra_defaults["app_name"] = self.app_name
+
+            def _log(level: int = DEBUG, msg="", extra=extra_defaults, *args):
+                self.logger._log(level, msg=msg, args=args, extra=extra)
+
+        setattr(self, "_log", _log)  # noqa: B010
 
     def debug(self, msg: str, *args) -> None:
         self._log(level=DEBUG, msg=msg, *args)
 
     def info(self, msg: str, *args) -> None:
+        print(args)
         self._log(level=INFO, msg=msg, *args)
 
     def warn(self, msg: str, *args) -> None:
@@ -82,10 +105,11 @@ class BeamlimeApplicationInterface(_LogMixin, ABC):
             self.logger = get_logger()
         else:
             self.logger = logger
+        self._add_log()
 
     @abstractmethod
     def parse_config(self, config: dict) -> None:
-        pass
+        ...
 
     @property
     def input_channel(self):

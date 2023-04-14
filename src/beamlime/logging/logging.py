@@ -119,5 +119,5 @@ def get_logger(
 
     """
     if name not in logging.root.manager.loggerDict:
-        _start_new_logger(beamlime_name, logger_class)
-    return logging.getLogger(beamlime_name)
+        _start_new_logger(name, logger_class)
+    return logging.getLogger(name)

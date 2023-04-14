@@ -38,11 +38,12 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
         self.noise_err = float(config.get("noise-err", 0.3))
 
     @staticmethod
-    async def _run(self) -> None:
+    async def _run(self: BeamlimeApplicationInterface) -> None:
+        self.info("Start data feeding...")
+        self.info("Is this one wrong? %s", 1)
         original_img = Image.fromarray(np.uint8(load_icon_img()))
         resized_img = original_img.resize(self.detector_size)
         seed_img = np.asarray(flip(resized_img), dtype=np.float64)
-
         await asyncio.sleep(0.1)
         for iframe, frame in enumerate(
             fake_2d_detector_img_generator(

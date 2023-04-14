@@ -4,10 +4,10 @@
 from queue import Queue
 from typing import Union, overload
 
-from ..core.application import BeamlimeApplicationInterface, BeamLimeApplicationProtocol
+from ..core.application import BeamlimeApplicationInterface, _LogMixin
 
 
-class ApplicationInstanceGroup(BeamLimeApplicationProtocol):
+class ApplicationInstanceGroup(_LogMixin):
     def __init__(self, constructor, max_instance_num=3) -> None:
         self.constructor = constructor
         self.max_instance_num = max_instance_num
