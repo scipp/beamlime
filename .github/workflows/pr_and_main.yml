@@ -46,6 +46,7 @@ jobs:
         python-version: ["3.9", "3.10", "3.11"]
 
     steps:
+      - run: ls
       - uses: actions/checkout@v3
         with:
           submodules: true
@@ -53,7 +54,7 @@ jobs:
         uses: mamba-org/provision-with-micromamba@main
         with:
           micromamba-version: 1.0.0
-          environment-file: docs/environments/conda/${{ matrix.variant.build-config }}.yml
+          environment-file: docs/environments/conda/${{ matrix.variant.build-config }}.yaml
           cache-env: true
           extra-specs: |
             python=${{ matrix.python-version }}
