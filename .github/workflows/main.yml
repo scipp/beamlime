@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+
+name: CI-main
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/main.yml'
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.run_number || github.ref }}
+  cancel-in-progress: true  # cancel jobs from previous push
+
+jobs:
+  formatting:
+    uses: ./.github/workflows/reusable-static.yml
+  tests:
+    needs: formatting
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+        - {os: ubuntu-20.04, build-config: dev-env}
+        - {os: macos-11, build-config: dev-env}
+        - {os: windows-2019, build-config: dev-env}
+        python-version: ["3.9", "3.10", "3.11"]
+
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      os-variant: ${{ matrix.variant.os }}
+      build-config: ${{ matrix.variant.build-config }}
+      python-version: ${{ matrix.python-version }}
