@@ -4,10 +4,12 @@
 name: CI-main
 
 on:
-  pull_request: # for testing
-  # push:
-  #   branches:
-  #     - main
+  pull_request:
+    paths:
+      - '.github/workflows/main.yml'
+  push:
+    branches:
+      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.run_number || github.ref }}
