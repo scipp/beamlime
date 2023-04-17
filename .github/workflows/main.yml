@@ -31,4 +31,4 @@ jobs:
     with:
       os-variant: ${{ matrix.variant.os }}
       build-config: ${{ matrix.variant.build-config }}
-      python-version: $ {{ matrix.python-version }}
+      python-version: ${{ matrix.python-version }}
