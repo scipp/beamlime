@@ -46,7 +46,6 @@ jobs:
         python-version: ["3.9", "3.10", "3.11"]
 
     steps:
-      - run: ls
       - uses: actions/checkout@v3
         with:
           submodules: true
@@ -59,5 +58,4 @@ jobs:
           extra-specs: |
             python=${{ matrix.python-version }}
 
-      - run: conda activate lime-dev
       - run: tox -e test
