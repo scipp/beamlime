@@ -43,9 +43,3 @@ jobs:
             python=${{ inputs.python-version }}
 
       - run: tox -e test
-
-      - uses: actions/upload-artifact@v2
-        if: ${{ inputs.coverage-report }}
-        with:
-          name: CoverageReport
-          path: coverage_html/
