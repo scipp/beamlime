@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+
+name: CI-main
+
+on:
+  pull_request: # for testing
+  # push:
+  #   branches:
+  #     - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.run_number || github.ref }}
+  cancel-in-progress: true  # cancel jobs from previous push
+
+jobs:
+  formatting:
+    name: Formatting and static analysis
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+        with:
+          python-version: 3.9
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements/ci.txt
+      - run: tox -e static
+      - uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Apply automatic formatting
+
+  tests:
+    # needs: formatting
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+        - {os: ubuntu-20.04, build-config: dev-env}
+        - {os: macos-11, build-config: dev-env}
+        - {os: windows-2019, build-config: dev-env}
+        python-version: ["3.9", "3.10", "3.11"]
+
+    uses: .github/workflows/pr.yml@tests
+    with:
+      os-variant: ${{ matrix.variant.os }}
+      build-config: ${{ matrix.variant.build-config }}
+      python-version: $ {{ matrix.python-version }}
