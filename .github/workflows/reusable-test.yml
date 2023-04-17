@@ -44,7 +44,7 @@ jobs:
 
       - run: tox -e test
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         if: ${{ inputs.coverage-report }}
         with:
           name: CoverageReport
