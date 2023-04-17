@@ -19,8 +19,8 @@ jobs:
 
   single-test:
     needs: formatting
+    uses: ./.github/workflows/reusable-test.yml
     steps:
-      - uses: ./.github/workflows/reusable-test.yml
       - uses: actions/upload-artifact@v2
         with:
           name: CoverageReport
