@@ -20,3 +20,5 @@ jobs:
   single-test:
     needs: formatting
     uses: ./.github/workflows/reusable-test.yml
+    with:
+      coverage-report: true
