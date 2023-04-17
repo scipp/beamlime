@@ -19,12 +19,9 @@ jobs:
 
   single-test:
     needs: formatting
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      coverage-report: true
     steps:
+      - uses: ./.github/workflows/reusable-test.yml
       - uses: actions/upload-artifact@v2
-        if: ${{ inputs.coverage-report }}
         with:
           name: CoverageReport
           path: coverage_html/
