@@ -17,7 +17,7 @@ on:
         type: string
       coverage-report:
         default: false
-        type: bool
+        type: boolean
 
 jobs:
   test:
