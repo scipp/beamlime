@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   formatting:
-    uses: ./.github/workflows/reusables/static.yml
+    uses: ./.github/workflows/reusable-static.yml
 
   single-test:
-    uses: ./.github/workflows/reusables/test.yml
+    uses: ./.github/workflows/reusable-test.yml
