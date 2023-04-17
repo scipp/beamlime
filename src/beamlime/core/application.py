@@ -7,7 +7,7 @@ from logging import DEBUG, ERROR, INFO, WARN
 from queue import Empty
 from typing import Protocol
 
-from ..config.preset_options import RESERVED_APP_NAME
+from ..logging.loggers import BeamlimeLogger
 
 
 class BeamLimeApplicationProtocol(Protocol):
@@ -41,46 +41,36 @@ class BeamLimeApplicationProtocol(Protocol):
 
 
 class _LogMixin:
-    def _add_log(self):
-        from ..logging.loggers import BeamlimeLogger
-
+    def _log(self, level: int, msg: str, args: tuple):
         if isinstance(self.logger, BeamlimeLogger):
-
-            def _log(level: int = DEBUG, msg="", *args):
-                self.logger._log(level, msg=msg, args=args, app_name=self.app_name)
-
+            self.logger._log(level=level, msg=msg, args=args, app_name=self.app_name)
         else:
-            from ..logging.records import BeamlimeLogRecord
+            self._log_external(level=level, msg=msg, args=args)
 
-            extra_defaults = {}
-            for hdlr in self.logger.handlers:
-                if hasattr(hdlr, "_logRecordFactory") and issubclass(
-                    hdlr._logRecordFactory, BeamlimeLogRecord
-                ):
-                    extra_defaults.update(hdlr._logRecordFactory._extra_defaults)
+    def _log_external(self, level: int, msg: str, args: tuple):
+        from ..logging.formatters import EXTERNAL_MESSAGE_HEADERS
 
-            extra_defaults["app_name"] = self.app_name
-
-            def _log(level: int = DEBUG, msg="", extra=extra_defaults, *args):
-                self.logger._log(level, msg=msg, args=args, extra=extra)
-
-        setattr(self, "_log", _log)  # noqa: B010
+        self.logger._log(
+            level=level,
+            msg=EXTERNAL_MESSAGE_HEADERS.fmt % (self.app_name, msg),
+            args=args,
+            extra={"app_name": self.app_name},
+        )
 
     def debug(self, msg: str, *args) -> None:
-        self._log(level=DEBUG, msg=msg, *args)
+        self._log(level=DEBUG, msg=msg, args=args)
 
     def info(self, msg: str, *args) -> None:
-        print(args)
-        self._log(level=INFO, msg=msg, *args)
+        self._log(level=INFO, msg=msg, args=args)
 
     def warn(self, msg: str, *args) -> None:
-        self._log(level=WARN, msg=msg, *args)
+        self._log(level=WARN, msg=msg, args=args)
 
     def exception(self, msg: str, *args) -> None:
-        self._log(level=ERROR, msg=msg, *args)
+        self._log(level=ERROR, msg=msg, args=args)
 
     def error(self, msg: str, *args) -> None:
-        self._log(level=ERROR, msg=msg, *args)
+        self._log(level=ERROR, msg=msg, args=args)
 
 
 class BeamlimeApplicationInterface(_LogMixin, ABC):
@@ -88,7 +78,10 @@ class BeamlimeApplicationInterface(_LogMixin, ABC):
     _output_ch = None
 
     def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
+        self._init_logger(logger=logger)
         self.app_name = kwargs.get("name", "")
+        from ..config.preset_options import RESERVED_APP_NAME
+
         if self.app_name == RESERVED_APP_NAME:
             # TODO: Move this exception raises to earlier point.
             raise ValueError(
@@ -96,7 +89,6 @@ class BeamlimeApplicationInterface(_LogMixin, ABC):
                 "Please use another name for the application."
             )
         self.parse_config(config)
-        self._init_logger(logger=logger)
 
     def _init_logger(self, logger=None):
         if logger is None:
@@ -105,7 +97,6 @@ class BeamlimeApplicationInterface(_LogMixin, ABC):
             self.logger = get_logger()
         else:
             self.logger = logger
-        self._add_log()
 
     @abstractmethod
     def parse_config(self, config: dict) -> None:
@@ -132,6 +123,7 @@ class BeamlimeApplicationInterface(_LogMixin, ABC):
             return self.input_channel.get(*args, **kwargs)
         except Empty:
             # TODO: Update I/O interface to have common exception.
+            self.info("Data not received from the input channel.")
             return None
 
     async def send_data(self, data, *args, **kwargs) -> None:
@@ -140,6 +132,8 @@ class BeamlimeApplicationInterface(_LogMixin, ABC):
             return True
         except:  # noqa: E722,B001
             # TODO: Update I/O interface to have common exception.
+            self.info("Data not sent to the output channel.")
+            self.debug("Failed data: %s", str(data))
             return False
 
     @abstractstaticmethod

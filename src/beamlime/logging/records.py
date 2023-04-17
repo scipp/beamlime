@@ -7,6 +7,8 @@ from typing import Mapping, Union, overload
 
 from colorama import Style
 
+from .formatters import EXTERNAL_MESSAGE_HEADERS
+
 _SysExcInfoType = Union[
     tuple[type[BaseException], BaseException, Union[TracebackType, None]],
     tuple[None, None, None],
@@ -73,14 +75,16 @@ class BeamlimeLogRecord(LogRecord):
     def __copy_from__(self, record: LogRecord) -> None:
         self.__dict__.update(record.__dict__)
 
+    def getMessage(self) -> str:
+        app_name_col = EXTERNAL_MESSAGE_HEADERS.fmt % (self.app_name, "")
+        self.msg = self.msg.removeprefix(app_name_col)
+        return super().getMessage()
+
 
 class BeamlimeColorLogRecord(BeamlimeLogRecord):
     _extra_defaults = {
         "app_name": "",
         "ansi_color": "",
-        "debug_color": "",
-        "info_color": "",
-        "warn_color": "",
         "reset_color": Style.RESET_ALL,
     }
 

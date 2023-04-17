@@ -94,15 +94,14 @@ class ApplicationInstanceGroup(_LogMixin):
 
 
 class BeamLimeApplicationManager(BeamlimeApplicationInterface):
-    def __init__(self, config: dict = None, logger=None, scilent=False) -> None:
-        super().__init__(config, logger, name="Manager")
-        from ..logging import initialize_file_handler
-        from ..logging.handlers import BeamlimeStreamHandler
+    def __init__(
+        self, config: dict = None, logger: object = None, save_log: bool = False
+    ) -> None:
+        super().__init__(config=config, logger=logger, name="Manager")
+        if save_log:
+            from ..logging import initialize_file_handler
 
-        self.logger.setLevel("INFO")
-        if not scilent:
-            self.logger.addHandler(BeamlimeStreamHandler(header=True))
-        initialize_file_handler(self.config, self.logger)
+            initialize_file_handler(self.config, self.logger)
         self.build_instances()
         self.connect_instances()
 

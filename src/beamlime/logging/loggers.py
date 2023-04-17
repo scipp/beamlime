@@ -10,7 +10,7 @@ def hold_logging(logging_func: Callable) -> Callable:
     from functools import wraps
     from inspect import signature
 
-    @wraps
+    @wraps(logging_func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         logging._acquireLock()
         out = logging_func(*args, **kwargs)
@@ -63,7 +63,7 @@ class BeamlimeLogger(logging.Logger):
         self,
         level: int,
         msg: str,
-        args: list,
+        args: tuple,
         exc_info=None,
         extra=None,
         stack_info=False,
@@ -92,7 +92,7 @@ class BeamlimeLogger(logging.Logger):
             lineno=lno,
             func=func,
             sinfo=sinfo,
-            exec_info=exception_info,
+            exc_info=exception_info,
             app_name=app_name,
             **kwargs,
         )

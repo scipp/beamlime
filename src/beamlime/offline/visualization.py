@@ -66,11 +66,13 @@ class RealtimePlot(BeamlimeApplicationInterface):
         return f"value updated with frame number {frame_number}"
 
     @staticmethod
-    async def _run(self):
+    async def _run(self: BeamlimeApplicationInterface):
         await asyncio.sleep(2)
-        new_data = await self.receive_data()
+        new_data = await self.receive_data(timeout=1)
         while new_data is not None:
             await asyncio.sleep(0.5)
+            self.info("Received new data. Updating plot ...")
             result = self.process(new_data)
-            print(result)
-            new_data = await self.receive_data()
+            self.debug("Processed new data: %s", str(result))
+            new_data = await self.receive_data(timeout=1)
+        self.info("Finishing visualisation ...")

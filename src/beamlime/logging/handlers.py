@@ -4,7 +4,7 @@
 from logging import FileHandler, Formatter, StreamHandler
 from typing import Optional, Union
 
-from .formatters import BeamlimeAnsiColorFormatter, BeamlimeFormatter, _HeaderFormatter
+from .formatters import BeamlimeAnsiColorFormatter, BeamlimeHeaderFormatter
 from .records import BeamlimeColorLogRecord, BeamlimeLogRecord
 
 
@@ -18,7 +18,9 @@ class _HeaderMixin:
         except RecursionError:
             raise
 
-    def setFormatter(self, fmt: Union[_HeaderFormatter, Formatter, None]) -> None:
+    def setFormatter(
+        self, fmt: Union[BeamlimeHeaderFormatter, Formatter, None]
+    ) -> None:
         super().setFormatter(fmt)
         if hasattr(fmt, "header") and self.header:
             self.emit_header()
@@ -37,7 +39,7 @@ class BeamlimeFileHandler(_HeaderMixin, FileHandler):
     ) -> None:
         self.header = header
         super().__init__(filename, mode, encoding, delay, errors)
-        self.setFormatter(BeamlimeFormatter())
+        self.setFormatter(BeamlimeHeaderFormatter())
 
     def handle(self, record: BeamlimeLogRecord) -> bool:
         if not isinstance(record, BeamlimeLogRecord):
@@ -53,7 +55,6 @@ class BeamlimeStreamHandler(_HeaderMixin, StreamHandler):
 
         self.header = header
         self.palette = [
-            Fore.BLACK,
             Fore.GREEN,
             Fore.BLUE,
             Fore.RED,

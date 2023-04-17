@@ -6,7 +6,7 @@ from functools import partial
 from logging import Formatter, LogRecord
 from typing import Any, Literal, Mapping, Union, overload
 
-_FormatStyle = Literal["{"]
+_FormatStyle = Literal["{", "%"]
 _SepStyle = Literal["|", ","]
 
 
@@ -66,6 +66,12 @@ class LogColumn:
 
     @property
     def formatter(self) -> str:
+        if self.style == "{":
+            return self._str_formatter()
+        elif self.style == "%":
+            return self._percent_formatter()
+
+    def _str_formatter(self) -> str:
         if self.min_length is not None:
             length_desc = ":" + str(self.min_length)
         else:
@@ -73,8 +79,22 @@ class LogColumn:
 
         return "{" + f"{self.variable_name}{length_desc}" + "}"
 
+    def _percent_formatter(self) -> str:
+        if self.min_length is not None:
+            length_desc = "-" + str(self.min_length)
+        else:
+            length_desc = ""
+
+        return "%" + f"{length_desc}" + "s"
+
+    def format(self) -> str:
+        if self.style == "%":
+            return self.formatter % self.title
+        elif self.style == "{":
+            return self.formatter.format(**{self.variable_name: self.title})
+
     def __str__(self) -> str:
-        return self.formatter.format(**{self.variable_name: self.title})
+        self.format()
 
     def __repr__(self) -> str:
         return (
@@ -172,10 +192,11 @@ class LogHeader(OrderedDict):
 
             self._fmt = sep.join(_colored_fmts)
 
-        for column in _padded_columns:
+        for column in columns:
             self.__setitem__(column.variable_name, column)
 
     def _init_from_literal_fmt(self, *fmts: str) -> None:
+        # TODO: Support '%'
         self._fmt = "".join(fmts)
 
         def wrap_header(fmt_piece: str) -> LogColumn:
@@ -204,16 +225,15 @@ class LogHeader(OrderedDict):
         return super().__setitem__(key, item)
 
     def format(self) -> str:
-        return self.fmt.format(
-            **{column.variable_name: column.title for column in self.values()}
-        )
+        sep = " " * self.padding[0] + self.sep + " " * self.padding[1]
+        return sep.join(column.format() for column in self.values())
 
 
 DEFAULT_HEADERS = LogHeader(
     LogColumn("asctime", title="TIME", min_length=23),
     LogColumn("app_name", title="APPLICATION", min_length=15),
     LogColumn("levelname", title="LEVEL", min_length=8),
-    LogColumn("message"),
+    LogColumn("message", title="MESSAGE"),
     padding=(1, 1),
     sep="|",
 )
@@ -222,13 +242,21 @@ DEFAULT_COLOR_HEADERS = LogHeader(
     LogColumn("asctime", title="TIME", min_length=23),
     LogColumn("app_name", title="APPLICATION", min_length=15, ansi_colored=True),
     LogColumn("levelname", title="LEVEL", min_length=8, ansi_colored=True),
-    LogColumn("message", ansi_colored=True),
+    LogColumn("message", title="MESSAGE", ansi_colored=True),
     padding=(1, 1),
     sep="|",
 )
 
 
-class _HeaderFormatter(Formatter):
+EXTERNAL_MESSAGE_HEADERS = LogHeader(
+    LogColumn("app_name", title="APPLICATION", min_length=15, style="%"),
+    LogColumn("msg", title="RAW MESSAGE", style="%"),
+    padding=(1, 1),
+    sep="|",
+)
+
+
+class BeamlimeHeaderFormatter(Formatter):
     """
     Log formatter with a header.
     """
@@ -264,5 +292,7 @@ class _HeaderFormatter(Formatter):
         return super().format(record)
 
 
-BeamlimeFormatter = partial(_HeaderFormatter, headers=DEFAULT_HEADERS)
-BeamlimeAnsiColorFormatter = partial(_HeaderFormatter, headers=DEFAULT_COLOR_HEADERS)
+BeamlimeFormatter = partial(BeamlimeHeaderFormatter, headers=DEFAULT_HEADERS)
+BeamlimeAnsiColorFormatter = partial(
+    BeamlimeHeaderFormatter, headers=DEFAULT_COLOR_HEADERS
+)

@@ -40,7 +40,6 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
     @staticmethod
     async def _run(self: BeamlimeApplicationInterface) -> None:
         self.info("Start data feeding...")
-        self.info("Is this one wrong? %s", 1)
         original_img = Image.fromarray(np.uint8(load_icon_img()))
         resized_img = original_img.resize(self.detector_size)
         seed_img = np.asarray(flip(resized_img), dtype=np.float64)
@@ -68,4 +67,5 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
             send_result = await self.send_data(data=fake_data)
             if not send_result:
                 break
-            self.info("Sending %sth frame", str(iframe))
+            self.info("Sending %dth frame", iframe)
+        self.info("Finishing data feeding...")
