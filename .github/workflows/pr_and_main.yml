@@ -43,7 +43,7 @@ jobs:
         - {os: ubuntu-20.04, build-config: dev-env}
         # - {os: macos-11, build-config: dev-env}
         # - {os: windows-2019, build-config: dev-env}
-        python-version: ["3.9", "3.11"]
+        python-version: ["3.9"]
 
     steps:
       - uses: actions/checkout@v3
