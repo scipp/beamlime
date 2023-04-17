@@ -18,4 +18,5 @@ jobs:
     uses: ./.github/workflows/reusable-static.yml
 
   single-test:
+    needs: formatting
     uses: ./.github/workflows/reusable-test.yml

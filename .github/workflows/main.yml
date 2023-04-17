@@ -14,8 +14,10 @@ concurrency:
   cancel-in-progress: true  # cancel jobs from previous push
 
 jobs:
+  formatting:
+    uses: ./.github/workflows/reusable-static.yml
   tests:
-    needs: ./.github/workflows/pr.yml
+    needs: formatting
     strategy:
       fail-fast: false
       matrix:
