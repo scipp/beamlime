@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   tests:
-    # needs: formatting
+    needs: ./.github/workflows/pr.yml
     strategy:
       fail-fast: false
       matrix:
@@ -25,7 +25,7 @@ jobs:
         - {os: windows-2019, build-config: dev-env}
         python-version: ["3.9", "3.10", "3.11"]
 
-    uses: ./.github/workflows/pr.yml
+    uses: ./.github/workflows/reusables/test.yml
     with:
       os-variant: ${{ matrix.variant.os }}
       build-config: ${{ matrix.variant.build-config }}

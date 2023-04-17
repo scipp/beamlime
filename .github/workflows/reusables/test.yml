@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+
+name: CI
+
+on:
+  workflow_call:
+    inputs:
+      os-variant:
+        default: 'ubuntu-20.04'
+        type: string
+      build-config:
+        default: 'dev-env'
+        type: string
+      python-version:
+        default: '3.9'
+        type: string
+
+
+jobs:
+  test:
+    name: tests ${{ inputs.os-variant }}, py${{ inputs.python-version }}
+    runs-on: ${{ inputs.os-variant }}
+    defaults:
+      run:
+        shell: bash -l {0}
+    strategy:
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Setup conda environment
+        uses: mamba-org/provision-with-micromamba@main
+        with:
+          micromamba-version: 1.0.0
+          environment-file: docs/environments/conda/${{ inputs.build-config }}.yaml
+          cache-env: true
+          extra-specs: |
+            python=${{ inputs.python-version }}
+
+      - run: tox -e test
