@@ -104,6 +104,8 @@ def build_default_config():
     tpl["general"]["user"] = "scipp"
     tpl["general"]["name"] = "default configuration"
     tpl["general"]["last-updated"] = str(datetime.datetime.now())
+    # Default logging directory should be retrieved by ``preset_options``.
+    tpl["general"].pop("log-dir")
 
     # Data Stream
     tpl["data-stream"] = _build_default_data_stream_config()
