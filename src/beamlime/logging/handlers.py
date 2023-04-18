@@ -69,7 +69,7 @@ class BeamlimeStreamHandler(_HeaderMixin, StreamHandler):
     def set_application_color(
         self, app_name: str, ansi_color: Optional[str] = None
     ) -> None:
-        self.color_map.update({app_name: ansi_color or next(self.color_list)})
+        self.color_map[app_name] = ansi_color or next(self.color_list)
 
     def get_application_color(self, app_name: str) -> str:
         if app_name not in self.color_map:
