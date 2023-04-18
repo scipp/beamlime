@@ -18,8 +18,6 @@ _ArgsType = Union[tuple[object, ...], Mapping[str, object]]
 
 
 class BeamlimeLogRecord(LogRecord):
-    _extra_defaults = {"app_name": ""}
-
     @overload
     def __init__(self, record: LogRecord):
         ...
@@ -74,12 +72,6 @@ class BeamlimeLogRecord(LogRecord):
 
 
 class BeamlimeColorLogRecord(BeamlimeLogRecord):
-    _extra_defaults = {
-        "app_name": "",
-        "ansi_color": "",
-        "reset_color": Style.RESET_ALL,
-    }
-
     def __init__(
         self,
         record: Union[LogRecord, None] = None,
@@ -94,9 +86,11 @@ class BeamlimeColorLogRecord(BeamlimeLogRecord):
         args: Union[_ArgsType, None] = None,
         exc_info: Union[_SysExcInfoType, None] = None,
         app_name: str = "",
+        ansi_color: str = "",
+        reset_color: str = Style.RESET_ALL,
     ) -> None:
-        self.ansi_color = self._extra_defaults["ansi_color"]
-        self.reset_color = self._extra_defaults["reset_color"]
+        self.ansi_color = ansi_color
+        self.reset_color = reset_color
         if record is not None:
             super().__init__(record=record)
         else:
