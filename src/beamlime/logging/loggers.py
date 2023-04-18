@@ -16,9 +16,17 @@ def hold_logging(logging_func: Callable) -> Callable:
 
         if _lock:
             _lock.acquire()
-        out = logging_func(*args, **kwargs)
-        if _lock:
-            _lock.release()
+
+        try:
+            out = logging_func(*args, **kwargs)
+        except Exception as e:
+            if _lock:
+                _lock.release()
+            raise (e)
+        finally:
+            if _lock:
+                _lock.release()
+
         return out
 
     wrapper.__signature__ = signature(logging_func)
