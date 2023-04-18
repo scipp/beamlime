@@ -191,8 +191,5 @@ class BeamlimeLogger(logging.Logger):
                 key_err,
             )
 
-        try:
-            if not (hdlr in self.handlers):
-                self.handlers.append(hdlr)
-        finally:
-            pass
+        if not (hdlr in self.handlers):
+            self.handlers.append(hdlr)
