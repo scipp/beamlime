@@ -12,9 +12,13 @@ def hold_logging(logging_func: Callable) -> Callable:
 
     @wraps(logging_func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        logging._acquireLock()
+        from . import _lock
+
+        if _lock:
+            _lock.acquire()
         out = logging_func(*args, **kwargs)
-        logging._releaseLock()
+        if _lock:
+            _lock.release()
         return out
 
     wrapper.__signature__ = signature(logging_func)
@@ -78,6 +82,11 @@ class BeamlimeLogger(logging.Logger):
         Overwrites ``logging.Logger._log``.
 
         """
+        if not self.isEnabledFor(level):
+            # level test is usually done by higher level log functions
+            # But ``BeamlimeLogger._log`` is the only exposed interface for now.
+            return
+
         exception_info = self._wrap_exception_info(exc_info=exc_info)
         fn, lno, func, sinfo = self._wrap_stack_info(
             stack_info=stack_info, stacklevel=stacklevel

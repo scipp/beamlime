@@ -18,14 +18,6 @@ _ArgsType = Union[tuple[object, ...], Mapping[str, object]]
 
 
 class BeamlimeLogRecord(LogRecord):
-    """
-    Note
-    ----
-    First 8 Arguments cannot be keyword-only arguments
-    because of the way ``logging`` creates an empty record.
-    It uses positional arguments to create a record instance.
-    """
-
     _extra_defaults = {"app_name": ""}
 
     @overload

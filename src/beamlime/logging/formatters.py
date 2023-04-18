@@ -196,6 +196,7 @@ class LogHeader(OrderedDict):
             self.__setitem__(column.variable_name, column)
 
     def _init_from_literal_fmt(self, *fmts: str) -> None:
+        # TODO: Use string.Formatter
         # TODO: Support '%'
         self._fmt = "".join(fmts)
 
