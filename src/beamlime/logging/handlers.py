@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
-from logging import FileHandler, Formatter, StreamHandler
+from logging import FileHandler, Formatter, LogRecord, StreamHandler
 from typing import Optional, Union
 
 from .formatters import BeamlimeAnsiColorFormatter, BeamlimeHeaderFormatter
@@ -41,7 +41,7 @@ class BeamlimeFileHandler(_HeaderMixin, FileHandler):
         super().__init__(filename, mode, encoding, delay, errors)
         self.setFormatter(BeamlimeHeaderFormatter())
 
-    def handle(self, record: BeamlimeLogRecord) -> bool:
+    def handle(self, record: LogRecord) -> bool:
         if not isinstance(record, BeamlimeLogRecord):
             return super().handle(BeamlimeLogRecord(record))
         return super().handle(record)

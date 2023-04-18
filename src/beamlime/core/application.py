@@ -41,21 +41,22 @@ class BeamLimeApplicationProtocol(Protocol):
 
 
 class _LogMixin:
+    """Logging interfaces for Beamlime Applications"""
+
     def _log(self, level: int, msg: str, args: tuple):
         if isinstance(self.logger, BeamlimeLogger):
             self.logger._log(level=level, msg=msg, args=args, app_name=self.app_name)
         else:
-            self._log_external(level=level, msg=msg, args=args)
+            if not self.logger.isEnabledFor(level):
+                return
+            from ..logging.formatters import EXTERNAL_MESSAGE_HEADERS
 
-    def _log_external(self, level: int, msg: str, args: tuple):
-        from ..logging.formatters import EXTERNAL_MESSAGE_HEADERS
-
-        self.logger._log(
-            level=level,
-            msg=EXTERNAL_MESSAGE_HEADERS.fmt % (self.app_name, msg),
-            args=args,
-            extra={"app_name": self.app_name},
-        )
+            self.logger._log(
+                level=level,
+                msg=EXTERNAL_MESSAGE_HEADERS.fmt % (self.app_name, msg),
+                args=args,
+                extra={"app_name": self.app_name},
+            )
 
     def debug(self, msg: str, *args) -> None:
         self._log(level=DEBUG, msg=msg, args=args)
