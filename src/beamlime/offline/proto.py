@@ -252,6 +252,9 @@ class BeamLimeApplicationManager(BeamlimeApplicationInterface):
     def _run(self) -> None:
         pass
 
+    def start(self) -> None:
+        pass
+
     def pause(self) -> None:
         pass
 

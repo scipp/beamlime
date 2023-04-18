@@ -16,10 +16,10 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
     def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
         super().__init__(config, logger, **kwargs)
 
-    def pause(self) -> None:
+    def start(self) -> None:
         pass
 
-    def start(self) -> None:
+    def pause(self) -> None:
         pass
 
     def resume(self) -> None:

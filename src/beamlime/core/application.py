@@ -159,6 +159,10 @@ class BeamlimeApplicationInterface(_LogMixin, ABC):
         return asyncio.create_task(self._run(self))
 
     @abstractmethod
+    def start(self) -> None:
+        pass
+
+    @abstractmethod
     def pause(self) -> None:
         pass
 
