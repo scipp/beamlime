@@ -26,7 +26,8 @@ jobs:
         variant:
         - {os: ubuntu-20.04, build-config: dev-env}
         - {os: macos-11, build-config: dev-env}
-        - {os: windows-2019, build-config: dev-env}
+        # - {os: windows-2019, build-config: dev-env}
+        # TODO: Decide if we are going to support Windows or not.
         python-version: ["3.9", "3.10", "3.11"]
 
     uses: ./.github/workflows/reusable-test.yml
