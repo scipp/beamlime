@@ -34,7 +34,7 @@ isosurfaces==0.1.0
     # via manim
 jinja2==3.1.2
     # via diagrams
-manim==0.17.2
+manim==0.17.3
     # via -r docs-manual.in
 manimpango==0.4.3
     # via manim
@@ -64,7 +64,7 @@ numpy==1.24.2
     #   moderngl-window
     #   pyrr
     #   scipy
-pillow==9.4.0
+pillow==9.5.0
     # via
     #   manim
     #   moderngl-window
@@ -74,7 +74,7 @@ pydub==0.25.1
     # via manim
 pyglet==2.0.5
     # via moderngl-window
-pygments==2.14.0
+pygments==2.15.0
     # via
     #   manim
     #   rich
@@ -82,7 +82,7 @@ pyrr==0.10.3
     # via moderngl-window
 requests==2.28.2
     # via manim
-rich==13.3.3
+rich==13.3.4
     # via manim
 scipy==1.10.1
     # via manim

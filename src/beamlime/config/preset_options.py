@@ -4,6 +4,8 @@
 import enum
 from typing import Protocol, Union
 
+from beamlime import __name__ as RESERVED_APP_NAME  # noqa F401
+
 from .tools import find_home
 
 if hasattr(enum, "StrEnum"):

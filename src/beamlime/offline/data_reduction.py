@@ -6,7 +6,6 @@ from typing import TypeVar
 
 import numpy as np
 import scipp as sc
-from colorama import Style
 
 from ..config.tools import list_to_dict, nested_data_get
 from ..core.application import BeamLimeDataReductionInterface
@@ -36,11 +35,8 @@ method_map = {"heatmap_2d": heatmap_2d, "handover": lambda x: x}
 
 
 class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
-    def __init__(self, config: dict, verbose: bool = False) -> None:
-        from colorama import Fore
-
-        self.history = dict()
-        super().__init__(config, verbose, verbose_option=Fore.GREEN)
+    def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
+        super().__init__(config, logger, **kwargs)
 
     def pause(self) -> None:
         pass
@@ -77,8 +73,10 @@ class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
         return new_data
 
     def process(self, new_data):
+        self.debug("Processing new data ...")
         result_map = dict()
         for wf_name, wf_config in self.workflow_map.items():
+            self.debug("workflow: %s", wf_name)
             targets = wf_config["targets"]
             # SKIP-able check
             output_policy = wf_config["output-policy"]
@@ -88,9 +86,11 @@ class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
 
             # Retrieve arguments for the process based on the input policy
             input_policy = wf_config["input-policy"]
+            self.debug("Applying input policy: %s", input_policy)
 
             if input_policy == "SKIP" and "last-input" in self.history[wf_name]:
                 process_inputs = self.history[wf_name]["last-input"]
+                self.debug("Using last input: %s", str(process_inputs))
             else:
                 last_inputs = self.history[wf_name].get(
                     "last-input", [None] * len(targets)
@@ -125,6 +125,7 @@ class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
                 process_result = func(*process_inputs)
 
             # Update process result based on the output(result) policy
+            self.debug("Applying result policy: %s", output_policy)
             last_results = self.history[wf_name].get("last-result", None)
             result = self.apply_policy(
                 new_data=process_result,
@@ -132,7 +133,6 @@ class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
                 policy=output_policy,
                 data_count=self.history[wf_name]["data-count"],
             )
-
             if output_policy != "REPLACE":
                 self.history[wf_name]["last-result"] = result
                 self.history[wf_name]["data-count"] += 1
@@ -146,11 +146,12 @@ class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
         await asyncio.sleep(1)
         new_data = await self.receive_data()
         while new_data is not None:
-            await asyncio.sleep(0.2)
+            self.debug("Processing new data: %s", str(new_data))
+            await asyncio.sleep(0.4)
             result = self.process(new_data)
             send_result = await self.send_data(data=result)
             if not send_result:
                 break
             new_data = await self.receive_data(timeout=1)
-            if self.verbose:
-                print(self.verbose_option, f"Sending {result}", Style.RESET_ALL)
+            self.info("Sending %s", str(result))
+        self.info("Finishing the task ...")

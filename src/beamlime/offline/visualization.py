@@ -5,23 +5,17 @@ import asyncio
 from functools import partial
 
 import plopp as pp
-from colorama import Style
 from scipp import DataArray
 
 from ..core.application import BeamlimeApplicationInterface
 
 
 class RealtimePlot(BeamlimeApplicationInterface):
-    def __init__(
-        self,
-        config: dict = None,
-        verbose: bool = False,
-        verbose_option: str = Style.RESET_ALL,
-    ) -> None:
+    def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
+        super().__init__(config, logger, **kwargs)
         self._plottable_objects = dict()
         self._stream_nodes = dict()
         self._figs = dict()
-        super().__init__(config, verbose, verbose_option)
 
     def pause(self) -> None:
         pass
@@ -72,11 +66,13 @@ class RealtimePlot(BeamlimeApplicationInterface):
         return f"value updated with frame number {frame_number}"
 
     @staticmethod
-    async def _run(self):
+    async def _run(self: BeamlimeApplicationInterface):
         await asyncio.sleep(2)
-        new_data = await self.receive_data()
+        new_data = await self.receive_data(timeout=1)
         while new_data is not None:
             await asyncio.sleep(0.5)
+            self.info("Received new data. Updating plot ...")
             result = self.process(new_data)
-            print(result)
-            new_data = await self.receive_data()
+            self.debug("Processed new data: %s", str(result))
+            new_data = await self.receive_data(timeout=1)
+        self.info("Finishing visualisation ...")

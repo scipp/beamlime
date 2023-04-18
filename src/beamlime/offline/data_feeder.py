@@ -4,7 +4,6 @@
 import asyncio
 
 import numpy as np
-from colorama import Fore, Style
 from PIL import Image
 from PIL.ImageOps import flip
 
@@ -14,15 +13,13 @@ from ..resources.images.generators import fake_2d_detector_img_generator
 
 
 class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
-    def __init__(
-        self, config: dict, verbose: bool = False, verbose_option: str = Fore.BLUE
-    ) -> None:
-        super().__init__(config, verbose, verbose_option)
-
-    def pause(self) -> None:
-        pass
+    def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
+        super().__init__(config, logger, **kwargs)
 
     def start(self) -> None:
+        pass
+
+    def pause(self) -> None:
         pass
 
     def resume(self) -> None:
@@ -41,11 +38,11 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
         self.noise_err = float(config.get("noise-err", 0.3))
 
     @staticmethod
-    async def _run(self) -> None:
+    async def _run(self: BeamlimeApplicationInterface) -> None:
+        self.info("Start data feeding...")
         original_img = Image.fromarray(np.uint8(load_icon_img()))
         resized_img = original_img.resize(self.detector_size)
         seed_img = np.asarray(flip(resized_img), dtype=np.float64)
-
         await asyncio.sleep(0.1)
         for iframe, frame in enumerate(
             fake_2d_detector_img_generator(
@@ -70,5 +67,5 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
             send_result = await self.send_data(data=fake_data)
             if not send_result:
                 break
-            if self.verbose:
-                print(self.verbose_option, f"Sending {iframe}th frame", Style.RESET_ALL)
+            self.info("Sending %dth frame", iframe)
+        self.info("Finishing data feeding...")
