@@ -170,7 +170,7 @@ class LogHeader(OrderedDict):
 
             # Color starting/terminating flags
             _color_starts = [
-                True if column.ansi_colored and not p_column.ansi_colored else False
+                column.ansi_colored and not p_column.ansi_colored
                 for column, p_column in zip(columns, _padded_columns[:-2])
             ]
             _color_ends = [
