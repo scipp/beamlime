@@ -2,8 +2,13 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
 import logging
+import os
 import sys
-from typing import Any, Callable, Union
+from typing import Any, Callable, Optional, TypeVar, Union
+
+from .sources import is_file_logging_source, retrieve_current_frame
+
+frame = TypeVar("frame")
 
 
 def hold_logging(logging_func: Callable) -> Callable:
@@ -50,16 +55,65 @@ class BeamlimeLogger(logging.Logger):
         self._logRecordFactory = BeamlimeColorLogRecord
         super().__init__(name, level)
 
+    def find_caller(self, stack_info=False, stacklevel=1):
+        """
+        Find the stack frame of the caller so that we can note the source
+        file name, line number and function name.
+
+        Copied from ``logging.Logger.findCaller``.
+        """
+        import io
+        import traceback
+
+        def _get_last_frame(frm: frame, stack_level: int):
+            if frm and (stack_level > 1):
+                return _get_last_frame(frm.f_back, stack_level - 1)
+            return frm
+
+        def _retrieve_caller_info(
+            frm: frame, stack_info: bool
+        ) -> tuple[str, int, str, Optional[str]]:
+            if not hasattr(frm, "f_code"):
+                return "(unknown file)", 0, "(unknown function)", None
+            elif is_file_logging_source(os.path.normcase(frm.f_code.co_filename)):
+                return _retrieve_caller_info(frm.f_back, stack_info=stack_info)
+            else:
+                if not stack_info:
+                    return (
+                        frm.f_code.co_filename,
+                        frm.f_lineno,
+                        frm.f_code.co_name,
+                        None,
+                    )
+                else:
+                    sio = io.StringIO()
+                    sio.write("Stack (most recent call last):\n")
+                    traceback.print_stack(frm, file=sio)
+                    sinfo = sio.getvalue().removesuffix("\n")
+                    sio.close()
+                    return (
+                        frm.f_code.co_filename,
+                        frm.f_lineno,
+                        frm.f_code.co_name,
+                        sinfo,
+                    )
+
+        # On some versions of IronPython, currentframe() returns None if
+        # IronPython isn't run with -X:Frames.
+        orig_f = retrieve_current_frame()
+        _frame = (
+            orig_f if orig_f is None else _get_last_frame(orig_f.f_back, stacklevel)
+        )
+        return _retrieve_caller_info(_frame, stack_info=stack_info)
+
     def _wrap_stack_info(
         self, stack_info: bool = False, stacklevel: int = 1
     ) -> tuple[str, int, str, Union[str, None]]:
-        if logging._srcfile:
-            try:
-                fn, lno, func, sinfo = self.findCaller(stack_info, stacklevel)
-                return fn, lno, func, sinfo
-            except ValueError:
-                pass
-
+        try:
+            fn, lno, func, sinfo = self.find_caller(stack_info, stacklevel)
+            return fn, lno, func, sinfo
+        except ValueError:
+            ...
         return "(unknown file)", 0, "(unknown function)", None
 
     def _wrap_exception_info(
