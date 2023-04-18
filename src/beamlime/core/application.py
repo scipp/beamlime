@@ -64,7 +64,7 @@ class _LogMixin:
     def info(self, msg: str, *args) -> None:
         self._log(level=INFO, msg=msg, args=args)
 
-    def warn(self, msg: str, *args) -> None:
+    def warning(self, msg: str, *args) -> None:
         self._log(level=WARN, msg=msg, args=args)
 
     def exception(self, msg: str, *args) -> None:
