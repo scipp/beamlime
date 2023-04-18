@@ -4,14 +4,17 @@
 from queue import Queue
 from typing import Union, overload
 
-from ..core.application import BeamlimeApplicationInterface, BeamLimeApplicationProtocol
+from ..core.application import BeamlimeApplicationInterface, _LogMixin
 
 
-class ApplicationInstanceGroup(BeamLimeApplicationProtocol):
+class ApplicationInstanceGroup(_LogMixin):
     def __init__(self, constructor, max_instance_num=3) -> None:
         self.constructor = constructor
         self.max_instance_num = max_instance_num
-        self._instances = [self.constructor() for _ in range(self.max_instance_num)]
+        self._instances = []
+        for _ in range(self.max_instance_num):
+            self._instances.append(self.constructor())
+            self._instances[-1].info("Application instance up and running...")
         self._input_ch = None
         self._output_ch = None
 
@@ -91,8 +94,14 @@ class ApplicationInstanceGroup(BeamLimeApplicationProtocol):
 
 
 class BeamLimeApplicationManager(BeamlimeApplicationInterface):
-    def __init__(self, config: Union[dict, str] = None) -> None:
-        super().__init__(config)
+    def __init__(
+        self, config: dict = None, logger: object = None, save_log: bool = False
+    ) -> None:
+        super().__init__(config=config, logger=logger, name="Manager")
+        if save_log:
+            from ..logging import initialize_file_handler
+
+            initialize_file_handler(self.config, self.logger)
         self.build_instances()
         self.connect_instances()
 
@@ -126,19 +135,6 @@ class BeamLimeApplicationManager(BeamlimeApplicationInterface):
         elif isinstance(config, dict):
             self.config = config
 
-        # TODO: Add configuration validation check here
-        self._init_logger()
-
-    def _init_logger(self):
-        general_config = self.config["general"]
-        if "log-dir" not in general_config or general_config["log-dir"] is None:
-            from ..config.preset_options import DEFAULT_LOG_DIR
-
-            self.log_dir = DEFAULT_LOG_DIR
-        else:
-            self.log_dir = general_config["log-dir"]
-        # TODO: Configure logger here
-
     def build_instances(self):
         from functools import partial
 
@@ -165,15 +161,23 @@ class BeamLimeApplicationManager(BeamlimeApplicationInterface):
             if issubclass(handler, BeamLimeDataReductionInterface):
                 # Special type of application - Data Reduction
                 handler_constructor = partial(
-                    handler, config=self.config["data-reduction"]
+                    handler,
+                    config=self.config["data-reduction"],
+                    name=app_name,
+                    logger=self.logger,
                 )
             else:
                 if app_name in self.app_specs:
                     handler_constructor = partial(
-                        handler, config=self.app_specs[app_name]
+                        handler,
+                        config=self.app_specs[app_name],
+                        name=app_name,
+                        logger=self.logger,
                     )
                 else:
-                    handler_constructor = handler
+                    handler_constructor = partial(
+                        handler, name=app_name, logger=self.logger
+                    )
 
             self.app_instances[app_name] = ApplicationInstanceGroup(
                 constructor=handler_constructor, max_instance_num=instance_num
@@ -246,6 +250,9 @@ class BeamLimeApplicationManager(BeamlimeApplicationInterface):
         pass
 
     def _run(self) -> None:
+        pass
+
+    def start(self) -> None:
         pass
 
     def pause(self) -> None:

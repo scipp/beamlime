@@ -1,7 +1,14 @@
 name: lime-test
 channels:
   - conda-forge
+  - scipp
 dependencies:
   - python=3.9
   - jupyterlab
   - pyyaml
+  - colorama
+  - graphlib-backport
+  - scipp
+  - ipympl
+pip:
+  - plopp

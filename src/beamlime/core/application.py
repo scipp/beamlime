@@ -3,11 +3,11 @@
 
 import asyncio
 from abc import ABC, abstractmethod, abstractstaticmethod
+from logging import DEBUG, ERROR, INFO, WARN
 from queue import Empty
-from typing import Protocol, Union
+from typing import Protocol
 
-from colorama import Style
-from colorama.ansi import AnsiBack, AnsiFore, AnsiStyle
+from ..logging.loggers import BeamlimeLogger
 
 
 class BeamLimeApplicationProtocol(Protocol):
@@ -40,23 +40,68 @@ class BeamLimeApplicationProtocol(Protocol):
         ...
 
 
-class BeamlimeApplicationInterface(ABC, BeamLimeApplicationProtocol):
+class _LogMixin:
+    """Logging interfaces for Beamlime Applications"""
+
+    def _log(self, level: int, msg: str, args: tuple):
+        if isinstance(self.logger, BeamlimeLogger):
+            self.logger._log(level=level, msg=msg, args=args, app_name=self.app_name)
+        else:
+            if not self.logger.isEnabledFor(level):
+                return
+            from ..logging.formatters import EXTERNAL_MESSAGE_HEADERS
+
+            self.logger._log(
+                level=level,
+                msg=EXTERNAL_MESSAGE_HEADERS.fmt % (self.app_name, msg),
+                args=args,
+                extra={"app_name": self.app_name},
+            )
+
+    def debug(self, msg: str, *args) -> None:
+        self._log(level=DEBUG, msg=msg, args=args)
+
+    def info(self, msg: str, *args) -> None:
+        self._log(level=INFO, msg=msg, args=args)
+
+    def warn(self, msg: str, *args) -> None:
+        self._log(level=WARN, msg=msg, args=args)
+
+    def exception(self, msg: str, *args) -> None:
+        self._log(level=ERROR, msg=msg, args=args)
+
+    def error(self, msg: str, *args) -> None:
+        self._log(level=ERROR, msg=msg, args=args)
+
+
+class BeamlimeApplicationInterface(_LogMixin, ABC):
     _input_ch = None
     _output_ch = None
 
-    def __init__(
-        self,
-        config: dict = None,
-        verbose: bool = False,
-        verbose_option: Union[AnsiFore, AnsiStyle, AnsiBack, str] = Style.RESET_ALL,
-    ) -> None:
+    def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
+        self._init_logger(logger=logger)
+        self.app_name = kwargs.get("name", "")
+        from ..config.preset_options import RESERVED_APP_NAME
+
+        if self.app_name == RESERVED_APP_NAME:
+            # TODO: Move this exception raises to earlier point.
+            raise ValueError(
+                f"{self.app_name} is a reserved name. "
+                "Please use another name for the application."
+            )
         self.parse_config(config)
-        self.verbose = verbose
-        self.verbose_option = verbose_option
+
+    def _init_logger(self, logger=None):
+        if logger is None:
+            from ..logging import get_logger
+
+            self.logger = get_logger()
+        else:
+            self.logger = logger
 
     @abstractmethod
     def parse_config(self, config: dict) -> None:
-        pass
+        ...
 
     @property
     def input_channel(self):
@@ -79,6 +124,7 @@ class BeamlimeApplicationInterface(ABC, BeamLimeApplicationProtocol):
             return self.input_channel.get(*args, **kwargs)
         except Empty:
             # TODO: Update I/O interface to have common exception.
+            self.info("Data not received from the input channel.")
             return None
 
     async def send_data(self, data, *args, **kwargs) -> None:
@@ -87,6 +133,8 @@ class BeamlimeApplicationInterface(ABC, BeamLimeApplicationProtocol):
             return True
         except:  # noqa: E722,B001
             # TODO: Update I/O interface to have common exception.
+            self.info("Data not sent to the output channel.")
+            self.debug("Failed data: %s", str(data))
             return False
 
     @abstractstaticmethod
@@ -110,6 +158,10 @@ class BeamlimeApplicationInterface(ABC, BeamLimeApplicationProtocol):
 
     def create_task(self):
         return asyncio.create_task(self._run(self))
+
+    @abstractmethod
+    def start(self) -> None:
+        pass
 
     @abstractmethod
     def pause(self) -> None:
