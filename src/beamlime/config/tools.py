@@ -177,3 +177,31 @@ def import_object(path: str) -> Any:
         parent_module = preset_options
 
     return getattr(parent_module, obj_name)
+
+
+def wrap_item(
+    item_obj: Union[str, list, tuple, int], wrapper: type
+) -> Union[str, list, tuple, int]:
+    """
+    Wrap an item in an iterable to have a desired type to avoid repeated type checking.
+    If a non-iterable item(str, int) is given and the desired type is iterable,
+    it will create a list that only contains the non-iterable item.
+
+    This helper function was needed to allow 0 or more items in the configuration.
+    """
+    if isinstance(item_obj, wrapper):
+        return item_obj
+    elif wrapper in (list, tuple) and isinstance(item_obj, (str, int)):
+        return wrapper([item_obj])
+    elif (
+        wrapper in (list, tuple)
+        and isinstance(item_obj, (list, tuple))
+        or wrapper in (str, int)
+        and isinstance(item_obj, (str, int))
+    ):
+        return wrapper(item_obj)
+
+    raise ValueError(
+        "Item wrapping only possible for: "
+        "[tuple->list, list->tuple, int->list, int->tuple, str->list, str->tuple]."
+    )

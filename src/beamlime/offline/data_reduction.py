@@ -142,14 +142,15 @@ class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
         return result_map
 
     @staticmethod
-    async def _run(self):
+    async def _run(self: BeamLimeDataReductionInterface):
+        self.info("Starting data reduction ... ")
         await asyncio.sleep(1)
-        new_data = await self.receive_data()
+        new_data = await self.receive_data(timeout=10)
         while new_data is not None:
             self.debug("Processing new data: %s", str(new_data))
             await asyncio.sleep(0.4)
             result = self.process(new_data)
-            send_result = await self.send_data(data=result)
+            send_result = await self.send_data(data=result, timeout=1)
             if not send_result:
                 break
             new_data = await self.receive_data(timeout=1)

@@ -7,10 +7,10 @@ from functools import partial
 import plopp as pp
 from scipp import DataArray
 
-from ..core.application import BeamlimeApplicationInterface
+from ..core.application import AsyncApplicationInterce
 
 
-class RealtimePlot(BeamlimeApplicationInterface):
+class RealtimePlot(AsyncApplicationInterce):
     def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
         super().__init__(config, logger, **kwargs)
         self._plottable_objects = dict()
@@ -27,7 +27,8 @@ class RealtimePlot(BeamlimeApplicationInterface):
         pass
 
     def __del__(self) -> None:
-        pass
+        self._plottable_objects.clear()
+        self._stream_nodes.clear()
 
     def parse_config(self, config: dict) -> None:
         if config is None:
@@ -63,10 +64,10 @@ class RealtimePlot(BeamlimeApplicationInterface):
                     self.plottable_objects[workflow].values = result.values
                     self.stream_nodes[workflow].notify_children("update")
         frame_number = new_data["frame-number-counting"]
-        return f"value updated with frame number {frame_number}"
+        return self.info("value updated with frame number %s", frame_number)
 
     @staticmethod
-    async def _run(self: BeamlimeApplicationInterface):
+    async def _run(self: AsyncApplicationInterce):
         await asyncio.sleep(2)
         new_data = await self.receive_data(timeout=1)
         while new_data is not None:

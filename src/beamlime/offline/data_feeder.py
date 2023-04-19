@@ -7,26 +7,31 @@ import numpy as np
 from PIL import Image
 from PIL.ImageOps import flip
 
-from ..core.application import BeamlimeApplicationInterface
+from ..core.application import AsyncApplicationInterce
 from ..resources.images import load_icon_img
 from ..resources.images.generators import fake_2d_detector_img_generator
 
 
-class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
+class Fake2dDetectorImageFeeder(AsyncApplicationInterce):
     def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
         super().__init__(config, logger, **kwargs)
+        self._paused = True  # TODO: change other applications too...!
+        self._paused_interval = 1
+        self._paused_time = 0
 
     def start(self) -> None:
-        pass
+        self._paused = False
+        self._paused_time = 0
 
     def pause(self) -> None:
-        pass
+        self._paused = True
 
     def resume(self) -> None:
-        pass
+        self._paused = False
+        self._paused_time = 0
 
     def __del__(self) -> None:
-        pass
+        ...
 
     def parse_config(self, config: dict) -> None:
         self.detector_size = tuple(config.get("detector-size", (64, 64)))
@@ -36,9 +41,10 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
         self.signal_err = float(config.get("signal-err", 0.1))
         self.noise_mu = float(config.get("noise-mu", 1))
         self.noise_err = float(config.get("noise-err", 0.3))
+        self.timeout = float(config.get("timeout", 5)) or 5
 
     @staticmethod
-    async def _run(self: BeamlimeApplicationInterface) -> None:
+    async def _run(self: AsyncApplicationInterce) -> None:
         self.info("Start data feeding...")
         original_img = Image.fromarray(np.uint8(load_icon_img()))
         resized_img = original_img.resize(self.detector_size)
@@ -56,6 +62,18 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
             )
         ):
             await asyncio.sleep(0.1)
+            while self._paused:
+                if self.timeout < self._paused_time:
+                    self.info("Timeout. Stopping the application ... ")
+                    return
+                self.info(
+                    "Application paused, "
+                    "waiting for start/resume call for %s seconds. ",
+                    self._paused_time + 1,
+                )
+                await asyncio.sleep(self._paused_interval)
+                self._paused_time += self._paused_interval
+
             fake_data = {
                 "sample_id": "typical-lime-intaglio-0",
                 "detector-data": {
@@ -64,8 +82,13 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
                     "frame-number": iframe,
                 },
             }
-            send_result = await self.send_data(data=fake_data)
-            if not send_result:
-                break
             self.info("Sending %dth frame", iframe)
+            data_sent = await self.send_data(data=fake_data, timeout=10)
+            if not data_sent:
+                self.info(
+                    "Output channel broken. %dth frame was not sent. "
+                    "Stopping the application ... ",
+                    iframe,
+                )
+                return
         self.info("Finishing data feeding...")
