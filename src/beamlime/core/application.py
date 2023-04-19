@@ -5,11 +5,12 @@ import asyncio
 from abc import ABC, abstractmethod, abstractstaticmethod
 from logging import DEBUG, ERROR, INFO, WARN
 from queue import Empty
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from ..logging.loggers import BeamlimeLogger
 
 
+@runtime_checkable
 class BeamLimeApplicationProtocol(Protocol):
     @property
     def input_channel(self) -> object:
