@@ -23,11 +23,6 @@ jobs:
   test:
     name: tests ${{ inputs.os-variant }}, py${{ inputs.python-version }}
     runs-on: ${{ inputs.os-variant }}
-    defaults:
-      run:
-        shell: bash -l {0}
-    strategy:
-      fail-fast: false
 
     steps:
       - uses: actions/checkout@v3
