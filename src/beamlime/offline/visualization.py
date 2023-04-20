@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
-import asyncio
 from functools import partial
 
 import plopp as pp
@@ -50,7 +49,7 @@ class RealtimePlot(AsyncApplicationInterce):
     def handover(obj):
         return obj
 
-    def process(self, new_data):
+    async def process(self, new_data):
         for workflow, result in new_data.items():
             if isinstance(result, DataArray):
                 if workflow not in self.plottable_objects:
@@ -66,14 +65,11 @@ class RealtimePlot(AsyncApplicationInterce):
         frame_number = new_data["frame-number-counting"]
         return self.info("value updated with frame number %s", frame_number)
 
-    @staticmethod
-    async def _run(self: AsyncApplicationInterce):
-        await asyncio.sleep(2)
-        new_data = await self.receive_data(timeout=1)
+    async def _run(self):
+        new_data = await self.receive_data(timeout=20, wait_interval=1)
         while new_data is not None:
-            await asyncio.sleep(0.5)
             self.info("Received new data. Updating plot ...")
-            result = self.process(new_data)
+            result = await self.process(new_data)
             self.debug("Processed new data: %s", str(result))
-            new_data = await self.receive_data(timeout=1)
+            new_data = await self.receive_data(timeout=20, wait_interval=1)
         self.info("Finishing visualisation ...")

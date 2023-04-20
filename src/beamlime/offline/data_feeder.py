@@ -20,6 +20,7 @@ class Fake2dDetectorImageFeeder(AsyncApplicationInterce):
         self._paused_time = 0
 
     def start(self) -> None:
+        self.info("Data feeder starts.")
         self._paused = False
         self._paused_time = 0
 
@@ -43,8 +44,7 @@ class Fake2dDetectorImageFeeder(AsyncApplicationInterce):
         self.noise_err = float(config.get("noise-err", 0.3))
         self.timeout = float(config.get("timeout", 5)) or 5
 
-    @staticmethod
-    async def _run(self: AsyncApplicationInterce) -> None:
+    async def _run(self) -> None:
         self.info("Start data feeding...")
         original_img = Image.fromarray(np.uint8(load_icon_img()))
         resized_img = original_img.resize(self.detector_size)
@@ -67,8 +67,9 @@ class Fake2dDetectorImageFeeder(AsyncApplicationInterce):
                     self.info("Timeout. Stopping the application ... ")
                     return
                 self.info(
-                    "Application paused, "
+                    "Application paused %s, "
                     "waiting for start/resume call for %s seconds. ",
+                    self._paused,
                     self._paused_time + 1,
                 )
                 await asyncio.sleep(self._paused_interval)
@@ -83,7 +84,8 @@ class Fake2dDetectorImageFeeder(AsyncApplicationInterce):
                 },
             }
             self.info("Sending %dth frame", iframe)
-            data_sent = await self.send_data(data=fake_data, timeout=10)
+            data_sent = await self.send_data(data=fake_data, timeout=1)
+
             if not data_sent:
                 self.info(
                     "Output channel broken. %dth frame was not sent. "

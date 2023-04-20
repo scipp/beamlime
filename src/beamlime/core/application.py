@@ -2,7 +2,7 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
 import asyncio
-from abc import ABC, abstractmethod, abstractstaticmethod
+from abc import ABC, abstractmethod
 from logging import DEBUG, ERROR, INFO, WARN, Logger
 from queue import Empty
 from typing import Callable, Optional, TypeVar
@@ -14,6 +14,7 @@ from .protocols import (
     BeamlimeTwoWayProtocol,
     BeamlimeUpstreamProtocol,
 )
+from .schedulers import async_timeout
 
 _CommunicationChannel = TypeVar(
     "_CommunicationChannel",
@@ -65,6 +66,7 @@ class BeamlimeApplicationInterface(_LogMixin, ABC):
     _output_ch = None
 
     def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
+        self._pause_interval = 0.1
         self._init_logger(logger=logger)
         self.app_name = kwargs.get("name", "")
         from ..config.preset_options import RESERVED_APP_NAME
@@ -105,30 +107,20 @@ class BeamlimeApplicationInterface(_LogMixin, ABC):
     def output_channel(self, output_channel):
         self._output_ch = output_channel
 
-    async def receive_data(self, *args, timeout=10, waited=0):
-        if waited >= timeout:
-            # TODO: Update I/O interface to have common exception.
-            self.info("Data not received from the input channel.")
-            return None
-        interval = getattr(self, "_pause_interval", 1)
-        # TODO: _pause_interval will be included in the interface later.
-        try:
-            return self.input_channel.get(*args, timeout=interval)
-        except Empty:
-            await asyncio.sleep(interval)
-            return await self.receive_data(
-                self, *args, timeout=timeout, waited=waited + interval
-            )
+    @async_timeout(exception=Empty)
+    async def receive_data(self, *args, timeout=10, wait_interval=0.2, **kwargs):
+        # TODO: Move async_timeout(exception=Empty) to communication handler interface
+        # and remove the decorator or use @async_timeout(exception=TimeoutError).
+        return self.input_channel.get(*args, timeout=wait_interval, **kwargs)
 
-    async def send_data(self, data, *args, **kwargs) -> None:
-        try:
-            self.output_channel.put(data, *args, **kwargs)
-            return True
-        except:  # noqa: E722,B001
-            # TODO: Update I/O interface to have common exception.
-            self.info("Data not sent to the output channel.")
-            self.debug("Failed data: %s", str(data))
-            return False
+    @async_timeout(exception=Empty)
+    async def send_data(
+        self, data, *args, timeout=1, wait_interval=1, **kwargs
+    ) -> None:
+        # TODO: Move async_timeout(exception=Empty) to communication handler interface
+        # and remove the decorator or use @async_timeout(exception=TimeoutError).
+        self.output_channel.put(data, *args, timeout=wait_interval, **kwargs)
+        return True
 
     @abstractmethod
     def start(self) -> None:
@@ -148,7 +140,6 @@ class BeamlimeApplicationInterface(_LogMixin, ABC):
 
 
 class AsyncApplicationInterce(BeamlimeApplicationInterface, ABC):
-    @abstractstaticmethod
     async def _run(self) -> None:
         """
         Application coroutine generator.
@@ -168,7 +159,7 @@ class AsyncApplicationInterce(BeamlimeApplicationInterface, ABC):
         pass
 
     def create_task(self):
-        return asyncio.create_task(self._run(self))
+        return asyncio.create_task(self._run())
 
 
 class BeamLimeDataReductionInterface(AsyncApplicationInterce, ABC):
@@ -256,8 +247,15 @@ class AsyncApplicationInstanceGroup(ApplicationInstanceGroupInterface):
     """
 
     def __init__(
-        self, constructor: Callable, instance_num: int = 2, logger: Logger = None
+        self,
+        constructor: Callable,
+        instance_num: int = 2,
+        logger: Logger = None,
+        app_name: str = None,
     ) -> None:
+        from uuid import uuid4
+
+        self.app_name = (app_name or "") + f".instance_group#{uuid4()}"
         super().__init__(
             constructor=constructor, instance_num=instance_num, logger=logger
         )
@@ -310,17 +308,20 @@ class AsyncApplicationInstanceGroup(ApplicationInstanceGroupInterface):
             self._instances.pop().__del__()
 
     def start(self) -> None:
-        (inst.start() for inst in self._instances)
+        for inst in self._instances:
+            inst.start()
 
     def pause(self) -> None:
-        (inst.pause() for inst in self._instances)
+        for inst in self._instances:
+            inst.pause()
 
     def resume(self) -> None:
-        (inst.resume() for inst in self._instances)
+        for inst in self._instances:
+            inst.resume()
 
     @property
     def coroutines(self):
-        return [inst._run(inst) for inst in self._instances]
+        return [inst._run() for inst in self._instances]
 
     @property
     def tasks(self):
