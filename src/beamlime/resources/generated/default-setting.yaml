@@ -5,8 +5,7 @@
 general:
   user: scipp
   name: default configuration
-  last-updated: '2023-03-31 15:09:15.522559'
-  log-dir:
+  last-updated: '2023-04-21 13:47:05.578791'
 
 dashboard:
   update-frequency: 5
@@ -14,19 +13,19 @@ dashboard:
 data-stream:
   applications:
   - name: data-feeder
-    data-handler: beamlime.offline.data_feeder.Fake2dDetectorImageFeeder
+    data-handler: beamlime.applications.data_feeder.Fake2dDetectorImageFeeder
     instance-number:
     input-channel: QUEUE
     output-channel: QUEUE
     keep-alive: false
   - name: data-reduction
-    data-handler: beamlime.offline.data_reduction.BeamLimeDataReductionApplication
+    data-handler: beamlime.applications.data_reduction.BeamLimeDataReductionApplication
     instance-number:
     input-channel: QUEUE
     output-channel: QUEUE
     keep-alive: false
   - name: visualization
-    data-handler: beamlime.offline.visualization.RealtimePlot
+    data-handler: beamlime.applications.visualization.RealtimePlot
     instance-number:
     input-channel: QUEUE
     output-channel: QUEUE

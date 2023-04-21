@@ -34,13 +34,13 @@ def _build_default_data_stream_config() -> dict:
     # Application configurations
     config["applications"][0][
         "data-handler"
-    ] = "beamlime.offline.data_feeder.Fake2dDetectorImageFeeder"
+    ] = "beamlime.applications.data_feeder.Fake2dDetectorImageFeeder"
     config["applications"][1][
         "data-handler"
-    ] = "beamlime.offline.data_reduction.BeamLimeDataReductionApplication"
+    ] = "beamlime.applications.data_reduction.BeamLimeDataReductionApplication"
     config["applications"][2][
         "data-handler"
-    ] = "beamlime.offline.visualization.RealtimePlot"
+    ] = "beamlime.applications.visualization.RealtimePlot"
     # Application mapping
     config["applications-mapping"] = [
         {"from": "data-feeder", "to": "data-reduction"},
