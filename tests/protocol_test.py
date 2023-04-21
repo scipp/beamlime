@@ -29,9 +29,9 @@ def test_flag_based_control_mixin_protocol():
 
 
 def test_daemon_application_interface_protocol():
-    from beamlime.applications.interfaces import BeamlimeDeamonAppInterface
+    from beamlime.applications.interfaces import BeamlimeDaemonAppInterface
 
-    assert issubclass(BeamlimeDeamonAppInterface, bm_protocol.BeamlimeDaemonAppProtocol)
+    assert issubclass(BeamlimeDaemonAppInterface, bm_protocol.BeamlimeDaemonAppProtocol)
 
 
 def test_application_interface_protocol():
