@@ -6,7 +6,7 @@ from functools import partial
 import plopp as pp
 from scipp import DataArray
 
-from ..core.application import AsyncApplicationInterce
+from .interfaces import AsyncApplicationInterce
 
 
 class RealtimePlot(AsyncApplicationInterce):

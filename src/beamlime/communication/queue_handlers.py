@@ -4,12 +4,12 @@
 from queue import Queue
 from typing import Iterable, Optional
 
-from ..core.protocols import BeamLimeApplicationProtocol
+from ..core.protocols import BeamlimeApplicationProtocol
 
 
 def validate_queue_connection(
-    sender: BeamLimeApplicationProtocol,
-    receivers: list[BeamLimeApplicationProtocol],
+    sender: BeamlimeApplicationProtocol,
+    receivers: list[BeamlimeApplicationProtocol],
     raise_error: bool = True,
 ) -> Optional[bool]:
     for receiver in receivers:
@@ -25,8 +25,8 @@ def validate_queue_connection(
 
 
 def glue(
-    sender: BeamLimeApplicationProtocol,
-    receivers: Iterable[BeamLimeApplicationProtocol],
+    sender: BeamlimeApplicationProtocol,
+    receivers: Iterable[BeamlimeApplicationProtocol],
 ) -> None:
     # TODO: Move this to QueueHandler method.
     # Always create and assign output-channel-queue of sender before

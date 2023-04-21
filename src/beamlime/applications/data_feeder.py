@@ -7,9 +7,9 @@ import numpy as np
 from PIL import Image
 from PIL.ImageOps import flip
 
-from ..core.application import AsyncApplicationInterce
 from ..resources.images import load_icon_img
 from ..resources.images.generators import fake_2d_detector_img_generator
+from .interfaces import AsyncApplicationInterce
 
 
 class Fake2dDetectorImageFeeder(AsyncApplicationInterce):
@@ -61,6 +61,7 @@ class Fake2dDetectorImageFeeder(AsyncApplicationInterce):
                 noise_err=self.noise_err,
             )
         ):
+            # TODO: Move this part to general interface.
             await asyncio.sleep(0.1)
             while self._paused:
                 if self.timeout < self._paused_time:

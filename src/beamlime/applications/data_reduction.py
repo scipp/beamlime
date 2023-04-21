@@ -7,7 +7,7 @@ import numpy as np
 import scipp as sc
 
 from ..config.tools import list_to_dict, nested_data_get
-from ..core.application import BeamLimeDataReductionInterface
+from .interfaces import BeamLimeDataReductionInterface
 
 T = TypeVar("T")
 
