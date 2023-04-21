@@ -5,7 +5,62 @@ from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
-class BeamLimeApplicationProtocol(Protocol):
+class BeamlimeApplicationControlProtocol(Protocol):
+    """Application Control Protocol"""
+
+    def start(self):
+        ...
+
+    def stop(self):
+        ...
+
+    def pause(self):
+        ...
+
+    def resume(self):
+        ...
+
+
+@runtime_checkable
+class BeamlimeLoggingProtocol(Protocol):
+    """Logging Protocol"""
+
+    def _log(self, level: int, msg: str, args: tuple):
+        ...
+
+    def debug(self, msg: str, *args) -> None:
+        ...
+
+    def info(self, msg: str, *args) -> None:
+        ...
+
+    def warning(self, msg: str, *args) -> None:
+        ...
+
+    def exception(self, msg: str, *args) -> None:
+        ...
+
+    def error(self, msg: str, *args) -> None:
+        ...
+
+
+@runtime_checkable
+class BeamlimeDaemonAppProtocol(Protocol):
+    """Daemon Application Protocol"""
+
+    def __del__(self):
+        ...
+
+
+@runtime_checkable
+class BeamlimeApplicationProtocol(
+    BeamlimeApplicationControlProtocol,
+    BeamlimeLoggingProtocol,
+    BeamlimeDaemonAppProtocol,
+    Protocol,
+):
+    """Temporary Application Protocol until we have communication broker"""
+
     @property
     def input_channel(self) -> object:
         ...
@@ -22,16 +77,7 @@ class BeamLimeApplicationProtocol(Protocol):
     def output_channel(self, channel) -> None:
         ...
 
-    def start(self) -> None:
-        ...
-
-    def pause(self) -> None:
-        ...
-
-    def resume(self) -> None:
-        ...
-
-    def __del__(self) -> None:
+    def parse_config(self, config: dict) -> None:
         ...
 
 

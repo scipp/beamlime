@@ -2,7 +2,7 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # @author Sunyoung Yoo
 
-from beamlime.core.application import BeamlimeApplicationInterface
+from beamlime.applications.interfaces import BeamlimeApplicationInterface
 
 
 class DummyApp(BeamlimeApplicationInterface):
@@ -15,11 +15,5 @@ class DummyApp(BeamlimeApplicationInterface):
     def start(self) -> None:
         ...
 
-    def pause(self) -> None:
-        ...
-
-    def resume(self) -> None:
-        ...
-
-    def __del__(self) -> None:
+    def stop(self) -> None:
         ...

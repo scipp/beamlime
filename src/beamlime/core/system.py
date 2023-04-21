@@ -3,7 +3,7 @@
 
 from typing import Union, overload
 
-from .application import (
+from ..applications.interfaces import (
     MAX_INSTANCE_NUMBER,
     AsyncApplicationInstanceGroup,
     BeamlimeApplicationInterface,
@@ -82,8 +82,8 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
     def build_instances(self):
         from functools import partial
 
+        from ..applications.interfaces import BeamLimeDataReductionInterface
         from ..config.tools import import_object, list_to_dict
-        from ..core.application import BeamLimeDataReductionInterface
 
         app_configs = list_to_dict(self.runtime_config["data-stream"]["applications"])
         app_specs = self.runtime_config["data-stream"]["application-specs"]
@@ -162,7 +162,7 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
     def __del__(self) -> None:
         for app_name, app_inst_gr in self.app_instances.items():
             self.info("Deleting %s instance ... ", app_name)
-            app_inst_gr.__del__()
+            del app_inst_gr
 
     def start(self) -> None:
         for app_name, app_inst_gr in self.app_instances.items():
