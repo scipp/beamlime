@@ -148,6 +148,6 @@ class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
             result = await self.process(new_data)
             if not await self.send_data(data=result, timeout=1):
                 break
-            new_data = await self.receive_data(timeout=2, wait_interval=1)
+            new_data = await self.receive_data(timeout=10, wait_interval=1)
             self.info("Sending %s", str(result))
         self.info("Finishing the task ...")

@@ -55,7 +55,7 @@ def _retrieve_timeout_interval(
     return timeout, wait_interval
 
 
-def async_timeout(exception: Type = Exception):
+def async_timeout(*exceptions: Type):
     """
     Timeout specified async function decorator.
 
@@ -71,7 +71,7 @@ def async_timeout(exception: Type = Exception):
             for _ in range(num_rounds):
                 try:
                     return await func(*args, **kwargs)
-                except exception:
+                except exceptions:
                     await asyncio.sleep(interval)
                 except Exception as err:
                     raise (err)

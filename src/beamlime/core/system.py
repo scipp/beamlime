@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
+from asyncio import Task
 from typing import Union, overload
 
 from ..applications.interfaces import (
     MAX_INSTANCE_NUMBER,
-    AsyncApplicationInstanceGroup,
     BeamlimeApplicationInterface,
+    DaemonApplicationInstanceGroup,
 )
 
 
@@ -105,11 +106,14 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
                 logger=self.logger,
             )
 
-            self.app_instances[app_name] = AsyncApplicationInstanceGroup(
+            self.app_instances[app_name] = DaemonApplicationInstanceGroup(
                 constructor=handler_constructor, instance_num=instance_num
             )
 
         self._connect_instances()
+
+    def _run(self):
+        ...
 
     def _connect_instances(self):
         """
@@ -145,18 +149,12 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
 
             glue_method(sender, receivers)
 
-    @property
-    def coroutines(self) -> list:
-        coroutines = []
-        for inst in self.app_instances.values():
-            coroutines.extend(inst.coroutines)
-        return coroutines
-
-    def create_task(self) -> None:
+    def create_task(self) -> list[Task]:
+        # TODO: return TaskGroup instead of list of Task.
+        # Will be available from py311
         tasks = []
         for inst in self.app_instances.values():
-            tasks.extend(inst.tasks)
-        tasks = [task() for task in tasks]
+            tasks.extend(inst.create_task())
         return tasks
 
     def __del__(self) -> None:

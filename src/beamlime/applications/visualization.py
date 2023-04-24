@@ -6,10 +6,10 @@ from functools import partial
 import plopp as pp
 from scipp import DataArray
 
-from .interfaces import AsyncApplicationInterce
+from .interfaces import BeamlimeApplicationInterface
 
 
-class RealtimePlot(AsyncApplicationInterce):
+class RealtimePlot(BeamlimeApplicationInterface):
     def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
         super().__init__(config, logger, **kwargs)
         self._plottable_objects = dict()

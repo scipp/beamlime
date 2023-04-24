@@ -37,9 +37,6 @@ class BeamlimeLoggingProtocol(Protocol):
     def warning(self, msg: str, *args) -> None:
         ...
 
-    def exception(self, msg: str, *args) -> None:
-        ...
-
     def error(self, msg: str, *args) -> None:
         ...
 
@@ -49,6 +46,9 @@ class BeamlimeDaemonAppProtocol(Protocol):
     """Daemon Application Protocol"""
 
     def __del__(self):
+        ...
+
+    def _run(self):
         ...
 
 

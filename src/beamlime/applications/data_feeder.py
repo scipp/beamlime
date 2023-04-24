@@ -9,27 +9,12 @@ from PIL.ImageOps import flip
 
 from ..resources.images import load_icon_img
 from ..resources.images.generators import fake_2d_detector_img_generator
-from .interfaces import AsyncApplicationInterce
+from .interfaces import BeamlimeApplicationInterface
 
 
-class Fake2dDetectorImageFeeder(AsyncApplicationInterce):
+class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
     def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
         super().__init__(config, logger, **kwargs)
-        self._paused = True  # TODO: change other applications too...!
-        self._paused_interval = 1
-        self._paused_time = 0
-
-    def start(self) -> None:
-        self.info("Data feeder starts.")
-        self._paused = False
-        self._paused_time = 0
-
-    def pause(self) -> None:
-        self._paused = True
-
-    def resume(self) -> None:
-        self._paused = False
-        self._paused_time = 0
 
     def __del__(self) -> None:
         ...
@@ -61,20 +46,9 @@ class Fake2dDetectorImageFeeder(AsyncApplicationInterce):
                 noise_err=self.noise_err,
             )
         ):
-            # TODO: Move this part to general interface.
-            await asyncio.sleep(0.1)
-            while self._paused:
-                if self.timeout < self._paused_time:
-                    self.info("Timeout. Stopping the application ... ")
-                    return
-                self.info(
-                    "Application paused %s, "
-                    "waiting for start/resume call for %s seconds. ",
-                    self._paused,
-                    self._paused_time + 1,
-                )
-                await asyncio.sleep(self._paused_interval)
-                self._paused_time += self._paused_interval
+            app_stopped = await self.stopped(timeout=5, check_pause_interval=0.2)
+            if app_stopped:
+                return
 
             fake_data = {
                 "sample_id": "typical-lime-intaglio-0",

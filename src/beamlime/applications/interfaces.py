@@ -25,6 +25,7 @@ _CommunicationChannel = TypeVar(
 
 MAX_INSTANCE_NUMBER = 2
 # TODO: Implement multi-process/multi-machine instance group interface.
+MAX_INSTANCE_PAUSED = 60
 
 
 class _LogMixin:
@@ -53,9 +54,6 @@ class _LogMixin:
 
     def warning(self, msg: str, *args) -> None:
         self._log(level=WARN, msg=msg, args=args)
-
-    def exception(self, msg: str, *args) -> None:
-        self._log(level=ERROR, msg=msg, args=args)
 
     def error(self, msg: str, *args) -> None:
         self._log(level=ERROR, msg=msg, args=args)
@@ -106,17 +104,86 @@ class _FlagControlMixin:
             self.debug("Flag updated, stopped flag: %s", self._paused)
 
 
-class BeamlimeDaemonAppInterface(ABC):
-    """Daemon Application Interface"""
+class ApplicationPausedException(Exception):
+    ...
+
+
+class ApplicationStoppedException(Exception):
+    ...
+
+
+class _DaemonInterface(ABC):
+    """
+    Daemon Application Interface
+
+    """
+
+    def __del__(self):
+        self.stop()
+        if hasattr(super(), "__del__"):
+            super().__del__()
+
+    async def stopped(
+        self,
+        timeout: int = MAX_INSTANCE_PAUSED,
+        check_pause_interval: int = MAX_INSTANCE_PAUSED,
+    ) -> bool:
+        @async_timeout(ApplicationPausedException)
+        async def wait_resumed(timeout: int, wait_interval: int):
+            if self._stopped:
+                self.info("Application stopped.")
+                return False
+            elif not self._paused:
+                return True
+            elif self._paused:
+                self.info(
+                    "Application process paused. Waiting for ``resume`` command..."
+                )
+                raise ApplicationPausedException
+
+        try:
+            resumed = await wait_resumed(timeout, check_pause_interval)
+            return not resumed
+        except TimeoutError:
+            self.info("Application paused limit reached. Stopping the application...")
+            self.stop()
+            return True
 
     @abstractmethod
-    def __del__(self):
+    async def _run(self) -> None:
+        """
+        Application coroutine generator.
+        """
         ...
 
+    def run(self) -> None:
+        """
+        Run the application in a dependent event loop.
 
-class BeamlimeApplicationInterface(
-    _LogMixin, _FlagControlMixin, BeamlimeDaemonAppInterface, ABC
-):
+        """
+        # TODO: ``run`` should also check if the communication-interface
+        # is multi-process-friendly before running.
+        # For example, if one of input_channel or output_channel is ``Queue``,
+        # the application daemon should start by ``create_task`` not, ``run``.
+
+        return asyncio.run(self._run())
+
+    def create_task(self, /, name=None, context=None) -> asyncio.Task:
+        """
+        Start the application task in the currently running event loop.
+        """
+        if not hasattr(self, "_task") or self._task.done():
+            # TODO: Remove try-except after updating the minimum python version to 3.11
+            try:
+                self._task = asyncio.create_task(
+                    self._run(), name=name, context=context
+                )  # py311
+            except TypeError:
+                self._task = asyncio.create_task(self._run(), name=name)  # py39, py310
+        return self._task
+
+
+class BeamlimeApplicationInterface(_LogMixin, _FlagControlMixin, _DaemonInterface, ABC):
     def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
         self._pause_interval = 0.1
         self._init_logger(logger=logger)
@@ -161,13 +228,13 @@ class BeamlimeApplicationInterface(
     def output_channel(self, output_channel):
         self._output_ch = output_channel
 
-    @async_timeout(exception=Empty)
+    @async_timeout(Empty)
     async def receive_data(self, *args, timeout=10, wait_interval=0.2, **kwargs):
         # TODO: Move async_timeout(exception=Empty) to communication handler interface
         # and remove the decorator or use @async_timeout(exception=TimeoutError).
         return self.input_channel.get(*args, timeout=wait_interval, **kwargs)
 
-    @async_timeout(exception=Empty)
+    @async_timeout(Empty)
     async def send_data(
         self, data, *args, timeout=1, wait_interval=1, **kwargs
     ) -> None:
@@ -176,41 +243,14 @@ class BeamlimeApplicationInterface(
         self.output_channel.put(data, *args, timeout=wait_interval, **kwargs)
         return True
 
-    def __del__(self):
-        self.stop()
-        return super().__del__()
 
-
-class AsyncApplicationInterce(BeamlimeApplicationInterface, ABC):
-    async def _run(self) -> None:
-        """
-        Application coroutine generator.
-        ``self`` is passed as an argument since the coroutine
-        doesn't have the access to the ``cls`` or ``self`` in a normal way.
-        as a ``classmethod`` or a member funcition.
-        Here is the example below.
-
-        received_data = await self.receive_data()
-        result = ... process data ...
-        await self.send_data(result)
-        if self.verbose:
-            print(f"{self.verbose_option}"
-                   "...sth to report..."
-                  f"{Style.RESET_ALL}")
-        """
-        pass
-
-    def create_task(self):
-        return asyncio.create_task(self._run())
-
-
-class BeamLimeDataReductionInterface(AsyncApplicationInterce, ABC):
+class BeamLimeDataReductionInterface(BeamlimeApplicationInterface, ABC):
     @abstractmethod
     def process(self):
         pass
 
 
-class ApplicationInstanceGroupInterface(ABC, _LogMixin):
+class ApplicationInstanceGroupInterface(_LogMixin, ABC):
     """
     Multiple instances of a single type of constructor.
 
@@ -253,7 +293,7 @@ class ApplicationInstanceGroupInterface(ABC, _LogMixin):
         ...
 
     @property
-    def instances(self) -> list[object]:
+    def instances(self) -> list[BeamlimeApplicationInterface]:
         """All instance objects in the group."""
         return self._instances
 
@@ -262,9 +302,10 @@ class ApplicationInstanceGroupInterface(ABC, _LogMixin):
             yield instance
 
     def __del__(self) -> None:
-        while self._instances:
-            self._instances.pop()
-        super().__del__()
+        while self.instances:
+            self.instances.pop()._task.cancel()
+        if hasattr(super(), "__del__"):
+            super().__del__()
 
     @abstractmethod
     def populate(self) -> Optional[BeamlimeApplicationProtocol]:
@@ -275,7 +316,7 @@ class ApplicationInstanceGroupInterface(ABC, _LogMixin):
         ...
 
 
-class AsyncApplicationInstanceGroup(ApplicationInstanceGroupInterface):
+class DaemonApplicationInstanceGroup(ApplicationInstanceGroupInterface):
     """
     Multiple instances of a single type of constructor communicates via Async.
 
@@ -340,7 +381,11 @@ class AsyncApplicationInstanceGroup(ApplicationInstanceGroupInterface):
         """Kill the last instance in the group."""
         num_target = min(num_instances, len(self._instances))
         for _ in range(num_target):
-            self._instances.pop().stop()
+            killed_app = self._instances.pop()
+            killed_app.stop()
+            if hasattr(killed_app, "task"):
+                killed_app.task.cancel()
+            del killed_app
 
     def start(self) -> None:
         for inst in self._instances:
@@ -358,10 +403,7 @@ class AsyncApplicationInstanceGroup(ApplicationInstanceGroupInterface):
         for inst in self._instances:
             inst.resume()
 
-    @property
-    def coroutines(self):
-        return [inst._run() for inst in self._instances]
-
-    @property
-    def tasks(self):
-        return [inst.create_task for inst in self._instances]
+    def create_task(self) -> list[asyncio.Task]:
+        # TODO: return TaskGroup instead of list of Task.
+        # Will be available from py311
+        return [inst.create_task() for inst in self._instances]
