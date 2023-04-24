@@ -303,7 +303,10 @@ class ApplicationInstanceGroupInterface(_LogMixin, ABC):
 
     def __del__(self) -> None:
         while self.instances:
-            self.instances.pop()._task.cancel()
+            killed_inst = self.instances.pop()
+            if hasattr(killed_inst, "_task"):
+                killed_inst._task.cancel()
+                del killed_inst
         if hasattr(super(), "__del__"):
             super().__del__()
 

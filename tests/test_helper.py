@@ -11,9 +11,3 @@ class DummyApp(BeamlimeApplicationInterface):
 
     async def _run(self) -> None:
         ...
-
-    def start(self) -> None:
-        ...
-
-    def stop(self) -> None:
-        ...
