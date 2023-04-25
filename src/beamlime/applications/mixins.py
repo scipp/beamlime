@@ -2,7 +2,7 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
 import asyncio
-from logging import DEBUG, ERROR, INFO, WARN
+from logging import DEBUG, ERROR, INFO, WARN, Logger
 
 from ..core.schedulers import async_timeout
 from ..logging.loggers import BeamlimeLogger
@@ -19,10 +19,20 @@ class LogMixin:
     BeamlimeLoggingProtocol
     """
 
+    _logger = None
+
+    @property
+    def logger(self) -> Logger:
+        return self._logger
+
+    @logger.setter
+    def logger(self, logger: Logger) -> None:
+        self._logger = logger
+
     def _log(self, level: int, msg: str, args: tuple):
         if isinstance(self.logger, BeamlimeLogger):
             self.logger._log(level=level, msg=msg, args=args, app_name=self.app_name)
-        else:
+        elif isinstance(self.logger, Logger):
             if not self.logger.isEnabledFor(level):
                 return
             from ..logging.formatters import EXTERNAL_MESSAGE_HEADERS
@@ -33,6 +43,7 @@ class LogMixin:
                 args=args,
                 extra={"app_name": self.app_name},
             )
+        # do nothing if there is no logger.
 
     def debug(self, msg: str, *args) -> None:
         self._log(level=DEBUG, msg=msg, args=args)
@@ -139,6 +150,9 @@ class CoroutineMixin:
     app.create_task()
     ```
     """
+
+    _timeout = None
+    _wait_int = None
 
     async def should_proceed(self):
         @async_timeout(ApplicationNotStartedException, ApplicationPausedException)

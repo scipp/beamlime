@@ -16,19 +16,21 @@ def test_instace_group_protocol():
 def test_logging_mixin_protocol():
     from beamlime.applications.mixins import LogMixin
 
-    assert issubclass(LogMixin, bm_protocol.BeamlimeLoggingProtocol)
+    assert isinstance(LogMixin(), bm_protocol.BeamlimeLoggingProtocol)
 
 
 def test_flag_based_control_mixin_protocol():
     from beamlime.applications.mixins import FlagControlMixin
 
-    assert issubclass(FlagControlMixin, bm_protocol.BeamlimeApplicationControlProtocol)
+    assert isinstance(
+        FlagControlMixin(), bm_protocol.BeamlimeApplicationControlProtocol
+    )
 
 
 def test_coroutine_mixin_protocol():
     from beamlime.applications.mixins import CoroutineMixin
 
-    assert issubclass(CoroutineMixin, bm_protocol.BeamlimeCoroutineProtocol)
+    assert isinstance(CoroutineMixin(), bm_protocol.BeamlimeCoroutineProtocol)
 
 
 def test_application_interface_protocol():

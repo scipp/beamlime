@@ -67,8 +67,11 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
         self._input_ch = None
         self._output_ch = None
         self._tasks = []
+        self._instances = []
         self._timeout = timeout
         self._wait_int = wait_int
+        self._started = False
+        self._paused = True
 
     def _init_logger(self, logger: Logger) -> None:
         if logger is None:
@@ -90,12 +93,16 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
     @property
     def input_channel(self) -> object:
         # TODO: Update this after implementing communication broker.
-        return self._instances[0].input_channel
+        if self._instances:
+            return self._instances[0].input_channel
+        return None
 
     @property
     def output_channel(self) -> object:
         # TODO: Update this after implementing communication broker.
-        return self._instances[0].output_channel
+        if self._instances:
+            return self._instances[0].output_channel
+        return None
 
     @input_channel.setter
     def input_channel(self, channel: _CommunicationChannel) -> None:

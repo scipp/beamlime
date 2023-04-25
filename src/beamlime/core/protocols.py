@@ -59,6 +59,14 @@ class BeamlimeLoggingProtocol(Protocol):
 class BeamlimeCoroutineProtocol(Protocol):
     """Coroutine Protocol"""
 
+    @property
+    def _timeout(self) -> float:
+        ...
+
+    @property
+    def _wait_int(self) -> float:
+        ...
+
     async def should_proceed(self) -> bool:
         ...
 
