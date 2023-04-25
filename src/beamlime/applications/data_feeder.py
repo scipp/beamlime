@@ -9,9 +9,6 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
     def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
         super().__init__(config, logger, **kwargs)
 
-    def __del__(self) -> None:
-        ...
-
     def parse_config(self, config: dict) -> None:
         from functools import partial
 
