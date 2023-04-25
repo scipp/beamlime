@@ -2,7 +2,7 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 import numpy as np
 
-from .interfaces import BeamlimeApplicationInterface
+from ..applications.interfaces import BeamlimeApplicationInterface
 
 
 class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):

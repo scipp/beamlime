@@ -115,6 +115,8 @@ class BeamlimeApplicationProtocol(
 
 
 class BeamlimeDownstreamProtocol(Protocol):
+    """Downstream Dataflow Communication Protocol."""
+
     def receive_data(self, timeout: int = 1) -> Any:
         ...
 
@@ -123,6 +125,8 @@ class BeamlimeDownstreamProtocol(Protocol):
 
 
 class BeamlimeUpstreamProtocol(Protocol):
+    """Upstream Dataflow Communication Protocol."""
+
     def request_data(self, timeout: int = 1) -> Any:
         ...
 
@@ -133,4 +137,6 @@ class BeamlimeUpstreamProtocol(Protocol):
 class BeamlimeTwoWayProtocol(
     BeamlimeDownstreamProtocol, BeamlimeUpstreamProtocol, Protocol
 ):
+    """Flexible Dataflow Communication Protocol."""
+
     ...

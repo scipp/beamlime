@@ -24,27 +24,33 @@ def _build_workflow_config(name=str):
 
 
 def _build_default_data_stream_config() -> dict:
+    from beamlime.handlers.data_feeder import Fake2dDetectorImageFeeder as data_feeder
+    from beamlime.handlers.data_reduction import (
+        BeamLimeDataReductionApplication as data_reduction,
+    )
+    from beamlime.handlers.visualisation import RealtimePlot as visualisation
+
     config = dict()
-    app_names = ["data-feeder", "data-reduction", "visualization"]
+    app_names = ["data-feeder", "data-reduction", "visualisation"]
     # Placeholders
     config["applications"] = [
         _build_default_application_config(app_name) for app_name in app_names
     ]
     config["application-specs"] = {app_name: {} for app_name in app_names}
     # Application configurations
-    config["applications"][0][
-        "data-handler"
-    ] = "beamlime.applications.data_feeder.Fake2dDetectorImageFeeder"
-    config["applications"][1][
-        "data-handler"
-    ] = "beamlime.applications.data_reduction.BeamLimeDataReductionApplication"
-    config["applications"][2][
-        "data-handler"
-    ] = "beamlime.applications.visualization.RealtimePlot"
+    config["applications"][0]["data-handler"] = ".".join(
+        (data_feeder.__module__, data_feeder.__name__)
+    )
+    config["applications"][1]["data-handler"] = ".".join(
+        (data_reduction.__module__, data_reduction.__name__)
+    )
+    config["applications"][2]["data-handler"] = ".".join(
+        (visualisation.__module__, visualisation.__name__)
+    )
     # Application mapping
     config["applications-mapping"] = [
         {"from": "data-feeder", "to": "data-reduction"},
-        {"from": "data-reduction", "to": "visualization"},
+        {"from": "data-reduction", "to": "visualisation"},
     ]
     # Application specs
     config["application-specs"]["data-feeder"] = {
@@ -90,11 +96,11 @@ def build_default_config():
     This default configuration contains three basic applications,
     1. data-generator/feeder
     2. data-reduction
-    3. visualization
+    3. visualisation
     The scenario is that you want to take a picture of
     a little metal plate with 2d-detector, where a lime-shape is carved on.
     """
-    # TODO: Detach visualization application, which is currently glued with
+    # TODO: Detach visualisation application, which is currently glued with
     # data-reduction application via queue.Queue.
 
     import datetime

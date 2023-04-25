@@ -16,11 +16,9 @@ execnet==1.9.0
     # via pytest-xdist
 iniconfig==2.0.0
     # via pytest
-packaging==23.1
-    # via pytest
 pluggy==1.0.0
     # via pytest
-pytest==7.3.0
+pytest==7.3.1
     # via
     #   -r test.in
     #   pytest-cov
@@ -30,4 +28,6 @@ pytest-cov==4.0.0
 pytest-xdist==3.2.1
     # via -r test.in
 tomli==2.0.1
-    # via pytest
+    # via
+    #   coverage
+    #   pytest

@@ -11,7 +11,7 @@ with Diagram(name="Livesteram Data Reduction System Overview", show=False):
         ps_control = Monitoring("Process Controller \n(backend)")
         config = Audit("Congfiguration")
 
-        with Cluster("Visualization"):
+        with Cluster("visualisation"):
             web_browser = ObjectStorage("Web Browser")
             dash_builder = Telemetry("Dashboard Builder")
 

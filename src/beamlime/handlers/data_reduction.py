@@ -6,8 +6,8 @@ from typing import TypeVar
 import numpy as np
 import scipp as sc
 
+from ..applications.interfaces import BeamlimeDataReductionInterface
 from ..config.tools import list_to_dict, nested_data_get
-from .interfaces import BeamlimeDataReductionInterface
 
 T = TypeVar("T")
 

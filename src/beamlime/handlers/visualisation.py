@@ -6,7 +6,7 @@ from functools import partial
 import plopp as pp
 from scipp import DataArray
 
-from .interfaces import BeamlimeApplicationInterface
+from ..applications.interfaces import BeamlimeApplicationInterface
 
 
 class RealtimePlot(BeamlimeApplicationInterface):
