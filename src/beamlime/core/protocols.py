@@ -2,6 +2,7 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
 from asyncio import Task
+from logging import Logger
 from typing import Any, Protocol, runtime_checkable
 
 
@@ -26,7 +27,11 @@ class BeamlimeApplicationControlProtocol(Protocol):
 class BeamlimeLoggingProtocol(Protocol):
     """Logging Protocol"""
 
-    def _log(self, level: int, msg: str, args: tuple):
+    @property
+    def logger(self) -> Logger:
+        ...
+
+    def _log(self, level: int, msg: str, args: tuple) -> None:
         ...
 
     def debug(self, msg: str, *args) -> None:
