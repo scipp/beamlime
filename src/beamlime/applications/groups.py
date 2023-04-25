@@ -73,7 +73,7 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
         self._output_ch = None
         self._tasks = []
         self._timeout = 10
-        self._update_rate = 1
+        self._wait_int = 1
 
     def _init_logger(self, logger: Logger) -> None:
         if logger is None:
@@ -162,10 +162,8 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
                 return True
 
         try:
-            await asyncio.sleep(self._update_rate)
-            return await wait_start(
-                timeout=self._timeout, wait_interval=self._update_rate
-            )
+            await asyncio.sleep(self._wait_int)
+            return await wait_start(timeout=self._timeout, wait_interval=self._wait_int)
         except TimeoutError:
             self.debug("Applications not started. Killing instances ...")
             self.kill()

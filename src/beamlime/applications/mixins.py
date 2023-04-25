@@ -115,7 +115,7 @@ class CoroutineMixin:
     ```
     class DownStreamApp(BeamlimeApplicationInterface):
         _timeout = 1
-        _update_rate = 0.1
+        _wait_int = 0.1
 
         async def _run(self):
             # prepare process
@@ -146,9 +146,9 @@ class CoroutineMixin:
             return not (self._stopped or self._paused)
 
         try:
-            await asyncio.sleep(self._update_rate)
+            await asyncio.sleep(self._wait_int)
             return await wait_resumed(
-                timeout=self._timeout, wait_interval=self._update_rate
+                timeout=self._timeout, wait_interval=self._wait_int
             )
         except TimeoutError:
             self.stop()

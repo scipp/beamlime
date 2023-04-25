@@ -1,49 +1,57 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-
 import numpy as np
-from PIL import Image
-from PIL.ImageOps import flip
 
-from ..resources.images import load_icon_img
-from ..resources.images.generators import fake_2d_detector_img_generator
 from .interfaces import BeamlimeApplicationInterface
 
 
 class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
     def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
         super().__init__(config, logger, **kwargs)
-        self._update_rate = 0.1
 
     def __del__(self) -> None:
         ...
 
     def parse_config(self, config: dict) -> None:
-        self.detector_size = tuple(config.get("detector-size", (64, 64)))
+        from functools import partial
+
+        from ..resources.images.generators import fake_2d_detector_img_generator
+
+        self._timeout = float(config.get("timeout", 5)) or 5
+        self._wait_int = float(config.get("update-rate", 0.1)) or 0.1
         self.num_frame = int(config.get("num-frame", 128))
-        self.min_intensity = float(config.get("min-intensity", 0.5))
-        self.signal_mu = float(config.get("signal-mu", 0.1))
-        self.signal_err = float(config.get("signal-err", 0.1))
-        self.noise_mu = float(config.get("noise-mu", 1))
-        self.noise_err = float(config.get("noise-err", 0.3))
-        self.timeout = float(config.get("timeout", 5)) or 5
+        detector_size = tuple(config.get("detector-size", (64, 64)))
+        seed_img = self._prepare_seed_image(detector_size)
+        min_intensity = float(config.get("min-intensity", 0.5))
+        signal_mu = float(config.get("signal-mu", 0.1))
+        signal_err = float(config.get("signal-err", 0.1))
+        noise_mu = float(config.get("noise-mu", 1))
+        noise_err = float(config.get("noise-err", 0.3))
+        self.data_generator = partial(
+            fake_2d_detector_img_generator,
+            seed_img=seed_img,
+            num_frame=self.num_frame,
+            min_intensity=min_intensity,
+            signal_mu=signal_mu,
+            signal_err=signal_err,
+            noise_mu=noise_mu,
+            noise_err=noise_err,
+        )
+
+    def _prepare_seed_image(self, detector_size: tuple) -> np.ndarray:
+        from PIL import Image
+        from PIL.ImageOps import flip
+
+        from ..resources.images import load_icon_img
+
+        original_img = Image.fromarray(np.uint8(load_icon_img()))
+        resized_img = original_img.resize(detector_size)
+        return np.asarray(flip(resized_img), dtype=np.float64)
 
     async def _run(self) -> None:
         self.info("Start data feeding...")
-        original_img = Image.fromarray(np.uint8(load_icon_img()))
-        resized_img = original_img.resize(self.detector_size)
-        seed_img = np.asarray(flip(resized_img), dtype=np.float64)
-        for iframe, frame in enumerate(
-            fake_2d_detector_img_generator(
-                seed_img,
-                num_frame=self.num_frame,
-                min_intensity=self.min_intensity,
-                signal_mu=self.signal_mu,
-                signal_err=self.signal_err,
-                noise_mu=self.noise_mu,
-                noise_err=self.noise_err,
-            )
-        ):
+
+        for iframe, frame in enumerate(self.data_generator()):
             continue_flag = await self.should_proceed()
             if not continue_flag:
                 return

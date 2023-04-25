@@ -26,9 +26,9 @@ class BeamlimeApplicationInterface(LogMixin, FlagControlMixin, CoroutineMixin, A
         self.app_name = kwargs.get("name", "")
         self._input_ch = None
         self._output_ch = None
-        self._update_rate = kwargs.get("update_rate", 1)
+        self._wait_int = kwargs.get("update_rate", 1)
         self._timeout = kwargs.get(
-            "timeout", min(self._update_rate * 10, MAX_INSTANCE_PAUSED)
+            "timeout", min(self._wait_int * 10, MAX_INSTANCE_PAUSED)
         )
         from ..config.preset_options import RESERVED_APP_NAME
 
@@ -90,7 +90,7 @@ class BeamlimeApplicationInterface(LogMixin, FlagControlMixin, CoroutineMixin, A
         try:
             # TODO: Replace the below line to self.broker.receive_data(...)
             return await _receive_data(
-                *args, timeout=self._timeout, wait_interval=self._update_rate, **kwargs
+                *args, timeout=self._timeout, wait_interval=self._wait_int, **kwargs
             )
         except TimeoutError:
             return None
@@ -106,7 +106,7 @@ class BeamlimeApplicationInterface(LogMixin, FlagControlMixin, CoroutineMixin, A
         try:
             # TODO: Replace the below line to self.broker.send_data(...)
             return await _send_data(
-                *args, timeout=self._timeout, wait_interval=self._update_rate, **kwargs
+                *args, timeout=self._timeout, wait_interval=self._wait_int, **kwargs
             )
         except TimeoutError:
             return False
