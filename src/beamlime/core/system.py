@@ -113,7 +113,8 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
                 logger=self.logger,
                 app_name=app_name,
             )
-
+        for app_inst_gr in self.app_instances.values():
+            app_inst_gr.init_instances()
         self._connect_instances()
 
     async def _run(self):

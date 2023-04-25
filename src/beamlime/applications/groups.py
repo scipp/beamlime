@@ -8,7 +8,7 @@ from typing import Callable, Optional, TypeVar
 from .. import protocols
 from ..core.schedulers import async_timeout
 from .interfaces import BeamlimeApplicationInterface
-from .mixins import LogMixin
+from .mixins import ApplicationNotStartedException, LogMixin
 
 _CommunicationChannel = TypeVar(
     "_CommunicationChannel",
@@ -18,14 +18,6 @@ _CommunicationChannel = TypeVar(
 )
 
 MAX_INSTANCE_NUMBER = 2
-
-
-class ApplicationStoppedException(Exception):
-    ...
-
-
-class ApplicationNotStartedException(Exception):
-    ...
 
 
 # TODO: Implement multi-process/multi-machine instance group interface.
@@ -61,19 +53,22 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
     def __init__(
         self,
         constructor: Callable,
-        instance_num: int = 2,
+        instance_num: int = 1,
         logger: Logger = None,
         app_name: str = None,
+        timeout: float = 10,
+        wait_int: float = 1,
     ) -> None:
         self.app_name = app_name or ""
         # TODO: Add method to check ``_instances`` if all instances are alive.
         self._init_logger(logger=logger)
-        self._init_instances(constructor, instance_num)
+        self._constructor = constructor
+        self._instance_num = instance_num
         self._input_ch = None
         self._output_ch = None
         self._tasks = []
-        self._timeout = 10
-        self._wait_int = 1
+        self._timeout = timeout
+        self._wait_int = wait_int
 
     def _init_logger(self, logger: Logger) -> None:
         if logger is None:
@@ -83,10 +78,9 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
         else:
             self.logger = logger
 
-    def _init_instances(self, constructor: Callable, instance_num: int) -> None:
-        self.constructor = constructor
+    def init_instances(self) -> None:
         self._instances = []
-        for _ in range(instance_num):
+        for _ in range(self._instance_num):
             self.populate()
 
     def parse_config(self, config: dict) -> None:
@@ -150,20 +144,17 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
             super().__del__()
 
     async def should_proceed(self):
-        @async_timeout(ApplicationNotStartedException, ApplicationStoppedException)
-        async def wait_start(timeout: int, wait_interval: int):
-            if all([inst._stopped for inst in self.instances]):
-                self.debug("Application all stopped. Waiting for ``start`` command...")
-                raise ApplicationStoppedException
-            elif not any([inst._started for inst in self.instances]):
+        @async_timeout(ApplicationNotStartedException)
+        async def wait_start(timeout: int, wait_interval: int) -> None:
+            if not any([inst._started for inst in self.instances]):
                 self.debug("Application not started. Waiting for ``start`` command...")
                 raise ApplicationNotStartedException
-            else:
-                return True
+            return
 
         try:
             await asyncio.sleep(self._wait_int)
-            return await wait_start(timeout=self._timeout, wait_interval=self._wait_int)
+            await wait_start(timeout=self._timeout, wait_interval=self._wait_int)
+            return True
         except TimeoutError:
             self.debug("Applications not started. Killing instances ...")
             self.kill()
@@ -198,7 +189,7 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
     def populate(self) -> Optional[protocols.BeamlimeApplicationProtocol]:
         """Populate one more instance in the group."""
         if len(self._instances) < MAX_INSTANCE_NUMBER:
-            self._instances.append(self.constructor())
+            self._instances.append(self._constructor())
             if hasattr(self, "_output_ch"):
                 self._instances[-1].output_channel = self._output_ch
             if hasattr(self, "_input_ch"):
