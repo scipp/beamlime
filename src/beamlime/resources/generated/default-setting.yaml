@@ -5,10 +5,8 @@
 general:
   user: scipp
   name: default configuration
-  last-updated: '2023-04-21 13:47:05.578791'
-
-dashboard:
-  update-frequency: 5
+  last-updated: '2023-04-25 15:38:59.306699'
+  max-paused: beamlime.config.preset_options.MAX_PAUSED
 
 data-stream:
   applications:

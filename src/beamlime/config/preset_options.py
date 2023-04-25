@@ -17,6 +17,7 @@ HOME_DIR = find_home()  # ~/.beamlime
 DEFAULT_CONFIG_PATH = HOME_DIR.joinpath("default-config.yaml")
 DEFAULT_LOG_DIR = HOME_DIR.joinpath("logs")
 DEFAULT_CUSTOM_HANDLER_DIR = HOME_DIR.joinpath("custom-handlers")
+MAX_PAUSED = 60  # s
 
 
 class PresetOptionProtocol(Protocol):
