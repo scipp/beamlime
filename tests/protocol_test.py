@@ -2,36 +2,33 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # @author Sunyoung Yoo
 # ``issubclass`` does not support ``Protocol``s with non-method members.
-from beamlime.core import protocols as bm_protocol
+from beamlime import protocols as bm_protocol
 from tests.test_helper import DummyApp
 
-# def test_system_protocol():
-#     # TODO: reorganize protocols regarding daemon interfaces.
-#     from beamlime.applications.interfaces import BeamlimeApplicationProtocol
-#     from beamlime.core.system import DaemonApplicationInstanceGroup
 
-#     ag = DaemonApplicationInstanceGroup(constructor=DummyApp, instance_num=1)
-#     assert isinstance(ag, DaemonApplicationInstanceGroup) and isinstance(
-#         ag, BeamlimeApplicationProtocol
-#     )
+def test_instace_group_protocol():
+    from beamlime.applications import BeamlimeApplicationInstanceGroup
+
+    ag = BeamlimeApplicationInstanceGroup(constructor=DummyApp, instance_num=1)
+    assert isinstance(ag, bm_protocol.BeamlimeApplicationProtocol)
 
 
 def test_logging_mixin_protocol():
-    from beamlime.applications.interfaces import _LogMixin
+    from beamlime.applications.mixins import LogMixin
 
-    assert issubclass(_LogMixin, bm_protocol.BeamlimeLoggingProtocol)
+    assert issubclass(LogMixin, bm_protocol.BeamlimeLoggingProtocol)
 
 
 def test_flag_based_control_mixin_protocol():
-    from beamlime.applications.interfaces import _FlagControlMixin
+    from beamlime.applications.mixins import FlagControlMixin
 
-    assert issubclass(_FlagControlMixin, bm_protocol.BeamlimeApplicationControlProtocol)
+    assert issubclass(FlagControlMixin, bm_protocol.BeamlimeApplicationControlProtocol)
 
 
-def test_daemon_application_interface_protocol():
-    from beamlime.applications.interfaces import _DaemonInterface
+def test_coroutine_mixin_protocol():
+    from beamlime.applications.mixins import CoroutineMixin
 
-    assert issubclass(_DaemonInterface, bm_protocol.BeamlimeDaemonAppProtocol)
+    assert issubclass(CoroutineMixin, bm_protocol.BeamlimeCoroutineProtocol)
 
 
 def test_application_interface_protocol():
