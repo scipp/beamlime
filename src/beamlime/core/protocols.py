@@ -7,7 +7,7 @@ from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
-class BeamlimeApplicationControlProtocol(Protocol):
+class BeamlimeControlProtocol(Protocol):
     """Application Control Protocol"""
 
     @property
@@ -81,7 +81,7 @@ class BeamlimeCoroutineProtocol(Protocol):
 
 @runtime_checkable
 class BeamlimeApplicationProtocol(
-    BeamlimeApplicationControlProtocol,
+    BeamlimeControlProtocol,
     BeamlimeLoggingProtocol,
     BeamlimeCoroutineProtocol,
     Protocol,

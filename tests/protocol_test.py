@@ -22,9 +22,7 @@ def test_logging_mixin_protocol():
 def test_flag_based_control_mixin_protocol():
     from beamlime.applications.mixins import FlagControlMixin
 
-    assert isinstance(
-        FlagControlMixin(), bm_protocol.BeamlimeApplicationControlProtocol
-    )
+    assert isinstance(FlagControlMixin(), bm_protocol.BeamlimeControlProtocol)
 
 
 def test_coroutine_mixin_protocol():
