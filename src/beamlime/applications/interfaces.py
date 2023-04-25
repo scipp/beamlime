@@ -5,6 +5,7 @@ from logging import Logger
 from queue import Empty
 from typing import Any
 
+from ..config.preset_options import MAX_PAUSED
 from ..core.schedulers import async_timeout
 from .mixins import CoroutineMixin, FlagControlMixin, LogMixin
 
@@ -22,11 +23,11 @@ class BeamlimeApplicationInterface(LogMixin, FlagControlMixin, CoroutineMixin, A
         self._pause_interval = 0.1
         self._init_logger(logger=logger)
         self.app_name = kwargs.get("name", "")
-        self._input_ch = None
-        self._output_ch = None
+        self._input_channel = None
+        self._output_channel = None
         self._wait_int = kwargs.get("update_rate", 1)
         self._timeout = kwargs.get(
-            "timeout", min(self._wait_int * 10, kwargs.get("max-paused", 1))
+            "timeout", min(self._wait_int * 10, kwargs.get("max-paused", MAX_PAUSED))
         )
         from ..config.preset_options import RESERVED_APP_NAME
 
@@ -64,19 +65,19 @@ class BeamlimeApplicationInterface(LogMixin, FlagControlMixin, CoroutineMixin, A
 
     @property
     def input_channel(self):
-        return self._input_ch
+        return self._input_channel
 
     @input_channel.setter
     def input_channel(self, input_channel):
-        self._input_ch = input_channel
+        self._input_channel = input_channel
 
     @property
     def output_channel(self):
-        return self._output_ch
+        return self._output_channel
 
     @output_channel.setter
     def output_channel(self, output_channel):
-        self._output_ch = output_channel
+        self._output_channel = output_channel
 
     async def receive_data(self, *args, **kwargs) -> Any:
         @async_timeout(Empty)
