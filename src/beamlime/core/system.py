@@ -4,10 +4,10 @@
 from asyncio import Task
 from typing import Union, overload
 
-from ..applications.interfaces import (
+from ..applications import (
     MAX_INSTANCE_NUMBER,
+    BeamlimeApplicationInstanceGroup,
     BeamlimeApplicationInterface,
-    DaemonApplicationInstanceGroup,
 )
 
 
@@ -25,6 +25,7 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
 
             initialize_file_handler(self.config, self.logger)
         self.build_instances()
+        self._tasks = []
 
     @overload
     def parse_config(self, config_path: str) -> None:
@@ -83,7 +84,7 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
     def build_instances(self):
         from functools import partial
 
-        from ..applications.interfaces import BeamLimeDataReductionInterface
+        from ..applications.interfaces import BeamlimeDataReductionInterface
         from ..config.tools import import_object, list_to_dict
 
         app_configs = list_to_dict(self.runtime_config["data-stream"]["applications"])
@@ -93,7 +94,7 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
         for app_name, app in app_configs.items():
             handler = import_object(app["data-handler"])
             instance_num = app.get("instance-number", 1) or 1
-            if issubclass(handler, BeamLimeDataReductionInterface):
+            if issubclass(handler, BeamlimeDataReductionInterface):
                 # Special type of application - Data Reduction
                 app_config = self.runtime_config["data-reduction"]
             else:
@@ -106,14 +107,18 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
                 logger=self.logger,
             )
 
-            self.app_instances[app_name] = DaemonApplicationInstanceGroup(
-                constructor=handler_constructor, instance_num=instance_num
+            self.app_instances[app_name] = BeamlimeApplicationInstanceGroup(
+                constructor=handler_constructor,
+                instance_num=instance_num,
+                logger=self.logger,
+                app_name=app_name,
             )
 
         self._connect_instances()
 
-    def _run(self):
-        ...
+    async def _run(self):
+        for app_inst_gr in self.app_instances.values():
+            await app_inst_gr._run()
 
     def _connect_instances(self):
         """
@@ -152,19 +157,38 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
     def create_task(self) -> list[Task]:
         # TODO: return TaskGroup instead of list of Task.
         # Will be available from py311
-        tasks = []
-        for inst in self.app_instances.values():
-            tasks.extend(inst.create_task())
-        return tasks
+        import asyncio
+
+        # TODO: Handle the case when tasks are still running.
+        self._tasks.clear()
+        self.start()
+        self._tasks = [
+            asyncio.create_task(inst_gr._run())
+            for inst_gr in self.app_instances.values()
+        ]
+        return self._tasks
+
+    def kill(self) -> None:
+        """Kill all instance groups and coroutine tasks"""
+        for app_inst_gr in self.app_instances.values():
+            app_inst_gr.kill()
+        while self._tasks:
+            self._tasks.pop().cancel()
+            self._tasks.clear()
 
     def __del__(self) -> None:
-        for app_name, app_inst_gr in self.app_instances.items():
+        while self.app_instances:
+            app_name, app_inst_gr = self.app_instances.popitem()
+            app_inst_gr.kill()
             self.info("Deleting %s instance ... ", app_name)
             del app_inst_gr
 
     def start(self) -> None:
+        # TODO: Update populate logic.
         for app_name, app_inst_gr in self.app_instances.items():
             self.info("Starting %s instance ... ", app_name)
+            if not app_inst_gr.instances:
+                app_inst_gr.populate()
             app_inst_gr.start()
 
     def pause(self) -> None:
