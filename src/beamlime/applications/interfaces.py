@@ -8,8 +8,6 @@ from typing import Any
 from ..core.schedulers import async_timeout
 from .mixins import CoroutineMixin, FlagControlMixin, LogMixin
 
-MAX_INSTANCE_PAUSED = 20
-
 
 class BeamlimeApplicationInterface(LogMixin, FlagControlMixin, CoroutineMixin, ABC):
     """
@@ -28,7 +26,7 @@ class BeamlimeApplicationInterface(LogMixin, FlagControlMixin, CoroutineMixin, A
         self._output_ch = None
         self._wait_int = kwargs.get("update_rate", 1)
         self._timeout = kwargs.get(
-            "timeout", min(self._wait_int * 10, MAX_INSTANCE_PAUSED)
+            "timeout", min(self._wait_int * 10, kwargs.get("max-paused", 1))
         )
         from ..config.preset_options import RESERVED_APP_NAME
 

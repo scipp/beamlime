@@ -3,8 +3,4 @@
 # flake8: noqa F401
 
 from .groups import MAX_INSTANCE_NUMBER, BeamlimeApplicationInstanceGroup
-from .interfaces import (
-    MAX_INSTANCE_PAUSED,
-    BeamlimeApplicationInterface,
-    BeamlimeDataReductionInterface,
-)
+from .interfaces import BeamlimeApplicationInterface, BeamlimeDataReductionInterface

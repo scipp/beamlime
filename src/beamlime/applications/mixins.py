@@ -7,12 +7,11 @@ from logging import DEBUG, ERROR, INFO, WARN, Logger
 from ..core.schedulers import async_timeout
 from ..logging.loggers import BeamlimeLogger
 
-MAX_INSTANCE_PAUSED = 20
-
 
 class LogMixin:
     """
-    Logging interfaces
+    Logging interfaces.
+    Mixin assumes the inheriting class meets the ``BeamlimeApplicationProtocol``.
 
     Protocol
     --------
@@ -60,7 +59,8 @@ class LogMixin:
 
 class FlagControlMixin:
     """
-    Process control interfaces
+    Process control interfaces.
+    Mixin assumes the inheriting class meets the ``BeamlimeApplicationProtocol``.
 
     Protocol
     --------
@@ -119,6 +119,7 @@ class ApplicationNotStartedException(Exception):
 class CoroutineMixin:
     """
     Application coroutine interfaces.
+    Mixin assumes the inheriting class meets the ``BeamlimeApplicationProtocol``.
 
     Protocol
     --------
