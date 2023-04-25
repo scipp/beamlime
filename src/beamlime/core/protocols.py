@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
+from asyncio import Task
 from typing import Any, Protocol, runtime_checkable
 
 
@@ -42,13 +43,18 @@ class BeamlimeLoggingProtocol(Protocol):
 
 
 @runtime_checkable
-class BeamlimeDaemonAppProtocol(Protocol):
-    """Daemon Application Protocol"""
+class BeamlimeCoroutineProtocol(Protocol):
+    """Coroutine Protocol"""
 
-    def __del__(self):
+    async def should_proceed(self) -> bool:
         ...
 
-    def _run(self):
+    def run(self) -> Any:
+        """Run the application in a dependent event loop."""
+        ...
+
+    def create_task(self, /, name=None, context=None) -> Task:
+        """Start the task in the currently running event loop."""
         ...
 
 
@@ -56,7 +62,7 @@ class BeamlimeDaemonAppProtocol(Protocol):
 class BeamlimeApplicationProtocol(
     BeamlimeApplicationControlProtocol,
     BeamlimeLoggingProtocol,
-    BeamlimeDaemonAppProtocol,
+    BeamlimeCoroutineProtocol,
     Protocol,
 ):
     """Temporary Application Protocol until we have communication broker"""
@@ -78,6 +84,12 @@ class BeamlimeApplicationProtocol(
         ...
 
     def parse_config(self, config: dict) -> None:
+        ...
+
+    async def _run(self) -> Any:
+        ...
+
+    def __del__(self) -> None:
         ...
 
 
