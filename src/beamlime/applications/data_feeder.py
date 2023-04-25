@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
-import asyncio
-
 import numpy as np
 from PIL import Image
 from PIL.ImageOps import flip
@@ -15,6 +13,7 @@ from .interfaces import BeamlimeApplicationInterface
 class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
     def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
         super().__init__(config, logger, **kwargs)
+        self._update_rate = 0.1
 
     def __del__(self) -> None:
         ...
@@ -34,7 +33,6 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
         original_img = Image.fromarray(np.uint8(load_icon_img()))
         resized_img = original_img.resize(self.detector_size)
         seed_img = np.asarray(flip(resized_img), dtype=np.float64)
-        await asyncio.sleep(0.1)
         for iframe, frame in enumerate(
             fake_2d_detector_img_generator(
                 seed_img,
@@ -46,8 +44,8 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
                 noise_err=self.noise_err,
             )
         ):
-            app_stopped = await self.stopped(timeout=5, check_pause_interval=0.2)
-            if app_stopped:
+            continue_flag = await self.should_proceed()
+            if not continue_flag:
                 return
 
             fake_data = {
@@ -59,9 +57,8 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
                 },
             }
             self.info("Sending %dth frame", iframe)
-            data_sent = await self.send_data(data=fake_data, timeout=1)
 
-            if not data_sent:
+            if not await self.send_data(data=fake_data):
                 self.info(
                     "Output channel broken. %dth frame was not sent. "
                     "Stopping the application ... ",

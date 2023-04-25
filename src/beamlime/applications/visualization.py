@@ -15,23 +15,15 @@ class RealtimePlot(BeamlimeApplicationInterface):
         self._plottable_objects = dict()
         self._stream_nodes = dict()
         self._figs = dict()
-
-    def pause(self) -> None:
-        pass
-
-    def start(self) -> None:
-        pass
-
-    def resume(self) -> None:
-        pass
+        self._timeout = 20
 
     def __del__(self) -> None:
         self._plottable_objects.clear()
         self._stream_nodes.clear()
+        super().__del__()
 
     def parse_config(self, config: dict) -> None:
-        if config is None:
-            pass
+        ...
 
     @property
     def plottable_objects(self):
@@ -66,10 +58,10 @@ class RealtimePlot(BeamlimeApplicationInterface):
         return self.info("value updated with frame number %s", frame_number)
 
     async def _run(self):
-        new_data = await self.receive_data(timeout=20, wait_interval=1)
+        new_data = await self.receive_data()
         while new_data is not None:
             self.info("Received new data. Updating plot ...")
             result = await self.process(new_data)
             self.debug("Processed new data: %s", str(result))
-            new_data = await self.receive_data(timeout=20, wait_interval=1)
+            new_data = await self.receive_data()
         self.info("Finishing visualisation ...")
