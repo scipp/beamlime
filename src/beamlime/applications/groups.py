@@ -64,10 +64,10 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
         self._init_logger(logger=logger)
         self._constructor = constructor
         self._instance_num = instance_num
-        self._input_ch = None
-        self._output_ch = None
-        self._tasks = []
-        self._instances = []
+        self._input_channel = None
+        self._output_channel = None
+        self._tasks = []  # TODO: make ``_tasks`` dict.
+        self._instances = dict()
         self._timeout = timeout
         self._wait_int = wait_int
         self._started = False
@@ -82,7 +82,7 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
             self.logger = logger
 
     def init_instances(self) -> None:
-        self._instances = []
+        self._instances.clear()
         for _ in range(self._instance_num):
             self.populate()
 
@@ -94,56 +94,60 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
     def input_channel(self) -> object:
         # TODO: Update this after implementing communication broker.
         if self._instances:
-            return self._instances[0].input_channel
+            for inst in self._instances.values():
+                if hasattr(inst, "input_channel"):
+                    return inst.input_channel
         return None
 
     @property
     def output_channel(self) -> object:
         # TODO: Update this after implementing communication broker.
         if self._instances:
-            return self._instances[0].output_channel
+            for inst in self._instances.values():
+                if hasattr(inst, "input_channel"):
+                    return inst.output_channel
         return None
 
     @input_channel.setter
     def input_channel(self, channel: _CommunicationChannel) -> None:
-        self._input_ch = channel
-        for inst in self._instances:
+        self._input_channel = channel
+        for inst in self._instances.values():
             inst.input_channel = channel
 
     @output_channel.setter
     def output_channel(self, channel: _CommunicationChannel) -> None:
-        self._output_ch = channel
-        for inst in self._instances:
+        self._output_channel = channel
+        for inst in self._instances.values():
             inst.output_channel = channel
 
     def start(self) -> None:
-        for inst in self._instances:
+        for inst in self._instances.values():
             inst.start()
 
     def stop(self) -> None:
-        for inst in self._instances:
+        for inst in self._instances.values():
             inst.stop()
 
     def pause(self) -> None:
-        for inst in self._instances:
+        for inst in self._instances.values():
             inst.pause()
 
     def resume(self) -> None:
-        for inst in self._instances:
+        for inst in self._instances.values():
             inst.resume()
 
     @property
     def instances(self) -> list[BeamlimeApplicationInterface]:
-        """All instance objects in the group."""
+        """Dictionary of instance objects in the group."""
         return self._instances
 
     def __iter__(self) -> object:
-        for instance in self._instances:
+        for instance in self._instances.values():
             yield instance
 
     def __del__(self) -> None:
         while self.instances:
-            killed_inst = self.instances.pop()
+            _, killed_inst = self._instances.popitem()
             if hasattr(killed_inst, "_task"):
                 killed_inst._task.cancel()
                 del killed_inst
@@ -153,7 +157,7 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
     async def should_proceed(self):
         @async_timeout(ApplicationNotStartedException)
         async def wait_start(timeout: int, wait_interval: int) -> None:
-            if not any([inst._started for inst in self.instances]):
+            if not any([inst._started for inst in self._instances.values()]):
                 self.debug("Application not started. Waiting for ``start`` command...")
                 raise ApplicationNotStartedException
             return
@@ -169,7 +173,7 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
 
     async def _run(self) -> None:
         if await self.should_proceed():
-            for inst in self.instances:
+            for inst in self._instances.values():
                 await inst._run()
 
     def run(self) -> None:
@@ -195,13 +199,14 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
 
     def populate(self) -> Optional[protocols.BeamlimeApplicationProtocol]:
         """Populate one more instance in the group."""
+        from uuid import uuid4
+
         if len(self._instances) < MAX_INSTANCE_NUMBER:
-            self._instances.append(self._constructor())
-            if hasattr(self, "_output_ch"):
-                self._instances[-1].output_channel = self._output_ch
-            if hasattr(self, "_input_ch"):
-                self._instances[-1].input_channel = self._input_ch
-            return self._instances[-1]
+            inst_name = self.app_name + str(uuid4())
+            self._instances[inst_name] = self._constructor()
+            self._instances[inst_name].output_channel = self._output_channel
+            self._instances[inst_name].input_channel = self._input_channel
+            return self._instances[inst_name]
         else:
             self.warning(
                 f"There are already {len(self._instances)} "
@@ -213,7 +218,7 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
     def kill(self) -> None:
         """Kill all instances in the group."""
         while self._instances:
-            killed_app = self._instances.pop()
+            _, killed_app = self._instances.popitem()
             killed_app.stop()
             del killed_app
         while self._tasks:
