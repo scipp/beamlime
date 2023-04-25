@@ -10,6 +10,14 @@ from typing import Any, Protocol, runtime_checkable
 class BeamlimeApplicationControlProtocol(Protocol):
     """Application Control Protocol"""
 
+    @property
+    def _started(self) -> bool:
+        ...
+
+    @property
+    def _paused(self) -> bool:
+        ...
+
     def start(self):
         ...
 

@@ -58,7 +58,6 @@ class FlagControlMixin:
 
     _started = False
     _paused = True
-    _stopped = False
 
     def start(self) -> None:
         self.info("Control command 'start' received.")
@@ -93,12 +92,16 @@ class FlagControlMixin:
                 "Application not paused, trying control command 'pause' first ..."
             )
             self.pause()
-        if not self._stopped:
-            self._stopped = True
-            self.debug("Flag updated, stopped flag: %s", self._paused)
+        if self._started:
+            self._started = False
+            self.debug("Flag updated, started flag: %s", self._started)
 
 
 class ApplicationPausedException(Exception):
+    ...
+
+
+class ApplicationNotStartedException(Exception):
     ...
 
 
@@ -138,18 +141,20 @@ class CoroutineMixin:
     """
 
     async def should_proceed(self):
-        @async_timeout(ApplicationPausedException)
-        async def wait_resumed(timeout: int, wait_interval: int):
-            if not self._stopped and self._paused:
+        @async_timeout(ApplicationNotStartedException, ApplicationPausedException)
+        async def wait_resumed(timeout: int, wait_interval: int) -> None:
+            if not self._started:
+                self.debug("Application not started. Waiting for ``start`` command...")
+                raise ApplicationNotStartedException
+            elif self._paused:
                 self.debug("Application paused. Waiting for ``resume`` command...")
                 raise ApplicationPausedException
-            return not (self._stopped or self._paused)
+            return
 
         try:
             await asyncio.sleep(self._wait_int)
-            return await wait_resumed(
-                timeout=self._timeout, wait_interval=self._wait_int
-            )
+            await wait_resumed(timeout=self._timeout, wait_interval=self._wait_int)
+            return self._started and not self._paused
         except TimeoutError:
             self.stop()
             return False
