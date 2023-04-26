@@ -4,10 +4,10 @@
 
 from typing import Callable, Type
 
+from ..config.preset_options import MAX_TIMEOUT, MIN_WAIT_INTERVAL
 from ..tools.wrappers import wraps_better
 
 MINIMUM_TIMEOUT = 0
-MINIMUM_AWAIT_INTERVAL = 0.1
 MAXIMUM_AWAIT_INTERVAL = 1000  # TODO: Remove or update the number
 
 
@@ -41,14 +41,15 @@ def _retrieve_timeout_interval(
         )
 
     # Validate ``timeout`` and ``interval``.
-    if timeout < MINIMUM_TIMEOUT:
+    if not (MINIMUM_TIMEOUT <= timeout <= MAX_TIMEOUT):
         raise ValueError(
-            f"``timeout`` out of [{MINIMUM_TIMEOUT}, ) for ``async_timeout``."
+            f"``timeout`` out of [{MINIMUM_TIMEOUT}, {MAX_TIMEOUT}]"
+            " for ``async_timeout``."
         )
-    elif not (MINIMUM_AWAIT_INTERVAL <= wait_interval <= MAXIMUM_AWAIT_INTERVAL):
+    elif not (MIN_WAIT_INTERVAL <= wait_interval <= MAXIMUM_AWAIT_INTERVAL):
         raise ValueError(
             "``interval`` out of range "
-            f"[{MINIMUM_AWAIT_INTERVAL}, {MAXIMUM_AWAIT_INTERVAL}]"
+            f"[{MIN_WAIT_INTERVAL}, {MAXIMUM_AWAIT_INTERVAL}]"
             " for ``async_timeout``."
         )
 

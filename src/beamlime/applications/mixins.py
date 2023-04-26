@@ -3,7 +3,9 @@
 
 import asyncio
 from logging import DEBUG, ERROR, INFO, WARN, Logger
+from typing import Any, Union
 
+from ..communication.broker import CommunicationBroker
 from ..core.schedulers import async_timeout
 from ..logging.loggers import BeamlimeLogger
 
@@ -27,6 +29,15 @@ class LogMixin:
     @logger.setter
     def logger(self, logger: Logger) -> None:
         self._logger = logger
+
+    def set_logger(self, logger: Union[Logger, None]) -> None:
+        """Set self logger as ``beamlime`` logger if not provided."""
+        if isinstance(logger, Logger):
+            self.logger = logger
+        else:
+            from ..logging import get_logger
+
+            self.logger = get_logger()
 
     def _log(self, level: int, msg: str, args: tuple):
         if isinstance(self.logger, BeamlimeLogger):
@@ -129,8 +140,8 @@ class CoroutineMixin:
     --------
     ```
     class DownStreamApp(BeamlimeApplicationInterface):
-        _timeout = 1
-        _wait_int = 0.1
+        timeout = 1
+        wait_interval = 0.1
 
         async def _run(self):
             # prepare process
@@ -152,10 +163,10 @@ class CoroutineMixin:
     ```
     """
 
-    _timeout = None
-    _wait_int = None
+    timeout = None
+    wait_interval = None
 
-    async def should_proceed(self):
+    async def should_proceed(self, wait=True):
         @async_timeout(ApplicationNotStartedException, ApplicationPausedException)
         async def wait_resumed(timeout: int, wait_interval: int) -> None:
             if not self._started:
@@ -167,8 +178,9 @@ class CoroutineMixin:
             return
 
         try:
-            await asyncio.sleep(self._wait_int)
-            await wait_resumed(timeout=self._timeout, wait_interval=self._wait_int)
+            if wait:
+                await asyncio.sleep(self.wait_interval)
+            await wait_resumed(timeout=self.timeout, wait_interval=self.wait_interval)
             return self._started and not self._paused
         except TimeoutError:
             self.stop()
@@ -198,3 +210,51 @@ class CoroutineMixin:
                 )  # py311
             except TypeError:
                 return asyncio.create_task(self._run(), name=name)  # py39, py310
+
+
+class BrokerMixin:
+    """
+    Communication Interfaces
+
+    Protocol
+    --------
+    UpstreamCommunicationProtocol
+
+    """
+
+    _broker = None
+
+    @property
+    def broker(self) -> CommunicationBroker:
+        return self._broker
+
+    @broker.setter
+    def broker(self, _broker: CommunicationBroker) -> None:
+        self._broker = _broker
+
+    async def get(self, *args, channel: str = None, **kwargs) -> Any:
+        return await self.broker.get(
+            *args,
+            app_name=self.app_name,
+            channel=channel,
+            timeout=self.timeout,
+            wait_interval=self.wait_interval,
+            **kwargs,
+        )
+
+    async def put(self, data: Any, *args, channel: str = None, **kwargs) -> Any:
+        return await self.broker.put(
+            data,
+            *args,
+            app_name=self.app_name,
+            channel=channel,
+            timeout=self.timeout,
+            wait_interval=self.wait_interval,
+            **kwargs,
+        )
+
+    async def poll(self) -> Any:
+        ...
+
+    async def publish(self) -> Any:
+        ...
