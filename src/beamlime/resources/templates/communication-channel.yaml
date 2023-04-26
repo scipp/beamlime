@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+# Dependencies on other templates: kafka-options.yaml
+#                                  mqueue-options.yaml
+
+name: # Unique name per channel
+type: # SQUEUE, MQUEUE, KAFKA
+options: # kafka-options or mqueue-options
