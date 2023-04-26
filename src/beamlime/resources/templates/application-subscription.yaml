@@ -6,12 +6,12 @@ app-name:
 input-channels:
   # one or more subscriptions
   # - name: # unique name of the channels
-  #   timeout: beamlime.config.preset_options.MAX_PAUSED  # 60 s
-  #   wait-interval: beamlime.config.preset_options.DEFAULT_WAIT_INTERVAL  # 60 s
+  #   timeout: beamlime.config.preset_options.DEFAULTTIMEOUT  # 60 s
+  #   wait-interval: beamlime.config.preset_options.DEFAULT_WAIT_INTERVAL  # 1 s
   # ...
 output-channels:
   # one or more subscriptions
   # - name: # unique name of the channels
-  #   timeout: beamlime.config.preset_options.MAX_PAUSED  # 60 s
-  #   wait-interval: beamlime.config.preset_options.DEFAULT_WAIT_INTERVAL  # 60 s
+  #   timeout: beamlime.config.preset_options.DEFAULT_TIMEOUT  # 60 s
+  #   wait-interval: beamlime.config.preset_options.DEFAULT_WAIT_INTERVAL  # 1 s
   # ...

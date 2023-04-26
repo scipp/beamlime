@@ -20,6 +20,8 @@ def _replace_preset_symbol(tpl: Union[dict, list]):
         if not isinstance(value, str):
             return value
         preset = import_object(value)
+        if isinstance(preset, (str, int, float)):
+            return preset
         if hasattr(preset, "DEFAULT"):
             return preset.DEFAULT
         else:
@@ -49,7 +51,7 @@ def _load_tpl(tpl_name: str, replace_symbol: bool = False) -> dict:
 
 
 # General Configuration
-load_config_tpl = partial(_load_tpl, tpl_name="config")
+load_config_tpl = partial(_load_tpl, tpl_name="config", replace_symbol=True)
 # Application
 load_application_tpl = partial(_load_tpl, tpl_name="application", replace_symbol=True)
 # Communication

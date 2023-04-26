@@ -1,25 +1,59 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+from typing import Union
 
 from ..resources.templates import (
+    load_app_subscription_tpl,
+    load_application_tpl,
+    load_communication_channel_tpl,
     load_config_tpl,
-    load_data_stream_app_tpl,
+    load_subscription_tpl,
     load_workflow_tpl,
 )
 
 
-def _build_default_application_config(name: str):
-    tpl = load_data_stream_app_tpl()
+def _build_default_application_config(name: str) -> dict:
+    tpl = load_application_tpl()
     tpl["name"] = name
     return tpl
 
 
-def _build_workflow_config(name=str):
+def _build_workflow_config(name: str) -> dict:
     tpl = load_workflow_tpl()
     tpl["name"] = name
     tpl.pop("reference")
     tpl.pop("process-args")
     tpl.pop("process-kwargs")
+    return tpl
+
+
+def _build_channel_config(name: str) -> dict:
+    tpl = load_communication_channel_tpl()
+    tpl["name"] = name
+    tpl["type"] = "SQUEUE"
+    tpl.pop("options")
+    return tpl
+
+
+def _build_subscription(channel_name: str) -> dict:
+    tpl = load_subscription_tpl()
+    tpl["name"] = channel_name
+    return tpl
+
+
+def _build_app_subscription(
+    app_name: str, in_ch_name: Union[str, None], out_ch_name: Union[str, None]
+) -> dict:
+    tpl = load_app_subscription_tpl()
+    tpl["app-name"] = app_name
+    if in_ch_name:
+        tpl["input-channels"] = [_build_subscription(in_ch_name)]
+    else:
+        tpl.pop("input-channels")
+    if out_ch_name:
+        tpl["output-channels"] = [_build_subscription(out_ch_name)]
+    else:
+        tpl.pop("output-channels")
     return tpl
 
 
@@ -41,17 +75,18 @@ def _build_default_data_stream_config() -> dict:
     config["applications"][0]["data-handler"] = ".".join(
         (data_feeder.__module__, data_feeder.__name__)
     )
+    config["applications"][0]["timeout"] = 1
+    config["applications"][0]["wait-interval"] = 0.2
     config["applications"][1]["data-handler"] = ".".join(
         (data_reduction.__module__, data_reduction.__name__)
     )
+    config["applications"][1]["timeout"] = 5
+    config["applications"][1]["wait-interval"] = 0.1
     config["applications"][2]["data-handler"] = ".".join(
         (visualisation.__module__, visualisation.__name__)
     )
-    # Application mapping
-    config["applications-mapping"] = [
-        {"from": "data-feeder", "to": "data-reduction"},
-        {"from": "data-reduction", "to": "visualisation"},
-    ]
+    config["applications"][2]["timeout"] = 10
+    config["applications"][2]["wait-interval"] = 1
     # Application specs
     config["application-specs"]["data-feeder"] = {
         "detector-size": [64, 64],
@@ -62,6 +97,16 @@ def _build_default_data_stream_config() -> dict:
         "noise-mu": 0.5,
         "noise-err": 0.2,
     }
+    # Communication
+    channel_names = ["raw-data", "reduced-data"]
+    config["communication-channels"] = [
+        _build_channel_config(ch_name) for ch_name in channel_names
+    ]
+    config["application-subscriptions"] = [
+        _build_app_subscription("data-feeder", None, "raw-data"),
+        _build_app_subscription("data-reduction", "raw-data", "reduced-data"),
+        _build_app_subscription("visualisation", "reduced-data", None),
+    ]
     return config
 
 

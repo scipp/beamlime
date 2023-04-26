@@ -5,29 +5,29 @@
 general:
   user: scipp
   name: default configuration
-  last-updated: '2023-04-25 17:09:54.683511'
-  max-paused: beamlime.config.preset_options.MAX_PAUSED
+  last-updated: '2023-04-26 08:51:44.446626'
+  timeout: 600
 
 data-stream:
   applications:
   - name: data-feeder
     data-handler: beamlime.handlers.data_feeder.Fake2dDetectorImageFeeder
     instance-number:
-    input-channel: QUEUE
-    output-channel: QUEUE
     keep-alive: false
+    timeout: 1
+    wait-interval: 0.2
   - name: data-reduction
     data-handler: beamlime.handlers.data_reduction.BeamLimeDataReductionApplication
     instance-number:
-    input-channel: QUEUE
-    output-channel: QUEUE
     keep-alive: false
+    timeout: 5
+    wait-interval: 0.1
   - name: visualisation
     data-handler: beamlime.handlers.visualisation.RealtimePlot
     instance-number:
-    input-channel: QUEUE
-    output-channel: QUEUE
     keep-alive: false
+    timeout: 10
+    wait-interval: 1
   application-specs:
     data-feeder:
       detector-size:
@@ -41,11 +41,31 @@ data-stream:
       noise-err: 0.2
     data-reduction: {}
     visualisation: {}
-  applications-mapping:
-  - from: data-feeder
-    to: data-reduction
-  - from: data-reduction
-    to: visualisation
+  communication-channels:
+  - name: raw-data
+    type: SQUEUE
+  - name: reduced-data
+    type: SQUEUE
+  application-subscriptions:
+  - app-name: data-feeder
+    output-channels:
+    - name: raw-data
+      timeout: 60
+      wait-interval: 1
+  - app-name: data-reduction
+    input-channels:
+    - name: raw-data
+      timeout: 60
+      wait-interval: 1
+    output-channels:
+    - name: reduced-data
+      timeout: 60
+      wait-interval: 1
+  - app-name: visualisation
+    input-channels:
+    - name: reduced-data
+      timeout: 60
+      wait-interval: 1
 
 data-reduction:
   workflows:
