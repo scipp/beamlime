@@ -9,7 +9,8 @@ from tests.test_helper import DummyApp
 def test_instace_group_protocol():
     from beamlime.applications import BeamlimeApplicationInstanceGroup
 
-    ag = BeamlimeApplicationInstanceGroup(constructor=DummyApp, instance_num=1)
+    app_config = {"name": "dummy", "data-handler": "tests.test_helper.DummyApp"}
+    ag = BeamlimeApplicationInstanceGroup(app_config=app_config, app_spec={})
     assert isinstance(ag, bm_protocol.BeamlimeApplicationProtocol)
 
 
@@ -34,7 +35,7 @@ def test_coroutine_mixin_protocol():
 def test_application_interface_protocol():
     from beamlime.applications.interfaces import BeamlimeApplicationInterface
 
-    app = DummyApp()
+    app = DummyApp(app_name="Dummy Application")
     assert isinstance(app, BeamlimeApplicationInterface) and isinstance(
         app, bm_protocol.BeamlimeApplicationProtocol
     )

@@ -15,14 +15,11 @@ def test_daemon_del(capsys: CaptureFixture[str]):
     }
 
     class DummyDaemonApp(BeamlimeApplicationInterface):
-        def parse_config(self, _: dict) -> None:
-            ...
-
         async def _run(self) -> None:
             ...
 
         def __del__(self):
-            super().__del__()
+            self.stop()
             DYING_MESSAGE["started"] = self._started
             DYING_MESSAGE["paused"] = self._paused
             self.debug(DYING_MESSAGE["last-word"])
@@ -33,7 +30,7 @@ def test_daemon_del(capsys: CaptureFixture[str]):
     logger.setLevel(DEBUG)
 
     app_name = "Dummy Daemon Application"
-    app = DummyDaemonApp(config={}, name=app_name)
+    app = DummyDaemonApp(app_name)
     app.start()
     del app
 

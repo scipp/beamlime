@@ -6,7 +6,7 @@ from beamlime.applications.interfaces import BeamlimeApplicationInterface
 
 
 class DummyApp(BeamlimeApplicationInterface):
-    def parse_config(self, _: dict) -> None:
+    def __del__(self):
         ...
 
     async def _run(self) -> None:
