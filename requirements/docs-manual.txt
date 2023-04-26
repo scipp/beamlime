@@ -56,7 +56,7 @@ multipledispatch==0.6.0
     # via pyrr
 networkx==2.8.8
     # via manim
-numpy==1.24.2
+numpy==1.24.3
     # via
     #   isosurfaces
     #   manim
@@ -74,13 +74,13 @@ pydub==0.25.1
     # via manim
 pyglet==2.0.5
     # via moderngl-window
-pygments==2.15.0
+pygments==2.15.1
     # via
     #   manim
     #   rich
 pyrr==0.10.3
     # via moderngl-window
-requests==2.28.2
+requests==2.29.0
     # via manim
 rich==13.3.4
     # via manim
@@ -94,7 +94,7 @@ skia-pathops==0.7.4
     # via manim
 srt==3.5.3
     # via manim
-svgelements==1.9.1
+svgelements==1.9.3
     # via manim
 tqdm==4.65.0
     # via manim
