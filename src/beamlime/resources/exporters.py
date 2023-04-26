@@ -72,6 +72,6 @@ def export_default_yaml(
             "# Please don't update it manually.\n"
             "# Use `tox -e config-build` to generate a new one.\n\n"
         ),
-        order=["general", "data-stream", "data-reduction"],
+        order=["general", "data-stream"],
         overwrite=overwrite,
     )

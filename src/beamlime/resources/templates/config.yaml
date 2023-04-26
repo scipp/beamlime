@@ -9,6 +9,7 @@
 general:
   user:
   name:
+  system-name:
   last-updated:
   log-dir: # ~/.beamlime/log
   timeout: beamlime.config.preset_options.MAX_TIMEOUT  # 600 s
@@ -27,6 +28,16 @@ data-stream:
     #  ...
     # applicatoin-name-2:
     #  ...
+    # data-reduction-app-name: Data reduction spec has special templates in target.yaml and workflow.yaml
+    #   targets:
+    #     # - name: target-name-1
+    #     #   index: ''
+    #     # - name: target-name-2
+    #     #   index: geometry
+    #   workflows:
+    #     # - name: workflow-name-1
+    #     #   ...
+
   communication-channels: # Each channel will be assigned to each application in the application-subscriptions.
     # - name: channel-name-1
     #   type:
@@ -47,14 +58,3 @@ data-stream:
     #   output-channels:
     #    - channel-name-1
     # ...
-
-data-reduction: # Each workflow will be run asynchronously but in one process.
-                # Can be split into multi-processes by the data-reduction-manager instance if needed.
-  targets:
-    # - name: target-name-1
-    #   index: ''
-    # - name: target-name-2
-    #   index: geometry
-  workflows:
-    # - name: workflow-name-1
-    #   ...

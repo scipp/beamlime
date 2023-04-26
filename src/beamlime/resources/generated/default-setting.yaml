@@ -5,7 +5,8 @@
 general:
   user: scipp
   name: default configuration
-  last-updated: '2023-04-26 08:51:44.446626'
+  system-name: Beamlime Dashboard
+  last-updated: '2023-04-26 11:23:14.914846'
   timeout: 600
 
 data-stream:
@@ -27,7 +28,7 @@ data-stream:
     instance-number:
     keep-alive: false
     timeout: 10
-    wait-interval: 1
+    wait-interval: 0.1
   application-specs:
     data-feeder:
       detector-size:
@@ -39,7 +40,34 @@ data-stream:
       signal-err: 0.2
       noise-mu: 0.5
       noise-err: 0.2
-    data-reduction: {}
+    data-reduction:
+      workflows:
+      - name: heatmap
+        process: heatmap_2d
+        input-policy: REPLACE
+        output-policy: STACK
+        targets:
+        - fake-2d-image
+        process-kargs:
+          threshold: 0.4
+          binning_size:
+          - 64
+          - 64
+      - name: frame-number-counting
+        process: handover
+        input-policy: REPLACE
+        output-policy: REPLACE
+        targets:
+        - frame-number
+      targets:
+      - name: fake-2d-image
+        index:
+        - detector-data
+        - image
+      - name: frame-number
+        index:
+        - detector-data
+        - frame-number
     visualisation: {}
   communication-channels:
   - name: raw-data
@@ -66,32 +94,3 @@ data-stream:
     - name: reduced-data
       timeout: 60
       wait-interval: 1
-
-data-reduction:
-  workflows:
-  - name: heatmap
-    process: heatmap_2d
-    input-policy: REPLACE
-    output-policy: STACK
-    targets:
-    - fake-2d-image
-    process-kargs:
-      threshold: 0.4
-      binning_size:
-      - 64
-      - 64
-  - name: frame-number-counting
-    process: handover
-    input-policy: REPLACE
-    output-policy: REPLACE
-    targets:
-    - frame-number
-  targets:
-  - name: fake-2d-image
-    index:
-    - detector-data
-    - image
-  - name: frame-number
-    index:
-    - detector-data
-    - frame-number
