@@ -4,11 +4,18 @@ channels:
   - scipp
 dependencies:
   - python=3.9
-  - jupyterlab
   - pyyaml
-  - colorama
-  - graphlib-backport
+  - confluent-kafka
+  - numpy
   - scipp
+  - h5py
+  - jupyterlab
+  - graphlib-backport
+  - pythreejs
   - ipympl
+  - matplotlib
+  - graphviz
 pip:
   - plopp
+  - colorama
+  - ess-streaming-data-types
