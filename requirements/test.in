@@ -1,5 +1,5 @@
 -r base.in
-colorama
+-r extra.in
 pytest
 pytest-cov
 pytest-xdist
