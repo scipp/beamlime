@@ -103,7 +103,8 @@ class CommunicationChannelOptions(FlagType):
 
     TQUEUE = "SQUEUE"  # Single process queue.
     MQUEUE = "MQUEUE"  # Multi process queue.
-    KAFKA = "KAFKA"  # KAFKA producer/listener.
+    KAFKA = "KAFKA-CONSUMER"  # KAFKA consumer.
+    KAFKA = "KAFKA-PRODUCER"  # KAFKA producer.
 
     @classmethod
     @property

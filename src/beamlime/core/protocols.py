@@ -117,7 +117,7 @@ class CommunicationProtocol(Protocol):
     ) -> Any:
         ...
 
-    def publish(
+    def produce(
         self,
         *args,
         app_name: str,

@@ -256,5 +256,5 @@ class BrokerMixin:
     async def poll(self) -> Any:
         ...
 
-    async def publish(self) -> Any:
+    async def produce(self) -> Any:
         ...

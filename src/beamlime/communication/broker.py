@@ -6,13 +6,17 @@ from queue import Empty, Full
 from queue import Queue as SQueue
 from typing import Any, Literal, Union
 
+from confluent_kafka import KafkaException
+
 from ..config.preset_options import MIN_WAIT_INTERVAL
 from ..core.schedulers import async_timeout
+from .queue_handlers import KafkaConsumer, KafkaProducer
 
 channel_constructors = {
     "SQUEUE": SQueue,  # TODO: Replace to beamlime queue haneler
     "MQUEUE": MQueue,  # TODO: Replace to beamlime queue handler
-    "KAFKA": None  # TODO: Add kafka queue handler
+    "KAFKA-CONSUMER": KafkaConsumer,
+    "KAFKA-PRODUCER": KafkaProducer  # TODO: Add kafka queue handler
     # TODO: make a queue or object that is just keeping the latest result.
 }
 
@@ -21,9 +25,18 @@ class CommunicationBroker:
     def __init__(self, channel_list: list, subscription_list: list) -> None:
         self.in_subscriptions = dict()
         self.out_subscriptions = dict()
-        self.channels = {
-            ch["name"]: channel_constructors[ch["type"]]() for ch in channel_list
-        }
+        self.channels = dict()
+        for ch in channel_list:
+            ch_name = ch["name"]
+            if ch["type"] == "SQUEUE":
+                self.channels[ch_name] = SQueue()  # TODO: Update this to handler class
+            elif ch["type"].startswith("KAFKA"):
+                config = {
+                    ch_opt_key: ch_opt
+                    for ch_opt_key, ch_opt in ch.items()
+                    if ch_opt_key not in ["name", "type"]
+                }
+                self.channels[ch_name] = channel_constructors[ch["type"]](**config)
         # TODO: Replace () to (ch["options"])
         for subscription in subscription_list:
             app_name = subscription["app-name"]
@@ -148,24 +161,68 @@ class CommunicationBroker:
         except TimeoutError:
             return False
 
-    def poll(
+    @async_timeout(Exception)  # TODO: Replace it to kafka specific error
+    async def _poll(
         self,
         *args,
-        app_name: str,
-        channel: Union[tuple, str, int],
-        timeout: float,
-        wait_interval: float,
+        _consumer: KafkaConsumer,
+        timeout: int,
+        wait_interval: int,
         **kwargs,
-    ) -> Any:
-        ...
+    ):
+        return _consumer.poll(*args, timeout=wait_interval, **kwargs)
 
-    def publish(
+    async def poll(
         self,
         *args,
         app_name: str,
-        channel: Union[tuple, str, int],
+        channel: KafkaConsumer,
         timeout: float,
         wait_interval: float,
         **kwargs,
     ) -> Any:
-        ...
+        try:
+            return await self._poll(
+                *args,
+                _consumer=self.get_in_channel(app_name, channel),
+                timeout=timeout,
+                wait_interval=wait_interval,
+                **kwargs,
+            )
+        except TimeoutError:
+            return None
+
+    @async_timeout(KafkaException)
+    async def _produce(
+        self,
+        data: Any,
+        *args,
+        _producer: KafkaProducer,
+        timeout: int,
+        wait_interval: int,
+        **kwargs,
+    ) -> bool:
+        _producer.produce(data, *args, timeout=wait_interval, **kwargs)
+        return True
+
+    async def produce(
+        self,
+        data,
+        *args,
+        app_name: str,
+        channel: Union[tuple, str, int],
+        timeout: float = 0,
+        wait_interval: float = MIN_WAIT_INTERVAL,
+        **kwargs,
+    ) -> Any:
+        try:
+            return await self._produce(
+                data,
+                *args,
+                _producer=self.get_out_channel(app_name, channel),
+                timeout=timeout,
+                wait_interval=wait_interval,
+                **kwargs,
+            )
+        except TimeoutError:
+            return False
