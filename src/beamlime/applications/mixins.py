@@ -57,6 +57,14 @@ class LogMixin:
         self._log(level=ERROR, msg=msg, args=args)
 
 
+class ApplicationPausedException(Exception):
+    ...
+
+
+class ApplicationNotStartedException(Exception):
+    ...
+
+
 class FlagControlMixin:
     """
     Process control interfaces.
@@ -90,8 +98,10 @@ class FlagControlMixin:
     def resume(self) -> None:
         self.info("Control command 'resume' received.")
         if not self._started:
-            self.info("Application not started, trying control command 'start' ...")
-            self.start()
+            raise ApplicationNotStartedException(
+                "Application not started,"
+                " control command 'start' should be called first."
+            )
         elif self._paused:
             self._paused = False
             self.debug("Flag updated, paused flag: %s", self._paused)
@@ -106,14 +116,6 @@ class FlagControlMixin:
         if self._started:
             self._started = False
             self.debug("Flag updated, started flag: %s", self._started)
-
-
-class ApplicationPausedException(Exception):
-    ...
-
-
-class ApplicationNotStartedException(Exception):
-    ...
 
 
 class CoroutineMixin:
