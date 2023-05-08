@@ -26,18 +26,14 @@ class LogMixin:
     def logger(self) -> Logger:
         return self._logger
 
-    @logger.setter
-    def logger(self, logger: Logger) -> None:
-        self._logger = logger
-
     def set_logger(self, logger: Union[Logger, None]) -> None:
         """Set self logger as ``beamlime`` logger if not provided."""
         if isinstance(logger, Logger):
-            self.logger = logger
+            self._logger = logger
         else:
             from ..logging import get_logger
 
-            self.logger = get_logger()
+            self._logger = get_logger()
 
     def _log(self, level: int, msg: str, args: tuple):
         if isinstance(self.logger, BeamlimeLogger):
@@ -53,7 +49,11 @@ class LogMixin:
                 args=args,
                 extra={"app_name": self.app_name},
             )
-        # do nothing if there is no logger.
+        else:
+            raise ValueError(
+                "`logger` should be an instance of `logging.Logger` "
+                "or `beamlime.logging.BeamlimeLogger`."
+            )
 
     def debug(self, msg: str, *args) -> None:
         self._log(level=DEBUG, msg=msg, args=args)
@@ -66,6 +66,23 @@ class LogMixin:
 
     def error(self, msg: str, *args) -> None:
         self._log(level=ERROR, msg=msg, args=args)
+
+
+class ApplicationPausedException(Exception):
+    ...
+
+
+class ApplicationNotPausedException(Exception):
+    ...
+
+
+class ApplicationStartedException(Exception):
+    ...
+
+
+class ApplicationNotStartedException(Exception):
+    def __init__(self, *args: object) -> None:
+        super().__init__("Application not started", *args)
 
 
 class FlagControlMixin:
@@ -83,6 +100,8 @@ class FlagControlMixin:
 
     def start(self) -> None:
         self.info("Control command 'start' received.")
+        if self._started:
+            raise ApplicationStartedException("Application already started.")
         if not self._started:
             self._started = True
             self._paused = False
@@ -94,37 +113,34 @@ class FlagControlMixin:
 
     def pause(self) -> None:
         self.info("Control command 'pause' received.")
-        if not self._paused:
-            self._paused = True
-            self.debug("Flag updated, paused flag: %s", self._paused)
+        if not self._started:
+            raise ApplicationNotStartedException
+        elif self._paused:
+            raise ApplicationPausedException("Application already paused.")
+        self._paused = True
+        self.debug("Flag updated, paused flag: %s", self._paused)
 
     def resume(self) -> None:
         self.info("Control command 'resume' received.")
         if not self._started:
-            self.info("Application not started, trying control command 'start' ...")
-            self.start()
-        elif self._paused:
-            self._paused = False
-            self.debug("Flag updated, paused flag: %s", self._paused)
+            raise ApplicationNotStartedException
+        elif not self._paused:
+            raise ApplicationNotPausedException("Application is already running.")
+        self._paused = False
+        self.debug("Flag updated, paused flag: %s", self._paused)
 
     def stop(self) -> None:
         self.info("Control command 'stop' received.")
-        if not self._paused:
-            self.info(
-                "Application not paused, trying control command 'pause' first ..."
+        if not self._started:
+            raise ApplicationNotStartedException
+        elif not self._paused:
+            self.warning(
+                "Control command `stop` was called with the application running, "
+                "trying control command `pause` first ..."
             )
             self.pause()
-        if self._started:
-            self._started = False
-            self.debug("Flag updated, started flag: %s", self._started)
-
-
-class ApplicationPausedException(Exception):
-    ...
-
-
-class ApplicationNotStartedException(Exception):
-    ...
+        self._started = False
+        self.debug("Flag updated, started flag: %s", self._started)
 
 
 class CoroutineMixin:
