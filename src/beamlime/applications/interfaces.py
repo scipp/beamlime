@@ -41,11 +41,11 @@ class BeamlimeApplicationInterface(LogMixin, FlagControlMixin, CoroutineMixin, A
 
     def _init_logger(self, logger=None):
         if isinstance(logger, Logger):
-            self.logger = logger
+            self._logger = logger
         else:
             from ..logging import get_logger
 
-            self.logger = get_logger()
+            self._logger = get_logger()
 
     @abstractmethod
     def parse_config(self, config: dict) -> None:
@@ -59,7 +59,8 @@ class BeamlimeApplicationInterface(LogMixin, FlagControlMixin, CoroutineMixin, A
         ...
 
     def __del__(self):
-        self.stop()
+        if self._started:
+            self.stop()
         if hasattr(super(), "__del__"):
             super().__del__()
 

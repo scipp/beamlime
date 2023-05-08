@@ -77,9 +77,9 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
         if logger is None:
             from ..logging import get_logger
 
-            self.logger = get_logger()
+            self._logger = get_logger()
         else:
-            self.logger = logger
+            self._logger = logger
 
     def init_instances(self) -> None:
         self._instances.clear()
