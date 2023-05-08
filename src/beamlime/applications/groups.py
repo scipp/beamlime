@@ -202,7 +202,7 @@ class BeamlimeApplicationInstanceGroup(LogMixin):
         from uuid import uuid4
 
         if len(self._instances) < MAX_INSTANCE_NUMBER:
-            inst_name = self.app_name + str(uuid4())
+            inst_name = self.app_name + uuid4().hex
             self._instances[inst_name] = self._constructor()
             self._instances[inst_name].output_channel = self._output_channel
             self._instances[inst_name].input_channel = self._input_channel

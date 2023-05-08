@@ -40,7 +40,8 @@ def _create_log_file(parent_dir: str, prefix: str = "beamlime") -> str:
         import uuid
 
         new_path = os.path.join(
-            parent_dir, f"{prefix}--{cur_timestamp}--{h_time}" f"--{uuid.uuid4()}.log"
+            parent_dir,
+            f"{prefix}--{cur_timestamp}--{h_time}" f"--{uuid.uuid4().hex}.log",
         )
     else:
         new_path = time_based
