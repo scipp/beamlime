@@ -1,4 +1,10 @@
-from beamlime.applications.mixins import FlagControlMixin, LogMixin
+import pytest
+
+from beamlime.applications.mixins import (
+    ApplicationNotStartedException,
+    FlagControlMixin,
+    LogMixin,
+)
 
 
 class DummyApp(LogMixin, FlagControlMixin):
@@ -70,8 +76,9 @@ def test_resume_not_paused():
 
 def test_resume_not_started():
     app = DummyApp()
-    app.resume()
-    assert app._started and not app._paused
+    with pytest.raises(ApplicationNotStartedException):
+        app.resume()
+        assert not app._started and not app._paused
 
 
 def test_resume_paused_twice():
