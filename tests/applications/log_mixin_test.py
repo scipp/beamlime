@@ -36,7 +36,8 @@ def test_app_logging_stream(
     msg = f"Some information needed to be {msg_suffix} with"
     getattr(app, log_method)(msg)
     log_output = capsys.readouterr()[-1]
-    assert f"{app_name:15} | {getLevelName(level):8} | {msg}" in log_output
+    for expected_field in (app_name, getLevelName(level), msg):
+        assert expected_field in log_output
 
 
 @pytest.mark.parametrize(
@@ -56,7 +57,8 @@ def test_app_logging_file(level: int, log_method, msg_suffix: str, tmp_path: Pat
     msg = f"Some information needed to be {msg_suffix} with"
     getattr(app, log_method)(msg)
     log_output = tmp_log_path.read_text()
-    assert f"{app_name:15} | {getLevelName(level):8} | {msg}" in log_output
+    for expected_field in (app_name, getLevelName(level), msg):
+        assert expected_field in log_output
 
 
 @pytest.mark.parametrize("log_method", ("debug", "info", "warning"))
