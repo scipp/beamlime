@@ -16,8 +16,8 @@ def test_start_twice():
     app = DummyApp()
     app.start()
     assert app._started and not app._paused
-    # app.start()
-    # assert app._started and not app._paused
+    app.start()
+    assert app._started and not app._paused
 
 
 def test_start_twice_paused():
