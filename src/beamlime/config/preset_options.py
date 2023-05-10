@@ -17,6 +17,7 @@ HOME_DIR = find_home()  # ~/.beamlime
 DEFAULT_CONFIG_PATH = HOME_DIR.joinpath("default-config.yaml")
 DEFAULT_LOG_DIR = HOME_DIR.joinpath("logs")
 DEFAULT_CUSTOM_HANDLER_DIR = HOME_DIR.joinpath("custom-handlers")
+MAX_PAUSED = 60  # s
 
 
 class PresetOptionProtocol(Protocol):
@@ -103,3 +104,25 @@ class CommunicationChannelOptions(FlagType):
     @property
     def DEFAULT(cls):
         return cls.QUEUE.value
+
+
+class ParellelismMethodOptions(FlagType):
+    """
+    1. ``ASYNC``
+
+    2. ``PROCESS``
+    # TODO: Not implemented yet.
+
+    3. ``CLUSTER``
+    # TODO: Not implemented yet.
+
+    """
+
+    ASYNC = "ASYNC"
+    PROCESS = "PROCESS"
+    CLUSTER = "CLUSTER"
+
+    @classmethod
+    @property
+    def DEFAULT(cls):
+        return cls.ASYNC.value

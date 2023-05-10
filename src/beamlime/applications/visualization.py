@@ -1,13 +1,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
-import asyncio
 from functools import partial
 
 import plopp as pp
 from scipp import DataArray
 
-from ..core.application import BeamlimeApplicationInterface
+from .interfaces import BeamlimeApplicationInterface
 
 
 class RealtimePlot(BeamlimeApplicationInterface):
@@ -16,22 +15,15 @@ class RealtimePlot(BeamlimeApplicationInterface):
         self._plottable_objects = dict()
         self._stream_nodes = dict()
         self._figs = dict()
-
-    def pause(self) -> None:
-        pass
-
-    def start(self) -> None:
-        pass
-
-    def resume(self) -> None:
-        pass
+        self._timeout = 20
 
     def __del__(self) -> None:
-        pass
+        self._plottable_objects.clear()
+        self._stream_nodes.clear()
+        super().__del__()
 
     def parse_config(self, config: dict) -> None:
-        if config is None:
-            pass
+        ...
 
     @property
     def plottable_objects(self):
@@ -49,7 +41,7 @@ class RealtimePlot(BeamlimeApplicationInterface):
     def handover(obj):
         return obj
 
-    def process(self, new_data):
+    async def process(self, new_data):
         for workflow, result in new_data.items():
             if isinstance(result, DataArray):
                 if workflow not in self.plottable_objects:
@@ -63,16 +55,13 @@ class RealtimePlot(BeamlimeApplicationInterface):
                     self.plottable_objects[workflow].values = result.values
                     self.stream_nodes[workflow].notify_children("update")
         frame_number = new_data["frame-number-counting"]
-        return f"value updated with frame number {frame_number}"
+        return self.info("value updated with frame number %s", frame_number)
 
-    @staticmethod
-    async def _run(self: BeamlimeApplicationInterface):
-        await asyncio.sleep(2)
-        new_data = await self.receive_data(timeout=1)
+    async def _run(self):
+        new_data = await self.receive_data()
         while new_data is not None:
-            await asyncio.sleep(0.5)
             self.info("Received new data. Updating plot ...")
-            result = self.process(new_data)
+            result = await self.process(new_data)
             self.debug("Processed new data: %s", str(result))
-            new_data = await self.receive_data(timeout=1)
+            new_data = await self.receive_data()
         self.info("Finishing visualisation ...")

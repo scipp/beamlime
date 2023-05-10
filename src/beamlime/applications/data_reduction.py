@@ -1,14 +1,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
-import asyncio
 from typing import TypeVar
 
 import numpy as np
 import scipp as sc
 
 from ..config.tools import list_to_dict, nested_data_get
-from ..core.application import BeamLimeDataReductionInterface
+from .interfaces import BeamlimeDataReductionInterface
 
 T = TypeVar("T")
 
@@ -34,21 +33,9 @@ def heatmap_2d(data, threshold=0.2, binning_size=(64, 64)):
 method_map = {"heatmap_2d": heatmap_2d, "handover": lambda x: x}
 
 
-class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
+class BeamLimeDataReductionApplication(BeamlimeDataReductionInterface):
     def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
         super().__init__(config, logger, **kwargs)
-
-    def pause(self) -> None:
-        pass
-
-    def start(self) -> None:
-        pass
-
-    def resume(self) -> None:
-        pass
-
-    def __del__(self) -> None:
-        pass
 
     def parse_config(self, config: dict):
         self.workflow_map = list_to_dict(config["workflows"], "name")
@@ -72,7 +59,7 @@ class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
         # REPLACE or SKIP
         return new_data
 
-    def process(self, new_data):
+    async def process(self, new_data):
         self.debug("Processing new data ...")
         result_map = dict()
         for wf_name, wf_config in self.workflow_map.items():
@@ -141,17 +128,14 @@ class BeamLimeDataReductionApplication(BeamLimeDataReductionInterface):
             result_map[wf_name] = result
         return result_map
 
-    @staticmethod
     async def _run(self):
-        await asyncio.sleep(1)
+        self.info("Starting data reduction ... ")
         new_data = await self.receive_data()
-        while new_data is not None:
+        while new_data and await self.should_proceed():
             self.debug("Processing new data: %s", str(new_data))
-            await asyncio.sleep(0.4)
-            result = self.process(new_data)
-            send_result = await self.send_data(data=result)
-            if not send_result:
+            result = await self.process(new_data)
+            if not await self.send_data(data=result):
                 break
-            new_data = await self.receive_data(timeout=1)
+            new_data = await self.receive_data()
             self.info("Sending %s", str(result))
         self.info("Finishing the task ...")
