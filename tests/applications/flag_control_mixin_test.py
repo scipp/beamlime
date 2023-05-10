@@ -24,7 +24,7 @@ def test_start():
     assert app._started and not app._paused
 
 
-def test_start_twice():
+def test_start_twice_raises():
     app = DummyApp()
     app.start()
     assert app._started and not app._paused
@@ -33,7 +33,7 @@ def test_start_twice():
     assert app._started and not app._paused
 
 
-def test_start_twice_paused():
+def test_start_twice_paused_raises():
     app = DummyApp()
     app.start()
     app.pause()
@@ -49,7 +49,7 @@ def test_pause():
     assert app._started and app._paused
 
 
-def test_pause_twice():
+def test_pause_twice_raises():
     app = DummyApp()
     app.start()
     app.pause()
@@ -76,7 +76,7 @@ def test_resume_paused():
     assert app._started and not app._paused
 
 
-def test_resume_not_paused():
+def test_resume_not_paused_raises():
     app = DummyApp()
     app.start()
     with pytest.raises(ApplicationNotPausedException):
@@ -84,14 +84,14 @@ def test_resume_not_paused():
     assert app._started and not app._paused
 
 
-def test_resume_not_started():
+def test_resume_not_started_raises():
     app = DummyApp()
     with pytest.raises(ApplicationNotStartedException):
         app.resume()
     assert not app._started and app._paused
 
 
-def test_resume_paused_twice():
+def test_resume_paused_twice_raises():
     app = DummyApp()
     app.start()
     app.pause()
@@ -101,7 +101,7 @@ def test_resume_paused_twice():
     assert app._started and not app._paused
 
 
-def test_stop_not_started():
+def test_stop_not_started_raises():
     app = DummyApp()
     with pytest.raises(ApplicationNotStartedException):
         app.stop()
@@ -125,7 +125,7 @@ def test_stop_paused():
     assert not app._started and app._paused
 
 
-def test_stop_twice():
+def test_stop_twice_raises():
     app = DummyApp()
     app.start()
     app.stop()
