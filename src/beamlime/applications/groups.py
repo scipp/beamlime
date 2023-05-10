@@ -168,7 +168,7 @@ class BeamlimeApplicationInstanceGroup(BeamlimeApplicationInterface):
         from uuid import uuid4
 
         if len(self._instances) < MAX_INSTANCE_NUMBER:
-            inst_name = self.app_name + str(uuid4())
+            inst_name = self.app_name + uuid4().hex
             self._instances[inst_name] = self._constructor()
             return self._instances[inst_name]
         else:
