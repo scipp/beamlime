@@ -81,8 +81,8 @@ class BeamlimeCoroutineProtocol(Protocol):
         ...
 
 
-class CommunicationProtocol(Protocol):
-    """Application Communication Protocol."""
+class BrokerCommunicationProtocol(Protocol):
+    """Broker Communication Protocol"""
 
     def get(
         self,
@@ -97,6 +97,7 @@ class CommunicationProtocol(Protocol):
 
     def put(
         self,
+        data: Any,
         *args,
         app_name: str,
         channel: Union[tuple, str, int],
@@ -106,7 +107,7 @@ class CommunicationProtocol(Protocol):
     ) -> Any:
         ...
 
-    def poll(
+    def consume(
         self,
         *args,
         app_name: str,
@@ -119,6 +120,7 @@ class CommunicationProtocol(Protocol):
 
     def produce(
         self,
+        data: Any,
         *args,
         app_name: str,
         channel: Union[tuple, str, int],
@@ -129,30 +131,7 @@ class CommunicationProtocol(Protocol):
         ...
 
 
-@runtime_checkable
-class BeamlimeApplicationProtocol(
-    BeamlimeControlProtocol,
-    BeamlimeLoggingProtocol,
-    BeamlimeCoroutineProtocol,
-    CommunicationProtocol,
-    Protocol,
-):
-    @property
-    def broker(self) -> CommunicationBroker:
-        ...
-
-    @broker.setter
-    def broker(self, _broker: CommunicationBroker) -> None:
-        ...
-
-    async def _run(self) -> Any:
-        ...
-
-    def __del__(self) -> None:
-        ...
-
-
-class BeamlimeBrokerProtocol(CommunicationProtocol, Protocol):
+class BeamlimeBrokerProtocol(BrokerCommunicationProtocol, Protocol):
     """Broker Communication Protocol"""
 
     @property
@@ -161,4 +140,31 @@ class BeamlimeBrokerProtocol(CommunicationProtocol, Protocol):
 
     @property
     def channels(self) -> dict:
+        ...
+
+
+class BeamlimeCommunicationProtocol(BrokerCommunicationProtocol, Protocol):
+    """Application Communication Protocol"""
+
+    @property
+    def broker(self) -> CommunicationBroker:
+        ...
+
+    @broker.setter
+    def broker(self, _broker: CommunicationBroker) -> None:
+        ...
+
+
+@runtime_checkable
+class BeamlimeApplicationProtocol(
+    BeamlimeControlProtocol,
+    BeamlimeLoggingProtocol,
+    BeamlimeCoroutineProtocol,
+    BeamlimeCommunicationProtocol,
+    Protocol,
+):
+    async def _run(self) -> Any:
+        ...
+
+    def __del__(self) -> None:
         ...

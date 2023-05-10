@@ -111,9 +111,9 @@ class CommunicationBroker:
         self,
         *args,
         app_name: str,
-        channel: KafkaConsumer,
-        timeout: float,
-        wait_interval: float,
+        channel: Union[tuple, str, int],
+        timeout: float = 0,
+        wait_interval: float = MIN_WAIT_INTERVAL,
         **kwargs,
     ) -> Any:
         try:
