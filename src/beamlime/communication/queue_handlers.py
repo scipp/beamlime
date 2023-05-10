@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
-from multiprocessing import Queue as MQueue
+from multiprocessing.queues import Queue as MQueue
 from queue import Empty, Full
 from queue import Queue as SQueue
 from typing import Any, overload
@@ -48,7 +48,7 @@ class SingleProcessQueue(SQueue):
     async def put(
         self, data: Any, *args, timeout: float, wait_interval: float, **kwargs
     ) -> None:
-        super().put(data, *args, **kwargs)
+        super().put(data)
 
 
 class MultiProcessQueue(MQueue):
