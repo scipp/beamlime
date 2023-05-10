@@ -1,13 +1,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
+from logging import Logger
 from typing import TypeVar
 
 import numpy as np
 import scipp as sc
 
+from ..applications.interfaces import BeamlimeDataReductionInterface
+from ..communication.broker import CommunicationBroker
 from ..config.tools import list_to_dict, nested_data_get
-from .interfaces import BeamlimeDataReductionInterface
 
 T = TypeVar("T")
 
@@ -34,13 +36,28 @@ method_map = {"heatmap_2d": heatmap_2d, "handover": lambda x: x}
 
 
 class BeamLimeDataReductionApplication(BeamlimeDataReductionInterface):
-    def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
-        super().__init__(config, logger, **kwargs)
-
-    def parse_config(self, config: dict):
-        self.workflow_map = list_to_dict(config["workflows"], "name")
-        self.target_map = list_to_dict(config["targets"], "name")
-
+    def __init__(
+        self,
+        /,
+        app_name: str,
+        broker: CommunicationBroker = None,
+        config: dict = None,
+        logger: Logger = None,
+        timeout: float = 1,
+        wait_interval: float = 0.1,
+        workflows: dict = None,
+        targets: dict = None,
+    ) -> None:
+        super().__init__(
+            app_name=app_name,
+            broker=broker,
+            config=config,
+            logger=logger,
+            timeout=timeout,
+            wait_interval=wait_interval,
+        )
+        self.workflow_map = list_to_dict(workflows or {}, "name")
+        self.target_map = list_to_dict(targets or {}, "name")
         self.history = {wf_name: {"data-count": 0} for wf_name in self.workflow_map}
 
     def apply_policy(
@@ -58,6 +75,10 @@ class BeamLimeDataReductionApplication(BeamlimeDataReductionInterface):
             )
         # REPLACE or SKIP
         return new_data
+
+    def __del__(self):
+        # TODO: Save the current status somewhere or send it to somewhere.
+        ...
 
     async def process(self, new_data):
         self.debug("Processing new data ...")
@@ -130,12 +151,12 @@ class BeamLimeDataReductionApplication(BeamlimeDataReductionInterface):
 
     async def _run(self):
         self.info("Starting data reduction ... ")
-        new_data = await self.receive_data()
+        new_data = await self.get()
         while new_data and await self.should_proceed():
             self.debug("Processing new data: %s", str(new_data))
             result = await self.process(new_data)
-            if not await self.send_data(data=result):
+            if not await self.put(data=result):
                 break
-            new_data = await self.receive_data()
+            new_data = await self.get()
             self.info("Sending %s", str(result))
         self.info("Finishing the task ...")

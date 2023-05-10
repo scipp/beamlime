@@ -1,2 +1,2 @@
 # beamlime
-Live data reduction visualization framework for ESS.
+Live data reduction visualisation framework for ESS.

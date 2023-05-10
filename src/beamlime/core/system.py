@@ -2,158 +2,76 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
 from asyncio import Task
-from typing import Union, overload
+from logging import Logger
+from typing import Union
 
 from ..applications import (
-    MAX_INSTANCE_NUMBER,
     BeamlimeApplicationInstanceGroup,
     BeamlimeApplicationInterface,
 )
-
-
-def glue_place_holder(_, __):
-    ...
+from ..communication.broker import CommunicationBroker
 
 
 class BeamlimeSystem(BeamlimeApplicationInterface):
+    """Manage various types of applications"""
+
     def __init__(
-        self, config: dict = None, logger: object = None, save_log: bool = False
+        self,
+        config: Union[dict, str, None] = None,
+        logger: Logger = None,
+        save_log: bool = False,
     ) -> None:
-        super().__init__(config=config, logger=logger, name="Manager")
+        from copy import copy
+
+        from ..config.loader import safe_load_config
+        from ..config.tools import list_to_dict
+
+        self.user_config = safe_load_config(config)
+        self.config = copy(self.user_config)
+        self.system_config = self.config["general"]
+        self.app_configs = list_to_dict(self.config["data-stream"]["applications"])
+
+        super().__init__(
+            app_name=self.system_config["system-name"],
+            broker=self.broker,
+            logger=logger,
+            timeout=self.system_config.get("timeout", 600),
+            wait_interval=self.system_config.get("wait-interval", 1),
+        )
         if save_log:
             from ..logging import initialize_file_handler
 
-            initialize_file_handler(self.config, self.logger)
-        self.build_instances()
-        self._tasks = []
+            initialize_file_handler(self.user_config, self.logger)
 
-    @overload
-    def parse_config(self, config_path: str) -> None:
-        ...
+        self._tasks = dict()
+        self.broker = self._build_broker()
+        self.applications = self._build_applications()
 
-    @overload
-    def parse_config(self, config: dict) -> None:
-        ...
-
-    def parse_config(self, config: Union[str, dict]) -> None:
-        if config is None:
-            from beamlime.resources.generated import load_static_default_config
-
-            self.config = load_static_default_config()
-            self.info(
-                "Configuration not given. "
-                "Application will use the default configuration in the package."
-            )
-        elif isinstance(config, dict):
-            self.config = config
-        elif isinstance(config, str):
-            from ..config.inspector import validate_config_path
-
-            try:
-                validate_config_path(config_path=config)
-            except FileNotFoundError as err:
-                self.error("Configuration yaml file was not found in %s.", config)
-                raise err
-            else:
-                import yaml
-
-                with open(config) as file:
-                    self.config = yaml.safe_load(file)
-
-        self._build_runtime_config()
-
-    def _build_runtime_config(self) -> None:
-        from copy import copy
-
-        self.runtime_config = copy(self.config)
-        app_configs = self.runtime_config["data-stream"]["applications"]
-
-        instance_numbers = [app.get("instance-number", 1) or 1 for app in app_configs]
-        max_requested_num = max(instance_numbers)
-        if max_requested_num > MAX_INSTANCE_NUMBER:
-            self.warning(
-                f"Requested number of instances, {max_requested_num} "
-                f"is bigger than the limit, {MAX_INSTANCE_NUMBER}. "
-                f"Update runtime-configuration accordingly."
-            )
-        for app in app_configs:
-            app["instance-number"] = min(
-                app.get("instance-number", 1) or 1, MAX_INSTANCE_NUMBER
-            )
-
-    def build_instances(self):
-        from functools import partial
-
-        from ..applications.interfaces import BeamlimeDataReductionInterface
-        from ..config.tools import import_object, list_to_dict
-
-        app_configs = list_to_dict(self.runtime_config["data-stream"]["applications"])
-        app_specs = self.runtime_config["data-stream"]["application-specs"]
-
-        self.app_instances = dict()
-        for app_name, app in app_configs.items():
-            handler = import_object(app["data-handler"])
-            instance_num = app.get("instance-number", 1) or 1
-            if issubclass(handler, BeamlimeDataReductionInterface):
-                # Special type of application - Data Reduction
-                app_config = self.runtime_config["data-reduction"]
-            else:
-                app_config = app_specs.get(app_name, None)
-
-            handler_constructor = partial(
-                handler,
-                config=app_config,
-                name=app_name,
-                logger=self.logger,
-            )
-
-            self.app_instances[app_name] = BeamlimeApplicationInstanceGroup(
-                constructor=handler_constructor,
-                instance_num=instance_num,
-                logger=self.logger,
-                app_name=app_name,
-            )
-        for app_inst_gr in self.app_instances.values():
-            app_inst_gr.init_instances()
-        self._connect_instances()
-
-    async def _run(self):
-        for app_inst_gr in self.app_instances.values():
-            await app_inst_gr._run()
-
-    def _connect_instances(self):
+    def _build_broker(self) -> CommunicationBroker:
         """
         Connect instances if they are communicating with each other.
         """
-        from ..config.inspector import validate_application_mapping
-        from ..config.tools import list_to_dict, wrap_item
-
-        validate_application_mapping(
-            data_stream_config=self.runtime_config["data-stream"]
+        channel_list = self.config["data-stream"]["communication-channels"]
+        subscription_list = self.config["data-stream"]["application-subscriptions"]
+        return CommunicationBroker(
+            channel_list=channel_list, subscription_list=subscription_list
         )
 
-        app_map_list = self.runtime_config["data-stream"]["applications-mapping"]
-        app_mapping = list_to_dict(app_map_list, key_field="from", value_field="to")
-        app_configs = list_to_dict(self.runtime_config["data-stream"]["applications"])
+    def _build_applications(self) -> dict:
+        app_specs = self.config["data-stream"]["application-specs"]
+        return {
+            app_name: BeamlimeApplicationInstanceGroup(
+                app_config=app_config,
+                app_spec=app_specs.get(app_name) or {},
+                logger=self.logger,
+                broker=self.broker,
+            )
+            for app_name, app_config in self.app_configs.items()
+        }
 
-        for sender_name, receiver_names in app_mapping.items():
-            sender = self.app_instances[sender_name]
-            receivers = [
-                self.app_instances[receiver_name]
-                for receiver_name in wrap_item(receiver_names, list)
-            ]
-
-            channel_type = app_configs[sender_name]["output-channel"]
-
-            if channel_type == "QUEUE":
-                # TODO: Replace queue to communication handler.
-                from ..communication.queue_handlers import glue
-
-                glue_method = glue
-            else:  # TODO: Implement other communication options
-                glue_method = glue_place_holder
-
-            glue_method(sender, receivers)
+    async def _run(self):
+        for app_inst_gr in self.applications.values():
+            await app_inst_gr._run()
 
     def create_task(self) -> list[Task]:
         # TODO: return TaskGroup instead of list of Task.
@@ -163,41 +81,41 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
         # TODO: Handle the case when tasks are still running.
         self._tasks.clear()
         self.start()
-        self._tasks = [
-            asyncio.create_task(inst_gr._run())
-            for inst_gr in self.app_instances.values()
-        ]
+        self._tasks = {
+            app_name: asyncio.create_task(app._run())
+            for app_name, app in self.applications.items()
+        }
         return self._tasks
 
     def kill(self) -> None:
         """Kill all instance groups and coroutine tasks"""
-        for app_inst_gr in self.app_instances.values():
+        for app_inst_gr in self.applications.values():
             app_inst_gr.kill()
         while self._tasks:
             self._tasks.pop().cancel()
             self._tasks.clear()
 
     def __del__(self) -> None:
-        while self.app_instances:
-            app_name, app_inst_gr = self.app_instances.popitem()
+        while self.applications:
+            app_name, app_inst_gr = self.applications.popitem()
             app_inst_gr.kill()
             self.info("Deleting %s instance ... ", app_name)
             del app_inst_gr
 
     def start(self) -> None:
         # TODO: Update populate logic.
-        for app_name, app_inst_gr in self.app_instances.items():
+        for app_name, app_inst_gr in self.applications.items():
             self.info("Starting %s instance ... ", app_name)
             if not app_inst_gr.instances:
                 app_inst_gr.populate()
             app_inst_gr.start()
 
     def pause(self) -> None:
-        for app_name, app_inst_gr in self.app_instances.items():
+        for app_name, app_inst_gr in self.applications.items():
             self.info("Pausing %s instance ... ", app_name)
             app_inst_gr.pause()
 
     def resume(self) -> None:
-        for app_name, app_inst_gr in self.app_instances.items():
+        for app_name, app_inst_gr in self.applications.items():
             self.info("Resuming %s instance ... ", app_name)
             app_inst_gr.resume()

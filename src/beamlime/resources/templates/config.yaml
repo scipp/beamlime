@@ -3,44 +3,58 @@
 # @author Sunyoung Yoo
 #
 # Dependencies on other templates: data-stream-application.yaml,
-#                                  data-stream-mapping.yaml,
 #                                  workflow.yaml
 #                                  target.yaml
 
 general:
   user:
   name:
+  system-name:
   last-updated:
   log-dir: # ~/.beamlime/log
-  max-paused: beamlime.config.preset_options.MAX_PAUSED  # 5 s
+  timeout: beamlime.config.preset_options.MAX_TIMEOUT  # 600 s
 
 data-stream:
   custom-handler-dir: # ~/.beamlime/custom-handler
-  applications: # Each application will be run in different process if possible.
+  applications:
     # - name: application-name-1
     #   ...
     # - name: application-name-2
     #   ...
     # - name: application-name-3
     #   ...
-  application-mapping: # Define communication between applications here.
-    # - from: application-name-1
-    #   to:
-    #       - application-name-2
-    #       - application-name-3
   application-specs:  # Specs for each applications. It will be passed into the constructor of the handler.
     # application-name-1:
     #  ...
     # applicatoin-name-2:
     #  ...
+    # data-reduction-app-name: Data reduction spec has special templates in target.yaml and workflow.yaml
+    #   targets:
+    #     # - name: target-name-1
+    #     #   index: ''
+    #     # - name: target-name-2
+    #     #   index: geometry
+    #   workflows:
+    #     # - name: workflow-name-1
+    #     #   ...
 
-data-reduction: # Each workflow will be run asynchronously but in one process.
-                # Can be split into multi-processes by the data-reduction-manager instance if needed.
-  targets:
-    # - name: target-name-1
-    #   index: ''
-    # - name: target-name-2
-    #   index: geometry
-  workflows:
-    # - name: workflow-name-1
-    #   ...
+  communication-channels: # Each channel will be assigned to each application in the application-subscriptions.
+    # - name: channel-name-1
+    #   type:
+    #   options:
+    # - name: channel-name-2
+    #   type:
+    #   options:
+    # ...
+  application-subscriptions: # Define communication between applications here.
+    # - app-name: application-name-1
+    #   input-channels:
+    #    - channel-name-1
+    #   output-channels:
+    #    - channel-name-2
+    # - app-name: application-name-2
+    #   input-channels:
+    #    ...
+    #   output-channels:
+    #    - channel-name-1
+    # ...

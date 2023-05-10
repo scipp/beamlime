@@ -17,7 +17,11 @@ HOME_DIR = find_home()  # ~/.beamlime
 DEFAULT_CONFIG_PATH = HOME_DIR.joinpath("default-config.yaml")
 DEFAULT_LOG_DIR = HOME_DIR.joinpath("logs")
 DEFAULT_CUSTOM_HANDLER_DIR = HOME_DIR.joinpath("custom-handlers")
-MAX_PAUSED = 60  # s
+
+DEFAULT_TIMEOUT = 60  # s
+MAX_TIMEOUT = 600  # s
+DEFAULT_WAIT_INTERVAL = 1  # s
+MIN_WAIT_INTERVAL = 1e-2  # s
 
 
 class PresetOptionProtocol(Protocol):
@@ -97,8 +101,9 @@ class CommunicationChannelOptions(FlagType):
     #TODO: Not implemented yet.
     """
 
-    QUEUE = "QUEUE"
-    KAFKA = "KAFKA"
+    TQUEUE = "SQUEUE"  # Single process queue.
+    MQUEUE = "MQUEUE"  # Multi process queue.
+    KAFKA = "KAFKA"  # KAFKA producer/listener.
 
     @classmethod
     @property

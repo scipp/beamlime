@@ -5,29 +5,30 @@
 general:
   user: scipp
   name: default configuration
-  last-updated: '2023-04-25 15:38:59.306699'
-  max-paused: beamlime.config.preset_options.MAX_PAUSED
+  system-name: Beamlime Dashboard
+  last-updated: '2023-04-26 11:23:14.914846'
+  timeout: 600
 
 data-stream:
   applications:
   - name: data-feeder
-    data-handler: beamlime.applications.data_feeder.Fake2dDetectorImageFeeder
+    data-handler: beamlime.handlers.data_feeder.Fake2dDetectorImageFeeder
     instance-number:
-    input-channel: QUEUE
-    output-channel: QUEUE
     keep-alive: false
+    timeout: 1
+    wait-interval: 0.2
   - name: data-reduction
-    data-handler: beamlime.applications.data_reduction.BeamLimeDataReductionApplication
+    data-handler: beamlime.handlers.data_reduction.BeamLimeDataReductionApplication
     instance-number:
-    input-channel: QUEUE
-    output-channel: QUEUE
     keep-alive: false
-  - name: visualization
-    data-handler: beamlime.applications.visualization.RealtimePlot
+    timeout: 5
+    wait-interval: 0.1
+  - name: visualisation
+    data-handler: beamlime.handlers.visualisation.RealtimePlot
     instance-number:
-    input-channel: QUEUE
-    output-channel: QUEUE
     keep-alive: false
+    timeout: 10
+    wait-interval: 0.1
   application-specs:
     data-feeder:
       detector-size:
@@ -39,39 +40,57 @@ data-stream:
       signal-err: 0.2
       noise-mu: 0.5
       noise-err: 0.2
-    data-reduction: {}
-    visualization: {}
-  applications-mapping:
-  - from: data-feeder
-    to: data-reduction
-  - from: data-reduction
-    to: visualization
-
-data-reduction:
-  workflows:
-  - name: heatmap
-    process: heatmap_2d
-    input-policy: REPLACE
-    output-policy: STACK
-    targets:
-    - fake-2d-image
-    process-kargs:
-      threshold: 0.4
-      binning_size:
-      - 64
-      - 64
-  - name: frame-number-counting
-    process: handover
-    input-policy: REPLACE
-    output-policy: REPLACE
-    targets:
-    - frame-number
-  targets:
-  - name: fake-2d-image
-    index:
-    - detector-data
-    - image
-  - name: frame-number
-    index:
-    - detector-data
-    - frame-number
+    data-reduction:
+      workflows:
+      - name: heatmap
+        process: heatmap_2d
+        input-policy: REPLACE
+        output-policy: STACK
+        targets:
+        - fake-2d-image
+        process-kargs:
+          threshold: 0.4
+          binning_size:
+          - 64
+          - 64
+      - name: frame-number-counting
+        process: handover
+        input-policy: REPLACE
+        output-policy: REPLACE
+        targets:
+        - frame-number
+      targets:
+      - name: fake-2d-image
+        index:
+        - detector-data
+        - image
+      - name: frame-number
+        index:
+        - detector-data
+        - frame-number
+    visualisation: {}
+  communication-channels:
+  - name: raw-data
+    type: SQUEUE
+  - name: reduced-data
+    type: SQUEUE
+  application-subscriptions:
+  - app-name: data-feeder
+    output-channels:
+    - name: raw-data
+      timeout: 60
+      wait-interval: 1
+  - app-name: data-reduction
+    input-channels:
+    - name: raw-data
+      timeout: 60
+      wait-interval: 1
+    output-channels:
+    - name: reduced-data
+      timeout: 60
+      wait-interval: 1
+  - app-name: visualisation
+    input-channels:
+    - name: reduced-data
+      timeout: 60
+      wait-interval: 1

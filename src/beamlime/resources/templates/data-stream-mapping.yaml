@@ -1,6 +1,0 @@
-# SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-# Single interface mapping template
-
-from: # `from` can have only 1 interface.
-to: # `to` can have multiple interfaces only when their input-channels are the same.

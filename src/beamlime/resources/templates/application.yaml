@@ -6,6 +6,6 @@
 name:
 data-handler:
 instance-number: # How many instances you want to create
-input-channel: beamlime.config.preset_options.CommunicationChannelOptions
-output-channel: beamlime.config.preset_options.CommunicationChannelOptions
 keep-alive: FALSE
+timeout: beamlime.config.preset_options.DEFAULT_TIMEOUT  # 60 s
+wait-interval: beamlime.config.preset_options.DEFAULT_WAIT_INTERVAL  # 1 s

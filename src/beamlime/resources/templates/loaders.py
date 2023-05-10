@@ -20,6 +20,8 @@ def _replace_preset_symbol(tpl: Union[dict, list]):
         if not isinstance(value, str):
             return value
         preset = import_object(value)
+        if isinstance(preset, (str, int, float)):
+            return preset
         if hasattr(preset, "DEFAULT"):
             return preset.DEFAULT
         else:
@@ -48,11 +50,16 @@ def _load_tpl(tpl_name: str, replace_symbol: bool = False) -> dict:
     return tpl
 
 
-load_config_tpl = partial(_load_tpl, tpl_name="config")
-load_data_stream_app_tpl = partial(
-    _load_tpl, tpl_name="data-stream-application", replace_symbol=True
-)
-load_data_stream_app_spec_tpl = partial(_load_tpl, tpl_name="data-stream-application")
-load_data_stream_mapping_tpl = partial(_load_tpl, tpl_name="data-stream-mapping")
+# General Configuration
+load_config_tpl = partial(_load_tpl, tpl_name="config", replace_symbol=True)
+# Application
+load_application_tpl = partial(_load_tpl, tpl_name="application", replace_symbol=True)
+# Communication
+load_app_subscription_tpl = partial(_load_tpl, tpl_name="application-subscription")
+load_communication_channel_tpl = partial(_load_tpl, tpl_name="communication-channel")
+load_kafka_options_tpl = partial(_load_tpl, tpl_name="kafka-options")
+load_mqueue_options_tpl = partial(_load_tpl, tpl_name="mqueue-options")
+load_subscription_tpl = partial(_load_tpl, tpl_name="subscription", replace_symbol=True)
+# Data Reduction
 load_target_tpl = partial(_load_tpl, tpl_name="target")
 load_workflow_tpl = partial(_load_tpl, tpl_name="workflow", replace_symbol=True)

@@ -1,29 +1,43 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+from logging import Logger
+
 import numpy as np
 
-from .interfaces import BeamlimeApplicationInterface
+from ..applications.interfaces import BeamlimeApplicationInterface
+from ..communication.broker import CommunicationBroker
 
 
 class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
-    def __init__(self, config: dict = None, logger=None, **kwargs) -> None:
-        super().__init__(config, logger, **kwargs)
-
-    def parse_config(self, config: dict) -> None:
+    def __init__(
+        self,
+        /,
+        app_name: str,
+        broker: CommunicationBroker = None,
+        logger: Logger = None,
+        timeout: float = 1,
+        wait_interval: float = 0.1,
+        num_frame: int = 128,
+        detector_size: tuple = (64, 64),
+        min_intensity: float = 0.5,
+        signal_mu: float = 0.1,
+        signal_err: float = 0.1,
+        noise_mu: float = 1,
+        noise_err: float = 0.3,
+    ) -> None:
+        super().__init__(
+            app_name=app_name,
+            broker=broker,
+            logger=logger,
+            timeout=timeout,
+            wait_interval=wait_interval,
+        )
         from functools import partial
 
         from ..resources.images.generators import fake_2d_detector_img_generator
 
-        self._timeout = float(config.get("timeout", 5)) or 5
-        self._wait_int = float(config.get("update-rate", 0.1)) or 0.1
-        self.num_frame = int(config.get("num-frame", 128))
-        detector_size = tuple(config.get("detector-size", (64, 64)))
+        self.num_frame = num_frame
         seed_img = self._prepare_seed_image(detector_size)
-        min_intensity = float(config.get("min-intensity", 0.5))
-        signal_mu = float(config.get("signal-mu", 0.1))
-        signal_err = float(config.get("signal-err", 0.1))
-        noise_mu = float(config.get("noise-mu", 1))
-        noise_err = float(config.get("noise-err", 0.3))
         self.data_generator = partial(
             fake_2d_detector_img_generator,
             seed_img=seed_img,
@@ -34,6 +48,9 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
             noise_mu=noise_mu,
             noise_err=noise_err,
         )
+
+    def __del__(self):
+        ...
 
     def _prepare_seed_image(self, detector_size: tuple) -> np.ndarray:
         from PIL import Image
@@ -47,7 +64,6 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
 
     async def _run(self) -> None:
         self.info("Start data feeding...")
-
         for iframe, frame in enumerate(self.data_generator()):
             continue_flag = await self.should_proceed()
             if not continue_flag:
@@ -63,7 +79,7 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
             }
             self.info("Sending %dth frame", iframe)
 
-            if not await self.send_data(data=fake_data):
+            if not await self.put(data=fake_data):
                 self.info(
                     "Output channel broken. %dth frame was not sent. "
                     "Stopping the application ... ",

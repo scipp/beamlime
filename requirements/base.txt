@@ -8,4 +8,12 @@
 numpy==1.24.3
     # via -r base.in
 pyyaml==6.0
+    # via
+    #   -r base.in
+    #   confuse
+scipp==23.3.2
     # via -r base.in
+six==1.16.0
+    # via python-dateutil
+zipp==3.15.0
+    # via importlib-resources

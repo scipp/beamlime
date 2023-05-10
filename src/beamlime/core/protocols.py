@@ -3,7 +3,9 @@
 
 from asyncio import Task
 from logging import Logger
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, Union, runtime_checkable
+
+from ..communication.broker import CommunicationBroker
 
 
 @runtime_checkable
@@ -60,11 +62,11 @@ class BeamlimeCoroutineProtocol(Protocol):
     """Coroutine Protocol"""
 
     @property
-    def _timeout(self) -> float:
+    def timeout(self) -> float:
         ...
 
     @property
-    def _wait_int(self) -> float:
+    def wait_interval(self) -> float:
         ...
 
     async def should_proceed(self) -> bool:
@@ -79,32 +81,68 @@ class BeamlimeCoroutineProtocol(Protocol):
         ...
 
 
+class CommunicationProtocol(Protocol):
+    """Application Communication Protocol."""
+
+    def get(
+        self,
+        *args,
+        app_name: str,
+        channel: Union[tuple, str, int],
+        timeout: float,
+        wait_interval: float,
+        **kwargs,
+    ) -> Any:
+        ...
+
+    def put(
+        self,
+        *args,
+        app_name: str,
+        channel: Union[tuple, str, int],
+        timeout: float,
+        wait_interval: float,
+        **kwargs,
+    ) -> Any:
+        ...
+
+    def poll(
+        self,
+        *args,
+        app_name: str,
+        channel: Union[tuple, str, int],
+        timeout: float,
+        wait_interval: float,
+        **kwargs,
+    ) -> Any:
+        ...
+
+    def publish(
+        self,
+        *args,
+        app_name: str,
+        channel: Union[tuple, str, int],
+        timeout: float,
+        wait_interval: float,
+        **kwargs,
+    ) -> Any:
+        ...
+
+
 @runtime_checkable
 class BeamlimeApplicationProtocol(
     BeamlimeControlProtocol,
     BeamlimeLoggingProtocol,
     BeamlimeCoroutineProtocol,
+    CommunicationProtocol,
     Protocol,
 ):
-    """Temporary Application Protocol until we have communication broker"""
-
     @property
-    def input_channel(self) -> object:
+    def broker(self) -> CommunicationBroker:
         ...
 
-    @property
-    def output_channel(self) -> object:
-        ...
-
-    @input_channel.setter
-    def input_channel(self, channel) -> None:
-        ...
-
-    @output_channel.setter
-    def output_channel(self, channel) -> None:
-        ...
-
-    def parse_config(self, config: dict) -> None:
+    @broker.setter
+    def broker(self, _broker: CommunicationBroker) -> None:
         ...
 
     async def _run(self) -> Any:
@@ -114,23 +152,13 @@ class BeamlimeApplicationProtocol(
         ...
 
 
-class BeamlimeDownstreamProtocol(Protocol):
-    def receive_data(self, timeout: int = 1) -> Any:
+class BeamlimeBrokerProtocol(CommunicationProtocol, Protocol):
+    """Broker Communication Protocol"""
+
+    @property
+    def app_channel_mapping(self) -> dict:
         ...
 
-    def send_data(self, timeout: int = 1) -> Any:
+    @property
+    def channels(self) -> dict:
         ...
-
-
-class BeamlimeUpstreamProtocol(Protocol):
-    def request_data(self, timeout: int = 1) -> Any:
-        ...
-
-    def serve_data(self, timeout: int = 1) -> Any:
-        ...
-
-
-class BeamlimeTwoWayProtocol(
-    BeamlimeDownstreamProtocol, BeamlimeUpstreamProtocol, Protocol
-):
-    ...

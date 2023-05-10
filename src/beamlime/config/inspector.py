@@ -25,6 +25,7 @@ def validate_config_path(config_path: str) -> Optional[bool]:
 def validate_application_mapping(
     data_stream_config: dict, raise_error: bool = True
 ) -> Optional[bool]:
+    # TODO: Update this to use in broker.
     from .tools import list_to_dict, wrap_item
 
     app_configs = list_to_dict(data_stream_config["applications"])
