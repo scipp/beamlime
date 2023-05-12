@@ -251,44 +251,80 @@ class BrokerBasedCommunicationMixin:
     def broker(self, _broker: CommunicationBroker) -> None:
         self._broker = _broker
 
-    async def get(self, *args, channel: str = None, **kwargs) -> Any:
+    async def get(
+        self,
+        *args,
+        channel: str = None,
+        timeout: float = None,
+        wait_interval: float = None,
+        **kwargs,
+    ) -> Any:
         return await self.broker.get(
             *args,
             app_name=self.app_name,
             channel=channel,
-            timeout=self.timeout,
-            wait_interval=self.wait_interval,
+            timeout=timeout or self.timeout,
+            wait_interval=wait_interval or self.wait_interval,
             **kwargs,
         )
 
-    async def put(self, data: Any, *args, channel: str = None, **kwargs) -> Any:
+    async def put(
+        self,
+        data: Any,
+        *args,
+        channel: str = None,
+        timeout: float = None,
+        wait_interval: float = None,
+        **kwargs,
+    ) -> Any:
         return await self.broker.put(
             data,
             *args,
             app_name=self.app_name,
             channel=channel,
-            timeout=self.timeout,
-            wait_interval=self.wait_interval,
+            timeout=timeout or self.timeout,
+            wait_interval=wait_interval or self.wait_interval,
             **kwargs,
         )
 
-    async def consume(self, *args, channel: str = None, **kwargs) -> Any:
+    async def consume(
+        self,
+        *args,
+        channel: str = None,
+        chunk_size: int = 1,
+        timeout: float = None,
+        wait_interval: float = None,
+        **kwargs,
+    ) -> Any:
         return await self.broker.consume(
             *args,
             app_name=self.app_name,
             channel=channel,
-            timeout=self.timeout,
-            wait_interval=self.wait_interval,
+            timeout=timeout or self.timeout,
+            wait_interval=wait_interval or self.wait_interval,
+            chunk_size=chunk_size,
             **kwargs,
         )
 
-    async def produce(self, data: Any, *args, channel: str = None, **kwargs) -> Any:
+    async def produce(
+        self,
+        data: Any,
+        *args,
+        channel: str = None,
+        topic: str,
+        key: str,
+        timeout: float = None,
+        wait_interval: float = None,
+        **kwargs,
+    ) -> Any:
         return await self.broker.produce(
             data,
             *args,
             app_name=self.app_name,
             channel=channel,
-            timeout=self.timeout,
-            wait_interval=self.wait_interval,
+            timeout=timeout or self.timeout,
+            wait_interval=wait_interval or self.wait_interval,
+            topic=topic,
+            key=key,
             **kwargs,
         )

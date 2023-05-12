@@ -114,6 +114,7 @@ class CommunicationBroker:
         channel: Union[tuple, str, int],
         timeout: float = 0,
         wait_interval: float = MIN_WAIT_INTERVAL,
+        chunk_size: int = 1,
         **kwargs,
     ) -> Any:
         try:
@@ -122,6 +123,7 @@ class CommunicationBroker:
                 *args,
                 timeout=timeout,
                 wait_interval=wait_interval,
+                chunk_size=chunk_size,
                 **kwargs,
             )
         except TimeoutError:
@@ -129,21 +131,25 @@ class CommunicationBroker:
 
     async def produce(
         self,
-        data,
+        data: Any,
         *args,
         app_name: str,
         channel: Union[tuple, str, int],
         timeout: float = 0,
         wait_interval: float = MIN_WAIT_INTERVAL,
+        topic: str,
+        key: str,
         **kwargs,
     ) -> bool:
         try:
             _producer = self.get_channel(app_name, channel, direction="out")
             await _producer.produce(
-                data,
+                topic,
                 *args,
                 timeout=timeout,
                 wait_interval=wait_interval,
+                key=key,
+                value=data,
                 **kwargs,
             )
             return True

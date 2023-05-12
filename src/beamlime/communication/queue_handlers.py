@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
+
 from multiprocessing.queues import Queue as MQueue
 from queue import Empty, Full
 from queue import Queue as SQueue
 from typing import Any, overload
 
-from confluent_kafka import KafkaException
+from confluent_kafka import KafkaException, Message
 from scipp import DataArray, DataGroup, Variable
 from scipp.serialization import deserialize, serialize
 
@@ -83,7 +84,12 @@ class KafkaConsumer:
 
     @overload
     def __init__(
-        self, bootstrap_servers: str, group_id: str, auto_offset_reset: str, **kwargs
+        self,
+        bootstrap_servers: str,
+        group_id: str,
+        topics: tuple[str],
+        auto_offset_reset: str,
+        **kwargs,
     ) -> None:
         ...
 
@@ -93,6 +99,7 @@ class KafkaConsumer:
         config: dict = None,
         bootstrap_servers: str = "localhost:9092",
         group_id: str = "beamlime",
+        topics: tuple[str] = None,
         auto_offset_reset: str = "smallest",
         **kwargs,
     ) -> None:
@@ -113,16 +120,23 @@ class KafkaConsumer:
 
             conf = copy(config)
         self._consumer = Consumer(conf)
+        self._consumer.subscribe(topics)
+
+    def __del__(self) -> None:
+        self._consumer.close()
 
     @async_timeout(Empty)
     async def consume(
         self, *args, timeout: float, wait_interval: float, chunk_size: int = 1, **kwargs
-    ) -> Any:
-        messages = await self._consumer.consume(
+    ) -> tuple[Any]:
+        """Retrieves ``chunk_size`` of messages from the kafka broker."""
+        messages: list[Message] = await self._consumer.consume(
             chunk_size, 0
         )  # ``async_timeout`` will handle the timeout.
         if len(messages) == 0:
             raise Empty
+        else:
+            return (msg.value() for msg in messages)
 
 
 class KafkaProducer:
@@ -145,10 +159,11 @@ class KafkaProducer:
         from confluent_kafka import Producer
 
         if config is None:
+            import socket
+
             kafka_kwargs = {
                 key.replace("_", "."): value for key, value in kwargs.items()
             }
-            import socket
 
             conf = {
                 "bootstrap.servers": bootstrap_servers,
@@ -163,6 +178,14 @@ class KafkaProducer:
 
     @async_timeout(KafkaException)
     async def produce(
-        self, topic, *args, timeout: float, wait_interval: float, key, value, **kwargs
-    ) -> Any:
-        self._producer.produce(topic, key=key, value=value)
+        self,
+        topic,
+        *args,
+        timeout: float,
+        wait_interval: float,
+        key: str,
+        value: Any,
+        **kwargs,
+    ) -> None:
+        """Produce 1 data(``key``, ``value``) under the ``topic``."""
+        self._producer.produce(topic, key=key, value=value, **kwargs)
