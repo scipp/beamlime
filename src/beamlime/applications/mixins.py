@@ -161,15 +161,18 @@ class CoroutineMixin:
 
         async def _run(self):
             # prepare process
-            delivered = await self.send_data("Start Message.")
-            new_data = await self.receive_data()
+            delivered = await self.put("Start Message")
+            first_msg_timeout = 30  # s
+            if await self.get(timeout=first_msg_timeout) == "Expected Message":
+                new_data = await self.get()
+
             while should_proceed() and delivered and new_data:
-                if new_data == "Expected Start Message":
-                    # do something
                 result = await self.process()
-                delivered = await self.send_data(result)
-                new_data = await self.receive_data()
-            self.info("Task completed")
+                delivered = await self.put(result)
+                new_data = await self.get()
+
+            await self.put("Stop Message")
+            self.info("Task completed.")
 
     app = DownStreamApp()
     app.run()  # should start coroutine ``_run``, which
@@ -228,13 +231,13 @@ class CoroutineMixin:
                 return asyncio.create_task(self._run(), name=name)  # py39, py310
 
 
-class BrokerMixin:
+class BrokerBasedCommunicationMixin:
     """
     Communication Interfaces
 
     Protocol
     --------
-    UpstreamCommunicationProtocol
+    BeamlimeCommunicationProtocol
 
     """
 
@@ -248,29 +251,80 @@ class BrokerMixin:
     def broker(self, _broker: CommunicationBroker) -> None:
         self._broker = _broker
 
-    async def get(self, *args, channel: str = None, **kwargs) -> Any:
+    async def get(
+        self,
+        *args,
+        channel: str = None,
+        timeout: float = None,
+        wait_interval: float = None,
+        **kwargs,
+    ) -> Any:
         return await self.broker.get(
             *args,
             app_name=self.app_name,
             channel=channel,
-            timeout=self.timeout,
-            wait_interval=self.wait_interval,
+            timeout=timeout or self.timeout,
+            wait_interval=wait_interval or self.wait_interval,
             **kwargs,
         )
 
-    async def put(self, data: Any, *args, channel: str = None, **kwargs) -> Any:
+    async def put(
+        self,
+        data: Any,
+        *args,
+        channel: str = None,
+        timeout: float = None,
+        wait_interval: float = None,
+        **kwargs,
+    ) -> Any:
         return await self.broker.put(
             data,
             *args,
             app_name=self.app_name,
             channel=channel,
-            timeout=self.timeout,
-            wait_interval=self.wait_interval,
+            timeout=timeout or self.timeout,
+            wait_interval=wait_interval or self.wait_interval,
             **kwargs,
         )
 
-    async def poll(self) -> Any:
-        ...
+    async def consume(
+        self,
+        *args,
+        channel: str = None,
+        chunk_size: int = 1,
+        timeout: float = None,
+        wait_interval: float = None,
+        **kwargs,
+    ) -> Any:
+        return await self.broker.consume(
+            *args,
+            app_name=self.app_name,
+            channel=channel,
+            timeout=timeout or self.timeout,
+            wait_interval=wait_interval or self.wait_interval,
+            chunk_size=chunk_size,
+            **kwargs,
+        )
 
-    async def produce(self) -> Any:
-        ...
+    async def produce(
+        self,
+        data: Any,
+        *args,
+        channel: str = None,
+        topic: str,
+        key: str,
+        timeout: float = None,
+        wait_interval: float = None,
+        **kwargs,
+    ) -> Any:
+        return await self.broker.produce(
+            data,
+            *args,
+            app_name=self.app_name,
+            channel=channel,
+            timeout=timeout or self.timeout,
+            wait_interval=wait_interval or self.wait_interval,
+            topic=topic,
+            key=key,
+            **kwargs,
+        )

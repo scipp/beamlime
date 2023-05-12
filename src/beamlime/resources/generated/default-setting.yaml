@@ -3,94 +3,52 @@
 # Use `tox -e config-build` to generate a new one.
 
 general:
-  user: scipp
-  name: default configuration
+  user: beamlime
+  name: Fake events from kafka stream
   system-name: Beamlime Dashboard
-  last-updated: '2023-04-26 11:23:14.914846'
+  last-updated: '2023-05-11 16:04:41.851173'
   timeout: 600
 
 data-stream:
   applications:
+  - name: data-generator
+    data-handler: beamlime.handlers.data_generator.FakeDreamDataGenerator
+    instance-number:
+    keep-alive: false
+    timeout: 1
+    wait-interval: 0.1
   - name: data-feeder
     data-handler: beamlime.handlers.data_feeder.Fake2dDetectorImageFeeder
     instance-number:
     keep-alive: false
-    timeout: 1
-    wait-interval: 0.2
-  - name: data-reduction
-    data-handler: beamlime.handlers.data_reduction.BeamLimeDataReductionApplication
-    instance-number:
-    keep-alive: false
     timeout: 5
     wait-interval: 0.1
-  - name: visualisation
-    data-handler: beamlime.handlers.visualisation.RealtimePlot
-    instance-number:
-    keep-alive: false
-    timeout: 10
-    wait-interval: 0.1
   application-specs:
+    data-generator:
+      pulse_rate: 100000
+      'original_file_name:': DREAM_baseline_all_dets.nxs
+      keep_tmp_file: false
+      num_frame: 1000000
+      max_events: 1000000000.0
+      random_seed: 0
     data-feeder:
-      detector-size:
-      - 64
-      - 64
-      min-intensity: 0.5
-      num-frame: 32
-      signal-mu: 0.7
-      signal-err: 0.2
-      noise-mu: 0.5
-      noise-err: 0.2
-    data-reduction:
-      workflows:
-      - name: heatmap
-        process: heatmap_2d
-        input-policy: REPLACE
-        output-policy: STACK
-        targets:
-        - fake-2d-image
-        process-kargs:
-          threshold: 0.4
-          binning_size:
-          - 64
-          - 64
-      - name: frame-number-counting
-        process: handover
-        input-policy: REPLACE
-        output-policy: REPLACE
-        targets:
-        - frame-number
-      targets:
-      - name: fake-2d-image
-        index:
-        - detector-data
-        - image
-      - name: frame-number
-        index:
-        - detector-data
-        - frame-number
-    visualisation: {}
+      chunk_size: 16
   communication-channels:
-  - name: raw-data
-    type: SQUEUE
-  - name: reduced-data
-    type: SQUEUE
+  - name: kafka-producer
+    type: KAFKA-PRODUCER
+    topic: log
+  - name: kafka-consumer
+    type: KAFKA-CONSUMER
+    topics:
+    - log
   application-subscriptions:
+  - app-name: data-generator
+    output-channels:
+    - name: kafka-producer
+      timeout: 60
+      wait-interval: 1
   - app-name: data-feeder
-    output-channels:
-    - name: raw-data
-      timeout: 60
-      wait-interval: 1
-  - app-name: data-reduction
     input-channels:
-    - name: raw-data
-      timeout: 60
-      wait-interval: 1
-    output-channels:
-    - name: reduced-data
-      timeout: 60
-      wait-interval: 1
-  - app-name: visualisation
-    input-channels:
-    - name: reduced-data
+    - name: kafka-consumer
       timeout: 60
       wait-interval: 1

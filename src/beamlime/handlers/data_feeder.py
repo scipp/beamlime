@@ -8,6 +8,61 @@ from ..applications.interfaces import BeamlimeApplicationInterface
 from ..communication.broker import CommunicationBroker
 
 
+class FakeEventDataFeeder(BeamlimeApplicationInterface):
+    def __init__(
+        self,
+        /,
+        app_name: str,
+        broker: CommunicationBroker = None,
+        logger: Logger = None,
+        timeout: float = 1,
+        wait_interval: float = 0.1,
+        chunk_size: int = 16,
+    ) -> None:
+        super().__init__(
+            app_name=app_name,
+            broker=broker,
+            logger=logger,
+            timeout=timeout,
+            wait_interval=wait_interval,
+        )
+        self.chunk_size = chunk_size
+
+    def __del__(self):
+        ...
+
+    async def _run(self) -> None:
+        self.info("Start the fake event streaming...")
+        from streaming_data_types.run_start_pl72 import deserialise_pl72
+
+        run_start_msg_buf = await self.consume(
+            channel="log", timeout=100, wait_interval=5
+        )[0]
+        if run_start_msg_buf is None:
+            self.error("Start event not received.")
+        else:
+            run_start_msg = deserialise_pl72(run_start_msg_buf)
+            self.info(
+                "Run start message received: "
+                "\n\t\t\t Run name: %s"
+                "\n\t\t\t Instrument name: %s",
+                run_start_msg.run_name,
+                run_start_msg.instrument_name,
+            )
+
+        # while self.should_proceed():
+        #     new_chunks = await self.consume(channel="data",
+        #                                     chunk_size=self.chunk_size)
+        #     for chunk in new_chunks:
+        #         self.debug(chunk)
+        #     new_start_msg = await self.consume(channel="log", timeout=0)
+        #     if new_start_msg is not None:
+        #         self.info("New run started message received: ", new_start_msg)
+        #         self.stop()
+
+        self.info("Finishing data feeding...")
+
+
 class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
     def __init__(
         self,
