@@ -1,17 +1,40 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+# Wrappers of communication interfaces and data structure for communication,
+# to have consistent read/write interfaces and error raise behaviour.
+# - BullettinBoard: dict
+# - SQueue: queue.Queue
+# - MQueue: multiprocessing.queues.Queue
+# - KafkaConsumer: confluent_kafka.Consumer
+# - KafkaProducer: confluent_kafka.Producer
+#
+# These interfaces are only used by ``beamlime.communication.broker``.
+# Since ``broker`` handles timeout(maximum retrials),
+# all reading/writing methods should have timeout of 0, so that it does not block.
+# Reading methods should raise ``Empty`` in case there is no data to read.
+# Writing methods should raise ``Full`` in case there is no space to write.
 
 
 from multiprocessing.queues import Queue as MQueue
 from queue import Empty, Full
 from queue import Queue as SQueue
-from typing import Any, overload
+from typing import Any, ByteString, Callable, Union, overload
 
-from confluent_kafka import KafkaException, Message
+from confluent_kafka import Message
 from scipp import DataArray, DataGroup, Variable
-from scipp.serialization import deserialize, serialize
 
-from ..core.schedulers import async_timeout
+
+def scipp_serializer(data: Union[DataArray, DataGroup, Variable]) -> ByteString:
+    from scipp.serialization import serialize
+
+    header, frames = serialize(data)
+    return {"SCIPP": True, "header": header, "frames": frames}
+
+
+def scipp_deserializer(raw_data: ByteString) -> Union[DataArray, DataGroup, Variable]:
+    from scipp.serialization import deserialize
+
+    return deserialize(header=raw_data["header"], frames=["frames"])
 
 
 class BullettinBoard:
@@ -23,14 +46,12 @@ class BullettinBoard:
     def clear(self) -> None:
         self._board.clear()
 
-    @async_timeout(Empty)
-    async def read(self, timeout: float, wait_interval: float) -> Any:
+    async def read(self) -> Any:
         if not self._board:
             raise Empty
         return self._board
 
-    @async_timeout(Full)
-    async def post(self, data: dict, timeout: float, wait_interval: float) -> None:
+    async def post(self, data: dict) -> None:
         if len(self._board) > 10 and any(
             [key not in self._board for key in data.keys()]
         ):
@@ -41,40 +62,28 @@ class BullettinBoard:
 
 
 class SingleProcessQueue(SQueue):
-    @async_timeout(Empty)
-    async def get(self, *args, timeout: float, wait_interval: float, **kwargs) -> Any:
+    async def get(self, *args, **kwargs) -> Any:
         return super().get(*args, **kwargs)
 
-    @async_timeout(Full)
-    async def put(
-        self, data: Any, *args, timeout: float, wait_interval: float, **kwargs
-    ) -> None:
-        super().put(data)
+    async def put(self, data: Any, *args, **kwargs) -> None:
+        super().put(data, *args, **kwargs)
 
 
 class MultiProcessQueue(MQueue):
-    @async_timeout(Empty)
-    async def get(self, *args, timeout: float, wait_interval: float, **kwargs) -> Any:
+    async def get(self, *args, deserializer: Callable = None, **kwargs) -> Any:
         raw_data = super().get(*args, **kwargs)
-        if isinstance(raw_data, dict) and raw_data.get("SCIPP"):
-            try:
-                return deserialize(header=raw_data["header"], frames=["frames"])
-            except (KeyError, IndexError, TypeError, OSError):
-                ...
-        else:
+        if deserializer is None:
             return raw_data
-
-    @async_timeout(Full)
-    async def put(
-        self, data: Any, *args, timeout: float, wait_interval: float, **kwargs
-    ) -> None:
-        if isinstance(data, (Variable, DataArray, DataGroup)):
-            header, frames = serialize(data)
-            super().put(
-                {"SCIPP": True, "header": header, "frames": frames}, *args, **kwargs
-            )
         else:
+            return deserializer(raw_data)
+
+    async def put(
+        self, data: Any, *args, serializer: Callable = None, **kwargs
+    ) -> None:
+        if serializer is None:
             super().put(data, *args, **kwargs)
+        else:
+            super().put(serializer(data), *args, **kwargs)
 
 
 class KafkaConsumer:
@@ -125,18 +134,14 @@ class KafkaConsumer:
     def __del__(self) -> None:
         self._consumer.close()
 
-    @async_timeout(Empty)
-    async def consume(
-        self, *args, timeout: float, wait_interval: float, chunk_size: int = 1, **kwargs
-    ) -> tuple[Any]:
+    async def consume(self, *args, chunk_size: int = 1, **kwargs) -> tuple[Any]:
         """Retrieves ``chunk_size`` of messages from the kafka broker."""
-        messages: list[Message] = await self._consumer.consume(
-            chunk_size, 0
-        )  # ``async_timeout`` will handle the timeout.
+        messages: list[Message] = self._consumer.consume(chunk_size, 0)
         if len(messages) == 0:
             raise Empty
         else:
-            return (msg.value() for msg in messages)
+            # TODO: We might want the ``Message`` object instead of just values.
+            return tuple(msg.value() for msg in messages)
 
 
 class KafkaProducer:
@@ -176,16 +181,14 @@ class KafkaProducer:
             conf = copy(config)
         self._producer = Producer(conf)
 
-    @async_timeout(KafkaException)
     async def produce(
-        self,
-        topic,
-        *args,
-        timeout: float,
-        wait_interval: float,
-        key: str,
-        value: Any,
-        **kwargs,
+        self, topic: str, *args, key: str = "", value: Any, **kwargs
     ) -> None:
         """Produce 1 data(``key``, ``value``) under the ``topic``."""
-        self._producer.produce(topic, key=key, value=value, **kwargs)
+        try:
+            self._producer.produce(topic, key=key, value=value, **kwargs)
+        except BufferError:
+            raise Full
+        result = self._producer.poll(0)
+        if result != 1:
+            raise Full

@@ -3,10 +3,10 @@
 
 import asyncio
 from logging import DEBUG, ERROR, INFO, WARN, Logger
-from typing import Any, Union
+from typing import Any, Callable, Literal, Union, final
 
 from ..communication.broker import CommunicationBroker
-from ..core.schedulers import async_timeout
+from ..core.schedulers import async_retry
 from ..logging.loggers import BeamlimeLogger
 
 
@@ -182,28 +182,52 @@ class CoroutineMixin:
     ```
     """
 
-    timeout = None
-    wait_interval = None
-
-    async def should_proceed(self, wait=True):
-        @async_timeout(ApplicationNotStartedException, ApplicationPausedException)
-        async def wait_resumed(timeout: int, wait_interval: int) -> None:
-            if not self._started:
-                self.debug("Application not started. Waiting for ``start`` command...")
-                raise ApplicationNotStartedException
-            elif self._paused:
-                self.debug("Application paused. Waiting for ``resume`` command...")
-                raise ApplicationPausedException
-            return
+    @final
+    async def _should_do(
+        self, checker: Callable, *exceptions, wait_on_true: bool = False
+    ) -> bool:
+        _check = async_retry(
+            *exceptions,
+            max_trials=int(self.timeout / self.wait_interval),
+            interval=self.wait_interval,
+        )(checker)
 
         try:
-            if wait:
+            result = await _check()
+            if result and wait_on_true:
                 await asyncio.sleep(self.wait_interval)
-            await wait_resumed(timeout=self.timeout, wait_interval=self.wait_interval)
-            return self._started and not self._paused
-        except TimeoutError:
-            self.stop()
+            return result
+        except exceptions:
             return False
+
+    async def should_start(self, wait_on_true: bool = False) -> bool:
+        waited_error = ApplicationNotStartedException
+
+        async def _is_app_started() -> Literal[True]:
+            if not self._started:
+                self.debug("Application not started. Waiting for ``start`` command...")
+                raise waited_error
+            return True
+
+        return await self._should_do(
+            _is_app_started, waited_error, wait_on_true=wait_on_true
+        )
+
+    async def should_proceed(self, wait_on_true: bool = False) -> bool:
+        waited_error = ApplicationPausedException
+
+        async def _is_app_resumed() -> bool:
+            if not self._started:
+                self.debug("Application stopped. Should not proceed the loop.")
+                return False
+            elif self._paused:
+                self.debug("Application paused. Waiting for ``resume`` command...")
+                raise waited_error
+            return True
+
+        return await self._should_do(
+            _is_app_resumed, waited_error, wait_on_true=wait_on_true
+        )
 
     def run(self) -> None:
         """

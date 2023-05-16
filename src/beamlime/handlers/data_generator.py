@@ -29,7 +29,10 @@ class FakeDreamDataGenerator(BeamlimeApplicationInterface):
         random_seed=0,
         **kwargs,
     ) -> None:
-        super().__init__(app_name, broker, logger, timeout, 1 / pulse_rate, **kwargs)
+        kwargs.pop("wait_interval")
+        super().__init__(
+            app_name, broker, logger, timeout, max(0.1, 1 / pulse_rate), **kwargs
+        )
         self.original_file_name = original_file_name
         self.keep_tmp_file = keep_tmp_file
         self.max_events = max_events
@@ -108,14 +111,14 @@ class FakeDreamDataGenerator(BeamlimeApplicationInterface):
 
         return dg
 
-    async def _run(self) -> None:
+    def create_fake_run_start_msg(self) -> bytes:
         from uuid import uuid4
 
         from streaming_data_types.run_start_pl72 import serialise_pl72
 
         self.info("Start data generating...")
 
-        run_start_msg = serialise_pl72(
+        return serialise_pl72(
             job_id=uuid4().hex,
             filename="not-saving-into-file",
             run_name="beamlime test run",
@@ -127,6 +130,22 @@ class FakeDreamDataGenerator(BeamlimeApplicationInterface):
             control_topic="",
         )
 
-        self.produce(run_start_msg, channel="log")
-        # dream_dg = self.create_fake_events()
-        self.info("Finishing data feeding...")
+    async def _run(self) -> None:
+        run_start_msg = self.create_fake_run_start_msg()
+        self.debug("Fake run start message: %s", run_start_msg)
+
+        if await self.produce(
+            run_start_msg, channel="kafka-producer", topic="log", key=""
+        ):
+            self.info("Run start message delivered to the kafka broker.")
+            while await self.should_proceed(wait_on_true=True):
+                if not await self.produce(
+                    "hehe", channel="kafka-producer", topic="data", key=""
+                ):
+                    self.error("Event data not delivered to kafka-producer.")
+                    self.stop()
+                self.debug("Produced a dummy message.")
+        else:
+            self.error("Run start message could not be delivered.")
+
+        self.info("Finish data generating...")

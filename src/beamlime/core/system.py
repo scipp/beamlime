@@ -45,7 +45,9 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
 
         self._tasks = dict()
         self.broker = self._build_broker()
+        self.debug("Communication broker built: \n%s", self.broker)
         self.applications = self._build_applications()
+        self.debug("Application instances built: \n%s", str(self.applications))
 
     def _build_broker(self) -> CommunicationBroker:
         """
@@ -80,7 +82,6 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
 
         # TODO: Handle the case when tasks are still running.
         self._tasks.clear()
-        self.start()
         self._tasks = {
             app_name: asyncio.create_task(app._run())
             for app_name, app in self.applications.items()
@@ -119,3 +120,12 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
         for app_name, app_inst_gr in self.applications.items():
             self.info("Resuming %s instance ... ", app_name)
             app_inst_gr.resume()
+
+    def stop(self) -> None:
+        # TODO: Update populate logic.
+        for app_name, app_inst_gr in self.applications.items():
+            self.info("Stopping %s instance ... ", app_name)
+            if (
+                app_inst_gr._started
+            ):  # Some application instances might have been stopped.
+                app_inst_gr.stop()

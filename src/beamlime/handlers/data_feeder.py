@@ -31,16 +31,19 @@ class FakeEventDataFeeder(BeamlimeApplicationInterface):
     def __del__(self):
         ...
 
-    async def _run(self) -> None:
-        self.info("Start the fake event streaming...")
+    async def check_run_start(self, timeout: int = 0) -> bool:
         from streaming_data_types.run_start_pl72 import deserialise_pl72
 
-        run_start_msg_buf = await self.consume(
-            channel="log", timeout=100, wait_interval=5
-        )[0]
-        if run_start_msg_buf is None:
-            self.error("Start event not received.")
+        self.info("Pull a run-start message...")
+        run_start_msg_buf_list = await self.consume(
+            channel="kafka-log-consumer", timeout=timeout
+        )
+        if not run_start_msg_buf_list:
+            self.info(run_start_msg_buf_list)
+            return False
         else:
+            run_start_msg_buf = run_start_msg_buf_list[-1]
+            self.debug("Received message: %s", run_start_msg_buf)
             run_start_msg = deserialise_pl72(run_start_msg_buf)
             self.info(
                 "Run start message received: "
@@ -49,16 +52,21 @@ class FakeEventDataFeeder(BeamlimeApplicationInterface):
                 run_start_msg.run_name,
                 run_start_msg.instrument_name,
             )
+            return True
 
-        # while self.should_proceed():
-        #     new_chunks = await self.consume(channel="data",
-        #                                     chunk_size=self.chunk_size)
-        #     for chunk in new_chunks:
-        #         self.debug(chunk)
-        #     new_start_msg = await self.consume(channel="log", timeout=0)
-        #     if new_start_msg is not None:
-        #         self.info("New run started message received: ", new_start_msg)
-        #         self.stop()
+    async def _run(self) -> None:
+        self.info("Start the fake event streaming...")
+        run_start_msg = await self.check_run_start(timeout=10)
+        # wait for a longer time for the first run-start message.
+
+        while run_start_msg and await self.should_proceed(wait_on_true=True):
+            new_chunks = await self.consume(
+                channel="kafka-data-consumer", chunk_size=self.chunk_size
+            )
+            self.info(new_chunks)
+
+            # if await self.check_run_start(timeout=0):
+            #     self.info("New run start message received.")
 
         self.info("Finishing data feeding...")
 
