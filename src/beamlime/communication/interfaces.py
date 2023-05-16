@@ -15,7 +15,8 @@
 # Writing methods should raise ``Full`` in case there is no space to write.
 
 
-from multiprocessing.queues import Queue as MQueue
+from multiprocessing import Queue as MQueue
+from multiprocessing.context import BaseContext
 from queue import Empty, Full
 from queue import Queue as SQueue
 from typing import Any, ByteString, Callable, Union, overload
@@ -63,15 +64,23 @@ class BullettinBoard:
 
 class SingleProcessQueue(SQueue):
     async def get(self, *args, **kwargs) -> Any:
-        return super().get(*args, **kwargs)
+        return super().get(*args, timeout=0, **kwargs)
 
     async def put(self, data: Any, *args, **kwargs) -> None:
-        super().put(data, *args, **kwargs)
+        super().put(data, *args, timeout=0, **kwargs)
 
 
-class MultiProcessQueue(MQueue):
+class MultiProcessQueue:
+    def __init__(self, maxsize: int = 0, *, ctx: BaseContext = None) -> None:
+        if ctx is None:
+            from multiprocessing import Manager
+
+            self._queue = Manager().Queue(maxsize=maxsize)
+        else:
+            self._queue = MQueue(maxsize=maxsize, ctx=ctx)
+
     async def get(self, *args, deserializer: Callable = None, **kwargs) -> Any:
-        raw_data = super().get(*args, **kwargs)
+        raw_data = self._queue.get(*args, timeout=0, **kwargs)
         if deserializer is None:
             return raw_data
         else:
@@ -81,9 +90,9 @@ class MultiProcessQueue(MQueue):
         self, data: Any, *args, serializer: Callable = None, **kwargs
     ) -> None:
         if serializer is None:
-            super().put(data, *args, **kwargs)
+            self._queue.put(data, *args, timeout=0, **kwargs)
         else:
-            super().put(serializer(data), *args, **kwargs)
+            self._queue.put(serializer(data), *args, timeout=0, **kwargs)
 
 
 class KafkaConsumer:
