@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-from typing import Literal, Union
+from typing import Literal
 
 from ..resources.templates import (
     load_app_subscription_tpl,
@@ -37,8 +37,10 @@ def _channel_config(
     tpl = load_communication_channel_tpl()
     tpl["name"] = name
     tpl["type"] = channel_type
-    tpl.pop("options")
-    tpl.update(other_specs)
+    if len(other_specs) == 0:
+        tpl.pop("options")
+    else:
+        tpl["options"] = other_specs
     return tpl
 
 
@@ -48,19 +50,18 @@ def _subscription(channel_name: str) -> dict:
     return tpl
 
 
-def _app_subscription(
-    app_name: str, in_ch_name: Union[str, None], out_ch_name: Union[str, None]
-) -> dict:
+def _app_subscription(app_name: str, *ch_names: str) -> dict:
+    from .tools import wrap_item
+
     tpl = load_app_subscription_tpl()
     tpl["app-name"] = app_name
-    if in_ch_name:
-        tpl["input-channels"] = [_subscription(in_ch_name)]
+    if ch_names:
+        tpl["channels"] = [
+            _subscription(ch_name) for ch_name in wrap_item(ch_names, tuple)
+        ]
     else:
-        tpl.pop("input-channels")
-    if out_ch_name:
-        tpl["output-channels"] = [_subscription(out_ch_name)]
-    else:
-        tpl.pop("output-channels")
+        tpl.pop("channels", None)
+
     return tpl
 
 
@@ -140,9 +141,9 @@ def _fake2d_data_stream_config() -> dict:
         _channel_config(ch_name) for ch_name in channel_names
     ]
     config["application-subscriptions"] = [
-        _app_subscription("data-feeder", None, "raw-data"),
+        _app_subscription("data-feeder", "raw-data"),
         _app_subscription("data-reduction", "raw-data", "reduced-data"),
-        _app_subscription("visualisation", "reduced-data", None),
+        _app_subscription("visualisation", "reduced-data"),
     ]
     return config
 
@@ -203,9 +204,7 @@ def _fake_event_data_reduction_spec() -> dict:
 
 
 def _fake_event_data_stream_config() -> dict:
-    from beamlime.handlers.data_feeder import (
-        Fake2dDetectorImageFeeder as data_feeder,  # TODO
-    )
+    from beamlime.handlers.data_feeder import FakeEventDataFeeder as data_feeder  # TODO
     from beamlime.handlers.data_generator import (
         FakeDreamDataGenerator as data_generator,
     )
@@ -223,14 +222,14 @@ def _fake_event_data_stream_config() -> dict:
     config["applications"][0]["data-handler"] = ".".join(
         (data_generator.__module__, data_generator.__name__)
     )
-    config["applications"][0]["timeout"] = 1
+    config["applications"][0]["timeout"] = 5
     config["applications"][0]["wait-interval"] = 0.1
     # # Data Feeder
     config["applications"][1]["data-handler"] = ".".join(
         (data_feeder.__module__, data_feeder.__name__)
     )
-    config["applications"][1]["timeout"] = 5
-    config["applications"][1]["wait-interval"] = 0.1
+    config["applications"][1]["timeout"] = 10
+    config["applications"][1]["wait-interval"] = 0.5
 
     # Application specs
     config["application-specs"]["data-generator"] = {
@@ -245,16 +244,17 @@ def _fake_event_data_stream_config() -> dict:
 
     # Communication
     channel_specs = [
-        ("kafka-producer", "KAFKA-PRODUCER", {"topic": "log"}),
-        ("kafka-consumer", "KAFKA-CONSUMER", {"topics": ["log"]}),
+        ("kafka-producer", "KAFKA-PRODUCER", {}),
+        ("kafka-log-consumer", "KAFKA-CONSUMER", {"topics": ["log"]}),
+        ("kafka-data-consumer", "KAFKA-CONSUMER", {"topics": ["data"]}),
     ]
     config["communication-channels"] = [
         _channel_config(ch_name, ch_type, **others)
         for ch_name, ch_type, others in channel_specs
     ]
     config["application-subscriptions"] = [
-        _app_subscription("data-generator", None, "kafka-producer"),
-        _app_subscription("data-feeder", "kafka-consumer", None),
+        _app_subscription("data-generator", "kafka-producer"),
+        _app_subscription("data-feeder", "kafka-log-consumer", "kafka-data-consumer"),
     ]
     return config
 
@@ -263,8 +263,10 @@ def build_fake_event_kafka_config():
     """
     This configuration contains 2 temporary applications
     1. data-generator
-    2. data-feeder
-    # TODO: Add data-reduction and visualization applications
+    2. data-feeder (pre-data-reduction)
+    3. data-reduction (real data-reduction)
+    4. visualization
+    # TODO: Add data-reduction and visualizations.
     """
     import datetime
 

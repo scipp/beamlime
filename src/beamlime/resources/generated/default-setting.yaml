@@ -6,7 +6,7 @@ general:
   user: beamlime
   name: Fake events from kafka stream
   system-name: Beamlime Dashboard
-  last-updated: '2023-05-11 16:04:41.851173'
+  last-updated: '2023-05-15 16:34:01.832747'
   timeout: 600
 
 data-stream:
@@ -15,14 +15,14 @@ data-stream:
     data-handler: beamlime.handlers.data_generator.FakeDreamDataGenerator
     instance-number:
     keep-alive: false
-    timeout: 1
-    wait-interval: 0.1
-  - name: data-feeder
-    data-handler: beamlime.handlers.data_feeder.Fake2dDetectorImageFeeder
-    instance-number:
-    keep-alive: false
     timeout: 5
     wait-interval: 0.1
+  - name: data-feeder
+    data-handler: beamlime.handlers.data_feeder.FakeEventDataFeeder
+    instance-number:
+    keep-alive: false
+    timeout: 10
+    wait-interval: 0.5
   application-specs:
     data-generator:
       pulse_rate: 100000
@@ -36,19 +36,25 @@ data-stream:
   communication-channels:
   - name: kafka-producer
     type: KAFKA-PRODUCER
-    topic: log
-  - name: kafka-consumer
+  - name: kafka-log-consumer
     type: KAFKA-CONSUMER
-    topics:
-    - log
+    options:
+      topics:
+      - log
+  - name: kafka-data-consumer
+    type: KAFKA-CONSUMER
+    options:
+      topics:
+      - data
   application-subscriptions:
   - app-name: data-generator
+    input-channels:
     output-channels:
+    channels:
     - name: kafka-producer
-      timeout: 60
-      wait-interval: 1
   - app-name: data-feeder
     input-channels:
-    - name: kafka-consumer
-      timeout: 60
-      wait-interval: 1
+    output-channels:
+    channels:
+    - name: kafka-log-consumer
+    - name: kafka-data-consumer
