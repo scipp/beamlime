@@ -19,41 +19,30 @@ from multiprocessing import Queue as MQueue
 from multiprocessing.context import BaseContext
 from queue import Empty, Full
 from queue import Queue as SQueue
-from typing import Any, ByteString, Callable, Union, overload
+from typing import Any, Callable, overload
 
 from confluent_kafka import Message
-from scipp import DataArray, DataGroup, Variable
-
-
-def scipp_serializer(data: Union[DataArray, DataGroup, Variable]) -> ByteString:
-    from scipp.serialization import serialize
-
-    header, frames = serialize(data)
-    return {"SCIPP": True, "header": header, "frames": frames}
-
-
-def scipp_deserializer(raw_data: ByteString) -> Union[DataArray, DataGroup, Variable]:
-    from scipp.serialization import deserialize
-
-    return deserialize(header=raw_data["header"], frames=["frames"])
 
 
 class BullettinBoard:
     """Bullettin Board that can be shared by all application instances."""
 
-    def __init__(self) -> None:
+    def __init__(self, maxsize: int = 10) -> None:
+        self.maxsize = maxsize
         self._board = dict()
 
     def clear(self) -> None:
         self._board.clear()
 
     async def read(self) -> Any:
+        from copy import copy
+
         if not self._board:
             raise Empty
-        return self._board
+        return copy(self._board)
 
     async def post(self, data: dict) -> None:
-        if len(self._board) > 10 and any(
+        if len(self._board) >= self.maxsize and any(
             [key not in self._board for key in data.keys()]
         ):
             # TODO: Update or remove this statement
@@ -98,7 +87,7 @@ class MultiProcessQueue:
 class KafkaConsumer:
     @overload
     def __init__(self, config: dict) -> None:
-        ...
+        ...  # pragma: no cover
 
     @overload
     def __init__(
@@ -109,7 +98,7 @@ class KafkaConsumer:
         auto_offset_reset: str,
         **kwargs,
     ) -> None:
-        ...
+        ...  # pragma: no cover
 
     def __init__(
         self,
@@ -156,11 +145,11 @@ class KafkaConsumer:
 class KafkaProducer:
     @overload
     def __init__(self, config: dict) -> None:
-        ...
+        ...  # pragma: no cover
 
     @overload
     def __init__(self, bootstrap_servers: str, client_id: str, **kwargs) -> None:
-        ...
+        ...  # pragma: no cover
 
     def __init__(
         self,
