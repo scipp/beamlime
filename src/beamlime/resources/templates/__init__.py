@@ -9,7 +9,6 @@ from .loaders import (
     load_config_tpl,
     load_kafka_options_tpl,
     load_mqueue_options_tpl,
-    load_subscription_tpl,
     load_target_tpl,
     load_workflow_tpl,
 )

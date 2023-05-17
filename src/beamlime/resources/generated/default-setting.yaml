@@ -6,7 +6,7 @@ general:
   user: beamlime
   name: Fake events from kafka stream
   system-name: Beamlime Dashboard
-  last-updated: '2023-05-15 16:34:01.832747'
+  last-updated: '2023-05-17 17:24:54.760555'
   timeout: 600
 
 data-stream:
@@ -48,13 +48,9 @@ data-stream:
       - data
   application-subscriptions:
   - app-name: data-generator
-    input-channels:
-    output-channels:
     channels:
-    - name: kafka-producer
+    - kafka-producer
   - app-name: data-feeder
-    input-channels:
-    output-channels:
     channels:
-    - name: kafka-log-consumer
-    - name: kafka-data-consumer
+    - kafka-log-consumer
+    - kafka-data-consumer

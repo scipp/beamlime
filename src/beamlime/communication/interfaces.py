@@ -52,6 +52,8 @@ class BullettinBoard:
 
 
 class SingleProcessQueue(SQueue):
+    """Single process queue."""
+
     async def get(self, *args, **kwargs) -> Any:
         return super().get(*args, timeout=0, **kwargs)
 
@@ -60,6 +62,8 @@ class SingleProcessQueue(SQueue):
 
 
 class MultiProcessQueue:
+    """Multi process queue with serialize/deserialize options."""
+
     def __init__(self, maxsize: int = 0, *, ctx: BaseContext = None) -> None:
         if ctx is None:
             from multiprocessing import Manager
@@ -85,6 +89,8 @@ class MultiProcessQueue:
 
 
 class KafkaConsumer:
+    """Kafka consumer interface wrapper."""
+
     @overload
     def __init__(self, config: dict) -> None:
         ...  # pragma: no cover
@@ -143,6 +149,8 @@ class KafkaConsumer:
 
 
 class KafkaProducer:
+    """Kafka producer interfaces wrapper."""
+
     @overload
     def __init__(self, config: dict) -> None:
         ...  # pragma: no cover
@@ -181,12 +189,15 @@ class KafkaProducer:
 
     async def produce(
         self, topic: str, *args, key: str = "", value: Any, **kwargs
-    ) -> None:
+    ) -> None:  # TODO: we might want to move ``topic`` to configuration.
         """Produce 1 data(``key``, ``value``) under the ``topic``."""
         try:
             self._producer.produce(topic, key=key, value=value, **kwargs)
         except BufferError:
             raise Full
         result = self._producer.poll(0)
+        # TODO: poll is directly called after each produce call.
+        # We may want to separate poll or flush
+        # if we need to use this wrapper for faster testing.
         if result != 1:
             raise Full

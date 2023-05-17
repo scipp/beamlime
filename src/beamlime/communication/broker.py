@@ -57,7 +57,7 @@ class CommunicationBroker:
             app_name = subscription["app-name"]
             channels = subscription.get("channels") or ()
             self.subscriptions[app_name] = {
-                ch["name"]: self.channels[ch["name"]] for ch in channels
+                ch_name: self.channels[ch_name] for ch_name in channels
             }
 
     def __str__(self) -> str:
@@ -76,13 +76,14 @@ class CommunicationBroker:
 
     def get_default_channel_name(self, app_name: str) -> str:
         app_subscriptions = self.subscriptions[app_name]
-        for ch_name in app_subscriptions:
-            return ch_name
-        else:
+        if len(app_subscriptions) > 1:
             raise ValueError(
                 "Application has multiple input channel, "
                 "it should provide channel name to get/put data."
             )
+        else:
+            for ch_name in app_subscriptions:
+                return ch_name
 
     def get_channel(
         self, app_name: str, channel: Union[str, int, None]
@@ -102,7 +103,7 @@ class CommunicationBroker:
     async def read(
         self,
         app_name: str,
-        channel: Union[tuple, str, int],
+        channel: Union[tuple, str, int] = None,
         timeout: float = 0,
         wait_interval: float = MIN_WAIT_INTERVAL,
     ) -> Any:
@@ -117,7 +118,7 @@ class CommunicationBroker:
         self,
         data,
         app_name: str,
-        channel: Union[tuple, str, int],
+        channel: Union[tuple, str, int] = None,
         timeout: float = 0,
         wait_interval: float = MIN_WAIT_INTERVAL,
     ) -> bool:
@@ -133,7 +134,7 @@ class CommunicationBroker:
         self,
         *args,
         app_name: str,
-        channel: Union[tuple, str, int],
+        channel: Union[tuple, str, int] = None,
         timeout: float = 0,
         wait_interval: float = MIN_WAIT_INTERVAL,
         **kwargs,
@@ -150,7 +151,7 @@ class CommunicationBroker:
         data,
         *args,
         app_name: str,
-        channel: Union[tuple, str, int],
+        channel: Union[tuple, str, int] = None,
         timeout: float = 0,
         wait_interval: float = MIN_WAIT_INTERVAL,
         **kwargs,
@@ -167,7 +168,7 @@ class CommunicationBroker:
         self,
         *args,
         app_name: str,
-        channel: Union[tuple, str, int],
+        channel: Union[tuple, str, int] = None,
         timeout: float = 0,
         wait_interval: float = MIN_WAIT_INTERVAL,
         chunk_size: int = 1,
@@ -185,7 +186,7 @@ class CommunicationBroker:
         data: Any,
         *args,
         app_name: str,
-        channel: Union[tuple, str, int],
+        channel: Union[tuple, str, int] = None,
         timeout: float = 0,
         wait_interval: float = MIN_WAIT_INTERVAL,
         topic: str,

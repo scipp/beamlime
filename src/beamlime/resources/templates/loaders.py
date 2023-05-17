@@ -59,7 +59,6 @@ load_app_subscription_tpl = partial(_load_tpl, tpl_name="application-subscriptio
 load_communication_channel_tpl = partial(_load_tpl, tpl_name="communication-channel")
 load_kafka_options_tpl = partial(_load_tpl, tpl_name="kafka-options")
 load_mqueue_options_tpl = partial(_load_tpl, tpl_name="mqueue-options")
-load_subscription_tpl = partial(_load_tpl, tpl_name="subscription", replace_symbol=True)
 # Data Reduction
 load_target_tpl = partial(_load_tpl, tpl_name="target")
 load_workflow_tpl = partial(_load_tpl, tpl_name="workflow", replace_symbol=True)

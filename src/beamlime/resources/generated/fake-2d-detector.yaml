@@ -6,7 +6,7 @@ general:
   user: beamlime
   name: Fake 2d Detector Image
   system-name: Beamlime Dashboard
-  last-updated: '2023-05-15 16:34:01.596363'
+  last-updated: '2023-05-17 17:24:54.344781'
   timeout: 600
 
 data-stream:
@@ -76,18 +76,12 @@ data-stream:
     type: SQUEUE
   application-subscriptions:
   - app-name: data-feeder
-    input-channels:
-    output-channels:
     channels:
-    - name: raw-data
+    - raw-data
   - app-name: data-reduction
-    input-channels:
-    output-channels:
     channels:
-    - name: raw-data
-    - name: reduced-data
+    - raw-data
+    - reduced-data
   - app-name: visualisation
-    input-channels:
-    output-channels:
     channels:
-    - name: reduced-data
+    - reduced-data

@@ -7,7 +7,6 @@ from ..resources.templates import (
     load_application_tpl,
     load_communication_channel_tpl,
     load_config_tpl,
-    load_subscription_tpl,
     load_workflow_tpl,
 )
 
@@ -44,21 +43,13 @@ def _channel_config(
     return tpl
 
 
-def _subscription(channel_name: str) -> dict:
-    tpl = load_subscription_tpl()
-    tpl["name"] = channel_name
-    return tpl
-
-
 def _app_subscription(app_name: str, *ch_names: str) -> dict:
     from .tools import wrap_item
 
     tpl = load_app_subscription_tpl()
     tpl["app-name"] = app_name
     if ch_names:
-        tpl["channels"] = [
-            _subscription(ch_name) for ch_name in wrap_item(ch_names, tuple)
-        ]
+        tpl["channels"] = wrap_item(ch_names, list)
     else:
         tpl.pop("channels", None)
 

@@ -1,4 +1,0 @@
-# SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-
-name: # unique name of the channels defined in the communication-channels
