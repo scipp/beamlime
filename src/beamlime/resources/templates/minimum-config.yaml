@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+# Minimum configuration template for each micro services.
+#
+# There are three types of micro services.
+# - System:
+#     control: ``beamlime.core.system.BeamlimeSystem``
+#     specs-template: system-specs.yaml
+#     note: ``System`` should always be the highest layer wrapping all other micro services.
+#           ``System`` contains single or multiple ``Application`` and ``Communication`` services.
+# - Application:
+#     control: ``beamlime.application.groups.BeamlimeApplicationGroup``
+#     specs-template: application-specs.yaml
+# - Communication:
+#     control: ``beamlime.communication.broker.CommunicationBroker``
+#     specs-template: kafka-specs.yaml
+#
+
+name:  # Name of the micro service.
+constructor:  # A python class for instantiating the service.
+specs:  # Keyword arguments to be passed to the constructor.

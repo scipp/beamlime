@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+# Application communication channel subscription template.
+
+app-name:
+channels:
+  # Name of the channels that application is subscribing.
+  # - channel-name-1
+  # - channel-name-2
+  # ...

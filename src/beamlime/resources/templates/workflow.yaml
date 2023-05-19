@@ -1,19 +1,21 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-# Data reduction workflow configuration template
+# Data reduction workflow configuration template.
+# Dependencies on other templates: workflow-target.yaml
 
 name:
 reference:
-process:
-input-policy: beamlime.config.preset_options.NewDataPolicyOptions
-output-policy: beamlime.config.preset_options.NewDataPolicyOptions
-targets:
-  # - target-name-1
-  # - target-name-2
-process-args:
-  # - arg1
-  # - arg2
-process-kwargs:
+process:  # Callable object with data.
+input-policy: "``beamlime.config.preset_options.NewDataPolicy.default``"  # REPLACE
+output-policy: "``beamlime.config.preset_options.NewDataPolicy.default``"  # REPLACE
+targets:  # workflow-target.yaml
+  # - name: target-name-1
+  #   index:
+  #    - 0
+  # - name: target-name-2
+  #   index:
+  #    - 1
+process-specs: # only allows key-word arguments
   # kwarg1: value1
   # kwarg2: value2
   # ...

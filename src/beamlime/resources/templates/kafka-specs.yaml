@@ -1,9 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-# Kafka listener or producer configuration
+# microservice:Communication kafka producer/consumer specification template.
 
 broker-address: "localhost:9092"
 topic:
-serialisation-method:
-deserialisation-method:
-offset:
+specs:

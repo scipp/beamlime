@@ -10,22 +10,19 @@ from ..loaders import load_yaml
 
 def _replace_preset_symbol(tpl: Union[dict, list]):
     """
-    Recursively replace symbols to values in the template.
+    Recursively replace symbols in code block to values in the template.
     This helper is only for templates.
     Do not use this for loading static configuration.
     """
-    # TODO: Write down when you can use symbol in the yaml template.
 
     def _replace(value):
-        if not isinstance(value, str):
-            return value
-        preset = import_object(value)
-        if isinstance(preset, (str, int, float)):
-            return preset
-        if hasattr(preset, "DEFAULT"):
-            return preset.DEFAULT
-        else:
-            return str(preset)
+        # If the value is in code block.
+        if isinstance(value, str) and value.startswith("``") and value.endswith("``"):
+            try:
+                return import_object(value)
+            except ModuleNotFoundError:
+                ...
+        return value
 
     if isinstance(tpl, dict):
         keys = tpl.keys()
@@ -41,24 +38,21 @@ def _replace_preset_symbol(tpl: Union[dict, list]):
     return tpl
 
 
-def _load_tpl(tpl_name: str, replace_symbol: bool = False) -> dict:
+def _load_tpl(tpl_name: str) -> dict:
     tpl = load_yaml(tpl_name + ".yaml", module=__package__)
 
-    if replace_symbol:
-        return _replace_preset_symbol(tpl)
-
-    return tpl
+    return _replace_preset_symbol(tpl)
 
 
-# General Configuration
-load_config_tpl = partial(_load_tpl, tpl_name="config", replace_symbol=True)
-# Application
-load_application_tpl = partial(_load_tpl, tpl_name="application", replace_symbol=True)
-# Communication
-load_app_subscription_tpl = partial(_load_tpl, tpl_name="application-subscription")
-load_communication_channel_tpl = partial(_load_tpl, tpl_name="communication-channel")
-load_kafka_options_tpl = partial(_load_tpl, tpl_name="kafka-options")
-load_mqueue_options_tpl = partial(_load_tpl, tpl_name="mqueue-options")
+# Minimum configuration of micro services
+load_minimum_config_tpl = partial(_load_tpl, tpl_name="minimum-config")
+# microservice:System related
+load_system_specs_tpl = partial(_load_tpl, tpl_name="system-specs")
+load_subscription_tpl = partial(_load_tpl, tpl_name="system-subscription")
+# microservice:Application related
+load_application_specs_tpl = partial(_load_tpl, tpl_name="application-specs")
+# microservice:Communication related
+load_kafka_specs_tpl = partial(_load_tpl, tpl_name="kafka-specs")
 # Data Reduction
-load_target_tpl = partial(_load_tpl, tpl_name="target")
-load_workflow_tpl = partial(_load_tpl, tpl_name="workflow", replace_symbol=True)
+load_workflow_tpl = partial(_load_tpl, tpl_name="workflow")
+load_wf_target_tpl = partial(_load_tpl, tpl_name="workflow-target")

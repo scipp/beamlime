@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+# microservice:System specification template.
+# Dependencies on other templates: application-specs.yaml,
+#                                  kafka-specs.yaml,
+#                                  system-subscription.yaml
+
+log-dir:  "``beamlime.config.preset_options.LogDirectory.default``" # [~/.beamlime/log/] Directory to collect log files.
+timeout: "``beamlime.config.preset_options.Timeout.maximum``"  # 600 s
+
+# microservice:Application
+# Dependent on ``application-specs.yaml``.
+applications:
+  # - name: application-name-1
+  #   ...
+  # - name: application-name-2
+  #   ...
+  # - name: application-name-3
+  #   ...
+
+# microservice:Communication
+# Each channel will be assigned to each application in the application-subscriptions.
+communications:
+  # - name: channel-name-1
+  #   type:
+  #   specs:
+  # - name: channel-name-2
+  #   type:
+  #   specs:
+  # ...
+
+# ``system-subscription.yaml``.
+# Beamlime communication broker will only allow to access to the subscribed channel from the application.
+# It is not included in ``applications`` or ``communications`` since both services need to access to this information.
+subscriptions:
+  # app-name: application-name-1
+  # channels:
+  #   - channel-name-1
+  # app-name: application-name-2
+  # channels:
+  #   - channel-name-1
+  #   - channel-name-2
+  # ...

@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+# microservice:Application specification template.
+
+# Minimum specs of an application instance controlled by BeamlimeApplicationGroup and CommunicationBroker
+instance-specs:
+  max-number-instance: "``beamlime.config.preset_options.WaitInterval.default``"  # How many instances you want to create
+  keep-alive: FALSE
+  max-life: "``beamlime.config.preset_options.InstanceLife.default``"  # 1 (once it's aborted, it will not be revived.)
+  timeout: "``beamlime.config.preset_options.Timeout.default``"  # 60 s
+  wait-interval: "``beamlime.config.preset_options.WaitInterval.default``"  # 1 s
+
+application-specs:
+# Other application specific configuration goes here.
+# ...
+
+subscriptions:
+# Name of the communication channels.
