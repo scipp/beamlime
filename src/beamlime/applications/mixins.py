@@ -3,10 +3,10 @@
 
 import asyncio
 from logging import DEBUG, ERROR, INFO, WARN, Logger
-from typing import Any, Union
+from typing import Any, Callable, Literal, Union, final
 
 from ..communication.broker import CommunicationBroker
-from ..core.schedulers import async_timeout
+from ..core.schedulers import async_retry
 from ..logging.loggers import BeamlimeLogger
 
 
@@ -161,15 +161,18 @@ class CoroutineMixin:
 
         async def _run(self):
             # prepare process
-            delivered = await self.send_data("Start Message.")
-            new_data = await self.receive_data()
+            delivered = await self.put("Start Message")
+            first_msg_timeout = 30  # s
+            if await self.get(timeout=first_msg_timeout) == "Expected Message":
+                new_data = await self.get()
+
             while should_proceed() and delivered and new_data:
-                if new_data == "Expected Start Message":
-                    # do something
                 result = await self.process()
-                delivered = await self.send_data(result)
-                new_data = await self.receive_data()
-            self.info("Task completed")
+                delivered = await self.put(result)
+                new_data = await self.get()
+
+            await self.put("Stop Message")
+            self.info("Task completed.")
 
     app = DownStreamApp()
     app.run()  # should start coroutine ``_run``, which
@@ -179,28 +182,52 @@ class CoroutineMixin:
     ```
     """
 
-    timeout = None
-    wait_interval = None
-
-    async def should_proceed(self, wait=True):
-        @async_timeout(ApplicationNotStartedException, ApplicationPausedException)
-        async def wait_resumed(timeout: int, wait_interval: int) -> None:
-            if not self._started:
-                self.debug("Application not started. Waiting for ``start`` command...")
-                raise ApplicationNotStartedException
-            elif self._paused:
-                self.debug("Application paused. Waiting for ``resume`` command...")
-                raise ApplicationPausedException
-            return
+    @final
+    async def _should_do(
+        self, checker: Callable, *exceptions, wait_on_true: bool = False
+    ) -> bool:
+        _check = async_retry(
+            *exceptions,
+            max_trials=int(self.timeout / self.wait_interval),
+            interval=self.wait_interval,
+        )(checker)
 
         try:
-            if wait:
+            result = await _check()
+            if result and wait_on_true:
                 await asyncio.sleep(self.wait_interval)
-            await wait_resumed(timeout=self.timeout, wait_interval=self.wait_interval)
-            return self._started and not self._paused
-        except TimeoutError:
-            self.stop()
+            return result
+        except exceptions:
             return False
+
+    async def should_start(self, wait_on_true: bool = False) -> bool:
+        waited_error = ApplicationNotStartedException
+
+        async def _is_app_started() -> Literal[True]:
+            if not self._started:
+                self.debug("Application not started. Waiting for ``start`` command...")
+                raise waited_error
+            return True
+
+        return await self._should_do(
+            _is_app_started, waited_error, wait_on_true=wait_on_true
+        )
+
+    async def should_proceed(self, wait_on_true: bool = False) -> bool:
+        waited_error = ApplicationPausedException
+
+        async def _is_app_resumed() -> bool:
+            if not self._started:
+                self.debug("Application stopped. Should not proceed the loop.")
+                return False
+            elif self._paused:
+                self.debug("Application paused. Waiting for ``resume`` command...")
+                raise waited_error
+            return True
+
+        return await self._should_do(
+            _is_app_resumed, waited_error, wait_on_true=wait_on_true
+        )
 
     def run(self) -> None:
         """
@@ -228,13 +255,13 @@ class CoroutineMixin:
                 return asyncio.create_task(self._run(), name=name)  # py39, py310
 
 
-class BrokerMixin:
+class BrokerBasedCommunicationMixin:
     """
     Communication Interfaces
 
     Protocol
     --------
-    UpstreamCommunicationProtocol
+    BeamlimeCommunicationProtocol
 
     """
 
@@ -248,29 +275,80 @@ class BrokerMixin:
     def broker(self, _broker: CommunicationBroker) -> None:
         self._broker = _broker
 
-    async def get(self, *args, channel: str = None, **kwargs) -> Any:
+    async def get(
+        self,
+        *args,
+        channel: str = None,
+        timeout: float = None,
+        wait_interval: float = None,
+        **kwargs,
+    ) -> Any:
         return await self.broker.get(
             *args,
             app_name=self.app_name,
             channel=channel,
-            timeout=self.timeout,
-            wait_interval=self.wait_interval,
+            timeout=timeout or self.timeout,
+            wait_interval=wait_interval or self.wait_interval,
             **kwargs,
         )
 
-    async def put(self, data: Any, *args, channel: str = None, **kwargs) -> Any:
+    async def put(
+        self,
+        data: Any,
+        *args,
+        channel: str = None,
+        timeout: float = None,
+        wait_interval: float = None,
+        **kwargs,
+    ) -> Any:
         return await self.broker.put(
             data,
             *args,
             app_name=self.app_name,
             channel=channel,
-            timeout=self.timeout,
-            wait_interval=self.wait_interval,
+            timeout=timeout or self.timeout,
+            wait_interval=wait_interval or self.wait_interval,
             **kwargs,
         )
 
-    async def poll(self) -> Any:
-        ...
+    async def consume(
+        self,
+        *args,
+        channel: str = None,
+        chunk_size: int = 1,
+        timeout: float = None,
+        wait_interval: float = None,
+        **kwargs,
+    ) -> Any:
+        return await self.broker.consume(
+            *args,
+            app_name=self.app_name,
+            channel=channel,
+            timeout=timeout or self.timeout,
+            wait_interval=wait_interval or self.wait_interval,
+            chunk_size=chunk_size,
+            **kwargs,
+        )
 
-    async def publish(self) -> Any:
-        ...
+    async def produce(
+        self,
+        data: Any,
+        *args,
+        channel: str = None,
+        topic: str,
+        key: str,
+        timeout: float = None,
+        wait_interval: float = None,
+        **kwargs,
+    ) -> Any:
+        return await self.broker.produce(
+            data,
+            *args,
+            app_name=self.app_name,
+            channel=channel,
+            timeout=timeout or self.timeout,
+            wait_interval=wait_interval or self.wait_interval,
+            topic=topic,
+            key=key,
+            **kwargs,
+        )

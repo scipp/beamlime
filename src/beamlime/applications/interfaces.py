@@ -5,11 +5,16 @@ from logging import Logger
 
 from ..communication.broker import CommunicationBroker
 from ..config.preset_options import DEFAULT_TIMEOUT, DEFAULT_WAIT_INTERVAL
-from .mixins import BrokerMixin, CoroutineMixin, FlagControlMixin, LogMixin
+from .mixins import (
+    BrokerBasedCommunicationMixin,
+    CoroutineMixin,
+    FlagControlMixin,
+    LogMixin,
+)
 
 
 class BeamlimeApplicationInterface(
-    LogMixin, FlagControlMixin, CoroutineMixin, BrokerMixin, ABC
+    LogMixin, FlagControlMixin, CoroutineMixin, BrokerBasedCommunicationMixin, ABC
 ):
     """
     Beamlime Application Interface

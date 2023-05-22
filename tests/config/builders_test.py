@@ -3,7 +3,10 @@
 # @author Sunyoung Yoo
 
 
-from beamlime.config.builders import build_default_config
+from beamlime.config.builders import (
+    build_fake_event_kafka_config,
+    build_offline_fake2d_config,
+)
 
 
 def _is_config_complete(config: dict):
@@ -15,5 +18,6 @@ def _is_config_complete(config: dict):
     return True
 
 
-def test_default_config_completion():
-    assert _is_config_complete(build_default_config())
+def test_config_completion():
+    assert _is_config_complete(build_offline_fake2d_config())
+    assert _is_config_complete(build_fake_event_kafka_config())

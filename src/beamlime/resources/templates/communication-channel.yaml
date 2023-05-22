@@ -4,5 +4,5 @@
 #                                  mqueue-options.yaml
 
 name: # Unique name per channel
-type: # SQUEUE, MQUEUE, KAFKA
+type: # SQUEUE, MQUEUE, KAFKA-CONSUMER, KAFKA-PRODUCER
 options: # kafka-options or mqueue-options

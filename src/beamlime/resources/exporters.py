@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
+from functools import partial
+from typing import Callable
+
 import yaml
 
-from ..config.builders import build_default_config
+from ..config.builders import build_fake_event_kafka_config, build_offline_fake2d_config
 
 
 def represent_none(self, _):
@@ -57,14 +60,15 @@ def export_yaml(
                     file.write("\n")
 
 
-def export_default_yaml(
-    filename: str = "default-setting.yaml",
+def export_preset_configs(
     directory: str = "./",
+    filename: str = "default-config.yaml",
     overwrite: bool = False,
-):
-    default_config = build_default_config()
+    builder: Callable = build_fake_event_kafka_config,
+) -> None:
+    preset_config = builder()
     export_yaml(
-        default_config,
+        preset_config,
         filename=filename,
         directory=directory,
         header=(
@@ -75,3 +79,15 @@ def export_default_yaml(
         order=["general", "data-stream"],
         overwrite=overwrite,
     )
+
+
+export_default_yaml = partial(
+    export_preset_configs,
+    filename="default-setting.yaml",
+    builder=build_fake_event_kafka_config,
+)
+export_fake_2d = partial(
+    export_preset_configs,
+    filename="fake-2d-detector.yaml",
+    builder=build_offline_fake2d_config,
+)

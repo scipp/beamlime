@@ -8,9 +8,7 @@ from typing import Optional
 from .. import protocols
 from ..communication.broker import CommunicationBroker
 from ..config.preset_options import DEFAULT_TIMEOUT, DEFAULT_WAIT_INTERVAL
-from ..core.schedulers import async_timeout
 from .interfaces import BeamlimeApplicationInterface
-from .mixins import ApplicationNotStartedException
 
 MAX_INSTANCE_NUMBER = 2
 
@@ -63,6 +61,7 @@ class BeamlimeApplicationInstanceGroup(BeamlimeApplicationInterface):
         extra_kwargs = {
             app_spec_key.replace("-", "_"): spec
             for app_spec_key, spec in app_spec.items()
+            # TODO: move extra-kwargs to `extra-kwargs` in the configuration file.
         }
         self._constructor = partial(
             handler,
@@ -82,18 +81,23 @@ class BeamlimeApplicationInstanceGroup(BeamlimeApplicationInterface):
             self.populate()
 
     def start(self) -> None:
+        super().start()
         for inst in self._instances.values():
             inst.start()
 
     def stop(self) -> None:
+        super().stop()
         for inst in self._instances.values():
-            inst.stop()
+            if inst._started:
+                inst.stop()
 
     def pause(self) -> None:
+        super().pause()
         for inst in self._instances.values():
             inst.pause()
 
     def resume(self) -> None:
+        super().resume()
         for inst in self._instances.values():
             inst.resume()
 
@@ -121,25 +125,15 @@ class BeamlimeApplicationInstanceGroup(BeamlimeApplicationInterface):
         if hasattr(super(), "__del__"):
             super().__del__()
 
-    async def should_proceed(self):
-        @async_timeout(ApplicationNotStartedException)
-        async def wait_start(timeout: int, wait_interval: int) -> None:
-            if not any([inst._started for inst in self._instances.values()]):
-                self.debug("Application not started. Waiting for ``start`` command...")
-                raise ApplicationNotStartedException
-            return
-
-        try:
-            await asyncio.sleep(self.wait_interval)
-            await wait_start(timeout=self.timeout, wait_interval=self.wait_interval)
+    async def _should_create_tasks(self) -> bool:
+        if await self.should_start() and await self.should_proceed():
             return True
-        except TimeoutError:
-            self.debug("Applications not started. Killing instances ...")
-            self.kill()
+        else:
+            self.error("Application is not started or resumed.")
             return False
 
     async def _run(self) -> None:
-        if await self.should_proceed():
+        if await self._should_create_tasks():
             for inst in self._instances.values():
                 await inst._run()
 
@@ -151,7 +145,7 @@ class BeamlimeApplicationInstanceGroup(BeamlimeApplicationInterface):
         # ``asyncio.create_task(self._run())``,
         # but it will be easier to control each tasks
         # if we have handles of each instances like below.
-        if await self.should_proceed():
+        if await self._should_create_tasks():
             self._tasks = {
                 inst_name: inst.create_task(name=inst_name)
                 for inst_name, inst in self.instances.items()
@@ -183,7 +177,8 @@ class BeamlimeApplicationInstanceGroup(BeamlimeApplicationInterface):
         """Kill all instances in the group."""
         while self._instances:
             _, killed_app = self._instances.popitem()
-            killed_app.stop()
+            if killed_app._started:
+                killed_app.stop()
             del killed_app
         while self._tasks:
             self._tasks.pop().cancel()

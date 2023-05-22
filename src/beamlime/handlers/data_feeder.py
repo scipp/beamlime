@@ -8,6 +8,69 @@ from ..applications.interfaces import BeamlimeApplicationInterface
 from ..communication.broker import CommunicationBroker
 
 
+class FakeEventDataFeeder(BeamlimeApplicationInterface):
+    def __init__(
+        self,
+        /,
+        app_name: str,
+        broker: CommunicationBroker = None,
+        logger: Logger = None,
+        timeout: float = 1,
+        wait_interval: float = 0.1,
+        chunk_size: int = 16,
+    ) -> None:
+        super().__init__(
+            app_name=app_name,
+            broker=broker,
+            logger=logger,
+            timeout=timeout,
+            wait_interval=wait_interval,
+        )
+        self.chunk_size = chunk_size
+
+    def __del__(self):
+        ...
+
+    async def check_run_start(self, timeout: int = 0) -> bool:
+        from streaming_data_types.run_start_pl72 import deserialise_pl72
+
+        self.info("Pull a run-start message...")
+        run_start_msg_buf_list = await self.consume(
+            channel="kafka-log-consumer", timeout=timeout
+        )
+        if not run_start_msg_buf_list:
+            self.info(run_start_msg_buf_list)
+            return False
+        else:
+            run_start_msg_buf = run_start_msg_buf_list[-1]
+            self.debug("Received message: %s", run_start_msg_buf)
+            run_start_msg = deserialise_pl72(run_start_msg_buf)
+            self.info(
+                "Run start message received: "
+                "\n\t\t\t Run name: %s"
+                "\n\t\t\t Instrument name: %s",
+                run_start_msg.run_name,
+                run_start_msg.instrument_name,
+            )
+            return True
+
+    async def _run(self) -> None:
+        self.info("Start the fake event streaming...")
+        run_start_msg = await self.check_run_start(timeout=10)
+        # wait for a longer time for the first run-start message.
+
+        while run_start_msg and await self.should_proceed(wait_on_true=True):
+            new_chunks = await self.consume(
+                channel="kafka-data-consumer", chunk_size=self.chunk_size
+            )
+            self.info(new_chunks)
+
+            # if await self.check_run_start(timeout=0):
+            #     self.info("New run start message received.")
+
+        self.info("Finishing data feeding...")
+
+
 class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
     def __init__(
         self,
