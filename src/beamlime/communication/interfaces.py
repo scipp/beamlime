@@ -19,9 +19,7 @@ from multiprocessing import Queue as MQueue
 from multiprocessing.context import BaseContext
 from queue import Empty, Full
 from queue import Queue as SQueue
-from typing import Any, Callable, overload
-
-from confluent_kafka import Message
+from typing import Any, Callable
 
 
 class BullettinBoard:
@@ -91,56 +89,28 @@ class MultiProcessQueue:
 class KafkaConsumer:
     """Kafka consumer interface wrapper."""
 
-    @overload
-    def __init__(self, config: dict) -> None:
-        ...  # pragma: no cover
-
-    @overload
-    def __init__(
-        self,
-        bootstrap_servers: str,
-        group_id: str,
-        topics: tuple[str],
-        auto_offset_reset: str,
-        **kwargs,
-    ) -> None:
-        ...  # pragma: no cover
+    _minimum_default_config = {
+        "bootstrap.servers": "localhost:9092",
+        "group.id": "beamlime",
+    }
 
     def __init__(
         self,
         /,
-        config: dict = None,
-        bootstrap_servers: str = "localhost:9092",
-        group_id: str = "beamlime",
-        topics: tuple[str] = None,
-        auto_offset_reset: str = "smallest",
-        **kwargs,
+        options: dict,
+        topic: str,
     ) -> None:
         from confluent_kafka import Consumer
 
-        if config is None:
-            kafka_kwargs = {
-                key.replace("_", "."): value for key, value in kwargs.items()
-            }
-            conf = {
-                "bootstrap.servers": bootstrap_servers,
-                "group.id": group_id,
-                "auto.offset.reset": auto_offset_reset,
-                **kafka_kwargs,
-            }
-        else:
-            from copy import copy
-
-            conf = copy(config)
-        self._consumer = Consumer(conf)
-        self._consumer.subscribe(topics)
+        self._consumer = Consumer(options)
+        self._consumer.subscribe([topic])
 
     def __del__(self) -> None:
         self._consumer.close()
 
     async def consume(self, *args, chunk_size: int = 1, **kwargs) -> tuple[Any]:
         """Retrieves ``chunk_size`` of messages from the kafka broker."""
-        messages: list[Message] = self._consumer.consume(chunk_size, 0)
+        messages = self._consumer.consume(chunk_size, 0)
         if len(messages) == 0:
             raise Empty
         else:
@@ -151,48 +121,22 @@ class KafkaConsumer:
 class KafkaProducer:
     """Kafka producer interfaces wrapper."""
 
-    @overload
-    def __init__(self, config: dict) -> None:
-        ...  # pragma: no cover
-
-    @overload
-    def __init__(self, bootstrap_servers: str, client_id: str, **kwargs) -> None:
-        ...  # pragma: no cover
-
     def __init__(
         self,
         /,
-        config: dict = None,
-        bootstrap_servers: str = "localhost:9092",
-        client_id: str = None,
-        **kwargs,
+        options: dict,
+        topic: str,
     ) -> None:
         from confluent_kafka import Producer
 
-        if config is None:
-            import socket
+        self.topic = topic
+        self._producer = Producer(options)
 
-            kafka_kwargs = {
-                key.replace("_", "."): value for key, value in kwargs.items()
-            }
-
-            conf = {
-                "bootstrap.servers": bootstrap_servers,
-                "client.id": client_id or socket.gethostname(),
-                **kafka_kwargs,
-            }
-        else:
-            from copy import copy
-
-            conf = copy(config)
-        self._producer = Producer(conf)
-
-    async def produce(
-        self, topic: str, *args, key: str = "", value: Any, **kwargs
-    ) -> None:  # TODO: we might want to move ``topic`` to configuration.
-        """Produce 1 data(``key``, ``value``) under the ``topic``."""
+    async def produce(self, *args, key: str = "", value: Any, **kwargs) -> None:
+        """Produce 1 data(``key``, ``value``) under the ``self.topic``."""
         try:
-            self._producer.produce(topic, key=key, value=value, **kwargs)
+            _topic = kwargs.get("topic", self.topic)
+            self._producer.produce(_topic, key=key, value=value, **kwargs)
         except BufferError:
             raise Full
         result = self._producer.poll(0)

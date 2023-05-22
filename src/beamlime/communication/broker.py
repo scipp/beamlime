@@ -5,7 +5,7 @@ from functools import partial
 from queue import Empty, Full
 from typing import Any, Callable, Optional, Type, Union
 
-from ..config.preset_options import MIN_WAIT_INTERVAL
+from ..config.preset_options import WaitInterval
 from ..core.schedulers import async_retry
 from .interfaces import (
     BullettinBoard,
@@ -47,14 +47,16 @@ _write_wrapper = partial(_read_or_write_wrapper, exception=Full, return_on_fail=
 
 class CommunicationBroker:
     def __init__(self, channel_list: list, subscription_list: list) -> None:
+        from ..config.tools import import_object
+
         self.channels = dict()
         for ch in channel_list:
-            queue_handler = channel_constructors[ch["type"]]
-            self.channels[ch["name"]] = queue_handler(**ch.get("options", {}))
+            _constructor = import_object(ch["constructor"])
+            self.channels[ch["name"]] = _constructor(**ch.get("specs", {}))
 
         self.subscriptions = dict()
         for subscription in subscription_list:
-            app_name = subscription["app-name"]
+            app_name = subscription["app_name"]
             channels = subscription.get("channels") or ()
             self.subscriptions[app_name] = {
                 ch_name: self.channels[ch_name] for ch_name in channels
@@ -105,7 +107,7 @@ class CommunicationBroker:
         app_name: str,
         channel: Union[tuple, str, int] = None,
         timeout: float = 0,
-        wait_interval: float = MIN_WAIT_INTERVAL,
+        wait_interval: float = WaitInterval.minimum,
     ) -> Any:
         _board = self.get_channel(app_name, channel)
 
@@ -120,7 +122,7 @@ class CommunicationBroker:
         app_name: str,
         channel: Union[tuple, str, int] = None,
         timeout: float = 0,
-        wait_interval: float = MIN_WAIT_INTERVAL,
+        wait_interval: float = WaitInterval.minimum,
     ) -> bool:
         _board = self.get_channel(app_name, channel)
 
@@ -136,7 +138,7 @@ class CommunicationBroker:
         app_name: str,
         channel: Union[tuple, str, int] = None,
         timeout: float = 0,
-        wait_interval: float = MIN_WAIT_INTERVAL,
+        wait_interval: float = WaitInterval.minimum,
         **kwargs,
     ) -> Any:
         _queue = self.get_channel(app_name, channel)
@@ -153,7 +155,7 @@ class CommunicationBroker:
         app_name: str,
         channel: Union[tuple, str, int] = None,
         timeout: float = 0,
-        wait_interval: float = MIN_WAIT_INTERVAL,
+        wait_interval: float = WaitInterval.minimum,
         **kwargs,
     ) -> bool:
         _queue = self.get_channel(app_name, channel)
@@ -170,7 +172,7 @@ class CommunicationBroker:
         app_name: str,
         channel: Union[tuple, str, int] = None,
         timeout: float = 0,
-        wait_interval: float = MIN_WAIT_INTERVAL,
+        wait_interval: float = WaitInterval.minimum,
         chunk_size: int = 1,
         **kwargs,
     ) -> Any:
@@ -188,15 +190,14 @@ class CommunicationBroker:
         app_name: str,
         channel: Union[tuple, str, int] = None,
         timeout: float = 0,
-        wait_interval: float = MIN_WAIT_INTERVAL,
-        topic: str,
+        wait_interval: float = WaitInterval.minimum,
         key: str,
         **kwargs,
     ) -> bool:
         _producer = self.get_channel(app_name, channel)
 
         async def _produce() -> Any:
-            await _producer.produce(topic, *args, key=key, value=data, **kwargs)
+            await _producer.produce(*args, key=key, value=data, **kwargs)
             return True
 
         return await _write_wrapper(_produce, timeout, wait_interval)
