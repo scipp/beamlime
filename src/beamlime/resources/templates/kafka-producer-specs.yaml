@@ -2,6 +2,7 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # microservice:Communication kafka producer/consumer specification template.
 
-broker-address: "localhost:9092"
 topic:
-specs:
+options:
+  bootstrap.servers: "localhost:9092"
+  client.id: "beamlime"

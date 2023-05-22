@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+# microservice:Communication kafka producer/consumer specification template.
+
+topic:
+options:
+  bootstrap.servers: "localhost:9092"
+  group.id: "beamlime"
