@@ -8,7 +8,7 @@ from numpy.random import Generator
 from scipp import DataGroup
 
 from beamlime.communication.broker import CommunicationBroker
-from beamlime.config.preset_options import DEFAULT_TIMEOUT
+from beamlime.config.preset_options import Timeout
 
 from ..applications.interfaces import BeamlimeApplicationInterface
 
@@ -17,10 +17,10 @@ class FakeDreamDataGenerator(BeamlimeApplicationInterface):
     def __init__(
         self,
         /,
-        app_name: str,
+        name: str,
         broker: CommunicationBroker = None,
         logger: Logger = None,
-        timeout: float = DEFAULT_TIMEOUT,
+        timeout: float = Timeout.default,
         pulse_rate: int = 100_000,
         original_file_name: str = "DREAM_baseline_all_dets.nxs",
         keep_tmp_file: bool = False,
@@ -31,7 +31,7 @@ class FakeDreamDataGenerator(BeamlimeApplicationInterface):
     ) -> None:
         kwargs.pop("wait_interval")
         super().__init__(
-            app_name, broker, logger, timeout, max(0.1, 1 / pulse_rate), **kwargs
+            name, broker, logger, timeout, max(0.1, 1 / pulse_rate), **kwargs
         )
         self.original_file_name = original_file_name
         self.keep_tmp_file = keep_tmp_file
@@ -134,13 +134,11 @@ class FakeDreamDataGenerator(BeamlimeApplicationInterface):
         run_start_msg = self.create_fake_run_start_msg()
         self.debug("Fake run start message: %s", run_start_msg)
 
-        if await self.produce(
-            run_start_msg, channel="kafka-producer", topic="log", key=""
-        ):
+        if await self.produce(run_start_msg, channel="kafka-log-producer", key=""):
             self.info("Run start message delivered to the kafka broker.")
             while await self.should_proceed(wait_on_true=True):
                 if not await self.produce(
-                    "hehe", channel="kafka-producer", topic="data", key=""
+                    "hehe", channel="kafka-data-producer", key=""
                 ):
                     self.error("Event data not delivered to kafka-producer.")
                     self.stop()

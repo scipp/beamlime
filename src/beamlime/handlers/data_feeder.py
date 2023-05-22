@@ -12,7 +12,7 @@ class FakeEventDataFeeder(BeamlimeApplicationInterface):
     def __init__(
         self,
         /,
-        app_name: str,
+        name: str,
         broker: CommunicationBroker = None,
         logger: Logger = None,
         timeout: float = 1,
@@ -20,7 +20,7 @@ class FakeEventDataFeeder(BeamlimeApplicationInterface):
         chunk_size: int = 16,
     ) -> None:
         super().__init__(
-            app_name=app_name,
+            name=name,
             broker=broker,
             logger=logger,
             timeout=timeout,
@@ -75,7 +75,7 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
     def __init__(
         self,
         /,
-        app_name: str,
+        name: str,
         broker: CommunicationBroker = None,
         logger: Logger = None,
         timeout: float = 1,
@@ -89,7 +89,7 @@ class Fake2dDetectorImageFeeder(BeamlimeApplicationInterface):
         noise_err: float = 0.3,
     ) -> None:
         super().__init__(
-            app_name=app_name,
+            name=name,
             broker=broker,
             logger=logger,
             timeout=timeout,
