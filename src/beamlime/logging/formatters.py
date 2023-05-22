@@ -240,7 +240,7 @@ DEFAULT_HEADERS = LogHeader(
 )
 
 DEFAULT_COLOR_HEADERS = LogHeader(
-    LogColumn("asctime", title="TIME", min_length=23),
+    LogColumn("asctime", title="TIME", min_length=23, ansi_colored=True),
     LogColumn("app_name", title="APPLICATION", min_length=15, ansi_colored=True),
     LogColumn("levelname", title="LEVEL", min_length=8, ansi_colored=True),
     LogColumn("message", title="MESSAGE", ansi_colored=True),

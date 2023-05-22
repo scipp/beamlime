@@ -3,36 +3,21 @@
 
 import logging
 import sys
-from typing import Any, Callable, Union
+from contextlib import contextmanager
+from typing import Union
 
 from .sources import find_caller
 
 
-def hold_logging(logging_func: Callable) -> Callable:
-    from functools import wraps
-    from inspect import signature
+@contextmanager
+def hold_logging() -> None:
+    from . import _lock
 
-    @wraps(logging_func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        from . import _lock
-
-        if _lock:
-            _lock.acquire()
-
-        try:
-            out = logging_func(*args, **kwargs)
-        except Exception as e:
-            if _lock:
-                _lock.release()
-            raise (e)
-        finally:
-            if _lock:
-                _lock.release()
-
-        return out
-
-    wrapper.__signature__ = signature(logging_func)
-    return wrapper
+    _lock.acquire() if _lock else ...
+    try:
+        yield _lock
+    finally:
+        _lock.release() if _lock else ...
 
 
 class BeamlimeLogger(logging.Logger):
@@ -102,7 +87,7 @@ class BeamlimeLogger(logging.Logger):
         record = self._logRecordFactory(
             name=self.name,
             level=level,
-            msg=msg,
+            msg=str(msg),
             args=args,
             pathname=fn,
             lineno=lno,
@@ -119,22 +104,22 @@ class BeamlimeLogger(logging.Logger):
         record.__dict__.update(extra_info)
         self.handle(record)
 
-    @hold_logging
     def addHandler(self, hdlr: logging.Handler) -> None:
         """
         Add a handler to this logger after checking if the format of the handler
         is matching with the ``self._logRecordFactory``.
 
         """
-        try:
-            _ = hdlr.format(self._logRecordFactory(name="", level=0, msg=""))
-        except KeyError as key_err:
-            raise KeyError(
-                f"Handler with type {hdlr.__name__} does not have "
-                "a matching formatter"
-                f" with the LogRecord type {self._logRecordFactory}.\n",
-                key_err,
-            )
+        with hold_logging():
+            try:
+                _ = hdlr.format(self._logRecordFactory(name="", level=0, msg=""))
+            except KeyError as key_err:
+                raise KeyError(
+                    f"Handler with type {hdlr.__name__} does not have "
+                    "a matching formatter"
+                    f" with the LogRecord type {self._logRecordFactory}.\n",
+                    key_err,
+                )
 
-        if not (hdlr in self.handlers):
-            self.handlers.append(hdlr)
+            if not (hdlr in self.handlers):
+                self.handlers.append(hdlr)

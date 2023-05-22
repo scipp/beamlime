@@ -2,13 +2,17 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
 import logging
+from contextlib import contextmanager
+from typing import AnyStr, Literal, Optional, Union
 
 from .. import __name__ as beamlime_name
 from .handlers import BeamlimeFileHandler
 from .loggers import BeamlimeLogger
 
+LOG_LEVELS = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 
-def _create_log_file(parent_dir: str, prefix: str = "beamlime") -> str:
+
+def _create_log_file(parent_dir: AnyStr, prefix: AnyStr = "beamlime") -> str:
     """
     Create a new log file into the ``parent_dir`` and returns the path.
     The log file name is created based on the current ``timestamp``.
@@ -49,7 +53,7 @@ def _create_log_file(parent_dir: str, prefix: str = "beamlime") -> str:
     return new_path
 
 
-def _create_log_root_dir(dir_path: str) -> None:
+def _create_log_root_dir(dir_path: AnyStr) -> None:
     """
     Create the directory if it does not exist.
     Raises an error if the desired path is an existing file.
@@ -64,22 +68,31 @@ def _create_log_root_dir(dir_path: str) -> None:
         os.mkdir(dir_path)
 
 
-def initialize_file_handler(config: dict, logger: logging.Logger = None) -> None:
+def initialize_file_handler(
+    log_dir: Optional[AnyStr] = None, logger: logging.Logger = None
+) -> None:
     if logger is None:
         logger = get_logger()
 
     # Find the location where log files will be collected.
-    general_config = config["general"]
-    if "log-dir" in general_config and general_config["log-dir"] is not None:
-        log_dir = general_config["log-dir"]
-    else:
-        from ..config.preset_options import DEFAULT_LOG_DIR
+    if log_dir is None:
+        from ..config.preset_options import LogDirectory
 
-        log_dir = DEFAULT_LOG_DIR
+        log_dir = LogDirectory.default
         logger.info(
             "Path to the directory for log files is not specified. "
             "Trying to use default logging directory..."
         )
+
+    from .handlers import FileHandler
+
+    if any((issubclass(hdlr, FileHandler) for hdlr in logger.handlers)):
+        logger.warning(
+            "Attempt to add a new file handler to the current logger, "
+            "but a file handler is already configured. "
+            "Aborting without changing the logger..."
+        )
+        return
 
     _create_log_root_dir(log_dir)
 
@@ -90,15 +103,16 @@ def initialize_file_handler(config: dict, logger: logging.Logger = None) -> None
     logger.addHandler(file_handler)
 
 
-def _start_new_logger(name: str, logger_class: logging.Logger) -> None:
+@contextmanager
+def stash_original_logger_class() -> logging.Logger:
     """
-    Save the original logger class to a temporary variable and restore the logger class
-    after getting or instantiating the logger with specific logger class.
+    Save the original logger class to a temporary variable and restore the logger class.
     """
     _original_logger = logging.getLoggerClass()
-    logging.setLoggerClass(logger_class)
-    _ = logging.getLogger(name)
-    logging.setLoggerClass(_original_logger)
+    try:
+        yield _original_logger
+    finally:
+        logging.setLoggerClass(_original_logger)
 
 
 def get_logger(
@@ -120,5 +134,49 @@ def get_logger(
 
     """
     if name not in logging.root.manager.loggerDict:
-        _start_new_logger(name, logger_class)
-    return logging.getLogger(name)
+        with stash_original_logger_class():
+            logging.setLoggerClass(logger_class)
+            return logging.getLogger(name)
+    else:
+        return logging.getLogger(name)
+
+
+def safe_get_logger(
+    logger: Union[logging.Logger, None] = None, verbose: bool = True
+) -> logging.Logger:
+    """
+    Do nothing if the logger si a subclass of ``logging.Logger``.
+
+    If logger is not a subclass of ``logging.Logger``,
+    create and return a new beamlime logger and if ``verbose``, add a stream handler.
+    """
+    if isinstance(logger, logging.Logger):
+        return logger
+
+    from ..logging import get_logger
+
+    logger = get_logger()
+    if verbose and not logger.hasHandlers():
+        from ..logging.handlers import BeamlimeStreamHandler
+
+        logger.addHandler(BeamlimeStreamHandler())
+
+    return logger
+
+
+def get_scipp_logger(
+    log_level: Optional[LOG_LEVELS] = None, widget: bool = True
+) -> logging.Logger:
+    import scipp as sc
+
+    scipp_logger = sc.get_logger()
+
+    if widget and not (widget_handler := sc.logging.get_widget_handler()):
+        scipp_logger.addHandler((widget_handler := sc.logging.make_widget_handler()))
+
+    if widget and log_level:
+        widget_handler.setLevel(log_level)
+    elif log_level:
+        scipp_logger.setLevel(log_level)
+
+    return scipp_logger
