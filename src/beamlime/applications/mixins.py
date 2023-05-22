@@ -2,8 +2,8 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
 import asyncio
-from logging import DEBUG, ERROR, INFO, WARN, Logger
-from typing import Any, Callable, Literal, Union, final
+from logging import Logger
+from typing import Any, Callable, Literal, Optional, Union, final
 
 from ..communication.broker import CommunicationBroker
 from ..core.schedulers import async_retry
@@ -20,7 +20,7 @@ class LogMixin:
     BeamlimeLoggingProtocol
     """
 
-    _logger = None
+    _logger: Optional[Logger] = None
 
     @property
     def logger(self) -> Logger:
@@ -35,19 +35,16 @@ class LogMixin:
 
             self._logger = get_logger()
 
-    def _log(self, level: int, msg: str, args: tuple):
+    def _log(self, log_method: Callable, msg: str, args: tuple, kwargs: dict) -> None:
         if isinstance(self.logger, BeamlimeLogger):
-            self.logger._log(level=level, msg=msg, args=args, app_name=self.app_name)
+            log_method(msg, *args, app_name=self.app_name, **kwargs)
         elif isinstance(self.logger, Logger):
-            if not self.logger.isEnabledFor(level):
-                return
             from ..logging.formatters import EXTERNAL_MESSAGE_HEADERS
 
-            self.logger._log(
-                level=level,
-                msg=EXTERNAL_MESSAGE_HEADERS.fmt % (self.app_name, msg),
-                args=args,
-                extra={"app_name": self.app_name},
+            log_method(
+                EXTERNAL_MESSAGE_HEADERS.fmt % (self.app_name, msg),
+                *args,
+                **{**kwargs, "extra": {"app_name": self.app_name}},
             )
         else:
             raise ValueError(
@@ -55,17 +52,17 @@ class LogMixin:
                 "or `beamlime.logging.BeamlimeLogger`."
             )
 
-    def debug(self, msg: str, *args) -> None:
-        self._log(level=DEBUG, msg=msg, args=args)
+    def debug(self, msg: str, *args, **kwargs) -> None:
+        self._log(log_method=self.logger.debug, msg=msg, args=args, kwargs=kwargs)
 
-    def info(self, msg: str, *args) -> None:
-        self._log(level=INFO, msg=msg, args=args)
+    def info(self, msg: str, *args, **kwargs) -> None:
+        self._log(log_method=self.logger.info, msg=msg, args=args, kwargs=kwargs)
 
-    def warning(self, msg: str, *args) -> None:
-        self._log(level=WARN, msg=msg, args=args)
+    def warning(self, msg: str, *args, **kwargs) -> None:
+        self._log(log_method=self.logger.warning, msg=msg, args=args, kwargs=kwargs)
 
-    def error(self, msg: str, *args) -> None:
-        self._log(level=ERROR, msg=msg, args=args)
+    def error(self, msg: str, *args, **kwargs) -> None:
+        self._log(log_method=self.logger.error, msg=msg, args=args, kwargs=kwargs)
 
 
 class ApplicationPausedException(Exception):
@@ -151,35 +148,6 @@ class CoroutineMixin:
     Protocol
     --------
     BeamlimeCoroutineProtocol
-
-    Examples
-    --------
-    ```
-    class DownStreamApp(BeamlimeApplicationInterface):
-        timeout = 1
-        wait_interval = 0.1
-
-        async def _run(self):
-            # prepare process
-            delivered = await self.put("Start Message")
-            first_msg_timeout = 30  # s
-            if await self.get(timeout=first_msg_timeout) == "Expected Message":
-                new_data = await self.get()
-
-            while should_proceed() and delivered and new_data:
-                result = await self.process()
-                delivered = await self.put(result)
-                new_data = await self.get()
-
-            await self.put("Stop Message")
-            self.info("Task completed.")
-
-    app = DownStreamApp()
-    app.run()  # should start coroutine ``_run``, which
-               # receives data, processes and sends the result every 0.1 second.
-    # or if there is another coroutine running,
-    app.create_task()
-    ```
     """
 
     @final
@@ -230,7 +198,7 @@ class CoroutineMixin:
 
     def run(self) -> None:
         """
-        Run the application in a dependent event loop.
+        Run the application in an independent event loop.
 
         """
         # TODO: ``run`` should also check if the communication-interface
@@ -257,6 +225,8 @@ class CoroutineMixin:
 class BrokerBasedCommunicationMixin:
     """
     Communication Interfaces
+    Mixin assumes the inheriting class meets the ``BeamlimeApplicationProtocol``.
+
 
     Protocol
     --------
@@ -264,7 +234,7 @@ class BrokerBasedCommunicationMixin:
 
     """
 
-    _broker = None
+    _broker: Optional[CommunicationBroker] = None
 
     @property
     def broker(self) -> CommunicationBroker:
