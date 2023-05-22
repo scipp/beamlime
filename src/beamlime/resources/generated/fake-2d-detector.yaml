@@ -2,61 +2,48 @@
 # Please don't update it manually.
 # Use `tox -e config-build` to generate a new one.
 
-general:
-  user: beamlime
-  name: Fake 2d Detector Image
-  system-name: Beamlime Dashboard
-  last-updated: '2023-05-17 17:24:54.344781'
+name: Fake Event Stream
+constructor: beamlime.core.system.BeamlimeSystem
+specs:
+  save_log: false
+  log_dir: /home/sunyoung/.beamlime/logs
   timeout: 600
-
-data-stream:
   applications:
   - name: data-feeder
-    data-handler: beamlime.handlers.data_feeder.Fake2dDetectorImageFeeder
-    instance-number:
-    keep-alive: false
-    timeout: 1
-    wait-interval: 0.2
+    constructor: beamlime.handlers.data_feeder.Fake2dDetectorImageFeeder
+    specs:
+      timeout: 1
+      wait_interval: 0.2
+      detector_size:
+      - 64
+      - 64
+      min_intensity: 0.5
+      num_frame: 32
+      signal_mu: 0.7
+      signal_err: 0.2
+      noise_mu: 0.5
+      noise_err: 0.2
   - name: data-reduction
-    data-handler: beamlime.handlers.data_reduction.BeamLimeDataReductionApplication
-    instance-number:
-    keep-alive: false
-    timeout: 5
-    wait-interval: 0.1
-  - name: visualisation
-    data-handler: beamlime.handlers.visualisation.RealtimePlot
-    instance-number:
-    keep-alive: false
-    timeout: 10
-    wait-interval: 1
-  application-specs:
-    data-feeder:
-      detector-size:
-      - 64
-      - 64
-      min-intensity: 0.5
-      num-frame: 32
-      signal-mu: 0.7
-      signal-err: 0.2
-      noise-mu: 0.5
-      noise-err: 0.2
-    data-reduction:
+    constructor: beamlime.handlers.data_reduction.BeamLimeDataReductionApplication
+    specs:
+      timeout: 5
+      wait_interval: 0.1
       workflows:
       - name: heatmap
-        process: heatmap_2d
-        input-policy: REPLACE
-        output-policy: STACK
+        process: beamlime.handlers.data_reduction.heatmap_2d
+        input_policy: REPLACE
+        output_policy: REPLACE
         targets:
         - fake-2d-image
-        process-kargs:
+        process_specs:
           threshold: 0.4
           binning_size:
           - 64
           - 64
       - name: frame-number-counting
-        process: handover
-        input-policy: REPLACE
-        output-policy: REPLACE
+        process: beamlime.handlers.data_reduction.handover
+        input_policy: REPLACE
+        output_policy: REPLACE
         targets:
         - frame-number
       targets:
@@ -68,20 +55,25 @@ data-stream:
         index:
         - detector-data
         - frame-number
-    visualisation: {}
-  communication-channels:
+  - name: visualization
+    constructor: beamlime.handlers.visualisation.RealtimePlot
+    specs:
+      timeout: 10
+      wait_interval: 1
+  communications:
   - name: raw-data
-    type: SQUEUE
+    constructor: beamlime.communication.interfaces.SingleProcessQueue
   - name: reduced-data
-    type: SQUEUE
-  application-subscriptions:
-  - app-name: data-feeder
+    constructor: beamlime.communication.interfaces.SingleProcessQueue
+  subscriptions:
+  - app_name: data-feeder
     channels:
     - raw-data
-  - app-name: data-reduction
+  - app_name: data-reduction
     channels:
     - raw-data
     - reduced-data
-  - app-name: visualisation
+  - app_name: visualisation
     channels:
     - reduced-data
+last-updated: '2023-05-22 11:28:38.355631'
