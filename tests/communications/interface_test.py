@@ -110,7 +110,7 @@ def test_queue_multiple_data(queue_constructor: QueueType):
 @patch("confluent_kafka.Consumer")
 @mock_kafka(initial_data=(1, 2, 3, 4))
 def test_consumer(ck_consumer):
-    consumer = KafkaConsumer({})
+    consumer = KafkaConsumer(topic="", options={})
     consumer._consumer = ck_consumer
     assert async_run(consumer.consume(chunk_size=1)) == (1,)
     assert async_run(consumer.consume(chunk_size=2)) == (
@@ -123,7 +123,7 @@ def test_consumer(ck_consumer):
 @patch("confluent_kafka.Consumer")
 @mock_kafka(initial_data=(1, 2, 3, 4))
 def test_consumer_empty_raises(ck_consumer):
-    consumer = KafkaConsumer()
+    consumer = KafkaConsumer(topic="", options={})
 
     consumer._consumer = ck_consumer
     assert async_run(consumer.consume(chunk_size=4)) == (1, 2, 3, 4)
@@ -135,10 +135,10 @@ def test_consumer_empty_raises(ck_consumer):
 @patch("confluent_kafka.Producer")
 @mock_kafka()
 def test_producer(ck_producer, ck_consumer):
-    producer = KafkaProducer({})
+    producer = KafkaProducer(topic="", options={})
     producer._producer = ck_producer
 
-    consumer = KafkaConsumer()
+    consumer = KafkaConsumer(topic="", options={})
     consumer._consumer = ck_consumer
 
     async_run(producer.produce("", value=0))
@@ -157,7 +157,7 @@ def test_producer(ck_producer, ck_consumer):
 def test_producer_buffer_error_raises(ck_producer):
     from unittest.mock import Mock
 
-    producer = KafkaProducer()
+    producer = KafkaProducer(topic="", options={})
     ck_producer.produce = Mock(ck_producer.produce)
     ck_producer.produce.side_effect = BufferError
     producer._producer = ck_producer
@@ -172,11 +172,11 @@ def test_producer_buffer_error_raises(ck_producer):
 def test_producer_poll_fail_raises(ck_producer, ck_consumer):
     from unittest.mock import Mock
 
-    producer = KafkaProducer()
+    producer = KafkaProducer(topic="", options={})
     producer._producer.produce = Mock(ck_producer.produce)
     # Expected to fail to fill buffer
 
-    consumer = KafkaConsumer()
+    consumer = KafkaConsumer(topic="", options={})
     consumer._consumer = ck_consumer
 
     with pytest.raises(Full):

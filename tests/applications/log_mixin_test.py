@@ -32,7 +32,7 @@ def test_app_logging_stream(
 ):
     app_name = "Dummy Application"
     init_logger(get_bm_logger(), level, BeamlimeStreamHandler())
-    app = DummyApp(app_name=app_name)
+    app = DummyApp(name=app_name)
     msg = f"Some information needed to be {msg_suffix} with"
     getattr(app, log_method)(msg)
     log_output = capsys.readouterr()[-1]
@@ -53,7 +53,7 @@ def test_app_logging_file(level: int, log_method, msg_suffix: str, tmp_path: Pat
     app_name = "Dummy Application"
     tmp_log_path = tmp_path / "tmp.log"
     init_logger(get_bm_logger(), level, BeamlimeFileHandler(tmp_log_path))
-    app = DummyApp(app_name=app_name)
+    app = DummyApp(name=app_name)
     msg = f"Some information needed to be {msg_suffix} with"
     getattr(app, log_method)(msg)
     log_output = tmp_log_path.read_text()
@@ -68,7 +68,7 @@ def test_app_logging_disabled_level_std(log_method: str, capsys: CaptureFixture[
     if not logger.handlers:
         logger.addHandler(BeamlimeStreamHandler())
     logger.setLevel(ERROR)
-    app = DummyApp(app_name=app_name)
+    app = DummyApp(name=app_name)
     getattr(app, log_method)("Message that will not be shown")
     log_output = capsys.readouterr()[-1]
     assert log_output == ""

@@ -193,8 +193,7 @@ class CoroutineMixin:
         )(checker)
 
         try:
-            result = await _check()
-            if result and wait_on_true:
+            if (result := await _check()) and wait_on_true:
                 await asyncio.sleep(self.wait_interval)
             return result
         except exceptions:
@@ -335,7 +334,6 @@ class BrokerBasedCommunicationMixin:
         data: Any,
         *args,
         channel: str = None,
-        topic: str,
         key: str,
         timeout: float = None,
         wait_interval: float = None,
@@ -348,7 +346,6 @@ class BrokerBasedCommunicationMixin:
             channel=channel,
             timeout=timeout or self.timeout,
             wait_interval=wait_interval or self.wait_interval,
-            topic=topic,
             key=key,
             **kwargs,
         )

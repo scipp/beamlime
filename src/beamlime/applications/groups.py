@@ -7,7 +7,6 @@ from typing import Optional
 
 from .. import protocols
 from ..communication.broker import CommunicationBroker
-from ..config.preset_options import DEFAULT_TIMEOUT, DEFAULT_WAIT_INTERVAL
 from .interfaces import BeamlimeApplicationInterface
 
 MAX_INSTANCE_NUMBER = 2
@@ -16,18 +15,33 @@ MAX_INSTANCE_NUMBER = 2
 # TODO: Implement multi-process/multi-machine instance group interface.
 class BeamlimeApplicationInstanceGroup(BeamlimeApplicationInterface):
     """
-    Multiple instances of a single type of application.
-    It overwrites all interfaces of ``BeamlimeApplicationInterface``,
-    in a way that it has the exact same interfaces
-    just like a single application but controls multiple instances internally.
+    Controls instance(s) of an application.
+    It overwrites all interfaces of ``BeamlimeApplicationInterface``.
+    It has the exact same interfaces as a single application instance,
+    but controls multiple instances internally.
     Therefore it does not inherit ``BeamlimeApplicationInterface``,
     but it should pass the protocol test.
     See ``protocol_test.test_instace_group_protocol`` of the unit test package.
 
     Parameters
     ----------
-    app_name: str
+    name: str
         Name of the application.
+
+    constructor: str
+        Name of the application constructor.
+
+    specs: dict
+        Keyword arguments for the application constructor.
+
+    logger: ``logging.Logger``
+        Logger object.
+
+    broker: ``beamlime.communication.broker.CommunicationBroker``
+        Communication broker between applications in beamlime system.
+
+    instance_num: int
+        Number of instances to be hold.
 
     Protocol
     --------
@@ -40,37 +54,25 @@ class BeamlimeApplicationInstanceGroup(BeamlimeApplicationInterface):
 
     def __init__(
         self,
-        app_config: dict,
-        app_spec: dict = None,
+        name: str,
+        constructor: str,
+        specs: dict = None,
         logger: Logger = None,
         broker: CommunicationBroker = None,
+        instance_num: int = 1,
     ) -> None:
         from functools import partial
 
         from ..config.tools import import_object
 
-        super().__init__(
-            app_name=app_config["name"],
-            broker=broker,
-            logger=logger,
-            timeout=app_config.get("timeout") or DEFAULT_TIMEOUT,
-            wait_interval=app_config.get("wait-interval") or DEFAULT_WAIT_INTERVAL,
-        )
-        self._instance_num = app_config.get("instance-number") or 1
-        handler = import_object(app_config["data-handler"])
-        extra_kwargs = {
-            app_spec_key.replace("-", "_"): spec
-            for app_spec_key, spec in app_spec.items()
-            # TODO: move extra-kwargs to `extra-kwargs` in the configuration file.
-        }
+        super().__init__(name=name, broker=broker, logger=logger)
+        self._instance_num = instance_num
         self._constructor = partial(
-            handler,
-            app_name=self.app_name,
-            timeout=self.timeout,
-            wait_interval=self.wait_interval,
-            logger=self.logger,
+            import_object(constructor),
+            name=self.app_name,
             broker=self.broker,
-            **extra_kwargs,
+            logger=self.logger,
+            **(specs or {}),
         )
         self._tasks = dict()
         self._instances = dict()
@@ -82,6 +84,9 @@ class BeamlimeApplicationInstanceGroup(BeamlimeApplicationInterface):
 
     def start(self) -> None:
         super().start()
+        while len(self.instances) < self._instance_num:
+            self.populate()
+
         for inst in self._instances.values():
             inst.start()
 
@@ -134,8 +139,7 @@ class BeamlimeApplicationInstanceGroup(BeamlimeApplicationInterface):
 
     async def _run(self) -> None:
         if await self._should_create_tasks():
-            for inst in self._instances.values():
-                await inst._run()
+            await asyncio.wait(tuple(inst._run() for inst in self.instances.values()))
 
     def run(self) -> None:
         asyncio.run(self._run())

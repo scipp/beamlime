@@ -1,15 +1,66 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+from __future__ import annotations
 
 from asyncio import Task
+from enum import Enum
 from logging import Logger
-from typing import Union
+from typing import Dict, Iterable, Optional, Union
 
 from ..applications import (
     BeamlimeApplicationInstanceGroup,
     BeamlimeApplicationInterface,
 )
 from ..communication.broker import CommunicationBroker
+from ..config.preset_options import Timeout, WaitInterval
+from ..config.tools import dict_to_yaml
+from ..logging import LOG_LEVELS
+
+
+class ExitCode(Enum):
+    SUCCESS = 0
+    INTERRUPTED = 1
+    FAIL = 2
+
+
+def instantiate_system(
+    *,
+    name: str,
+    constructor: str,
+    specs: Optional[dict],
+    logger: Logger,
+    **unused_specs,
+) -> BeamlimeSystem:
+    from ..config.tools import import_object
+
+    constructor_obj = import_object(constructor)
+    logger.info(
+        "Unused information in the configuration: %s", dict_to_yaml(unused_specs)
+    )
+    return constructor_obj(name=name, logger=logger, **specs)
+
+
+def start_system(
+    config: Union[dict, str, None],
+    logger: Logger = None,
+    log_level: LOG_LEVELS = None,
+    verbose: bool = True,
+) -> BeamlimeSystem:
+    from ..config.loader import safe_load_config
+    from ..logging import safe_get_logger
+
+    _runtime_config = safe_load_config(config)  # TODO: configuration validation.
+    _logger = safe_get_logger(logger, verbose)
+    if log_level:
+        _logger.setLevel(log_level)
+
+    system_instance = instantiate_system(logger=_logger, **_runtime_config)
+
+    _logger.info(
+        "System instance created with this configuration: \n%s",
+        dict_to_yaml(_runtime_config),
+    )
+    return system_instance
 
 
 class BeamlimeSystem(BeamlimeApplicationInterface):
@@ -17,63 +68,73 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
 
     def __init__(
         self,
-        config: Union[dict, str, None] = None,
+        name: str = "Beamlime Dashboard",
         logger: Logger = None,
         save_log: bool = False,
+        log_dir: str = None,
+        timeout: float = Timeout.maximum,
+        wait_interval: float = WaitInterval.minimum,
+        applications: Iterable[Dict] = None,
+        communications: Iterable[Dict] = None,
+        subscriptions: Iterable[Dict] = None,
+        **unused_specs,
     ) -> None:
-        from copy import copy
-
-        from ..config.loader import safe_load_config
-        from ..config.tools import list_to_dict
-
-        self.user_config = safe_load_config(config)
-        self.config = copy(self.user_config)
-        self.system_config = self.config["general"]
-        self.app_configs = list_to_dict(self.config["data-stream"]["applications"])
-
         super().__init__(
-            app_name=self.system_config["system-name"],
-            broker=self.broker,
+            name=name,
             logger=logger,
-            timeout=self.system_config.get("timeout", 600),
-            wait_interval=self.system_config.get("wait-interval", 1),
+            timeout=timeout,
+            wait_interval=wait_interval,
         )
+
+        self._init_logger(save_log, log_dir)
+        self.broker = self._build_broker(communications, subscriptions)
+        self.applications = self._build_application(applications)
+        self._handle_unused_specs(**unused_specs)
+
+        self._tasks = dict()
+        self.info("System instance up and running ...")
+
+    def _init_logger(self, save_log: bool = False, log_dir: str = None) -> None:
         if save_log:
             from ..logging import initialize_file_handler
 
-            initialize_file_handler(self.user_config, self.logger)
+            initialize_file_handler(log_dir, self.logger)
 
-        self._tasks = dict()
-        self.broker = self._build_broker()
-        self.debug("Communication broker built: \n%s", self.broker)
-        self.applications = self._build_applications()
-        self.debug("Application instances built: \n%s", str(self.applications))
-
-    def _build_broker(self) -> CommunicationBroker:
-        """
-        Connect instances if they are communicating with each other.
-        """
-        channel_list = self.config["data-stream"]["communication-channels"]
-        subscription_list = self.config["data-stream"]["application-subscriptions"]
-        return CommunicationBroker(
+    def _build_broker(
+        self, channel_list: list, subscription_list: list
+    ) -> CommunicationBroker:
+        _broker = CommunicationBroker(
             channel_list=channel_list, subscription_list=subscription_list
         )
+        self.debug("Communication broker built: \n%s", _broker)
+        return _broker
 
-    def _build_applications(self) -> dict:
-        app_specs = self.config["data-stream"]["application-specs"]
-        return {
+    def _build_application(
+        self, application_list: list
+    ) -> Dict[str, BeamlimeApplicationInstanceGroup]:
+        from ..config.tools import list_to_dict
+
+        _applications = {
             app_name: BeamlimeApplicationInstanceGroup(
-                app_config=app_config,
-                app_spec=app_specs.get(app_name) or {},
-                logger=self.logger,
-                broker=self.broker,
+                logger=self.logger, broker=self.broker, **app_config
             )
-            for app_name, app_config in self.app_configs.items()
+            for app_name, app_config in list_to_dict(application_list).items()
         }
+        self.debug("Application instances built: \n%s", str(_applications))
+        return _applications
+
+    def _handle_unused_specs(self, **unused_specs) -> None:
+        if unused_specs:
+            self.warning(
+                "Unused specs in the configuration : ", dict_to_yaml(unused_specs)
+            )
 
     async def _run(self):
-        for app_inst_gr in self.applications.values():
-            await app_inst_gr._run()
+        import asyncio
+
+        await asyncio.wait(
+            tuple(app_inst_gr._run() for app_inst_gr in self.applications.values())
+        )
 
     def create_task(self) -> list[Task]:
         # TODO: return TaskGroup instead of list of Task.
@@ -97,18 +158,11 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
             self._tasks.clear()
 
     def __del__(self) -> None:
-        while self.applications:
-            app_name, app_inst_gr = self.applications.popitem()
-            app_inst_gr.kill()
-            self.info("Deleting %s instance ... ", app_name)
-            del app_inst_gr
+        del self.applications
 
     def start(self) -> None:
-        # TODO: Update populate logic.
         for app_name, app_inst_gr in self.applications.items():
             self.info("Starting %s instance ... ", app_name)
-            if not app_inst_gr.instances:
-                app_inst_gr.populate()
             app_inst_gr.start()
 
     def pause(self) -> None:
@@ -122,10 +176,7 @@ class BeamlimeSystem(BeamlimeApplicationInterface):
             app_inst_gr.resume()
 
     def stop(self) -> None:
-        # TODO: Update populate logic.
         for app_name, app_inst_gr in self.applications.items():
             self.info("Stopping %s instance ... ", app_name)
-            if (
-                app_inst_gr._started
-            ):  # Some application instances might have been stopped.
+            if app_inst_gr._started:
                 app_inst_gr.stop()

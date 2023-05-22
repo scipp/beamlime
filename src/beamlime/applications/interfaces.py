@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from logging import Logger
 
 from ..communication.broker import CommunicationBroker
-from ..config.preset_options import DEFAULT_TIMEOUT, DEFAULT_WAIT_INTERVAL
+from ..config.preset_options import Timeout, WaitInterval
 from .mixins import (
     BrokerBasedCommunicationMixin,
     CoroutineMixin,
@@ -27,14 +27,14 @@ class BeamlimeApplicationInterface(
     def __init__(
         self,
         /,
-        app_name: str,
+        name: str,
         broker: CommunicationBroker = None,
         logger: Logger = None,
-        timeout: float = DEFAULT_TIMEOUT,
-        wait_interval: float = DEFAULT_WAIT_INTERVAL,
+        timeout: float = Timeout.default,
+        wait_interval: float = WaitInterval.default,
         **kwargs,
     ) -> None:
-        self.app_name = app_name
+        self.app_name = name
         self.broker = broker
         self.set_logger(logger)
         self.timeout = timeout
