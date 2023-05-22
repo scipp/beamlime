@@ -11,10 +11,10 @@ from ..applications.interfaces import BeamlimeDataReductionInterface
 from ..communication.broker import CommunicationBroker
 from ..config.tools import list_to_dict, nested_data_get
 
-T = TypeVar("T")
+_DataType = TypeVar("_DataType")
 
 
-def heatmap_2d(data, threshold=0.2, binning_size=(64, 64)):
+def heatmap_2d(data: _DataType, threshold=0.2, binning_size=(64, 64)) -> sc.DataArray:
     heatmap = sc.array(dims=["x", "y"], values=np.array(data))
     da = sc.DataArray(
         data=heatmap,
@@ -32,14 +32,15 @@ def heatmap_2d(data, threshold=0.2, binning_size=(64, 64)):
     return da
 
 
-method_map = {"heatmap_2d": heatmap_2d, "handover": lambda x: x}
+def handover(data: _DataType) -> _DataType:
+    return data
 
 
 class BeamLimeDataReductionApplication(BeamlimeDataReductionInterface):
     def __init__(
         self,
         /,
-        app_name: str,
+        name: str,
         broker: CommunicationBroker = None,
         config: dict = None,
         logger: Logger = None,
@@ -49,7 +50,7 @@ class BeamLimeDataReductionApplication(BeamlimeDataReductionInterface):
         targets: dict = None,
     ) -> None:
         super().__init__(
-            app_name=app_name,
+            name=name,
             broker=broker,
             config=config,
             logger=logger,
@@ -61,8 +62,8 @@ class BeamLimeDataReductionApplication(BeamlimeDataReductionInterface):
         self.history = {wf_name: {"data-count": 0} for wf_name in self.workflow_map}
 
     def apply_policy(
-        self, new_data: T, old_data: T, policy: str, data_count: int = 0
-    ) -> T:
+        self, new_data: _DataType, old_data: _DataType, policy: str, data_count: int = 0
+    ) -> _DataType:
         if old_data is None:
             return new_data
         elif policy == "STACK":
@@ -123,8 +124,9 @@ class BeamLimeDataReductionApplication(BeamlimeDataReductionInterface):
                 self.history[wf_name]["last-input"] = process_inputs
 
             # Run the process on the retrieved arguments
-            process_id = wf_config["process"]
-            func = method_map[process_id]
+            from ..config.tools import import_object
+
+            func = import_object(wf_config["process"])
 
             if "process-kargs" in wf_config:
                 process_kwargs = wf_config["process-kargs"]
