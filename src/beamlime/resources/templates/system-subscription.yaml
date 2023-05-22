@@ -2,7 +2,7 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # Application communication channel subscription template.
 
-app-name:
+app_name:
 channels:
   # Name of the channels that application is subscribing.
   # - channel-name-1

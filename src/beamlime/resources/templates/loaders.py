@@ -19,7 +19,11 @@ def _replace_preset_symbol(tpl: Union[dict, list]):
         # If the value is in code block.
         if isinstance(value, str) and value.startswith("``") and value.endswith("``"):
             try:
-                return import_object(value)
+                obj_path = value.removeprefix("``").removesuffix("``")
+                if isinstance((obj := import_object(obj_path)), (str, int, float)):
+                    return obj
+                else:
+                    return str(obj)
             except ModuleNotFoundError:
                 ...
         return value
@@ -52,7 +56,8 @@ load_subscription_tpl = partial(_load_tpl, tpl_name="system-subscription")
 # microservice:Application related
 load_application_specs_tpl = partial(_load_tpl, tpl_name="application-specs")
 # microservice:Communication related
-load_kafka_specs_tpl = partial(_load_tpl, tpl_name="kafka-specs")
+load_kafka_consumer_specs_tpl = partial(_load_tpl, tpl_name="kafka-consumer-specs")
+load_kafka_producer_specs_tpl = partial(_load_tpl, tpl_name="kafka-producer-specs")
 # Data Reduction
 load_workflow_tpl = partial(_load_tpl, tpl_name="workflow")
 load_wf_target_tpl = partial(_load_tpl, tpl_name="workflow-target")

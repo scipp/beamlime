@@ -6,8 +6,8 @@
 name:
 reference:
 process:  # Callable object with data.
-input-policy: "``beamlime.config.preset_options.NewDataPolicy.default``"  # REPLACE
-output-policy: "``beamlime.config.preset_options.NewDataPolicy.default``"  # REPLACE
+input_policy: "``beamlime.config.preset_options.NewDataPolicy.default``"  # REPLACE
+output_policy: "``beamlime.config.preset_options.NewDataPolicy.default``"  # REPLACE
 targets:  # workflow-target.yaml
   # - name: target-name-1
   #   index:
@@ -15,7 +15,7 @@ targets:  # workflow-target.yaml
   # - name: target-name-2
   #   index:
   #    - 1
-process-specs: # only allows key-word arguments
+process_specs: # only allows key-word arguments
   # kwarg1: value1
   # kwarg2: value2
   # ...

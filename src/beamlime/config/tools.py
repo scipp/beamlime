@@ -154,29 +154,35 @@ def find_home(env_var_key: str = "BEAMLIME_HOME") -> str:
     return os.environ.get(env_var_key, Path.home().joinpath("." + __name__))
 
 
-def import_object(path: str) -> Any:
+def get_nested_attr(obj: object, *attrs: str) -> Any:
+    if not attrs:
+        return obj
+    return get_nested_attr(getattr(obj, attrs[0]), *attrs[1:])
+
+
+def import_object(path: str, *_attrs: str) -> Any:
     """
     Return the object by the path.
 
     ```
-    >>> from beamlime.config.preset_options import HOME_DIR as home_dir_0
-    >>> home_dir_1 = import_object("beamlime.config.preset_options.HOME_DIR")
-    >>> home_dir_0 is home_dir_1
+    >>> from beamlime.config.preset_options import RESERVED_APP_NAME
+    >>> reserved = import_object("beamlime.config.preset_options.RESERVED_APP_NAME")
+    >>> reserved is RESERVED_APP_NAME
     True
 
     ```
     """
-    parent_name = ".".join(path.split(".")[:-1])
-    obj_name = path.split(".")[-1]
 
-    if len(parent_name) > 0:
-        parent_module = import_module(parent_name)
+    if path and (parent_name := ".".join((symbols := path.split("."))[:-1])):
+        obj_name = symbols[-1]
+
+        try:
+            parent_module = import_module(parent_name)
+            return get_nested_attr(parent_module, obj_name, *_attrs)
+        except ModuleNotFoundError:
+            return import_object(parent_name, obj_name, *_attrs)
     else:
-        from beamlime.config import preset_options
-
-        parent_module = preset_options
-
-    return getattr(parent_module, obj_name)
+        raise ModuleNotFoundError(f"{'.'.join(_attrs)} not found.")
 
 
 def wrap_item(
@@ -205,3 +211,9 @@ def wrap_item(
         "Item wrapping only possible for: "
         "[tuple->list, list->tuple, int->list, int->tuple, str->list, str->tuple]."
     )
+
+
+def dict_to_yaml(config: dict) -> str:
+    import yaml
+
+    return yaml.dump(config)

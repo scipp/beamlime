@@ -5,7 +5,8 @@
 #                                  kafka-specs.yaml,
 #                                  system-subscription.yaml
 
-log-dir:  "``beamlime.config.preset_options.LogDirectory.default``" # [~/.beamlime/log/] Directory to collect log files.
+save_log: FALSE
+log_dir:  "``beamlime.config.preset_options.LogDirectory.default``" # [~/.beamlime/log/] Directory to collect log files.
 timeout: "``beamlime.config.preset_options.Timeout.maximum``"  # 600 s
 
 # microservice:Application

@@ -1,38 +1,143 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
-import enum
-from typing import Protocol, Union
+from typing import Protocol, TypeVar, runtime_checkable
 
 from beamlime import __name__ as RESERVED_APP_NAME  # noqa F401
 
 from .tools import find_home
 
-if hasattr(enum, "StrEnum"):
-    FlagType = enum.StrEnum
-else:
-    FlagType = enum.Flag
-
-HOME_DIR = find_home()  # ~/.beamlime
-DEFAULT_CONFIG_PATH = HOME_DIR.joinpath("default-config.yaml")
-DEFAULT_LOG_DIR = HOME_DIR.joinpath("logs")
-DEFAULT_CUSTOM_HANDLER_DIR = HOME_DIR.joinpath("custom-handlers")
-
-DEFAULT_TIMEOUT = 60  # s
-MAX_TIMEOUT = 600  # s
-DEFAULT_WAIT_INTERVAL = 1  # s
-MIN_WAIT_INTERVAL = 1e-2  # s
+PresetValueType = TypeVar("PresetValueType", str, int)
 
 
+@runtime_checkable
 class PresetOptionProtocol(Protocol):
-    @classmethod
     @property
-    def DEFAULT(cls) -> Union[str, int]:
-        pass
+    @staticmethod
+    def default() -> PresetValueType:
+        ...
 
 
-class NewDataPolicyOptions(FlagType):
+@runtime_checkable
+class NumericBoundPresetOptionProtocol(PresetOptionProtocol, Protocol):
+    @property
+    @staticmethod
+    def minimum() -> PresetValueType:
+        ...
+
+    @property
+    @staticmethod
+    def maximum() -> PresetValueType:
+        ...
+
+
+class SystemClass:
     """
+    Beamlime system class.
+    Later, we might want to have different system classes for special purposes.
+
+    Default
+    -------
+    ``beamlime.core.system.BeamlimeSystem``
+
+    """
+
+    default = "beamlime.core.system.BeamlimeSystem"
+
+
+class HomeDirectory:
+    """
+    Home directory for beamlime system.
+
+    Default
+    -------
+    ``~/.beamlime``
+
+    """
+
+    default = find_home()
+
+
+class ConfigurationPath:
+    """
+    Configuration file path.
+
+    Default
+    -------
+    ``~/.beamlime/default-config.yaml``
+    """
+
+    default = HomeDirectory.default.joinpath("default-config.yaml")
+
+
+class LogDirectory:
+    """
+    Directory of collected log files.
+
+    Default
+    -------
+    ``~/.beamlime/logs/``
+    """
+
+    default = HomeDirectory.default.joinpath("logs")
+
+
+class CustomHandlerDirectory:
+    """
+    Directory of Custom handlers for beamlime applications.
+
+    Default
+    -------
+    ``~/.beamlime/custom-handlers/``
+    """
+
+    default = HomeDirectory.default.joinpath("custom-handlers")
+
+
+class InstanceLife:
+    """Number of times that an instance can be recreated upon unexpected abortion."""
+
+    minimum = 1
+    default = 1
+    maximum = 10
+    system_maximum = 1_000  # TODO: If revival attempts exceed ``system_maximum``,
+    # it should turn down the system.
+
+
+class Timeout:
+    """Timeout preset options in seconds."""
+
+    minimum = 0
+    default = 60
+    maximum = 600
+
+
+class WaitInterval:
+    """Wait interval (update rate) in seconds."""
+
+    minimum = 1e-2
+    default = 1
+    maximum = Timeout.maximum
+
+
+class InstanceNumber:
+    """Number of instances for a single application."""
+
+    minimum = 1
+    default = 1
+    maximum = 3
+
+
+class NewDataPolicy:
+    """
+    Expected behaviour on new data.
+
+    Default
+    -------
+    ``REPLACE``
+
+    Options
+    -------
 
     1. ``REPLACE`` - Default
     Only new data shall be used.
@@ -84,51 +189,60 @@ class NewDataPolicyOptions(FlagType):
     AVERAGE = "AVERAGE"
     APPEND = "APPEND"
 
-    @classmethod
-    @property
-    def DEFAULT(cls):
-        return cls.REPLACE.value
+    default = REPLACE
 
 
-class CommunicationChannelOptions(FlagType):
+class CommunicationChannel:
     """
-    1. ``QUEUE``
-    Use ``queue.QUEUE`` as a communication interface between two applications.
-    #TODO: Currently, async is showing unexpected behaviour on the jupyter notebook.
-    We might want to use multiprocess instead of async.
+    Communication channel type.
 
-    2. ``KAFKA``
-    #TODO: Not implemented yet.
+    Default
+    -------
+    ``SQUEUE``
+
+    Options
+    -------
+    1. SQUEUE
+    2. MQUEUE
+    3. Kafka Consumer
+    4. Kafka Producer
+    5. Bulletin Board
     """
 
-    TQUEUE = "SQUEUE"  # Single process queue.
+    SQUEUE = "SQUEUE"  # Single process queue.
     MQUEUE = "MQUEUE"  # Multi process queue.
-    KAFKA_CONSUMER = "KAFKA-CONSUMER"  # KAFKA consumer.
-    KAFKA_PRODUCER = "KAFKA-PRODUCER"  # KAFKA producer.
+    KAFKA_CONSUMER = "KAFKA-CONSUMER"
+    KAFKA_PRODUCER = "KAFKA-PRODUCER"
+    BULLETIN_BOARD = "BULLETIN-BOARD"
 
-    @classmethod
-    @property
-    def DEFAULT(cls):
-        return cls.QUEUE.value
+    default = SQUEUE
 
 
-class ParellelismMethodOptions(FlagType):
+class ContextScope:
     """
-    1. ``ASYNC``
+    Scope of application context.
+
+    Default
+    -------
+    ``THREAD``
+
+    Options
+    -------
+    1. ``THREAD`` - Default.
+    Single/multi-thread in a single process.
 
     2. ``PROCESS``
-    # TODO: Not implemented yet.
+    Single/multi-thread in single process or multiple processes.
+    Not supported yet.
 
     3. ``CLUSTER``
-    # TODO: Not implemented yet.
+    Single/multi-thread in single/multi-process in single/multi-machines.
+    Not supported yet.
 
     """
 
-    ASYNC = "ASYNC"
+    THREAD = "THREAD"
     PROCESS = "PROCESS"
     CLUSTER = "CLUSTER"
 
-    @classmethod
-    @property
-    def DEFAULT(cls):
-        return cls.ASYNC.value
+    default = THREAD

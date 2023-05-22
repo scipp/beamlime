@@ -4,7 +4,8 @@
 
 from .loaders import (
     load_application_specs_tpl,
-    load_kafka_specs_tpl,
+    load_kafka_consumer_specs_tpl,
+    load_kafka_producer_specs_tpl,
     load_minimum_config_tpl,
     load_subscription_tpl,
     load_system_specs_tpl,
