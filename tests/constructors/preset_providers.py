@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+from typing import NewType
+from beamlime.constructors import provider, Providers
+from dataclasses import dataclass
+
+GoodTelling = NewType("GoodTelling", str)
+sweet_reminder = "Drink some water!"
+
+Joke = NewType("Joke", str)
+lime_joke = "What cars do rich limes ride?\n\n\n\nA lime-o"
+
+Status = NewType("Status", str)
+adult_default_status = "I want to go home."
+
+class Adult:
+    good_telling: GoodTelling
+    status: Status = Status(adult_default_status)
+
+@provider
+@dataclass
+class Parent(Adult):
+    joke: Joke
+
+    def give_a_good_telling(self) -> GoodTelling:
+        return self.good_telling
+    
+    def make_a_joke(self) -> Joke:
+        return self.joke
