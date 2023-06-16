@@ -44,14 +44,6 @@ class _Container:
         """
         Find a provider call of the type ``product_type``
         and return the result of provider call.
-
-        Currently it keeps the first result of the provider
-        call and reuse it when the same type is requested.
-        It should be removed or replaced with the optional
-        field in the ProviderCall.
-
-        If you don't want to keep the product,
-        use Provider[product_type]() instead.
         """
         from . import get_providers
 
