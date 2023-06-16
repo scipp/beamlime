@@ -2,5 +2,6 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # flake8: noqa F401
 
+
 def test_import():
     import beamlime
