@@ -3,21 +3,21 @@
 # flake8: noqa F401
 
 from .containers import _Container, get_container
+from .contexts import (
+    constant_provider,
+    local_providers,
+    partial_provider,
+    temporary_provider,
+)
+from .inspectors import InsufficientAnnotationError
 from .providers import (
-    ProviderNotFoundError,
     MismatchingProductTypeError,
     ProviderExistsError,
+    ProviderNotFoundError,
     _Providers,
     get_providers,
     provider,
 )
-from .contexts import (
-    constant_provider,
-    partial_provider,
-    temporary_provider,
-    local_providers
-)
-from .inspectors import InsufficientAnnotationError
 
 Container = _Container()
 Providers = _Providers()

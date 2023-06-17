@@ -1,6 +1,8 @@
 from contextlib import contextmanager
-from .providers import ProductType, _Providers, ProviderCall, Constructor
-from typing import Any, Union, Iterator
+from typing import Any, Iterator, Union
+
+from .providers import Constructor, ProductType, ProviderCall, _Providers
+
 
 @contextmanager
 def local_providers() -> Iterator[_Providers]:
@@ -14,21 +16,26 @@ def local_providers() -> Iterator[_Providers]:
     The Providers will still contain the global providers as well and
     the imported modules will be available in the context.
     """
-    from .providers import get_providers
     import sys
     from copy import copy
+
+    from .providers import get_providers
+
     Providers = get_providers()
-    original_providers = copy(Providers._providers) # Doesn't need deep copy.
+    original_providers = copy(Providers._providers)  # Doesn't need deep copy.
     original_modules = list(sys.modules.keys())
     try:
         yield Providers
-    finally: # Restore original providers and sys.modules.
+    finally:  # Restore original providers and sys.modules.
         imported_modules = [
-            module_name for module_name in sys.modules if module_name not in original_modules
+            module_name
+            for module_name in sys.modules
+            if module_name not in original_modules
         ]
         for extra_module_name in imported_modules:
             del sys.modules[extra_module_name]
         Providers._providers = original_providers
+
 
 @contextmanager
 def constant_provider(product_type: ProductType, hardcoded_value: Any):
@@ -94,4 +101,3 @@ def temporary_provider(
         _providers.pop(product_type)
         if original_provider:
             _providers[product_type] = original_provider
-

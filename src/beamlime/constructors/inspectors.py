@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from inspect import Signature
-from typing import Any, Callable, Dict, Literal, Type, Union, TypeVar
+from typing import Any, Callable, Dict, Literal, Type, TypeVar, Union
 
 
 class InsufficientAnnotationError(Exception):
@@ -54,6 +54,7 @@ class ProductSpec:
     """
     Specification of a product (returned value) of a provider.
     """
+
     def __new__(cls, product_type: Union[ProductType, ProductSpec]) -> ProductSpec:
         if isinstance(product_type, ProductSpec):
             return product_type
@@ -96,15 +97,15 @@ def issubproduct(_subproduct: ProductSpec, _baseproduct: ProductSpec) -> bool:
         return False
 
 
-class DependencySpec:  # TODO: Can be written in dataclass when mypy problem is resolved.
+class DependencySpec:  # TODO: Can be written in dataclass when mypy problem is resolved
     """
     Specification of sub-dependencies (arguments/attributes) of a provider.
     """
-    def __init__(self,
-                 product_type: ProductType,
-                 default_value: Product) -> None:
+
+    def __init__(self, product_type: ProductType, default_value: Product) -> None:
         self.product_type = product_type
         self.default_product = default_value
+
 
 def collect_argument_dep_specs(callable_obj: Callable) -> Dict[str, DependencySpec]:
     """
@@ -136,4 +137,3 @@ def collect_argument_dep_specs(callable_obj: Callable) -> Dict[str, DependencySp
         )
         for param_name, param_spec in arg_params.items()
     }
-

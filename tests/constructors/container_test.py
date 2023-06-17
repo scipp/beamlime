@@ -3,17 +3,21 @@
 
 
 def test_container_singleton():
-    from beamlime.constructors import get_container, Container
+    from beamlime.constructors import Container, get_container
     from beamlime.constructors.containers import _Container
+
     assert _Container() is get_container()
     assert Container is get_container()
-    assert _Container() is Container    
+    assert _Container() is Container
+
 
 def test_container():
     from beamlime.constructors import Container, local_providers, temporary_provider
+
     with local_providers():
-        from .preset_providers import Parent, Joke, make_a_joke, adult_default_status
+        from .preset_providers import Joke, Parent, adult_default_status, make_a_joke
+
         with temporary_provider(Joke, make_a_joke):
             parent = Container[Parent]
-            isinstance(parent, Parent)
-            parent.how_are_you() == adult_default_status
+            assert isinstance(parent, Parent)
+            assert parent.how_are_you() == adult_default_status

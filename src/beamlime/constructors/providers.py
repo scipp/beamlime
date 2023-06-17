@@ -38,12 +38,10 @@ class AttrSubProviderGroup:
     def __init__(self, _constructor: type) -> None:
         """
         Attribute annotations are retrieved by typing.get_type_hints.
-        """    
+        """
         from typing import get_type_hints
 
-        self._subproviders: Dict[
-            str, Union[ProviderCall, Type[UnknownProvider]]
-        ] = {
+        self._subproviders: Dict[str, Union[ProviderCall, Type[UnknownProvider]]] = {
             attr_name: _find_attr_provider(attr_type)
             for attr_name, attr_type in get_type_hints(_constructor).items()
         }
@@ -151,17 +149,16 @@ def _is_provider_call_same(func_left: Callable, func_right: Callable) -> bool:
     belong to the same module and have same name.
     """
     from inspect import getsourcefile
+
     if func_left.__name__ == "<lambda>" or func_right.__name__ == "<lambda>":
         return func_left is func_right
     else:
-        return (
-            func_left is func_right
-            or (
-                func_left.__module__ == func_right.__module__
-                and func_left.__qualname__ == func_right.__qualname__
-                and getsourcefile(func_left) == getsourcefile(func_right)
-            )
+        return func_left is func_right or (
+            func_left.__module__ == func_right.__module__
+            and func_left.__qualname__ == func_right.__qualname__
+            and getsourcefile(func_left) == getsourcefile(func_right)
         )
+
 
 class _Providers:
     """
@@ -284,12 +281,13 @@ class _Providers:
 _Constructor = TypeVar("_Constructor")  # type: ignore[misc]
 _lambda_name = (lambda: None).__qualname__
 
+
 def provider(callable_obj: _Constructor) -> _Constructor:
     """
     Register the decorated provider function into the ``Providers``.
     """
     # If the callable object belongs to a class.
-    
+
     if (
         not isinstance(callable_obj, partial)
         and hasattr(callable_obj, "__name__")
@@ -298,12 +296,12 @@ def provider(callable_obj: _Constructor) -> _Constructor:
         and callable_obj.__qualname__ != callable_obj.__name__
     ):
         raise NotImplementedError(
-            "A member method of a class can not be "
-            "registered as a provider yet."
+            "A member method of a class can not be " "registered as a provider yet."
         )
 
     _Providers().register(callable_obj)  # type: ignore[arg-type]
     return callable_obj
+
 
 def get_providers() -> _Providers:
     """Returns a singleton object of _Providers."""

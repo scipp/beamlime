@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Optional, Type
+
 from .inspectors import Product
 
 
@@ -31,7 +32,6 @@ class _Container:
     """
 
     _instance: Optional[_Container] = None
-    
 
     def __new__(cls) -> _Container:
         if not cls._instance:
