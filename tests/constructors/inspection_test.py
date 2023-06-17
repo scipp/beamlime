@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 import pytest
-from typing import Any, NewType, Union
+from typing import Any
 from beamlime.constructors.providers import UnknownType
 from beamlime.constructors.inspectors import issubproduct, ProductSpec
 
@@ -19,6 +19,7 @@ def test_new_type_underlying_type_retrieved():
     assert product_spec.returned_type is int
 
 def test_supported_type_check():
+    from typing import NewType, Union
     seed_type = int
     new_type = NewType("new_type", seed_type)
     standard_product_spec = ProductSpec(int)

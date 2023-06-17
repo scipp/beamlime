@@ -2,17 +2,13 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-from contextlib import contextmanager
-from dataclasses import dataclass
 from functools import partial
 from types import FunctionType, LambdaType
-from typing import Annotated, Any, Callable, Dict, Optional, Type, TypeVar, Union, final
+from typing import Any, Callable, Dict, Optional, Type, TypeVar, Union, final
 
 from .inspectors import DependencySpec, ProductSpec, ProductType, UnknownType
 
 Constructor = Union[LambdaType, partial, Callable, FunctionType, type]
-_ProductType = TypeVar("_ProductType")
-Product = Annotated[_ProductType, object]
 
 
 class UnknownProvider:
@@ -80,15 +76,15 @@ class AttrSubProviderGroup:
 
 def _find_arg_provider(arg_spec: DependencySpec):
     try:
-        return _Providers()[arg_spec.dependency_type]
+        return _Providers()[arg_spec.product_type]
     except ProviderNotFoundError as err:
         from inspect import Signature
 
         from .inspectors import UnknownType
 
         if (
-            arg_spec.default_value != Signature.empty
-            or arg_spec.dependency_type == UnknownType
+            arg_spec.default_product != Signature.empty
+            or arg_spec.product_type == UnknownType
         ):
             return UnknownProvider
         raise err
@@ -223,7 +219,7 @@ class _Providers:
                 if hasattr(product_type, "__name__"):
                     product_label = product_type.__name__
                 else:
-                    product_label = product_type
+                    product_label = str(product_type)
                 raise ProviderExistsError(
                     f"Can not register ``{new_provider_call.call_name}``."
                     f"Provider for ``{product_label}`` "
@@ -308,73 +304,6 @@ def provider(callable_obj: _Constructor) -> _Constructor:
 
     _Providers().register(callable_obj)  # type: ignore[arg-type]
     return callable_obj
-
-
-@contextmanager
-def constant_provider(product_type: ProductType, hardcoded_value: Any):
-    """
-    Use a lambda function that returns ``hardcoded_value``.
-    as a temporary provider of ``product_type``.
-    """
-    try:
-        with temporary_provider(product_type, lambda: hardcoded_value):
-            yield None
-    finally:  # Restore the original provider
-        ...
-
-
-@contextmanager
-def partial_provider(product_type: ProductType, **kwargs: Any):
-    """
-    Create a partial function from the deep copy of the provider for ``product_type``
-    with keyword arguments in ``kwargs`` and use it as a temporary provider.
-
-    To ensure that ``kwargs`` have the priority,
-    the keys of the ``kwargs`` will be removed
-    from the annotation of the copied function call.
-    """
-    from copy import deepcopy
-    from functools import partial
-
-    partial_constructor = partial(
-        deepcopy(_Providers()[product_type].constructor), **kwargs
-    )
-
-    partial_constructor.func.__annotations__ = {
-        arg_name: arg_type
-        for arg_name, arg_type in partial_constructor.func.__annotations__.items()
-        if arg_name not in kwargs
-    }
-
-    try:
-        with temporary_provider(product_type, partial_constructor):
-            yield None
-    finally:
-        ...
-
-
-@contextmanager
-def temporary_provider(
-    product_type: ProductType, temp_provider: Union[Constructor, ProviderCall]
-):
-    """
-    Stash an original provider of the ``product_type`` and
-    register partial function of the original provider
-    as a temporary provider of ``product_type``.
-
-    Remove the temporary provider and restore the original one at the end.
-    """
-    _providers = _Providers()
-    original_provider = _providers.pop(product_type)
-
-    try:
-        _providers[product_type] = temp_provider
-        yield None
-    finally:  # Restore the original provider
-        _providers.pop(product_type)
-        if original_provider:
-            _providers[product_type] = original_provider
-
 
 def get_providers() -> _Providers:
     """Returns a singleton object of _Providers."""

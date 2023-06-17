@@ -8,11 +8,14 @@ from .providers import (
     MismatchingProductTypeError,
     ProviderExistsError,
     _Providers,
-    constant_provider,
     get_providers,
-    partial_provider,
     provider,
+)
+from .contexts import (
+    constant_provider,
+    partial_provider,
     temporary_provider,
+    local_providers
 )
 from .inspectors import InsufficientAnnotationError
 

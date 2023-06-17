@@ -2,9 +2,8 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-from typing import Optional, Type, TypeVar
-
-_Product = TypeVar("_Product")
+from typing import Optional, Type
+from .inspectors import Product
 
 
 class _Container:
@@ -32,6 +31,7 @@ class _Container:
     """
 
     _instance: Optional[_Container] = None
+    
 
     def __new__(cls) -> _Container:
         if not cls._instance:
@@ -40,7 +40,7 @@ class _Container:
         else:
             return cls._instance
 
-    def __getitem__(self, product_type: Type[_Product]) -> _Product:
+    def __getitem__(self, product_type: Type[Product]) -> Product:
         """
         Find a provider call of the type ``product_type``
         and return the result of provider call.
