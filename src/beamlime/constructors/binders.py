@@ -158,7 +158,7 @@ class Binder:
         """Clear Providers."""
         self._providers.clear()
 
-    def provider(self, callable_obj: Constructor) -> Constructor:
+    def provider(self, callable_obj):
         """
         Register the decorated provider function into this binder.
         """

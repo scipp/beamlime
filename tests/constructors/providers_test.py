@@ -10,7 +10,7 @@ from .preset_binder import TestBinder
 def test_provider_not_exist_rasies():
     with clean_binder() as binder:
         with pytest.raises(ProviderNotFoundError):
-            binder[None]
+            binder[bool]
 
 
 def test_provider_function_call():

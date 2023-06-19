@@ -30,6 +30,6 @@ def test_provider_already_exists_without_name_rasies():
     from beamlime.constructors import ProviderExistsError
 
     with clean_binder() as binder:
-        binder[None] = lambda: None
+        binder[type(None)] = lambda: None
         with pytest.raises(ProviderExistsError):
-            binder[None] = lambda: None
+            binder[type(None)] = lambda: None
