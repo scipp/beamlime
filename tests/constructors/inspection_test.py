@@ -4,8 +4,25 @@ from typing import Any
 
 import pytest
 
-from beamlime.constructors.inspectors import ProductSpec, issubproduct
-from beamlime.constructors.providers import UnknownType
+from beamlime.constructors.inspectors import ProductSpec, UnknownType, issubproduct
+
+
+def test_product_spec_compare():
+    _left_spec = ProductSpec(int)
+    _right_spec = ProductSpec(int)
+    assert _left_spec == _right_spec
+
+
+def test_product_spec_compare_false():
+    _left_spec = ProductSpec(int)
+    _right_spec = ProductSpec(float)
+    assert _left_spec != _right_spec
+
+
+def test_product_spec_compare_with_wrong_type_raises():
+    _seed_spec = ProductSpec(int)
+    with pytest.raises(NotImplementedError):
+        assert _seed_spec != int
 
 
 def test_nested_product_spec_not_allowed():
