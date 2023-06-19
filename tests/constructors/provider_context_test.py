@@ -44,10 +44,10 @@ def test_constant_provider():
         "Why are limes so observant?" "\n\n\n" "They're full of Vitamin See."
     )
     with context_binder(TestBinder) as binder:
-        from tests.constructors.preset_binder import Joke, Parent
+        from .preset_binder import Joke, Parent
 
         with constant_provider(Joke, Joke(another_lime_joke)):
-            _parent: Parent = binder[Parent]()
+            _parent = binder[Parent]()
             assert _parent.make_a_joke() == another_lime_joke
 
         # Constant provider should be destroyed.
