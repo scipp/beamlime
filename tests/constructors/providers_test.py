@@ -2,86 +2,74 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 import pytest
 
-from beamlime.constructors import Providers, local_providers
+from beamlime.constructors import ProviderNotFoundError, clean_binder, context_binder
 
-
-def test_provider_singleton():
-    from beamlime.constructors import get_providers
-    from beamlime.constructors.providers import _Providers
-
-    with local_providers():
-        assert Providers is get_providers()
-        assert Providers is _Providers()
+from .preset_binder import TestBinder
 
 
 def test_provider_not_exist_rasies():
-    from beamlime.constructors import ProviderNotFoundError
-
-    with local_providers():
-        from .preset_providers import Joke
-
+    with clean_binder() as binder:
         with pytest.raises(ProviderNotFoundError):
-            Providers[Joke]
-
-
-def test_provider_already_exists_raises():
-    from beamlime.constructors import ProviderExistsError
-
-    with local_providers():
-        from .preset_providers import Joke, make_a_joke, make_another_joke
-
-        Providers[Joke] = make_a_joke
-
-        with pytest.raises(ProviderExistsError):
-            Providers[Joke] = make_another_joke
-
-
-def test_provider_already_exists_without_name_rasies():
-    from beamlime.constructors import ProviderExistsError
-
-    with local_providers():
-        Providers[None] = lambda: None
-        with pytest.raises(ProviderExistsError):
-            Providers[None] = lambda: None
+            binder[None]
 
 
 def test_provider_function_call():
-    with local_providers():
-        from .preset_providers import Joke, make_a_joke
+    from .preset_binder import Joke, make_a_joke
 
-        Providers[Joke] = make_a_joke
-        assert Providers[Joke].constructor == make_a_joke
-        assert Providers[Joke]() == make_a_joke()
+    with context_binder(TestBinder) as binder:
+        binder[Joke] = make_a_joke
+        assert binder[Joke].constructor == make_a_joke
+        assert binder[Joke]() == make_a_joke()
+
+
+def test_provider_function_call_with_arguments():
+    from .preset_binder import GoodTelling
+
+    good_telling_1 = "Sleep early!"
+    with context_binder(TestBinder) as binder:
+        assert binder[GoodTelling](good_telling=good_telling_1) == good_telling_1
+        assert binder[GoodTelling](good_telling_1) == good_telling_1
+
+
+def test_unknown_provider_call_raises():
+    from beamlime.constructors.providers import UnknownProvider
+
+    with pytest.raises(ProviderNotFoundError):
+        UnknownProvider()
 
 
 def test_provider_class():
-    with local_providers():
-        from .preset_providers import Parent
+    from .preset_binder import Parent
 
-        assert Providers[Parent].constructor == Parent
+    with context_binder(TestBinder) as binder:
+        assert binder[Parent].constructor == Parent
+
+
+def test_provider_compare_with_wrong_type_raises():
+    from .preset_binder import Parent
+
+    with context_binder(TestBinder) as binder:
+        with pytest.raises(NotImplementedError):
+            assert binder[Parent] == Parent
 
 
 def test_provider_incomplete_class_arguments_rasies():
-    from beamlime.constructors import ProviderNotFoundError
+    from .preset_binder import Parent
 
-    with local_providers():
-        from .preset_providers import Parent
-
+    with context_binder(TestBinder) as binder:
         with pytest.raises(ProviderNotFoundError):
-            Providers[Parent]()
+            binder[Parent]()
 
 
 def test_provider_incomplete_class_attributes_rasies():
-    from beamlime.constructors import ProviderNotFoundError
-
     class IncompleteClass:
-        attribute: None
+        attribute: str
 
-    with local_providers():
-        Providers[IncompleteClass] = IncompleteClass
-        Providers[IncompleteClass]  # Provider of incomplete class exists.
+    with clean_binder() as binder:
+        binder[IncompleteClass] = IncompleteClass
+        binder[IncompleteClass]  # Provider of incomplete class exists.
         with pytest.raises(ProviderNotFoundError):
-            Providers[IncompleteClass]()  # Provider of attribute does not exist.
+            binder[IncompleteClass]()  # Provider of attribute does not exist.
 
 
 def test_union_annotation_raises():
@@ -104,5 +92,5 @@ def test_insufficient_annotation_raises():
         return _
 
     with pytest.raises(InsufficientAnnotationError):
-        with temporary_provider(int, confusing_func):
-            Providers[int]()
+        with temporary_provider(int, confusing_func) as binder:
+            binder[int]()

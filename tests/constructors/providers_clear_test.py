@@ -2,19 +2,15 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
 
-def test_provider_clear_all():
+def test_binder_clear_all():
     import pytest
 
-    from beamlime.constructors import ProviderNotFoundError, Providers
+    from beamlime.constructors import ProviderNotFoundError, clean_binder
 
-    _original_providers = {
-        _type: _provider for _type, _provider in Providers._providers.items()
-    }
-    Providers.clear_all()
-    Providers[int] = lambda: 99
-    assert Providers[int]() == 99
-    Providers.clear_all()
-    with pytest.raises(ProviderNotFoundError):
-        Providers[int]
-
-    Providers._providers = _original_providers
+    with clean_binder() as binder:
+        binder[int] = lambda: 99
+        assert binder[int]() == 99
+        binder.clear_all()
+        with pytest.raises(ProviderNotFoundError):
+            binder[int]
+        assert len(binder) == 0
