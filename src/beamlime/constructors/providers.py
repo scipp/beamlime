@@ -32,7 +32,7 @@ class AttrSubProviders:
             for attr_name, attr_type in get_type_hints(_constructor).items()
         }
 
-    def inject_dependencies(self, incomplete_obj: Any) -> Any:
+    def inject_dependencies(self, incomplete_obj):
         """
         Check if the ``incomplete_obj`` has attribute dependencies to be filled.
         If a provider is not found but the ``incomplete_obj`` already has the attribute,
@@ -125,7 +125,7 @@ class Provider:
 
         return issubproduct(ProductSpec(product_type), self.product_spec)
 
-    def __call__(self, *args, **kwargs) -> Any:
+    def __call__(self, *args, **kwargs):
         """Build and return the product with attribute dependencies injected."""
         # TODO: Split this into two steps, build chain of sub-providers
         # and call the providers.

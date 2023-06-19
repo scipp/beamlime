@@ -122,10 +122,6 @@ def test_local_binder_nested():
             Container[str]
 
 
-def shared_function() -> int:
-    return 10
-
-
 def test_context_conflicting_binders_acceptable():
     from beamlime.constructors import Binder
 

@@ -34,22 +34,20 @@ def test_nested_product_spec_not_allowed():
 def test_new_type_underlying_type_retrieved():
     from typing import NewType
 
-    seed_type = int
-    new_type = NewType("new_type", seed_type)
+    new_type = NewType("new_type", int)
     product_spec = ProductSpec(new_type)
     assert product_spec.product_type is new_type
     assert product_spec.returned_type is int
 
 
 def test_supported_type_check():
-    from typing import NewType, Union
+    from typing import NewType
 
-    seed_type = int
-    new_type = NewType("new_type", seed_type)
+    new_type = NewType("new_type", int)
     standard_product_spec = ProductSpec(int)
     compatible_product_spec = ProductSpec(new_type)
     incompatible_product_spec = ProductSpec(str)
-    wrong_type_product_spec = ProductSpec(Union[int, str])
+    wrong_type_product_spec = ProductSpec(list[int])
 
     assert issubproduct(standard_product_spec, compatible_product_spec)
     assert not issubproduct(standard_product_spec, incompatible_product_spec)
