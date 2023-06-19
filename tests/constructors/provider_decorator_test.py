@@ -2,25 +2,36 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 import pytest
 
-from beamlime.constructors import Providers, local_providers, provider
+from beamlime.constructors import GlobalBinder, local_binder, provider
+
+from .preset_binder import GoodTelling, TestBinder, give_a_good_telling
+
+
+def integer_provider() -> int:
+    return 10
+
+
+def test_global_provider_decorator():
+    original_call = provider(integer_provider)  # Call the decorator directly.
+    assert original_call is integer_provider
+    assert GlobalBinder()[int].constructor is integer_provider
+    assert GlobalBinder()[int]() == integer_provider()
+    GlobalBinder().clear_all()
 
 
 def test_provider_function_call():
-    with local_providers():
-        from .preset_providers import GoodTelling, give_a_good_telling
-
-        assert Providers[GoodTelling].constructor == give_a_good_telling
-        assert Providers[GoodTelling]() == give_a_good_telling()
+    assert TestBinder[GoodTelling].constructor == give_a_good_telling
+    assert TestBinder[GoodTelling]() == give_a_good_telling()
 
 
 def test_provider_incomplete_class_raises():
-    with local_providers():
+    with local_binder():
         from beamlime.constructors import ProviderNotFoundError
 
-        from .preset_providers import Parent
+        from .preset_binder import Parent
 
         with pytest.raises(ProviderNotFoundError):
-            Providers[Parent]()
+            TestBinder[Parent]()
 
 
 def test_provider_member_class_raises():

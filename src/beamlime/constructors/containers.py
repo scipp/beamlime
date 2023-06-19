@@ -12,10 +12,14 @@ class _Container:
     Container class that holds provider dictionary and product history.
     This class is used as a singleton so it should only have classmethods.
 
-    After a provider function is registered into Providers,
+    After a provider function is registered into the Binder,
     you can retrieve the object by the type of the object.
 
+    It will automatically use the binder of the current context.
+
     TODO: Check if there is any circular dependencies.
+
+    Singleton object.
 
     Examples
     --------
@@ -45,10 +49,10 @@ class _Container:
         Find a provider call of the type ``product_type``
         and return the result of provider call.
         """
-        from . import get_providers
+        from .contexts import context_binder
 
-        Providers = get_providers()
-        return Providers[product_type]()
+        with context_binder() as binder:
+            return binder[product_type]()
 
 
 def get_container() -> _Container:
