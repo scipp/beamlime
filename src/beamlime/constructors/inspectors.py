@@ -68,6 +68,14 @@ class ProductSpec:
             self.product_type = product_type
             self.returned_type = extract_underlying_type(product_type)
 
+    def __eq__(self, __value: object) -> bool:
+        if not isinstance(__value, ProductSpec):
+            raise NotImplementedError(
+                "Comparison between ProductSpec " "and other type is not supported."
+            )
+        else:
+            return self.product_type == __value.product_type
+
 
 def get_product_spec(callable_obj: Callable) -> ProductSpec:
     """

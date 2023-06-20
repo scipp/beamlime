@@ -12,11 +12,17 @@ def test_container_singleton():
 
 
 def test_container():
-    from beamlime.constructors import Container, local_providers, temporary_provider
+    from beamlime.constructors import Container, context_binder, temporary_provider
 
-    with local_providers():
-        from .preset_providers import Joke, Parent, adult_default_status, make_a_joke
+    from .preset_binder import (
+        Joke,
+        Parent,
+        TestBinder,
+        adult_default_status,
+        make_a_joke,
+    )
 
+    with context_binder(TestBinder):
         with temporary_provider(Joke, make_a_joke):
             parent = Container[Parent]
             assert isinstance(parent, Parent)
