@@ -16,7 +16,7 @@ def test_global_provider_decorator():
     assert original_call is integer_provider
     assert GlobalBinder()[int].constructor is integer_provider
     assert GlobalBinder()[int]() == integer_provider()
-    GlobalBinder().clear_all()
+    GlobalBinder().clear()
 
 
 def test_provider_function_call():
