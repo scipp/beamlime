@@ -3,17 +3,17 @@
 # See comments in ``logging.Logger._src_file``
 # for explanation why we didn't use __file__
 import logging
+import time
 from contextlib import contextmanager
 from threading import RLock
-from time import time
 from typing import Iterator, NewType
 
-from ..constructors import provider
+from ..empty_binders import IncompleteLoggingBinder
 
 TimeStamp = NewType("TimeStamp", str)
 
 
-@provider
+@IncompleteLoggingBinder.provider
 def create_time_stamp() -> TimeStamp:
     """
     Creates a timestamp with the format, ``{cur_timestamp}--{h_time}``.
@@ -22,7 +22,7 @@ def create_time_stamp() -> TimeStamp:
     """
     from datetime import datetime
 
-    cur_timestamp = round(time())
+    cur_timestamp = round(time.time())
     h_time = datetime.fromtimestamp(cur_timestamp).strftime("%Y-%m-%d-%H-%M-%S")
     return TimeStamp(f"{cur_timestamp}--{h_time}")
 
@@ -36,7 +36,7 @@ DefaultFileExtension = LogFileExtension("log")
 LogFileName = NewType("LogFileName", str)
 
 
-@provider
+@IncompleteLoggingBinder.provider
 def create_log_file_name(
     time_stamp: TimeStamp,
     prefix: LogFilePrefix = DefaultPrefix,
@@ -50,7 +50,7 @@ LogDirectoryPath = NewType("LogDirectoryPath", str)
 FileHandlerBasePath = NewType("FileHandlerBasePath", str)
 
 
-@provider
+@IncompleteLoggingBinder.provider
 def create_log_file_path(
     *, parent_dir: LogDirectoryPath, file_name: LogFileName
 ) -> FileHandlerBasePath:
@@ -93,16 +93,10 @@ def cleanup_file_handlers(logger: logging.Logger):
     non-existing files and remove them from the logger."""
     from os.path import exists
 
-    if any(
-        (
-            hdlrs := [
-                hdlr
-                for hdlr in logger.handlers
-                if isinstance(hdlr, logging.FileHandler)
-                and not exists(hdlr.baseFilename)
-            ]
-        )
-    ):
+    f_hdlrs = [
+        hdlr for hdlr in logger.handlers if isinstance(hdlr, logging.FileHandler)
+    ]
+    _messy_handlers = [hdlr for hdlr in f_hdlrs if not exists(hdlr.baseFilename)]
+    for hdlr in _messy_handlers:
         with hold_logging():
-            for hdlr in hdlrs:
-                logger.removeHandler(hdlr)
+            logger.removeHandler(hdlr)
