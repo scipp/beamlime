@@ -10,7 +10,7 @@ def test_binder_clear_all():
     with clean_binder() as binder:
         binder[int] = lambda: 99
         assert binder[int]() == 99
-        binder.clear_all()
+        binder.clear()
         with pytest.raises(ProviderNotFoundError):
             binder[int]
         assert len(binder) == 0
