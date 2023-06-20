@@ -8,7 +8,7 @@ from typing import NewType, Optional
 
 from colorama import Style
 
-from ..constructors import provider
+from ..empty_binders import IncompleteLoggingBinder
 from .formatters import (
     BeamlimeHeaderFormatter,
     BeamlimeLogMessage,
@@ -49,7 +49,7 @@ BeamlimeFileFormatter = NewType("BeamlimeFileFormatter", BeamlimeHeaderFormatter
 DefaultBeamlimeFileFormatter = BeamlimeFileFormatter(DefaultFormatter)
 
 
-@provider
+@IncompleteLoggingBinder.provider
 class BeamlimeFileHandler(_HeaderMixin, FileHandler):
     formatter: BeamlimeFileFormatter
 
@@ -86,7 +86,7 @@ BeamlimeStreamFormatter = NewType("BeamlimeStreamFormatter", BeamlimeHeaderForma
 DefaultBeamlimeStreamFormatter = BeamlimeStreamFormatter(ColoredFormatter)
 
 
-@provider
+@IncompleteLoggingBinder.provider
 class BeamlimeStreamHandler(_HeaderMixin, StreamHandler):
     formatter: BeamlimeStreamFormatter
 
