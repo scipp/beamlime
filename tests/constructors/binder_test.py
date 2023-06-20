@@ -26,10 +26,18 @@ def test_provider_already_exists_raises():
             binder[Joke] = make_another_joke
 
 
-def test_provider_already_exists_without_name_rasies():
+def test_provider_already_exists_lambda_rasies():
     from beamlime.constructors import ProviderExistsError
 
     with clean_binder() as binder:
         binder[type(None)] = lambda: None
         with pytest.raises(ProviderExistsError):
             binder[type(None)] = lambda: None
+
+
+def test_provider_already_exists_but_compatible():
+    from .preset_binder import Joke, make_a_joke
+
+    with clean_binder() as binder:
+        binder[Joke] = make_a_joke
+        binder[Joke] = make_a_joke

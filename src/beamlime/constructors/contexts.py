@@ -4,36 +4,12 @@
 from contextlib import contextmanager
 from typing import Any, Iterator, Union
 
-from .binders import Binder, GlobalBinder, ProviderExistsError
+from .binders import Binder, GlobalBinder
 from .providers import Constructor, ProductType, Provider, UnknownProvider
 
 
 class _BinderContext:
     _binder: Binder = GlobalBinder()  # Global binder by default.
-
-
-def _validate_binders(*binders: Binder):
-    from functools import reduce
-
-    tp_sets = [set(tp for tp in binder) for binder in binders]
-    flat_tp_sets = reduce(lambda x, y: x.union(y), tp_sets)
-    if sum([len(tp_set) for tp_set in tp_sets]) > len(
-        flat_tp_sets
-    ):  # If there is any overlap of product type
-        overlapped = {
-            tp: const_set
-            for tp in flat_tp_sets
-            if len(
-                (
-                    const_set := set(
-                        binder[tp].constructor for binder in binders if tp in binder
-                    )
-                )
-            )
-            > 1
-        }
-        if any(overlapped):
-            raise ProviderExistsError("Binders have conflicting providers.", overlapped)
 
 
 @contextmanager
@@ -54,13 +30,8 @@ def context_binder(*binders: Binder) -> Iterator[Binder]:
     try:
         if binders:
             original_binder = _BinderContext._binder
-            if len(binders) > 1:
-                _validate_binders(*binders)
-            tmp_binder = Binder()
-            for binder in binders:
-                for product_type in binder:
-                    tmp_binder[product_type] = binder[product_type]
-            _BinderContext._binder = tmp_binder
+            _binder = Binder(*binders)
+            _BinderContext._binder = _binder
         else:
             original_binder = None
 
@@ -79,12 +50,12 @@ def global_binder() -> Iterator[Binder]:
     Restores the original context binder at the end.
     """
     try:
-        original_binder = _BinderContext._binder
-        _BinderContext._binder = GlobalBinder()
-        yield _BinderContext._binder
+        with context_binder():
+            _BinderContext._binder = GlobalBinder()
+            yield _BinderContext._binder
 
     finally:
-        _BinderContext._binder = original_binder
+        ...
 
 
 @contextmanager

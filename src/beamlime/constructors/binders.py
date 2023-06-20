@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
-from typing import Callable, Dict, Literal, Optional
+from typing import Callable, Dict, List, Literal, Optional, Tuple, Type, TypeVar, Union
 
 from .inspectors import ProductType, UnknownType
 from .providers import Constructor, Provider, UnknownProvider
@@ -36,7 +36,7 @@ def _validate_callable_as_provider(callable_obj: Constructor) -> Literal[True]:
     return True
 
 
-def _is_provider_call_same(func_left: Callable, func_right: Callable) -> bool:
+def _is_constructor_same(func_left: Callable, func_right: Callable) -> bool:
     """
     Returns true if the two function objects
     belong to the same module and have same name.
@@ -53,13 +53,97 @@ def _is_provider_call_same(func_left: Callable, func_right: Callable) -> bool:
         )
 
 
+def _is_overlapping_provider_sharable(tp: ProductType, binders: Tuple[Binder, ...]):
+    _providers = [binder[tp] for binder in binders if tp in binder]
+    if _providers:
+        _standard = _providers.pop()
+        if any([_provider for _provider in _providers if _provider != _standard]):
+            return False
+    return True
+
+
+def _check_overlap(*binders: Binder):
+    from functools import reduce
+
+    tp_sets = [set(tp for tp in binder) for binder in binders]
+    flat_tp_sets = reduce(lambda x, y: x.union(y), tp_sets)
+
+    # If there is any overlapping providers
+    if sum([len(tp_set) for tp_set in tp_sets]) > len(flat_tp_sets):
+        conflicted = {
+            tp
+            for tp in flat_tp_sets
+            if not _is_overlapping_provider_sharable(tp, binders)
+        }
+        # If there is any conflicting providers
+        if any(conflicted):
+            raise ProviderExistsError(
+                "Binders have conflicting providers" f" {conflicted}"
+            )
+
+
+_Other = TypeVar("_Other")
+_Separator = TypeVar("_Separator")
+
+
+def _split_by_type(
+    _arguments: Union[Tuple, List], _type: Type[_Separator]
+) -> Tuple[List[_Separator], List]:
+    _correct_type = [_arg for _arg in _arguments if isinstance(_arg, _type)]
+    _other_type = [_arg for _arg in _arguments if not isinstance(_arg, _type)]
+    return _correct_type, _other_type
+
+
 class Binder:
     """Locally used binder between dependencies and providers."""
 
-    def __init__(self, *__providers: Constructor) -> None:
+    def __init__(self, *__initials: Union[Constructor, Binder]) -> None:
         self._providers: Dict[ProductType, Provider] = dict()
-        for _provider in __providers:
-            self.register(_provider)
+        if __initials:
+            _binders, _non_binders = _split_by_type(__initials, Binder)
+
+            if _non_binders:
+                __initial_binder = Binder()
+
+                for _provider in _non_binders:
+                    __initial_binder.register(_provider)
+
+                _binders.append(__initial_binder)
+
+            self.__merge(*_binders)
+        else:
+            ...
+
+    def items(self):
+        return self._providers.items()
+
+    def __merge(self, *__others: Binder):
+        """Merge providers after checking overlap."""
+        _check_overlap(*__others)
+        for _binder in __others:
+            for _product_type, _provider in _binder.items():
+                self[_product_type] = _provider
+        return self
+
+    def __iadd__(self, __other: object):
+        """
+        Merge other binder into this binder.
+        """
+        if not isinstance(__other, Binder):
+            raise NotImplementedError(
+                "+= operation between Binder and other type is not supported."
+            )
+        return self.__merge(__other)
+
+    def __add__(self, __other: object):
+        """
+        Return a new binder containing all providers two binders have.
+        """
+        if not isinstance(__other, Binder):
+            raise NotImplementedError(
+                "+ operation between Binder and other type is not supported."
+            )
+        return Binder(self, __other)
 
     def __getitem__(self, product_type: ProductType) -> Provider:
         """
@@ -71,7 +155,7 @@ class Binder:
                 if hasattr(product_type, "__name__")
                 else product_type
             )
-            raise ProviderNotFoundError("Provider for ", product_label, " not found.")
+            raise ProviderNotFoundError(f"Provider for ``{product_label}`` not found.")
         else:
             return self._providers[product_type]
 
@@ -96,16 +180,12 @@ class Binder:
         """
         if product_type in self._providers:
             existing_provider = self._providers[product_type]
-            if not _is_provider_call_same(
+            if not _is_constructor_same(
                 existing_provider.constructor, new_provider_call.constructor
             ):
-                if hasattr(product_type, "__name__"):
-                    product_label = product_type.__name__
-                else:
-                    product_label = str(product_type)
                 raise ProviderExistsError(
                     f"Can not register ``{new_provider_call.call_name}``."
-                    f"Provider for ``{product_label}`` "
+                    f"Provider for ``{product_type.__name__}`` "
                     f"already exist. ``{existing_provider.call_name}``"
                 )
         elif not new_provider_call.issupported(product_type):
@@ -119,14 +199,14 @@ class Binder:
     ) -> None:
         """
         Register a provider function ``provider_call`` of ``product_type``
-        into the ``_providers`` dictionary.
+        into the ``self._providers`` dictionary.
 
         If ``product_type`` is ``UnknownType``,
         it will retrieve the product type from the provider call
         and use it as an index.
 
-        You can use ``provider`` decorator from beamlime.constructors
-        module to register a function or a class as a provider.
+        ``self.provider`` decorator from ``beamlime.constructors`` module
+        can also register a function or a class as a provider.
 
         See ``_validate_new_provider`` for new provider validation.
 
@@ -154,7 +234,7 @@ class Binder:
         """
         return self._providers.pop(product_type, UnknownProvider)
 
-    def clear_all(self) -> None:
+    def clear(self) -> None:
         """Clear Providers."""
         self._providers.clear()
 
@@ -162,10 +242,9 @@ class Binder:
         """
         Register the decorated provider function into this binder.
         """
-        # If the callable object belongs to a class.
         _validate_callable_as_provider(callable_obj)
 
-        self.register(callable_obj)  # type: ignore[arg-type]
+        self.register(callable_obj)
         return callable_obj
 
     def __iter__(self):
@@ -185,7 +264,7 @@ class GlobalBinder(Binder):
     _instance: Optional[GlobalBinder] = None
 
     def __new__(cls) -> GlobalBinder:
-        """Create or return the singleton object or _Providers."""
+        """Create or return the singleton object or ``GlobalBinder``."""
         if not isinstance(cls._instance, GlobalBinder):
             cls._instance = super().__new__(GlobalBinder)
             return cls._instance
@@ -211,5 +290,5 @@ def provider(callable_obj: Constructor) -> Constructor:
 
 
 def get_global_binder() -> GlobalBinder:
-    """Returns a singleton object of GlobalBinder."""
+    """Returns the singleton object of GlobalBinder."""
     return GlobalBinder()
