@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Literal, NewType, Optional
 
-from ..constructors import Container, provider
+from ..empty_binders import IncompleteLoggingBinder
+from .handlers import BeamlimeFileHandler, BeamlimeStreamHandler
 from .resources import LogDirectoryPath
 
 LOG_LEVELS = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
@@ -13,7 +14,7 @@ LOG_LEVELS = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 BeamlimeLogger = NewType("BeamlimeLogger", logging.Logger)
 
 
-@provider
+@IncompleteLoggingBinder.provider
 def get_logger(verbose: bool = True) -> BeamlimeLogger:
     """
     Retrieves a logger by ``name``.
@@ -34,9 +35,7 @@ def get_logger(verbose: bool = True) -> BeamlimeLogger:
 
     logger = logging.getLogger(beamlime_name)
     if verbose and not logger.handlers:
-        from .handlers import BeamlimeStreamHandler
-
-        logger.addHandler(Container[BeamlimeStreamHandler])
+        logger.addHandler(BeamlimeStreamHandler())
 
     return BeamlimeLogger(logger)
 
@@ -46,7 +45,7 @@ DefaultWidgetFlag = ScippWidgetFlag(True)
 ScippLogger = NewType("ScippLogger", logging.Logger)
 
 
-@provider
+@IncompleteLoggingBinder.provider
 def get_scipp_logger(
     log_level: Optional[LOG_LEVELS] = None,
     widget: ScippWidgetFlag = DefaultWidgetFlag,
@@ -92,7 +91,7 @@ def _create_log_root_dir(dir_path: LogDirectoryPath) -> None:
 FileHandlerConfigured = NewType("FileHandlerConfigured", bool)
 
 
-@provider
+@IncompleteLoggingBinder.provider
 def initialize_file_handler(
     logger: BeamlimeLogger, dir_path: LogDirectoryPath
 ) -> FileHandlerConfigured:
@@ -106,19 +105,12 @@ def initialize_file_handler(
     """
 
     from ..constructors import Container, constant_provider
-    from .handlers import BeamlimeFileHandler
     from .resources import cleanup_file_handlers
 
     cleanup_file_handlers(logger)
-    if any(
-        (
-            file_paths := [
-                hdlr.baseFilename
-                for hdlr in logger.handlers
-                if isinstance(hdlr, BeamlimeFileHandler)
-            ]
-        )
-    ):
+    _hdlrs = [hdlr for hdlr in logger.handlers if isinstance(hdlr, BeamlimeFileHandler)]
+    file_paths = [hdlr.baseFilename for hdlr in _hdlrs]
+    if any((file_paths)):
         logger.warning(
             "Attempt to add a new file handler to the current logger, "
             "but a file handler is already configured. "

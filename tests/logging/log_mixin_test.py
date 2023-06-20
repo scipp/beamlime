@@ -7,15 +7,24 @@ from pathlib import Path
 import pytest
 from pytest import CaptureFixture, LogCaptureFixture
 
-from .contexts import local_loggers
+from beamlime.constructors import Container
+from beamlime.logging import (
+    FileHandlerConfigured,
+    LogDirectoryPath,
+    LogFileName,
+    get_logger,
+)
+from beamlime.logging.handlers import BeamlimeFileHandler, FileHandler
+
+from .contexts import local_logger_binder
 
 
 def test_local_loggers():
     """Test helper context test."""
-    with local_loggers():
+    with local_logger_binder() as _:
         from beamlime.logging import get_logger
 
-        with local_loggers():
+        with local_logger_binder():
             logger = get_logger()
             assert get_logger() is logger
 
@@ -23,7 +32,7 @@ def test_local_loggers():
 
 
 def test_logmixin_protocol():
-    with local_loggers():
+    with local_logger_binder():
         from beamlime.logging.mixins import BeamlimeLoggingProtocol
 
         from .dummy_app import LogMixinDummy
@@ -47,7 +56,7 @@ def test_app_logging_stream(
     caplog: LogCaptureFixture,
     capsys: CaptureFixture,
 ):
-    with local_loggers():
+    with local_logger_binder():
         from beamlime.logging import get_logger
 
         from .dummy_app import LogMixinDummy
@@ -69,66 +78,43 @@ def test_app_logging_stream(
 
 
 def test_file_handler_configuration(tmp_path: Path):
-    from beamlime.constructors import Container, constant_provider
+    tmp_log_dir = tmp_path / "tmp"
+    tmp_log_filename = "tmp.log"
+    tmp_log_path = tmp_log_dir / tmp_log_filename
 
-    with local_loggers():
-        from beamlime.logging import (
-            FileHandlerConfigured,
-            LogDirectoryPath,
-            LogFileName,
-            get_logger,
-        )
-        from beamlime.logging.handlers import FileHandler
-
+    with local_logger_binder() as binder:
         logger = get_logger(verbose=False)
-        tmp_log_dir = tmp_path / "tmp"
-        tmp_log_filename = "tmp.log"
-        tmp_log_path = tmp_log_dir / tmp_log_filename
+        binder.pop(LogDirectoryPath)
+        binder.pop(LogFileName)
+        binder[LogDirectoryPath] = lambda: tmp_log_dir
+        binder[LogFileName] = lambda: tmp_log_filename
 
-        with constant_provider(LogDirectoryPath, tmp_log_dir):
-            with constant_provider(LogFileName, tmp_log_filename):
-                assert not any(
-                    [hdlr for hdlr in logger.handlers if isinstance(hdlr, FileHandler)]
-                )
-                assert Container[FileHandlerConfigured]
-                assert (
-                    len(
-                        [
-                            hdlr
-                            for hdlr in logger.handlers
-                            if isinstance(hdlr, FileHandler)
-                        ]
-                    )
-                    == 1
-                )
-                assert Container[
-                    FileHandlerConfigured
-                ]  # Should not add another file handler.
-                assert (
-                    len(
-                        [
-                            hdlr
-                            for hdlr in logger.handlers
-                            if isinstance(hdlr, FileHandler)
-                        ]
-                    )
-                    == 1
-                )
+        # Should not have any file handlers set.
+        hdlrs = logger.handlers
+        assert not any([hdlr for hdlr in hdlrs if isinstance(hdlr, FileHandler)])
 
-        file_hdlr = [hdlr for hdlr in logger.handlers if isinstance(hdlr, FileHandler)][
-            0
-        ]
-        assert Path(file_hdlr.baseFilename) == tmp_log_path
+        # Set a file handler.
+        assert Container[FileHandlerConfigured]
+        _f_hdlrs = [hdlr for hdlr in hdlrs if isinstance(hdlr, FileHandler)]
+        assert len(_f_hdlrs) == 1
+
+        # Should not add another file handler.
+        assert Container[FileHandlerConfigured]
+        _f_hdlrs = [hdlr for hdlr in hdlrs if isinstance(hdlr, FileHandler)]
+        assert len(_f_hdlrs) == 1
+
+        # Check file path.
+        f_hdlr = [hdlr for hdlr in logger.handlers if isinstance(hdlr, FileHandler)][0]
+        assert Path(f_hdlr.baseFilename) == tmp_log_path
 
 
-def test_file_handler_configuration_existing_dir_raises(tmp_path: Path):
+def test_file_handler_configuration_existing_dir_raises():
     from inspect import getsourcefile
 
-    this_file_path = Path(getsourcefile(test_file_handler_configuration))
-    with local_loggers():
-        from beamlime.constructors import Container, constant_provider
-        from beamlime.logging import FileHandlerConfigured, LogDirectoryPath
+    from beamlime.constructors import constant_provider
 
+    this_file_path = Path(getsourcefile(test_file_handler_configuration))
+    with local_logger_binder():
         with constant_provider(LogDirectoryPath, this_file_path):
             with pytest.raises(FileExistsError):
                 Container[FileHandlerConfigured]
@@ -146,9 +132,7 @@ def test_file_handler_configuration_existing_dir_raises(tmp_path: Path):
 def test_app_logging_file(level: int, log_method, msg_suffix: str, tmp_path: Path):
     tmp_log_path = tmp_path / "tmp.log"
 
-    with local_loggers():
-        from beamlime.logging.handlers import BeamlimeFileHandler
-
+    with local_logger_binder():
         from .dummy_app import LogMixinDummy
 
         file_handler = BeamlimeFileHandler(tmp_log_path)

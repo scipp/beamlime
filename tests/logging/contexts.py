@@ -7,22 +7,24 @@ import logging
 from contextlib import contextmanager
 from typing import Iterator
 
+from beamlime.complete_binders import LoggingBinder
+from beamlime.constructors import Binder, context_binder
+
 
 @contextmanager
-def local_loggers() -> Iterator[None]:
+def local_logger_binder() -> Iterator[Binder]:
     """
     Keep a copy of logger names in logging.Logger.manager.loggerDict
     and remove newly added loggers at the end of the context
-    with a sub context beamlime.constructors.local_providers.
+    within the sub context using ``LoggingBinder``.
 
     It will help a test not to interfere other tests.
     """
-    from beamlime.constructors import local_providers
 
     original_logger_names = list(logging.Logger.manager.loggerDict.keys())
     try:
-        with local_providers():
-            yield None
+        with context_binder(LoggingBinder) as binder:
+            yield binder
     finally:
         extra_logger_names = [
             logger_name
