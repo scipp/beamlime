@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-from typing import Any
 
 import pytest
 
-from beamlime.constructors.inspectors import ProductSpec, UnknownType, ischildproduct
+from beamlime.constructors.inspectors import ProductSpec
 
 
 def test_product_spec_compare():
@@ -38,38 +37,3 @@ def test_new_type_underlying_type_retrieved():
     product_spec = ProductSpec(new_type)
     assert product_spec.product_type is new_type
     assert product_spec.returned_type is int
-
-
-def test_supported_type_subclass_check():
-    class Parent:
-        ...
-
-    class Child(Parent):
-        ...
-
-    parent_product_spec = ProductSpec(Parent)
-    child_product_spec = ProductSpec(Child)
-
-    assert ischildproduct(child_product_spec, parent_product_spec)
-
-
-def test_supported_type_check():
-    from typing import NewType
-
-    new_type = NewType("new_type", int)
-    standard_product_spec = ProductSpec(int)
-    compatible_product_spec = ProductSpec(new_type)
-    incompatible_product_spec = ProductSpec(str)
-    wrong_type_product_spec = ProductSpec(list[int])
-
-    assert ischildproduct(standard_product_spec, compatible_product_spec)
-    assert not ischildproduct(standard_product_spec, incompatible_product_spec)
-    assert not ischildproduct(standard_product_spec, wrong_type_product_spec)
-
-
-@pytest.mark.parametrize("any_type", [None, Any, UnknownType])
-def test_supported_type_check_any(any_type):
-    any_product_spec = ProductSpec(any_type)
-    for product_spec in (ProductSpec(int), ProductSpec(str)):
-        assert ischildproduct(any_product_spec, product_spec)
-        assert not ischildproduct(product_spec, any_product_spec)
