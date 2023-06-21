@@ -5,14 +5,14 @@ import pytest
 from beamlime.communication.pipes import Pipe
 
 
-def test_pipeobject_exceed_max_chunk_size_limit_raises():
+def test_pipe_exceed_max_chunk_size_limit_raises():
     from beamlime.communication.pipes import MAX_CHUNK_SIZE
 
     with pytest.raises(ValueError):
         Pipe(chunk_size=MAX_CHUNK_SIZE + 1)
 
 
-def test_pipeobject_exceed_max_pipe_size_limit_raises():
+def test_pipe_exceed_max_pipe_size_limit_raises():
     from beamlime.communication.pipes import MAX_BUFFER_SIZE
 
     with pytest.raises(ValueError):
