@@ -98,15 +98,15 @@ def test_temporary_provider_compatible_new_type():
 def test_temporary_provider_incompatible_type_raises():
     from beamlime.constructors import MismatchingProductTypeError, temporary_provider
 
+    from .preset_binder import Joke
+
     class BinaryJoke(str):
         ...
 
-    def how_many_problems_i_have() -> BinaryJoke:
-        return BinaryJoke("0b1100011")
+    def how_many_problems_i_have() -> Joke:
+        return Joke("0b1100011")
 
     with context_binder(TestBinder) as _:
-        from .preset_binder import Joke
-
         with pytest.raises(MismatchingProductTypeError):
-            with temporary_provider(Joke, how_many_problems_i_have):
+            with temporary_provider(BinaryJoke, how_many_problems_i_have):
                 ...
