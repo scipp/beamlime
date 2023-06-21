@@ -94,3 +94,19 @@ def test_insufficient_annotation_raises():
     with pytest.raises(InsufficientAnnotationError):
         with temporary_provider(int, confusing_func) as binder:
             binder[int]()
+
+
+def test_new_provider_with_args():
+    from functools import partial
+
+    from beamlime.constructors.providers import Provider
+
+    from .preset_binder import make_a_joke, orange_joke
+
+    expected_constructor = partial(make_a_joke, orange_joke)
+    provider = Provider(make_a_joke, orange_joke)
+    assert provider.constructor.func == expected_constructor.func
+    assert provider.constructor.args == expected_constructor.args
+    assert provider.constructor.keywords == expected_constructor.keywords
+    assert make_a_joke() != orange_joke
+    assert provider() == orange_joke

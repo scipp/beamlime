@@ -21,6 +21,7 @@ from .contexts import (
     partial_provider,
     temporary_provider,
 )
+from .generics import GenericProvider
 from .inspectors import InsufficientAnnotationError
 
 Container = _Container()

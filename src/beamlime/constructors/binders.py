@@ -114,6 +114,37 @@ class Binder:
         else:
             ...
 
+    def find_generic_provider(self, generic_tp: type):
+        """
+        Find a ``GenericProvider`` of origin of ``generic_tp``
+        and create a provider with a partial function
+        from the ``GenericProvider`` constructor.
+
+        The constructor(provider) of origin of ``generic_tp``
+        should take ``generic_tp`` as the first positional argument.
+
+        It will register the new provider into the binder
+        and return it.
+        """
+        from typing import get_origin
+
+        from .binders import ProviderNotFoundError
+        from .generics import GenericProvider
+
+        if (origin := get_origin(generic_tp)) is not None and (
+            _provider := self[origin]
+        ).can_provide(GenericProvider):
+            from functools import partial
+
+            from .contexts import context_binder
+
+            with context_binder() as binder:
+                # Cache the generic type for easier usage next time.
+                binder[generic_tp] = partial(_provider, generic_tp)
+                return binder[generic_tp]
+
+        raise ProviderNotFoundError
+
     def items(self):
         return self._providers.items()
 
@@ -150,6 +181,11 @@ class Binder:
         Retrieve a provider call by the ``product type``.
         """
         if product_type not in self._providers:
+            try:
+                return self.find_generic_provider(product_type)
+            except ProviderNotFoundError:
+                ...
+
             product_label = (
                 product_type.__name__
                 if hasattr(product_type, "__name__")
@@ -188,7 +224,7 @@ class Binder:
                     f"Provider for ``{product_type.__name__}`` "
                     f"already exist. ``{existing_provider.call_name}``"
                 )
-        elif not new_provider_call.issupported(product_type):
+        elif not new_provider_call.can_provide(product_type):
             raise MismatchingProductTypeError(
                 f"{product_type} can not be provided by "
                 f"{new_provider_call.constructor}"

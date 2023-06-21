@@ -83,24 +83,41 @@ def get_product_spec(callable_obj: Callable) -> ProductSpec:
     If ``callable_obj`` is a function, it is a return type annotation,
     and if ``callable_obj`` is a class, it is the class itself.
     """
+    from functools import partial
+
     if isinstance(callable_obj, type):
         return ProductSpec(callable_obj)
+    elif isinstance(callable_obj, partial):
+        return get_product_spec(callable_obj.func)
     else:
         product = collect_arg_typehints(callable_obj).get("return", UnknownType)
         validate_annotation(product)
         return ProductSpec(product)
 
 
-def issubproduct(_subproduct: ProductSpec, _baseproduct: ProductSpec) -> bool:
+def ischildproduct(_child: ProductSpec, _base: ProductSpec) -> bool:
     """
-    Check if the ``_subproduct`` is a sub class of the ``_baseproduct``.
+    Check if the ``_child`` is a sub class of
+    the ``_base`` or the origin of the ``_base``.
+
+    If a provider has a product type of ``dict`` (_child),
+    it can provide ``dict[int]``.
     """
-    if _baseproduct.returned_type in (None, Any, UnknownType):
+    from typing import get_origin
+
+    _child_tp = _child.returned_type
+    if _child_tp in (None, Any, UnknownType):
         return True
+
+    _base_tp = _base.returned_type
     try:
-        return _subproduct.returned_type == _baseproduct.returned_type or issubclass(
-            _subproduct.returned_type, _baseproduct.returned_type
-        )
+        if _child_tp == _base_tp or issubclass(_child_tp, _base_tp):
+            return True
+    except TypeError:
+        ...
+
+    try:
+        return issubclass(_child_tp, get_origin(_base_tp))
     except TypeError:
         return False
 
@@ -123,18 +140,16 @@ def collect_argument_dep_specs(callable_obj: Callable) -> Dict[str, DependencySp
 
     arg_params = signature(callable_obj).parameters
     type_hints = collect_arg_typehints(callable_obj)
-    if any(
-        (
-            missing_params := [
-                param_name
-                for param_name, param_spec in arg_params.items()
-                if (
-                    param_name not in type_hints
-                    and param_spec.default == Signature.empty
-                )
-            ]
+    missing_params = [
+        param_name
+        for param_name, param_spec in arg_params.items()
+        if (
+            param_name not in type_hints
+            and param_spec.default == Signature.empty
+            and param_name not in ("args", "kwargs")
         )
-    ):
+    ]
+    if missing_params:
         raise InsufficientAnnotationError(
             f"Annotations for {missing_params} are not sufficient."
             "Each argument needs a type hint or a default value."
