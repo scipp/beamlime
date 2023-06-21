@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager, contextmanager
 from queue import Empty, Full
-from typing import Dict, Generic, Iterator, List, Type, TypeVar, Union
+from typing import AsyncIterator, Dict, Generic, Iterator, List, Type, TypeVar, Union
 
 from ..constructors import GenericProvider
 from ..empty_binders import IncompletePipeBinder
@@ -167,7 +167,7 @@ class Pipe(GenericProvider, _Buffer, Generic[BufferData]):
     @asynccontextmanager
     async def open_async_readable(
         self, timeout: int = 0, retry_interval: float = 0
-    ) -> Iterator[AsyncReadableBuffer]:
+    ) -> AsyncIterator[AsyncReadableBuffer]:
         """
         Yield an async buffer containing a copy of the first chunk of data.
         """

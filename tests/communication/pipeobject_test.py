@@ -2,25 +2,25 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 import pytest
 
-from beamlime.communication.pipes import PipeObject
+from beamlime.communication.pipes import Pipe
 
 
-def test_pipeobject_exceed_max_chunk_size_limit_raises():
+def test_pipe_exceed_max_chunk_size_limit_raises():
     from beamlime.communication.pipes import MAX_CHUNK_SIZE
 
     with pytest.raises(ValueError):
-        PipeObject(chunk_size=MAX_CHUNK_SIZE + 1)
+        Pipe(chunk_size=MAX_CHUNK_SIZE + 1)
 
 
-def test_pipeobject_exceed_max_pipe_size_limit_raises():
+def test_pipe_exceed_max_pipe_size_limit_raises():
     from beamlime.communication.pipes import MAX_BUFFER_SIZE
 
     with pytest.raises(ValueError):
-        PipeObject(max_size=MAX_BUFFER_SIZE + 1)
+        Pipe(max_size=MAX_BUFFER_SIZE + 1)
 
 
 def test_pipe_write_single():
-    pipe = PipeObject()
+    pipe = Pipe()
     sample_data_piece = [1, 2, 3]
     pipe.write(sample_data_piece)
     assert len(pipe) == 1
@@ -29,7 +29,7 @@ def test_pipe_write_single():
 
 
 def test_pipe_write_all():
-    pipe = PipeObject()
+    pipe = Pipe()
     sample_data_1 = [1, 2, 3]
     sample_data_2 = [4, 5, 6]
     sample_data_chunk = [sample_data_1, sample_data_2]
@@ -45,7 +45,7 @@ def test_pipe_write_all():
 def test_pipe_write_single_full_raises():
     from queue import Full
 
-    pipe = PipeObject(max_size=0)
+    pipe = Pipe(max_size=0)
     with pytest.raises(Full):
         pipe.write(None)
 
@@ -53,14 +53,14 @@ def test_pipe_write_single_full_raises():
 def test_pipe_write_chunk_full_raises():
     from queue import Full
 
-    pipe = PipeObject(max_size=3)
+    pipe = Pipe(max_size=3)
     pipe.write(None)
     with pytest.raises(Full):
         pipe.write_all([None] * 3)
 
 
 def create_initialized_pipe(chunk_size=3, initial_data_len=3):
-    pipe = PipeObject(chunk_size=chunk_size)
+    pipe = Pipe(chunk_size=chunk_size)
     sample_data_chunk = [
         list(range(ith_piece * 3, (ith_piece + 1) * 3))
         for ith_piece in range(initial_data_len)
@@ -113,7 +113,7 @@ def test_pipe_read_timeout():
     pipe, _ = create_initialized_pipe(initial_data_len=0)
     started = time.time()
     with pytest.raises(Empty):
-        with pipe.open_readable(timeout=timeout, retrial_interval=0.1) as _:
+        with pipe.open_readable(timeout=timeout, retry_interval=0.1) as _:
             ...
 
     consumed = time.time() - started

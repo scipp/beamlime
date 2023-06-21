@@ -11,14 +11,12 @@ def test_pipe_singleton_per_type():
 
 
 def test_pipe_dependency_injection():
-    from beamlime.communication import Pipe, PipeObject, pipe
-    from beamlime.constructors import Container, Providers, local_providers
+    """Test if the pipe of the same type always returns the same object."""
+    from beamlime.communication import Pipe
+    from beamlime.complete_binders import PipeBinder
+    from beamlime.constructors import Container, context_binder
 
-    with local_providers():
-        p: Pipe[int] = Pipe(data_type=int)
-        assert isinstance(p, PipeObject)
-        assert isinstance(p, Pipe)
-        assert isinstance(p, pipe)
-        assert pipe(data_type=int) is pipe(data_type=int)
-        assert Providers[Pipe[int]]() is pipe(data_type=int)
-        assert Container[Pipe[int]] is p
+    with context_binder(PipeBinder) as binder:
+        pipe = binder[Pipe[int]]()
+        assert pipe is binder[Pipe[int]]()
+        assert Container[Pipe[int]] is pipe
