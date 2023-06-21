@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from beamlime.constructors.inspectors import ProductSpec, UnknownType, issubproduct
+from beamlime.constructors.inspectors import ProductSpec, UnknownType, ischildproduct
 
 
 def test_product_spec_compare():
@@ -40,6 +40,19 @@ def test_new_type_underlying_type_retrieved():
     assert product_spec.returned_type is int
 
 
+def test_supported_type_subclass_check():
+    class Parent:
+        ...
+
+    class Child(Parent):
+        ...
+
+    parent_product_spec = ProductSpec(Parent)
+    child_product_spec = ProductSpec(Child)
+
+    assert ischildproduct(child_product_spec, parent_product_spec)
+
+
 def test_supported_type_check():
     from typing import NewType
 
@@ -49,14 +62,14 @@ def test_supported_type_check():
     incompatible_product_spec = ProductSpec(str)
     wrong_type_product_spec = ProductSpec(list[int])
 
-    assert issubproduct(standard_product_spec, compatible_product_spec)
-    assert not issubproduct(standard_product_spec, incompatible_product_spec)
-    assert not issubproduct(standard_product_spec, wrong_type_product_spec)
+    assert ischildproduct(standard_product_spec, compatible_product_spec)
+    assert not ischildproduct(standard_product_spec, incompatible_product_spec)
+    assert not ischildproduct(standard_product_spec, wrong_type_product_spec)
 
 
 @pytest.mark.parametrize("any_type", [None, Any, UnknownType])
 def test_supported_type_check_any(any_type):
     any_product_spec = ProductSpec(any_type)
     for product_spec in (ProductSpec(int), ProductSpec(str)):
-        assert issubproduct(product_spec, any_product_spec)
-        assert not issubproduct(any_product_spec, product_spec)
+        assert ischildproduct(any_product_spec, product_spec)
+        assert not ischildproduct(product_spec, any_product_spec)
