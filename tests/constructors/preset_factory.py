@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import NewType
 
-from beamlime.constructors import Binder
+from beamlime.constructors import Factory
 
 GoodTelling = NewType("GoodTelling", str)
 sweet_reminder = "Drink some water!"
@@ -15,10 +15,10 @@ orange_joke = "Orange... you glad that I didn't say orange?"
 Status = NewType("Status", str)
 adult_default_status = Status("I want to go home.")
 
-TestBinder = Binder()
+test_factory = Factory()
 
 
-@TestBinder.provider
+@test_factory.provider
 def give_a_good_telling(good_telling: str = sweet_reminder) -> GoodTelling:
     return GoodTelling(good_telling)
 
@@ -31,12 +31,13 @@ def make_another_joke(joke: str = orange_joke) -> Joke:
     return Joke(joke)
 
 
+@test_factory.provider
 class Adult:
     good_telling: GoodTelling
     status: Status = adult_default_status
 
 
-@TestBinder.provider
+@test_factory.provider
 @dataclass
 class Parent(Adult):
     joke: Joke
@@ -51,7 +52,7 @@ class Parent(Adult):
         return self.status
 
 
-def create_binder(_tp, value):
-    binder = Binder()
-    binder[_tp] = lambda: value
-    return binder
+def create_factory(_tp, value):
+    factory = Factory()
+    factory.register(_tp, lambda: value)
+    return factory

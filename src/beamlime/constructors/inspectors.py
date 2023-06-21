@@ -1,6 +1,9 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+# Helper functions for parsing type hints and annotation of a callable object.
+
 from __future__ import annotations
 
-from inspect import Signature
 from typing import Any, Callable, Dict, Literal, Type, TypeVar, Union
 
 
@@ -19,24 +22,14 @@ class UnknownType:
 def validate_annotation(annotation) -> Literal[True]:
     """
     Check if the origin of the annotation is not Union.
+
+    If it for later implementation of Union type handling.
     """
     from typing import get_origin
 
     if get_origin(annotation) == Union:
         raise NotImplementedError("Union annotation is not supported yet.")
     return True
-
-
-def collect_arg_typehints(callable_obj: Callable) -> Dict[str, Any]:
-    from functools import partial
-    from typing import get_type_hints
-
-    if isinstance(callable_obj, type):
-        return get_type_hints(callable_obj.__init__)  # type: ignore[misc]
-    elif isinstance(callable_obj, partial):
-        return get_type_hints(callable_obj.func)
-    else:
-        return get_type_hints(callable_obj)
 
 
 Product = TypeVar("Product")
@@ -77,49 +70,27 @@ class ProductSpec:
             return self.product_type == __value.product_type
 
 
+def collect_arg_typehints(callable_obj: Callable) -> Dict[str, Any]:
+    from typing import get_type_hints
+
+    if isinstance(callable_obj, type):
+        return get_type_hints(callable_obj.__init__)
+    else:
+        return get_type_hints(callable_obj)
+
+
 def get_product_spec(callable_obj: Callable) -> ProductSpec:
     """
     Retrieve the product of provider.
     If ``callable_obj`` is a function, it is a return type annotation,
     and if ``callable_obj`` is a class, it is the class itself.
     """
-    from functools import partial
-
     if isinstance(callable_obj, type):
         return ProductSpec(callable_obj)
-    elif isinstance(callable_obj, partial):
-        return get_product_spec(callable_obj.func)
     else:
         product = collect_arg_typehints(callable_obj).get("return", UnknownType)
         validate_annotation(product)
         return ProductSpec(product)
-
-
-def ischildproduct(_child: ProductSpec, _base: ProductSpec) -> bool:
-    """
-    Check if the ``_child`` is a sub class of
-    the ``_base`` or the origin of the ``_base``.
-
-    If a provider has a product type of ``dict`` (_child),
-    it can provide ``dict[int]``.
-    """
-    from typing import get_origin
-
-    _child_tp = _child.returned_type
-    if _child_tp in (None, Any, UnknownType):
-        return True
-
-    _base_tp = _base.returned_type
-    try:
-        if _child_tp == _base_tp or issubclass(_child_tp, _base_tp):
-            return True
-    except TypeError:
-        ...
-
-    try:
-        return issubclass(_child_tp, get_origin(_base_tp))
-    except TypeError:
-        return False
 
 
 class DependencySpec:  # TODO: Can be written in dataclass when mypy problem is resolved
@@ -134,7 +105,7 @@ class DependencySpec:  # TODO: Can be written in dataclass when mypy problem is 
 
 def collect_argument_dep_specs(callable_obj: Callable) -> Dict[str, DependencySpec]:
     """
-    Collect Dependencies from the signuatre and type hints.
+    Collect Dependencies from the signature and type hints.
     """
     from inspect import signature
 
@@ -142,12 +113,8 @@ def collect_argument_dep_specs(callable_obj: Callable) -> Dict[str, DependencySp
     type_hints = collect_arg_typehints(callable_obj)
     missing_params = [
         param_name
-        for param_name, param_spec in arg_params.items()
-        if (
-            param_name not in type_hints
-            and param_spec.default == Signature.empty
-            and param_name not in ("args", "kwargs")
-        )
+        for param_name in arg_params
+        if ((param_name not in ("args", "kwargs")) and (param_name not in type_hints))
     ]
     if missing_params:
         raise InsufficientAnnotationError(

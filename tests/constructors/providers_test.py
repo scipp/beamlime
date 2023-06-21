@@ -2,33 +2,24 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 import pytest
 
-from beamlime.constructors import ProviderNotFoundError, clean_binder, context_binder
+from beamlime.constructors import Factory, ProviderNotFoundError
+from beamlime.constructors.providers import Provider
 
-from .preset_binder import TestBinder
+from .preset_factory import test_factory
 
 
 def test_provider_not_exist_rasies():
-    with clean_binder() as binder:
-        with pytest.raises(ProviderNotFoundError):
-            binder[bool]
+    factory = Factory()
+    with pytest.raises(ProviderNotFoundError):
+        factory[bool]
 
 
 def test_provider_function_call():
-    from .preset_binder import Joke, make_a_joke
+    from .preset_factory import Joke, make_a_joke
 
-    with context_binder(TestBinder) as binder:
-        binder[Joke] = make_a_joke
-        assert binder[Joke].constructor == make_a_joke
-        assert binder[Joke]() == make_a_joke()
-
-
-def test_provider_function_call_with_arguments():
-    from .preset_binder import GoodTelling
-
-    good_telling_1 = "Sleep early!"
-    with context_binder(TestBinder) as binder:
-        assert binder[GoodTelling](good_telling=good_telling_1) == good_telling_1
-        assert binder[GoodTelling](good_telling_1) == good_telling_1
+    with test_factory.local_factory() as factory:
+        factory.register(Joke, make_a_joke)
+        assert factory[Joke] == make_a_joke()
 
 
 def test_unknown_provider_call_raises():
@@ -39,74 +30,34 @@ def test_unknown_provider_call_raises():
 
 
 def test_provider_class():
-    from .preset_binder import Parent
+    from .preset_factory import Adult
 
-    with context_binder(TestBinder) as binder:
-        assert binder[Parent].constructor == Parent
+    assert isinstance(test_factory[Adult], Adult)
+
+
+def test_provider_partial():
+    from functools import partial
+
+    from .preset_factory import make_a_joke, orange_joke
+
+    provider = Provider(partial(make_a_joke, joke=orange_joke))
+    assert make_a_joke != provider()
+    assert provider() == orange_joke
 
 
 def test_provider_compare_with_wrong_type_raises():
-    from .preset_binder import Parent
-
-    with context_binder(TestBinder) as binder:
-        with pytest.raises(NotImplementedError):
-            assert binder[Parent] == Parent
-
-
-def test_provider_incomplete_class_arguments_rasies():
-    from .preset_binder import Parent
-
-    with context_binder(TestBinder) as binder:
-        with pytest.raises(ProviderNotFoundError):
-            binder[Parent]()
-
-
-def test_provider_incomplete_class_attributes_rasies():
-    class IncompleteClass:
-        attribute: str
-
-    with clean_binder() as binder:
-        binder[IncompleteClass] = IncompleteClass
-        binder[IncompleteClass]  # Provider of incomplete class exists.
-        with pytest.raises(ProviderNotFoundError):
-            binder[IncompleteClass]()  # Provider of attribute does not exist.
-
-
-def test_union_annotation_raises():
-    from typing import Union
-
-    from beamlime.constructors import temporary_provider
-
-    def confusing_func(_: Union[float, int]) -> Union[float, int]:
-        return _
-
+    provider = Provider(lambda: 0)
     with pytest.raises(NotImplementedError):
-        with temporary_provider(int, confusing_func):
-            ...
-
-
-def test_insufficient_annotation_raises():
-    from beamlime.constructors import InsufficientAnnotationError, temporary_provider
-
-    def confusing_func(_) -> int:
-        return _
-
-    with pytest.raises(InsufficientAnnotationError):
-        with temporary_provider(int, confusing_func) as binder:
-            binder[int]()
+        assert provider == test_provider_compare_with_wrong_type_raises
 
 
 def test_new_provider_with_args():
-    from functools import partial
-
     from beamlime.constructors.providers import Provider
 
-    from .preset_binder import make_a_joke, orange_joke
+    from .preset_factory import make_a_joke, orange_joke
 
-    expected_constructor = partial(make_a_joke, orange_joke)
+    expected_constructor = make_a_joke
     provider = Provider(make_a_joke, orange_joke)
-    assert provider.constructor.func == expected_constructor.func
-    assert provider.constructor.args == expected_constructor.args
-    assert provider.constructor.keywords == expected_constructor.keywords
-    assert make_a_joke() != orange_joke
-    assert provider() == orange_joke
+    assert provider.constructor == expected_constructor
+    assert orange_joke in provider.args
+    assert provider.constructor(*provider.args) == provider() == orange_joke

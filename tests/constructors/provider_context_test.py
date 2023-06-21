@@ -1,112 +1,95 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+from typing import NewType
+
 import pytest
 
 from beamlime.constructors import ProviderNotFoundError
-from beamlime.constructors.contexts import context_binder
 
-from .preset_binder import TestBinder
+from .preset_factory import Joke, test_factory
 
 
 def test_partial_provider():
-    from beamlime.constructors import partial_provider
+    from .preset_factory import Joke, Parent, lime_joke, sweet_reminder
 
-    from .preset_binder import Joke, Parent, lime_joke, sweet_reminder
+    with test_factory.partial_provider(Parent, joke=Joke(lime_joke)):
+        _parent: Parent = test_factory[Parent]
+        assert _parent.give_a_good_telling() == sweet_reminder
+        assert _parent.make_a_joke() == lime_joke
 
-    with context_binder(TestBinder) as binder:
-        binder[Parent]
-        with partial_provider(Parent, joke=Joke(lime_joke)):
-            _parent: Parent = binder[Parent]()
-            assert _parent.give_a_good_telling() == sweet_reminder
-            assert _parent.make_a_joke() == lime_joke
-
-        # partial provider should be destroyed.
-        with pytest.raises(ProviderNotFoundError):
-            binder[Parent]()
+    # partial provider should be destroyed.
+    with pytest.raises(ProviderNotFoundError):
+        test_factory[Parent]
 
 
 def test_partial_of_non_existing_provider_raises():
     """You can only create a partial provider from the existing one."""
-    from beamlime.constructors import partial_provider
+    from .preset_factory import Joke
 
-    from .preset_binder import Joke
-
-    with context_binder(TestBinder) as _:
+    with test_factory.local_factory() as factory:
         with pytest.raises(ProviderNotFoundError):
-            with partial_provider(Joke):
+            with factory.partial_provider(Joke):
                 ...
 
 
 def test_constant_provider():
-    from beamlime.constructors import constant_provider
-
     another_lime_joke = (
         "Why are limes so observant?" "\n\n\n" "They're full of Vitamin See."
     )
-    with context_binder(TestBinder) as binder:
-        from .preset_binder import Joke, Parent
+    with test_factory.local_factory() as factory:
+        from .preset_factory import Joke, Parent
 
-        with constant_provider(Joke, Joke(another_lime_joke)):
-            _parent = binder[Parent]()
+        with factory.constant_provider(Joke, Joke(another_lime_joke)):
+            _parent = factory[Parent]
             assert _parent.make_a_joke() == another_lime_joke
 
         # Constant provider should be destroyed.
         with pytest.raises(ProviderNotFoundError):
-            binder[Joke]
+            factory[Joke]
+
+
+def make_anoter_lime_joke() -> Joke:
+    return Joke(
+        "Why did the lime go to hospital?" "\n\n\n" "Because she wasn't peeling well."
+    )
 
 
 def test_temporary_provider():
-    from beamlime.constructors import temporary_provider
+    from .preset_factory import Joke, Parent
 
-    from .preset_binder import Joke, Parent
+    with test_factory.temporary_provider(Joke, make_anoter_lime_joke):
+        _parent = test_factory[Parent]
+        assert _parent.make_a_joke() == make_anoter_lime_joke()
 
-    with context_binder(TestBinder) as binder:
+    # Temporary provider should be destroyed.
+    with pytest.raises(ProviderNotFoundError):
+        test_factory[Joke]
 
-        def make_anoter_lime_joke() -> Joke:
-            return Joke(
-                "Why did the lime go to hospital?"
-                "\n\n\n"
-                "Because she wasn't peeling well."
-            )
 
-        with temporary_provider(Joke, make_anoter_lime_joke):
-            _parent: Parent = binder[Parent]()
-            assert _parent.make_a_joke() == make_anoter_lime_joke()
+BinaryJoke = NewType("BinaryJoke", str)
 
-        # Temporary provider should be destroyed.
-        with pytest.raises(ProviderNotFoundError):
-            binder[Joke]
+
+def how_many_problems_i_have() -> BinaryJoke:
+    return BinaryJoke("0b1100011")
 
 
 def test_temporary_provider_compatible_new_type():
-    from typing import NewType
+    with test_factory.local_factory() as factory:
+        with factory.temporary_provider(Joke, how_many_problems_i_have):
+            assert factory[Joke] == bin(99)
 
-    from beamlime.constructors import temporary_provider
 
-    with context_binder(TestBinder) as binder:
-        from .preset_binder import Joke
+class HexJoke(str):
+    ...
 
-        BinaryJoke = NewType("BinaryJoke", str)
 
-        def how_many_problems_i_have() -> BinaryJoke:
-            return BinaryJoke("0b1100011")
-
-        with temporary_provider(Joke, how_many_problems_i_have):
-            assert binder[Joke]() == bin(99)
+def how_many_problems_i_hex() -> BinaryJoke:
+    return BinaryJoke("0x63")
 
 
 def test_temporary_provider_incompatible_type_raises():
-    from beamlime.constructors import MismatchingProductTypeError, temporary_provider
+    from beamlime.constructors import MismatchingProductTypeError
 
-    from .preset_binder import Joke
-
-    class BinaryJoke(str):
-        ...
-
-    def how_many_problems_i_have() -> Joke:
-        return Joke("0b1100011")
-
-    with context_binder(TestBinder) as _:
-        with pytest.raises(MismatchingProductTypeError):
-            with temporary_provider(BinaryJoke, how_many_problems_i_have):
-                ...
+    with pytest.raises(MismatchingProductTypeError):
+        with test_factory.temporary_provider(HexJoke, how_many_problems_i_hex):
+            ...

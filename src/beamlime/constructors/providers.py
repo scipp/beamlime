@@ -4,137 +4,97 @@ from __future__ import annotations
 
 from functools import partial
 from types import FunctionType, LambdaType
-from typing import Any, Callable, Dict, Union
+from typing import Callable, Dict, Literal, TypeVar, Union
 
-from .inspectors import DependencySpec, ProductSpec, ProductType
+from .inspectors import (
+    DependencySpec,
+    ProductSpec,
+    ProductType,
+    collect_argument_dep_specs,
+)
 
-
-def _find_attr_provider(dep_type: ProductType):
-    from .binders import ProviderNotFoundError
-    from .contexts import context_binder
-
-    with context_binder() as binder:
-        try:
-            return binder[dep_type]
-        except ProviderNotFoundError:
-            return UnknownProvider
+_Product = TypeVar("_Product")
+_lambda_name = (lambda: None).__qualname__
 
 
-class AttrSubProviders:
-    def __init__(self, _constructor: type) -> None:
-        """
-        Attribute annotations are retrieved by typing.get_type_hints.
-        """
-        from typing import get_type_hints
-
-        self._subproviders: Dict[str, Provider] = {
-            attr_name: _find_attr_provider(attr_type)
-            for attr_name, attr_type in get_type_hints(_constructor).items()
-        }
-
-    def inject_dependencies(self, incomplete_obj):
-        """
-        Check if the ``incomplete_obj`` has attribute dependencies to be filled.
-        If a provider is not found but the ``incomplete_obj`` already has the attribute,
-        it skips the attribute injection.
-
-        Raises
-        ------
-            ProviderNotFoundError:
-                If a provider is not found for the attribute and
-                the ``incomplete_obj`` still doesn't have the attribute.
-        """
-        for attr_name, attr_subprovider in self._subproviders.items():
-            if attr_subprovider is UnknownProvider and not hasattr(
-                incomplete_obj, attr_name
-            ):
-                from .binders import ProviderNotFoundError
-
-                raise ProviderNotFoundError(
-                    "Provider for the attribute " f"{attr_name} not found."
-                )
-            elif attr_subprovider is UnknownProvider:
-                ...  # Skip injecting dependency.
-            else:
-                setattr(incomplete_obj, attr_name, attr_subprovider())
-        return incomplete_obj
-
-
-def _find_arg_provider(arg_spec: DependencySpec):
-    from .binders import ProviderNotFoundError
-    from .contexts import context_binder
-
-    with context_binder() as binder:
-        try:
-            return binder[arg_spec.product_type]
-        except ProviderNotFoundError as err:
-            from inspect import Signature
-
-            from .inspectors import UnknownType
-
-            if (arg_spec.default_product != Signature.empty) or (
-                arg_spec.product_type == UnknownType
-            ):
-                return UnknownProvider
-            raise err
-
-
-class ArgSubProviders:
-    def __init__(self, _constructor: Callable) -> None:
-        from .inspectors import collect_argument_dep_specs
-
-        self._subproviders = {
-            arg_name: _prov
-            for arg_name, arg_spec in collect_argument_dep_specs(_constructor).items()
-            if (_prov := _find_arg_provider(arg_spec)) != UnknownProvider
-        }
-
-    def build_arguments(self) -> Dict[str, Any]:
-        return {arg_name: _prov() for arg_name, _prov in self._subproviders.items()}
+def _validate_callable_as_provider(callable_obj: Constructor) -> Literal[True]:
+    if (
+        not isinstance(callable_obj, partial)
+        and hasattr(callable_obj, "__name__")
+        and not (callable_obj.__name__ == _lambda_name)
+        and hasattr(callable_obj, "__qualname__")
+        and callable_obj.__qualname__ != callable_obj.__name__
+    ):
+        raise NotImplementedError(
+            "A member method of a class can not be " "registered as a provider yet."
+        )
+    return True
 
 
 class Provider:
     """
     Function wrapper that provides certain type of product.
+
+    Nested ``Provider`` is avoided similar to ``partial``.
+
     """
 
+    _constructor: Constructor
+    args: tuple
+    keywords: dict
+    product_spec: ProductSpec
+    arg_dep_specs: Dict[str, DependencySpec]
+
     def __new__(
-        cls, _provider_call: Union[Constructor, Provider], /, *args, **kwargs
-    ) -> None:
-        if isinstance(_provider_call, Provider):
-            # Nested ``Provider`` is avoided similar to ``partial``.
-            return Provider(_provider_call.constructor, *args, **kwargs)
-        elif isinstance(_provider_call, partial) and isinstance(
-            _provider_call.func, Provider
-        ):
-            partial_func = partial(
-                _provider_call.func.constructor,
-                *_provider_call.args,
-                **_provider_call.keywords,
+        cls, _constructor: Union[Constructor, Provider], /, *args, **kwargs
+    ) -> Provider:
+        if isinstance(_constructor, Provider):
+            return Provider(
+                _constructor.constructor,
+                *(*_constructor.args, *args),
+                **{**_constructor.keywords, **kwargs},
             )
-            return Provider(partial_func, *args, **kwargs)
+        elif isinstance(_constructor, partial):
+            return Provider(
+                _constructor.func,
+                *(*_constructor.args, *args),
+                **{**_constructor.keywords, **kwargs},
+            )
+
         else:
             return super().__new__(Provider)
 
     def __init__(
-        self, _provider_call: Union[Constructor, Provider], /, *args, **kwargs
+        self, _constructor: Union[Constructor, Provider], /, *args, **kwargs
     ) -> None:
         from .inspectors import get_product_spec
 
-        if isinstance(_provider_call, Provider):
-            ...
-        elif isinstance(_provider_call, partial) and isinstance(
-            _provider_call.func, Provider
-        ):
+        if isinstance(_constructor, (partial, Provider)):
             ...
         else:
-            if args or kwargs:
-                _constructor = partial(_provider_call, *args, **kwargs)
-            else:
-                _constructor = _provider_call
+            from inspect import signature
 
-            self._constructor: Constructor = _constructor
-            self.product_spec = get_product_spec(_constructor)
+            _validate_callable_as_provider(_constructor)
+            self._constructor = _constructor
+
+            self.args = args
+            self.keywords = kwargs
+
+            new_defaults = (
+                signature(_constructor).bind_partial(*args, **kwargs).arguments
+            )
+
+            self.arg_dep_specs = {
+                arg_name: DependencySpec(
+                    arg_spec.product_type,
+                    new_defaults.get(arg_name, arg_spec.default_product),
+                )
+                for arg_name, arg_spec in collect_argument_dep_specs(
+                    self.constructor
+                ).items()
+            }
+
+            self.product_spec = get_product_spec(self._constructor)
 
     @property
     def call_name(self) -> str:
@@ -145,30 +105,41 @@ class Provider:
         return self._constructor
 
     def can_provide(self, product_type: Union[ProductType, ProductSpec]):
-        """Check if the given ``product_type`` can be supported by this provider."""
-        from .inspectors import ischildproduct
+        """
+        Check if the given ``product_type`` can be supported by this provider.
+        Product type should be the same type as the returned type of this provider.
+        If they are not the same types,
+        the requested product type should be the parent class
+        of returned type of this provider.
+        """
+        from typing import Any, get_origin
 
-        return ischildproduct(self.product_spec, ProductSpec(product_type))
+        from .inspectors import UnknownType
+
+        requested_tp = ProductSpec(product_type).returned_type
+        provided_tp = self.product_spec.returned_type
+
+        if provided_tp in (None, Any, UnknownType):
+            return True
+
+        try:
+            if requested_tp == provided_tp or issubclass(provided_tp, requested_tp):
+                return True
+        except TypeError:
+            ...
+
+        try:
+            return issubclass(provided_tp, get_origin(requested_tp))
+        except TypeError:
+            return False
 
     def __call__(self, *args, **kwargs):
-        """Build and return the product with attribute dependencies injected."""
-        # TODO: Split this into two steps, build chain of sub-providers
-        # and call the providers.
-        _constructor: Constructor
-
-        if args or kwargs:
-            _constructor = partial(self.constructor, *args, **kwargs)
-        else:
-            _constructor = self.constructor
-        arg_subproviders = ArgSubProviders(_constructor)
-        _obj = _constructor(**arg_subproviders.build_arguments())
-        attr_subproviders = AttrSubProviders(_obj.__class__)
-        return attr_subproviders.inject_dependencies(_obj)
+        return self.constructor(*(*self.args, *args), **{**self.keywords, **kwargs})
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Provider):
             raise NotImplementedError(
-                "Comparison between Provider " "with other type is not supported."
+                "Comparison between Provider" " with other type is not supported."
             )
         else:
             return self.constructor is other.constructor
