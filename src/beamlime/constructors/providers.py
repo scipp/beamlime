@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from functools import partial
 from types import FunctionType, LambdaType
-from typing import Any, Callable, Dict, Union, final
+from typing import Any, Callable, Dict, Union
 
 from .inspectors import DependencySpec, ProductSpec, ProductType
 
@@ -72,9 +72,8 @@ def _find_arg_provider(arg_spec: DependencySpec):
 
             from .inspectors import UnknownType
 
-            if (
-                arg_spec.default_product != Signature.empty
-                or arg_spec.product_type == UnknownType
+            if (arg_spec.default_product != Signature.empty) or (
+                arg_spec.product_type == UnknownType
             ):
                 return UnknownProvider
             raise err
@@ -94,22 +93,48 @@ class ArgSubProviders:
         return {arg_name: _prov() for arg_name, _prov in self._subproviders.items()}
 
 
-@final
 class Provider:
-    def __new__(cls, _provider_call: Union[Constructor, Provider]) -> Provider:
+    """
+    Function wrapper that provides certain type of product.
+    """
+
+    def __new__(
+        cls, _provider_call: Union[Constructor, Provider], /, *args, **kwargs
+    ) -> None:
         if isinstance(_provider_call, Provider):
-            return _provider_call
+            # Nested ``Provider`` is avoided similar to ``partial``.
+            return Provider(_provider_call.constructor, *args, **kwargs)
+        elif isinstance(_provider_call, partial) and isinstance(
+            _provider_call.func, Provider
+        ):
+            partial_func = partial(
+                _provider_call.func.constructor,
+                *_provider_call.args,
+                **_provider_call.keywords,
+            )
+            return Provider(partial_func, *args, **kwargs)
         else:
             return super().__new__(Provider)
 
-    def __init__(self, _provider_call: Union[Constructor, Provider]) -> None:
+    def __init__(
+        self, _provider_call: Union[Constructor, Provider], /, *args, **kwargs
+    ) -> None:
+        from .inspectors import get_product_spec
+
         if isinstance(_provider_call, Provider):
             ...
+        elif isinstance(_provider_call, partial) and isinstance(
+            _provider_call.func, Provider
+        ):
+            ...
         else:
-            from .inspectors import get_product_spec
+            if args or kwargs:
+                _constructor = partial(_provider_call, *args, **kwargs)
+            else:
+                _constructor = _provider_call
 
-            self._provider_call: Constructor = _provider_call
-            self.product_spec = get_product_spec(_provider_call)
+            self._constructor: Constructor = _constructor
+            self.product_spec = get_product_spec(_constructor)
 
     @property
     def call_name(self) -> str:
@@ -117,13 +142,13 @@ class Provider:
 
     @property
     def constructor(self) -> Constructor:
-        return self._provider_call
+        return self._constructor
 
-    def issupported(self, product_type: Union[ProductType, ProductSpec]):
+    def can_provide(self, product_type: Union[ProductType, ProductSpec]):
         """Check if the given ``product_type`` can be supported by this provider."""
-        from .inspectors import issubproduct
+        from .inspectors import ischildproduct
 
-        return issubproduct(ProductSpec(product_type), self.product_spec)
+        return ischildproduct(self.product_spec, ProductSpec(product_type))
 
     def __call__(self, *args, **kwargs):
         """Build and return the product with attribute dependencies injected."""
