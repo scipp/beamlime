@@ -5,7 +5,10 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager, contextmanager
 from queue import Empty, Full
-from typing import Any, Dict, Generic, Iterator, List, Type, TypeVar, Union
+from typing import Dict, Generic, Iterator, List, Type, TypeVar, Union
+
+from ..constructors import GenericProvider
+from ..empty_binders import IncompletePipeBinder
 
 BufferData = TypeVar("BufferData")
 
@@ -81,7 +84,7 @@ class AsyncReadableBuffer(ReadableBuffer, Generic[BufferData]):
             return Empty
 
 
-class PipeObject(_Buffer):
+class Pipe(GenericProvider, _Buffer, Generic[BufferData]):
     """
     Pipe object can create a buffer to read a data from the pipe,
     or write a chunk or a piece of data into the pipe.
@@ -97,11 +100,9 @@ class PipeObject(_Buffer):
     def __init__(
         self,
         *,
-        data_type: Type[BufferData] = object,
         chunk_size: int = DEFAULT_CHUNK_SIZE,
         max_size: int = MAX_BUFFER_SIZE,
     ) -> None:
-        self.data_type = data_type
         self.chunk_size: int = chunk_size
         self.max_size: int = max_size
         self._data = list()
@@ -141,7 +142,7 @@ class PipeObject(_Buffer):
 
     @contextmanager
     def open_readable(
-        self, timeout: int = 0, retrial_interval: float = 0.1
+        self, timeout: int = 0, retry_interval: float = 0.1
     ) -> Iterator[ReadableBuffer]:
         """
         Yield a buffer containing a copy of the first chunk of data.
@@ -149,13 +150,9 @@ class PipeObject(_Buffer):
         from ..core.schedulers import retry
 
         if timeout:
-            max_retrials = int(timeout / retrial_interval)
+            max_trials = int(timeout / retry_interval) + 1
 
-            @retry(
-                Empty,
-                max_trials=max_retrials + 1,
-                interval=retrial_interval,
-            )
+            @retry(Empty, max_trials=max_trials, interval=retry_interval)
             def wait_for_data():
                 if not self._data:
                     raise Empty("There is no data left in the pipe.")
@@ -169,7 +166,7 @@ class PipeObject(_Buffer):
 
     @asynccontextmanager
     async def open_async_readable(
-        self, timeout: int = 0, retrial_interval: float = 0
+        self, timeout: int = 0, retry_interval: float = 0
     ) -> Iterator[AsyncReadableBuffer]:
         """
         Yield an async buffer containing a copy of the first chunk of data.
@@ -178,13 +175,9 @@ class PipeObject(_Buffer):
         from ..core.schedulers import async_retry
 
         if timeout:
-            max_retrials = int(timeout / retrial_interval)
+            max_trials = int(timeout / retry_interval) + 1
 
-            @async_retry(
-                Empty,
-                max_trials=max_retrials + 1,
-                interval=retrial_interval,
-            )
+            @async_retry(Empty, max_trials=max_trials, interval=retry_interval)
             async def wait_for_data():
                 if not self._data:
                     raise Empty("There is no data left in the pipe.")
@@ -228,25 +221,21 @@ class PipeObject(_Buffer):
         self._data.extend([copy(data) for data in data_chunk])
 
 
-class PipeMeta(type):
-    def __instancecheck__(self, __instance: Any) -> bool:
-        return isinstance(__instance, PipeObject)
-
-
-class pipe(PipeObject, Generic[BufferData], metaclass=PipeMeta):
-    _pipes: Dict[Type, PipeObject] = dict()
+class PipeProvider(Pipe, GenericProvider):
+    _pipes: Dict[Type, Pipe] = dict()
 
     def __new__(
         cls,
+        pipe_type: Type[Pipe[BufferData]],
         *,
-        data_type: Type[BufferData],
         chunk_size: int = DEFAULT_CHUNK_SIZE,
         max_size: int = MAX_BUFFER_SIZE,
     ):
-        if data_type in cls._pipes:
-            return cls._pipes[data_type]
+        if pipe_type in cls._pipes:
+            return cls._pipes[pipe_type]
         else:
-            cls._pipes[data_type] = PipeObject(
-                data_type=data_type, chunk_size=chunk_size, max_size=max_size
-            )
-            return cls._pipes[data_type]
+            cls._pipes[pipe_type] = Pipe(chunk_size=chunk_size, max_size=max_size)
+            return cls._pipes[pipe_type]
+
+
+IncompletePipeBinder[Pipe] = PipeProvider

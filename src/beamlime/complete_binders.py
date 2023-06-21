@@ -3,4 +3,5 @@
 # Accessible binders with all necessary providers filled in.
 # flake8: noqa F401
 
+from .communication.pipes import IncompletePipeBinder as PipeBinder
 from .logging.providers import IncompleteLoggingBinder as LoggingBinder

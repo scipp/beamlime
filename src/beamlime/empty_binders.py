@@ -5,3 +5,4 @@
 from .constructors import Binder
 
 IncompleteLoggingBinder = Binder()
+IncompletePipeBinder = Binder()

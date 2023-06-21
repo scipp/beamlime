@@ -2,5 +2,4 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # flake8: noqa F401
 
-from .pipes import PipeObject, pipe
-from .providers import Pipe
+from .pipes import Pipe
