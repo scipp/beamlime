@@ -85,7 +85,6 @@ class FactoryBase:
         """
         from typing import get_origin
 
-        print(generic_tp)
         if (
             (origin := get_origin(generic_tp)) is not None
             and origin in self._providers
