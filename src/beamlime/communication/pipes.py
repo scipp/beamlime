@@ -5,10 +5,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager, contextmanager
 from queue import Empty, Full
-from typing import AsyncIterator, Dict, Generic, Iterator, List, Type, TypeVar, Union
-
-from ..constructors import GenericProvider
-from ..empty_factory import empty_pipe_factory
+from typing import AsyncIterator, Generic, Iterator, List, Type, TypeVar, Union
 
 BufferData = TypeVar("BufferData")
 
@@ -84,7 +81,7 @@ class AsyncReadableBuffer(ReadableBuffer, Generic[BufferData]):
             return Empty
 
 
-class Pipe(GenericProvider, _Buffer, Generic[BufferData]):
+class Pipe(_Buffer, Generic[BufferData]):
     """
     Pipe object can create a buffer to read a data from the pipe,
     or write a chunk or a piece of data into the pipe.
@@ -219,31 +216,3 @@ class Pipe(GenericProvider, _Buffer, Generic[BufferData]):
         if len(self._data) + len(data_chunk) > self.max_size:
             raise Full(f"Pipe is full. There are {self.max_size} pieces of data.")
         self._data.extend([copy(data) for data in data_chunk])
-
-
-class PipeLine:
-    _pipes: Dict[Type, Pipe] = dict()
-
-    @classmethod
-    def build_pipe(
-        cls,
-        pipe_type: Type[Pipe[BufferData]],
-        *,
-        chunk_size: int = DEFAULT_CHUNK_SIZE,
-        max_size: int = MAX_BUFFER_SIZE,
-    ):
-        if pipe_type in cls._pipes:
-            return cls._pipes[pipe_type]
-        else:
-            cls._pipes[pipe_type] = Pipe(chunk_size=chunk_size, max_size=max_size)
-            return cls._pipes[pipe_type]
-
-
-@empty_pipe_factory.provider
-def pipe_builder(
-    pipe_type: Type[Pipe[BufferData]],
-    *,
-    chunk_size: int = DEFAULT_CHUNK_SIZE,
-    max_size: int = MAX_BUFFER_SIZE,
-) -> Pipe:
-    return PipeLine.build_pipe(pipe_type, chunk_size=chunk_size, max_size=max_size)
