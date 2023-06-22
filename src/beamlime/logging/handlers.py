@@ -8,7 +8,7 @@ from typing import NewType, Optional
 
 from colorama import Style
 
-from ..empty_binders import empty_log_factory
+from ..empty_factory import empty_log_factory
 from .formatters import (
     BeamlimeHeaderFormatter,
     BeamlimeLogMessage,

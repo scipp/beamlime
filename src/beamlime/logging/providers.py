@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Literal, NewType, Optional
 
-from ..empty_binders import empty_log_factory
+from ..empty_factory import empty_log_factory
 from .handlers import BeamlimeFileHandler, BeamlimeStreamHandler
 
 LOG_LEVELS = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
