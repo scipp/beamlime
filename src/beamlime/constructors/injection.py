@@ -122,6 +122,8 @@ class InjectionInterface(RegistrationInterface):
     def inject_dependencies(self, _obj: _Product) -> _Product:
         """
         Check if the ``incomplete_obj`` has attribute dependencies to be filled.
+        If ``incomplete_obj`` is missing any attribute with type hint,
+        or if the attribute is None, the dependency will be assembled and injected.
         If a provider is not found but the ``incomplete_obj`` already has the attribute,
         it skips the attribute injection.
 
@@ -138,16 +140,12 @@ class InjectionInterface(RegistrationInterface):
         _attrs: Dict[str, Any] = {
             _attr_name: self.build_attr_dependency(attr_type)
             for _attr_name, attr_type in get_type_hints(_obj.__class__).items()
+            if not hasattr(_obj, _attr_name) or getattr(_obj, _attr_name) is None
         }
-
-        def _is_missing(attr, attr_name: str):
-            return attr is Empty and not hasattr(_obj, attr_name)
 
         if any(
             missing_attrs := [
-                _attr_name
-                for _attr_name, _attr in _attrs.items()
-                if _is_missing(_attr, _attr_name)
+                _attr_name for _attr_name, _attr in _attrs.items() if _attr is Empty
             ]
         ):
             raise ProviderNotFoundError(
