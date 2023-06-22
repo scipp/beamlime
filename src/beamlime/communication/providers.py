@@ -9,10 +9,19 @@ from .pipes import BufferData, Pipe
 
 
 class PipeLine:
+    """
+    PipeLine class that contains all data pipes.
+
+    There should be only 1 pipe for each type.
+
+    If the requested type of pipe doesn't exist,
+    it create one and returns the pipe.
+    """
+
     _pipes: Dict[Type, Pipe] = dict()
 
     @classmethod
-    def build_pipe(cls, pipe_type: Type[Pipe[BufferData]]):
+    def connect_pipe(cls, pipe_type: Type[Pipe[BufferData]]) -> Pipe[BufferData]:
         if pipe_type in cls._pipes:
             return cls._pipes[pipe_type]
         else:
@@ -21,4 +30,8 @@ class PipeLine:
 
 
 def pipe_builder(pipe_type: Type[Pipe[BufferData]]) -> Pipe:
-    return PipeLine.build_pipe(pipe_type)
+    """
+    Pipe provider helper function.
+    It can be used with partial to create a specific type of pipe.
+    """
+    return PipeLine.connect_pipe(pipe_type)
