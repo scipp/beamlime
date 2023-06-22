@@ -11,14 +11,10 @@ def test_pipe_singleton_per_type():
 
 
 def test_pipe_dependency_injection():
-    from beamlime.communication import Pipe, PipeObject, pipe
-    from beamlime.constructors import Container, Providers, local_providers
+    from beamlime.communication import Pipe
+    from beamlime.communication.pipes import PipeLine
+    from beamlime.ready_factory import pipe_factory
 
-    with local_providers():
-        p: Pipe[int] = Pipe(data_type=int)
-        assert isinstance(p, PipeObject)
-        assert isinstance(p, Pipe)
-        assert isinstance(p, pipe)
-        assert pipe(data_type=int) is pipe(data_type=int)
-        assert Providers[Pipe[int]]() is pipe(data_type=int)
-        assert Container[Pipe[int]] is p
+    p: Pipe[int] = PipeLine.build_pipe(Pipe[int])
+    assert isinstance(p, Pipe)
+    assert pipe_factory[Pipe[int]] is p
