@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from threading import RLock
 from typing import Iterator, NewType
 
-from ..empty_binders import empty_log_factory
+from ..empty_factory import empty_log_factory
 
 TimeStamp = NewType("TimeStamp", str)
 
