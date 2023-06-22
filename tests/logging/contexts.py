@@ -7,12 +7,12 @@ import logging
 from contextlib import contextmanager
 from typing import Iterator
 
-from beamlime.complete_binders import LoggingBinder
-from beamlime.constructors import Binder, context_binder
+from beamlime.constructors import Factory
+from beamlime.ready_factory import log_factory
 
 
 @contextmanager
-def local_logger_binder() -> Iterator[Binder]:
+def local_logger_factory() -> Iterator[Factory]:
     """
     Keep a copy of logger names in logging.Logger.manager.loggerDict
     and remove newly added loggers at the end of the context
@@ -23,8 +23,8 @@ def local_logger_binder() -> Iterator[Binder]:
 
     original_logger_names = list(logging.Logger.manager.loggerDict.keys())
     try:
-        with context_binder(LoggingBinder) as binder:
-            yield binder
+        with log_factory.local_factory() as local_log_factory:
+            yield local_log_factory
     finally:
         extra_logger_names = [
             logger_name
