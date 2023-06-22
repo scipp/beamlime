@@ -146,15 +146,14 @@ class Pipe(_Buffer, Generic[BufferData]):
         """
         from ..core.schedulers import retry
 
-        if timeout:
-            max_trials = int(timeout / retry_interval) + 1
+        max_trials = int(timeout / retry_interval) + 1
 
-            @retry(Empty, max_trials=max_trials, interval=retry_interval)
-            def wait_for_data():
-                if not self._data:
-                    raise Empty("There is no data left in the pipe.")
+        @retry(Empty, max_trials=max_trials, interval=retry_interval)
+        def wait_for_data():
+            if not self._data:
+                raise Empty("There is no data left in the pipe.")
 
-            wait_for_data()
+        wait_for_data()
         try:
             with self._open_readable(ReadableBuffer) as _buffer:
                 yield _buffer
@@ -163,7 +162,7 @@ class Pipe(_Buffer, Generic[BufferData]):
 
     @asynccontextmanager
     async def open_async_readable(
-        self, timeout: int = 0, retry_interval: float = 0
+        self, timeout: int = 0, retry_interval: float = 0.1
     ) -> AsyncIterator[AsyncReadableBuffer]:
         """
         Yield an async buffer containing a copy of the first chunk of data.
@@ -171,15 +170,14 @@ class Pipe(_Buffer, Generic[BufferData]):
 
         from ..core.schedulers import async_retry
 
-        if timeout:
-            max_trials = int(timeout / retry_interval) + 1
+        max_trials = int(timeout / retry_interval) + 1
 
-            @async_retry(Empty, max_trials=max_trials, interval=retry_interval)
-            async def wait_for_data():
-                if not self._data:
-                    raise Empty("There is no data left in the pipe.")
+        @async_retry(Empty, max_trials=max_trials, interval=retry_interval)
+        async def wait_for_data():
+            if not self._data:
+                raise Empty("There is no data left in the pipe.")
 
-            await wait_for_data()
+        await wait_for_data()
 
         try:
             with self._open_readable(AsyncReadableBuffer) as _buffer:
