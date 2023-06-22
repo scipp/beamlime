@@ -74,7 +74,10 @@ def collect_arg_typehints(callable_obj: Callable) -> Dict[str, Any]:
     from typing import get_type_hints
 
     if isinstance(callable_obj, type):
-        return get_type_hints(callable_obj.__init__)
+        # TODO: When the callable_obj is a class,
+        # investigating ``__init__`` of the class should be okay
+        # but may replace this to the better solution and remove type check ignore tag.
+        return get_type_hints(callable_obj.__init__)  # type: ignore[misc]
     else:
         return get_type_hints(callable_obj)
 
