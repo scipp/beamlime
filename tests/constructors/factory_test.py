@@ -14,6 +14,12 @@ from .preset_factory import (
 )
 
 
+def test_provider_not_exist_rasies():
+    factory = Factory()
+    with pytest.raises(ProviderNotFoundError):
+        factory[bool]
+
+
 def test_provider_incomplete_class_arguments_rasies():
     from .preset_factory import Parent
 

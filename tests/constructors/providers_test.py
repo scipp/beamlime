@@ -2,16 +2,26 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 import pytest
 
-from beamlime.constructors import Factory, ProviderNotFoundError
+from beamlime.constructors import ProviderNotFoundError
 from beamlime.constructors.providers import Provider
 
 from .preset_factory import test_factory
 
 
-def test_provider_not_exist_rasies():
+def test_provider_can_provide_mismatching_type():
+    from typing import NewType
+
+    from beamlime.constructors import Factory, MismatchingProductTypeError
+
+    from .preset_factory import make_a_joke
+
     factory = Factory()
-    with pytest.raises(ProviderNotFoundError):
-        factory[bool]
+    with pytest.raises(MismatchingProductTypeError):
+        factory.register(None, make_a_joke)
+
+    WrongType = NewType("WrongType", int)
+    with pytest.raises(MismatchingProductTypeError):
+        factory.register(WrongType, make_a_joke)
 
 
 def test_provider_function_call():

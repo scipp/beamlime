@@ -8,5 +8,4 @@ from .base import (
     ProviderNotFoundError,
 )
 from .factories import Factory
-from .generics import GenericProvider
 from .inspectors import InsufficientAnnotationError

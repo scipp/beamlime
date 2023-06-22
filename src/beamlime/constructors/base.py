@@ -6,7 +6,6 @@ from __future__ import annotations
 from types import MappingProxyType
 from typing import Dict, Tuple, TypeVar
 
-from .generics import GenericProvider
 from .inspectors import ProductType
 from .providers import Provider, UnknownProvider
 
@@ -26,7 +25,7 @@ class ProviderNotFoundError(Exception):
 
 
 def _is_conflicting(tp: ProductType, factories: Tuple[FactoryBase, ...]):
-    _providers = [factory[tp] for factory in factories if tp in factory]
+    _providers = [factory.providers[tp] for factory in factories if tp in factory]
     if _providers:
         _standard = _providers.pop()
         if any([_provider for _provider in _providers if _provider != _standard]):
@@ -63,43 +62,8 @@ class FactoryBase:
     def catalogue(self) -> frozenset[ProductType]:
         return frozenset(self.providers.keys())
 
-    def create_generic_provider(self, generic_tp: type):
-        """
-        Find a ``GenericProvider`` of origin of ``generic_tp``
-        and create a provider with a partial function
-        from the ``GenericProvider`` constructor.
-
-        The constructor(provider) of origin of ``generic_tp``
-        should take ``generic_tp`` as the first positional argument.
-
-        The origin of the ``generic_tp`` should be a subclass of ``GenericProvider``.
-
-        Returns
-        -------
-            True:
-                It will register the new provider and return True.
-
-            False:
-                If it can not create the provider of ``generic_tp``.
-
-        """
-        from typing import get_origin
-
-        if (
-            (origin := get_origin(generic_tp)) is not None
-            and origin in self._providers
-            and issubclass(origin, GenericProvider)
-        ):
-            _constructor = Provider(self._providers[origin], generic_tp)
-            self.register(generic_tp, _constructor)
-            return True
-        else:
-            return False
-
     def find_provider(self, product_type: ProductType):
-        if product_type not in self._providers and not self.create_generic_provider(
-            product_type
-        ):
+        if product_type not in self._providers:
             product_label = (
                 product_type.__name__
                 if hasattr(product_type, "__name__")
