@@ -6,9 +6,9 @@ import scipp as _  # noqa F401
 
 
 def test_get_logger_default():
-    from .contexts import local_logger_binder
+    from .contexts import local_logger_factory
 
-    with local_logger_binder():
+    with local_logger_factory():
         from beamlime.logging import get_logger
 
         default_logger = get_logger()
@@ -17,21 +17,19 @@ def test_get_logger_default():
 
 
 def test_logger_provider():
-    from beamlime.constructors import Container
+    from .contexts import local_logger_factory
 
-    from .contexts import local_logger_binder
-
-    with local_logger_binder():
+    with local_logger_factory() as factory:
         from beamlime.logging import BeamlimeLogger, get_logger
 
-        assert Container[BeamlimeLogger] is get_logger()
-        assert Container[BeamlimeLogger].name == "beamlime"
+        assert factory[BeamlimeLogger] is get_logger()
+        assert factory[BeamlimeLogger].name == "beamlime"
 
 
 def test_get_scipp_logger():
-    from .contexts import local_logger_binder
+    from .contexts import local_logger_factory
 
-    with local_logger_binder():
+    with local_logger_factory():
         from beamlime.logging import get_scipp_logger
 
         scipp_logger = get_scipp_logger(widget=False)
@@ -39,9 +37,9 @@ def test_get_scipp_logger():
 
 
 def test_get_scipp_logger_set_level():
-    from .contexts import local_logger_binder
+    from .contexts import local_logger_factory
 
-    with local_logger_binder():
+    with local_logger_factory():
         from logging import DEBUG
 
         from beamlime.logging import get_scipp_logger

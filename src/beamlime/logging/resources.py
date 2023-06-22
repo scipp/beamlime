@@ -8,12 +8,12 @@ from contextlib import contextmanager
 from threading import RLock
 from typing import Iterator, NewType
 
-from ..empty_binders import IncompleteLoggingBinder
+from ..empty_binders import empty_log_factory
 
 TimeStamp = NewType("TimeStamp", str)
 
 
-@IncompleteLoggingBinder.provider
+@empty_log_factory.provider
 def create_time_stamp() -> TimeStamp:
     """
     Creates a timestamp with the format, ``{cur_timestamp}--{h_time}``.
@@ -33,10 +33,33 @@ DefaultPrefix = LogFilePrefix("beamlime")
 LogFileExtension = NewType("LogFileExtension", str)
 DefaultFileExtension = LogFileExtension("log")
 
+LogDirectoryPath = NewType("LogDirectoryPath", str)
+
+DirectoryCreated = NewType("DirectoryCreated", bool)
+
+
+@empty_log_factory.provider
+def initialize_log_dir(dir_path: LogDirectoryPath) -> DirectoryCreated:
+    """
+    Create the directory if it does not exist.
+    Raises an error if the desired path is an existing file.
+    """
+    import os
+
+    if os.path.exists(dir_path) and not os.path.isdir(dir_path):
+        raise FileExistsError(
+            f"{dir_path} is a file. " "It should either not exist or be a directory."
+        )
+    elif not os.path.exists(dir_path):
+        os.mkdir(dir_path)
+
+    return True
+
+
 LogFileName = NewType("LogFileName", str)
 
 
-@IncompleteLoggingBinder.provider
+@empty_log_factory.provider
 def create_log_file_name(
     time_stamp: TimeStamp,
     prefix: LogFilePrefix = DefaultPrefix,
@@ -46,35 +69,25 @@ def create_log_file_name(
     return LogFileName(f"{prefix}--{time_stamp}.{suffix}")
 
 
-LogDirectoryPath = NewType("LogDirectoryPath", str)
 FileHandlerBasePath = NewType("FileHandlerBasePath", str)
 
 
-@IncompleteLoggingBinder.provider
+@empty_log_factory.provider
 def create_log_file_path(
-    *, parent_dir: LogDirectoryPath, file_name: LogFileName
+    directory_ready: DirectoryCreated = True,
+    *,
+    parent_dir: LogDirectoryPath,
+    file_name: LogFileName,
 ) -> FileHandlerBasePath:
     """
     Create a log file path joining ``parent_dir`` and ``file_name``,
     check if the file name already exists and returns the file name.
     It will wait 0.001 second if the file name exists.
 
-    Examples
-    --------
-    To use different prefix or extension, try
-    >>> from beamlime.constructors import Container, partial_provider, constant_provider
-    >>> with constant_provider(LogDirectoryPath, './'):
-    ...   with constant_provider(LogFileName, 'beanline.txt'):
-    ...     Container[FileHandlerBasePath]
-    './beanline.txt'
-
     """
-    from os.path import exists, join
+    from os.path import join
 
-    if exists((file_path := join(parent_dir, file_name))):
-        raise FileExistsError(f"{file_path} already exists.")
-
-    return FileHandlerBasePath(file_path)
+    return FileHandlerBasePath(join(parent_dir, file_name))
 
 
 @contextmanager

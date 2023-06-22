@@ -8,7 +8,7 @@ from typing import NewType, Optional
 
 from colorama import Style
 
-from ..empty_binders import IncompleteLoggingBinder
+from ..empty_binders import empty_log_factory
 from .formatters import (
     BeamlimeHeaderFormatter,
     BeamlimeLogMessage,
@@ -47,23 +47,19 @@ class _HeaderMixin:
 
 BeamlimeFileFormatter = NewType("BeamlimeFileFormatter", BeamlimeHeaderFormatter)
 DefaultBeamlimeFileFormatter = BeamlimeFileFormatter(DefaultFormatter)
+empty_log_factory.register(BeamlimeFileFormatter, lambda: DefaultBeamlimeFileFormatter)
 
 
-@IncompleteLoggingBinder.provider
+@empty_log_factory.provider
 class BeamlimeFileHandler(_HeaderMixin, FileHandler):
-    formatter: BeamlimeFileFormatter
+    __formatter: BeamlimeFileFormatter = DefaultBeamlimeFileFormatter
 
-    def __init__(
-        self,
-        filename: FileHandlerBasePath,
-        *,
-        mode="a",
-        encoding=None,
-        delay=False,
-        errors=None,
-    ) -> None:
-        super().__init__(filename, mode, encoding, delay, errors)
-        self.formatter = DefaultBeamlimeFileFormatter
+    def __init__(self, filename: FileHandlerBasePath) -> None:
+        self.baseFilename = filename
+
+    def initialize(self):
+        super().__init__(self.baseFilename)
+        self.formatter = self.__formatter
 
 
 class _ColorLogRecord(LogRecord):
@@ -86,7 +82,7 @@ BeamlimeStreamFormatter = NewType("BeamlimeStreamFormatter", BeamlimeHeaderForma
 DefaultBeamlimeStreamFormatter = BeamlimeStreamFormatter(ColoredFormatter)
 
 
-@IncompleteLoggingBinder.provider
+@empty_log_factory.provider
 class BeamlimeStreamHandler(_HeaderMixin, StreamHandler):
     formatter: BeamlimeStreamFormatter
 

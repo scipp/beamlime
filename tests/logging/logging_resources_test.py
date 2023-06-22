@@ -3,9 +3,6 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from beamlime.constructors import Container, constant_provider
 from beamlime.logging.resources import (
     FileHandlerBasePath,
     LogDirectoryPath,
@@ -18,7 +15,7 @@ from beamlime.logging.resources import (
     create_log_file_path,
 )
 
-from .contexts import local_logger_binder
+from .contexts import local_logger_factory
 
 
 @patch("beamlime.logging.resources.time.time")
@@ -53,18 +50,18 @@ def test_create_log_file_name():
 
 def test_log_file_name_provider():
     """Test helper context test."""
-    with local_logger_binder():
+    with local_logger_factory() as factory:
         file_prefix = LogFilePrefix("beanline")
         timestamp = TimeStamp("rightnow")
         file_extension = LogFileExtension("leaf")
 
-        with constant_provider(LogFilePrefix, file_prefix):
-            with constant_provider(TimeStamp, timestamp):
-                with constant_provider(LogFileExtension, file_extension):
-                    assert Container[LogFileName] == "beanline--rightnow.leaf"
+        with factory.constant_provider(LogFilePrefix, file_prefix):
+            with factory.constant_provider(TimeStamp, timestamp):
+                with factory.constant_provider(LogFileExtension, file_extension):
+                    assert factory[LogFileName] == "beanline--rightnow.leaf"
 
-        with constant_provider(TimeStamp, timestamp):
-            assert Container[LogFileName] == "beamlime--rightnow.log"
+        with factory.constant_provider(TimeStamp, timestamp):
+            assert factory[LogFileName] == "beamlime--rightnow.log"
 
 
 def test_create_log_file_path():
@@ -74,33 +71,20 @@ def test_create_log_file_path():
     log_file = LogFileName("tmp.log")
     expected_path = Path(log_dir) / Path(log_file)
     assert (
-        Path(create_log_file_path(parent_dir=log_dir, file_name=log_file))
+        Path(create_log_file_path(True, parent_dir=log_dir, file_name=log_file))
         == expected_path
     )
 
 
 def test_create_log_file_path_provider():
     """Test helper context test."""
-    with local_logger_binder():
+    with local_logger_factory() as factory:
         log_dir = LogDirectoryPath("tmp")
         log_file = LogFileName("tmp.log")
         expected_path = Path(log_dir) / Path(log_file)
-        with constant_provider(LogDirectoryPath, log_dir):
-            with constant_provider(LogFileName, log_file):
-                assert Path(Container[FileHandlerBasePath]) == expected_path
-
-
-def test_create_log_file_path_file_exists_raises():
-    """Test helper context test."""
-    from inspect import getsourcefile
-
-    this_file_path = Path(getsourcefile(test_create_log_file_name))
-    existing_dir = this_file_path.parent
-    existing_filename = this_file_path.parts[-1]
-    from beamlime.logging.resources import create_log_file_path
-
-    with pytest.raises(FileExistsError):
-        create_log_file_path(parent_dir=existing_dir, file_name=existing_filename)
+        with factory.constant_provider(LogDirectoryPath, log_dir):
+            with factory.constant_provider(LogFileName, log_file):
+                assert Path(factory[FileHandlerBasePath]) == expected_path
 
 
 def test_cleanup_file_handlers(tmp_path: Path):
@@ -113,6 +97,7 @@ def test_cleanup_file_handlers(tmp_path: Path):
     tmp_file = tmp_path / "tmp.log"
     logger = Logger("_")
     hdlr = BeamlimeFileHandler(tmp_file)
+    hdlr.initialize()
     logger.addHandler(hdlr)
     assert hdlr in logger.handlers
     os.remove(tmp_file)

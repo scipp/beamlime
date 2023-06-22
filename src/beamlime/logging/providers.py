@@ -5,16 +5,15 @@ from __future__ import annotations
 import logging
 from typing import Literal, NewType, Optional
 
-from ..empty_binders import IncompleteLoggingBinder
+from ..empty_binders import empty_log_factory
 from .handlers import BeamlimeFileHandler, BeamlimeStreamHandler
-from .resources import LogDirectoryPath
 
 LOG_LEVELS = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 
 BeamlimeLogger = NewType("BeamlimeLogger", logging.Logger)
 
 
-@IncompleteLoggingBinder.provider
+@empty_log_factory.provider
 def get_logger(verbose: bool = True) -> BeamlimeLogger:
     """
     Retrieves a logger by ``name``.
@@ -45,7 +44,7 @@ DefaultWidgetFlag = ScippWidgetFlag(True)
 ScippLogger = NewType("ScippLogger", logging.Logger)
 
 
-@IncompleteLoggingBinder.provider
+@empty_log_factory.provider
 def get_scipp_logger(
     log_level: Optional[LOG_LEVELS] = None,
     widget: ScippWidgetFlag = DefaultWidgetFlag,
@@ -71,29 +70,12 @@ def get_scipp_logger(
     return ScippLogger(scipp_logger)
 
 
-def _create_log_root_dir(dir_path: LogDirectoryPath) -> None:
-    """
-    Create the directory if it does not exist.
-    Raises an error if the desired path is an existing file.
-    """
-    import os
-
-    if os.path.exists(dir_path) and not os.path.isdir(dir_path):
-        raise FileExistsError(
-            f"{dir_path} is a file. " "It should either not exist or be a directory."
-        )
-    elif not os.path.exists(dir_path):
-        os.mkdir(dir_path)
-
-    return None
-
-
 FileHandlerConfigured = NewType("FileHandlerConfigured", bool)
 
 
-@IncompleteLoggingBinder.provider
+@empty_log_factory.provider
 def initialize_file_handler(
-    logger: BeamlimeLogger, dir_path: LogDirectoryPath
+    logger: BeamlimeLogger, file_handler: BeamlimeFileHandler
 ) -> FileHandlerConfigured:
     """
     Add a file handler to the ``logger``.
@@ -103,8 +85,6 @@ def initialize_file_handler(
     To adjust file name with different prefix or extension,
     see ``create_log_file_path``.
     """
-
-    from ..constructors import Container, constant_provider
     from .resources import cleanup_file_handlers
 
     cleanup_file_handlers(logger)
@@ -119,10 +99,8 @@ def initialize_file_handler(
         )
         return FileHandlerConfigured(True)
 
-    with constant_provider(LogDirectoryPath, dir_path):
-        _create_log_root_dir(dir_path)
-        new_handler = Container[BeamlimeFileHandler]
-        logger.info(f"Start collecting logs into {new_handler.baseFilename}")
-        logger.addHandler(new_handler)
+    file_handler.initialize()
+    logger.info(f"Start collecting logs into {file_handler.baseFilename}")
+    logger.addHandler(file_handler)
 
     return FileHandlerConfigured(True)
