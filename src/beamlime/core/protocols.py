@@ -24,3 +24,28 @@ class BeamlimeLoggingProtocol(Protocol):  # pragma: no cover
 
     def error(self, msg: str, *args) -> None:
         ...
+
+
+@runtime_checkable
+class ControlProtocol(Protocol):
+    """Application Control Protocol"""
+
+    @property
+    def started(self) -> bool:
+        ...
+
+    @property
+    def paused(self) -> bool:
+        ...
+
+    def start(self):
+        ...
+
+    def stop(self):
+        ...
+
+    def pause(self):
+        ...
+
+    def resume(self):
+        ...
