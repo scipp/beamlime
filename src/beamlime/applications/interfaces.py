@@ -7,12 +7,51 @@ from abc import ABC, abstractmethod
 from typing import Callable, NewType
 
 from ..core.schedulers import async_retry
+from ..empty_factory import empty_app_factory as app_factory
+from ..logging import BeamlimeLogger
 from ..logging.mixins import LogMixin
-from .controller import (
-    ApplicationNotResumedError,
-    ApplicationNotStartedError,
-    ControlInterface,
-)
+
+StartedFlag = NewType("StartedFlag", bool)
+default_started = StartedFlag(False)
+
+PausedFlag = NewType("PausedFlag", bool)
+default_paused = PausedFlag(False)
+
+
+class ApplicationNotStartedError(Exception):
+    ...
+
+
+class ApplicationNotResumedError(Exception):
+    ...
+
+
+class ControlInterface(LogMixin):
+    """Command Board singleon that all applications will share."""
+
+    logger: BeamlimeLogger
+    started: StartedFlag = default_started
+    paused: PausedFlag = default_paused
+
+    def start(self):
+        self.started = StartedFlag(True)
+        self.debug("Start command received.")
+
+    def stop(self):
+        self.started = StartedFlag(False)
+        self.debug("Stop command received.")
+
+    def pause(self):
+        self.paused = StartedFlag(True)
+        self.debug("Paused command received.")
+
+    def resume(self):
+        self.paused = StartedFlag(False)
+        self.debug("Resume command received.")
+
+
+app_factory.cache_product(ControlInterface, ControlInterface)
+
 
 Timeout = NewType("Timeout", float)
 WaitInterval = NewType("WaitInterval", float)
@@ -100,6 +139,7 @@ class BeamlimeApplicationInterface(
     LogMixin,
     CoroutineInterface,
 ):
+    logger: BeamlimeLogger
     """
     Beamlime Application Interface
 
