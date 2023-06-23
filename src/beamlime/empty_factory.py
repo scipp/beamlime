@@ -6,3 +6,4 @@ from .constructors import Factory
 
 empty_log_factory = Factory()
 empty_pipe_factory = Factory()
+empty_app_factory = Factory()

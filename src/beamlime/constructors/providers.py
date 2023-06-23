@@ -142,7 +142,26 @@ class Provider:
                 "Comparison between Provider" " with other type is not supported."
             )
         else:
-            return self.constructor is other.constructor
+            if self.constructor is other.constructor:
+                my_arg_spec_names = set(self.arg_dep_specs.keys())
+                other_arg_spec_names = set(other.arg_dep_specs.keys())
+                spec_names = my_arg_spec_names.union(other_arg_spec_names)
+                if not (
+                    len(spec_names)
+                    == len(my_arg_spec_names)
+                    == len(other_arg_spec_names)
+                ):
+                    return False
+                else:
+                    for spec_name in spec_names:
+                        if (
+                            self.arg_dep_specs[spec_name].default_product
+                            != other.arg_dep_specs[spec_name].default_product
+                        ):
+                            return False
+                    return True
+            else:
+                return False
 
 
 def unknown_provider_call():

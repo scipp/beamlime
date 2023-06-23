@@ -8,9 +8,9 @@ from typing import Any, Dict, Type
 from .base import (
     FactoryBase,
     MismatchingProductTypeError,
+    Product,
     ProviderExistsError,
     ProviderNotFoundError,
-    _Product,
 )
 from .inspectors import DependencySpec, ProductType, UnknownType
 from .providers import Constructor, Provider
@@ -94,7 +94,7 @@ class InjectionInterface(RegistrationInterface):
 
     def build_arg_dependency(self, arg_spec: DependencySpec):
         try:
-            return self.assemble(arg_spec.product_type)
+            return self._assemble(arg_spec.product_type)
         except ProviderNotFoundError as err:
             from inspect import Signature
 
@@ -115,11 +115,11 @@ class InjectionInterface(RegistrationInterface):
 
     def build_attr_dependency(self, dep_type: ProductType):
         try:
-            return self.assemble(dep_type)
+            return self._assemble(dep_type)
         except ProviderNotFoundError:
             return Empty
 
-    def inject_dependencies(self, _obj: _Product) -> _Product:
+    def inject_dependencies(self, _obj: Product) -> Product:
         """
         Check if the ``incomplete_obj`` has attribute dependencies to be filled.
         If ``incomplete_obj`` is missing any attribute with type hint,
@@ -164,7 +164,7 @@ class InjectionInterface(RegistrationInterface):
                 setattr(_obj, _attr_name, _attr)
         return _obj
 
-    def assemble(self, product_type: Type[_Product]) -> _Product:
+    def _assemble(self, product_type: Type[Product]) -> Product:
         _provider = self.find_provider(product_type)
         kwargs = {**self.build_arguments(_provider), **_provider.keywords}
         _obj = _provider.constructor(*_provider.args, **kwargs)

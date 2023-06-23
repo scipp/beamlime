@@ -6,9 +6,10 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Iterator, List, Tuple, Type, TypeVar, Union
 
-from .base import _Product
+from .base import Product, ProviderExistsError
 from .contexts import FactoryContextInterface
-from .providers import Constructor
+from .inspectors import ProductType
+from .providers import Constructor, Provider
 
 _Separator = TypeVar("_Separator")
 
@@ -28,6 +29,20 @@ def merge(*factories: Factory):
     return factory
 
 
+class ProviderPlaceHolderCalledError(Exception):
+    ...
+
+
+def raise_provider_placeholder_called_error():
+    err_msg = (
+        "Place holder provider is called. " "Delayed registration is not done yet."
+    )
+    raise ProviderPlaceHolderCalledError(err_msg)
+
+
+provider_place_holder = Provider(raise_provider_placeholder_called_error)
+
+
 class Factory(FactoryContextInterface):
     """
     Dependency injection object.
@@ -38,6 +53,8 @@ class Factory(FactoryContextInterface):
 
     def __init__(self, *__initials: Union[Constructor, Factory]) -> None:
         self._providers = dict()
+        self._delayed_registers_todo = dict()
+        self._delayed_registers_done = dict()
 
         if __initials:
             _factories, _non_factories = _split_by_type(__initials, Factory)
@@ -48,11 +65,19 @@ class Factory(FactoryContextInterface):
         else:
             ...
 
-    def __getitem__(self, product_type: Type[_Product]) -> _Product:
+    def __getitem__(self, product_type: Type[Product]) -> Product:
         """
         Retrieve an object created by provider of the ``product type``.
         """
-        return self.assemble(product_type)
+        while self._delayed_registers_todo:
+            _delayed_tp, _register = self._delayed_registers_todo.popitem()
+            self._delayed_registers_done[_delayed_tp] = _register
+            _register(self)
+
+        try:
+            return self._assemble(product_type)
+        except RecursionError:
+            raise RecursionError(f"Failed due to circular dependency of {product_type}")
 
     @contextmanager
     def local_factory(self, *factories: Factory) -> Iterator[Factory]:
@@ -80,3 +105,40 @@ class Factory(FactoryContextInterface):
                 "+ operation between Factory and other type is not supported."
             )
         return Factory(self, __other)
+
+    def cache_product(
+        self, product_type: ProductType, provider_call: Constructor
+    ) -> None:
+        """
+        Assemble the product and return the same object every time it is requested.
+
+        The provider place holder will be registered and
+        the real provider call will be registered at the beginning of ``__getitem__``.
+        After the delayed call is run, it will be removed from the ``todo`` list
+        and saved into ``done`` list.
+
+        When the factory is merged to the other one,
+        the delayed call will be moved to ``todo`` list again,
+        and it will be registered at the new factory upon the ``__getitem__`` called.
+
+        It means the product is only cached within the instance of ``Factory``.
+        """
+        with self.temporary_provider(product_type, provider_call):
+            ...  # Check if the provider is valid for the product type.
+
+        self.register(product_type, provider_place_holder)
+
+        def delayed_register(_factory: Factory):
+            if self.find_provider(product_type) == provider_place_holder:
+                with _factory.temporary_provider(product_type, provider_call):
+                    _singleton_product = _factory[product_type]
+
+                _factory.pop(product_type)
+                _factory.register(product_type, lambda: _singleton_product)
+            else:
+                raise ProviderExistsError(
+                    f"Delayed registration of {product_type} is not done "
+                    "due to existing provider."
+                )
+
+        self._delayed_registers_todo[product_type] = delayed_register

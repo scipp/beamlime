@@ -4,12 +4,12 @@
 from __future__ import annotations
 
 from types import MappingProxyType
-from typing import Dict, Tuple, TypeVar
+from typing import Any, Callable, Dict, List, Tuple, TypeVar
 
 from .inspectors import ProductType
 from .providers import Provider, UnknownProvider
 
-_Product = TypeVar("_Product")
+Product = TypeVar("Product")
 
 
 class ProviderExistsError(Exception):
@@ -24,16 +24,27 @@ class ProviderNotFoundError(Exception):
     ...
 
 
-def _is_conflicting(tp: ProductType, factories: Tuple[FactoryBase, ...]):
-    _providers = [factory.providers[tp] for factory in factories if tp in factory]
-    if _providers:
-        _standard = _providers.pop()
-        if any([_provider for _provider in _providers if _provider != _standard]):
+def _has_conflicts(_overlapped: List[Any]):
+    if _overlapped:
+        _standard = _overlapped.pop()
+        if any([_property for _property in _overlapped if _property != _standard]):
             return True
     return False
 
 
-def check_conflicting_providers(*factories: FactoryBase):
+def _is_conflicting(tp: ProductType, factories: Tuple[FactoryBase, ...]):
+    _providers = [factory.providers[tp] for factory in factories if tp in factory]
+
+    _delayed_tasks = [
+        factory.delayed_registers[tp]
+        for factory in factories
+        if tp in factory.delayed_registers
+    ]
+
+    return _has_conflicts(_providers) or _has_conflicts(_delayed_tasks)
+
+
+def check_conflicting_factories(*factories: FactoryBase):
     from functools import reduce
 
     tp_set_list = [set(tp for tp in factory) for factory in factories]
@@ -44,22 +55,31 @@ def check_conflicting_providers(*factories: FactoryBase):
         conflicted = {tp for tp in tp_set if _is_conflicting(tp, factories)}
         # If there is any conflicting providers
         if any(conflicted):
-            raise ProviderExistsError(
-                "Binders have conflicting providers" f" {conflicted}"
-            )
+            raise ProviderExistsError(f"There are conflicting factories {conflicted}")
 
 
 class FactoryBase:
     """Magic methods and properties handling internal provider dictionary."""
 
     _providers: Dict[ProductType, Provider]
+    _delayed_registers_todo: Dict[ProductType, Callable]
+    _delayed_registers_done: Dict[ProductType, Callable]
 
     @property
     def providers(self) -> MappingProxyType[ProductType, Provider]:
+        """Mapping proxy of providers."""
         return MappingProxyType(self._providers)
 
     @property
+    def delayed_registers(self) -> MappingProxyType[ProductType, Provider]:
+        """Mapping proxy of delayed register calls (todo or done)."""
+        return MappingProxyType(
+            {**self._delayed_registers_todo, **self._delayed_registers_done}
+        )
+
+    @property
     def catalogue(self) -> frozenset[ProductType]:
+        """Frozen set of the product type that the factory can produce."""
         return frozenset(self.providers.keys())
 
     def find_provider(self, product_type: ProductType):
@@ -76,14 +96,20 @@ class FactoryBase:
         return iter(self._providers)
 
     def __len__(self):
+        """Number of product type that the factory can produce."""
         return len(self._providers)
 
     def __merge__(self, *__others: FactoryBase):
-        """Merge providers after checking overlap."""
-        check_conflicting_providers(self, *__others)
+        """
+        Merge other factories after checking conflicts.
+        ``providers`` and ``delayed_registers`` should not conflict.
+        """
+        check_conflicting_factories(self, *__others)
         for _factory in __others:
             for _product_type, _provider in _factory.providers.items():
                 self._providers[_product_type] = _provider
+            for _product_type, _delayed in _factory.delayed_registers.items():
+                self._delayed_registers_todo[_product_type] = _delayed
         return self
 
     def __iadd__(self, __other: object):
