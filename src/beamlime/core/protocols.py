@@ -27,7 +27,7 @@ class BeamlimeLoggingProtocol(Protocol):  # pragma: no cover
 
 
 @runtime_checkable
-class ControlProtocol(Protocol):
+class ControlProtocol(Protocol):  # pragma: no cover
     """Application Control Protocol"""
 
     @property
@@ -52,7 +52,7 @@ class ControlProtocol(Protocol):
 
 
 @runtime_checkable
-class DaemonProtocol(Protocol):
+class DaemonProtocol(Protocol):  # pragma: no cover
     """General Coroutine Protocol"""
 
     @property

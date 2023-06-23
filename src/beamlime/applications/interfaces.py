@@ -43,7 +43,7 @@ class CoroutineInterface(ABC):
         and try the check again until it reaches maximum trials.
         """
         # TODO: Handle maximum of max_trials and minimum of wait_interval.
-        max_trials = int(self.timeout / self.wait_interval)
+        max_trials = int(self.timeout / self.wait_interval) + 1
         _check = async_retry(
             *exceptions, max_trials=max_trials, interval=self.wait_interval
         )(status_indicator)
@@ -93,7 +93,7 @@ class CoroutineInterface(ABC):
         """
         Application coroutine.
         """
-        ...
+        ...  # pragma: no cover
 
 
 class BeamlimeApplicationInterface(

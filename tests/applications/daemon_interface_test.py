@@ -16,8 +16,20 @@ class Daemon(CoroutineInterface):
         self.timeout = 0
         self.logger = Logger("Daemon")
 
-    def run(self):
-        ...
+    async def delay_start(self, delayed=0.2):
+        import asyncio
+
+        await asyncio.sleep(delayed)
+        self._command.start()
+
+    async def run(self, delayed=0.2):
+        await self.delay_start(delayed)
+        if await self.can_start(wait_on_true=True):
+            import time
+
+            return time.time()
+        else:
+            return -1
 
 
 @pytest.mark.asyncio
@@ -61,3 +73,20 @@ async def test_coroutine_running_stop_false():
     app._command.stop()
     assert not app._command.started and not app._command.paused
     assert not await app.running(wait_on_true=False)
+
+
+@pytest.mark.asyncio
+async def test_coroutine_can_start_delayed():
+    import time
+
+    app = Daemon()
+    initial_time = time.time()
+
+    app.timeout = 0.5
+    app.wait_interval = 0.1
+
+    finished = await app.run(delayed=0.2)
+
+    assert finished != -1
+    assert 0.5 > (finished - initial_time) > 0.2
+    assert await app.can_start()
