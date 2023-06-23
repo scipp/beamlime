@@ -49,3 +49,26 @@ class ControlProtocol(Protocol):
 
     def resume(self):
         ...
+
+
+@runtime_checkable
+class DaemonProtocol(Protocol):
+    """General Coroutine Protocol"""
+
+    @property
+    def timeout(self) -> float:
+        ...
+
+    @property
+    def wait_interval(self) -> float:
+        ...
+
+    async def can_start(self) -> bool:
+        ...
+
+    async def running(self) -> bool:
+        ...
+
+    async def run(self):
+        """Application coroutine to be run in the event loop."""
+        ...
