@@ -101,7 +101,7 @@ app_factory.cache_product(DataPlotter, DataPlotter)
 
 
 @app_factory.provider
-class Controller(BeamlimeApplicationInterface):
+class DataProcessDaemon(BeamlimeApplicationInterface):
     remote_ctrl: ControlInterface
     data_stream_listener: DataStreamListener
     data_reduction: DataReduction
