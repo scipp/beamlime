@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from types import FunctionType, GeneratorType
+from typing import NewType
 
 import scipp as sc
 
 from ..empty_factory import empty_app_factory as app_factory
-from .daemons import DataGenerator, Workflow
 
 
 @dataclass
@@ -18,6 +19,8 @@ class SimulationSetup:
 
 
 app_factory.cache_product(SimulationSetup, SimulationSetup)
+
+DataGenerator = NewType("DataGenerator", GeneratorType)
 
 
 @app_factory.provider
@@ -37,6 +40,9 @@ def data_generator_provider(simulation_setup: SimulationSetup) -> DataGenerator:
             yield sc.DataArray(data=data, coords={"x": x_coord, "y": y_coord})
 
     return data_generator
+
+
+Workflow = NewType("Workflow", FunctionType)
 
 
 @app_factory.provider

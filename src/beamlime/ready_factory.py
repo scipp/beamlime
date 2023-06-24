@@ -3,5 +3,5 @@
 # Accessible binders with all necessary providers filled in.
 # flake8: noqa F401
 
-from .applications.providers import app_factory
+from .applications.daemons import app_factory
 from .logging.providers import empty_log_factory as log_factory

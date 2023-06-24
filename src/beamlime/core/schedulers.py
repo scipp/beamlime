@@ -59,3 +59,19 @@ def retry(*exceptions: Type, max_trials: int = 1, interval: float = 0) -> Callab
         return wrapper
 
     return inner_decorator
+
+
+def run_coroutines(*coroutines):
+    from asyncio import gather, get_running_loop, wait
+
+    try:
+        event_loop = get_running_loop()
+    except RuntimeError:
+        from asyncio import run
+
+        async def _run():
+            await wait([gather(coro) for coro in coroutines])
+
+        return run(_run())
+    else:
+        return [event_loop.create_task(coro) for coro in coroutines]

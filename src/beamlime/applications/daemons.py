@@ -2,19 +2,23 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-from types import FunctionType, GeneratorType
+from queue import Empty
 from typing import NewType
 
 from ..communication.pipes import AsyncReadableBuffer, Pipe
-from ..empty_factory import empty_app_factory
-from .interfaces import BeamlimeApplicationInterface
+from ..empty_factory import empty_app_factory as app_factory
+from .interfaces import BeamlimeApplicationInterface, ControlInterface
+from .providers import DataGenerator, Workflow
 
 RawData = NewType("RawData", object)
-empty_app_factory.cache_product(Pipe[RawData], Pipe)
+app_factory.cache_product(Pipe[RawData], Pipe)
+PostReductionData = NewType("PostReductionData", object)
+app_factory.cache_product(Pipe[PostReductionData], Pipe)
 
-DataGenerator = NewType("DataGenerator", GeneratorType)
+DataStreamListener = NewType("DataStreamListener", BeamlimeApplicationInterface)
 
 
+@app_factory.provider
 class DataStreamSimulator(BeamlimeApplicationInterface):
     raw_data_pipe: Pipe[RawData]
     data_generator: DataGenerator
@@ -28,15 +32,7 @@ class DataStreamSimulator(BeamlimeApplicationInterface):
                     break
 
 
-empty_app_factory.register(DataStreamSimulator, DataStreamSimulator)
-
-PostReductionData = NewType("PostReductionData", object)
-empty_app_factory.cache_product(Pipe[PostReductionData], Pipe)
-
-Workflow = NewType("Workflow", FunctionType)
-
-
-@empty_app_factory.provider
+@app_factory.provider
 class DataReduction(BeamlimeApplicationInterface):
     raw_data_pipe: Pipe[RawData]
     data_reduction_pipe: Pipe[PostReductionData]
@@ -49,33 +45,35 @@ class DataReduction(BeamlimeApplicationInterface):
         await self.can_start(wait_on_true=True)
         while await self.running(wait_on_true=True):
             raw_data: AsyncReadableBuffer
-            async with self.raw_data_pipe.open_async_readable(timeout=3) as raw_data:
-                chunk = []
-                async for data in raw_data.readall():
-                    chunk.append(data)
-                processed = self.workflow(chunk)
-                self.data_reduction_pipe.write(processed)
-                self.chunk_count += 1
-                self.debug("Processed %sth chunk. %s", self.chunk_count, processed)
+            try:
+                async with self.raw_data_pipe.open_async_readable(
+                    timeout=3
+                ) as raw_data:
+                    chunk = []
+                    async for data in raw_data.readall():
+                        chunk.append(data)
+                    processed = self.workflow(chunk)
+                    self.data_reduction_pipe.write(processed)
+                    self.chunk_count += 1
+                    self.debug("Processed %sth chunk. %s", self.chunk_count, processed)
+            except Empty:
+                self.info("No more data coming in ... Finishing ...")
+                return
 
 
-@empty_app_factory.provider
 class DataPlotter(BeamlimeApplicationInterface):
     post_dr_pipe: Pipe[PostReductionData]
 
-    async def job(self) -> None:
-        import scipp as sc
-
-        raw_data: AsyncReadableBuffer
-        async with self.post_dr_pipe.open_async_readable(timeout=3) as raw_data:
-            _data: sc.Variable
-            async for _data in raw_data.readall():
-                self.first_data.values += _data.hist().values
-            self.stream_node.notify_children("update")
-            self.debug("Updated plot.")
+    def show(self):
+        if not hasattr(self, "fig"):
+            raise AttributeError("Please wait until the first figure is created.")
+        return self.fig
 
     async def run(self) -> None:
         import plopp as pp
+
+        if hasattr(self, "fig"):
+            del self.fig
 
         await self.can_start(wait_on_true=True)
         if await self.running(wait_on_true=True):
@@ -87,8 +85,33 @@ class DataPlotter(BeamlimeApplicationInterface):
                 self.fig = pp.figure2d(self.stream_node)
 
         while await self.running(wait_on_true=True):
-            async with self.post_dr_pipe.open_async_readable(timeout=3) as raw_data:
-                async for _data in raw_data.readall():
-                    self.first_data.values += _data.hist().values
-                self.stream_node.notify_children("update")
-                self.debug("Updated plot.")
+            try:
+                async with self.post_dr_pipe.open_async_readable(timeout=3) as raw_data:
+                    async for _data in raw_data.readall():
+                        self.first_data.values += _data.hist().values
+                    self.stream_node.notify_children("update")
+                    self.debug("Updated plot.")
+            except Empty:
+                self.info("No more data coming in. Finishing ...")
+                return
+
+
+app_factory.register(DataStreamListener, DataStreamSimulator)
+app_factory.cache_product(DataPlotter, DataPlotter)
+
+
+@app_factory.provider
+class Controller(BeamlimeApplicationInterface):
+    remote_ctrl: ControlInterface
+    data_stream_listener: DataStreamListener
+    data_reduction: DataReduction
+    data_plotter: DataPlotter
+
+    def run(self):
+        from ..core.schedulers import run_coroutines
+
+        daemons: list[BeamlimeApplicationInterface]
+        daemons = [self.data_stream_listener, self.data_reduction, self.data_plotter]
+        daemon_coroutines = [daemon.run() for daemon in daemons]
+        self.remote_ctrl.start()
+        run_coroutines(*daemon_coroutines)
