@@ -81,6 +81,10 @@ class AsyncReadableBuffer(ReadableBuffer, Generic[BufferData]):
             return Empty
 
 
+class ChunkNotFilled(Exception):
+    ...
+
+
 class Pipe(_Buffer, Generic[BufferData]):
     """
     Pipe object can create a buffer to read a data from the pipe,
@@ -152,8 +156,14 @@ class Pipe(_Buffer, Generic[BufferData]):
         def wait_for_data():
             if not self._data:
                 raise Empty("There is no data left in the pipe.")
+            elif len(self._data) < self.chunk_size:
+                raise ChunkNotFilled
 
-        wait_for_data()
+        try:
+            wait_for_data()
+        except ChunkNotFilled:
+            ...
+
         try:
             with self._open_readable(ReadableBuffer) as _buffer:
                 yield _buffer
@@ -172,12 +182,19 @@ class Pipe(_Buffer, Generic[BufferData]):
 
         max_trials = int(timeout / retry_interval) + 1
 
-        @async_retry(Empty, max_trials=max_trials, interval=retry_interval)
+        @async_retry(
+            Empty, ChunkNotFilled, max_trials=max_trials, interval=retry_interval
+        )
         async def wait_for_data():
             if not self._data:
                 raise Empty("There is no data left in the pipe.")
+            elif len(self._data) < self.chunk_size:
+                raise ChunkNotFilled
 
-        await wait_for_data()
+        try:
+            await wait_for_data()
+        except ChunkNotFilled:
+            ...
 
         try:
             with self._open_readable(AsyncReadableBuffer) as _buffer:

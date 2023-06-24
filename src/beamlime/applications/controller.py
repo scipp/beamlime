@@ -4,22 +4,22 @@
 from __future__ import annotations
 
 from ..applications.interfaces import BeamlimeApplicationInterface, ControlInterface
-from ..empty_factory import empty_app_factory as app_factory
-from .data_generator import DataGenerator
-from .data_reduction import DataFeeder
-from .data_visualization import DataPlotter
+from ..empty_factory import empty_app_factory
+from .daemons import DataPlotter, DataReduction, DataStreamSimulator
 
 
-@app_factory.provider
+@empty_app_factory.provider
 class Controller(BeamlimeApplicationInterface):
     remote_ctrl: ControlInterface
-    data_generator: DataGenerator
-    data_feeder: DataFeeder
+    data_generator: DataStreamSimulator
+    data_reduction: DataReduction
     data_plotter: DataPlotter
 
     def run(self):
         from asyncio import create_task, get_running_loop
 
+        daemons: list[BeamlimeApplicationInterface]
+        daemons = [self.data_generator, self.data_reduction, self.data_plotter]
         self.remote_ctrl.start()
         try:
             event_loop = get_running_loop()
@@ -27,16 +27,9 @@ class Controller(BeamlimeApplicationInterface):
             from asyncio import run, wait
 
             async def _run():
-                await wait(
-                    (
-                        create_task(self.data_feeder.run()),
-                        create_task(self.data_generator.run()),
-                        create_task(self.data_plotter.run()),
-                    )
-                )
+                await wait([create_task(daemon.run()) for daemon in daemons])
 
             run(_run())
         else:
-            event_loop.create_task(self.data_feeder.run())
-            event_loop.create_task(self.data_generator.run())
-            event_loop.create_task(self.data_plotter.run())
+            for daemon in daemons:
+                event_loop.create_task(daemon.run())

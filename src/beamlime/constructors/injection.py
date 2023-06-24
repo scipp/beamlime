@@ -168,4 +168,7 @@ class InjectionInterface(RegistrationInterface):
         _provider = self.find_provider(product_type)
         kwargs = {**self.build_arguments(_provider), **_provider.keywords}
         _obj = _provider.constructor(*_provider.args, **kwargs)
-        return self.inject_dependencies(_obj)
+        if isinstance(_provider.constructor, type):
+            return self.inject_dependencies(_obj)
+        else:
+            return _obj
