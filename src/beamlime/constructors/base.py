@@ -36,7 +36,7 @@ def _is_conflicting(tp: ProductType, factories: Tuple[FactoryBase, ...]):
 def check_conflicting_providers(*factories: FactoryBase):
     from functools import reduce
 
-    tp_set_list = [set(tp for tp in factory) for factory in factories]
+    tp_set_list = [set(factory) for factory in factories]
     tp_set = reduce(lambda x, y: x.union(y), tp_set_list)
 
     # If there is any overlapping providers
