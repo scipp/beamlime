@@ -6,12 +6,7 @@ from functools import partial
 from types import FunctionType, LambdaType
 from typing import Callable, Dict, Literal, TypeVar, Union
 
-from .inspectors import (
-    DependencySpec,
-    ProductSpec,
-    ProductType,
-    collect_argument_dep_specs,
-)
+from .inspectors import DependencySpec, ProductSpec, ProductType, collect_argument_specs
 
 _Product = TypeVar("_Product")
 _lambda_name = (lambda: None).__qualname__
@@ -45,56 +40,29 @@ class Provider:
     product_spec: ProductSpec
     arg_dep_specs: Dict[str, DependencySpec]
 
-    def __new__(
-        cls, _constructor: Union[Constructor, Provider], /, *args, **kwargs
-    ) -> Provider:
-        if isinstance(_constructor, Provider):
-            return Provider(
-                _constructor.constructor,
-                *(*_constructor.args, *args),
-                **{**_constructor.keywords, **kwargs},
-            )
-        elif isinstance(_constructor, partial):
-            return Provider(
-                _constructor.func,
-                *(*_constructor.args, *args),
-                **{**_constructor.keywords, **kwargs},
-            )
-
-        else:
-            return super().__new__(Provider)
-
     def __init__(
         self, _constructor: Union[Constructor, Provider], /, *args, **kwargs
     ) -> None:
         from .inspectors import get_product_spec
 
         if isinstance(_constructor, (partial, Provider)):
-            ...
+            if isinstance(_constructor, Provider):
+                self._constructor = _constructor.constructor
+            elif isinstance(_constructor, partial):
+                self._constructor = _constructor.func
+
+            self.args = (*_constructor.args, *args)
+            self.keywords = {**_constructor.keywords, **kwargs}
         else:
-            from inspect import signature
-
-            _validate_callable_as_provider(_constructor)
             self._constructor = _constructor
-
             self.args = args
             self.keywords = kwargs
 
-            new_defaults = (
-                signature(_constructor).bind_partial(*args, **kwargs).arguments
-            )
-
-            self.arg_dep_specs = {
-                arg_name: DependencySpec(
-                    arg_spec.product_type,
-                    new_defaults.get(arg_name, arg_spec.default_product),
-                )
-                for arg_name, arg_spec in collect_argument_dep_specs(
-                    self.constructor
-                ).items()
-            }
-
-            self.product_spec = get_product_spec(self._constructor)
+        _validate_callable_as_provider(self._constructor)
+        self.arg_dep_specs = collect_argument_specs(
+            self._constructor, *self.args, **self.keywords
+        )
+        self.product_spec = get_product_spec(self._constructor)
 
     @property
     def call_name(self) -> str:
@@ -133,7 +101,7 @@ class Provider:
         except TypeError:
             return False
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> _Product:
         return self.constructor(*(*self.args, *args), **{**self.keywords, **kwargs})
 
     def __eq__(self, other: object) -> bool:

@@ -4,12 +4,10 @@
 from __future__ import annotations
 
 from types import MappingProxyType
-from typing import Dict, Tuple, TypeVar
+from typing import Dict, Tuple
 
 from .inspectors import ProductType
 from .providers import Provider, UnknownProvider
-
-_Product = TypeVar("_Product")
 
 
 class ProviderExistsError(Exception):

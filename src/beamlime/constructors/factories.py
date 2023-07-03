@@ -6,9 +6,8 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Iterator, List, Tuple, Type, TypeVar, Union
 
-from .base import _Product
 from .contexts import FactoryContextInterface
-from .providers import Constructor
+from .providers import Constructor, _Product
 
 _Separator = TypeVar("_Separator")
 

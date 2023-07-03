@@ -106,14 +106,20 @@ class DependencySpec:  # TODO: Can be written in dataclass when mypy problem is 
         self.default_product = default_value
 
 
-def collect_argument_dep_specs(callable_obj: Callable) -> Dict[str, DependencySpec]:
+def collect_argument_specs(
+    callable_obj: Callable, *default_args, **default_keywords
+) -> Dict[str, DependencySpec]:
     """
     Collect Dependencies from the signature and type hints.
+    ``default_args`` and ``default_keywords`` will overwrite the annotation.
     """
     from inspect import signature
 
-    arg_params = signature(callable_obj).parameters
     type_hints = collect_arg_typehints(callable_obj)
+    _sig = signature(callable_obj)
+    arg_params = _sig.parameters
+    defaults = _sig.bind_partial(*default_args, **default_keywords).arguments
+
     missing_params = [
         param_name
         for param_name in arg_params
@@ -124,9 +130,11 @@ def collect_argument_dep_specs(callable_obj: Callable) -> Dict[str, DependencySp
             f"Annotations for {missing_params} are not sufficient."
             "Each argument needs a type hint or a default value."
         )
+
     return {
         param_name: DependencySpec(
-            type_hints.get(param_name, UnknownType), param_spec.default
+            type_hints.get(param_name, UnknownType),
+            defaults.get(param_name, param_spec.default),
         )
         for param_name, param_spec in arg_params.items()
     }

@@ -10,10 +10,9 @@ from .base import (
     MismatchingProductTypeError,
     ProviderExistsError,
     ProviderNotFoundError,
-    _Product,
 )
 from .inspectors import DependencySpec, ProductType, UnknownType
-from .providers import Constructor, Provider
+from .providers import Constructor, Provider, _Product
 
 
 class RegistrationInterface(FactoryBase):
@@ -33,6 +32,13 @@ class RegistrationInterface(FactoryBase):
 
         See ``_validate_new_provider`` for new provider validation.
 
+        Notes
+        -----
+        If the full name of the ``new_provider`` is same as the existing one,
+        it will register the new callable object as the provider
+        instead of raising ``ProviderExistsError``.
+        It is for reloading and register the reloaded object as a provider.
+
         """
         new_provider_call = Provider(provider_call)
         if product_type == UnknownType:
@@ -49,18 +55,13 @@ class RegistrationInterface(FactoryBase):
         """
         Raises
         ------
-        ProviderExistsError:
+        ProviderExistsError
             If there is an existing provider of the ``product_type``.
-            However, if the full name of the ``new_provider_call``
-            is same as the existing one, it will register
-            the new callable object as the provider.
 
-        MismatchingProductTypeError:
-            If the return type of the ``provider_call`` is
-            incompatible with ``product_type``.
-            The return type of the ``provider_call`` should be a subclass of
+        MismatchingProductTypeError
+            If the return type of the ``new_provider`` is not a subclass of
             ``product_type``or the same object as ``product_type``.
-            See ``ProviderCall.is_supprted_type``.
+            See ``Provider.can_provide``.
         """
         if product_type in self._providers:
             existing_provider = self._providers[product_type]
@@ -121,19 +122,21 @@ class InjectionInterface(RegistrationInterface):
 
     def inject_dependencies(self, _obj: _Product) -> _Product:
         """
-        Check if the ``incomplete_obj`` has attribute dependencies to be filled.
-        If ``incomplete_obj`` is missing any attribute with type hint,
-        or if the attribute is None, the dependency will be assembled and injected.
-        If a provider is not found but the ``incomplete_obj`` already has the attribute,
-        it skips the attribute injection.
+        Check if the ``_obj`` has attribute dependencies to be filled.
+        If ``_obj`` is missing any attributes that are type-hinted (None or not set),
+        the attribute(dependency) will be assembled and injected.
+        If a provider is not found but the ``_obj`` already has the attribute,
+        it skips the attribute(dependency) injection.
 
         Raises
         ------
-            ProviderNotFoundError:
+            ProviderNotFoundError
                 If a provider is not found for the attribute and
-                the ``incomplete_obj`` still doesn't have the attribute.
+                the ``_obj`` still doesn't have the attribute.
 
-        Attribute annotations are retrieved by typing.get_type_hints.
+        Notes
+        -----
+        Attribute annotations are retrieved by ``typing.get_type_hints``.
         """
         from typing import get_type_hints
 
@@ -165,7 +168,15 @@ class InjectionInterface(RegistrationInterface):
         return _obj
 
     def assemble(self, product_type: Type[_Product]) -> _Product:
+        """
+        Build an object of ``product_type`` using the registered provider.
+
+        Notes
+        -----
+        Currently it only builds the keyword arguments for the provider
+        and position-only arguments are not supported.
+        """
         _provider = self.find_provider(product_type)
         kwargs = {**self.build_arguments(_provider), **_provider.keywords}
-        _obj = _provider.constructor(*_provider.args, **kwargs)
+        _obj = _provider(**kwargs)
         return self.inject_dependencies(_obj)
