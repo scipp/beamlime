@@ -38,7 +38,7 @@ def check_conflicting_providers(*factories: FactoryBase):
     tp_set = reduce(lambda x, y: x.union(y), tp_set_list)
 
     # If there is any overlapping providers
-    if sum([len(tp_set) for tp_set in tp_set_list]) > len(tp_set):
+    if sum(map(len, tp_set_list)) > len(tp_set):
         conflicted = {tp for tp in tp_set if _is_conflicting(tp, factories)}
         # If there is any conflicting providers
         if any(conflicted):
