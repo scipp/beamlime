@@ -54,9 +54,9 @@ class Factory:
         """
         provider = self.providers[product_type]
         keyword_arguments = {
-            arg_name: self[arg_spec.product_type]
+            arg_name: self[arg_spec.dependency_type]
             for arg_name, arg_spec in provider.arg_dep_specs.items()
-            if arg_spec.product_type in self or not arg_spec.is_optional()
+            if arg_spec.dependency_type in self or not arg_spec.is_optional()
         }
         return provider(**keyword_arguments)
 
@@ -79,11 +79,10 @@ class Factory:
             2. if a provider is found, it overwrites the attribute.
 
         """
+        provider = self.providers[product_type]
         attr_dependencies: Dict[str, Any] = {
-            attr_name: attr_spec.product_type
-            for attr_name, attr_spec in self.providers[
-                product_type
-            ].attr_dep_specs.items()
+            attr_name: attr_spec.dependency_type
+            for attr_name, attr_spec in provider.attr_dep_specs.items()
             if not hasattr(product, attr_name) or getattr(product, attr_name) is None
         }
 

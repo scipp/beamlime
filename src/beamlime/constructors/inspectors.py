@@ -32,7 +32,9 @@ def validate_annotation(annotation) -> Literal[True]:
     from typing import get_origin
 
     if get_origin(annotation) == Union:
-        raise NotImplementedError("Union annotation is not supported yet.")
+        raise NotImplementedError(
+            "Union annotation except for ``Optional`` " "is not supported yet."
+        )
     return True
 
 
@@ -93,8 +95,12 @@ def get_product_spec(callable_obj: Callable) -> ProductSpec:
     If ``callable_obj`` is a function, it is a return type annotation,
     and if ``callable_obj`` is a class, it is the class itself.
     """
+    from functools import partial
+
     if isinstance(callable_obj, type):
         return ProductSpec(callable_obj)
+    elif isinstance(callable_obj, partial):
+        return get_product_spec(callable_obj.func)
     else:
         product = collect_arg_typehints(callable_obj).get("return", UnknownType)
         return ProductSpec(product)
@@ -105,13 +111,26 @@ class DependencySpec:
     Specification of sub-dependencies (arguments/attributes) of a provider.
     """
 
-    def __init__(self, product_type: ProductType, default_value: Product) -> None:
-        validate_annotation(product_type)
-        self.product_type = product_type
-        self.default_product = default_value
+    def __init__(self, dependency_type: ProductType, default_value: Product) -> None:
+        try:
+            validate_annotation(dependency_type)
+        except NotImplementedError as err:
+            from typing import get_args
+
+            if len((args := get_args(dependency_type))) == 2 and type(None) in args:
+                # Allow ``Optional``.
+                self.dependency_type = (
+                    args[0] if isinstance(args[1], type(None)) else args[1]
+                )
+            else:
+                raise err
+        else:
+            self.dependency_type = dependency_type
+        finally:
+            self.default_product = default_value
 
     def is_optional(self):
-        return self.default_product is not Empty or self.product_type is UnknownType
+        return self.default_product is not Empty or self.dependency_type is UnknownType
 
 
 def collect_argument_specs(
