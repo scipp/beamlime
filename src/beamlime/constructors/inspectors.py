@@ -7,6 +7,10 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Literal, Type, TypeVar, Union
 
 
+class Empty:
+    ...
+
+
 class InsufficientAnnotationError(Exception):
     ...
 
@@ -58,6 +62,7 @@ class ProductSpec:
         if isinstance(product_type, ProductSpec):
             ...
         else:
+            validate_annotation(product_type)
             self.product_type = product_type
             self.returned_type = extract_underlying_type(product_type)
 
@@ -96,31 +101,47 @@ def get_product_spec(callable_obj: Callable) -> ProductSpec:
         return get_product_spec(callable_obj.func)
     else:
         product = collect_arg_typehints(callable_obj).get("return", UnknownType)
-        validate_annotation(product)
         return ProductSpec(product)
 
 
-class DependencySpec:  # TODO: Can be written in dataclass when mypy problem is resolved
+class DependencySpec:
     """
     Specification of sub-dependencies (arguments/attributes) of a provider.
     """
 
     def __init__(self, product_type: ProductType, default_value: Product) -> None:
+        validate_annotation(product_type)
         self.product_type = product_type
         self.default_product = default_value
 
+    def is_optional(self):
+        return self.default_product is not Empty or self.product_type is UnknownType
 
-def collect_argument_dep_specs(callable_obj: Callable) -> Dict[str, DependencySpec]:
+
+def collect_argument_specs(
+    callable_obj: Callable, *default_args, **default_keywords
+) -> Dict[str, DependencySpec]:
     """
     Collect Dependencies from the signature and type hints.
+    ``default_args`` and ``default_keywords`` will overwrite the annotation.
     """
     from inspect import signature
 
-    arg_params = signature(callable_obj).parameters
     type_hints = collect_arg_typehints(callable_obj)
+
+    try:
+        _sig = signature(callable_obj)
+    except ValueError:  # if signature is not found
+        return {}
+
+    arg_params = _sig.parameters
+    partial_args = _sig.bind_partial(*default_args, **default_keywords)
+    partial_args.apply_defaults()
+    defaults = partial_args.arguments
+
     missing_params = [
         param_name
-        for param_name in arg_params
+        for param_name in set(arg_params) - set(defaults)
         if ((param_name not in ("args", "kwargs")) and (param_name not in type_hints))
     ]
     if missing_params:
@@ -128,9 +149,29 @@ def collect_argument_dep_specs(callable_obj: Callable) -> Dict[str, DependencySp
             f"Annotations for {missing_params} are not sufficient."
             "Each argument needs a type hint or a default value."
         )
+
     return {
         param_name: DependencySpec(
-            type_hints.get(param_name, UnknownType), param_spec.default
+            type_hints.get(param_name, UnknownType),
+            defaults.get(param_name, Empty),
         )
-        for param_name, param_spec in arg_params.items()
+        for param_name in arg_params
     }
+
+
+def collect_attr_specs(callable_class: Callable) -> Dict[str, DependencySpec]:
+    """
+    Collect Dependencies from the type hints of the class.
+    It ignores any attributes without type hints.
+    """
+    from typing import get_type_hints
+
+    if not isinstance(callable_class, type):
+        return dict()
+    else:
+        return {
+            attr_name: DependencySpec(
+                attr_type, getattr(callable_class, attr_name, Empty)
+            )
+            for attr_name, attr_type in get_type_hints(callable_class).items()
+        }

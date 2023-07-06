@@ -6,7 +6,7 @@ import pytest
 
 from beamlime.constructors import ProviderNotFoundError
 
-from .preset_factory import Joke, test_factory
+from .preset_factory import GoodTelling, Joke, test_factory
 
 
 def test_partial_provider():
@@ -50,7 +50,9 @@ def test_constant_provider():
 
 def make_anoter_lime_joke() -> Joke:
     return Joke(
-        "Why did the lime go to hospital?" "\n\n\n" "Because she wasn't peeling well."
+        "Why did the lime go to the hospital?"
+        "\n\n\n"
+        "Because she wasn't peeling well."
     )
 
 
@@ -64,6 +66,21 @@ def test_temporary_provider():
     # Temporary provider should be destroyed.
     with pytest.raises(ProviderNotFoundError):
         test_factory[Joke]
+
+
+def give_another_good_telling() -> GoodTelling:
+    return GoodTelling("Go home and eat dinner!")
+
+
+def test_temporary_provider_replace():
+    from .preset_factory import give_a_good_telling
+
+    assert test_factory[GoodTelling] == give_a_good_telling()
+
+    with test_factory.temporary_provider(GoodTelling, give_another_good_telling):
+        assert test_factory[GoodTelling] == give_another_good_telling()
+
+    assert test_factory[GoodTelling] == give_a_good_telling()
 
 
 BinaryJoke = NewType("BinaryJoke", str)
