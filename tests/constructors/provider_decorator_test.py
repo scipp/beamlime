@@ -1,43 +1,53 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+from typing import NewType
+
 import pytest
 
-from .preset_factory import test_factory
+from beamlime.constructors import ProviderGroup
+
+from .preset_factory import orange_joke
+
+decorating_provider_group = ProviderGroup()
+UsefulString = NewType("UsefulString", str)
+useful_info = UsefulString(orange_joke)
 
 
-def test_provider_incomplete_class_raises():
-    with test_factory.local_factory():
-        from beamlime.constructors import ProviderNotFoundError
-
-        from .preset_factory import Parent
-
-        with pytest.raises(ProviderNotFoundError):
-            test_factory[Parent]
+@decorating_provider_group.provider
+def useful_function() -> UsefulString:
+    return useful_info
 
 
-def test_provider_member_class_raises():
-    with test_factory.local_factory() as factory:
-        with pytest.raises(NotImplementedError):
+def test_provider_function():
+    assert decorating_provider_group[UsefulString].constructor is useful_function
+    assert decorating_provider_group[UsefulString]() == useful_info
 
-            @factory.provider
-            class _:
+
+def test_provider_class():
+    provider_gr = ProviderGroup()
+
+    @provider_gr.provider
+    class UsefulProduct:
+        ...
+
+    assert provider_gr[UsefulProduct].constructor is UsefulProduct
+    assert isinstance(provider_gr[UsefulProduct](), UsefulProduct)
+
+
+def test_provider_method_raises():
+    provider_gr = ProviderGroup()
+    with pytest.raises(NotImplementedError):
+
+        class _:
+            @provider_gr.provider
+            def __(self):
                 ...
 
 
-def test_provider_member_function_raises():
-    with test_factory.local_factory() as factory:
-        with pytest.raises(NotImplementedError):
-
-            class _:
-                @factory.provider
-                def __(self):
-                    ...
-
-
 def test_provider_local_function_raises():
-    with test_factory.local_factory() as factory:
-        with pytest.raises(NotImplementedError):
+    provider_gr = ProviderGroup()
+    with pytest.raises(NotImplementedError):
 
-            @factory.provider
-            def _() -> None:
-                return None
+        @provider_gr.provider
+        def _() -> None:
+            return None

@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import NewType
 
-from beamlime.constructors import Factory
+from beamlime.constructors import Factory, ProviderGroup
 
 GoodTelling = NewType("GoodTelling", str)
 sweet_reminder = "Drink some water!"
@@ -15,10 +15,7 @@ orange_joke = "Orange... you glad that I didn't say orange?"
 Status = NewType("Status", str)
 adult_default_status = Status("I want to go home.")
 
-test_factory = Factory()
 
-
-@test_factory.provider
 def give_a_good_telling(good_telling: str = sweet_reminder) -> GoodTelling:
     return GoodTelling(good_telling)
 
@@ -31,13 +28,11 @@ def make_another_joke(joke: str = orange_joke) -> Joke:
     return Joke(joke)
 
 
-@test_factory.provider
 class Adult:
     good_telling: GoodTelling
     status: Status = adult_default_status
 
 
-@test_factory.provider
 @dataclass
 class Parent(Adult):
     joke: Joke
@@ -52,7 +47,12 @@ class Parent(Adult):
         return self.status
 
 
-def create_factory(_tp, value):
-    factory = Factory()
-    factory.register(_tp, lambda: value)
+test_provider_group = ProviderGroup(Adult, Parent, give_a_good_telling)
+test_factory = Factory(test_provider_group)
+
+
+def create_constant_factory(_tp, value):
+    provider_gr = ProviderGroup()
+    provider_gr[_tp] = lambda: value
+    factory = Factory(provider_gr)
     return factory
