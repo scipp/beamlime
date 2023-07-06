@@ -8,7 +8,7 @@ from typing import NewType, Optional
 
 from colorama import Style
 
-from ..empty_factory import empty_log_factory
+from ..empty_providers import empty_log_providers
 from .formatters import (
     BeamlimeHeaderFormatter,
     BeamlimeLogMessage,
@@ -47,10 +47,10 @@ class _HeaderMixin:
 
 BeamlimeFileFormatter = NewType("BeamlimeFileFormatter", BeamlimeHeaderFormatter)
 DefaultBeamlimeFileFormatter = BeamlimeFileFormatter(DefaultFormatter)
-empty_log_factory.register(BeamlimeFileFormatter, lambda: DefaultBeamlimeFileFormatter)
+empty_log_providers[BeamlimeFileFormatter] = lambda: DefaultBeamlimeFileFormatter
 
 
-@empty_log_factory.provider
+@empty_log_providers.provider
 class BeamlimeFileHandler(_HeaderMixin, FileHandler):
     __formatter: BeamlimeFileFormatter = DefaultBeamlimeFileFormatter
 
@@ -82,7 +82,7 @@ BeamlimeStreamFormatter = NewType("BeamlimeStreamFormatter", BeamlimeHeaderForma
 DefaultBeamlimeStreamFormatter = BeamlimeStreamFormatter(ColoredFormatter)
 
 
-@empty_log_factory.provider
+@empty_log_providers.provider
 class BeamlimeStreamHandler(_HeaderMixin, StreamHandler):
     formatter: BeamlimeStreamFormatter
 

@@ -77,17 +77,18 @@ def test_app_logging_stream(
 
 
 def test_file_handler_configuration(tmp_path: Path):
+    from beamlime.constructors import ProviderGroup
+
     tmp_log_dir = tmp_path / "tmp"
     tmp_log_filename = "tmp.log"
     tmp_log_path = tmp_log_dir / tmp_log_filename
 
-    with local_logger_factory() as factory:
-        logger = get_logger(verbose=False)
-        factory.pop(LogDirectoryPath)
-        factory.pop(LogFileName)
-        factory.register(LogDirectoryPath, lambda: tmp_log_dir)
-        factory.register(LogFileName, lambda: tmp_log_filename)
+    tmp_log_providers = ProviderGroup()
+    tmp_log_providers[LogDirectoryPath] = lambda: tmp_log_dir
+    tmp_log_providers[LogFileName] = lambda: tmp_log_filename
 
+    with local_logger_factory(tmp_log_providers) as factory:
+        logger = get_logger(verbose=False)
         # Should not have any file handlers set.
         hdlrs = logger.handlers
         assert not any([hdlr for hdlr in hdlrs if isinstance(hdlr, FileHandler)])

@@ -8,12 +8,12 @@ from contextlib import contextmanager
 from threading import RLock
 from typing import Iterator, NewType
 
-from ..empty_factory import empty_log_factory
+from ..empty_providers import empty_log_providers
 
 TimeStamp = NewType("TimeStamp", str)
 
 
-@empty_log_factory.provider
+@empty_log_providers.provider
 def create_time_stamp() -> TimeStamp:
     """
     Creates a timestamp with the format, ``{cur_timestamp}--{h_time}``.
@@ -38,7 +38,7 @@ LogDirectoryPath = NewType("LogDirectoryPath", str)
 DirectoryCreated = NewType("DirectoryCreated", bool)
 
 
-@empty_log_factory.provider
+@empty_log_providers.provider
 def initialize_log_dir(dir_path: LogDirectoryPath) -> DirectoryCreated:
     """
     Create the directory if it does not exist.
@@ -59,7 +59,7 @@ def initialize_log_dir(dir_path: LogDirectoryPath) -> DirectoryCreated:
 LogFileName = NewType("LogFileName", str)
 
 
-@empty_log_factory.provider
+@empty_log_providers.provider
 def create_log_file_name(
     time_stamp: TimeStamp,
     prefix: LogFilePrefix = DefaultPrefix,
@@ -72,7 +72,7 @@ def create_log_file_name(
 FileHandlerBasePath = NewType("FileHandlerBasePath", str)
 
 
-@empty_log_factory.provider
+@empty_log_providers.provider
 def create_log_file_path(
     directory_ready: DirectoryCreated = True,
     *,

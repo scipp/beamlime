@@ -3,4 +3,7 @@
 # Accessible binders with all necessary providers filled in.
 # flake8: noqa F401
 
-from .logging.providers import empty_log_factory as log_factory
+from .constructors import Factory
+from .logging.providers import empty_log_providers as log_providers
+
+log_factory = Factory(log_providers)

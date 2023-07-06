@@ -177,6 +177,9 @@ DEFAULT_COLOR_HEADERS = LogHeader(
     ansi_colored=True,
 )
 
+DateFmt = Optional[str]
+Defaults = Optional[dict]
+
 
 class BeamlimeHeaderFormatter(Formatter):
     """
@@ -187,10 +190,10 @@ class BeamlimeHeaderFormatter(Formatter):
         self,
         /,
         headers: LogHeader = DEFAULT_HEADERS,
-        datefmt: Optional[str] = None,
+        datefmt: str = None,
         style: _FormatStyle = "{",
         validate: bool = True,
-        defaults: Optional[dict] = None,
+        defaults: dict = None,
     ) -> None:
         self.header_fmt = headers.format()
         super().__init__(headers.fmt, datefmt, style, validate)

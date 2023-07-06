@@ -2,6 +2,6 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # Shared binders used for filling providers across the library.
 
-from .constructors import Factory
+from .constructors import ProviderGroup
 
-empty_log_factory = Factory()
+empty_log_providers = ProviderGroup()
