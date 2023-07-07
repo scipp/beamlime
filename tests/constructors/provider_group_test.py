@@ -4,12 +4,14 @@ import pytest
 
 from beamlime.constructors import ProviderGroup
 
-from .preset_factory import (
+from .preset_providers import (
     GoodTelling,
     Joke,
     give_a_good_telling,
+    lime_joke,
     make_a_joke,
     make_another_joke,
+    orange_joke,
 )
 
 
@@ -40,8 +42,6 @@ def test_provider_items():
 
 def test_provider_already_exists_raises():
     from beamlime.constructors import ProviderExistsError
-
-    from .preset_factory import Joke, make_a_joke, make_another_joke
 
     provider_group = ProviderGroup()
     provider_group[Joke] = make_a_joke
@@ -107,10 +107,8 @@ def test_providers_conflicting_providers_raises():
         funny.merge(funnier)
 
 
-def test_factory_merge_conflicting_args_raises():
+def test_providers_merge_conflicting_args_raises():
     from beamlime.constructors import ConflictProvidersError, Provider
-
-    from .preset_factory import lime_joke, orange_joke
 
     funny = ProviderGroup()
     funnier = ProviderGroup()
@@ -120,10 +118,8 @@ def test_factory_merge_conflicting_args_raises():
         funny.merge(funnier)
 
 
-def test_factory_merge_conflicting_keywords_raises():
+def test_providers_merge_conflicting_keywords_raises():
     from beamlime.constructors import ConflictProvidersError, Provider
-
-    from .preset_factory import lime_joke, orange_joke
 
     funny = ProviderGroup()
     funnier = ProviderGroup()

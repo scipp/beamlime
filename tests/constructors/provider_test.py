@@ -6,25 +6,30 @@ import pytest
 
 from beamlime.constructors.providers import Provider
 
+from .preset_providers import (
+    Adult,
+    GoodTelling,
+    Joke,
+    Parent,
+    lime_joke,
+    make_a_joke,
+    make_another_joke,
+    orange_joke,
+)
+
 
 def test_provider_function_call():
-    from .preset_factory import make_a_joke
-
     joke_provider = Provider(make_a_joke)
     assert joke_provider.constructor == make_a_joke
     assert joke_provider() == make_a_joke()
 
 
 def test_provider_class():
-    from .preset_factory import Adult
-
     assert isinstance(Provider(Adult)(), Adult)
 
 
 def test_provider_partial():
     from functools import partial
-
-    from .preset_factory import make_a_joke, orange_joke
 
     provider: Provider = Provider(partial(make_a_joke, joke=orange_joke))
     assert make_a_joke() != provider()
@@ -32,15 +37,11 @@ def test_provider_partial():
 
 
 def test_provider_lambda():
-    from .preset_factory import orange_joke
-
     provider = Provider(lambda: orange_joke)
     assert provider() == orange_joke
 
 
 def test_provider_with_args():
-    from .preset_factory import make_a_joke, orange_joke
-
     expected_constructor = make_a_joke
     provider = Provider(make_a_joke, orange_joke)
     assert provider.constructor == expected_constructor
@@ -49,8 +50,6 @@ def test_provider_with_args():
 
 
 def test_provider_with_kwargs():
-    from .preset_factory import make_a_joke, orange_joke
-
     kwargs = {"joke": orange_joke}
     provider = Provider(make_a_joke, **kwargs)
     assert provider.constructor == make_a_joke
@@ -59,8 +58,6 @@ def test_provider_with_kwargs():
 
 
 def test_provider_compare_equal():
-    from .preset_factory import make_a_joke, orange_joke
-
     assert Provider(make_a_joke) == Provider(make_a_joke)
     assert Provider(make_a_joke, orange_joke) == Provider(make_a_joke, orange_joke)
     assert Provider(make_a_joke, joke=orange_joke) == Provider(
@@ -69,8 +66,6 @@ def test_provider_compare_equal():
 
 
 def test_provider_compare_different():
-    from .preset_factory import lime_joke, make_a_joke, make_another_joke, orange_joke
-
     assert Provider(make_a_joke) != Provider(make_another_joke)
     assert Provider(make_a_joke, orange_joke) != Provider(make_a_joke, lime_joke)
     assert Provider(make_a_joke, joke=orange_joke) != Provider(
@@ -79,8 +74,6 @@ def test_provider_compare_different():
 
 
 def test_provider_can_provide_true():
-    from .preset_factory import GoodTelling, Joke, make_a_joke
-
     assert Provider(make_a_joke).can_provide(str)
     assert Provider(make_a_joke).can_provide(GoodTelling)
     assert Provider(make_a_joke).can_provide(Joke)
@@ -96,8 +89,6 @@ def test_provider_can_provide_generic():
 
 
 def test_provider_can_provide_false():
-    from .preset_factory import make_a_joke
-
     class StrChild(str):
         ...
 
@@ -119,8 +110,6 @@ def test_provider_compare_with_wrong_type_raises():
 
 
 def test_provider_class_method_raises():
-    from .preset_factory import Parent
-
     with pytest.raises(NotImplementedError):
         Provider(Parent.give_a_good_telling)
 

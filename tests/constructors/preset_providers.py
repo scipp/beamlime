@@ -47,10 +47,6 @@ class Parent(Adult):
         return self.status
 
 
-test_provider_group = ProviderGroup(Adult, Parent, give_a_good_telling)
-test_factory = Factory(test_provider_group)
-
-
 def create_constant_factory(_tp, value):
     provider_gr = ProviderGroup()
     provider_gr[_tp] = lambda: value

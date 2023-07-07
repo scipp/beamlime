@@ -8,28 +8,38 @@ import pytest
 
 from beamlime.constructors import Factory, ProviderGroup, ProviderNotFoundError
 
-from .preset_factory import test_factory
+from .preset_providers import (
+    Adult,
+    GoodTelling,
+    Joke,
+    Parent,
+    give_a_good_telling,
+    make_a_joke,
+    make_another_joke,
+)
 
 
-def test_factory_getitem():
-    from .preset_factory import GoodTelling, give_a_good_telling
+@pytest.fixture
+def test_provider_group() -> ProviderGroup:
+    return ProviderGroup(Adult, Parent, give_a_good_telling)
 
+
+@pytest.fixture
+def test_factory(test_provider_group) -> Factory:
+    return Factory(test_provider_group)
+
+
+def test_factory_getitem(test_factory: Factory):
     assert test_factory[GoodTelling] == give_a_good_telling()
 
 
-def test_factory_getitem_with_attr_dependency():
-    from .preset_factory import Adult, GoodTelling, give_a_good_telling
-
+def test_factory_getitem_with_attr_dependency(test_factory: Factory):
     assert isinstance(test_factory[Adult], Adult)
     assert test_factory[Adult].good_telling == give_a_good_telling()
     assert test_factory[GoodTelling] == give_a_good_telling()
 
 
 def test_factory_getitem_with_arg_dependency():
-    from beamlime.constructors import ProviderGroup
-
-    from .preset_factory import GoodTelling, give_a_good_telling
-
     provider_group = ProviderGroup(give_a_good_telling)
     another_good_telling = "Eat healthy!"
     provider_group[str] = lambda: another_good_telling
@@ -104,15 +114,11 @@ def test_factory_optional_return_raises(union_return_func):
         ProviderGroup(union_return_func)
 
 
-def test_factory_catalogue():
-    from .preset_factory import test_factory, test_provider_group
-
+def test_factory_catalogue(test_provider_group, test_factory: Factory):
     assert set(test_provider_group.keys()) == test_factory.catalogue
 
 
-def test_factory_len():
-    from .preset_factory import test_factory, test_provider_group
-
+def test_factory_len(test_factory, test_provider_group):
     assert len(test_provider_group) == len(test_factory)
 
 
@@ -122,9 +128,7 @@ def test_provider_not_exist_rasies():
         factory[bool]
 
 
-def test_provider_incomplete_class_arguments_rasies():
-    from .preset_factory import Parent
-
+def test_provider_incomplete_class_arguments_rasies(test_factory: Factory):
     with pytest.raises(ProviderNotFoundError):
         test_factory[Parent]
 
@@ -161,9 +165,7 @@ def test_cyclic_dependency_raises():
         assert factory[str]
 
 
-def test_local_factory():
-    from .preset_factory import Parent, make_a_joke
-
+def test_local_factory(test_factory: Factory):
     with test_factory.local_factory(ProviderGroup(make_a_joke)) as factory:
         with pytest.raises(ProviderNotFoundError):
             test_factory[Parent]
@@ -173,8 +175,6 @@ def test_local_factory():
 
 
 def test_local_factory_overwritten():
-    from .preset_factory import Joke, make_a_joke, make_another_joke
-
     global_factory = Factory(ProviderGroup(make_a_joke))
     assert global_factory[Joke] == make_a_joke()
     with global_factory.local_factory(ProviderGroup(make_another_joke)) as factory:

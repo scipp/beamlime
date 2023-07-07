@@ -6,7 +6,7 @@ import pytest
 
 from beamlime.constructors import ProviderGroup
 
-from .preset_factory import orange_joke
+from .preset_providers import orange_joke
 
 decorating_provider_group = ProviderGroup()
 UsefulString = NewType("UsefulString", str)
