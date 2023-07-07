@@ -369,7 +369,7 @@ class ProviderGroup:
     def provider(self, provider_call=Callable[..., Product]) -> Callable[..., Product]:
         """
         Register the decorated callable into this group.
-        The product type is not specified will be retrieved from the annotation.
+        The product type will be retrieved from the annotation.
 
         Examples
         --------
