@@ -32,9 +32,7 @@ def validate_annotation(annotation) -> Literal[True]:
     from typing import get_origin
 
     if get_origin(annotation) == Union:
-        raise NotImplementedError(
-            "Union annotation except for ``Optional`` " "is not supported yet."
-        )
+        raise NotImplementedError("Union annotation is not supported.")
     return True
 
 
@@ -42,7 +40,7 @@ Product = TypeVar("Product")
 ProductType = Type[Product]
 
 
-def extract_underlying_type(product_type: ProductType) -> Any:
+def extract_underlying_product_type(product_type: ProductType) -> ProductType:
     if hasattr(product_type, "__supertype__"):  # NewType
         return product_type.__supertype__
     else:
@@ -66,15 +64,15 @@ class ProductSpec:
         else:
             validate_annotation(product_type)
             self.product_type = product_type
-            self.returned_type = extract_underlying_type(product_type)
+            self.returned_type = extract_underlying_product_type(product_type)
 
-    def __eq__(self, __value: object) -> bool:
-        if not isinstance(__value, ProductSpec):
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ProductSpec):
             raise NotImplementedError(
-                "Comparison between ProductSpec " "and other type is not supported."
+                "Comparison between ProductSpec and other type is not supported."
             )
         else:
-            return self.product_type == __value.product_type
+            return self.product_type == other.product_type
 
 
 def collect_arg_typehints(callable_obj: Callable) -> Dict[str, Any]:
@@ -95,15 +93,26 @@ def get_product_spec(callable_obj: Callable) -> ProductSpec:
     If ``callable_obj`` is a function, it is a return type annotation,
     and if ``callable_obj`` is a class, it is the class itself.
     """
-    from functools import partial
-
     if isinstance(callable_obj, type):
         return ProductSpec(callable_obj)
-    elif isinstance(callable_obj, partial):
-        return get_product_spec(callable_obj.func)
     else:
         product = collect_arg_typehints(callable_obj).get("return", UnknownType)
         return ProductSpec(product)
+
+
+def extract_underlying_dep_type(tp: Any) -> ProductType:
+    from typing import Union, get_args, get_origin
+
+    if get_origin(tp) == Union:
+        if len((args := get_args(tp))) == 2 and type(None) in args:
+            # Optional
+            return args[0] if isinstance(None, args[1]) else args[1]
+        else:
+            raise NotImplementedError(
+                "Union annotation for dependencies is not supported."
+            )
+    else:
+        return tp
 
 
 class DependencySpec:
@@ -111,23 +120,9 @@ class DependencySpec:
     Specification of sub-dependencies (arguments/attributes) of a provider.
     """
 
-    def __init__(self, dependency_type: ProductType, default_value: Product) -> None:
-        try:
-            validate_annotation(dependency_type)
-        except NotImplementedError as err:
-            from typing import get_args
-
-            if len((args := get_args(dependency_type))) == 2 and type(None) in args:
-                # Allow ``Optional``.
-                self.dependency_type = (
-                    args[0] if isinstance(args[1], type(None)) else args[1]
-                )
-            else:
-                raise err
-        else:
-            self.dependency_type = dependency_type
-        finally:
-            self.default_product = default_value
+    def __init__(self, dependency_type: Any, default_value: Product) -> None:
+        self.dependency_type = extract_underlying_dep_type(dependency_type)
+        self.default_product = default_value
 
     def is_optional(self):
         return self.default_product is not Empty or self.dependency_type is UnknownType

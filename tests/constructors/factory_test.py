@@ -2,6 +2,8 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+from typing import Any, Optional, Union
+
 import pytest
 
 from beamlime.constructors import Factory, ProviderGroup, ProviderNotFoundError
@@ -35,6 +37,71 @@ def test_factory_getitem_with_arg_dependency():
 
     assert factory[GoodTelling] != give_a_good_telling()
     assert factory[GoodTelling] == another_good_telling
+
+
+def func_implicit_optional_arg(arg: int = None) -> object:  # type:ignore[assignment]
+    # TODO: Remove this test case when ``inspect.signature``
+    # does not annotation implicit Optional.
+    # When a default value is set as ``None``,
+    # the annotation in the signature will be inferred as ``Optional``.
+    # However, PEP 484 prohibits implicit Optional
+    # and inspect module also may change accordingly.
+    # Then this test case may be removed after the change.
+    return arg
+
+
+def func_optional_arg(arg: Optional[int] = None) -> object:
+    return arg
+
+
+def func_union_optional_arg(arg: Union[None, int] = None) -> object:
+    return arg
+
+
+@pytest.mark.parametrize(
+    ["optional_arg_func"],
+    [(func_optional_arg,), (func_implicit_optional_arg,), (func_union_optional_arg,)],
+)
+def test_factory_optional_annotation(optional_arg_func):
+    provider_group = ProviderGroup(optional_arg_func)
+    factory = Factory(provider_group)
+    with factory.constant_provider(int, 1):
+        assert factory[object] == 1
+
+
+@pytest.mark.parametrize(
+    ["optional_arg_func"],
+    [(func_optional_arg,), (func_implicit_optional_arg,), (func_union_optional_arg,)],
+)
+def test_factory_optional_annotation_none(optional_arg_func):
+    provider_group = ProviderGroup(optional_arg_func)
+    factory = Factory(provider_group)
+    assert factory[object] is None
+
+
+def func_union_arg(arg: Union[None, int, float] = None) -> Any:
+    return arg
+
+
+def test_union_arg_raises():
+    with pytest.raises(NotImplementedError):
+        ProviderGroup(func_union_arg)
+
+
+def func_optional_return(arg: Optional[int] = None) -> Optional[int]:
+    return arg
+
+
+def func_union_return(arg: Union[int, float, None] = None) -> Union[int, float, None]:
+    return arg
+
+
+@pytest.mark.parametrize(
+    ["union_return_func"], [(func_optional_return,), (func_union_return,)]
+)
+def test_factory_optional_return_raises(union_return_func):
+    with pytest.raises(NotImplementedError):
+        ProviderGroup(union_return_func)
 
 
 def test_factory_catalogue():
