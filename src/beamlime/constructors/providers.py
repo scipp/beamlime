@@ -184,7 +184,7 @@ class Provider(Generic[Product]):
         """Compare ``constructor``, ``args`` and ``keywords`` of the provider."""
         if not isinstance(other, Provider):
             raise NotImplementedError(
-                "Comparison between Provider" " with other type is not supported."
+                "Comparison between Provider with other type is not supported."
             )
         else:
             return (
