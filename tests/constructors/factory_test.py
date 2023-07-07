@@ -69,8 +69,8 @@ def func_union_optional_arg(arg: Union[None, int] = None) -> object:
 
 
 @pytest.mark.parametrize(
-    ["optional_arg_func"],
-    [(func_optional_arg,), (func_implicit_optional_arg,), (func_union_optional_arg,)],
+    "optional_arg_func",
+    (func_optional_arg, func_implicit_optional_arg, func_union_optional_arg),
 )
 def test_factory_optional_annotation(optional_arg_func):
     provider_group = ProviderGroup(optional_arg_func)
