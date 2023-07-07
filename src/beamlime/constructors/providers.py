@@ -178,7 +178,7 @@ class Provider(Generic[Product]):
 
     def __call__(self, *args, **kwargs) -> Product:
         """Call the constructor with extra arguments."""
-        return self.constructor(*(*self.args, *args), **{**self.keywords, **kwargs})
+        return self.constructor(*self.args, *args, **self.keywords, **kwargs)
 
     def __eq__(self, other: object) -> bool:
         """Compare ``constructor``, ``args`` and ``keywords`` of the provider."""
