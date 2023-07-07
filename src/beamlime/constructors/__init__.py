@@ -3,7 +3,12 @@
 # flake8: noqa F401
 
 from .factories import Factory
-from .inspectors import InsufficientAnnotationError
+from .inspectors import (
+    Empty,
+    InsufficientAnnotationError,
+    ProductNotFoundError,
+    UnknownType,
+)
 from .providers import (
     ConflictProvidersError,
     MismatchingProductTypeError,

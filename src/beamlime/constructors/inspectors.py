@@ -52,15 +52,13 @@ class ProductSpec:
     Specification of a product (returned value) of a provider.
     """
 
-    def __new__(cls, product_type: Union[ProductType, ProductSpec]) -> ProductSpec:
-        if isinstance(product_type, ProductSpec):
-            return product_type
-        else:
-            return super().__new__(ProductSpec)
-
     def __init__(self, product_type: Union[ProductType, ProductSpec]) -> None:
+        self.product_type: ProductType
+        self.returned_type: ProductType
+
         if isinstance(product_type, ProductSpec):
-            ...
+            self.product_type = product_type.product_type
+            self.returned_type = product_type.returned_type
         else:
             validate_annotation(product_type)
             self.product_type = product_type

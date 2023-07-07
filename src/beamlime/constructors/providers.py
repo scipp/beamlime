@@ -15,7 +15,7 @@ from typing import (
     ValuesView,
 )
 
-from beamlime.constructors.inspectors import (
+from .inspectors import (
     DependencySpec,
     Product,
     ProductSpec,
@@ -64,6 +64,8 @@ def _validate_callable_as_provider(
     without an access to the object containing the method.
     Currently, it is checking if ``__qualname__`` is different from ``__name__``
     to see if the ``callable_obj`` is a method.
+
+    TODO: Update the if statement with explicit check for a method.
     """
     if (
         not isinstance(callable_obj, partial)
@@ -102,11 +104,15 @@ class Provider(Generic[Product]):
         is forbidden similar to ``partial``.
         """
         self._constructor: Callable[..., Product]
+        self._init_constructor(_constructor)
+
         self.args: tuple
         self.keywords: dict
-
-        self._init_constructor(_constructor)
         self._init_arguments(_constructor, args, kwargs)
+
+        self.arg_dep_specs: DependencySpecDict
+        self.attr_dep_specs: DependencySpecDict
+        self.product_spec: ProductSpec
         self._init_dependencies()
 
     def _init_constructor(
@@ -130,11 +136,11 @@ class Provider(Generic[Product]):
             self.keywords = kwargs
 
     def _init_dependencies(self) -> None:
-        self.arg_dep_specs: DependencySpecDict = collect_argument_specs(
+        self.arg_dep_specs = collect_argument_specs(
             self._constructor, *self.args, **self.keywords
         )
-        self.attr_dep_specs: DependencySpecDict = collect_attr_specs(self._constructor)
-        self.product_spec: ProductSpec = get_product_spec(self._constructor)
+        self.attr_dep_specs = collect_attr_specs(self._constructor)
+        self.product_spec = get_product_spec(self._constructor)
 
     @property
     def call_name(self) -> str:

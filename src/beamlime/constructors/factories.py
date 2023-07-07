@@ -32,7 +32,7 @@ class Factory:
         """
         from .providers import merge
 
-        self.providers = merge(*initial_prov_grs)
+        self.providers: ProviderGroup = merge(*initial_prov_grs)
 
     @property
     def catalogue(self) -> frozenset[ProductType]:
@@ -83,7 +83,7 @@ class Factory:
         attr_dependencies: Dict[str, Any] = {
             attr_name: attr_spec.dependency_type
             for attr_name, attr_spec in provider.attr_dep_specs.items()
-            if not hasattr(product, attr_name) or getattr(product, attr_name) is None
+            if getattr(product, attr_name, None) is None
         }
 
         for attr_name, attr_type in attr_dependencies.items():
@@ -132,11 +132,7 @@ class Factory:
         my_providers = copy(self.providers)
         for product_type in merged:
             my_providers.pop(product_type)
-
-        try:
-            yield Factory(my_providers, merged)
-        finally:
-            ...
+        yield Factory(my_providers, merged)
 
     @contextmanager
     def constant_provider(self, product_type: ProductType, hardcoded_value: Any):
@@ -144,11 +140,8 @@ class Factory:
         Use a lambda function that returns ``hardcoded_value``.
         as a temporary provider of ``product_type``.
         """
-        try:
-            with self.temporary_provider(product_type, lambda: hardcoded_value):
-                yield None
-        finally:
-            ...
+        with self.temporary_provider(product_type, lambda: hardcoded_value):
+            yield None
 
     @contextmanager
     def partial_provider(self, product_type: ProductType, *args: Any, **kwargs: Any):
@@ -157,11 +150,8 @@ class Factory:
         and use it as a temporary provider.
         """
         _partial: Provider = Provider(self.providers[product_type], *args, **kwargs)
-        try:
-            with self.temporary_provider(product_type, _partial):
-                yield None
-        finally:
-            ...
+        with self.temporary_provider(product_type, _partial):
+            yield None
 
     @contextmanager
     def temporary_provider(
