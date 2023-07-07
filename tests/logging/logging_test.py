@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-import scipp as _  # noqa F401
-
-# TODO: Update local_provider context
+from logging import Logger
 
 
 def test_get_logger_default():
@@ -11,7 +9,7 @@ def test_get_logger_default():
     with local_logger_factory():
         from beamlime.logging import get_logger
 
-        default_logger = get_logger()
+        default_logger: Logger = get_logger()
         assert default_logger is get_logger()
         assert default_logger.name == "beamlime"
 
@@ -32,7 +30,7 @@ def test_get_scipp_logger():
     with local_logger_factory():
         from beamlime.logging import get_scipp_logger
 
-        scipp_logger = get_scipp_logger(widget=False)
+        scipp_logger: Logger = get_scipp_logger(widget=False)
         assert scipp_logger.name == "scipp"
 
 
@@ -44,6 +42,6 @@ def test_get_scipp_logger_set_level():
 
         from beamlime.logging import get_scipp_logger
 
-        scipp_logger = get_scipp_logger(log_level=DEBUG, widget=False)
+        scipp_logger: Logger = get_scipp_logger(log_level=DEBUG, widget=False)
         assert scipp_logger.name == "scipp"
         assert scipp_logger.level == DEBUG

@@ -5,6 +5,7 @@
 import logging
 import time
 from contextlib import contextmanager
+from pathlib import Path
 from threading import RLock
 from typing import Iterator, NewType
 
@@ -53,7 +54,7 @@ def initialize_log_dir(dir_path: LogDirectoryPath) -> DirectoryCreated:
     elif not os.path.exists(dir_path):
         os.mkdir(dir_path)
 
-    return True
+    return DirectoryCreated(True)
 
 
 LogFileName = NewType("LogFileName", str)
@@ -69,12 +70,13 @@ def create_log_file_name(
     return LogFileName(f"{prefix}--{time_stamp}.{suffix}")
 
 
-FileHandlerBasePath = NewType("FileHandlerBasePath", str)
+FileHandlerBasePath = NewType("FileHandlerBasePath", Path)
+DefaultDirectoryStatus = DirectoryCreated(True)
 
 
 @empty_log_providers.provider
 def create_log_file_path(
-    directory_ready: DirectoryCreated = True,
+    directory_ready: DirectoryCreated = DefaultDirectoryStatus,
     *,
     parent_dir: LogDirectoryPath,
     file_name: LogFileName,
@@ -85,9 +87,10 @@ def create_log_file_path(
     It will wait 0.001 second if the file name exists.
 
     """
-    from os.path import join
-
-    return FileHandlerBasePath(join(parent_dir, file_name))
+    if directory_ready:
+        return FileHandlerBasePath(Path(parent_dir, file_name))
+    else:
+        raise ValueError("Directory should be ready first.")
 
 
 @contextmanager

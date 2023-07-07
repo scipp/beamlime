@@ -24,7 +24,7 @@ def test_local_loggers():
         from beamlime.logging import get_logger
 
         with local_logger_factory():
-            logger = get_logger()
+            logger: Logger = get_logger()
             assert get_logger() is logger
 
         assert not get_logger() is logger
@@ -60,7 +60,7 @@ def test_app_logging_stream(
 
         from .dummy_app import LogMixinDummy
 
-        bm_logger = get_logger(verbose=True)
+        bm_logger: Logger = get_logger(verbose=True)
         bm_logger.setLevel(level)
         app = LogMixinDummy(bm_logger)
 
@@ -88,7 +88,7 @@ def test_file_handler_configuration(tmp_path: Path):
     tmp_log_providers[LogFileName] = lambda: tmp_log_filename
 
     with local_logger_factory(tmp_log_providers) as factory:
-        logger = get_logger(verbose=False)
+        logger: Logger = get_logger(verbose=False)
         # Should not have any file handlers set.
         hdlrs = logger.handlers
         assert not any([hdlr for hdlr in hdlrs if isinstance(hdlr, FileHandler)])
@@ -111,11 +111,14 @@ def test_file_handler_configuration(tmp_path: Path):
 def test_file_handler_configuration_existing_dir_raises():
     from inspect import getsourcefile
 
-    this_file_path = Path(getsourcefile(test_file_handler_configuration))
-    with local_logger_factory() as factory:
-        with factory.constant_provider(LogDirectoryPath, this_file_path):
-            with pytest.raises(FileExistsError):
-                factory[FileHandlerConfigured]
+    if src_file := getsourcefile(test_file_handler_configuration):
+        this_file_path = Path(src_file)
+        with local_logger_factory() as factory:
+            with factory.constant_provider(LogDirectoryPath, this_file_path):
+                with pytest.raises(FileExistsError):
+                    factory[FileHandlerConfigured]
+    else:
+        raise RuntimeError("Could not retrieve the path to this source for testing.")
 
 
 @pytest.mark.parametrize(
@@ -131,9 +134,11 @@ def test_app_logging_file(level: int, log_method, msg_suffix: str, tmp_path: Pat
     tmp_log_path = tmp_path / "tmp.log"
 
     with local_logger_factory():
+        from beamlime.logging.resources import FileHandlerBasePath
+
         from .dummy_app import LogMixinDummy
 
-        file_handler = BeamlimeFileHandler(tmp_log_path)
+        file_handler = BeamlimeFileHandler(FileHandlerBasePath(tmp_log_path))
         file_handler.initialize()
         logger = Logger("tmp")
         logger.addHandler(file_handler)

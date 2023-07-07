@@ -76,6 +76,16 @@ def test_create_log_file_path():
     )
 
 
+def test_create_log_file_directory_not_ready_raises():
+    """Test helper context test."""
+    import pytest
+
+    log_dir = LogDirectoryPath("tmp")
+    log_file = LogFileName("tmp.log")
+    with pytest.raises(ValueError):
+        create_log_file_path(False, parent_dir=log_dir, file_name=log_file)
+
+
 def test_create_log_file_path_provider():
     """Test helper context test."""
     with local_logger_factory() as factory:
@@ -94,7 +104,7 @@ def test_cleanup_file_handlers(tmp_path: Path):
 
     from beamlime.logging.handlers import BeamlimeFileHandler
 
-    tmp_file = tmp_path / "tmp.log"
+    tmp_file = FileHandlerBasePath(tmp_path / "tmp.log")
     logger = Logger("_")
     hdlr = BeamlimeFileHandler(tmp_file)
     hdlr.initialize()

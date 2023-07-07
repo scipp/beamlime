@@ -190,10 +190,10 @@ class BeamlimeHeaderFormatter(Formatter):
         self,
         /,
         headers: LogHeader = DEFAULT_HEADERS,
-        datefmt: str = None,
+        datefmt: Optional[str] = None,
         style: _FormatStyle = "{",
         validate: bool = True,
-        defaults: dict = None,
+        defaults: Optional[dict] = None,
     ) -> None:
         self.header_fmt = headers.format()
         super().__init__(headers.fmt, datefmt, style, validate)

@@ -3,20 +3,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Literal, NewType, TypeVar
+from typing import Literal, NewType, Optional
 
 from ..empty_providers import empty_log_providers
 from .handlers import BeamlimeFileHandler, BeamlimeStreamHandler
 
-LOG_LEVELS = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
-LogLevel = TypeVar(
-    "LogLevel",
-    Literal["DEBUG"],
-    Literal["INFO"],
-    Literal["WARNING"],
-    Literal["ERROR"],
-    None,
-)
+LogLevels = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 BeamlimeLogger = NewType("BeamlimeLogger", logging.Logger)
 
 
@@ -53,7 +45,7 @@ ScippLogger = NewType("ScippLogger", logging.Logger)
 
 @empty_log_providers.provider
 def get_scipp_logger(
-    log_level: LogLevel = "INFO",
+    log_level: Optional[LogLevels] = None,
     widget: ScippWidgetFlag = DefaultWidgetFlag,
 ) -> ScippLogger:
     import scipp as sc

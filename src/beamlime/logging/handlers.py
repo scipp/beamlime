@@ -20,7 +20,7 @@ from .resources import FileHandlerBasePath
 HandlerHeaderFlag = NewType("HandlerHeaderFlag", bool)
 
 
-class _HeaderMixin:
+class _HeaderMixin(StreamHandler):
     """
     Log handler mixin with headers.
     It emits header column once a new formatter is set if available.
@@ -29,8 +29,14 @@ class _HeaderMixin:
 
     header: HandlerHeaderFlag = HandlerHeaderFlag(True)
 
-    @property
+    @property  # type:ignore[override]
     def formatter(self) -> BeamlimeHeaderFormatter:
+        # TODO: ``logging.Handler`` does not have a type-hint for formatter
+        # and the default value is None,
+        # so even if ``BeamlimeHeaderFormatter`` inherits ``logging.Formatter``
+        # the static type is not compatible.
+        # This may be resolved when ``Handler`` has ``formatter`` type-hinted
+        # and mypy allows overriding property with a child class.
         return self._formatter
 
     @formatter.setter
@@ -55,7 +61,7 @@ class BeamlimeFileHandler(_HeaderMixin, FileHandler):
     __formatter: BeamlimeFileFormatter = DefaultBeamlimeFileFormatter
 
     def __init__(self, filename: FileHandlerBasePath) -> None:
-        self.baseFilename = filename
+        self.baseFilename = str(filename)
 
     def initialize(self):
         super().__init__(self.baseFilename)
