@@ -10,7 +10,7 @@ from beamlime.logging.resources import (
     LogFileName,
     LogFilePrefix,
     TimeStamp,
-    cleanup_file_handlers,
+    check_file_handlers,
     create_log_file_name,
     create_log_file_path,
 )
@@ -97,10 +97,12 @@ def test_create_log_file_path_provider():
                 assert Path(factory[FileHandlerBasePath]) == expected_path
 
 
-def test_cleanup_file_handlers(tmp_path: Path):
+def test_check_file_handlers(tmp_path: Path):
     """Test helper context test."""
     import os
     from logging import Logger
+
+    import pytest
 
     from beamlime.logging.handlers import BeamlimeFileHandler
 
@@ -111,5 +113,5 @@ def test_cleanup_file_handlers(tmp_path: Path):
     logger.addHandler(hdlr)
     assert hdlr in logger.handlers
     os.remove(tmp_file)
-    cleanup_file_handlers(logger)
-    assert hdlr not in logger.handlers
+    with pytest.raises(RuntimeError):
+        check_file_handlers(logger)

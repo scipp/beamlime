@@ -84,9 +84,9 @@ def initialize_file_handler(
     To adjust file name with different prefix or extension,
     see ``create_log_file_path``.
     """
-    from .resources import cleanup_file_handlers
+    from .resources import check_file_handlers
 
-    cleanup_file_handlers(logger)
+    check_file_handlers(logger)
     _hdlrs = [hdlr for hdlr in logger.handlers if isinstance(hdlr, BeamlimeFileHandler)]
     file_paths = [hdlr.baseFilename for hdlr in _hdlrs]
     if any((file_paths)):

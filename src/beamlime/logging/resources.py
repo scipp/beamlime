@@ -104,15 +104,16 @@ def hold_logging() -> Iterator[RLock]:
         _lock.release() if _lock else ...
 
 
-def cleanup_file_handlers(logger: logging.Logger):
+def check_file_handlers(logger: logging.Logger):
     """Find file handlers that are connectected to
-    non-existing files and remove them from the logger."""
+    non-existing files and raise error if any."""
     from os.path import exists
 
     f_hdlrs = [
         hdlr for hdlr in logger.handlers if isinstance(hdlr, logging.FileHandler)
     ]
-    _messy_handlers = [hdlr for hdlr in f_hdlrs if not exists(hdlr.baseFilename)]
-    for hdlr in _messy_handlers:
-        with hold_logging():
-            logger.removeHandler(hdlr)
+    missing = [
+        file_name for hdlr in f_hdlrs if not exists((file_name := hdlr.baseFilename))
+    ]
+    if missing:
+        raise RuntimeError("Files attached to the file handlers are missing.", missing)
