@@ -127,3 +127,24 @@ def test_providers_merge_conflicting_keywords_raises():
     funnier.provider(Provider(make_a_joke, joke=orange_joke))
     with pytest.raises(ConflictProvidersError):
         funny.merge(funnier)
+
+
+def cached_function() -> ProviderGroup:
+    return ProviderGroup()
+
+
+def test_cached_provider_function():
+    provider_gr = ProviderGroup()
+    provider_gr.cached_provider(ProviderGroup, cached_function)
+    first_instance = provider_gr[ProviderGroup]()
+    second_instance = provider_gr[ProviderGroup]()
+    assert first_instance is second_instance
+
+
+def test_cached_provider_function_copied():
+    provider_gr = ProviderGroup()
+    provider_gr.cached_provider(ProviderGroup, cached_function)
+    new_gr = ProviderGroup()
+    new_gr.merge(provider_gr)
+
+    assert provider_gr[ProviderGroup]() is not new_gr[ProviderGroup]()
