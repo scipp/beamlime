@@ -6,7 +6,6 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Any, Callable, Dict, Iterator, Type
 
-from .inspectors import ProductType
 from .providers import (
     Product,
     Provider,
@@ -35,11 +34,11 @@ class Factory:
         self.providers: ProviderGroup = merge(*initial_prov_grs)
 
     @property
-    def catalogue(self) -> frozenset[ProductType]:
+    def catalogue(self) -> frozenset[Type[Product]]:
         """Frozen set of the product type(s) this factory can manufacture."""
         return frozenset(self.providers.keys())
 
-    def __iter__(self) -> Iterator[ProductType]:
+    def __iter__(self) -> Iterator[Type[Product]]:
         """Return an iterator of the product type(s) this factory can manufacture."""
         return iter(self.catalogue)
 
@@ -60,7 +59,7 @@ class Factory:
         }
         return provider(**keyword_arguments)
 
-    def _inject_attributes(self, product: Product, product_type) -> Product:
+    def _inject_attributes(self, product: Product, product_type: Any) -> Product:
         """
         Build and inject attribute dependencies of the ``product``.
         If ``product`` is missing any attributes that are type-hinted,
@@ -130,12 +129,15 @@ class Factory:
 
         merged = merge(*provider_groups)
         my_providers = copy(self.providers)
+        product_type: Type[Any]
         for product_type in merged:
             my_providers.pop(product_type)
         yield Factory(my_providers, merged)
 
     @contextmanager
-    def constant_provider(self, product_type: ProductType, hardcoded_value: Any):
+    def constant_provider(
+        self, product_type: Type[Product], hardcoded_value: Product
+    ) -> Iterator[None]:
         """
         Use a lambda function that returns ``hardcoded_value``.
         as a temporary provider of ``product_type``.
@@ -144,19 +146,23 @@ class Factory:
             yield None
 
     @contextmanager
-    def partial_provider(self, product_type: ProductType, *args: Any, **kwargs: Any):
+    def partial_provider(
+        self, product_type: Type[Product], *args: Any, **kwargs: Any
+    ) -> Iterator[None]:
         """
         Create a partial provider for ``product_type`` with ``args`` and ``kwargs``
         and use it as a temporary provider.
         """
-        _partial: Provider = Provider(self.providers[product_type], *args, **kwargs)
+        _partial: Provider[Product] = Provider(
+            self.providers[product_type], *args, **kwargs
+        )
         with self.temporary_provider(product_type, _partial):
             yield None
 
     @contextmanager
     def temporary_provider(
-        self, product_type: ProductType, temp_provider: Callable[..., Product]
-    ):
+        self, product_type: Type[Product], temp_provider: Callable[..., Product]
+    ) -> Iterator[None]:
         """
         Replace an existing provider of ``product_type`` with ``temp_provider``
         or register ``temp_provider``.

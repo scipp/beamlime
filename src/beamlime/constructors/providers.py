@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import partial
 from typing import (
+    Any,
     Callable,
     Dict,
     Generic,
@@ -11,6 +12,7 @@ from typing import (
     Iterator,
     KeysView,
     Literal,
+    Type,
     Union,
     ValuesView,
 )
@@ -19,7 +21,6 @@ from .inspectors import (
     DependencySpec,
     Product,
     ProductSpec,
-    ProductType,
     UnknownType,
     collect_argument_specs,
     collect_attr_specs,
@@ -92,10 +93,10 @@ class Provider(Generic[Product]):
 
     def __init__(
         self,
-        _constructor: Union[Provider, partial, Callable[..., Product]],
+        _constructor: Constructor[Product],
         /,
-        *args,
-        **kwargs,
+        *args: Any,
+        **kwargs: Any,
     ) -> None:
         """
         Notes
@@ -106,8 +107,8 @@ class Provider(Generic[Product]):
         self._constructor: Callable[..., Product]
         self._init_constructor(_constructor)
 
-        self.args: tuple
-        self.keywords: dict
+        self.args: tuple[Any, ...]
+        self.keywords: dict[str, Any]
         self._init_arguments(_constructor, args, kwargs)
 
         self.arg_dep_specs: DependencySpecDict
@@ -115,9 +116,7 @@ class Provider(Generic[Product]):
         self.product_spec: ProductSpec
         self._init_dependencies()
 
-    def _init_constructor(
-        self, _constructor: Union[Provider, partial, Callable[..., Product]]
-    ) -> None:
+    def _init_constructor(self, _constructor: Constructor[Product]) -> None:
         if isinstance(_constructor, Provider):
             self._constructor = _constructor.constructor
         elif isinstance(_constructor, partial):
@@ -127,7 +126,12 @@ class Provider(Generic[Product]):
 
         _validate_callable_as_provider(self._constructor)
 
-    def _init_arguments(self, _constructor, args, kwargs) -> None:
+    def _init_arguments(
+        self,
+        _constructor: Constructor[Product],
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ) -> None:
         if isinstance(_constructor, (partial, Provider)):
             self.args = (*_constructor.args, *args)
             self.keywords = {**_constructor.keywords, **kwargs}
@@ -150,7 +154,7 @@ class Provider(Generic[Product]):
     def constructor(self) -> Callable[..., Product]:
         return self._constructor
 
-    def can_provide(self, product_type: Union[ProductType, ProductSpec]) -> bool:
+    def can_provide(self, product_type: Union[Type[Product], ProductSpec]) -> bool:
         """
         Check if the given ``product_type`` can be supported by this provider.
         Product type should be the same type as the returned type of this provider.
@@ -176,7 +180,7 @@ class Provider(Generic[Product]):
         else:
             return False
 
-    def __call__(self, *args, **kwargs) -> Product:
+    def __call__(self, *args: Any, **kwargs: Any) -> Product:
         """Call the constructor with extra arguments."""
         return self.constructor(*self.args, *args, **self.keywords, **kwargs)
 
@@ -199,12 +203,54 @@ class Provider(Generic[Product]):
     def __repr__(self) -> str:
         return f"Provider({self.call_name}, *{self.args}, **{self.keywords})."
 
+    @classmethod
+    def __copy__(cls, _obj: Provider[Product]) -> Provider[Product]:
+        return cls(_obj)
+
+    def __deepcopy__(self, _: dict[Any, Any]) -> Provider[Product]:
+        from copy import copy
+
+        return copy(self)
+
+
+Constructor = Union[Provider[Product], partial[Product], Callable[..., Product]]
+
+
+def _dummy_call(*args: Any, **kwargs: Any) -> None:
+    ...
+
+
+class CachedProviderCalledWithDifferentArgs(Exception):
+    ...
+
+
+class CachedProvider(Provider[Product]):
+    def __init__(
+        self, _constructor: Constructor[Product], /, *args: Any, **kwargs: Any
+    ) -> None:
+        from functools import lru_cache
+
+        super().__init__(_constructor, *args, **kwargs)
+        self.cached_constructor = lru_cache(maxsize=1)(self._constructor)
+        self.cache_indicator = lru_cache(maxsize=2)(_dummy_call)
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Product:
+        self.cache_indicator(*self.args, *args, **self.keywords, **kwargs)
+        if self.cache_indicator.cache_info().currsize > 1:
+            err_msg = (
+                f"CachedProvider {self} was called with "
+                "different arguments from the last call."
+            )
+            raise CachedProviderCalledWithDifferentArgs(err_msg)
+
+        return self.cached_constructor(*self.args, *args, **self.keywords, **kwargs)
+
 
 class UnknownProviderCalled(Exception):
     ...
 
 
-def unknown_provider_call():
+def unknown_provider_call() -> Any:
     raise UnknownProviderCalled("Unknown provider is called.")
 
 
@@ -215,10 +261,10 @@ def check_conflicting_providers(*prov_grs: ProviderGroup) -> None:
     """Raise an error is given factories have any conflicting providers."""
     from functools import reduce
 
-    keys_list = [set(prov_gr.keys()) for prov_gr in prov_grs]
+    keys_list: list[set[Type[Any]]] = [set(prov_gr.keys()) for prov_gr in prov_grs]
     union_keys = reduce(lambda x, y: x.union(y), keys_list)
 
-    def _collect_by(tp: ProductType) -> set[Provider]:
+    def _collect_by(tp: Type[Product]) -> set[Provider[Product]]:
         return set([group[tp] for group in prov_grs if tp in group])
 
     # If there is any overlapping providers or conflicting providers
@@ -237,7 +283,7 @@ def merge(*prov_grs: ProviderGroup) -> ProviderGroup:
     return prov_gr
 
 
-def _product_type_label(tp: ProductType) -> str:
+def _product_type_label(tp: Type[Product]) -> str:
     return tp.__name__ if hasattr(tp, "__name__") else str(tp)
 
 
@@ -251,18 +297,18 @@ class ProviderGroup:
         Initializes an empty internal provider dictionary
         and fills it with the initial providers from the argument.
         """
-        self._providers: Dict[ProductType, Provider] = dict()
+        self._providers: Dict[Type[Product], Provider[Product]] = dict()
         if initial_providers:
             for _provider in initial_providers:
                 self.provider(_provider)
 
-    def keys(self) -> KeysView[ProductType]:
+    def keys(self) -> KeysView[Type[Product]]:
         return self._providers.keys()
 
-    def values(self) -> ValuesView[Provider]:
+    def values(self) -> ValuesView[Provider[Product]]:
         return self._providers.values()
 
-    def items(self) -> ItemsView[ProductType, Provider]:
+    def items(self) -> ItemsView[Type[Product], Provider[Product]]:
         return self._providers.items()
 
     @classmethod
@@ -270,7 +316,7 @@ class ProviderGroup:
         """Return a new provider group containing same providers."""
         return merge(_obj)
 
-    def __iter__(self) -> Iterator[ProductType]:
+    def __iter__(self) -> Iterator[Type[Product]]:
         """Return an iterator of the product type(s) this group can provide."""
         return iter(self.keys())
 
@@ -280,9 +326,11 @@ class ProviderGroup:
 
     def merge(self, *others: ProviderGroup) -> None:
         """Merge other provider groups into this group after checking conflicts."""
+        from copy import deepcopy
+
         check_conflicting_providers(self, *others)
         for _group in others:
-            self._providers.update(_group._providers)
+            self._providers.update(deepcopy(_group._providers))
 
     def __add__(self, another: object) -> ProviderGroup:
         """Return a new group containing all providers of two groups."""
@@ -292,7 +340,7 @@ class ProviderGroup:
             )
         return merge(self, another)
 
-    def pop(self, product_type: ProductType) -> Provider:
+    def pop(self, product_type: Type[Product]) -> Provider[Product]:
         """
         Remove and return the provider of ``product_type``.
         Return ``UnknownProvider`` if not found.
@@ -304,7 +352,7 @@ class ProviderGroup:
         self._providers.clear()
 
     def _validate_and_register(
-        self, product_type: ProductType, provider: Provider
+        self, product_type: Type[Product], provider: Provider[Product]
     ) -> None:
         """
         Validate a provider and add the provider if valid.
@@ -334,7 +382,7 @@ class ProviderGroup:
             )
         self._providers[product_type] = provider
 
-    def __getitem__(self, product_type: ProductType) -> Provider:
+    def __getitem__(self, product_type: Type[Product]) -> Provider[Product]:
         """
         Return the provider of the requested product type.
 
@@ -351,7 +399,7 @@ class ProviderGroup:
             raise ProviderNotFoundError(f"Provider for ``{product_label}`` not found.")
 
     def __setitem__(
-        self, product_type: ProductType, provider_call: Callable[..., Product]
+        self, product_type: Type[Product], provider_call: Callable[..., Product]
     ) -> None:
         """
         Register a callable object ``provider_call`` as a provider of ``product_type``.
@@ -366,7 +414,7 @@ class ProviderGroup:
         """
         self._validate_and_register(product_type, Provider(provider_call))
 
-    def provider(self, provider_call=Callable[..., Product]) -> Callable[..., Product]:
+    def provider(self, provider_call: Callable[..., Product]) -> Callable[..., Product]:
         """
         Register the decorated callable into this group.
         The product type will be retrieved from the annotation.
@@ -382,7 +430,28 @@ class ProviderGroup:
         >>> number_providers[Literal[1]]() == 1
         True
         """
-        new_provider: Provider = Provider(provider_call)
+        new_provider: Provider[Product] = Provider(provider_call)
         _product_type = new_provider.product_spec.product_type
         self._validate_and_register(_product_type, new_provider)
         return provider_call
+
+    def cached_provider(
+        self, product_type: Type[Product], provider_call: Callable[..., Product]
+    ) -> None:
+        """
+        Register ``provider_call`` wrapped by ``CachedProvider``
+        as a provider of ``product_type``.
+
+        Notes
+        -----
+        ``CachedProvider`` will cache the first returned value and
+        it will not allow different arguments from the first call.
+        When ``ProviderGroup`` is merged into another one or copied,
+        it will also make a deep copy of ``CachedProvider``,
+        which means it will no longer have the existing cache.
+
+        """
+        self._validate_and_register(product_type, CachedProvider(provider_call))
+
+
+__all__ = ["Product"]

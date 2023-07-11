@@ -149,3 +149,27 @@ def test_insufficient_annotation_raises():
 
     with pytest.raises(InsufficientAnnotationError):
         Provider(func_without_arg_type)
+
+
+def test_cached_provider():
+    from beamlime.constructors.providers import CachedProvider
+
+    class TestClass:
+        ...
+
+    cached_provider = CachedProvider(TestClass)
+    assert cached_provider() is cached_provider()
+
+
+def test_cached_provider_deep_copied():
+    from copy import deepcopy
+
+    from beamlime.constructors.providers import CachedProvider
+
+    class TestClass:
+        def __eq__(self, _obj: object) -> bool:
+            return isinstance(_obj, TestClass)
+
+    cached_provider = CachedProvider(TestClass)
+    assert cached_provider() is not deepcopy(cached_provider)()
+    assert cached_provider() == deepcopy(cached_provider)()
