@@ -3,29 +3,29 @@
 # See comments in ``logging.Logger._src_file``
 # for explanation why we didn't use __file__
 import logging
-import time
-from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
-from threading import RLock
-from typing import Iterator, NewType
+from typing import NewType
 
 from ..empty_providers import log_providers
 
-TimeStamp = NewType("TimeStamp", str)
+UTCTimeTag = NewType("UTCTimeTag", str)
 
 
 @log_providers.provider
-def create_time_stamp() -> TimeStamp:
+def create_utc_time_without_microsecond() -> UTCTimeTag:
     """
-    Creates a timestamp with the format, ``{cur_timestamp}--{h_time}``.
-    ``htime`` is as an extra information only for the human users,
-    and the ``cur_timestamp`` should be used by the applications or modules.
-    """
-    from datetime import datetime
+    Create a UTC time tag without microsecond.
 
-    cur_timestamp = round(time.time())
-    h_time = datetime.fromtimestamp(cur_timestamp).strftime("%Y-%m-%d-%H-%M-%S")
-    return TimeStamp(f"{cur_timestamp}--{h_time}")
+    Notes
+    -----
+    ``scipp`` uses UTC time for time labels.
+    Microsecond is dropped to keep the log file names readable.
+    The time tag is intended to be use only for logging,
+    therefore microsecond information is not necessary.
+    """
+    now = datetime.now(tz=timezone.utc).replace(microsecond=0)
+    return UTCTimeTag(now.isoformat())
 
 
 LogFilePrefix = NewType("LogFilePrefix", str)
@@ -34,7 +34,7 @@ DefaultPrefix = LogFilePrefix("beamlime")
 LogFileExtension = NewType("LogFileExtension", str)
 DefaultFileExtension = LogFileExtension("log")
 
-LogDirectoryPath = NewType("LogDirectoryPath", str)
+LogDirectoryPath = NewType("LogDirectoryPath", Path)
 
 DirectoryCreated = NewType("DirectoryCreated", bool)
 
@@ -42,71 +42,70 @@ DirectoryCreated = NewType("DirectoryCreated", bool)
 @log_providers.provider
 def initialize_log_dir(dir_path: LogDirectoryPath) -> DirectoryCreated:
     """
-    Create the directory if it does not exist.
-    Raises an error if the desired path is an existing file.
+    Create the directory including parents if needed and returns True.
+    Raises ``FileExistsError`` if ``dir_path`` is an existing file, not a directory.
     """
-    import os
-
-    if os.path.exists(dir_path) and not os.path.isdir(dir_path):
-        raise FileExistsError(
-            f"{dir_path} is a file. " "It should either not exist or be a directory."
-        )
-    elif not os.path.exists(dir_path):
-        os.mkdir(dir_path)
+    dir_path.mkdir(parents=True, exist_ok=True)
 
     return DirectoryCreated(True)
 
 
-LogFileName = NewType("LogFileName", str)
+LogFileName = NewType("LogFileName", Path)
+
+
+def validate_log_file_prefix(prefix: LogFilePrefix) -> None:
+    """Log file prefix should not contain any underscores."""
+    if "_" in prefix:
+        raise ValueError("Log file prefix should not contain any underscore(`_`).")
 
 
 @log_providers.provider
 def create_log_file_name(
-    time_stamp: TimeStamp,
+    *,
     prefix: LogFilePrefix = DefaultPrefix,
-    suffix: LogFileExtension = DefaultFileExtension,
+    time_tag: UTCTimeTag,
+    extension: LogFileExtension = DefaultFileExtension,
 ) -> LogFileName:
-    """Combine prefix, timestamp and suffix into a new file name."""
-    return LogFileName(f"{prefix}--{time_stamp}.{suffix}")
+    """Combine prefix, time_tag and suffix into a new file name."""
+    validate_log_file_prefix(prefix)
+    return LogFileName(Path(f"{prefix}_{time_tag}.{extension}"))
 
 
 FileHandlerBasePath = NewType("FileHandlerBasePath", Path)
-DefaultDirectoryStatus = DirectoryCreated(True)
 
 
 @log_providers.provider
 def create_log_file_path(
-    directory_ready: DirectoryCreated = DefaultDirectoryStatus,
     *,
+    directory_ready: DirectoryCreated,
     parent_dir: LogDirectoryPath,
     file_name: LogFileName,
 ) -> FileHandlerBasePath:
     """
-    Create a log file path joining ``parent_dir`` and ``file_name``,
-    check if the file name already exists and returns the file name.
-    It will wait 0.001 second if the file name exists.
+    Create a log file path joining ``parent_dir`` and ``file_name``.
 
+    Notes
+    -----
+    It does not check if the file already exists or not,
+    therefore a file handler using this path might append logs into an existing file.
+    This case will be rare since the log file name contains time tag down to seconds,
+    and another file is not expected to be created within 1 second.
     """
     if directory_ready:
-        return FileHandlerBasePath(Path(parent_dir, file_name))
+        return FileHandlerBasePath(parent_dir / file_name)
     else:
         raise ValueError("Directory should be ready first.")
 
 
-@contextmanager
-def hold_logging() -> Iterator[RLock]:
-    from . import _lock
+def check_file_handlers(logger: logging.Logger) -> None:
+    """
+    Raises ``RuntimeError`` if any files attached to file handlers do not exist.
 
-    _lock.acquire() if _lock else ...
-    try:
-        yield _lock
-    finally:
-        _lock.release() if _lock else ...
-
-
-def check_file_handlers(logger: logging.Logger):
-    """Find file handlers that are connectected to
-    non-existing files and raise error if any."""
+    Notes
+    -----
+    This function is intended to be used only during the initial setup of the daemon
+    or for the integrated testing, which might create and delete a temporary log file.
+    """
     from os.path import exists
 
     f_hdlrs = [
