@@ -2,8 +2,6 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # flake8: noqa F401
 
-import threading
-
 from .providers import (
     BeamlimeLogger,
     FileHandlerConfigured,
@@ -13,5 +11,3 @@ from .providers import (
     initialize_file_handler,
 )
 from .resources import LogDirectoryPath, LogFileExtension, LogFileName, LogFilePrefix
-
-_lock = threading.RLock()
