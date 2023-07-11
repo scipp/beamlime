@@ -48,17 +48,15 @@ def get_scipp_logger(
     log_level: Optional[LogLevels] = None,
     widget: ScippWidgetFlag = DefaultWidgetFlag,
 ) -> ScippLogger:
-    import scipp as sc
+    from scipp.logging import get_logger, get_widget_handler
 
-    scipp_logger = sc.get_logger()
+    scipp_logger = get_logger()
 
-    if widget and not (
-        widget_handler := sc.logging.get_widget_handler()
-    ):  # pragma: no cover
+    if widget and not (widget_handler := get_widget_handler()):  # pragma: no cover
         # scipp widget is only available in the jupyter notebook.
-        from scipp.logging import WidgetHandler
+        from scipp.logging import WidgetHandler, make_widget_handler
 
-        widget_handler = sc.logging.make_widget_handler()
+        widget_handler = make_widget_handler()
         if log_level and isinstance(widget_handler, WidgetHandler):
             scipp_logger.addHandler(widget_handler)
             widget_handler.setLevel(log_level)
@@ -98,7 +96,6 @@ def initialize_file_handler(
         )
         return FileHandlerConfigured(True)
 
-    file_handler.initialize()
     logger.info(f"Start collecting logs into {file_handler.baseFilename}")
     logger.addHandler(file_handler)
 

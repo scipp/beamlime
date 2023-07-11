@@ -4,7 +4,7 @@
 from collections import OrderedDict
 from dataclasses import dataclass
 from logging import Formatter
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 HeaderSep = "|"
 _FormatStyle = Literal["{", "%"]
@@ -109,7 +109,7 @@ class LogHeader(OrderedDict[str, LogColumn]):
     def __init__(
         self,
         *args: LogColumn,
-        padding: tuple = (1, 1),
+        padding: tuple[int, int] = (1, 1),
         sep: Literal["|", ","] = "|",
         ansi_colored: bool = False,
     ):
@@ -133,7 +133,7 @@ class LogHeader(OrderedDict[str, LogColumn]):
             self._fmt = _fmt
 
     @property
-    def fmt(self):
+    def fmt(self) -> str:
         return self._fmt
 
     def format(self) -> str:
@@ -188,7 +188,7 @@ class BeamlimeHeaderFormatter(Formatter):
         datefmt: Optional[str] = None,
         style: _FormatStyle = "{",
         validate: bool = True,
-        defaults: Optional[dict] = None,
+        defaults: Optional[dict[str, Any]] = None,
     ) -> None:
         self.header_fmt = headers.format()
         super().__init__(headers.fmt, datefmt, style, validate)

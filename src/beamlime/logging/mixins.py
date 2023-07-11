@@ -2,6 +2,8 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+from typing import Any
+
 from .. import LoggingProtocol
 
 
@@ -12,31 +14,24 @@ def _compose_msg(application: str, message: str) -> str:
 
 
 class LogMixin:
-    """
-    Logging interfaces.
-    Mixin assumes the inheriting class meets the ``BeamlimeApplicationProtocol``.
+    """Logging interfaces."""
 
-    Protocol
-    --------
-    LoggingProtocol
-    """
-
-    def debug(self: LoggingProtocol, msg: str, *args, **kwargs) -> None:
+    def debug(self: LoggingProtocol, msg: str, *args: Any, **kwargs: Any) -> None:
         self.logger.debug(
             _compose_msg(self.__class__.__qualname__, msg), *args, **kwargs
         )
 
-    def info(self: LoggingProtocol, msg: str, *args, **kwargs) -> None:
+    def info(self: LoggingProtocol, msg: str, *args: Any, **kwargs: Any) -> None:
         self.logger.info(
             _compose_msg(self.__class__.__qualname__, msg), *args, **kwargs
         )
 
-    def warning(self: LoggingProtocol, msg: str, *args, **kwargs) -> None:
+    def warning(self: LoggingProtocol, msg: str, *args: Any, **kwargs: Any) -> None:
         self.logger.warning(
             _compose_msg(self.__class__.__qualname__, msg), *args, **kwargs
         )
 
-    def error(self: LoggingProtocol, msg: str, *args, **kwargs) -> None:
+    def error(self: LoggingProtocol, msg: str, *args: Any, **kwargs: Any) -> None:
         self.logger.error(
             _compose_msg(self.__class__.__qualname__, msg), *args, **kwargs
         )

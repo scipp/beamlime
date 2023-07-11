@@ -20,7 +20,11 @@ from .resources import FileHandlerBasePath
 HandlerHeaderFlag = NewType("HandlerHeaderFlag", bool)
 
 
-class _HeaderMixin(StreamHandler):
+# TODO: Remove type ignore tag.
+# strict type check fails due to missing type-arg
+# even though ``StreamHandler`` is not ``Generic``
+# hence ``StreamHandler[T]`` is not possible in the runtime.
+class _HeaderMixin(StreamHandler):  # type:ignore[type-arg]
     """
     Log handler mixin with headers.
     It emits header column once a new formatter is set if available.
@@ -45,7 +49,7 @@ class _HeaderMixin(StreamHandler):
         if hasattr(_formatter, "header_fmt") and self.header:
             self.emit_header()
 
-    def emit_header(self):
+    def emit_header(self) -> None:
         msg = self.formatter.header_fmt + self.terminator
         self.stream.write(msg)
         self.flush()
@@ -62,8 +66,6 @@ class BeamlimeFileHandler(_HeaderMixin, FileHandler):
 
     def __init__(self, filename: FileHandlerBasePath) -> None:
         self.baseFilename = str(filename)
-
-    def initialize(self):
         super().__init__(self.baseFilename)
         self.formatter = self.__formatter
 
@@ -89,10 +91,20 @@ DefaultBeamlimeStreamFormatter = BeamlimeStreamFormatter(ColoredFormatter)
 
 
 @log_providers.provider
-class BeamlimeStreamHandler(_HeaderMixin, StreamHandler):
+class BeamlimeStreamHandler(_HeaderMixin):
+    """
+    Stream handler with ansi-color applied text for terminal display.
+
+    Notes
+    -----
+    It will assign the color to the each application from the cyclic palette,
+    therefore multiple applications may have the same color.
+
+    """
+
     formatter: BeamlimeStreamFormatter
 
-    def __init__(self):
+    def __init__(self) -> None:
         from itertools import cycle
 
         from colorama.ansi import Fore, Style
@@ -112,14 +124,17 @@ class BeamlimeStreamHandler(_HeaderMixin, StreamHandler):
     def set_application_color(
         self, app_name: str, ansi_color: Optional[str] = None
     ) -> None:
+        """Store ``ansi_color`` for ``app_name`` for future usage."""
         self.color_map[app_name] = ansi_color or next(self.color_list)
 
     def get_application_color(self, app_name: str) -> str:
+        """Create or retrieve a color for ``app_name``."""
         if app_name not in self.color_map:
             self.set_application_color(app_name)
         return self.color_map[app_name]
 
     def handle(self, record: LogRecord) -> bool:
+        """Add ``ansi_color`` field to an existing record and emit it."""
         if isinstance(record.msg, BeamlimeLogMessage) and (
             len((name_msg := str(record.msg).split("|"))) == 2
         ):
