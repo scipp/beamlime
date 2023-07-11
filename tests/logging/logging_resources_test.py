@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from beamlime.logging.resources import (
     FileHandlerBasePath,
@@ -9,7 +9,7 @@ from beamlime.logging.resources import (
     LogFileExtension,
     LogFileName,
     LogFilePrefix,
-    TimeStamp,
+    UTCTimeTag,
     check_file_handlers,
     create_log_file_name,
     create_log_file_path,
@@ -18,60 +18,67 @@ from beamlime.logging.resources import (
 from .contexts import local_logger_factory
 
 
-@patch("beamlime.logging.resources.time.time")
-def test_time_stamp(_time):
-    import time as real_time
-    from datetime import datetime
+@patch("beamlime.logging.resources.datetime")
+def test_time_tag(_datetime):
+    from datetime import datetime as real_dt
+    from datetime import timezone
 
-    cur_time = real_time.time()
-    cur_timestamp = round(cur_time)
+    from beamlime.logging.resources import create_utc_time_without_microsecond
 
-    _time = MagicMock(real_time)
-    _time.time.return_value = cur_time
+    real_now = real_dt.now(tz=timezone.utc).replace(microsecond=0)
+    _datetime.now.return_value = real_now
 
-    from beamlime.logging.resources import TimeStamp, create_time_stamp
-
-    h_time = datetime.fromtimestamp(cur_timestamp).strftime("%Y-%m-%d-%H-%M-%S")
-    assert create_time_stamp() == TimeStamp(f"{cur_timestamp}--{h_time}")
+    assert create_utc_time_without_microsecond() == UTCTimeTag(real_now.isoformat())
 
 
 def test_create_log_file_name():
     """Test helper context test."""
     file_prefix = LogFilePrefix("beanline")
-    timestamp = TimeStamp("rightnow")
+    time_tag = UTCTimeTag("rightnow")
     file_extension = LogFileExtension("leaf")
-    assert (
+    assert create_log_file_name(
+        prefix=file_prefix, time_tag=time_tag, extension=file_extension
+    ) == Path("beanline_rightnow.leaf")
+
+
+def test_create_log_file_invalid_prefix_raises():
+    """Test helper context test."""
+    import pytest
+
+    file_prefix = LogFilePrefix("bean_line")
+    time_tag = UTCTimeTag("rightnow")
+    file_extension = LogFileExtension("leaf")
+    with pytest.raises(ValueError):
         create_log_file_name(
-            time_stamp=timestamp, prefix=file_prefix, suffix=file_extension
+            prefix=file_prefix, time_tag=time_tag, extension=file_extension
         )
-        == "beanline--rightnow.leaf"
-    )
 
 
 def test_log_file_name_provider():
     """Test helper context test."""
     with local_logger_factory() as factory:
         file_prefix = LogFilePrefix("beanline")
-        timestamp = TimeStamp("rightnow")
+        timestamp = UTCTimeTag("rightnow")
         file_extension = LogFileExtension("leaf")
 
         with factory.constant_provider(LogFilePrefix, file_prefix):
-            with factory.constant_provider(TimeStamp, timestamp):
+            with factory.constant_provider(UTCTimeTag, timestamp):
                 with factory.constant_provider(LogFileExtension, file_extension):
-                    assert factory[LogFileName] == "beanline--rightnow.leaf"
+                    assert factory[LogFileName] == Path("beanline_rightnow.leaf")
 
-        with factory.constant_provider(TimeStamp, timestamp):
-            assert factory[LogFileName] == "beamlime--rightnow.log"
+        with factory.constant_provider(UTCTimeTag, timestamp):
+            assert factory[LogFileName] == Path("beamlime_rightnow.log")
 
 
 def test_create_log_file_path():
     """Test helper context test."""
-
-    log_dir = LogDirectoryPath("tmp")
-    log_file = LogFileName("tmp.log")
-    expected_path = Path(log_dir) / Path(log_file)
+    log_dir = LogDirectoryPath(Path("tmp"))
+    log_file = LogFileName(Path("tmp.log"))
+    expected_path = log_dir / log_file
     assert (
-        Path(create_log_file_path(True, parent_dir=log_dir, file_name=log_file))
+        create_log_file_path(
+            directory_ready=True, parent_dir=log_dir, file_name=log_file
+        )
         == expected_path
     )
 
@@ -80,21 +87,23 @@ def test_create_log_file_directory_not_ready_raises():
     """Test helper context test."""
     import pytest
 
-    log_dir = LogDirectoryPath("tmp")
-    log_file = LogFileName("tmp.log")
+    log_dir = LogDirectoryPath(Path("tmp"))
+    log_file = LogFileName(Path("tmp.log"))
     with pytest.raises(ValueError):
-        create_log_file_path(False, parent_dir=log_dir, file_name=log_file)
+        create_log_file_path(
+            directory_ready=False, parent_dir=log_dir, file_name=log_file
+        )
 
 
 def test_create_log_file_path_provider():
     """Test helper context test."""
     with local_logger_factory() as factory:
-        log_dir = LogDirectoryPath("tmp")
-        log_file = LogFileName("tmp.log")
-        expected_path = Path(log_dir) / Path(log_file)
+        log_dir = LogDirectoryPath(Path("tmp"))
+        log_file = LogFileName(Path("tmp.log"))
+        expected_path = log_dir / log_file
         with factory.constant_provider(LogDirectoryPath, log_dir):
             with factory.constant_provider(LogFileName, log_file):
-                assert Path(factory[FileHandlerBasePath]) == expected_path
+                assert factory[FileHandlerBasePath] == expected_path
 
 
 def test_check_file_handlers(tmp_path: Path):
@@ -109,7 +118,6 @@ def test_check_file_handlers(tmp_path: Path):
     tmp_file = FileHandlerBasePath(tmp_path / "tmp.log")
     logger = Logger("_")
     hdlr = BeamlimeFileHandler(tmp_file)
-    hdlr.initialize()
     logger.addHandler(hdlr)
     assert hdlr in logger.handlers
     os.remove(tmp_file)

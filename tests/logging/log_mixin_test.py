@@ -139,7 +139,6 @@ def test_app_logging_file(level: int, log_method, msg_suffix: str, tmp_path: Pat
         from .dummy_app import LogMixinDummy
 
         file_handler = BeamlimeFileHandler(FileHandlerBasePath(tmp_log_path))
-        file_handler.initialize()
         logger = Logger("tmp")
         logger.addHandler(file_handler)
         logger.setLevel(level)
