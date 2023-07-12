@@ -1,16 +1,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
-name: REUSABLE-TEST
+name: Test
 
 on:
   workflow_call:
     inputs:
       os-variant:
         default: 'ubuntu-20.04'
-        type: string
-      build-config:
-        default: 'dev-env'
         type: string
       python-version:
         default: '3.9'
@@ -25,12 +22,10 @@ jobs:
     runs-on: ${{ inputs.os-variant }}
 
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      - uses: ./.github/workflows/reusable-ci-setup.yml
         with:
+          os-variant: ${{ inputs.os-variant }}
           python-version: ${{ inputs.python-version }}
-      - run: python -m pip install --upgrade pip
-      - run: python -m pip install -r requirements/ci.txt
       - run: tox -e test
       - uses: actions/upload-artifact@v3
         if: ${{ inputs.coverage-report }}
