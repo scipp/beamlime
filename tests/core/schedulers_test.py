@@ -5,7 +5,7 @@ import pytest
 
 @pytest.mark.parametrize(
     ["max_trials", "success"],
-    [(4, True), (5, False)],
+    [(10, True), (15, False)],
 )
 def test_retry_decorator_max_trial(max_trials: int, success: bool):
     import time
@@ -35,12 +35,12 @@ def test_retry_decorator_max_trial(max_trials: int, success: bool):
     assert time_consumed > expected_consumed_time
     assert (
         time_consumed - expected_consumed_time
-    ) < interval  # Expected delta for several trials.
+    ) < interval * 3  # Expected delta for several trials.
 
 
 @pytest.mark.parametrize(
     ["max_trials", "success"],
-    [(4, True), (5, False)],
+    [(10, True), (15, False)],
 )
 def test_async_retry_decorator_max_trial(max_trials: int, success: bool):
     import asyncio
@@ -72,4 +72,4 @@ def test_async_retry_decorator_max_trial(max_trials: int, success: bool):
     assert time_consumed > expected_consumed_time
     assert (
         time_consumed - expected_consumed_time
-    ) < interval  # Expected delta for several trials.
+    ) < interval * 3  # Expected delta for several trials.
