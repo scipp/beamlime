@@ -27,7 +27,6 @@ jobs:
     runs-on: ${{ matrix.variant.os }}
     strategy:
       matrix:
-        variant:
         os: ["ubuntu-20.04", "macos-11"]
         # os: ["ubuntu-20.04", "macos-11", "windows-2019"]
         # TODO: Decide if we are going to support Windows or not.
