@@ -13,6 +13,7 @@ jobs:
     name: Formatting and static analysis
     runs-on: ubuntu-20.04
     steps:
+      - uses: actions/checkout@v3
       - uses: ./.github/workflows/reusable-ci-setup.yml
         with:
           python-version: '3.10'

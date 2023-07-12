@@ -24,9 +24,6 @@ jobs:
   setup-python-39:
     runs-on: ${{ inputs.os-variant }}
     steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: ${{ inputs.branch == '' && github.ref_name || inputs.branch }}
       - uses: actions/setup-python@v3
         with:
           python-version: ${{ inputs.python-version }}

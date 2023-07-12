@@ -22,6 +22,7 @@ jobs:
     runs-on: ${{ inputs.os-variant }}
 
     steps:
+      - uses: actions/checkout@v3
       - uses: ./.github/workflows/reusable-ci-setup.yml
         with:
           os-variant: ${{ inputs.os-variant }}

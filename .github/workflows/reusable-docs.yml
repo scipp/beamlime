@@ -26,6 +26,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - run: sudo apt install --yes graphviz pandoc
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.branch == '' && github.ref_name || inputs.branch }}
       - uses: ./.github/workflows/reusable-ci-setup.yml
         with:
           branch: ${{ inputs.branch }}
