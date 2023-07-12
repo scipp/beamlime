@@ -224,6 +224,17 @@ class CachedProviderCalledWithDifferentArgs(Exception):
     ...
 
 
+class CachedArguments:
+    def __init__(self) -> None:
+        self.args: tuple[Any, ...]
+        self.kwargs: dict[str, Any]
+
+    def __call__(self, *args: Any, **kwargs: Any) -> None:
+        if not (hasattr(self, "args") and hasattr(self, "kwargs")):
+            self.args = args
+            self.kwargs = kwargs
+
+
 class CachedProvider(Provider[Product]):
     def __init__(
         self, _constructor: Constructor[Product], /, *args: Any, **kwargs: Any
@@ -231,15 +242,22 @@ class CachedProvider(Provider[Product]):
         from functools import lru_cache
 
         super().__init__(_constructor, *args, **kwargs)
+        self.cached_args = CachedArguments()
         self.cached_constructor = lru_cache(maxsize=1)(self._constructor)
-        self.cache_indicator = lru_cache(maxsize=2)(_dummy_call)
+        self.cache_indicator = lru_cache(maxsize=2)(self.cached_args)
 
     def __call__(self, *args: Any, **kwargs: Any) -> Product:
         self.cache_indicator(*self.args, *args, **self.keywords, **kwargs)
         if self.cache_indicator.cache_info().currsize > 1:
+            from functools import lru_cache
+
+            self.cache_indicator = lru_cache(maxsize=2)(self.cached_args)
+            self.cache_indicator(
+                *self.cached_args.args, **self.cached_args.kwargs
+            )  # Reset cache.
             err_msg = (
                 f"CachedProvider {self} was called with "
-                "different arguments from the last call."
+                "different arguments from the first call."
             )
             raise CachedProviderCalledWithDifferentArgs(err_msg)
 
