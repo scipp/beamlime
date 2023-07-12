@@ -41,12 +41,12 @@ _NewT = NewType("_NewT", int)
 
 
 class NewTypeMeta(type):
-    def __instancecheck__(cls, __instance: Any) -> bool:
+    def __instancecheck__(cls, instance: Any) -> bool:
         return (
-            callable(__instance)
-            and hasattr(__instance, "__supertype__")
-            and _NewT.__module__ == __instance.__module__
-            and _NewT.__qualname__ == __instance.__qualname__
+            callable(instance)
+            and hasattr(instance, "__supertype__")
+            and _NewT.__module__ == instance.__module__
+            and _NewT.__qualname__ == instance.__qualname__
         )
 
 
