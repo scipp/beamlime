@@ -26,7 +26,7 @@ jobs:
 
   tests:
     name: Tests ${{ matrix.os }} py${{ matrix.python }}
-    needs: formatting
+    # needs: formatting
     strategy:
       matrix:
         os: ["ubuntu-20.04", "macos-11"]
