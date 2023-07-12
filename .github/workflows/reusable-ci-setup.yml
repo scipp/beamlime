@@ -14,14 +14,9 @@ on:
     python-version:
       default: '3.9'
       type: string
-    branch:
-      description: 'Branch/tag with documentation source. If not set, the current branch will be used.'
-      default: ''
-      required: false
-      type: string
 
 jobs:
-  setup-python-39:
+  setup-python:
     runs-on: ${{ inputs.os-variant }}
     steps:
       - uses: actions/setup-python@v3

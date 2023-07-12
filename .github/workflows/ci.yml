@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
+        with:
+          path: ci
       - uses: ./.github/workflows/reusable-ci-setup.yml
         with:
           python-version: '3.10'
@@ -24,6 +26,7 @@ jobs:
 
   tests:
     name: Tests ${{ matrix.python }} ${{ matrix.variant.os }}
+    working-directory: ci
     needs: formatting
     runs-on: ${{ matrix.variant.os }}
     strategy:
@@ -41,10 +44,11 @@ jobs:
           coverage-report: ${{ inputs.coverage-report }}
 
   docs:
+    name: Test document build
+    working-directory: ci
     needs: tests
     uses: ./.github/workflows/reusable-docs.yml
     with:
       publish: false
       version: ${{ github.ref_name }}
       branch: ${{ github.head_ref == '' && github.ref_name || github.head_ref }}
-
