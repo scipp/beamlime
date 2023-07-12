@@ -27,18 +27,17 @@ jobs:
   tests:
     name: Tests ${{ matrix.python }} ${{ matrix.variant.os }}
     needs: formatting
-    runs-on: ${{ matrix.variant.os }}
-    uses: ./.github/workflows/reusable-test.yml
-    with:
-      os-variant: ${{ matrix.variant.os }}
-      python-version: ${{ matrix.python-version }}
-      coverage-report: ${{ inputs.coverage-report }}
     strategy:
       matrix:
         os: ["ubuntu-20.04", "macos-11"]
         # os: ["ubuntu-20.04", "macos-11", "windows-2019"]
         # TODO: Decide if we are going to support Windows or not.
         python: ["3.9", "3.10", "3.11"]
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      os-variant: ${{ matrix.variant.os }}
+      python-version: ${{ matrix.python-version }}
+      coverage-report: ${{ inputs.coverage-report }}
 
   docs:
     name: Test document build
