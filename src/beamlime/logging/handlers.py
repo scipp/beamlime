@@ -69,6 +69,9 @@ class BeamlimeFileHandler(_HeaderMixin, FileHandler):
         super().__init__(self.baseFilename)
         self.formatter = self.__formatter
 
+    def __del__(self) -> None:
+        self.close()
+
 
 class _ColorLogRecord(LogRecord):
     """

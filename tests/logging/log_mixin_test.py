@@ -145,7 +145,6 @@ def test_app_logging_file(level: int, log_method, msg_suffix: str, tmp_path: Pat
         msg = f"Some information needed to be {msg_suffix} with"
         app = LogMixinDummy(logger=logger)
         getattr(app, log_method)(msg)
-        file_handler.close()
 
     log_output = tmp_log_path.read_text()
     for expected_field in (str(app.__class__.__qualname__), getLevelName(level), msg):
