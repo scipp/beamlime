@@ -26,11 +26,10 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - run: sudo apt install --yes graphviz pandoc
-        with:
-          ref: ${{ inputs.branch == '' && github.ref_name || inputs.branch }}
       - uses: actions/checkout@v3
         with:
-            branch: ${{ inputs.branch }}
+            ref: ${{ inputs.branch == '' && github.ref_name || inputs.branch }}
+            fetch-depth: 0
       - uses: actions/setup-python@v3
         with:
           python-version: '3.10'
