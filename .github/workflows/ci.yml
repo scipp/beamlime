@@ -34,11 +34,11 @@ jobs:
         python: ["3.9", "3.10", "3.11"]
 
     steps:
-      uses: ./.github/workflows/reusable-test.yml
-      with:
-        os-variant: ${{ matrix.variant.os }}
-        python-version: ${{ matrix.python-version }}
-        coverage-report: ${{ inputs.coverage-report }}
+      - uses: ./.github/workflows/reusable-test.yml
+        with:
+          os-variant: ${{ matrix.variant.os }}
+          python-version: ${{ matrix.python-version }}
+          coverage-report: ${{ inputs.coverage-report }}
 
   docs:
     needs: tests
