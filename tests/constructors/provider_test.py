@@ -161,7 +161,7 @@ def test_cached_provider():
     assert cached_provider() is cached_provider()
 
 
-def test_cached_provider_different_argument():
+def test_cached_provider_different_argument_raises():
     from beamlime.constructors.providers import (
         CachedProvider,
         CachedProviderCalledWithDifferentArgs,
@@ -175,6 +175,23 @@ def test_cached_provider_different_argument():
     assert cached_provider(arg=0) is cached_provider(arg=0)
     with pytest.raises(CachedProviderCalledWithDifferentArgs):
         cached_provider(arg=1)
+
+
+def test_cached_provider_different_argument_handled():
+    from beamlime.constructors.providers import (
+        CachedProvider,
+        CachedProviderCalledWithDifferentArgs,
+    )
+
+    class TestClass:
+        def __init__(self, arg: int) -> None:
+            self.arg = arg
+
+    cached_provider = CachedProvider(TestClass)
+    assert cached_provider(arg=0) is cached_provider(arg=0)
+    with pytest.raises(CachedProviderCalledWithDifferentArgs):
+        cached_provider(arg=1)
+    assert cached_provider(arg=0) is cached_provider(arg=0)
 
 
 def test_cached_provider_deep_copied():
