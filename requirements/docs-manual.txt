@@ -5,11 +5,11 @@
 #
 #    pip-compile-multi
 #
-certifi==2022.12.7
+certifi==2023.5.7
     # via requests
-charset-normalizer==3.1.0
+charset-normalizer==3.2.0
     # via requests
-click==8.1.3
+click==8.1.4
     # via
     #   click-default-group
     #   cloup
@@ -40,9 +40,9 @@ manimpango==0.4.3
     # via manim
 mapbox-earcut==1.0.1
     # via manim
-markdown-it-py==2.2.0
+markdown-it-py==3.0.0
     # via rich
-markupsafe==2.1.2
+markupsafe==2.1.3
     # via jinja2
 mdurl==0.1.2
     # via markdown-it-py
@@ -50,13 +50,13 @@ moderngl==5.8.2
     # via
     #   manim
     #   moderngl-window
-moderngl-window==2.4.3
+moderngl-window==2.4.4
     # via manim
-multipledispatch==0.6.0
+multipledispatch==1.0.0
     # via pyrr
 networkx==2.8.8
     # via manim
-numpy==1.24.3
+numpy==1.25.1
     # via
     #   isosurfaces
     #   manim
@@ -68,11 +68,11 @@ pillow==9.5.0
     # via
     #   manim
     #   moderngl-window
-pycairo==1.23.0
+pycairo==1.24.0
     # via manim
 pydub==0.25.1
     # via manim
-pyglet==2.0.5
+pyglet==2.0.8
     # via moderngl-window
 pygments==2.15.1
     # via
@@ -80,27 +80,25 @@ pygments==2.15.1
     #   rich
 pyrr==0.10.3
     # via moderngl-window
-requests==2.29.0
+requests==2.31.0
     # via manim
-rich==13.3.4
+rich==13.4.2
     # via manim
-scipy==1.10.1
+scipy==1.11.1
     # via manim
 screeninfo==0.8.1
     # via manim
-six==1.16.0
-    # via multipledispatch
 skia-pathops==0.7.4
     # via manim
 srt==3.5.3
     # via manim
-svgelements==1.9.3
+svgelements==1.9.5
     # via manim
 tqdm==4.65.0
     # via manim
-typed-ast==1.5.4
+typed-ast==1.5.5
     # via diagrams
-urllib3==1.26.15
+urllib3==2.0.3
     # via requests
 watchdog==2.3.1
     # via manim
