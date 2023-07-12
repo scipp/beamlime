@@ -194,8 +194,8 @@ def test_cached_provider_different_argument_handled():
     assert cached_provider(arg=0) is cached_provider(arg=0)
 
 
-def test_cached_provider_deep_copied():
-    from copy import deepcopy
+def test_cached_provider_copied():
+    from copy import copy
 
     from beamlime.constructors.providers import CachedProvider
 
@@ -204,5 +204,5 @@ def test_cached_provider_deep_copied():
             return isinstance(_obj, TestClass)
 
     cached_provider = CachedProvider(TestClass)
-    assert cached_provider() is not deepcopy(cached_provider)()
-    assert cached_provider() == deepcopy(cached_provider)()
+    assert cached_provider() is not copy(cached_provider)()
+    assert cached_provider() == copy(cached_provider)()

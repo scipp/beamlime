@@ -207,17 +207,8 @@ class Provider(Generic[Product]):
     def __copy__(cls, _obj: Provider[Product]) -> Provider[Product]:
         return cls(_obj)
 
-    def __deepcopy__(self, _: dict[Any, Any]) -> Provider[Product]:
-        from copy import copy
-
-        return copy(self)
-
 
 Constructor = Union[Provider[Product], partial[Product], Callable[..., Product]]
-
-
-def _dummy_call(*args: Any, **kwargs: Any) -> None:
-    ...
 
 
 class CachedProviderCalledWithDifferentArgs(Exception):
@@ -344,11 +335,14 @@ class ProviderGroup:
 
     def merge(self, *others: ProviderGroup) -> None:
         """Merge other provider groups into this group after checking conflicts."""
-        from copy import deepcopy
+        from copy import copy
 
         check_conflicting_providers(self, *others)
         for _group in others:
-            self._providers.update(deepcopy(_group._providers))
+            copied_providers = {
+                key: copy(provider) for key, provider in _group._providers.items()
+            }
+            self._providers.update(copied_providers)
 
     def __add__(self, another: object) -> ProviderGroup:
         """Return a new group containing all providers of two groups."""
@@ -465,7 +459,7 @@ class ProviderGroup:
         ``CachedProvider`` will cache the first returned value and
         it will not allow different arguments from the first call.
         When ``ProviderGroup`` is merged into another one or copied,
-        it will also make a deep copy of ``CachedProvider``,
+        it will also make a copy of ``CachedProvider``,
         which means it will no longer have the existing cache.
 
         """
