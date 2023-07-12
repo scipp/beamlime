@@ -17,9 +17,11 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
         with:
-          path: ci-release
-      - uses: ./.github/workflows/reusable-ci-setup.yml
+          python-version: '3.9'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements/ci.txt
       # - run: tox -e check-release
 
   build_wheels:
@@ -28,9 +30,11 @@ jobs:
     working-directory: ci-release
 
     steps:
-      - uses: ./.github/workflows/reusable-ci-setup.yml
+      - uses: actions/setup-python@v3
         with:
-          env-file: "wheels.txt"
+          python-version: '3.9'
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -r requirements/wheels.txt
 
       - name: Build wheels
         run: python -m build
