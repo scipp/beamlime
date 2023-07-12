@@ -37,7 +37,6 @@ jobs:
     with:
       os-variant: ${{ matrix.variant.os }}
       python-version: ${{ matrix.python-version }}
-      coverage-report: ${{ inputs.coverage-report }}
 
   docs:
     name: Test document build
