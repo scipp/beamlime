@@ -1,0 +1,20 @@
+
+name: Manual Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      os-variant:
+        default: 'ubuntu-20.04'
+        type: string
+      python-version:
+        default: '3.9'
+        type: string
+
+jobs:
+  test:
+    uses: ./.github/workflows/reusable-test.yml
+    with:
+      os-variant: ${{ inputs.os-variant }}
+      python-version: ${{ inputs.python-version }}
+      coverage-report: false

@@ -1,3 +1,4 @@
+
 name: Release
 
 on:
@@ -14,12 +15,7 @@ jobs:
     name: Check if package can be released
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v3
-        with:
-          python-version: 3.8
-      - run: python -m pip install --upgrade pip
-      - run: python -m pip install -r requirements/ci.txt
+      - uses: ./.github/workflows/reusable-ci-setup.yml
       # - run: tox -e check-release
         if: github.event_name == 'release' && github.event.action == 'published'
 
@@ -28,16 +24,9 @@ jobs:
     runs-on: ubuntu-20.04
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: ./.github/workflows/reusable-ci-setup.yml
         with:
-          fetch-depth: 0  # history required so setuptools_scm can determine version
-
-      - uses: actions/setup-python@v3
-        with:
-          python-version: 3.8
-
-      - run: python -m pip install --upgrade pip
-      - run: python -m pip install -r requirements/wheels.txt
+          env-file: "wheels.txt"
 
       - name: Build wheels
         run: python -m build

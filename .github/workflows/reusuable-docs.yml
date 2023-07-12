@@ -1,0 +1,53 @@
+
+name: Docs
+
+on:
+  workflow_call:
+    inputs:
+      publish:
+        default: false
+        type: boolean
+      version:
+        default: ''
+        required: false
+        type: string
+      branch:
+        description: 'Branch/tag with documentation source. If not set, the current branch will be used.'
+        default: ''
+        required: false
+        type: string
+
+env:
+  VERSION: ${{ inputs.version }}
+
+jobs:
+  docs:
+    name: Build documentation
+    runs-on: ubuntu-20.04
+    steps:
+      - run: sudo apt install --yes graphviz pandoc
+      - uses: ./.github/workflows/reusable-ci-setup.yml
+        with:
+          branch: ${{ inputs.branch }}
+      - run: |
+          tox --skip-pkg-install -e docs -- beamlime==${VERSION}
+
+          echo "target=$(python docs/version.py --version=${VERSION} --action=get-target)" >> $GITHUB_ENV
+        if: ${{ inputs.publish }}
+      - run: tox -e docs
+        if: ${{ !inputs.publish }}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: html
+          path: html/
+
+      - uses: JamesIves/github-pages-deploy-action@v4.4.2
+        if: ${{ inputs.publish }}
+        with:
+          branch: gh-pages
+          folder: html
+          target-folder: ${{ env.target }}
+          single-commit: true
+          clean-exclude: release
+          ssh-key: ${{ secrets.GH_PAGES_DEPLOY_KEY }}
+
