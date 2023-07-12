@@ -1,0 +1,38 @@
+package:
+  name: beamlime
+
+  version: {{ GIT_DESCRIBE_TAG }}
+
+source:
+  path: ..
+
+requirements:
+  build:
+    - setuptools
+    - setuptools_scm
+  run:
+    - python>=3.9
+
+test:
+  imports:
+    - beamlime
+  requires:
+    - pytest
+  source_files:
+    - pyproject.toml
+    - tests/
+  commands:
+    - python -m pytest tests
+
+build:
+  noarch: python
+  script:
+    - pip install .
+
+about:
+  home: https://github.com/scipp/beamlime
+  license: BSD-3-Clause
+  summary: Live data reduction visualisation framework for ESS.
+  description: Live data reduction visualisation framework for ESS.
+  dev_url: https://github.com/scipp/beamlime
+  doc_url: https://scipp.github.io/beamlime
