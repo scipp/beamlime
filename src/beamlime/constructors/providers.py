@@ -233,13 +233,17 @@ class CachedProvider(Provider[Product]):
         from functools import lru_cache
 
         super().__init__(_constructor, *args, **kwargs)
+        self.cached_result: Product
         self.cached_args = CachedArguments()
-        self.cached_constructor = lru_cache(maxsize=1)(self._constructor)
         self.cache_indicator = lru_cache(maxsize=2)(self.cached_args)
 
     def __call__(self, *args: Any, **kwargs: Any) -> Product:
         self.cache_indicator(*self.args, *args, **self.keywords, **kwargs)
-        if self.cache_indicator.cache_info().currsize > 1:
+        if not hasattr(self, "cached_result"):
+            self.cached_result = self.constructor(
+                *self.args, *args, **self.keywords, **kwargs
+            )
+        elif self.cache_indicator.cache_info().currsize > 1:
             from functools import lru_cache
 
             self.cache_indicator = lru_cache(maxsize=2)(self.cached_args)
@@ -251,8 +255,7 @@ class CachedProvider(Provider[Product]):
                 "different arguments from the first call."
             )
             raise CachedProviderCalledWithDifferentArgs(err_msg)
-
-        return self.cached_constructor(*self.args, *args, **self.keywords, **kwargs)
+        return self.cached_result
 
 
 class UnknownProviderCalled(Exception):
