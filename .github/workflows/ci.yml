@@ -42,7 +42,7 @@ jobs:
 
   docs:
     needs: tests
-    uses: ./.github/workflows/docs.yml
+    uses: ./.github/workflows/reusable-docs.yml
     with:
       publish: false
       version: ${{ github.ref_name }}
