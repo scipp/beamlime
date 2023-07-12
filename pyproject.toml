@@ -1,15 +1,14 @@
 [build-system]
 requires = [
-  "setuptools>=42",
-  "setuptools_scm[toml]>=6.2",
+  "setuptools>=67",
+  "setuptools_scm[toml]>=7.0",
 ]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools_scm]
-
 [project]
 name = "beamlime"
-description = "Live Data Reduction Dashboard"
+description = "Live data reduction visualisation framework for ESS."
+authors= [{ name = "Scipp contributors" }]
 license = { file = "LICENSE" }
 readme = "README.md"
 classifiers = [
@@ -22,23 +21,38 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering",
+    "Typing :: Typed",
 ]
 requires-python = ">=3.9"
-version = "23.03.0dev0"
-# dynamic = ["version"]
-dependencies = ["pyyaml"]
+dependencies = ["pyyaml", "numpy"]
+dynamic = ["version"]
+
 [project.urls]
-    "Documentation" = "https://github.com/scipp/beamlime#readme"
-    "Bug Tracker" = "https://github.com/scipp/beamlime/issues"
-    "Source" = "https://github.com/scipp/beamlime"
+"Bug Tracker" = "https://github.com/scipp/beamlime/issues"
+"Source" = "https://github.com/scipp/beamlime"
+
+[tool.setuptools_scm]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -v"
+testpaths = "tests"
+filterwarnings = [
+  "error",
+]
 
 [tool.bandit]
 # Excluding tests because bandit doesn't like `assert`.
-exclude_dirs = ["tests"]
+exclude_dirs = ["docs/conf.py", "tests"]
 
-[tool.codespell]
-skip = "./.git,./.tox,*/*_cache"
+[tool.black]
+skip-string-normalization = true
 
 [tool.isort]
 skip_gitignore = true
-profile = "black" # for compatibility with black
+profile = "black"
+
+[tool.mypy]
+mypy_path = "src"
+ignore_missing_imports = true
