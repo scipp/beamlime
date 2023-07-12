@@ -35,7 +35,7 @@ jobs:
         python: ["3.9", "3.10", "3.11"]
     uses: ./.github/workflows/reusable-test.yml
     with:
-      os-variant: ${{ matrix.variant.os }}
+      os-variant: ${{ matrix.os }}
       python-version: ${{ matrix.python-version }}
 
   docs:
