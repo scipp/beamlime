@@ -35,7 +35,7 @@ def test_retry_decorator_max_trial(max_trials: int, success: bool):
     assert time_consumed > expected_consumed_time
     assert (
         time_consumed - expected_consumed_time
-    ) < 0.05  # Expected delta for several trials.
+    ) < interval  # Expected delta for several trials.
 
 
 @pytest.mark.parametrize(
@@ -72,4 +72,4 @@ def test_async_retry_decorator_max_trial(max_trials: int, success: bool):
     assert time_consumed > expected_consumed_time
     assert (
         time_consumed - expected_consumed_time
-    ) < 0.05  # Expected delta for several trials.
+    ) < interval  # Expected delta for several trials.
