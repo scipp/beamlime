@@ -10,12 +10,8 @@ on:
 
 jobs:
   tests:
-    name: Tests ${{ matrix.os }} py${{ matrix.python }}
-    strategy:
-      matrix:
-        os: ["macos-11", "windows-2019"]
-        python: ["3.9", "3.10", "3.11"]
+    name: Tests
     uses: ./.github/workflows/test.yml
     with:
-      os-variant: ${{ matrix.os }}
-      python-version: ${{ matrix.python }}
+      os-variant: ["macos-11", "windows-2019"]
+      python-version-variant: ["3.9", "3.10", "3.11"]
