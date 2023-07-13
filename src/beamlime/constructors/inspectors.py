@@ -40,14 +40,17 @@ Product = TypeVar("Product")
 _NewT = NewType("_NewT", int)
 
 
-class NewTypeMeta(type):
+class NewTypeMeta(type):  # pragma: no cover
     def __instancecheck__(cls, instance: Any) -> bool:
-        return (
-            callable(instance)
-            and hasattr(instance, "__supertype__")
-            and _NewT.__module__ == instance.__module__
-            and _NewT.__qualname__ == instance.__qualname__
-        )
+        try:  # above py3.10, NewType is a class
+            return isinstance(instance, NewType)
+        except TypeError:  # py3.9, NewType is not a class
+            return (
+                callable(instance)
+                and hasattr(instance, "__supertype__")
+                and _NewT.__module__ == instance.__module__
+                and _NewT.__qualname__ == instance.__qualname__
+            )
 
 
 class NewTypeProtocol(Generic[Product], metaclass=NewTypeMeta):
