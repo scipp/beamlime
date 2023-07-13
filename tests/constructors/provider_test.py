@@ -149,3 +149,60 @@ def test_insufficient_annotation_raises():
 
     with pytest.raises(InsufficientAnnotationError):
         Provider(func_without_arg_type)
+
+
+def test_cached_provider():
+    from beamlime.constructors.providers import CachedProvider
+
+    class TestClass:
+        ...
+
+    cached_provider = CachedProvider(TestClass)
+    assert cached_provider() is cached_provider()
+
+
+def test_cached_provider_different_argument_raises():
+    from beamlime.constructors.providers import (
+        CachedProvider,
+        CachedProviderCalledWithDifferentArgs,
+    )
+
+    class TestClass:
+        def __init__(self, arg: int) -> None:
+            self.arg = arg
+
+    cached_provider = CachedProvider(TestClass)
+    assert cached_provider(arg=0) is cached_provider(arg=0)
+    with pytest.raises(CachedProviderCalledWithDifferentArgs):
+        cached_provider(arg=1)
+
+
+def test_cached_provider_different_argument_handled():
+    from beamlime.constructors.providers import (
+        CachedProvider,
+        CachedProviderCalledWithDifferentArgs,
+    )
+
+    class TestClass:
+        def __init__(self, arg: int) -> None:
+            self.arg = arg
+
+    cached_provider = CachedProvider(TestClass)
+    assert cached_provider(arg=0) is cached_provider(arg=0)
+    with pytest.raises(CachedProviderCalledWithDifferentArgs):
+        cached_provider(arg=1)
+    assert cached_provider(arg=0) is cached_provider(arg=0)
+
+
+def test_cached_provider_copied():
+    from copy import copy
+
+    from beamlime.constructors.providers import CachedProvider
+
+    class TestClass:
+        def __eq__(self, _obj: object) -> bool:
+            return isinstance(_obj, TestClass)
+
+    cached_provider = CachedProvider(TestClass)
+    assert cached_provider() is not copy(cached_provider)()
+    assert cached_provider() == copy(cached_provider)()
