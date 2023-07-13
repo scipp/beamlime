@@ -120,6 +120,7 @@ def test_check_file_handlers(tmp_path: Path):
     hdlr = BeamlimeFileHandler(tmp_file)
     logger.addHandler(hdlr)
     assert hdlr in logger.handlers
+    hdlr.close()
     os.remove(tmp_file)
     with pytest.raises(RuntimeError):
         check_file_handlers(logger)
