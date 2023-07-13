@@ -1,0 +1,21 @@
+
+name: Optional
+
+on:
+  push:
+    branches:
+      - main
+      - release
+  pull_request:
+
+jobs:
+  tests:
+    name: Tests ${{ matrix.os }} py${{ matrix.python }}
+    strategy:
+      matrix:
+        os: ["macos-11", "windows-2019"]
+        python: ["3.9", "3.10", "3.11"]
+    uses: ./.github/workflows/test.yml
+    with:
+      os-variant: ${{ matrix.os }}
+      python-version: ${{ matrix.python }}

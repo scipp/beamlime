@@ -4,6 +4,23 @@
 name: Test
 
 on:
+  workflow_dispatch:
+    inputs:
+      os-variant:
+        default: 'ubuntu-20.04'
+        type: string
+      python-version:
+        default: '3.9'
+        type: string
+      tox-env:
+        default: 'test'
+        type: string
+      pip-recipe:
+        default: 'requirements/ci.txt'
+        type: string
+      coverage-report:
+        default: false
+        type: boolean
   workflow_call:
     inputs:
       os-variant:
