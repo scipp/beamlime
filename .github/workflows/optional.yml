@@ -10,8 +10,15 @@ on:
 
 jobs:
   tests:
-    name: Tests
+    name: Tests ${{ matrix.os }} py${{ matrix.python }}
+    strategy:
+      matrix:
+        os: ["macos-11", "windows-2019"]
+        python: ["3.9", "3.10", "3.11"]
+        tox-env: ['py39', 'py310', 'py311']
+
     uses: ./.github/workflows/test.yml
     with:
-      os-variant: ["macos-11", "windows-2019"]
-      python-version-variant: ["3.9", "3.10", "3.11"]
+      os-variant: ${{ matrix.os }}
+      python-version: ${{ matrix.python }}
+      tox-env: ${{ matrix.tox-env }}
