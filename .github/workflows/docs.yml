@@ -1,3 +1,4 @@
+
 name: Docs
 
 on:
@@ -36,8 +37,9 @@ env:
 jobs:
   docs:
     name: Build documentation
-    runs-on: ubuntu-20.04
+    runs-on: 'ubuntu-20.04'
     steps:
+
       - run: sudo apt install --yes graphviz pandoc
       - uses: actions/checkout@v3
         with:
