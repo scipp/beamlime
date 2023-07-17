@@ -40,22 +40,28 @@ Product = TypeVar("Product")
 _NewT = NewType("_NewT", int)
 
 
-class NewTypeMeta(type):
+class _NewTypeMeta(type):  # pragma: no cover
     def __instancecheck__(cls, instance: Any) -> bool:
-        return (
-            callable(instance)
-            and hasattr(instance, "__supertype__")
-            and _NewT.__module__ == instance.__module__
-            and _NewT.__qualname__ == instance.__qualname__
-        )
+        try:  # above py3.10, NewType is a class
+            return isinstance(instance, NewType)
+        except TypeError:  # py3.9, NewType is not a class
+            return (
+                callable(instance)
+                and hasattr(instance, "__supertype__")
+                and _NewT.__module__ == instance.__module__
+                and _NewT.__qualname__ == instance.__qualname__
+            )
 
 
-class NewTypeProtocol(Generic[Product], metaclass=NewTypeMeta):
+class _NewTypeProtocol(Generic[Product], metaclass=_NewTypeMeta):
     __supertype__: Type[Product]
 
 
 def extract_underlying_product_type(product_type: Type[Product]) -> Type[Product]:
-    if isinstance(product_type, NewTypeProtocol):
+    # TODO: Replace this if statement with `isinstance(product_type, NewType)
+    # and remove `NewTypeProtocol`
+    # when the minimum python version becomes py310.
+    if isinstance(product_type, _NewTypeProtocol):
         return product_type.__supertype__
     else:
         return product_type
