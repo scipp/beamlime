@@ -14,11 +14,16 @@ jobs:
     strategy:
       matrix:
         os: ["macos-11", "windows-2019"]
-        python: ["3.9", "3.10", "3.11"]
-        tox-env: ['py39', 'py310', 'py311']
+        py:
+          - python: "3.9"
+            tox-env: "py39"
+          - python: "3.10"
+            tox-env: "py310"
+          - python: "3.11"
+            tox-env: "py311"
 
     uses: ./.github/workflows/test.yml
     with:
       os-variant: ${{ matrix.os }}
-      python-version: ${{ matrix.python }}
-      tox-env: ${{ matrix.tox-env }}
+      python-version: ${{ matrix.py.python }}
+      tox-env: ${{ matrix.py.tox-env }}
