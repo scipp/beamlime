@@ -23,13 +23,11 @@ jobs:
       - uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: Apply automatic formatting
-
   tests:
-    name: Tests ${{ matrix.os }} py${{ matrix.python }}
+    name: Tests
     needs: formatting
     strategy:
       matrix:
-
         os: ['ubuntu-20.04']
         python:
           - version: '3.9'
