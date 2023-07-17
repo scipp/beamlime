@@ -54,5 +54,12 @@ skip_gitignore = true
 profile = "black"
 
 [tool.mypy]
-mypy_path = "src"
+strict = true
 ignore_missing_imports = true
+enable_error_code = [
+    "ignore-without-code",
+    "redundant-expr",
+    "truthy-bool",
+]
+show_error_codes = true
+warn_unreachable = true
