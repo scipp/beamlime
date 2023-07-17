@@ -31,13 +31,15 @@ jobs:
       matrix:
 
         os: ['ubuntu-20.04']
-        python: ['3.9', '3.10', '3.11']
+        python:
+          - version: '3.9'
+            tox-env: 'py39'
 
     uses: ./.github/workflows/test.yml
     with:
       os-variant: ${{ matrix.os }}
-      python-version: ${{ matrix.python }}
-      tox-env: ${{ matrix.tox-env }}
+      python-version: ${{ matrix.python.version }}
+      tox-env: ${{ matrix.python.tox-env }}
 
   docs:
     needs: tests
