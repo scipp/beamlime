@@ -187,3 +187,18 @@ def test_local_factory_overwritten():
     assert global_factory[Joke] == make_a_joke()
     with global_factory.local_factory(ProviderGroup(make_another_joke)) as factory:
         assert factory[Joke] == make_another_joke()
+
+
+def test_cached_provider_function():
+    provider_gr = ProviderGroup()
+    provider_gr.cached_provider(ProviderGroup, ProviderGroup)
+    factory = Factory(provider_gr)
+    assert factory[ProviderGroup] is factory[ProviderGroup]
+
+
+def test_cached_provider_function_copied():
+    provider_gr = ProviderGroup()
+    provider_gr.cached_provider(ProviderGroup, ProviderGroup)
+    factory = Factory(provider_gr)
+    another_factory = Factory(provider_gr)
+    assert factory[ProviderGroup] is not another_factory[ProviderGroup]

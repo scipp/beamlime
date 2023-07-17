@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Literal, Type, TypeVar, Union
+from typing import Any, Callable, Dict, Generic, Literal, NewType, Type, TypeVar, Union
 
 
 class Empty:
@@ -23,7 +23,7 @@ class UnknownType:
     ...
 
 
-def validate_annotation(annotation) -> Literal[True]:
+def validate_annotation(annotation: Any) -> Literal[True]:
     """
     Check if the origin of the annotation is not Union.
 
@@ -37,11 +37,25 @@ def validate_annotation(annotation) -> Literal[True]:
 
 
 Product = TypeVar("Product")
-ProductType = Type[Product]
+_NewT = NewType("_NewT", int)
 
 
-def extract_underlying_product_type(product_type: ProductType) -> ProductType:
-    if hasattr(product_type, "__supertype__"):  # NewType
+class NewTypeMeta(type):
+    def __instancecheck__(cls, instance: Any) -> bool:
+        return (
+            callable(instance)
+            and hasattr(instance, "__supertype__")
+            and _NewT.__module__ == instance.__module__
+            and _NewT.__qualname__ == instance.__qualname__
+        )
+
+
+class NewTypeProtocol(Generic[Product], metaclass=NewTypeMeta):
+    __supertype__: Type[Product]
+
+
+def extract_underlying_product_type(product_type: Type[Product]) -> Type[Product]:
+    if isinstance(product_type, NewTypeProtocol):
         return product_type.__supertype__
     else:
         return product_type
@@ -52,9 +66,9 @@ class ProductSpec:
     Specification of a product (returned value) of a provider.
     """
 
-    def __init__(self, product_type: Union[ProductType, ProductSpec]) -> None:
-        self.product_type: ProductType
-        self.returned_type: ProductType
+    def __init__(self, product_type: Union[Type[Product], ProductSpec]) -> None:
+        self.product_type: Type[Product]
+        self.returned_type: Type[Product]
 
         if isinstance(product_type, ProductSpec):
             self.product_type = product_type.product_type
@@ -73,19 +87,16 @@ class ProductSpec:
             return self.product_type == other.product_type
 
 
-def collect_arg_typehints(callable_obj: Callable) -> Dict[str, Any]:
+def collect_arg_typehints(callable_obj: Callable[..., Product]) -> Dict[str, Type[Any]]:
     from typing import get_type_hints
 
     if isinstance(callable_obj, type):
-        # TODO: When the callable_obj is a class,
-        # investigating ``__init__`` of the class should be okay
-        # but may replace this to the better solution and remove type check ignore tag.
-        return get_type_hints(callable_obj.__init__)  # type: ignore[misc]
+        return get_type_hints(callable_obj.__init__)
     else:
         return get_type_hints(callable_obj)
 
 
-def get_product_spec(callable_obj: Callable) -> ProductSpec:
+def get_product_spec(callable_obj: Callable[..., Product]) -> ProductSpec:
     """
     Retrieve the product of provider.
     If ``callable_obj`` is a function, it is a return type annotation,
@@ -98,7 +109,7 @@ def get_product_spec(callable_obj: Callable) -> ProductSpec:
         return ProductSpec(product)
 
 
-def extract_underlying_dep_type(tp: Any) -> ProductType:
+def extract_underlying_dep_type(tp: Any) -> Any:
     from typing import Union, get_args, get_origin
 
     if get_origin(tp) == Union:
@@ -122,12 +133,12 @@ class DependencySpec:
         self.dependency_type = extract_underlying_dep_type(dependency_type)
         self.default_product = default_value
 
-    def is_optional(self):
+    def is_optional(self) -> bool:
         return self.default_product is not Empty or self.dependency_type is UnknownType
 
 
 def collect_argument_specs(
-    callable_obj: Callable, *default_args, **default_keywords
+    callable_obj: Callable[..., Product], *default_args: Any, **default_keywords: Any
 ) -> Dict[str, DependencySpec]:
     """
     Collect Dependencies from the signature and type hints.
@@ -167,7 +178,9 @@ def collect_argument_specs(
     }
 
 
-def collect_attr_specs(callable_class: Callable) -> Dict[str, DependencySpec]:
+def collect_attr_specs(
+    callable_class: Callable[..., Product]
+) -> Dict[str, DependencySpec]:
     """
     Collect Dependencies from the type hints of the class.
     It ignores any attributes without type hints.
