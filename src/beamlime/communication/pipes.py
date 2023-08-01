@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager, contextmanager
-from queue import Empty, Full
+from queue import Empty
 from typing import (
     AsyncGenerator,
     AsyncIterator,
@@ -20,33 +20,13 @@ from typing import (
 BufferData = TypeVar("BufferData")
 
 
-MAX_CHUNK_SIZE = 100
-DEFAULT_CHUNK_SIZE = int(MAX_CHUNK_SIZE / 10)
-MAX_BUFFER_SIZE = MAX_CHUNK_SIZE * 10
-
-
 class BufferBase(Generic[BufferData]):
     """
     Buffer base class that carries a single chunk of data.
     """
 
-    def __init__(
-        self,
-        *_initial_data: BufferData,
-        max_size: int = DEFAULT_CHUNK_SIZE,
-    ):
+    def __init__(self, *_initial_data: BufferData):
         self._data: List[BufferData] = list(_initial_data)
-        self.max_size: int = max_size
-
-    @property
-    def max_size(self) -> int:
-        return self._max_size
-
-    @max_size.setter
-    def max_size(self, _max_size: int) -> None:
-        if _max_size > MAX_BUFFER_SIZE:
-            raise ValueError("Maximum chunk size is limited to ", MAX_CHUNK_SIZE)
-        self._max_size = _max_size
 
     def __len__(self) -> int:
         return len(self._data)
@@ -113,24 +93,8 @@ class Pipe(BufferBase[BufferData]):
     and the rest will be restored into the pipe.
     """
 
-    def __init__(
-        self,
-        *_initial_data: BufferData,
-        max_size: int = MAX_BUFFER_SIZE,
-        chunk_size: int = DEFAULT_CHUNK_SIZE,
-    ) -> None:
-        super().__init__(*_initial_data, max_size=max_size)
-        self.chunk_size: int = chunk_size
-
-    @property
-    def chunk_size(self) -> int:
-        return self._chunk_size
-
-    @chunk_size.setter
-    def chunk_size(self, _chunk_size: int) -> None:
-        if _chunk_size > MAX_CHUNK_SIZE:
-            raise ValueError("Maximum chunk size is limited to ", MAX_CHUNK_SIZE)
-        self._chunk_size = _chunk_size
+    def __init__(self, *_initial_data: BufferData) -> None:
+        super().__init__(*_initial_data)
 
     @contextmanager
     def _open_buffer(
@@ -140,20 +104,14 @@ class Pipe(BufferBase[BufferData]):
         Create a buffer of the ``buffer_type``.
         """
         try:
-            from copy import deepcopy
-
-            chunk, self._data = (
-                self._data[: self.chunk_size],
-                self._data[self.chunk_size :],
-            )
-            _buffer = buffer_type(*deepcopy(chunk), max_size=self.chunk_size)
+            chunk, self._data = self._data, []
+            _buffer = buffer_type(*chunk)
             yield _buffer
         except Exception as err:
-            self._data = chunk + self._data
+            self._data = chunk + self._data  # Restore non-consumed data.
             raise err
         else:
-            consumed = max(0, len(chunk) - len(_buffer))
-            self._data = chunk[consumed:] + self._data
+            self._data = _buffer._data + self._data  # Restore non-consumed data.
         finally:
             ...
 
@@ -162,7 +120,7 @@ class Pipe(BufferBase[BufferData]):
         self, timeout: int = 0, retry_interval: float = 0.1
     ) -> Iterator[BufferBase[BufferData]]:
         """
-        Yield a buffer containing a copy of the first chunk of data.
+        Yield a buffer containing the first chunk of data.
         """
         from ..core.schedulers import retry
 
@@ -185,7 +143,7 @@ class Pipe(BufferBase[BufferData]):
         self, timeout: int = 0, retry_interval: float = 0.1
     ) -> AsyncIterator[BufferBase[BufferData]]:
         """
-        Yield an async buffer containing a copy of the first chunk of data.
+        Yield an async buffer containing the first chunk of data.
         """
 
         from ..core.schedulers import async_retry
@@ -207,32 +165,14 @@ class Pipe(BufferBase[BufferData]):
 
     def write(self, data: BufferData) -> None:
         """
-        Append a copy of a piece of data into the pipe.
+        Append a piece of data into the pipe.
 
-        Raises
-        ------
-        queue.Full
-            If the pipe will have more than ``self.max_size``
-            of data pieces with the new piece appended.
         """
-        from copy import copy
-
-        if len(self._data) >= self.max_size:
-            raise Full(f"Pipe is full. There are {self.max_size} pieces of data.")
-        self._data.append(copy(data))
+        self._data.append(data)
 
     def write_all(self, *data_chunks: BufferData) -> None:
         """
         Extend a chunk of copied data into the pipe.
 
-        Raises
-        ------
-        queue.Full
-            If the pipe will have more than ``self.max_size``
-            of data pieces with the new chunk appended.
         """
-        from copy import copy
-
-        if len(self._data) + len(data_chunks) > self.max_size:
-            raise Full(f"Pipe is full. There are {self.max_size} pieces of data.")
-        self._data.extend([copy(data) for data in data_chunks])
+        self._data.extend(data_chunks)
