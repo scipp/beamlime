@@ -27,7 +27,7 @@ def test_local_loggers():
             logger: Logger = get_logger()
             assert get_logger() is logger
 
-        assert not get_logger() is logger
+        assert get_logger() is not logger
 
 
 def test_logmixin_protocol():
