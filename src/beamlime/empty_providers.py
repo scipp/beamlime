@@ -5,3 +5,4 @@
 from .constructors import ProviderGroup
 
 log_providers = ProviderGroup()
+app_providers = ProviderGroup()
