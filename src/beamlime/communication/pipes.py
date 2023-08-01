@@ -82,7 +82,7 @@ Buffer = Union[SyncBuffer[BufferData], AsyncBuffer[BufferData]]
 
 class Pipe(BufferBase[BufferData]):
     """
-    Pipe object can create a buffer to read a data from the pipe,
+    ``Pipe`` object can create a buffer to read a data from the pipe,
     or write a chunk or a piece of data into the pipe.
 
     If there is an exception raised in the reading data context,
@@ -91,6 +91,11 @@ class Pipe(BufferBase[BufferData]):
     If the context reaches the end without any exception raised,
     consumed data will be discarded from the buffer
     and the rest will be restored into the pipe.
+
+    Notes
+    -----
+    ``Pipe`` does not guarantee the order of the data while using async methods.
+
     """
 
     def __init__(self, *_initial_data: BufferData) -> None:
@@ -120,7 +125,10 @@ class Pipe(BufferBase[BufferData]):
         self, timeout: int = 0, retry_interval: float = 0.1
     ) -> Iterator[BufferBase[BufferData]]:
         """
-        Yield a buffer containing the first chunk of data.
+        Yield a buffer containing all the current data.
+
+        It will retry to open a buffer after ``retry_interval``
+        if there is no data available.
         """
         from ..core.schedulers import retry
 
@@ -143,7 +151,10 @@ class Pipe(BufferBase[BufferData]):
         self, timeout: int = 0, retry_interval: float = 0.1
     ) -> AsyncIterator[BufferBase[BufferData]]:
         """
-        Yield an async buffer containing the first chunk of data.
+        Yield an async buffer containing all the current data.
+
+        It will retry to open a buffer after ``retry_interval``
+        if there is no data available.
         """
 
         from ..core.schedulers import async_retry
