@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Callable, NewType
 
 from ..core.schedulers import async_retry
-from ..empty_factory import empty_app_factory as app_factory
+from ..empty_providers import app_providers
 from ..logging import BeamlimeLogger
 from ..logging.mixins import LogMixin
 
@@ -50,7 +50,7 @@ class ControlInterface(LogMixin):
         self.debug("Resume command received.")
 
 
-app_factory.cache_product(ControlInterface, ControlInterface)
+app_providers.cached_provider(ControlInterface, ControlInterface)
 
 
 Timeout = NewType("Timeout", float)

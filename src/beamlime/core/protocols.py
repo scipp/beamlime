@@ -6,7 +6,7 @@ from typing import Protocol, runtime_checkable
 
 
 @runtime_checkable
-class BeamlimeLoggingProtocol(Protocol):  # pragma: no cover
+class LoggingProtocol(Protocol):  # pragma: no cover
     """General Logging Protocol"""
 
     @property

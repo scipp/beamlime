@@ -49,13 +49,13 @@ def test_pause_and_resume():
 
 
 def test_command_provider():
-    from beamlime.applications.interfaces import app_factory
+    from beamlime.applications.interfaces import app_providers
     from beamlime.constructors import Factory
 
     from ..logging.contexts import local_logger_factory
 
     with local_logger_factory() as log_factory:
-        factory = Factory(log_factory, app_factory)
+        factory = Factory(log_factory.providers, app_providers)
         controller = factory[ControlInterface]
         assert isinstance(controller, ControlInterface)
         assert factory[ControlInterface] is factory[ControlInterface]
