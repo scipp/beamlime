@@ -19,3 +19,5 @@ docs/generated/
 
 .coverage
 coverate_html
+
+.benchmarks/
