@@ -54,7 +54,7 @@ class StopWatch:
     def start_timestamp(self) -> float:
         if self._start_timestamp is None:
             raise TypeError(
-                "Start-timestamp is not available. " "``start`` was never called."
+                "Start-timestamp is not available. ``start`` was never called."
             )
         else:
             return self._start_timestamp
@@ -63,7 +63,7 @@ class StopWatch:
     def stop_timestamp(self) -> float:
         if self._stop_timestamp is None:
             raise TypeError(
-                "Stop-timestamp is not available. " "``stop`` was never called."
+                "Stop-timestamp is not available. ``stop`` was never called."
             )
         else:
             return self._stop_timestamp
