@@ -21,6 +21,7 @@ from .workflows import Events
 KafkaBrokerAddress = NewType("KafkaBrokerAddress", str)
 KafkaTopic = NewType("KafkaTopic", str)
 KafkaBootstrapServer = NewType("KafkaBootstrapServer", str)
+ConsumerContextManager = Callable[[], Consumer]
 
 
 def provide_kafka_bootstrap_server(
@@ -40,7 +41,7 @@ def provide_kafka_producer(broker_address: KafkaBootstrapServer) -> Producer:
 
 def provide_kafka_consumer_ctxt_manager(
     broker_address: KafkaBootstrapServer, kafka_topic_partitian: TopicPartition
-) -> Callable[..., Consumer]:
+) -> ConsumerContextManager:
     from contextlib import contextmanager
 
     @contextmanager
@@ -224,7 +225,7 @@ class KafkaListenerBase(BaseApp, ABC):
     raw_data_pipe: List[Events]
     chunk_size: ChunkSize
     kafka_topic: KafkaTopic
-    consumer_manager: Callable[..., Consumer]
+    consumer_cxt: ConsumerContextManager
     num_frames: NumFrames
     frame_rate: FrameRate
 
@@ -261,7 +262,7 @@ class KafkaListenerBase(BaseApp, ABC):
         self.stop_watch.start()
 
     async def run(self) -> None:
-        with self.consumer_manager() as consumer:
+        with self.consumer_cxt() as consumer:
             self.start_stop_watch()
             data_chunk: Events = Events([])
             i_frame = 0
@@ -355,7 +356,7 @@ def collect_kafka_providers() -> ProviderGroup:
     kafka_providers.cached_provider(AdminClient, provide_kafka_admin)
     kafka_providers.cached_provider(KafkaTopic, provide_random_kafka_topic)
     kafka_providers[Producer] = provide_kafka_producer
-    kafka_providers[Callable[..., Consumer]] = provide_kafka_consumer_ctxt_manager
+    kafka_providers[ConsumerContextManager] = provide_kafka_consumer_ctxt_manager
     kafka_providers[TopicCreated] = create_topic
     kafka_providers[TopicPartition] = retrieve_topic_partitian
     kafka_providers[KafkaStreamSimulator] = KafkaStreamSimulator
