@@ -315,18 +315,13 @@ class BasePrototype(BaseApp, ABC):
 
     def run(self):
         self.debug('Start running ...')
+        loop = asyncio.get_event_loop()
         daemon_coroutines = [daemon.run() for daemon in self.collect_sub_daemons()]
-
+        tasks = [loop.create_task(coro) for coro in daemon_coroutines]
         try:
-            asyncio.get_running_loop()
-            for daemon_job in daemon_coroutines:
-                asyncio.create_task(daemon_job)
-
+            loop.run_until_complete(asyncio.gather(*tasks))
         except RuntimeError:
-            loop = asyncio.new_event_loop()
-            for daemon_job in daemon_coroutines[:-1]:
-                loop.create_task(daemon_job)
-            loop.run_until_complete(daemon_coroutines[-1])
+            ...
 
 
 Prototype = NewType("Prototype", BasePrototype)
@@ -391,9 +386,11 @@ def multiple_temporary_providers(
         yield
 
 
-def base_factory() -> Factory:
-    prototype_providers = prototype_base_providers()
-    return Factory(prototype_providers)
+def mini_prototype_factory() -> Factory:
+    providers = prototype_base_providers()
+    providers[Prototype] = BasePrototype
+    providers[DataStreamListener] = DataStreamSimulator
+    return Factory(providers)
 
 
 def run_prototype(
@@ -401,10 +398,6 @@ def run_prototype(
     parameters: Optional[dict[type, Any]] = None,
     providers: Optional[dict[type, Any]] = None,
 ):
-    import logging
-
-    prototype_factory[BeamlimeLogger].setLevel(logging.DEBUG)
-
     with multiple_constant_providers(prototype_factory, parameters):
         with multiple_temporary_providers(prototype_factory, providers):
             prototype = prototype_factory[Prototype]
@@ -412,8 +405,11 @@ def run_prototype(
 
 
 if __name__ == "__main__":
+    import logging
+
+    factory = mini_prototype_factory()
+
+    factory[BeamlimeLogger].setLevel(logging.DEBUG)
     run_prototype(
-        base_factory(),
-        parameters={EventRate: 10**4, NumPixels: 10**5, NumFrames: 140},
-        providers={Prototype: BasePrototype, DataStreamListener: DataStreamSimulator},
+        factory, parameters={EventRate: 10**4, NumPixels: 10**4, NumFrames: 140}
     )
