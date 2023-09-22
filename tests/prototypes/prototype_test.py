@@ -26,6 +26,10 @@ def prototype_test_helper(prototype_factory: Factory):
     from .parameters import ChunkSize, EventRate, NumFrames, NumPixels
     from .prototype_mini import StopWatch, TargetCounts, run_prototype
 
+    with pytest.raises(Warning):
+        # No laps recorded.
+        prototype_factory[StopWatch].laps_counts
+
     num_frames = 140
     chunk_size = 28
     run_prototype(
