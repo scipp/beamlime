@@ -41,6 +41,16 @@ def test_new_type_underlying_type_retrieved():
     assert product_spec.returned_type is int
 
 
+def test_multi_inheritied_new_type_underlying_type_retrieved():
+    from typing import NewType
+
+    new_type = NewType("new_type", int)
+    new_new_type = NewType("new_new_type", new_type)
+    product_spec = ProductSpec(new_new_type)
+    assert product_spec.product_type is new_new_type
+    assert product_spec.returned_type is int
+
+
 def test_dependency_spec():
     dep_spec = DependencySpec(int, 0)
     assert dep_spec.dependency_type is int
