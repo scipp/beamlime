@@ -233,9 +233,22 @@ class CachedProvider(Provider[Product]):
         from functools import lru_cache
 
         super().__init__(_constructor, *args, **kwargs)
+        self._check_args_hashability()
+
         self.cached_result: Product
         self.cached_args = CachedArguments()
         self.cache_indicator = lru_cache(maxsize=2)(self.cached_args)
+
+    def _check_args_hashability(self) -> None:
+        if unhashable_args := {
+            arg_name: arg_spec
+            for arg_name, arg_spec in self.arg_dep_specs.items()
+            if arg_spec.runtime_type.__hash__ is None
+        }:
+            raise TypeError(
+                f"{self} cannot be cached. "
+                f"Unhashable argument(s): {unhashable_args}."
+            )
 
     def __call__(self, *args: Any, **kwargs: Any) -> Product:
         self.cache_indicator(*self.args, *args, **self.keywords, **kwargs)
