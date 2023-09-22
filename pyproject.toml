@@ -36,7 +36,7 @@ dynamic = ["version"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -v"
+addopts = "-ra -v -p local_plugin"
 testpaths = "tests"
 filterwarnings = [
   "error",
