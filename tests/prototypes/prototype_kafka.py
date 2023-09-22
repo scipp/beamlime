@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from queue import Empty
-from typing import List, NewType, Optional
+from typing import Callable, List, NewType, Optional
 
 import scipp as sc
 from confluent_kafka import Consumer, Message, Producer, TopicPartition
@@ -38,19 +38,26 @@ def provide_kafka_producer(broker_address: KafkaBootstrapServer) -> Producer:
     return Producer({'bootstrap.servers': broker_address})
 
 
-def provide_kafka_consumer(
+def provide_kafka_consumer_ctxt_manager(
     broker_address: KafkaBootstrapServer, kafka_topic_partitian: TopicPartition
-) -> Consumer:
-    cs = Consumer(
-        {
-            'bootstrap.servers': broker_address,
-            'group.id': "BEAMLIME",
-            'auto.offset.reset': 'earliest',
-            'enable.auto.commit': False,
-        }
-    )
-    cs.assign([kafka_topic_partitian])
-    return cs
+) -> Callable[..., Consumer]:
+    from contextlib import contextmanager
+
+    @contextmanager
+    def consumer_manager():
+        cs = Consumer(
+            {
+                'bootstrap.servers': broker_address,
+                'group.id': "BEAMLIME",
+                'auto.offset.reset': 'earliest',
+                'enable.auto.commit': False,
+            }
+        )
+        cs.assign([kafka_topic_partitian])
+        yield cs
+        cs.close()
+
+    return consumer_manager
 
 
 def kafka_topic_exists(topic: KafkaTopic, admin_cli: AdminClient) -> bool:
@@ -138,7 +145,7 @@ def provide_random_event_buffers(random_events: RandomEvents) -> RandomEventBuff
                 reference_time=event.coords['event_time_zero'].values,
                 reference_time_index=[0],
                 time_of_flight=event.coords['event_time_offset'].values,
-                pixel_id=event.coords['pixel_id'],
+                pixel_id=event.coords['pixel_id'].values,
             )
             for i_event, event in enumerate(random_events)
         ]
@@ -151,8 +158,6 @@ class KafkaStreamSimulatorBase(BaseApp, ABC):
     producer: Producer
 
     def produce_data(self, raw_data: bytes, max_size: int = 100_000) -> None:
-        from confluent_kafka import KafkaError, KafkaException
-
         slice_steps = range((len(raw_data) + max_size - 1) // max_size)
         slices = [
             raw_data[i_slice * max_size : (i_slice + 1) * max_size]
@@ -161,7 +166,7 @@ class KafkaStreamSimulatorBase(BaseApp, ABC):
         for sliced in slices:
             try:
                 self.producer.produce(self.kafka_topic, sliced)
-            except (KafkaException, KafkaError):
+            except Exception:
                 self.producer.flush()
                 self.producer.produce(self.kafka_topic, sliced)
 
@@ -170,9 +175,16 @@ class KafkaStreamSimulatorBase(BaseApp, ABC):
         ...
 
     async def run(self) -> None:
+        import asyncio
+
         self.stream()
+        await asyncio.sleep(0.5)
         self.producer.flush()
         self.info("Data streaming to kafka finished...")
+
+    def __del__(self) -> None:
+        if kafka_topic_exists(self.kafka_topic, self.admin):
+            delete_topic(self.kafka_topic, self.admin)
 
 
 class KafkaStreamSimulatorScippOnly(KafkaStreamSimulatorBase):
@@ -212,7 +224,7 @@ class KafkaListenerBase(BaseApp, ABC):
     raw_data_pipe: List[Events]
     chunk_size: ChunkSize
     kafka_topic: KafkaTopic
-    consumer: Consumer
+    consumer_manager: Callable[..., Consumer]
     num_frames: NumFrames
     frame_rate: FrameRate
 
@@ -222,20 +234,20 @@ class KafkaListenerBase(BaseApp, ABC):
         return reduce(lambda x, y: x + y, datalist)
 
     @retry(Empty, max_trials=10, interval=0.1)
-    def _poll(self) -> Message:
-        if (msg := self.consumer.poll(timeout=0)) is None:
+    def _poll(self, consumer: Consumer) -> Message:
+        if (msg := consumer.poll(timeout=0)) is None:
             raise Empty
         else:
             return msg
 
-    def poll(self) -> Message | None:
+    def poll(self, consumer: Consumer) -> Message | None:
         try:
-            return self._poll()
+            return self._poll(consumer)
         except Empty:
             return None
 
     @abstractmethod
-    def poll_one_data(self) -> sc.DataArray | None:
+    def poll_one_data(self, consumer: Consumer) -> sc.DataArray | None:
         ...
 
     async def send_data_chunk(self, data_chunk: Events, i_frame: int) -> None:
@@ -249,24 +261,24 @@ class KafkaListenerBase(BaseApp, ABC):
         self.stop_watch.start()
 
     async def run(self) -> None:
-        self.start_stop_watch()
-        data_chunk: Events = Events([])
-        i_frame = 0
-        while (event := self.poll_one_data()) is not None:
-            data_chunk.append(event)
-            if len(data_chunk) >= self.chunk_size and (i_frame := i_frame + 1):
+        with self.consumer_manager() as consumer:
+            self.start_stop_watch()
+            data_chunk: Events = Events([])
+            i_frame = 0
+            while (event := self.poll_one_data(consumer)) is not None:
+                data_chunk.append(event)
+                if len(data_chunk) >= self.chunk_size and (i_frame := i_frame + 1):
+                    await self.send_data_chunk(data_chunk, i_frame)
+                    data_chunk = Events([])
+
+            if data_chunk:
                 await self.send_data_chunk(data_chunk, i_frame)
-                data_chunk = Events([])
 
-        if data_chunk:
-            await self.send_data_chunk(data_chunk, i_frame)
-
-        self.consumer.close()
-        self.info("Data streaming finished...")
+            self.info("Data streaming finished...")
 
 
 class KafkaListenerScippOnly(KafkaListenerBase):
-    def poll_one_data(self) -> sc.DataArray | None:
+    def poll_one_data(self, consumer: Consumer) -> sc.DataArray | None:
         import json
 
         from scipp.serialization import deserialize
@@ -276,7 +288,7 @@ class KafkaListenerScippOnly(KafkaListenerBase):
         header_prefix = b'header'
         finished_prefix = b'finished'
 
-        while msg := self.poll():
+        while msg := self.poll(consumer):
             raw_msg: bytes = msg.value()
             if raw_msg.startswith(header_prefix):
                 header = json.loads(raw_msg.removeprefix(header_prefix))
@@ -311,12 +323,12 @@ class KafkaListener(KafkaListenerBase):
             },
         )
 
-    def poll_one_data(self) -> sc.DataArray | None:
+    def poll_one_data(self, consumer: Consumer) -> sc.DataArray | None:
         data_list: list[bytes] = []
         header_prefix = b'starts'
         finished_prefix = b'finished'
 
-        while msg := self.poll():
+        while msg := self.poll(consumer):
             raw_msg: bytes = msg.value()
             if raw_msg.startswith(header_prefix):
                 ...
@@ -343,33 +355,40 @@ def collect_kafka_providers() -> ProviderGroup:
     kafka_providers.cached_provider(AdminClient, provide_kafka_admin)
     kafka_providers.cached_provider(KafkaTopic, provide_random_kafka_topic)
     kafka_providers[Producer] = provide_kafka_producer
-    kafka_providers[Consumer] = provide_kafka_consumer
+    kafka_providers[Callable[..., Consumer]] = provide_kafka_consumer_ctxt_manager
     kafka_providers[TopicCreated] = create_topic
     kafka_providers[TopicPartition] = retrieve_topic_partitian
     kafka_providers[KafkaStreamSimulator] = KafkaStreamSimulator
     kafka_providers[KafkaPrototype] = KafkaPrototype
     kafka_providers[KafkaTopicDeleted] = delete_topic
     kafka_providers[RandomEventBuffers] = provide_random_event_buffers
+
     return kafka_providers
 
 
 def kafka_prototype_factory() -> Factory:
-    from .prototype_mini import prototype_base_providers
+    from .prototype_mini import Prototype, prototype_base_providers
 
     kafka_providers = collect_kafka_providers()
     base_providers = prototype_base_providers()
+    base_providers[Prototype] = KafkaPrototype
+    base_providers[DataStreamListener] = KafkaListener
 
     return Factory(base_providers, kafka_providers)
 
 
 if __name__ == "__main__":
+    import logging
+
+    from beamlime.logging import BeamlimeLogger
+
     from .parameters import EventRate, NumPixels
-    from .prototype_mini import Prototype, run_prototype
+    from .prototype_mini import run_prototype
 
     kafka_factory = kafka_prototype_factory()
+    kafka_factory[BeamlimeLogger].setLevel(logging.DEBUG)
+
     run_prototype(
         kafka_factory,
         parameters={EventRate: 10**4, NumPixels: 10**4, NumFrames: 140},
-        providers={Prototype: KafkaPrototype, DataStreamListener: KafkaListener},
     )
-    assert kafka_factory[KafkaTopicDeleted]
