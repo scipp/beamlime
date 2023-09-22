@@ -36,7 +36,7 @@ dynamic = ["version"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -v -p beamlime._pytest_plugin"
+addopts = "-ra -v"
 testpaths = "tests"
 filterwarnings = [
   "error",
