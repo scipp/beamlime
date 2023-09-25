@@ -2,7 +2,7 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-from functools import partial
+from functools import lru_cache, partial
 from typing import (
     Any,
     Callable,
@@ -227,11 +227,17 @@ class CachedArguments:
 
 
 class CachedProvider(Provider[Product]):
+    """
+    Cached provider always returns the first returned value.
+
+    It remembers only the first returned value and re-use it on next call.
+    Therefore passing different arguments from the first call is not allowed.
+    ``functools.lru_cache`` is used to check if the arguments are the same.
+    """
+
     def __init__(
         self, _constructor: Constructor[Product], /, *args: Any, **kwargs: Any
     ) -> None:
-        from functools import lru_cache
-
         super().__init__(_constructor, *args, **kwargs)
         self._check_args_hashability()
 
@@ -257,8 +263,6 @@ class CachedProvider(Provider[Product]):
                 *self.args, *args, **self.keywords, **kwargs
             )
         elif self.cache_indicator.cache_info().currsize > 1:
-            from functools import lru_cache
-
             self.cache_indicator = lru_cache(maxsize=2)(self.cached_args)
             self.cache_indicator(
                 *self.cached_args.args, **self.cached_args.kwargs
