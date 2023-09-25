@@ -54,5 +54,5 @@ def test_cached_provider_called_with_different_args_raises():
 def test_cached_provider_unhashable_arguments_raises():
     from beamlime.constructors.providers import CachedProvider
 
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match='cannot be cached. Unhashable argument'):
         CachedProvider(function_with_unhashable_arguments)
