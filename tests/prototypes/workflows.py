@@ -28,7 +28,7 @@ default_c_c = ConstantC(sc.scalar(1, unit='1e-6m^2/s'))
 Events = NewType("Events", List[sc.DataArray])
 MergedData = NewType("MergedData", sc.DataArray)
 PixelIDEdges = NewType("PixelIDEdges", sc.Variable)
-BinnedData = NewType("BinnedData", sc.DataArray)
+PixelGrouped = NewType("PixelGrouped", sc.DataArray)
 ReducedData = NewType("ReducedData", sc.DataArray)
 Histogrammed = NewType("Histogrammed", sc.DataArray)
 
@@ -36,24 +36,26 @@ Histogrammed = NewType("Histogrammed", sc.DataArray)
 def workflow_script(
     da_list: Events, num_pixels: NumPixels, histogram_bin_size: HistogramBinSize
 ) -> Histogrammed:
-    c_a = sc.scalar(0.0001, unit='m')
-    c_b = sc.scalar(1, unit='m')
-    c_c = sc.scalar(1, unit='1e-6m^2/s')
+    c_a = sc.scalar(0.00001, unit='m')
+    c_b = sc.scalar(0.1, unit='m')
+    c_c = sc.scalar(1, unit='1e-3m^2/s')
 
     merged = sc.concat(da_list, dim='event')
     pixel_ids = sc.arange(dim='pixel_id', start=0, stop=num_pixels)
     binned = merged.group(pixel_ids)
 
-    binned = binned.transform_coords(
-        ['L'],
+    transformed = binned.transform_coords(
+        ['L', 'wavelength'],
         graph={
-            'L': lambda pixel_id: (pixel_id * c_a) + c_b,
+            'L1': lambda pixel_id: (pixel_id * c_a) + c_b,
+            'L2': lambda pixel_id: (pixel_id * c_a) + c_b,
+            'L': lambda L1, L2: L1 + L2,
+            'wavelength': lambda event_time_offset, L: (c_c * event_time_offset / L).to(
+                unit='angstrom'
+            ),
         },
     )
-    binned.bins.coords['wavelength'] = (
-        c_c * binned.bins.coords['event_time_offset'] / binned.coords['L']
-    )
-    return Histogrammed(binned.hist(wavelength=histogram_bin_size).sum('L'))
+    return transformed.hist(wavelength=histogram_bin_size).sum('L')
 
 
 def merge_data_list(da_list: Events) -> MergedData:
@@ -64,45 +66,35 @@ def provide_pixel_id_bin_edges(num_pixels: NumPixels) -> PixelIDEdges:
     return PixelIDEdges(sc.arange(dim='pixel_id', start=0, stop=num_pixels))
 
 
-def bin_pixel_id(da: MergedData, pixel_bin_coord: PixelIDEdges) -> BinnedData:
-    return da.group(pixel_bin_coord)
+def bin_pixel_id(da: MergedData, pixel_bin_coord: PixelIDEdges) -> PixelGrouped:
+    return PixelGrouped(da.group(pixel_bin_coord))
 
 
-def retrieve_pixel_id(binned: BinnedData) -> PixelID:
-    return PixelID(binned.coords['pixel_id'])
-
-
-def retrieve_event_time_offset(binned: BinnedData) -> EventTimeOffset:
-    return EventTimeOffset(binned.bins.coords['event_time_offset'])
-
-
-def pixel_id_to_l(
-    pixel_id: PixelID, c_a: ConstantA = default_c_a, c_b: ConstantB = default_c_b
-) -> Length:
-    # Dummy function. Doesn't have any meaning.
-    return Length((pixel_id * c_a) + c_b)
-
-
-def etoff_to_wavelength(
-    et_offset: EventTimeOffset, length: Length, c_c: ConstantC = default_c_c
-) -> WaveLength:
-    # Dummy function. Doesn't have any meaning.
-    return WaveLength(c_c * et_offset / length)
-
-
-def combine_coords(
-    binned: BinnedData, length: Length, wavelength: WaveLength
+def transform_coords(
+    binned: PixelGrouped,
+    c_a: ConstantA = default_c_a,
+    c_b: ConstantB = default_c_b,
+    c_c: ConstantC = default_c_c,
 ) -> ReducedData:
-    # TODO: benchmark sc.transform_coords
-    binned.coords['L'] = length
-    binned.bins.coords['wavelength'] = wavelength
-    return ReducedData(binned)
+    return ReducedData(
+        binned.transform_coords(
+            ['L', 'wavelength'],
+            graph={
+                'L1': lambda pixel_id: (pixel_id * c_a) + c_b,
+                'L2': lambda pixel_id: (pixel_id * c_a) + c_b,
+                'L': lambda L1, L2: L1 + L2,
+                'wavelength': lambda event_time_offset, L: (
+                    c_c * event_time_offset / L
+                ).to(unit='angstrom'),
+            },
+        )
+    )
 
 
 def histogram_result(
     bin_size: HistogramBinSize, reduced_data: ReducedData
 ) -> Histogrammed:
-    return reduced_data.hist(wavelength=bin_size).sum('pixel_id')
+    return reduced_data.hist(wavelength=bin_size).sum('L')
 
 
 Workflow = NewType("Workflow", Factory)
@@ -114,17 +106,14 @@ def provide_workflow(
     providers = ProviderGroup(
         merge_data_list,
         bin_pixel_id,
-        retrieve_pixel_id,
-        pixel_id_to_l,
-        etoff_to_wavelength,
-        combine_coords,
-        retrieve_event_time_offset,
+        transform_coords,
         histogram_result,
     )
     providers.cached_provider(PixelIDEdges, provide_pixel_id_bin_edges)
+
     providers[ConstantA] = lambda: sc.scalar(0.0001, unit='m')
     providers[ConstantB] = lambda: sc.scalar(1, unit='m')
-    providers[ConstantC] = lambda: sc.scalar(1, unit='1e-6m^2/s')
+    providers[ConstantC] = lambda: sc.scalar(1, unit='1e-3m^2/s')
     providers[NumPixels] = lambda: num_pixels
     providers[HistogramBinSize] = lambda: histogram_binsize
     return Workflow(Factory(providers))
