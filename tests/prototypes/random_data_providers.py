@@ -38,7 +38,7 @@ def provide_time_coords(rng: RNG, ef_rate: EventFrameRate) -> TimeCoords:
     dummy_zeros = [zr for zr in range(int(13620492e11), int(13620492e11) + ef_rate)]
     et_zero = sc.datetimes(dims=["event"], values=dummy_zeros, unit='ns')
     et_offset = sc.array(
-        dims=["event"], values=rng.random((ef_rate,)) * 1000, unit='ns'
+        dims=["event"], values=rng.random((ef_rate,)) * 800 + 200, unit='ns'
     )
 
     return TimeCoords({"event_time_zero": et_zero, "event_time_offset": et_offset})
@@ -99,7 +99,7 @@ random_data_providers.cached_provider(DetectorCounts, provide_dummy_counts)
 
 def dump_random_dummy_events() -> RandomEvents:
     num_pixels = NumPixels(10_000)
-    event_frame_rate = EventFrameRate(1_000)
+    event_frame_rate = EventFrameRate(10_000)
     num_frames = NumFrames(10)
     rng = provide_rng(RandomSeed(123))
     time_coords = provide_time_coords(rng, event_frame_rate)
