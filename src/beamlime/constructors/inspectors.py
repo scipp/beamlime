@@ -37,26 +37,36 @@ def validate_annotation(annotation: Any) -> Literal[True]:
 
 
 Product = TypeVar("Product")
+
 _NewT = NewType("_NewT", int)
+
+
+def _is_type_newtype_py39(tp: Any) -> bool:
+    return (
+        callable(tp)
+        and hasattr(tp, "__supertype__")
+        and _NewT.__module__ == tp.__module__
+        and _NewT.__qualname__ == tp.__qualname__
+    )
 
 
 class NewTypeMeta(type):
     def __instancecheck__(cls, instance: Any) -> bool:
-        return (
-            callable(instance)
-            and hasattr(instance, "__supertype__")
-            and _NewT.__module__ == instance.__module__
-            and _NewT.__qualname__ == instance.__qualname__
-        )
+        import sys
+
+        if sys.version_info < (3, 10):  # py39
+            return _is_type_newtype_py39(instance)
+        else:
+            return isinstance(instance, NewType)
 
 
 class NewTypeProtocol(Generic[Product], metaclass=NewTypeMeta):
     __supertype__: Type[Product]
 
 
-def extract_underlying_product_type(product_type: Type[Product]) -> Type[Product]:
+def extract_underlying_type(product_type: Type[Product]) -> Type[Product]:
     if isinstance(product_type, NewTypeProtocol):
-        return product_type.__supertype__
+        return extract_underlying_type(product_type.__supertype__)
     else:
         return product_type
 
@@ -76,7 +86,7 @@ class ProductSpec:
         else:
             validate_annotation(product_type)
             self.product_type = product_type
-            self.returned_type = extract_underlying_product_type(product_type)
+            self.returned_type = extract_underlying_type(product_type)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, ProductSpec):
@@ -109,32 +119,46 @@ def get_product_spec(callable_obj: Callable[..., Product]) -> ProductSpec:
         return ProductSpec(product)
 
 
-def extract_underlying_dep_type(tp: Any) -> Any:
-    from typing import Union, get_args, get_origin
-
-    if get_origin(tp) == Union:
-        if len((args := get_args(tp))) == 2 and type(None) in args:
-            # Optional
-            return args[0] if isinstance(None, args[1]) else args[1]
-        else:
-            raise NotImplementedError(
-                "Union annotation for dependencies is not supported."
-            )
-    else:
-        return tp
-
-
-class DependencySpec:
+class DependencySpec(Generic[Product]):
     """
     Specification of sub-dependencies (arguments/attributes) of a provider.
     """
 
     def __init__(self, dependency_type: Any, default_value: Product) -> None:
-        self.dependency_type = extract_underlying_dep_type(dependency_type)
+        self.dependency_type = self.extract_dependency_type(dependency_type)
+        self.runtime_type = extract_underlying_type(dependency_type)
         self.default_product = default_value
+
+    @staticmethod
+    def extract_dependency_type(dependency_type: Any) -> None:
+        from typing import Union, get_args, get_origin
+
+        if get_origin(dependency_type) == Union:
+            if len((args := get_args(dependency_type))) == 2 and type(None) in args:
+                # Optional
+                return args[0] if isinstance(None, args[1]) else args[1]
+            else:
+                raise NotImplementedError(
+                    "Union annotation for dependencies "
+                    "is not supported except for Optional."
+                )
+
+        return dependency_type
 
     def is_optional(self) -> bool:
         return self.default_product is not Empty or self.dependency_type is UnknownType
+
+    def __repr__(self) -> str:
+        def trim_repr(str_repr: str, max_len: int = 88) -> str:
+            return str_repr if len(str_repr) <= max_len else str_repr[:max_len] + "..."
+
+        default_repr = str(None) if (obj := self.default_product) is Empty else str(obj)
+        return (
+            f"{self.__class__.__name__}("
+            f"dependency_type: '{self.dependency_type.__name__}', "
+            f"runtime_type: '{self.runtime_type}', "
+            f"default_value: '{trim_repr(default_repr)}')"
+        )
 
 
 def collect_argument_specs(
