@@ -14,10 +14,10 @@ from beamlime.logging.mixins import LogMixin
 from .parameters import ChunkSize, EventRate, NumFrames, NumPixels
 from .random_data_providers import RandomEvents
 from .workflows import (
-    BinnedData,
     Events,
     Histogrammed,
     MergedData,
+    PixelGrouped,
     ReducedData,
     Workflow,
 )
@@ -234,11 +234,11 @@ class DataMerge(DataReductionMixin[InputType, OutputType]):
 
 class DataBinning(DataReductionMixin[InputType, OutputType]):
     input_pipe: List[MergedData]
-    output_pipe: List[BinnedData]
+    output_pipe: List[PixelGrouped]
 
 
 class DataReduction(DataReductionMixin[InputType, OutputType]):
-    input_pipe: List[BinnedData]
+    input_pipe: List[PixelGrouped]
     output_pipe: List[ReducedData]
 
 
@@ -309,8 +309,8 @@ def asyncio_event_loop() -> Generator[asyncio.AbstractEventLoop, Any, Any]:
 class BasePrototype(BaseApp, ABC):
     data_stream_listener: DataStreamListener
     data_merge: DataMerge[Events, MergedData]
-    data_binning: DataBinning[MergedData, BinnedData]
-    data_reduction: DataReduction[BinnedData, ReducedData]
+    data_binning: DataBinning[MergedData, PixelGrouped]
+    data_reduction: DataReduction[PixelGrouped, ReducedData]
     data_plotter: DataHistogramming[ReducedData, Histogrammed]
     visualizer: VisualizationDaemon
 
@@ -387,14 +387,14 @@ Prototype = NewType("Prototype", BasePrototype)
 def prototype_app_providers() -> ProviderGroup:
     app_providers = ProviderGroup()
     app_providers[DataMerge[Events, MergedData]] = DataMerge
-    app_providers[DataBinning[MergedData, BinnedData]] = DataBinning
-    app_providers[DataReduction[BinnedData, ReducedData]] = DataReduction
+    app_providers[DataBinning[MergedData, PixelGrouped]] = DataBinning
+    app_providers[DataReduction[PixelGrouped, ReducedData]] = DataReduction
     app_providers[DataHistogramming[ReducedData, Histogrammed]] = DataHistogramming
 
     app_providers.cached_provider(StopWatch, StopWatch)
     app_providers.cached_provider(VisualizationDaemon, VisualizationDaemon)
     app_providers.cached_provider(TargetCounts, calculate_target_counts)
-    for pipe_type in (Events, BinnedData, MergedData, ReducedData, Histogrammed):
+    for pipe_type in (Events, PixelGrouped, MergedData, ReducedData, Histogrammed):
         app_providers.cached_provider(List[pipe_type], list)
 
     return app_providers
