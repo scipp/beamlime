@@ -46,7 +46,7 @@ def provide_time_coords(rng: RNG, ef_rate: EventFrameRate) -> TimeCoords:
 
 def provide_dummy_counts(ef_rate: EventFrameRate) -> DetectorCounts:
     return DetectorCounts(
-        sc.ones(dims=["event"], shape=(ef_rate,), unit=sc.units.counts)
+        sc.ones(sizes={"event": ef_rate}, unit='counts')
     )
 
 
