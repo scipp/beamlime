@@ -133,7 +133,7 @@ class BaseApp(LogMixin, ABC):
         pipe: List[Any],
         timeout: float = 5,
         interval: float = 1 / 14,
-        prefered_size: int = 1,
+        preferred_size: int = 1,
         target_size: int = 1,
     ):
         from beamlime.core.schedulers import async_retry
@@ -142,7 +142,7 @@ class BaseApp(LogMixin, ABC):
             TimeoutError, max_trials=int(timeout / interval), interval=interval
         )
         async def wait_for_preferred_size() -> None:
-            if len(pipe) < prefered_size:
+            if len(pipe) < preferred_size:
                 raise TimeoutError
 
         async def is_pipe_filled() -> bool:
@@ -190,7 +190,7 @@ InputType = TypeVar("InputType")
 OutputType = TypeVar("OutputType")
 
 
-class DataReductionMixin(BaseApp, ABC, Generic[InputType, OutputType]):
+class DataReductionApp(BaseApp, Generic[InputType, OutputType]):
     workflow: Workflow
     input_pipe: List[InputType]
     output_pipe: List[OutputType]
@@ -207,7 +207,7 @@ class DataReductionMixin(BaseApp, ABC, Generic[InputType, OutputType]):
         Retrieve type arguments of an attribute with generic type.
         It is only for retrieving input/output pipe type.
 
-        >>> class C(DataReductionMixin):
+        >>> class C(DataReductionApp):
         ...   attr0: list[int]
         ...
         >>> C._retrieve_type_arg('attr0')
@@ -242,7 +242,7 @@ class DataReductionMixin(BaseApp, ABC, Generic[InputType, OutputType]):
         self.info("No more data coming in. Finishing ...")
 
 
-class DataMerge(DataReductionMixin[InputType, OutputType]):
+class DataMerge(DataReductionApp[InputType, OutputType]):
     input_pipe: List[Events]
     output_pipe: List[MergedData]
 
@@ -250,17 +250,17 @@ class DataMerge(DataReductionMixin[InputType, OutputType]):
         return f"{len(data)} pieces of {self.input_type.__name__}"
 
 
-class DataBinning(DataReductionMixin[InputType, OutputType]):
+class DataBinning(DataReductionApp[InputType, OutputType]):
     input_pipe: List[MergedData]
     output_pipe: List[PixelGrouped]
 
 
-class DataReduction(DataReductionMixin[InputType, OutputType]):
+class DataReduction(DataReductionApp[InputType, OutputType]):
     input_pipe: List[PixelGrouped]
     output_pipe: List[ReducedData]
 
 
-class DataHistogramming(DataReductionMixin[InputType, OutputType]):
+class DataHistogramming(DataReductionApp[InputType, OutputType]):
     input_pipe: List[ReducedData]
     output_pipe: List[Histogrammed]
 
