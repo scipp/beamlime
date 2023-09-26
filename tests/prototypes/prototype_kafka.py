@@ -80,7 +80,7 @@ def create_topic(admin: AdminClient, topic: KafkaTopic) -> TopicCreated:
     return TopicCreated(True)
 
 
-def retrieve_topic_partitian(
+def retrieve_topic_partition(
     admin: AdminClient, topic: KafkaTopic, topic_created: TopicCreated
 ) -> TopicPartition:
     topic_meta: TopicMetadata
