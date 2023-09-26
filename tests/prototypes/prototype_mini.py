@@ -2,6 +2,7 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+import argparse
 import asyncio
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
@@ -316,12 +317,15 @@ class VisualizationDaemon(BaseApp):
 @contextmanager
 def asyncio_event_loop() -> Generator[asyncio.AbstractEventLoop, Any, Any]:
     try:
-        yield asyncio.get_event_loop()
+        loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        yield loop
-        loop.close()
+
+    yield loop
+
+    loop.close()
+    asyncio.set_event_loop(asyncio.new_event_loop())
 
 
 class BasePrototype(BaseApp, ABC):
@@ -395,6 +399,7 @@ class BasePrototype(BaseApp, ABC):
         with asyncio_event_loop() as loop:
             daemon_coroutines = [daemon.run() for daemon in self.collect_sub_daemons()]
             tasks = [loop.create_task(coro) for coro in daemon_coroutines]
+
             if not loop.is_running():
                 loop.run_until_complete(asyncio.gather(*tasks))
 
@@ -479,12 +484,39 @@ def run_prototype(
             prototype.run()
 
 
-if __name__ == "__main__":
+def prototype_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument_group('Event Generator Configuration')
+    parser.add_argument(
+        '--event-rate', default=10**4, help=f": {EventRate}", type=int
+    )
+    parser.add_argument(
+        '--num-pixels', default=10**4, help=f": {NumPixels}", type=int
+    )
+    parser.add_argument('--num-frames', default=140, help=f": {NumFrames}", type=int)
+
+    return parser
+
+
+def run_standalone_prototype(
+    prototype_factory: Factory, arg_name_space: argparse.Namespace
+):
     import logging
 
-    factory = mini_prototype_factory()
-
-    factory[BeamlimeLogger].setLevel(logging.DEBUG)
+    prototype_factory[BeamlimeLogger].setLevel(logging.DEBUG)
     run_prototype(
-        factory, parameters={EventRate: 10**4, NumPixels: 10**4, NumFrames: 140}
+        prototype_factory,
+        parameters={
+            EventRate: arg_name_space.event_rate,
+            NumPixels: arg_name_space.num_pixels,
+            NumFrames: arg_name_space.num_frames,
+        },
     )
+
+
+if __name__ == "__main__":
+    factory = mini_prototype_factory()
+    arg_parser = prototype_arg_parser()
+
+    run_standalone_prototype(factory, arg_name_space=arg_parser.parse_args())
