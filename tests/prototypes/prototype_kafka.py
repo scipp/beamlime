@@ -54,7 +54,7 @@ def provide_kafka_consumer_ctxt_manager(
                 'enable.auto.commit': False,
             }
         )
-        cs.assign([kafka_topic_partitian])
+        cs.assign([kafka_topic_partition])
         yield cs
         cs.close()
 
