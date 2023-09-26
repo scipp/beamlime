@@ -17,12 +17,7 @@ Length = NewType("Length", sc.Variable)
 WaveLength = NewType("WaveLength", sc.Variable)
 
 # Constants
-ConstantA = NewType("ConstantA", sc.Variable)
-ConstantB = NewType("ConstantB", sc.Variable)
-ConstantC = NewType("ConstantC", sc.Variable)
-default_c_a = ConstantA(sc.scalar(0.0001, unit='m'))
-default_c_b = ConstantB(sc.scalar(1, unit='m'))
-default_c_c = ConstantC(sc.scalar(1, unit='1e-6m^2/s'))
+CoordTransformGraph = NewType("CoordTransformGraph", dict)
 
 # Generated/Calculated
 Events = NewType("Events", List[sc.DataArray])
@@ -33,28 +28,32 @@ ReducedData = NewType("ReducedData", sc.DataArray)
 Histogrammed = NewType("Histogrammed", sc.DataArray)
 
 
-def workflow_script(
-    da_list: Events, num_pixels: NumPixels, histogram_bin_size: HistogramBinSize
-) -> Histogrammed:
+def provide_coord_transform_graph() -> CoordTransformGraph:
     c_a = sc.scalar(0.00001, unit='m')
     c_b = sc.scalar(0.1, unit='m')
     c_c = sc.scalar(1, unit='1e-3m^2/s')
-
-    merged = sc.concat(da_list, dim='event')
-    pixel_ids = sc.arange(dim='pixel_id', start=0, stop=num_pixels)
-    binned = merged.group(pixel_ids)
-
-    transformed = binned.transform_coords(
-        ['L', 'wavelength'],
-        graph={
+    return CoordTransformGraph(
+        {
             'L1': lambda pixel_id: (pixel_id * c_a) + c_b,
             'L2': lambda pixel_id: (pixel_id * c_a) + c_b,
             'L': lambda L1, L2: L1 + L2,
             'wavelength': lambda event_time_offset, L: (c_c * event_time_offset / L).to(
                 unit='angstrom'
             ),
-        },
+        }
     )
+
+
+def workflow_script(
+    da_list: Events, num_pixels: NumPixels, histogram_bin_size: HistogramBinSize
+) -> Histogrammed:
+    merged = sc.concat(da_list, dim='event')
+    pixel_ids = sc.arange(dim='pixel_id', start=0, stop=num_pixels)
+    binned = merged.group(pixel_ids)
+
+    graph = provide_coord_transform_graph()
+
+    transformed = binned.transform_coords(['L', 'wavelength'], graph=graph)
     return transformed.hist(wavelength=histogram_bin_size).sum('L')
 
 
@@ -72,23 +71,9 @@ def bin_pixel_id(da: MergedData, pixel_bin_coord: PixelIDEdges) -> PixelGrouped:
 
 def transform_coords(
     binned: PixelGrouped,
-    c_a: ConstantA = default_c_a,
-    c_b: ConstantB = default_c_b,
-    c_c: ConstantC = default_c_c,
+    graph: CoordTransformGraph,
 ) -> ReducedData:
-    return ReducedData(
-        binned.transform_coords(
-            ['L', 'wavelength'],
-            graph={
-                'L1': lambda pixel_id: (pixel_id * c_a) + c_b,
-                'L2': lambda pixel_id: (pixel_id * c_a) + c_b,
-                'L': lambda L1, L2: L1 + L2,
-                'wavelength': lambda event_time_offset, L: (
-                    c_c * event_time_offset / L
-                ).to(unit='angstrom'),
-            },
-        )
-    )
+    return ReducedData(binned.transform_coords(['L', 'wavelength'], graph=graph))
 
 
 def histogram_result(
@@ -106,14 +91,12 @@ def provide_workflow(
     providers = ProviderGroup(
         merge_data_list,
         bin_pixel_id,
+        provide_coord_transform_graph,
         transform_coords,
         histogram_result,
     )
     providers.cached_provider(PixelIDEdges, provide_pixel_id_bin_edges)
 
-    providers[ConstantA] = lambda: sc.scalar(0.0001, unit='m')
-    providers[ConstantB] = lambda: sc.scalar(1, unit='m')
-    providers[ConstantC] = lambda: sc.scalar(1, unit='1e-3m^2/s')
     providers[NumPixels] = lambda: num_pixels
     providers[HistogramBinSize] = lambda: histogram_binsize
     return Workflow(Factory(providers))
