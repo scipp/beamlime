@@ -284,7 +284,7 @@ class VisualizationDaemon(BaseApp):
         if await data_monitor():
             self.first_data = self.visualized_data_pipe.pop(0)
             self.debug("First data as a seed of histogram: %s", self.first_data)
-            self.stream_node = pp.Node(lambda: self.first_data)
+            self.stream_node = pp.Node(self.first_data)
             self.fig = pp.figure1d(self.stream_node)
             await self.commit_process()
 
