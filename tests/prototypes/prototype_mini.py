@@ -368,7 +368,7 @@ class BasePrototype(BaseApp, ABC):
           - ``close`` or ``stop`` might accidentally destroy/interrupt
             other tasks running in the same event loop.
             i.e. You can accidentally destroy the main event loop of a jupyter kernel.
-          - ``RuntimeError`` if there has been an event loop set in the
+          - [1]``RuntimeError`` if there has been an event loop set in the
             thread object before but it is now removed.
 
         2. ``asyncio.new_event_loop``
@@ -386,7 +386,7 @@ class BasePrototype(BaseApp, ABC):
         or manually closing the event loop at the end of the test.
 
         **When to use ``asyncio.new_event_loop``.**
-          - ``asyncio.get_event_loop`` raises ``RuntimeError``
+          - ``asyncio.get_event_loop`` raises ``RuntimeError``[1]
           - Multi-threads
 
         Please note that the loop object might need to be ``close``ed manually.
