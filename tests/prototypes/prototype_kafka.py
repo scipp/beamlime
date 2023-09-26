@@ -88,7 +88,7 @@ def retrieve_topic_partitian(
     if not (topic_meta := admin.list_topics().topics.get(topic)) or not topic_created:
         raise ValueError(f"There is no topic named {topic} in the broker")
     elif len(topic_meta.partitions) != 1:
-        raise NotImplementedError("There should be exactly 1 partitian for testing.")
+        raise NotImplementedError("There should be exactly 1 partition for testing.")
 
     part_meta: PartitionMetadata
     _, part_meta = topic_meta.partitions.popitem()
