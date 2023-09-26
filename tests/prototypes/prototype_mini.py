@@ -335,10 +335,10 @@ class BasePrototype(BaseApp, ABC):
     def collect_sub_daemons(self) -> list[BaseApp]:
         return [
             self.data_stream_listener,
-            self.data_merge,
-            self.data_binning,
-            self.data_reduction,
-            self.data_plotter,
+            self.data_merger,
+            self.data_binner,
+            self.data_reducer,
+            self.data_histogrammer,
             self.visualizer,
         ]
 
