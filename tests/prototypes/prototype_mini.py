@@ -42,7 +42,7 @@ class StopWatch:
     @property
     def laps_counts(self) -> int:
         if not self.lapse:
-            raise Warning("No time lapse recorded. Did  you forget to call ``lap()``?")
+            raise Warning("No time lapse recorded. Did you forget to call ``lap()``?")
 
         return (
             min([len(app_lapse) for app_lapse in self.lapse.values()])
