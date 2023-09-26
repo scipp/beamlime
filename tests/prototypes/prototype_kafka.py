@@ -2,6 +2,7 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+import asyncio
 from abc import ABC, abstractmethod
 from queue import Empty
 from typing import Callable, List, NewType, Optional
@@ -182,8 +183,6 @@ class KafkaStreamSimulatorBase(BaseApp, ABC):
         ...
 
     async def run(self) -> None:
-        import asyncio
-
         self.stream()
         await asyncio.sleep(0.5)
         self.producer.flush()
@@ -257,10 +256,11 @@ class KafkaListenerBase(BaseApp, ABC):
     def poll_one_data(self, consumer: Consumer) -> sc.DataArray | None:
         ...
 
-    async def send_data_chunk(self, data_chunk: Events, i_frame: int) -> None:
-        import asyncio
-
-        self.debug("Sending %s th, %s pieces of data.", i_frame + 1, len(data_chunk))
+    async def send_data_chunk(self, data_chunk: Events) -> None:
+        self.data_counts += 1
+        self.debug(
+            "Sending %s th, %s pieces of data.", self.data_counts, len(data_chunk)
+        )
         self.raw_data_pipe.append(Events(data_chunk))
         await asyncio.sleep(0)
 
@@ -271,15 +271,14 @@ class KafkaListenerBase(BaseApp, ABC):
         with self.consumer_cxt() as consumer:
             self.start_stop_watch()
             data_chunk: Events = Events([])
-            i_frame = 0
             while (event := self.poll_one_data(consumer)) is not None:
                 data_chunk.append(event)
-                if len(data_chunk) >= self.chunk_size and (i_frame := i_frame + 1):
-                    await self.send_data_chunk(data_chunk, i_frame)
+                if len(data_chunk) >= self.chunk_size:
+                    await self.send_data_chunk(data_chunk)
                     data_chunk = Events([])
 
             if data_chunk:
-                await self.send_data_chunk(data_chunk, i_frame)
+                await self.send_data_chunk(data_chunk)
 
             self.info("Data streaming finished...")
 
@@ -385,17 +384,9 @@ def kafka_prototype_factory() -> Factory:
 
 
 if __name__ == "__main__":
-    import logging
-
-    from beamlime.logging import BeamlimeLogger
-
-    from .parameters import EventRate, NumPixels
-    from .prototype_mini import run_prototype
+    from .prototype_mini import prototype_arg_parser, run_standalone_prototype
 
     kafka_factory = kafka_prototype_factory()
-    kafka_factory[BeamlimeLogger].setLevel(logging.DEBUG)
+    parser = prototype_arg_parser()
 
-    run_prototype(
-        kafka_factory,
-        parameters={EventRate: 10**4, NumPixels: 10**4, NumFrames: 140},
-    )
+    run_standalone_prototype(kafka_factory, parser.parse_args())
