@@ -326,10 +326,10 @@ def asyncio_event_loop() -> Generator[asyncio.AbstractEventLoop, Any, Any]:
 
 class BasePrototype(BaseApp, ABC):
     data_stream_listener: DataStreamListener
-    data_merge: DataMerge[Events, MergedData]
-    data_binning: DataBinning[MergedData, PixelGrouped]
-    data_reduction: DataReduction[PixelGrouped, ReducedData]
-    data_plotter: DataHistogramming[ReducedData, Histogrammed]
+    data_merger: DataMerge[Events, MergedData]
+    data_binner: DataBinning[MergedData, PixelGrouped]
+    data_reducer: DataReduction[PixelGrouped, ReducedData]
+    data_histogrammer: DataHistogramming[ReducedData, Histogrammed]
     visualizer: VisualizationDaemon
 
     def collect_sub_daemons(self) -> list[BaseApp]:
