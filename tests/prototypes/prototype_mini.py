@@ -52,29 +52,21 @@ class StopWatch:
         )
 
     @property
-    def start_timestamp(self) -> float:
+    def duration(self) -> float:
         if self._start_timestamp is None:
             raise TypeError(
                 "Start-timestamp is not available. ``start`` was never called."
             )
-        else:
-            return self._start_timestamp
-
-    @property
-    def stop_timestamp(self) -> float:
-        if self._stop_timestamp is None:
+        elif self._stop_timestamp is None:
             raise TypeError(
                 "Stop-timestamp is not available. ``stop`` was never called."
             )
-        else:
-            return self._stop_timestamp
+        return self._stop_timestamp - self._start_timestamp
 
     def start(self) -> None:
         import time
 
-        try:
-            self.start_timestamp
-        except TypeError:
+        if self._start_timestamp is None:
             self._start_timestamp = time.time()
         else:
             raise RuntimeError(
@@ -85,14 +77,9 @@ class StopWatch:
     def stop(self) -> None:
         import time
 
-        try:
-            self.start_timestamp
-        except TypeError:
-            raise RuntimeError("``start`` should be called before ``stop``.")
-
-        try:
-            self.stop_timestamp
-        except TypeError:
+        if self._start_timestamp is None:
+            raise RuntimeError("``start`` must be called before ``stop``.")
+        elif self._stop_timestamp is None:
             self._stop_timestamp = time.time()
         else:
             raise RuntimeError(
@@ -308,10 +295,7 @@ class VisualizationDaemon(BaseApp):
                 self.target_counts,
             )
         else:
-            self.info(
-                "Benchmark result: %s",
-                self.stop_watch.stop_timestamp - self.stop_watch.start_timestamp,
-            )
+            self.info("Benchmark result: %s", self.stop_watch.duration)
 
 
 @contextmanager
