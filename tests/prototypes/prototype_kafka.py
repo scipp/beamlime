@@ -40,7 +40,7 @@ def provide_kafka_producer(broker_address: KafkaBootstrapServer) -> Producer:
 
 
 def provide_kafka_consumer_ctxt_manager(
-    broker_address: KafkaBootstrapServer, kafka_topic_partitian: TopicPartition
+    broker_address: KafkaBootstrapServer, kafka_topic_partition: TopicPartition
 ) -> ConsumerContextManager:
     from contextlib import contextmanager
 
