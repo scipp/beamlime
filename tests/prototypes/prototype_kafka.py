@@ -72,11 +72,17 @@ def create_topic(admin: AdminClient, topic: KafkaTopic) -> TopicCreated:
     from confluent_kafka.admin import NewTopic
 
     if not admin.list_topics().topics.get(topic):
-        import time
-
         admin.create_topics([NewTopic(topic)])
-        time.sleep(0.1)
 
+    @retry(RuntimeError, max_trials=5, interval=0.1)
+    def wait_for_topic_to_be_created():
+        # Wait for a topic to be created by a broker.
+        if not admin.list_topics().topics.get(topic):
+            raise RuntimeError(
+                "Kafka topic could not be created " "within timeout of 0.5 second."
+            )
+
+    wait_for_topic_to_be_created()
     return TopicCreated(True)
 
 
@@ -358,7 +364,7 @@ def collect_kafka_providers() -> ProviderGroup:
     kafka_providers[Producer] = provide_kafka_producer
     kafka_providers[ConsumerContextManager] = provide_kafka_consumer_ctxt_manager
     kafka_providers[TopicCreated] = create_topic
-    kafka_providers[TopicPartition] = retrieve_topic_partitian
+    kafka_providers[TopicPartition] = retrieve_topic_partition
     kafka_providers[KafkaStreamSimulator] = KafkaStreamSimulator
     kafka_providers[KafkaPrototype] = KafkaPrototype
     kafka_providers[KafkaTopicDeleted] = delete_topic
