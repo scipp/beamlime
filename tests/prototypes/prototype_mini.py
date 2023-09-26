@@ -203,9 +203,27 @@ class DataReductionMixin(BaseApp, ABC, Generic[InputType, OutputType]):
 
     @classmethod
     def _retrieve_type_arg(cls, attr_name: str) -> type:
+        """
+        Retrieve type arguments of an attribute with generic type.
+        It is only for retrieving input/output pipe type.
+
+        >>> class C(DataReductionMixin):
+        ...   attr0: list[int]
+        ...
+        >>> C._retrieve_type_arg('attr0')
+        <class 'int'>
+        """
         from typing import get_args, get_type_hints
 
-        return get_args(get_type_hints(cls)[attr_name])[0]
+        if not (attr_type := get_type_hints(cls).get(attr_name)):
+            raise ValueError(
+                f"Class {cls} does not have an attribute "
+                f"{attr_name} or it is missing type annotation."
+            )
+        elif not (type_args := get_args(attr_type)):
+            raise TypeError(f"Attribute {attr_name} does not have any type arguments.")
+        else:
+            return type_args[0]
 
     def format_received(self, data: InputType) -> str:
         return str(data)
