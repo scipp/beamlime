@@ -45,9 +45,7 @@ def provide_time_coords(rng: RNG, ef_rate: EventFrameRate) -> TimeCoords:
 
 
 def provide_dummy_counts(ef_rate: EventFrameRate) -> DetectorCounts:
-    return DetectorCounts(
-        sc.ones(sizes={"event": ef_rate}, unit='counts')
-    )
+    return DetectorCounts(sc.ones(sizes={"event": ef_rate}, unit='counts'))
 
 
 def provide_random_pixel_id_generator(
