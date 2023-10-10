@@ -9,12 +9,16 @@ from typing import (
     Dict,
     Generic,
     ItemsView,
+    Iterable,
     Iterator,
     KeysView,
     Literal,
+    Tuple,
     Type,
+    TypeVar,
     Union,
     ValuesView,
+    overload,
 )
 
 from .inspectors import (
@@ -208,70 +212,204 @@ class Provider(Generic[Product]):
         return cls(_obj)
 
 
-Constructor = Union[Provider[Product], partial[Product], Callable[..., Product]]
+class _ArgumentsInstanceFilter:
+    """Filter arguments by instance equality."""
 
-
-class CachedProviderCalledWithDifferentArgs(Exception):
-    ...
-
-
-class CachedArguments:
     def __init__(self) -> None:
         self.args: tuple[Any, ...]
         self.kwargs: dict[str, Any]
 
-    def __call__(self, *args: Any, **kwargs: Any) -> None:
-        if not (hasattr(self, "args") and hasattr(self, "kwargs")):
-            self.args = args
-            self.kwargs = kwargs
+    def _arguments_all_same_length(self, new_args: tuple, new_kwargs: dict) -> bool:
+        return len(new_args) == len(self.args) and len(new_kwargs) == len(self.kwargs)
+
+    def _all_args_same_instances(self, new_args: tuple):
+        return all([arg is n_arg for arg, n_arg in zip(self.args, new_args)])
+
+    def _all_kwargs_same_instances(self, new_kwargs: dict):
+        return all(
+            [
+                kwarg is n_kwarg
+                for kwarg, n_kwarg in zip(self.kwargs.values(), new_kwargs.values())
+            ]
+        )
+
+    def filter_arguments(self, args: tuple, kwargs: dict) -> bool:
+        return (
+            self._arguments_all_same_length(args, kwargs)
+            and self._all_args_same_instances(args)
+            and self._all_kwargs_same_instances(kwargs)
+        )
+
+    def save_arguments(self, args: tuple, kwargs: dict) -> None:
+        self.args = args
+        self.kwargs = kwargs
+
+    def was_called(self) -> bool:
+        return hasattr(self, 'args') and hasattr(self, 'kwargs')
+
+    def __call__(self, *args: Any, **kwargs: Any) -> bool:
+        if not self.was_called():
+            self.save_arguments(args, kwargs)
+            return True
+        else:
+            return self.filter_arguments(args, kwargs)
 
 
-class CachedProvider(Provider[Product]):
+class _ArgumentsHashFilter(_ArgumentsInstanceFilter):
+    """Filter arguments by hash keys."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.indicator = lru_cache(maxsize=2)(lambda *args, **kwargs: None)
+
+    def save_arguments(self, args: tuple, kwargs: dict) -> None:
+        self.indicator(*args, **kwargs)
+        return super().save_arguments(args, kwargs)
+
+    def filter_arguments(self, args: tuple, kwargs: dict) -> bool:
+        self.indicator(*args, **kwargs)
+        if self.indicator.cache_info().currsize > 1:
+            self.indicator.cache_clear()
+            self.indicator(*args, **kwargs)  # Reset cache info.
+            return False
+        return True
+
+
+_Item = TypeVar("_Item")
+
+
+def split_sequence_by_filter(
+    filter_func: Callable[[_Item], bool], sequence: Iterable[_Item]
+) -> Tuple[Tuple[_Item, ...], Tuple[_Item, ...]]:
+    """Split a sequence into two sequences based on the filter.
+
+    The first one of returned sequences contains items that pass the filter.
+    The other sequence contains the rest.
     """
-    Cached provider always returns the first returned value.
+    reference = tuple(filter(filter_func, sequence))
+    filtered = tuple(filter(lambda x: x not in reference, sequence))
+    return reference, filtered
 
-    It remembers only the first returned value and re-use it on next call.
+
+_Key = TypeVar("_Key")
+_Value = TypeVar("_Value")
+
+
+def split_dict_by_filter(
+    filter_func: Callable[[_Key, _Value], bool], sequence: dict[_Key, _Value]
+) -> Tuple[dict[_Key, _Value], dict[_Key, _Value]]:
+    """Split a dictionary into two dictionaries based on the filter.
+
+    The first one of returned dictionaries contains items that pass the filter.
+    The other dictionary contains the rest.
+    """
+    reference = {
+        key: value for key, value in sequence.items() if filter_func(key, value)
+    }
+    filtered = {key: value for key, value in sequence.items() if key not in reference}
+    return reference, filtered
+
+
+def _is_hashable(obj: object) -> bool:
+    return obj.__hash__ is not None
+
+
+class ArgumentsFilter(_ArgumentsInstanceFilter):
+    """
+    Remember arguments and check if the new arguments match the first one.
+    """
+
+    def __init__(self, func: Callable[..., Any]) -> None:
+        from inspect import Signature, signature
+
+        self._sig: Signature = signature(func)
+        self.unhashable_filter = _ArgumentsInstanceFilter()
+        self.hashable_filter = _ArgumentsHashFilter()
+        super().__init__()
+
+    def __call__(self, *args: Any, **kwargs: Any) -> bool:
+        """
+        Saves the arguments and returns ``True`` on the first call.
+        Checks if the new arguments match the first one from the second call.
+
+        It checks instance equalities of all arguments first
+        and separate hashable arguments from unhashable ones if it fails.
+        For hashable arguments, it uses ``lru_cache`` and
+        for unhashable arguments, it checks instance equalities.
+
+        Returns
+        -------
+        ``True``
+            If it is the first call or the new arguments match the first ones.
+
+        ``False``
+            If the new arguments don't match the first ones.
+        """
+
+        bound = self._sig.bind(*args, **kwargs)
+
+        hashable_args, unhashable_args = split_sequence_by_filter(
+            _is_hashable, bound.args
+        )
+        hashable_kwargs, unhashable_kwargs = split_dict_by_filter(
+            lambda _, v: _is_hashable(v), bound.kwargs
+        )
+
+        if not self.was_called():
+            return (
+                super().__call__(*args, **kwargs)
+                and self.hashable_filter(*hashable_args, **hashable_kwargs)
+                and self.unhashable_filter(*unhashable_args, **unhashable_kwargs)
+            )
+        else:
+            return super().__call__(*args, **kwargs) or (
+                self.hashable_filter(*hashable_args, **hashable_kwargs)
+                and self.unhashable_filter(*unhashable_args, **unhashable_kwargs)
+            )
+
+
+class SingletonProviderCalledWithDifferentArgs(Exception):
+    ...
+
+
+class SingletonProvider(Provider[Product]):
+    """
+    Singleton provider always returns the same instance.
+
     Therefore passing different arguments from the first call is not allowed.
-    ``functools.lru_cache`` is used to check if the arguments are the same.
+    ``functools.lru_cache`` is used to check if the hashable arguments are the same.
+    For unhashable arguments, ``cached_arguments_filter``
+    check if they are the same instances.
+
+    ``SingletonProvider`` is needed for sharing the same object by multiple objects.
+    The arguments filter prioritize instance equality to hash equality.
+    If the hashable arguments check is not compatible,
+    consider providing the dependencies also as singletons.
+
+    Raises
+    ------
+    CachedProviderCalledWithDifferentArgs
+        If the provider is called with different argument from the first call.
     """
 
     def __init__(
         self, _constructor: Constructor[Product], /, *args: Any, **kwargs: Any
     ) -> None:
         super().__init__(_constructor, *args, **kwargs)
-        self._check_args_hashability()
-
         self.cached_result: Product
-        self.cached_args = CachedArguments()
-        self.cache_indicator = lru_cache(maxsize=2)(self.cached_args)
-
-    def _check_args_hashability(self) -> None:
-        if unhashable_args := {
-            arg_name: arg_spec
-            for arg_name, arg_spec in self.arg_dep_specs.items()
-            if arg_spec.runtime_type.__hash__ is None
-        }:
-            raise TypeError(
-                f"{self} cannot be cached. "
-                f"Unhashable argument(s): {unhashable_args}."
-            )
+        self.cached_arguments_filter = ArgumentsFilter(self._constructor)
 
     def __call__(self, *args: Any, **kwargs: Any) -> Product:
-        self.cache_indicator(*self.args, *args, **self.keywords, **kwargs)
         if not hasattr(self, "cached_result"):
             self.cached_result = self.constructor(
                 *self.args, *args, **self.keywords, **kwargs
             )
-        elif self.cache_indicator.cache_info().currsize > 1:
-            self.cache_indicator = lru_cache(maxsize=2)(self.cached_args)
-            self.cache_indicator(
-                *self.cached_args.args, **self.cached_args.kwargs
-            )  # Reset cache.
+        if not self.cached_arguments_filter(*args, **kwargs):
             err_msg = (
                 f"CachedProvider {self} was called with "
                 "different arguments from the first call."
             )
-            raise CachedProviderCalledWithDifferentArgs(err_msg)
+            raise SingletonProviderCalledWithDifferentArgs(err_msg)
         return self.cached_result
 
 
@@ -314,6 +452,10 @@ def merge(*prov_grs: ProviderGroup) -> ProviderGroup:
 
 def _product_type_label(tp: Type[Product]) -> str:
     return tp.__name__ if hasattr(tp, "__name__") else str(tp)
+
+
+Constructor = Union[Provider[Product], partial[Product], Callable[..., Product]]
+P = TypeVar("P")
 
 
 class ProviderGroup:
@@ -446,7 +588,46 @@ class ProviderGroup:
         """
         self._validate_and_register(product_type, Provider(provider_call))
 
-    def provider(self, provider_call: Callable[..., Product]) -> Callable[..., Product]:
+    @overload
+    def provider(
+        self,
+        provider_call: Type[Product],
+        /,
+        *,
+        provider_type: Type[Provider] = Provider,
+    ) -> Type[Product]:
+        ...
+
+    @overload
+    def provider(
+        self,
+        provider_call: Callable[..., Product],
+        /,
+        *,
+        provider_type: Type[Provider] = Provider,
+    ) -> Callable[..., Product]:
+        ...
+
+    @overload
+    def provider(
+        self, provider_call: None = None, /, *, provider_type: Type[Provider]
+    ) -> Callable[[P], P]:
+        ...
+
+    def provider(
+        self,
+        provider_call: None | Callable[..., Product] | Type[Product] = None,
+        /,
+        *,
+        provider_type: Type[Provider] = Provider,
+    ) -> (
+        Callable[
+            [Callable[..., Product] | Type[Product]],
+            Callable[..., Product] | Type[Product],
+        ]
+        | Callable[..., Product]
+        | Type[Product]
+    ):
         """
         Register the decorated callable into this group.
         The product type will be retrieved from the annotation.
@@ -462,28 +643,33 @@ class ProviderGroup:
         >>> number_providers[Literal[1]]() == 1
         True
         """
-        new_provider: Provider[Product] = Provider(provider_call)
-        _product_type = new_provider.product_spec.product_type
-        self._validate_and_register(_product_type, new_provider)
-        return provider_call
+        from functools import partial
 
-    def cached_provider(
-        self, product_type: Type[Product], provider_call: Callable[..., Product]
-    ) -> None:
-        """
-        Register ``provider_call`` wrapped by ``CachedProvider``
-        as a provider of ``product_type``.
+        @overload
+        def wrapper(
+            provider_call: Callable[..., Product], provider_tp: Type[Provider]
+        ) -> Callable[..., Product]:
+            ...
 
-        Notes
-        -----
-        ``CachedProvider`` will cache the first returned value and
-        it will not allow different arguments from the first call.
-        When ``ProviderGroup`` is merged into another one or copied,
-        it will also make a copy of ``CachedProvider``,
-        which means it will no longer have the existing cache.
+        @overload
+        def wrapper(
+            provider_call: Type[Product], provider_tp: Type[Provider]
+        ) -> Type[Product]:
+            ...
 
-        """
-        self._validate_and_register(product_type, CachedProvider(provider_call))
+        def wrapper(
+            provider_call: Callable[..., Product] | Type[Product],
+            provider_tp: Type[Provider],
+        ) -> Callable[..., Product] | Type[Product]:
+            new_provider = provider_tp(provider_call)
+            _product_type = new_provider.product_spec.product_type
+            self._validate_and_register(_product_type, new_provider)
+            return provider_call
+
+        if provider_call is None:
+            return partial(wrapper, provider_tp=provider_type)
+        else:
+            return wrapper(provider_call, provider_tp=provider_type)
 
 
 __all__ = ["Product"]

@@ -189,16 +189,20 @@ def test_local_factory_overwritten():
         assert factory[Joke] == make_another_joke()
 
 
-def test_cached_provider_function():
+def test_singleton_provider_function():
+    from beamlime.constructors.providers import SingletonProvider
+
     provider_gr = ProviderGroup()
-    provider_gr.cached_provider(ProviderGroup, ProviderGroup)
+    provider_gr.provider(ProviderGroup, provider_type=SingletonProvider)
     factory = Factory(provider_gr)
     assert factory[ProviderGroup] is factory[ProviderGroup]
 
 
-def test_cached_provider_function_copied():
+def test_singleton_provider_function_copied():
+    from beamlime.constructors.providers import SingletonProvider
+
     provider_gr = ProviderGroup()
-    provider_gr.cached_provider(ProviderGroup, ProviderGroup)
+    provider_gr.provider(ProviderGroup, provider_type=SingletonProvider)
     factory = Factory(provider_gr)
     another_factory = Factory(provider_gr)
     assert factory[ProviderGroup] is not another_factory[ProviderGroup]
