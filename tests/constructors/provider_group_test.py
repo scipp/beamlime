@@ -129,21 +129,25 @@ def test_providers_merge_conflicting_keywords_raises():
         funny.merge(funnier)
 
 
-def cached_function() -> ProviderGroup:
+def singleton_function() -> ProviderGroup:
     return ProviderGroup()
 
 
-def test_cached_provider_function():
+def test_singleton_provider_function():
+    from beamlime.constructors.providers import SingletonProvider
+
     provider_gr = ProviderGroup()
-    provider_gr.cached_provider(ProviderGroup, cached_function)
+    provider_gr.provider(singleton_function, provider_type=SingletonProvider)
     first_instance = provider_gr[ProviderGroup]()
     second_instance = provider_gr[ProviderGroup]()
     assert first_instance is second_instance
 
 
-def test_cached_provider_function_copied():
+def test_singleton_provider_function_copied():
+    from beamlime.constructors.providers import SingletonProvider
+
     provider_gr = ProviderGroup()
-    provider_gr.cached_provider(ProviderGroup, cached_function)
+    provider_gr.provider(singleton_function, provider_type=SingletonProvider)
     new_gr = ProviderGroup()
     new_gr.merge(provider_gr)
 
