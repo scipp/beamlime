@@ -643,7 +643,6 @@ class ProviderGroup:
         >>> number_providers[Literal[1]]() == 1
         True
         """
-        from functools import partial
 
         @overload
         def wrapper(
