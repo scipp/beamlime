@@ -11,4 +11,5 @@ hidden:
 ---
 
 developer/index
+getting-started/index
 ```
