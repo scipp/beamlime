@@ -316,7 +316,7 @@ def _is_hashable(obj: object) -> bool:
 
 class ArgumentsFilter(_ArgumentsInstanceFilter):
     """
-    Remember arguments and check if the new arguments match the first one.
+    Remember arguments and check if the new arguments match the old ones.
     """
 
     def __init__(self, func: Callable[..., Any]) -> None:
@@ -330,7 +330,7 @@ class ArgumentsFilter(_ArgumentsInstanceFilter):
     def __call__(self, *args: Any, **kwargs: Any) -> bool:
         """
         Saves the arguments and returns ``True`` on the first call.
-        Checks if the new arguments match the first one from the second call.
+        The second time it is called, it checks if the new arguments match the old ones.
 
         It checks instance equalities of all arguments first
         and separate hashable arguments from unhashable ones if it fails.
