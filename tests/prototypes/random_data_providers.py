@@ -8,6 +8,7 @@ import scipp as sc
 from numpy.random import Generator as RNG
 
 from beamlime.constructors import ProviderGroup
+from beamlime.constructors.providers import SingletonProvider
 
 from .parameters import EventRate, FrameRate, NumFrames, NumPixels, RandomSeed
 
@@ -89,10 +90,10 @@ random_data_providers = ProviderGroup(
     provide_random_pixel_id_generator,
     provide_random_event_generator,
     provide_random_events,
+    SingletonProvider(calculate_event_per_frame),
+    SingletonProvider(provide_time_coords),
+    SingletonProvider(provide_dummy_counts),
 )
-random_data_providers.cached_provider(EventFrameRate, calculate_event_per_frame)
-random_data_providers.cached_provider(TimeCoords, provide_time_coords)
-random_data_providers.cached_provider(DetectorCounts, provide_dummy_counts)
 
 
 def dump_random_dummy_events() -> RandomEvents:

@@ -94,8 +94,8 @@ def provide_workflow(
         provide_coord_transform_graph,
         transform_coords,
         histogram_result,
+        provide_pixel_id_bin_edges,
     )
-    providers.cached_provider(PixelIDEdges, provide_pixel_id_bin_edges)
 
     providers[NumPixels] = lambda: num_pixels
     providers[HistogramBinSize] = lambda: histogram_binsize

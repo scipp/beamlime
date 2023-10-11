@@ -392,17 +392,19 @@ Prototype = NewType("Prototype", BasePrototype)
 
 
 def prototype_app_providers() -> ProviderGroup:
-    app_providers = ProviderGroup()
+    from beamlime.constructors.providers import SingletonProvider
+
+    app_providers = ProviderGroup(
+        SingletonProvider(StopWatch),
+        SingletonProvider(VisualizationDaemon),
+        SingletonProvider(calculate_target_counts),
+    )
     app_providers[DataMerge[Events, MergedData]] = DataMerge
     app_providers[DataBinning[MergedData, PixelGrouped]] = DataBinning
     app_providers[DataReduction[PixelGrouped, ReducedData]] = DataReduction
     app_providers[DataHistogramming[ReducedData, Histogrammed]] = DataHistogramming
-
-    app_providers.cached_provider(StopWatch, StopWatch)
-    app_providers.cached_provider(VisualizationDaemon, VisualizationDaemon)
-    app_providers.cached_provider(TargetCounts, calculate_target_counts)
     for pipe_type in (Events, PixelGrouped, MergedData, ReducedData, Histogrammed):
-        app_providers.cached_provider(List[pipe_type], list)
+        app_providers[List[pipe_type]] = SingletonProvider(list)
 
     return app_providers
 
