@@ -469,9 +469,8 @@ class ProviderGroup:
         and fills it with the initial providers from the argument.
         """
         self._providers: Dict[Type[Product], Provider[Product]] = dict()
-        if initial_providers:
-            for _provider in initial_providers:
-                self.provider(_provider)
+        for _provider in initial_providers:
+            self.provider(_provider)
 
     def keys(self) -> KeysView[Type[Product]]:
         return self._providers.keys()
@@ -572,6 +571,19 @@ class ProviderGroup:
             product_label = _product_type_label(product_type)
             raise ProviderNotFoundError(f"Provider for ``{product_label}`` not found.")
 
+    @staticmethod
+    def _wrap_provider(
+        provider_call: Callable[..., Product], provider_tp: Type[Provider] | None = None
+    ) -> Provider[Product]:
+        """Wrap a callable object with a ``Provider`` or its subclass."""
+        if provider_tp is None:
+            if isinstance(provider_call, Provider):
+                return type(provider_call)(provider_call)
+            else:
+                return Provider(provider_call)
+        else:
+            return provider_tp(provider_call)
+
     def __setitem__(
         self, product_type: Type[Product], provider_call: Callable[..., Product]
     ) -> None:
@@ -586,7 +598,8 @@ class ProviderGroup:
         instead of raising ``ProviderExistsError``.
 
         """
-        self._validate_and_register(product_type, Provider(provider_call))
+        new_provider = self._wrap_provider(provider_call)
+        self._validate_and_register(product_type, new_provider)
 
     @overload
     def provider(
@@ -595,7 +608,7 @@ class ProviderGroup:
         /,
         *,
         provider_type: Type[Provider] = Provider,
-    ) -> Type[Product]:
+    ) -> Type[Product]:  # This signiture is needed when it decorates a class.
         ...
 
     @overload
@@ -619,7 +632,7 @@ class ProviderGroup:
         provider_call: None | Callable[..., Product] | Type[Product] = None,
         /,
         *,
-        provider_type: Type[Provider] = Provider,
+        provider_type: Type[Provider] | None = None,
     ) -> (
         Callable[
             [Callable[..., Product] | Type[Product]],
@@ -646,23 +659,23 @@ class ProviderGroup:
 
         @overload
         def wrapper(
-            provider_call: Callable[..., Product], provider_tp: Type[Provider]
+            provider_call: Callable[..., Product], provider_tp: Type[Provider] | None
         ) -> Callable[..., Product]:
             ...
 
         @overload
         def wrapper(
-            provider_call: Type[Product], provider_tp: Type[Provider]
+            provider_call: Type[Product], provider_tp: Type[Provider] | None
         ) -> Type[Product]:
             ...
 
         def wrapper(
             provider_call: Callable[..., Product] | Type[Product],
-            provider_tp: Type[Provider],
+            provider_tp: Type[Provider] | None,
         ) -> Callable[..., Product] | Type[Product]:
-            new_provider = provider_tp(provider_call)
+            new_provider = self._wrap_provider(provider_call, provider_tp)
             _product_type = new_provider.product_spec.product_type
-            self._validate_and_register(_product_type, new_provider)
+            self[_product_type] = new_provider
             return provider_call
 
         if provider_call is None:

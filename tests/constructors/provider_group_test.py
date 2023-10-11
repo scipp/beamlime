@@ -143,6 +143,38 @@ def test_singleton_provider_function():
     assert first_instance is second_instance
 
 
+def test_singleton_provider_initially_registered():
+    from beamlime.constructors.providers import SingletonProvider
+
+    provider_gr = ProviderGroup(SingletonProvider(singleton_function))
+    first_instance = provider_gr[ProviderGroup]()
+    second_instance = provider_gr[ProviderGroup]()
+    assert first_instance is second_instance
+
+
+def test_singleton_provider_registered_by_setter():
+    from beamlime.constructors.providers import SingletonProvider
+
+    provider_gr = ProviderGroup()
+    provider_gr[ProviderGroup] = SingletonProvider(singleton_function)
+    first_instance = provider_gr[ProviderGroup]()
+    second_instance = provider_gr[ProviderGroup]()
+    assert first_instance is second_instance
+
+
+def test_singleton_provider_registered_with_type_changed():
+    from beamlime.constructors.providers import Provider, SingletonProvider
+
+    provider_gr = ProviderGroup()
+    original_provider = SingletonProvider(singleton_function)
+    provider_gr.provider(original_provider, provider_type=Provider)
+    assert isinstance(provider_gr[ProviderGroup], Provider)
+    assert not isinstance(provider_gr[ProviderGroup], SingletonProvider)
+    first_instance = provider_gr[ProviderGroup]()
+    second_instance = provider_gr[ProviderGroup]()
+    assert first_instance is not second_instance
+
+
 def test_singleton_provider_function_copied():
     from beamlime.constructors.providers import SingletonProvider
 
