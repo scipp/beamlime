@@ -354,12 +354,13 @@ class KafkaPrototype(BasePrototype):
 
 
 def collect_kafka_providers() -> ProviderGroup:
-    kafka_providers = ProviderGroup()
-    kafka_providers.cached_provider(
-        KafkaBootstrapServer, provide_kafka_bootstrap_server
+    from beamlime.constructors.providers import SingletonProvider
+
+    kafka_providers = ProviderGroup(
+        SingletonProvider(provide_random_kafka_topic),
+        SingletonProvider(provide_kafka_bootstrap_server),
+        SingletonProvider(provide_kafka_admin),
     )
-    kafka_providers.cached_provider(AdminClient, provide_kafka_admin)
-    kafka_providers.cached_provider(KafkaTopic, provide_random_kafka_topic)
     kafka_providers[Producer] = provide_kafka_producer
     kafka_providers[ConsumerContextManager] = provide_kafka_consumer_ctxt_manager
     kafka_providers[TopicCreated] = create_topic
