@@ -257,12 +257,11 @@ class KafkaListenerBase(BaseApp, ABC):
         ...
 
     async def send_data_chunk(self, data_chunk: Events) -> None:
-        self.data_counts += 1
         self.debug(
             "Sending %s th, %s pieces of data.", self.data_counts, len(data_chunk)
         )
         self.raw_data_pipe.append(Events(data_chunk))
-        await asyncio.sleep(0)
+        await self.commit_process()
 
     def start_stop_watch(self) -> None:
         self.stop_watch.start()
