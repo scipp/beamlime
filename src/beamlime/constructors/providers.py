@@ -212,69 +212,6 @@ class Provider(Generic[Product]):
         return cls(_obj)
 
 
-class _ArgumentsInstanceFilter:
-    """Filter arguments by instance equality."""
-
-    def __init__(self) -> None:
-        self.args: tuple[Any, ...]
-        self.kwargs: dict[str, Any]
-
-    def _arguments_all_same_length(self, new_args: tuple, new_kwargs: dict) -> bool:
-        return len(new_args) == len(self.args) and len(new_kwargs) == len(self.kwargs)
-
-    def _all_args_same_instances(self, new_args: tuple):
-        return all([arg is n_arg for arg, n_arg in zip(self.args, new_args)])
-
-    def _all_kwargs_same_instances(self, new_kwargs: dict):
-        return all(
-            [
-                kwarg is n_kwarg
-                for kwarg, n_kwarg in zip(self.kwargs.values(), new_kwargs.values())
-            ]
-        )
-
-    def filter_arguments(self, args: tuple, kwargs: dict) -> bool:
-        return (
-            self._arguments_all_same_length(args, kwargs)
-            and self._all_args_same_instances(args)
-            and self._all_kwargs_same_instances(kwargs)
-        )
-
-    def save_arguments(self, args: tuple, kwargs: dict) -> None:
-        self.args = args
-        self.kwargs = kwargs
-
-    def was_called(self) -> bool:
-        return hasattr(self, 'args') and hasattr(self, 'kwargs')
-
-    def __call__(self, *args: Any, **kwargs: Any) -> bool:
-        if not self.was_called():
-            self.save_arguments(args, kwargs)
-            return True
-        else:
-            return self.filter_arguments(args, kwargs)
-
-
-class _ArgumentsHashFilter(_ArgumentsInstanceFilter):
-    """Filter arguments by hash keys."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.indicator = lru_cache(maxsize=2)(lambda *args, **kwargs: None)
-
-    def save_arguments(self, args: tuple, kwargs: dict) -> None:
-        self.indicator(*args, **kwargs)
-        return super().save_arguments(args, kwargs)
-
-    def filter_arguments(self, args: tuple, kwargs: dict) -> bool:
-        self.indicator(*args, **kwargs)
-        if self.indicator.cache_info().currsize > 1:
-            self.indicator.cache_clear()
-            self.indicator(*args, **kwargs)  # Reset cache info.
-            return False
-        return True
-
-
 _Item = TypeVar("_Item")
 
 
@@ -286,9 +223,9 @@ def split_sequence_by_filter(
     The first one of returned sequences contains items that pass the filter.
     The other sequence contains the rest.
     """
-    reference = tuple(filter(filter_func, sequence))
-    filtered = tuple(filter(lambda x: x not in reference, sequence))
-    return reference, filtered
+    filtered = tuple(filter(filter_func, sequence))
+    rest = tuple(filter(lambda x: x not in filtered, sequence))
+    return filtered, rest
 
 
 _Key = TypeVar("_Key")
@@ -303,18 +240,83 @@ def split_dict_by_filter(
     The first one of returned dictionaries contains items that pass the filter.
     The other dictionary contains the rest.
     """
-    reference = {
+    filtered = {
         key: value for key, value in sequence.items() if filter_func(key, value)
     }
-    filtered = {key: value for key, value in sequence.items() if key not in reference}
-    return reference, filtered
+    rest = {key: value for key, value in sequence.items() if key not in filtered}
+    return filtered, rest
 
 
-def _is_hashable(obj: object) -> bool:
-    return obj.__hash__ is not None
+class _ArgumentsInstanceFilter:
+    """Filter arguments by instance equality."""
+
+    def __init__(self) -> None:
+        self.arguments: dict[str, Any]
+
+    def arguments_filter(self, arg_name: str, arg_val: Any) -> bool:
+        # self.arguments.get(arg_name) is not sufficient
+        # because it will return ``None`` even if it was not used in the previous call.
+        return arg_name in self.arguments and self.arguments.get(arg_name) is arg_val
+
+    def save_arguments(self, arguments: dict) -> None:
+        self.arguments = arguments
+
+    def was_called(self) -> bool:
+        return hasattr(self, 'arguments')
+
+    def __call__(
+        self, arguments: dict[str, Any], reverse: bool = False
+    ) -> dict[str, Any]:
+        if not self.was_called():
+            self.save_arguments(arguments)
+            filtered, rest = arguments, dict()
+        else:
+            filtered, rest = split_dict_by_filter(self.arguments_filter, arguments)
+
+        return rest if reverse else filtered
 
 
-class ArgumentsFilter(_ArgumentsInstanceFilter):
+class _ArgumentsHashFilter(_ArgumentsInstanceFilter):
+    """Filter arguments by hash keys."""
+
+    def __init__(self) -> None:
+        from functools import _lru_cache_wrapper
+
+        super().__init__()
+        self.indicators: dict[str, _lru_cache_wrapper] = dict()
+
+    def initialize_indicators(self) -> None:
+        for arg_name, arg_val in self.arguments.items():
+            indicator = lru_cache(maxsize=2)(lambda **_: None)
+            indicator(**{arg_name: arg_val})
+            self.indicators[arg_name] = indicator
+
+    def reset_indicators(self, *arg_names) -> None:
+        for arg_name in arg_names:
+            indicator = self.indicators[arg_name]
+            indicator.cache_clear()
+            indicator(**{arg_name: self.arguments.get(arg_name)})
+
+    def save_arguments(self, arguments: dict[str, Any]) -> None:
+        super().save_arguments(arguments)
+        self.initialize_indicators()
+
+    def check_indicator(self, arg_name: str, arg_val: Any) -> bool:
+        indicator = self.indicators[arg_name]
+        indicator(**{arg_name: arg_val})
+        if indicator.cache_info().currsize > 1:
+            self.reset_indicators(arg_name)
+            return False
+        else:
+            return True
+
+    def arguments_filter(self, arg_name: str, arg_val: Any) -> bool:
+        if arg_val.__hash__ is not None and arg_name in self.indicators:
+            return self.check_indicator(arg_name, arg_val)
+        return False
+
+
+class ArgumentsFilter:
     """
     Remember arguments and check if the new arguments match the old ones.
     """
@@ -323,8 +325,8 @@ class ArgumentsFilter(_ArgumentsInstanceFilter):
         from inspect import Signature, signature
 
         self._sig: Signature = signature(func)
-        self.unhashable_filter = _ArgumentsInstanceFilter()
-        self.hashable_filter = _ArgumentsHashFilter()
+        self.instance_filter = _ArgumentsInstanceFilter()
+        self.hash_filter = _ArgumentsHashFilter()
         super().__init__()
 
     def __call__(self, *args: Any, **kwargs: Any) -> bool:
@@ -347,25 +349,9 @@ class ArgumentsFilter(_ArgumentsInstanceFilter):
         """
 
         bound = self._sig.bind(*args, **kwargs)
-
-        hashable_args, unhashable_args = split_sequence_by_filter(
-            _is_hashable, bound.args
-        )
-        hashable_kwargs, unhashable_kwargs = split_dict_by_filter(
-            lambda _, v: _is_hashable(v), bound.kwargs
-        )
-
-        if not self.was_called():
-            return (
-                super().__call__(*args, **kwargs)
-                and self.hashable_filter(*hashable_args, **hashable_kwargs)
-                and self.unhashable_filter(*unhashable_args, **unhashable_kwargs)
-            )
-        else:
-            return super().__call__(*args, **kwargs) or (
-                self.hashable_filter(*hashable_args, **hashable_kwargs)
-                and self.unhashable_filter(*unhashable_args, **unhashable_kwargs)
-            )
+        instance_filter_rest = self.instance_filter(bound.arguments, reverse=True)
+        hash_filter_rest = self.hash_filter(instance_filter_rest, reverse=True)
+        return len(hash_filter_rest) == 0
 
 
 class SingletonProviderCalledWithDifferentArgs(Exception):
