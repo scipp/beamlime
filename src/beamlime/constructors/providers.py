@@ -382,7 +382,7 @@ class SingletonProvider(Provider[Product]):
     check if they are the same instances.
 
     ``SingletonProvider`` is needed for sharing the same object by multiple objects.
-    The arguments filter prioritize instance equality to hash equality.
+    The arguments filter prioritizes instance equality over hash equality.
     If the hashable arguments check is not compatible,
     consider providing the dependencies also as singletons.
 
