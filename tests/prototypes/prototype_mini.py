@@ -34,22 +34,13 @@ def calculate_target_counts(
     return TargetCounts(math.ceil(num_frames / chunk_size))
 
 
-class StopWatch:
+class StopWatch(LogMixin):
+    logger: BeamlimeLogger
+
     def __init__(self) -> None:
         self.lapse: dict[str, list[float]] = dict()
         self._start_timestamp: Optional[float] = None
         self._stop_timestamp: Optional[float] = None
-
-    @property
-    def laps_counts(self) -> int:
-        if not self.lapse:
-            raise Warning("No time lapse recorded. Did you forget to call ``lap()``?")
-
-        return (
-            min([len(app_lapse) for app_lapse in self.lapse.values()])
-            if self.lapse
-            else 0
-        )
 
     @property
     def duration(self) -> float:
@@ -93,6 +84,14 @@ class StopWatch:
         app_lapse = self.lapse.setdefault(app_name, [])
         app_lapse.append(time.time())
 
+    @property
+    def lap_counts(self) -> dict[str, int]:
+        return {app_name: len(app_lapse) for app_name, app_lapse in self.lapse.items()}
+
+    def log_benchmark_result(self):
+        self.info("Lap counts: %s", self.lap_counts)
+        self.info("Benchmark result: %s [s]", self.duration)
+
 
 class BaseApp(LogMixin, ABC):
     logger: BeamlimeLogger
@@ -104,16 +103,15 @@ class BaseApp(LogMixin, ABC):
         return self.__class__.__name__
 
     @property
+    def data_counts(self) -> int:
+        return len(self.stop_watch.lapse.get(self.app_name, []))
+
+    @property
     def target_count_reached(self) -> bool:
         return self.target_counts <= self.data_counts
 
-    def __init__(self) -> None:
-        self.data_counts: int = 0
-        super().__init__()
-
     async def commit_process(self):
         self.stop_watch.lap(self.app_name)
-        self.data_counts += 1
         await asyncio.sleep(0)
 
     def data_pipe_monitor(
@@ -186,7 +184,6 @@ class DataReductionApp(BaseApp, Generic[InputType, OutputType]):
     def __init__(self) -> None:
         self.input_type = self._retrieve_type_arg('input_pipe')
         self.output_type = self._retrieve_type_arg('output_pipe')
-        self.data_counts = 0
         super().__init__()
 
     @classmethod
@@ -286,16 +283,7 @@ class VisualizationDaemon(BaseApp):
         self.info("No more data coming in. Finishing ...")
 
         self.stop_watch.stop()
-        try:
-            assert self.stop_watch.laps_counts == self.target_counts
-        except AssertionError:
-            self.error(
-                "Target data counts not reached. %s/%s",
-                self.stop_watch.laps_counts,
-                self.target_counts,
-            )
-        else:
-            self.info("Benchmark result: %s", self.stop_watch.duration)
+        self.stop_watch.log_benchmark_result()
 
 
 @contextmanager
