@@ -6,9 +6,9 @@ from typing import List, NewType
 
 import scipp as sc
 
-from beamlime.constructors import Factory, ProviderGroup
+from beamlime.constructors import Factory, ProviderGroup, SingletonProvider
 
-from .parameters import HistogramBinSize, NumPixels
+from .parameters import FrameRate, HistogramBinSize, NumPixels
 
 # Coordinates
 PixelID = NewType("PixelID", sc.Variable)
@@ -17,6 +17,8 @@ Length = NewType("Length", sc.Variable)
 WaveLength = NewType("WaveLength", sc.Variable)
 
 # Constants
+FirstPulseTime = NewType("FirstPulseTime", sc.Variable)
+FrameUnwrappingGraph = NewType("FrameUnwrappingGraph", dict)
 CoordTransformGraph = NewType("CoordTransformGraph", dict)
 
 # Generated/Calculated
@@ -28,30 +30,63 @@ ReducedData = NewType("ReducedData", sc.DataArray)
 Histogrammed = NewType("Histogrammed", sc.DataArray)
 
 
-def provide_coord_transform_graph() -> CoordTransformGraph:
+def provide_coord_transform_graph(
+    frame_rate: FrameRate, first_pulse_time: FirstPulseTime
+) -> CoordTransformGraph:
+    from scipp.constants import h, m_n
+
+    lambda_min = sc.scalar(0, unit='angstrom')
+    frame_period = sc.scalar(1 / frame_rate, unit='ns')  # No pulse skipping
+    scale_factor = (m_n / h).to(
+        unit=sc.units.us / sc.units.angstrom**2
+    )  # All wavelength is in angstrom unit.
     c_a = sc.scalar(0.00001, unit='m')
     c_b = sc.scalar(0.1, unit='m')
     c_c = sc.scalar(1, unit='1e-3m^2/s')
+
+    def time_offset_pivot(tof_min: sc.Variable, frame_offset: sc.Variable):
+        return (frame_offset + tof_min) % frame_period
+
+    def tof_from_time_offset(
+        event_time_offset: sc.Variable,
+        time_offset_pivot: sc.Variable,
+        tof_min: sc.Variable,
+    ):
+        shift = tof_min - time_offset_pivot
+        tof = sc.where(
+            event_time_offset >= time_offset_pivot, shift, shift + frame_period
+        )
+        tof += event_time_offset
+        return tof
+
+    def wavelength_from_tof(tof, L):
+        return (c_c * tof / L).to(unit='angstrom')
+
     return CoordTransformGraph(
         {
             'L1': lambda pixel_id: (pixel_id * c_a) + c_b,
             'L2': lambda pixel_id: (pixel_id * c_a) + c_b,
             'L': lambda L1, L2: L1 + L2,
-            'wavelength': lambda event_time_offset, L: (c_c * event_time_offset / L).to(
-                unit='angstrom'
-            ),
+            'tof_min': lambda L: (L * scale_factor * lambda_min).to(unit=sc.units.ns),
+            'frame_offset': lambda event_time_zero: event_time_zero - first_pulse_time,
+            'time_offset_pivot': time_offset_pivot,
+            'tof': tof_from_time_offset,
+            'wavelength': wavelength_from_tof,
         }
     )
 
 
 def workflow_script(
-    da_list: Events, num_pixels: NumPixels, histogram_bin_size: HistogramBinSize
+    da_list: Events,
+    num_pixels: NumPixels,
+    histogram_bin_size: HistogramBinSize,
+    frame_rate: FrameRate,
 ) -> Histogrammed:
     merged = sc.concat(da_list, dim='event')
     pixel_ids = sc.arange(dim='pixel_id', start=0, stop=num_pixels)
     binned = merged.group(pixel_ids)
 
-    graph = provide_coord_transform_graph()
+    graph = provide_coord_transform_graph(frame_rate)
 
     transformed = binned.transform_coords(['L', 'wavelength'], graph=graph)
     return transformed.hist(wavelength=histogram_bin_size).sum('L')
@@ -86,7 +121,7 @@ Workflow = NewType("Workflow", Factory)
 
 
 def provide_workflow(
-    num_pixels: NumPixels, histogram_binsize: HistogramBinSize
+    num_pixels: NumPixels, histogram_binsize: HistogramBinSize, frame_rate: FrameRate
 ) -> Workflow:
     providers = ProviderGroup(
         merge_data_list,
@@ -99,7 +134,8 @@ def provide_workflow(
 
     providers[NumPixels] = lambda: num_pixels
     providers[HistogramBinSize] = lambda: histogram_binsize
+    providers[FrameRate] = lambda: frame_rate
     return Workflow(Factory(providers))
 
 
-workflow_providers = ProviderGroup(provide_workflow)
+workflow_providers = ProviderGroup(SingletonProvider(provide_workflow))

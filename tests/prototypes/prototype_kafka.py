@@ -320,7 +320,7 @@ class KafkaListener(KafkaListenerBase):
             data=sc.ones(dims=['event'], shape=(len(data.pixel_id),), unit='counts'),
             coords={
                 'event_time_offset': sc.Variable(
-                    dims=['event'], values=data.time_of_flight, unit='ms', dtype=float
+                    dims=['event'], values=data.time_of_flight, unit='ns', dtype=float
                 ),
                 'event_time_zero': sc.Variable(
                     dims=['event'], values=event_zeros, unit='ns'

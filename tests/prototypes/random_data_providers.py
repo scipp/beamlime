@@ -42,7 +42,7 @@ def provide_time_coords(
     ref_time: Optional[ReferenceTimeZero] = None,
 ) -> TimeCoords:
     ref_time = ref_time or ReferenceTimeZero(13620492**11)
-    et_zero = sc.datetimes(dims=["event"], values=[ref_time] * ef_rate, unit='ns')
+    et_zero = sc.array(dims=["event"], values=[ref_time] * ef_rate, unit='ns')
     et_offset = sc.array(
         dims=["event"], values=rng.random((ef_rate,)) * 800 + 200, unit='ns'
     )

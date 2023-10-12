@@ -6,7 +6,7 @@ import argparse
 import asyncio
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Any, Generator, Generic, List, NewType, Optional, TypeVar
+from typing import Any, Coroutine, Generator, Generic, List, NewType, Optional, TypeVar
 
 from beamlime.constructors import Factory, ProviderGroup
 from beamlime.logging import BeamlimeLogger
@@ -16,6 +16,7 @@ from .parameters import ChunkSize, EventRate, NumFrames, NumPixels
 from .random_data_providers import RandomEvents
 from .workflows import (
     Events,
+    FirstPulseTime,
     Histogrammed,
     MergedData,
     PixelGrouped,
@@ -184,6 +185,7 @@ class DataReductionApp(BaseApp, Generic[InputType, OutputType]):
     def __init__(self) -> None:
         self.input_type = self._retrieve_type_arg('input_pipe')
         self.output_type = self._retrieve_type_arg('output_pipe')
+        self.first_pulse_time: FirstPulseTime
         super().__init__()
 
     @classmethod
@@ -213,16 +215,26 @@ class DataReductionApp(BaseApp, Generic[InputType, OutputType]):
     def format_received(self, data: InputType) -> str:
         return str(data)
 
+    async def process_every_data(self, data: InputType) -> None:
+        self.debug("Received, %s", self.format_received(data))
+        with self.workflow.constant_provider(self.input_type, data):
+            self.output_pipe.append(self.workflow[self.output_type])
+
+        await self.commit_process()
+
+    def process_first_data(self, data: InputType) -> None:
+        ...
+
     async def run(self) -> None:
         data_monitor = self.data_pipe_monitor(self.input_pipe, target_size=1)
+        if not self.target_count_reached and await data_monitor():
+            data = self.input_pipe.pop(0)
+            self.process_first_data(data)
+            await self.process_every_data(data)
+
         while not self.target_count_reached and await data_monitor():
             data = self.input_pipe.pop(0)
-            self.debug("Received, %s", self.format_received(data))
-
-            with self.workflow.constant_provider(self.input_type, data):
-                self.output_pipe.append(self.workflow[self.output_type])
-
-            await self.commit_process()
+            await self.process_every_data(data)
 
         self.info("No more data coming in. Finishing ...")
 
@@ -233,6 +245,11 @@ class DataMerge(DataReductionApp[InputType, OutputType]):
 
     def format_received(self, data: Any) -> str:
         return f"{len(data)} pieces of {self.input_type.__name__}"
+
+    def process_first_data(self, data: Events) -> None:
+        sample_event = data[0]
+        first_pulse_time = sample_event.coords['event_time_zero'][0]
+        self.workflow.providers[FirstPulseTime] = lambda: first_pulse_time
 
 
 class DataBinning(DataReductionApp[InputType, OutputType]):
@@ -250,40 +267,35 @@ class DataHistogramming(DataReductionApp[InputType, OutputType]):
     output_pipe: List[Histogrammed]
 
 
-class VisualizationDaemon(BaseApp):
-    visualized_data_pipe: List[Histogrammed]
+class VisualizationDaemon(DataReductionApp[InputType, OutputType]):
+    input_pipe: List[Histogrammed]
+    output_pipe: Optional[List[None]] = None
 
     def show(self):
         if not hasattr(self, "fig"):
             raise AttributeError("Please wait until the first figure is created.")
         return self.fig
 
-    async def run(self) -> None:
+    def process_first_data(self, data: Histogrammed) -> None:
         import plopp as pp
 
-        data_monitor = self.data_pipe_monitor(self.visualized_data_pipe)
+        self.first_data = data
+        self.debug("First data as a seed of histogram: %s", self.first_data)
+        self.stream_node = pp.Node(self.first_data)
+        self.fig = pp.figure1d(self.stream_node)
 
-        if hasattr(self, "fig"):
-            del self.fig
-
-        if await data_monitor():
-            self.first_data = self.visualized_data_pipe.pop(0)
-            self.debug("First data as a seed of histogram: %s", self.first_data)
-            self.stream_node = pp.Node(self.first_data)
-            self.fig = pp.figure1d(self.stream_node)
-            await self.commit_process()
-
-        while not self.target_count_reached and await data_monitor():
-            new_data = self.visualized_data_pipe.pop(0)
-            self.first_data.values += new_data.values
+    async def process_every_data(self, data: Histogrammed) -> Coroutine[Any, Any, None]:
+        if data is self.first_data:
+            ...
+        else:
+            self.first_data.values += data.values
             self.stream_node.notify_children("update")
             self.debug("Updated plot.")
-            await self.commit_process()
+        await self.commit_process()
 
-        self.info("No more data coming in. Finishing ...")
-
-        self.stop_watch.stop()
-        self.stop_watch.log_benchmark_result()
+        if self.target_count_reached:
+            self.stop_watch.stop()
+            self.stop_watch.log_benchmark_result()
 
 
 @contextmanager
