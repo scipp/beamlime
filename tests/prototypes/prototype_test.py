@@ -41,7 +41,7 @@ def prototype_test_helper(prototype_factory: Factory, reference_app_tp: type[Bas
     num_frames = 140
     chunk_size = 28
     run_prototype(
-        prototype_factory,
+        prototype_factory=prototype_factory,
         parameters={
             EventRate: 10**4,
             NumPixels: 10**4,
