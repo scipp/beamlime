@@ -150,8 +150,8 @@ def provide_random_event_buffers(random_events: RandomEvents) -> RandomEventBuff
             serialise_ev44(
                 source_name='LIME',
                 message_id=i_event,
-                reference_time=event.coords['event_time_zero'].values,
-                reference_time_index=[0],
+                reference_time=event.coords['event_time_zero'].values[:1],
+                reference_time_index=[i_event],
                 time_of_flight=event.coords['event_time_offset'].values,
                 pixel_id=event.coords['pixel_id'].values,
             )
@@ -310,9 +310,12 @@ class KafkaListenerScippOnly(KafkaListenerBase):
 
 class KafkaListener(KafkaListenerBase):
     def deserialize(self, data_list: list[bytes]) -> sc.DataArray:
+        import numpy as np
         from streaming_data_types.eventdata_ev44 import deserialise_ev44
 
         data = deserialise_ev44(self.merge_bytes(data_list))
+        event_zeros = np.full(len(data.pixel_id), data.reference_time[0])
+
         return sc.DataArray(
             data=sc.ones(dims=['event'], shape=(len(data.pixel_id),), unit='counts'),
             coords={
@@ -320,7 +323,7 @@ class KafkaListener(KafkaListenerBase):
                     dims=['event'], values=data.time_of_flight, unit='ms', dtype=float
                 ),
                 'event_time_zero': sc.Variable(
-                    dims=['event'], values=data.reference_time, unit='ns'
+                    dims=['event'], values=event_zeros, unit='ns'
                 ),
                 'pixel_id': sc.Variable(
                     dims=['event'], values=data.pixel_id, dtype='int'
