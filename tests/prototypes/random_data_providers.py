@@ -116,9 +116,10 @@ def dump_random_dummy_events() -> RandomEvents:
     num_pixels = NumPixels(10_000)
     event_frame_rate = EventFrameRate(10_000)
     num_frames = NumFrames(10)
+    frame_rate = FrameRate(14)
     rng = provide_rng(RandomSeed(123))
     time_coords_generator = provide_time_coords_generator(
-        rng, event_frame_rate, num_frames
+        rng, event_frame_rate, num_frames, frame_rate
     )
     data = provide_dummy_counts(event_frame_rate)
     pixel_id_generator = provide_random_pixel_id_generator(
