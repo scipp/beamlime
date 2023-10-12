@@ -89,7 +89,7 @@ def workflow_script(
     graph = provide_coord_transform_graph(frame_rate)
 
     transformed = binned.transform_coords(['L', 'wavelength'], graph=graph)
-    return transformed.hist(wavelength=histogram_bin_size).sum('L')
+    return transformed.bins.concat('L').hist(wavelength=histogram_bin_size)
 
 
 def merge_data_list(da_list: Events) -> MergedData:
