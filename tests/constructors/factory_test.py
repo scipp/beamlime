@@ -190,7 +190,7 @@ def test_local_factory_overwritten():
 
 
 def test_singleton_provider_function():
-    from beamlime.constructors.providers import SingletonProvider
+    from beamlime.constructors import SingletonProvider
 
     provider_gr = ProviderGroup()
     provider_gr.provider(ProviderGroup, provider_type=SingletonProvider)
@@ -199,7 +199,7 @@ def test_singleton_provider_function():
 
 
 def test_singleton_provider_function_copied():
-    from beamlime.constructors.providers import SingletonProvider
+    from beamlime.constructors import SingletonProvider
 
     provider_gr = ProviderGroup()
     provider_gr.provider(ProviderGroup, provider_type=SingletonProvider)

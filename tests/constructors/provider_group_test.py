@@ -134,7 +134,7 @@ def singleton_function() -> ProviderGroup:
 
 
 def test_singleton_provider_function():
-    from beamlime.constructors.providers import SingletonProvider
+    from beamlime.constructors import SingletonProvider
 
     provider_gr = ProviderGroup()
     provider_gr.provider(singleton_function, provider_type=SingletonProvider)
@@ -144,7 +144,7 @@ def test_singleton_provider_function():
 
 
 def test_singleton_provider_initially_registered():
-    from beamlime.constructors.providers import SingletonProvider
+    from beamlime.constructors import SingletonProvider
 
     provider_gr = ProviderGroup(SingletonProvider(singleton_function))
     first_instance = provider_gr[ProviderGroup]()
@@ -153,7 +153,7 @@ def test_singleton_provider_initially_registered():
 
 
 def test_singleton_provider_registered_by_setter():
-    from beamlime.constructors.providers import SingletonProvider
+    from beamlime.constructors import SingletonProvider
 
     provider_gr = ProviderGroup()
     provider_gr[ProviderGroup] = SingletonProvider(singleton_function)
@@ -163,7 +163,7 @@ def test_singleton_provider_registered_by_setter():
 
 
 def test_singleton_provider_registered_with_type_changed():
-    from beamlime.constructors.providers import Provider, SingletonProvider
+    from beamlime.constructors import Provider, SingletonProvider
 
     provider_gr = ProviderGroup()
     original_provider = SingletonProvider(singleton_function)
@@ -176,7 +176,7 @@ def test_singleton_provider_registered_with_type_changed():
 
 
 def test_singleton_provider_function_copied():
-    from beamlime.constructors.providers import SingletonProvider
+    from beamlime.constructors import SingletonProvider
 
     provider_gr = ProviderGroup()
     provider_gr.provider(singleton_function, provider_type=SingletonProvider)
