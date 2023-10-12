@@ -374,7 +374,7 @@ class SingletonProvider(Provider[Product]):
 
     Raises
     ------
-    CachedProviderCalledWithDifferentArgs
+    SingletonProviderCalledWithDifferentArgs
         If the provider is called with different argument from the first call.
     """
 
@@ -392,7 +392,7 @@ class SingletonProvider(Provider[Product]):
             )
         if not self.cached_arguments_filter(*args, **kwargs):
             err_msg = (
-                f"CachedProvider {self} was called with "
+                f"SingletonProvider {self} was called with "
                 "different arguments from the first call."
             )
             raise SingletonProviderCalledWithDifferentArgs(err_msg)
