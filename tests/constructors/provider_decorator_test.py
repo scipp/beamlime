@@ -4,8 +4,7 @@ from typing import NewType
 
 import pytest
 
-from beamlime.constructors import Factory, ProviderGroup
-from beamlime.constructors.providers import Provider, SingletonProvider
+from beamlime.constructors import Factory, Provider, ProviderGroup, SingletonProvider
 
 from .preset_providers import orange_joke
 

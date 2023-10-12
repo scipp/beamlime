@@ -4,7 +4,7 @@ from typing import Union
 
 import pytest
 
-from beamlime.constructors.providers import Provider
+from beamlime.constructors import Provider
 
 from .preset_providers import (
     Adult,
@@ -152,7 +152,7 @@ def test_insufficient_annotation_raises():
 
 
 def test_singleton_provider():
-    from beamlime.constructors.providers import SingletonProvider
+    from beamlime.constructors import SingletonProvider
 
     class TestClass:
         ...
@@ -162,7 +162,7 @@ def test_singleton_provider():
 
 
 def test_singleton_provider_different_argument_raises():
-    from beamlime.constructors.providers import (
+    from beamlime.constructors import (
         SingletonProvider,
         SingletonProviderCalledWithDifferentArgs,
     )
@@ -178,7 +178,7 @@ def test_singleton_provider_different_argument_raises():
 
 
 def test_singleton_provider_different_argument_handled():
-    from beamlime.constructors.providers import (
+    from beamlime.constructors import (
         SingletonProvider,
         SingletonProviderCalledWithDifferentArgs,
     )
@@ -197,7 +197,7 @@ def test_singleton_provider_different_argument_handled():
 def test_singleton_provider_copied():
     from copy import copy
 
-    from beamlime.constructors.providers import SingletonProvider
+    from beamlime.constructors import SingletonProvider
 
     class TestClass:
         def __eq__(self, _obj: object) -> bool:

@@ -2,7 +2,7 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 import pytest
 
-from beamlime.constructors.providers import SingletonProvider
+from beamlime.constructors import SingletonProvider
 
 
 def function_with_unhashable_arguments(unhashable_arg: list) -> list:
@@ -31,7 +31,7 @@ def test_singleton_provider_without_arguments():
 def test_singleton_provider_with_arguments():
     import random
 
-    from beamlime.constructors.providers import SingletonProvider
+    from beamlime.constructors import SingletonProvider
 
     singleton_random_number = SingletonProvider(random_number_with_seed)
     assert singleton_random_number(123) == singleton_random_number(123)
@@ -43,7 +43,7 @@ def test_singleton_provider_with_arguments():
 
 
 def test_singleton_provider_unhashable_arguments():
-    from beamlime.constructors.providers import SingletonProvider
+    from beamlime.constructors import SingletonProvider
 
     provider = SingletonProvider(function_with_unhashable_arguments)
     unhashable_argument = [1, 2, 3]
@@ -63,7 +63,7 @@ def test_singleton_provider_hash_key_changes():
     If the same instance is used as an argument,
     argument check will pass even if the hash key changes.
     """
-    from beamlime.constructors.providers import SingletonProvider
+    from beamlime.constructors import SingletonProvider
 
     class NeverTheSame:
         def __eq__(self, _: object) -> bool:
@@ -83,7 +83,7 @@ def test_singleton_provider_hash_key_changes():
 
 
 def test_singleton_provider_called_with_different_args_raises():
-    from beamlime.constructors.providers import SingletonProviderCalledWithDifferentArgs
+    from beamlime.constructors import SingletonProviderCalledWithDifferentArgs
 
     singleton_random_number = SingletonProvider(random_number_with_seed)
     assert singleton_random_number(123) == singleton_random_number(123)
@@ -93,7 +93,7 @@ def test_singleton_provider_called_with_different_args_raises():
 
 
 def test_singleton_provider_called_with_different_unhashable_args_raises():
-    from beamlime.constructors.providers import (
+    from beamlime.constructors import (
         SingletonProvider,
         SingletonProviderCalledWithDifferentArgs,
     )
