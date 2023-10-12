@@ -480,7 +480,7 @@ def run_standalone_prototype(
 
     prototype_factory[BeamlimeLogger].setLevel(logging.DEBUG)
     run_prototype(
-        prototype_factory,
+        prototype_factory=prototype_factory,
         parameters={
             EventRate: arg_name_space.event_rate,
             NumPixels: arg_name_space.num_pixels,
