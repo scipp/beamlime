@@ -225,6 +225,9 @@ class DataReductionApp(BaseApp, Generic[InputType, OutputType]):
     def process_first_data(self, data: InputType) -> None:
         ...
 
+    def wrap_up(self, *args, **kwargs) -> Any:
+        self.info("No more data coming in. Finishing ...")
+
     async def run(self) -> None:
         data_monitor = self.data_pipe_monitor(self.input_pipe, target_size=1)
         if not self.target_count_reached and await data_monitor():
@@ -236,7 +239,7 @@ class DataReductionApp(BaseApp, Generic[InputType, OutputType]):
             data = self.input_pipe.pop(0)
             await self.process_every_data(data)
 
-        self.info("No more data coming in. Finishing ...")
+        self.wrap_up()
 
 
 class DataMerge(DataReductionApp[InputType, OutputType]):
@@ -293,9 +296,10 @@ class VisualizationDaemon(DataReductionApp[InputType, OutputType]):
             self.debug("Updated plot.")
         await self.commit_process()
 
-        if self.target_count_reached:
-            self.stop_watch.stop()
-            self.stop_watch.log_benchmark_result()
+    def wrap_up(self, *args, **kwargs) -> Any:
+        self.stop_watch.stop()
+        self.stop_watch.log_benchmark_result()
+        return super().wrap_up(*args, **kwargs)
 
 
 @contextmanager
