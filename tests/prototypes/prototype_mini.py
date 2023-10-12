@@ -6,7 +6,7 @@ import argparse
 import asyncio
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Any, Coroutine, Generator, Generic, List, NewType, Optional, TypeVar
+from typing import Any, Generator, Generic, List, NewType, Optional, TypeVar
 
 from beamlime.constructors import Factory, ProviderGroup
 from beamlime.logging import BeamlimeLogger
@@ -287,10 +287,8 @@ class VisualizationDaemon(DataReductionApp[InputType, OutputType]):
         self.stream_node = pp.Node(self.first_data)
         self.fig = pp.figure1d(self.stream_node)
 
-    async def process_every_data(self, data: Histogrammed) -> Coroutine[Any, Any, None]:
-        if data is self.first_data:
-            ...
-        else:
+    async def process_every_data(self, data: Histogrammed) -> None:
+        if data is not self.first_data:
             self.first_data.values += data.values
             self.stream_node.notify_children("update")
             self.debug("Updated plot.")
