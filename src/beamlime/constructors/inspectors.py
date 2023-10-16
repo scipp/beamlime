@@ -38,13 +38,6 @@ def validate_annotation(annotation: Any) -> Literal[True]:
 
 Product = TypeVar("Product")
 
-
-def _is_type_newtype_py310(tp: Any) -> bool:
-    from typing import NewType
-
-    return isinstance(NewType, type) and isinstance(tp, NewType)
-
-
 _NewT = NewType("_NewT", int)
 
 
@@ -59,7 +52,12 @@ def _is_type_newtype_py39(tp: Any) -> bool:
 
 class NewTypeMeta(type):
     def __instancecheck__(cls, instance: Any) -> bool:
-        return _is_type_newtype_py310(instance) or _is_type_newtype_py39(instance)
+        import sys
+
+        if sys.version_info < (3, 10):  # py39
+            return _is_type_newtype_py39(instance)
+        else:
+            return isinstance(instance, NewType)
 
 
 class NewTypeProtocol(Generic[Product], metaclass=NewTypeMeta):
