@@ -1,2 +1,3 @@
 -r test.in
-pytest-benchmark
+kafka-python
+textual
