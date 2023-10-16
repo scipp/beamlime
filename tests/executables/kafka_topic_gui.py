@@ -2,10 +2,11 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from textual.app import App, ComposeResult, Screen
 from textual.containers import Container, Horizontal, VerticalScroll
-from textual.widgets import Button, Header, Input, SelectionList
+from textual.widgets import Button, Header, Input, Pretty, SelectionList, Static
+from textual.widgets.selection_list import Selection
 
 
-class ButtonMenu(Horizontal):
+class KafkaTopicButtons(Horizontal):
     def compose(self) -> ComposeResult:
         yield Button("Refresh ↻", id='refresh')
         yield Button("Delete Selected 🗑️ ", id='delete')
@@ -14,9 +15,46 @@ class ButtonMenu(Horizontal):
         yield Button("↵ Back to log in", id="back-to-login")
 
 
+class WarningScreen(Screen):
+    DEFAULT_CSS = """
+    Horizontal {
+        padding: 1;
+        height: auto;
+        width: auto;
+    }
+
+    VerticalScroll {
+        height: auto;
+    }
+    """
+
+    def __init__(self, *instructions: Static | Pretty, **option_callbacks) -> None:
+        self.instructions = instructions
+        self.option_callbacks = option_callbacks
+        super().__init__()
+
+    def compose(self) -> ComposeResult:
+        with VerticalScroll():
+            for instruction in self.instructions:
+                yield instruction
+        with Horizontal():
+            for option_callback in self.option_callbacks:
+                yield Button(option_callback, id=option_callback)
+
+    def on_button_pressed(self, event: Button.Pressed):
+        event.stop()
+
+        if (b_id := event.button.id) is not None and (
+            callback := self.option_callbacks.get(b_id)
+        ) is not None:
+            callback()
+
+        self.app.pop_screen()
+
+
 class KafkaTopicManager(Screen):
     DEFAULT_CSS = """
-    ButtonMenu {
+    KafkaTopicButtons {
         height: auto;
         padding: 1;
     }
@@ -47,31 +85,34 @@ class KafkaTopicManager(Screen):
         super().__init__(name="Kafka Admin Control Screen", id=None)
 
     def refresh_topics(self):
-        from textual.widgets.selection_list import Selection
-
-        previous_selected = self.topics.selected
-        self.topics.clear_options()
-
-        topics = [
-            topic
+        p_selected = self.topics.selected
+        new_options = [
+            Selection(topic, topic, topic in p_selected, id=topic)
             for topic in self.admin.list_topics().topics
             if not topic.startswith('_')
         ]
-        new_options = [
-            Selection(topic, topic, True, id=topic)
-            if topic in previous_selected
-            else Selection(topic, topic, False, id=topic)
-            for topic in topics
-        ]
 
+        self.topics.clear_options()
         self.topics.add_options(new_options)
 
     def delete_selected(self):
         if selected := self.topics.selected:
-            self.admin.delete_topics(selected)
-            for selected_topic in selected:
-                self.topics.remove_option(selected_topic)
-            self.refresh_topics()
+
+            def yes_callback():
+                self.admin.delete_topics(selected)
+                for selected_topic in selected:
+                    self.topics.remove_option(selected_topic)
+
+            self.app.push_screen(
+                WarningScreen(
+                    Static("Following topics will be deleted."),
+                    Pretty(selected),
+                    Static("Continue?"),
+                    yes=yes_callback,
+                    no=lambda: None,
+                )
+            )
+        self.refresh_topics()
 
     def select_all(self):
         self.topics.select_all()
@@ -81,7 +122,7 @@ class KafkaTopicManager(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
-        yield ButtonMenu()
+        yield KafkaTopicButtons()
         with VerticalScroll():
             yield self.topics
 
@@ -115,8 +156,9 @@ class LoginFailScreen(Screen):
 
 class KafkaLogin(Screen):
     DEFAULT_CSS = """
-    Container {
+    Horizontal, Container {
         padding: 1;
+        height: auto;
     }
 
     Container.input_box {
@@ -153,6 +195,13 @@ class KafkaLogin(Screen):
 
 
 class KafkaTopicApp(App):
+    """Kafka topic managing tool.
+
+    It shows all topics that do not start with ``'_'``,
+    which is a prefix for hidden topics.
+    One or more topics can be selected to be deleted.
+    """
+
     def on_mount(self) -> None:
         self.push_screen(KafkaLogin())
         self.title = "Kafka Admin Helper"
