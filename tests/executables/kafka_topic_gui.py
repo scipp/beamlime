@@ -2,8 +2,33 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from textual.app import App, ComposeResult, Screen
 from textual.containers import Container, Horizontal, VerticalScroll
+from textual.message import Message
 from textual.widgets import Button, Header, Input, Pretty, SelectionList, Static
 from textual.widgets.selection_list import Selection
+
+
+class KafkaTopicInput(Horizontal):
+    DEFAULT_CSS = """
+    Container {
+        padding: 1;
+        height: auto;
+    }
+    """
+
+    class AddRequest(Message):
+        def __init__(self, new_topic) -> None:
+            super().__init__()
+            self.new_topic = new_topic
+
+    def compose(self) -> ComposeResult:
+        yield Container(Input('', 'Enter a new topic name'))
+        yield Container(Button('Add Topic ➕', id='add-topic'))
+
+    def on_button_pressed(self, event: Button.Pressed):
+        event.stop()
+        topic_input = self.get_child_by_type(Container).get_child_by_type(Input)
+        self.post_message(self.AddRequest(topic_input.value))
+        topic_input.clear()
 
 
 class KafkaTopicButtons(Horizontal):
@@ -24,14 +49,15 @@ class WarningScreen(Screen):
     }
 
     VerticalScroll {
+        padding: 1;
         height: auto;
     }
     """
 
     def __init__(self, *instructions: Static | Pretty, **option_callbacks) -> None:
+        super().__init__()
         self.instructions = instructions
         self.option_callbacks = option_callbacks
-        super().__init__()
 
     def compose(self) -> ComposeResult:
         with VerticalScroll():
@@ -60,16 +86,24 @@ class KafkaTopicManager(Screen):
     }
 
     VerticalScroll {
+        padding: 1;
         height: auto;
     }
 
     SelectionList {
+        padding: 1;
+        border: solid $accent;
+    }
+
+    KafkaTopicInput {
         border: solid $accent;
     }
     """
 
     def __init__(self, kafka_server: str) -> None:
         from confluent_kafka.admin import AdminClient
+
+        super().__init__(name="Kafka Topic Control Screen", id=None)
 
         self.admin = AdminClient(conf={"bootstrap.servers": kafka_server})
         self.action_map = {
@@ -80,28 +114,35 @@ class KafkaTopicManager(Screen):
         }
         self.topics = SelectionList()
         self.topics.border_title = f"Topics at {kafka_server}"
+
+    def on_mount(self) -> None:
         self.refresh_topics()
 
-        super().__init__(name="Kafka Admin Control Screen", id=None)
-
-    def refresh_topics(self):
-        p_selected = self.topics.selected
-        new_options = [
-            Selection(topic, topic, topic in p_selected, id=topic)
+    def refresh_topics(self) -> None:
+        all_topics = [
+            topic
             for topic in self.admin.list_topics().topics
             if not topic.startswith('_')
         ]
+        existing_options = [topic for topic in self.topics._option_ids]
 
-        self.topics.clear_options()
-        self.topics.add_options(new_options)
+        removed = [topic for topic in existing_options if topic not in all_topics]
+        for removed_topic in removed:
+            self.topics.remove_option(removed_topic)
+
+        new_topics = [topic for topic in all_topics if topic not in existing_options]
+        for new_topic in new_topics:
+            self.topics.add_option(Selection(new_topic, new_topic, False, id=new_topic))
 
     def delete_selected(self):
         if selected := self.topics.selected:
+            import time
 
             def yes_callback():
                 self.admin.delete_topics(selected)
-                for selected_topic in selected:
-                    self.topics.remove_option(selected_topic)
+                time.sleep(0.5)  # Wait for the topics to be deleted in the broker.
+                # User may need to refresh manually if 0.5 s is not enough.
+                self.refresh_topics()
 
             self.app.push_screen(
                 WarningScreen(
@@ -112,7 +153,6 @@ class KafkaTopicManager(Screen):
                     no=lambda: None,
                 )
             )
-        self.refresh_topics()
 
     def select_all(self):
         self.topics.select_all()
@@ -121,7 +161,10 @@ class KafkaTopicManager(Screen):
         self.topics.deselect_all()
 
     def compose(self) -> ComposeResult:
+        new_topic_input = KafkaTopicInput()
+        new_topic_input.border_title = "New Topic"
         yield Header(show_clock=True)
+        yield new_topic_input
         yield KafkaTopicButtons()
         with VerticalScroll():
             yield self.topics
@@ -130,6 +173,13 @@ class KafkaTopicManager(Screen):
         if event.button.id in self.action_map:
             event.stop()
             self.action_map[event.button.id]()
+
+    def on_kafka_topic_input_add_request(self, message: KafkaTopicInput.AddRequest):
+        from confluent_kafka.admin import NewTopic
+
+        message.stop()
+        self.admin.create_topics([NewTopic(message.new_topic)])
+        self.refresh_topics()
 
 
 class LoginFailScreen(Screen):
@@ -177,7 +227,7 @@ class KafkaLogin(Screen):
         input_box.border_title = "Kafka Broker Server Address"
         yield input_box
 
-    def on_button_pressed(self, _: Button.Pressed):
+    def on_button_pressed(self, event: Button.Pressed):
         from kafka import KafkaAdminClient
         from kafka.errors import NoBrokersAvailable
 
@@ -204,12 +254,14 @@ class KafkaTopicApp(App):
 
     def on_mount(self) -> None:
         self.push_screen(KafkaLogin())
-        self.title = "Kafka Admin Helper"
+        self.title = "Kafka Topic Helper"
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == 'exit':
-            self.app.exit()
+            event.stop()
+            self.exit()
         elif event.button.id == 'back-to-login':
+            event.stop()
             self.pop_screen()
 
 
