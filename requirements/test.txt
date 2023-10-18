@@ -26,8 +26,6 @@ pytest-cov==4.1.0
     # via -r test.in
 pytest-xdist==3.3.1
     # via -r test.in
-scipy==1.11.3
-    # via -r test.in
 tomli==2.0.1
     # via
     #   coverage
