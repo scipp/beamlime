@@ -171,15 +171,15 @@ class KafkaTopicManager(Screen):
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id in self.action_map:
-            event.stop()
             self.action_map[event.button.id]()
+            event.stop()
 
     def on_kafka_topic_input_add_request(self, message: KafkaTopicInput.AddRequest):
         from confluent_kafka.admin import NewTopic
 
-        message.stop()
         self.admin.create_topics([NewTopic(message.new_topic)])
         self.refresh_topics()
+        message.stop()
 
 
 class LoginFailScreen(Screen):
