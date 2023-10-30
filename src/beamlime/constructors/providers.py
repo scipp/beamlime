@@ -2,6 +2,7 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from functools import lru_cache, partial
 from typing import (
     Any,
@@ -247,19 +248,17 @@ def split_dict_by_filter(
     return filtered, rest
 
 
-class _ArgumentsInstanceFilter:
-    """Filter arguments by instance equality."""
-
+class _ArgumentFilter(ABC):
     def __init__(self) -> None:
         self.arguments: dict[str, Any]
 
+    @abstractmethod
     def arguments_filter(self, arg_name: str, arg_val: Any) -> bool:
-        # self.arguments.get(arg_name) is not sufficient
-        # because it will return ``None`` even if it was not used in the previous call.
-        return arg_name in self.arguments and self.arguments.get(arg_name) is arg_val
+        ...
 
+    @abstractmethod
     def save_arguments(self, arguments: dict) -> None:
-        self.arguments = arguments
+        ...
 
     def was_called(self) -> bool:
         return hasattr(self, 'arguments')
@@ -276,7 +275,19 @@ class _ArgumentsInstanceFilter:
         return rest if reverse else filtered
 
 
-class _ArgumentsHashFilter(_ArgumentsInstanceFilter):
+class _ArgumentsInstanceFilter(_ArgumentFilter):
+    """Filter arguments by instance equality."""
+
+    def arguments_filter(self, arg_name: str, arg_val: Any) -> bool:
+        # self.arguments.get(arg_name) is not sufficient
+        # because it will return ``None`` even if it was not used in the previous call.
+        return arg_name in self.arguments and self.arguments.get(arg_name) is arg_val
+
+    def save_arguments(self, arguments: dict) -> None:
+        self.arguments = arguments
+
+
+class _ArgumentsHashFilter(_ArgumentFilter):
     """Filter arguments by hash keys."""
 
     def __init__(self) -> None:
@@ -297,10 +308,6 @@ class _ArgumentsHashFilter(_ArgumentsInstanceFilter):
             indicator.cache_clear()
             indicator(**{arg_name: self.arguments.get(arg_name)})
 
-    def save_arguments(self, arguments: dict[str, Any]) -> None:
-        super().save_arguments(arguments)
-        self.initialize_indicators()
-
     def check_indicator(self, arg_name: str, arg_val: Any) -> bool:
         indicator = self.indicators[arg_name]
         indicator(**{arg_name: arg_val})
@@ -314,6 +321,10 @@ class _ArgumentsHashFilter(_ArgumentsInstanceFilter):
         if arg_val.__hash__ is not None and arg_name in self.indicators:
             return self.check_indicator(arg_name, arg_val)
         return False
+
+    def save_arguments(self, arguments: dict[str, Any]) -> None:
+        self.arguments = arguments
+        self.initialize_indicators()
 
 
 class ArgumentsFilter:
