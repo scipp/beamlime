@@ -4,7 +4,7 @@ from typing import Union
 
 import pytest
 
-from beamlime.constructors.providers import Provider
+from beamlime.constructors import Provider
 
 from .preset_providers import (
     Adult,
@@ -151,58 +151,58 @@ def test_insufficient_annotation_raises():
         Provider(func_without_arg_type)
 
 
-def test_cached_provider():
-    from beamlime.constructors.providers import CachedProvider
+def test_singleton_provider():
+    from beamlime.constructors import SingletonProvider
 
     class TestClass:
         ...
 
-    cached_provider = CachedProvider(TestClass)
-    assert cached_provider() is cached_provider()
+    singleton_provider = SingletonProvider(TestClass)
+    assert singleton_provider() is singleton_provider()
 
 
-def test_cached_provider_different_argument_raises():
-    from beamlime.constructors.providers import (
-        CachedProvider,
-        CachedProviderCalledWithDifferentArgs,
+def test_singleton_provider_different_argument_raises():
+    from beamlime.constructors import (
+        SingletonProvider,
+        SingletonProviderCalledWithDifferentArgs,
     )
 
     class TestClass:
         def __init__(self, arg: int) -> None:
             self.arg = arg
 
-    cached_provider = CachedProvider(TestClass)
-    assert cached_provider(arg=0) is cached_provider(arg=0)
-    with pytest.raises(CachedProviderCalledWithDifferentArgs):
-        cached_provider(arg=1)
+    singleton_provider = SingletonProvider(TestClass)
+    assert singleton_provider(arg=0) is singleton_provider(arg=0)
+    with pytest.raises(SingletonProviderCalledWithDifferentArgs):
+        singleton_provider(arg=1)
 
 
-def test_cached_provider_different_argument_handled():
-    from beamlime.constructors.providers import (
-        CachedProvider,
-        CachedProviderCalledWithDifferentArgs,
+def test_singleton_provider_different_argument_handled():
+    from beamlime.constructors import (
+        SingletonProvider,
+        SingletonProviderCalledWithDifferentArgs,
     )
 
     class TestClass:
         def __init__(self, arg: int) -> None:
             self.arg = arg
 
-    cached_provider = CachedProvider(TestClass)
-    assert cached_provider(arg=0) is cached_provider(arg=0)
-    with pytest.raises(CachedProviderCalledWithDifferentArgs):
-        cached_provider(arg=1)
-    assert cached_provider(arg=0) is cached_provider(arg=0)
+    singleton_provider = SingletonProvider(TestClass)
+    assert singleton_provider(arg=0) is singleton_provider(arg=0)
+    with pytest.raises(SingletonProviderCalledWithDifferentArgs):
+        singleton_provider(arg=1)
+    assert singleton_provider(arg=0) is singleton_provider(arg=0)
 
 
-def test_cached_provider_copied():
+def test_singleton_provider_copied():
     from copy import copy
 
-    from beamlime.constructors.providers import CachedProvider
+    from beamlime.constructors import SingletonProvider
 
     class TestClass:
         def __eq__(self, _obj: object) -> bool:
             return isinstance(_obj, TestClass)
 
-    cached_provider = CachedProvider(TestClass)
-    assert cached_provider() is not copy(cached_provider)()
-    assert cached_provider() == copy(cached_provider)()
+    singleton_provider = SingletonProvider(TestClass)
+    assert singleton_provider() is not copy(singleton_provider)()
+    assert singleton_provider() == copy(singleton_provider)()

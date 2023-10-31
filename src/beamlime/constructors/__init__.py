@@ -16,4 +16,6 @@ from .providers import (
     ProviderExistsError,
     ProviderGroup,
     ProviderNotFoundError,
+    SingletonProvider,
+    SingletonProviderCalledWithDifferentArgs,
 )

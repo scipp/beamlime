@@ -129,21 +129,57 @@ def test_providers_merge_conflicting_keywords_raises():
         funny.merge(funnier)
 
 
-def cached_function() -> ProviderGroup:
+def singleton_function() -> ProviderGroup:
     return ProviderGroup()
 
 
-def test_cached_provider_function():
+def test_singleton_provider_function():
+    from beamlime.constructors import SingletonProvider
+
     provider_gr = ProviderGroup()
-    provider_gr.cached_provider(ProviderGroup, cached_function)
+    provider_gr.provider(singleton_function, provider_type=SingletonProvider)
     first_instance = provider_gr[ProviderGroup]()
     second_instance = provider_gr[ProviderGroup]()
     assert first_instance is second_instance
 
 
-def test_cached_provider_function_copied():
+def test_singleton_provider_initially_registered():
+    from beamlime.constructors import SingletonProvider
+
+    provider_gr = ProviderGroup(SingletonProvider(singleton_function))
+    first_instance = provider_gr[ProviderGroup]()
+    second_instance = provider_gr[ProviderGroup]()
+    assert first_instance is second_instance
+
+
+def test_singleton_provider_registered_by_setter():
+    from beamlime.constructors import SingletonProvider
+
     provider_gr = ProviderGroup()
-    provider_gr.cached_provider(ProviderGroup, cached_function)
+    provider_gr[ProviderGroup] = SingletonProvider(singleton_function)
+    first_instance = provider_gr[ProviderGroup]()
+    second_instance = provider_gr[ProviderGroup]()
+    assert first_instance is second_instance
+
+
+def test_singleton_provider_registered_with_type_changed():
+    from beamlime.constructors import Provider, SingletonProvider
+
+    provider_gr = ProviderGroup()
+    original_provider = SingletonProvider(singleton_function)
+    provider_gr.provider(original_provider, provider_type=Provider)
+    assert isinstance(provider_gr[ProviderGroup], Provider)
+    assert not isinstance(provider_gr[ProviderGroup], SingletonProvider)
+    first_instance = provider_gr[ProviderGroup]()
+    second_instance = provider_gr[ProviderGroup]()
+    assert first_instance is not second_instance
+
+
+def test_singleton_provider_function_copied():
+    from beamlime.constructors import SingletonProvider
+
+    provider_gr = ProviderGroup()
+    provider_gr.provider(singleton_function, provider_type=SingletonProvider)
     new_gr = ProviderGroup()
     new_gr.merge(provider_gr)
 
