@@ -76,22 +76,6 @@ def provide_coord_transform_graph(
     )
 
 
-def workflow_script(
-    da_list: Events,
-    num_pixels: NumPixels,
-    histogram_bin_size: HistogramBinSize,
-    frame_rate: FrameRate,
-) -> Histogrammed:
-    merged = sc.concat(da_list, dim='event')
-    pixel_ids = sc.arange(dim='pixel_id', start=0, stop=num_pixels)
-    binned = merged.group(pixel_ids)
-
-    graph = provide_coord_transform_graph(frame_rate)
-
-    transformed = binned.transform_coords(['L', 'wavelength'], graph=graph)
-    return transformed.bins.concat('L').hist(wavelength=histogram_bin_size)
-
-
 def merge_data_list(da_list: Events) -> MergedData:
     return MergedData(sc.concat(da_list, dim='event'))
 
