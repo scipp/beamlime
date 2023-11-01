@@ -12,7 +12,7 @@ The kafka service may fail due to the insufficient permission.
 
 Try adding the super user into the `docker` group so that you can use `docker` command without `sudo`.
 
-#### Command
+#### Start Server
 ```bash
 docker-compose up # add `-d` to start the service in the background.
 ```
@@ -68,3 +68,17 @@ networks:
 
 ```
 > References: [confluent](https://developer.confluent.io/quickstart/kafka-docker/)
+
+#### Topic Management
+There is a simple topic managing tool in ``tests/executables/kafka_topic_gui.py`` for **local testing**.
+
+This tool shows all topics that do not start with ``'_'``,
+which is a prefix for hidden topics.
+
+It can only delete selected topics.
+
+```bash
+python -m tests.executables.kafka_topic_gui
+```
+
+If you need more complicated tools, consider using other kafka ui tools such as [kafka topic analyzer](https://github.com/xenji/kafka-topic-analyzer) or [kafka ui](https://github.com/provectus/kafka-ui).
