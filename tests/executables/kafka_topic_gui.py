@@ -89,6 +89,14 @@ class WarningScreen(Screen):
         self.app.pop_screen()
 
 
+class WaitingScreen(Screen):
+    def compose(self) -> ComposeResult:
+        from textual.widgets import LoadingIndicator
+
+        yield LoadingIndicator()
+        yield exit_button()
+
+
 class KafkaTopicManager(Screen):
     DEFAULT_CSS = """
     KafkaTopicButtons {
@@ -165,12 +173,13 @@ class KafkaTopicManager(Screen):
 
     @work(exclusive=True)
     async def delete_confirmed(self, selected: list[str]) -> None:
-        import asyncio
+        from concurrent.futures import wait
 
+        self.app.push_screen(WaitingScreen())
         selected = self.topics.selected
-        self.admin.delete_topics(selected)
-        await asyncio.sleep(0.5)  # Wait for the topics to be deleted in the broker.
-        # User may need to refresh manually again if 0.5 s is not enough.
+        to_be_deleted = self.admin.delete_topics(selected)
+        wait(to_be_deleted.values())
+        self.app.pop_screen()
         self.refresh_topics()
 
     @work(exclusive=True)
