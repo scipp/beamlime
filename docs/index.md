@@ -10,6 +10,8 @@
 hidden:
 ---
 
-developer/index
 getting-started/index
+api-reference/index
+developer/index
+about/index
 ```

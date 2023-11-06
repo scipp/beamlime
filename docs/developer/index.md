@@ -7,9 +7,7 @@
 
 ```{toctree}
 ---
-caption: About
 maxdepth: 2
-hidden:
 ---
 
 getting-started
