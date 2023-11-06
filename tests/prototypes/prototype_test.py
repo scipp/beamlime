@@ -7,7 +7,12 @@ import pytest
 from beamlime.constructors import Factory
 
 from ..benchmarks.runner import BenchmarkSession
-from .parameters import PrototypeParameters
+from .parameters import EventRate, NumPixels, PrototypeParameters
+from .prototype_mini import (
+    BenchmarkTargetName,
+    PrototypeBenchmarkRecipe,
+    mini_prototype_factory,
+)
 
 
 @pytest.fixture
@@ -58,15 +63,48 @@ def prototype_benchmark(benchmark_test: bool) -> Generator[BenchmarkSession, Any
 
 
 def test_mini_prototype_benchmark(prototype_benchmark: BenchmarkSession):
-    from .prototype_mini import (
-        BenchmarkTargetName,
-        PrototypeBenchmarkRecipe,
-        mini_prototype_factory,
-    )
-
     recipe = PrototypeBenchmarkRecipe(
         params=PrototypeParameters(), optional_parameters={'test-run': True}
     )
+
+    with prototype_benchmark.configure(iterations=3):
+        prototype_benchmark.run(
+            mini_prototype_factory().providers,
+            recipe,
+            BenchmarkTargetName('mini_prototype'),
+        )
+
+
+@pytest.fixture(params=[10_000, 100_000, 1_000_000, 10_000_000])
+def num_pixels_all_range(request: pytest.FixtureRequest) -> NumPixels:
+    return NumPixels(request.param)
+
+
+@pytest.fixture(params=[10_000, 100_000, 1_000_000, 10_000_000])
+def event_rate_all_range(request: pytest.FixtureRequest) -> NumPixels:
+    return NumPixels(request.param)
+
+
+@pytest.fixture
+def prototype_recipe_all_range(
+    full_benchmark_test: bool,
+    num_pixels_all_range: NumPixels,
+    event_rate_all_range: EventRate,
+) -> PrototypeParameters:
+    from .prototype_mini import PrototypeParameters
+
+    assert full_benchmark_test
+
+    return PrototypeParameters(
+        num_pixels=num_pixels_all_range, event_rate=event_rate_all_range
+    )
+
+
+def test_mini_prototype_benchmark_all_range(
+    prototype_benchmark: BenchmarkSession,
+    prototype_recipe_all_range: PrototypeParameters,
+):
+    recipe = PrototypeBenchmarkRecipe(params=prototype_recipe_all_range)
 
     with prototype_benchmark.configure(iterations=3):
         prototype_benchmark.run(
