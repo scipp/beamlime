@@ -177,25 +177,7 @@ class BenchmarkSessionConfiguration:
 
 @dataclass
 class BenchmarkSession:
-    """Benchmark session handling class.
-
-    ``run`` and ``save`` methods use
-    ``BenchmarkReport``, ``BenchmarkRunner`` and ``BenchmarkFileManager``
-    to run the benchmark test and save the result.
-
-    ``run`` calls ``BenchmarkRunner``(Callable)
-    to generate a single benchmark report (``SingleRunReport``)
-    and append the result to the ``BenchmarkReport``.
-
-    ``save`` calls  ``file_manager.save`` with its ``report``,
-    so that ``BenchmarkFileManager`` can dump the result into a file.
-
-    Configurable options should be handled by ``BenchmarkSessionConfiguration``
-    instead of having extra arguments in ``run`` methods.
-    So that all arguments of ``run`` can be directly passed to ``BenchmarkRunner``.
-
-    Context manager method ``configure`` allows to temporarily replace those options.
-    """
+    """Benchmark session handling class."""
 
     report: BenchmarkReport
     runner: BenchmarkRunner
@@ -221,6 +203,18 @@ class BenchmarkSession:
         self._update_configurations(**original_configurations)
 
     def run(self, *runner_args, **parameters):
+        """Call ``self.runner`` with arguments and save the result.
+
+        Calls ``self.runner``: ``BenchmarkRunner``
+        with unpacked ``runner_args`` and ``parameters``
+        to generate a single benchmark report (``SingleRunReport``)
+        and append the result to the ``self.report``: ``BenchmarkReport``.
+
+        Use ``self.configure`` to use non-default configurations.
+        Configurable options should be handled by ``BenchmarkSessionConfiguration``
+        instead of having extra arguments in ``run`` methods.
+        So that all arguments of ``run`` can be directly passed to ``BenchmarkRunner``.
+        """
         for i_iter in range(1, self.configurations.iterations + 1):
             single_report = self.runner(*runner_args, **parameters)
             self.report.append(single_report)
@@ -228,6 +222,11 @@ class BenchmarkSession:
                 return single_report.output
 
     def save(self):
+        """Save the accumulated benchmark results in the container (``self.report``).
+
+        Calls  ``self.file_manager.save`` with ``self.report``,
+        so that ``BenchmarkFileManager`` can dump the result into a file.
+        """
         self.file_manager.save(self.report)
 
 
