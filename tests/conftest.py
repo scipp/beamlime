@@ -10,7 +10,7 @@ import pytest
 def pytest_addoption(parser: pytest.Parser):
     parser.addoption("--kafka-test", action="store_true", default=False)
     parser.addoption("--benchmark-test", action="store_true", default=False)
-    parser.addoption("--full-benchmark", action="store_true", default=False)
+    parser.addoption("--full-benchmark-test", action="store_true", default=False)
 
 
 @pytest.fixture(scope='session')
