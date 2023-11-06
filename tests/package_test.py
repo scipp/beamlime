@@ -5,3 +5,4 @@ import beamlime as pkg
 
 def test_has_version():
     assert hasattr(pkg, '__version__')
+    assert hasattr(pkg, '__version_tuple__')
