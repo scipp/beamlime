@@ -2,13 +2,4 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 
 # flake8: noqa
-import importlib.metadata
-
-try:
-    __version__ = importlib.metadata.version(__package__ or __name__)
-except importlib.metadata.PackageNotFoundError:
-    __version__ = "0.0.0"
-
-from .core.protocols import LoggingProtocol
-
-__all__ = ["LoggingProtocol"]
+from ._version import __version__, __version_tuple__
