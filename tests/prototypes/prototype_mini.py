@@ -6,13 +6,21 @@ import argparse
 import asyncio
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any, Generator, Generic, List, NewType, Optional, TypeVar
 
 from beamlime.constructors import Factory, ProviderGroup
 from beamlime.logging import BeamlimeLogger
 from beamlime.logging.mixins import LogMixin
 
-from .parameters import ChunkSize, EventRate, NumFrames, NumPixels
+from ..benchmarks.environments import BenchmarkTargetName
+from ..benchmarks.runner import (
+    BenchmarkResult,
+    BenchmarkRunner,
+    SingleRunReport,
+    TimeMeasurement,
+)
+from .parameters import ChunkSize, NumFrames, PrototypeParameters
 from .random_data_providers import RandomEvents
 from .workflows import (
     Events,
@@ -415,12 +423,12 @@ def prototype_base_providers() -> ProviderGroup:
     from beamlime.constructors.providers import merge
     from beamlime.logging.providers import log_providers
 
-    from .parameters import default_param_providers
+    from .parameters import collect_default_param_providers
     from .random_data_providers import random_data_providers
     from .workflows import workflow_providers
 
     return merge(
-        default_param_providers,
+        collect_default_param_providers(),
         random_data_providers,
         prototype_app_providers(),
         log_providers,
@@ -429,7 +437,7 @@ def prototype_base_providers() -> ProviderGroup:
 
 
 @contextmanager
-def multiple_constant_providers(
+def _multiple_constant_providers(
     factory: Factory, constants: Optional[dict[type, Any]] = None
 ):
     if constants:
@@ -442,7 +450,17 @@ def multiple_constant_providers(
 
 
 @contextmanager
-def multiple_temporary_providers(
+def multiple_constant_providers(
+    factory: Factory, constants: Optional[dict[type, Any]] = None
+):
+    from copy import copy  # Use a shallow copy of the constant dictionary
+
+    with _multiple_constant_providers(factory, copy(constants)):
+        yield
+
+
+@contextmanager
+def _multiple_temporary_providers(
     factory: Factory, providers: Optional[dict[type, Any]] = None
 ):
     if providers:
@@ -454,6 +472,16 @@ def multiple_temporary_providers(
         yield
 
 
+@contextmanager
+def multiple_temporary_providers(
+    factory: Factory, providers: Optional[dict[type, Any]] = None
+):
+    from copy import copy  # Use a shallow copy of the provider dictionary
+
+    with _multiple_temporary_providers(factory, copy(providers)):
+        yield
+
+
 def mini_prototype_factory() -> Factory:
     providers = prototype_base_providers()
     providers[Prototype] = BasePrototype
@@ -461,28 +489,90 @@ def mini_prototype_factory() -> Factory:
     return Factory(providers)
 
 
-def run_prototype(
+@contextmanager
+def temporary_factory(
     prototype_factory: Factory,
     parameters: Optional[dict[type, Any]] = None,
     providers: Optional[dict[type, Any]] = None,
 ):
-    with multiple_constant_providers(prototype_factory, parameters):
-        with multiple_temporary_providers(prototype_factory, providers):
-            prototype = prototype_factory[Prototype]
-            prototype.run()
+    tmp_factory = Factory(prototype_factory.providers)
+    with multiple_constant_providers(tmp_factory, parameters):
+        with multiple_temporary_providers(tmp_factory, providers):
+            yield tmp_factory
+
+
+@dataclass
+class PrototypeBenchmarkRecipe:
+    params: PrototypeParameters
+    optional_parameters: Optional[dict] = None
+
+    @property
+    def arguments(self) -> dict[str, Any]:
+        from dataclasses import asdict
+
+        arguments = {
+            contant_name: constant_value
+            for contant_name, constant_value in asdict(self.params).items()
+        }
+        optional_info = self.optional_parameters or {}
+
+        optional_param_keys = set(optional_info.keys())
+        prototype_param_keys = set(arguments.keys())
+
+        if self.optional_parameters and (
+            overlapped := optional_param_keys.intersection(prototype_param_keys)
+        ):
+            raise ValueError(
+                "Optional parameters have overlapping keys as prototype parameters.",
+                overlapped,
+            )
+        else:
+            arguments.update(self.optional_parameters or {})
+            return arguments
+
+
+class PrototypeRunner(BenchmarkRunner):
+    def __call__(
+        self,
+        providers: ProviderGroup,
+        recipe: PrototypeBenchmarkRecipe,
+        prototype_name: Optional[BenchmarkTargetName] = None,
+    ) -> SingleRunReport:
+        arguments = recipe.arguments  # Compose arguments here for earlier failure.
+
+        factory = Factory(providers)
+        output = factory[Prototype].run()
+        time_consumed = factory[StopWatch].duration
+
+        return SingleRunReport(
+            callable_name=prototype_name or BenchmarkTargetName(''),
+            benchmark_result=BenchmarkResult(
+                time=TimeMeasurement(value=time_consumed, unit='s')
+            ),
+            arguments=arguments,
+            output=output,
+        )
 
 
 def prototype_arg_parser() -> argparse.ArgumentParser:
+    from beamlime.constructors.inspectors import extract_underlying_type
+
     parser = argparse.ArgumentParser()
+    default_params = PrototypeParameters()
+
+    def wrap_name(name: str) -> str:
+        return '--' + name.replace('_', '-')
 
     parser.add_argument_group('Event Generator Configuration')
-    parser.add_argument(
-        '--event-rate', default=10**4, help=f": {EventRate}", type=int
-    )
-    parser.add_argument(
-        '--num-pixels', default=10**4, help=f": {NumPixels}", type=int
-    )
-    parser.add_argument('--num-frames', default=140, help=f": {NumFrames}", type=int)
+    type_name_map = default_params.type_name_map
+
+    for param_type, default_value in default_params.as_type_dict().items():
+        parser.add_argument(
+            wrap_name(type_name_map[param_type]),
+            default=default_value,
+            help=f": {param_type}",
+            type=extract_underlying_type(param_type),
+        )
 
     return parser
 
@@ -492,15 +582,18 @@ def run_standalone_prototype(
 ):
     import logging
 
-    prototype_factory[BeamlimeLogger].setLevel(logging.DEBUG)
-    run_prototype(
+    type_name_map = PrototypeParameters().type_name_map
+    parameters = {
+        field_type: getattr(arg_name_space, field_name)
+        for field_type, field_name in type_name_map.items()
+    }
+
+    with temporary_factory(
         prototype_factory=prototype_factory,
-        parameters={
-            EventRate: arg_name_space.event_rate,
-            NumPixels: arg_name_space.num_pixels,
-            NumFrames: arg_name_space.num_frames,
-        },
-    )
+        parameters=parameters,
+    ) as factory:
+        factory[BeamlimeLogger].setLevel(logging.DEBUG)
+        factory[Prototype].run()
 
 
 if __name__ == "__main__":
