@@ -303,8 +303,11 @@ class VisualizationDaemon(DataReductionApp[InputType, OutputType]):
         await self.commit_process()
 
     def wrap_up(self, *args, **kwargs) -> Any:
+        from matplotlib import pyplot as plt
+
         self.stop_watch.stop()
         self.stop_watch.log_benchmark_result()
+        plt.close()
         return super().wrap_up(*args, **kwargs)
 
 
@@ -541,17 +544,20 @@ class PrototypeRunner(BenchmarkRunner):
         arguments = recipe.arguments  # Compose arguments here for earlier failure.
 
         factory = Factory(providers)
-        output = factory[Prototype].run()
-        time_consumed = factory[StopWatch].duration
+        with multiple_constant_providers(
+            factory, constants=recipe.params.as_type_dict()
+        ):
+            output = factory[Prototype].run()
+            time_consumed = factory[StopWatch].duration
 
-        return SingleRunReport(
-            callable_name=prototype_name or BenchmarkTargetName(''),
-            benchmark_result=BenchmarkResult(
-                time=TimeMeasurement(value=time_consumed, unit='s')
-            ),
-            arguments=arguments,
-            output=output,
-        )
+            return SingleRunReport(
+                callable_name=prototype_name or BenchmarkTargetName(''),
+                benchmark_result=BenchmarkResult(
+                    time=TimeMeasurement(value=time_consumed, unit='s')
+                ),
+                arguments=arguments,
+                output=output,
+            )
 
 
 def prototype_arg_parser() -> argparse.ArgumentParser:
