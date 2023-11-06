@@ -8,11 +8,12 @@ import pytest
 
 
 def pytest_addoption(parser: pytest.Parser):
-    parser.addoption("--full-benchmark", action="store_true", default=False)
     parser.addoption("--kafka-test", action="store_true", default=False)
+    parser.addoption("--benchmark-test", action="store_true", default=False)
+    parser.addoption("--full-benchmark", action="store_true", default=False)
 
 
-@pytest.fixture
+@pytest.fixture(scope='session')
 def kafka_test(request: pytest.FixtureRequest) -> Literal[True]:
     """
     Requires --kafka-test flag.
@@ -25,15 +26,31 @@ def kafka_test(request: pytest.FixtureRequest) -> Literal[True]:
     return True
 
 
-@pytest.fixture
-def full_benchmark(request: pytest.FixtureRequest) -> Literal[True]:
+@pytest.fixture(scope='session')
+def benchmark_test(request: pytest.FixtureRequest) -> Literal[True]:
     """
-    Requires --full-benchmark flag.
+    Requires --benchmark-test flag.
     """
-    if not request.config.getoption('--full-benchmark'):
+    if not (
+        request.config.getoption('--benchmark-test')
+        or request.config.getoption('--full-benchmark-test')
+    ):
+        pytest.skip(
+            "Skipping benchmark. Use ``--benchmark-test`` option to run this test."
+        )
+
+    return True
+
+
+@pytest.fixture(scope='session')
+def full_benchmark_test(request: pytest.FixtureRequest) -> Literal[True]:
+    """
+    Requires --full-benchmark-test flag.
+    """
+    if not request.config.getoption('--full-benchmark-test'):
         pytest.skip(
             "Skipping full benchmark. "
-            "Use ``--full-benchmark`` option to run this test."
+            "Use ``--full-benchmark-test`` option to run this test."
         )
 
     return True
