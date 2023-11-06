@@ -5,8 +5,6 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from typing import Callable, Generic, NewType, Optional, TypeVar
 
-import scipp as sc
-
 from beamlime.constructors import Factory, ProviderGroup
 
 from .environments import (
@@ -103,23 +101,6 @@ class BenchmarkReport:
         self.target_names.append(single_run_result.callable_name)
         self.append_measurement(single_run_result.benchmark_result)
         _append_row(self.arguments, single_run_result.arguments)
-
-    def asdataset(self) -> sc.Dataset:
-        from .calculations import (
-            dict_to_scipp_scalar_column,
-            list_to_scipp_scalar_column,
-        )
-
-        return sc.Dataset(
-            data={
-                dim: sc.concat(dict_to_scipp_scalar_column(val_unit), dim='run')
-                for dim, val_unit in self.measurements.items()
-            },
-            coords={
-                arg_name: sc.concat(list_to_scipp_scalar_column(arg_values), dim='run')
-                for arg_name, arg_values in self.arguments.items()
-            },
-        )
 
 
 class BenchmarkRunner(ABC):
