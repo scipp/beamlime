@@ -2,6 +2,7 @@ dist
 html
 .tox
 src/beamlime.egg-info
+src/beamlime/_version.py
 
 *.sw?
 
