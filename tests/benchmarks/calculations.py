@@ -50,7 +50,20 @@ def _set_value(da: sc.DataArray, value: Any, *dim_idx: tuple[str, int]) -> None:
 
 
 def grid_like(binned: sc.DataArray, unit: Optional[str] = None) -> sc.DataArray:
+    """Create a data array with ``binned`` coordinates and data with size of bins.
+
+    The data of the returned array is filled with ``NaN``.
+
+    Raises
+    ------
+    ValueError
+        If ``binned.bins`` is ``None``.
+
+    """
     import numpy as np
+
+    if binned.bins is None:
+        raise ValueError("Bins not found.")
 
     return sc.DataArray(
         data=sc.full(
@@ -77,6 +90,16 @@ def cast_operation_per_bin(
     operation: Callable[[sc.DataArray], Any],
     unit_func: Optional[Callable[[sc.DataArray], Any]] = None,
 ) -> sc.DataArray:
+    """Cast ``operation`` per bin, (data array view) and returns the result.
+
+    Example
+    -------
+    >>> binned = sc.data.binned_xy(nevent=100, nx=10, ny=10)
+    >>> casted = cast_operation_per_bin(binned, operation=sc.sum, unit_func=lambda _: _)
+    >>> sc.identical(binned.bins.sum(), casted)
+    True
+
+    """
     from itertools import product
 
     unit_operation = unit_func or operation
