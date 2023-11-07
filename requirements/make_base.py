@@ -1,3 +1,4 @@
+import sys
 from argparse import ArgumentParser
 
 import tomli
@@ -31,7 +32,7 @@ def as_nightly(repo: str) -> str:
     else:
         org = "scipp"
     if repo == "scipp":
-        version = "cp38"
+        version = f"cp{sys.version_info.major}{sys.version_info.minor}"
         base = "https://github.com/scipp/scipp/releases/download/nightly/scipp-nightly"
         suffix = "manylinux_2_17_x86_64.manylinux2014_x86_64.whl"
         return "-".join([base, version, version, suffix])
