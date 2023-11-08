@@ -42,9 +42,6 @@ dynamic = ["version"]
 
 [tool.setuptools_scm]
 
-write_to = "src/beamlime/_version.py"
-
-
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra -v"
