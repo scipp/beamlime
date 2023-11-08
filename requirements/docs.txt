@@ -45,12 +45,19 @@ docutils==0.20.1
     #   nbsphinx
     #   pydata-sphinx-theme
     #   sphinx
+exceptiongroup==1.1.3
+    # via ipython
 executing==2.0.1
     # via stack-data
 fastjsonschema==2.18.1
     # via nbformat
 imagesize==1.4.1
     # via sphinx
+importlib-metadata==6.8.0
+    # via
+    #   jupyter-client
+    #   nbconvert
+    #   sphinx
 ipykernel==6.26.0
     # via -r docs.in
 ipython==8.17.2
@@ -102,7 +109,7 @@ mistune==3.0.2
     # via nbconvert
 myst-parser==2.0.0
     # via -r docs.in
-nbclient==0.8.0
+nbclient==0.9.0
     # via nbconvert
 nbconvert==7.11.0
     # via nbsphinx
@@ -219,6 +226,7 @@ traitlets==5.13.0
     #   nbsphinx
 typing-extensions==4.8.0
     # via
+    #   ipython
     #   pydantic
     #   pydantic-core
     #   pydata-sphinx-theme
