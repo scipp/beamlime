@@ -1,10 +1,12 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: f4236b0
+_commit: 710e613
 _src_path: gh:scipp/copier_template
 description: Live data reduction visualisation framework for ESS.
-github_linux_image: ubuntu-20.04
 max_python: '3.11'
 min_python: '3.9'
+namespace_package: ''
+nightly_deps: scipp,sciline,plopp
 orgname: scipp
 projectname: beamlime
+related_projects: Scipp,Sciline,Plopp
 year: 2023

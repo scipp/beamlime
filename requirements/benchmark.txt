@@ -25,11 +25,9 @@ pygments==2.16.1
     # via rich
 rich==13.6.0
     # via textual
-textual==0.40.0
+textual==0.41.0
     # via -r benchmark.in
 typing-extensions==4.8.0
     # via textual
 uc-micro-py==1.0.2
     # via linkify-it-py
-zipp==3.17.0
-    # via importlib-metadata

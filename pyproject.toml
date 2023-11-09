@@ -1,14 +1,14 @@
 [build-system]
 requires = [
-  "setuptools>=67",
-  "setuptools_scm[toml]>=7.0",
+  "setuptools>=68",
+  "setuptools_scm[toml]>=8.0",
 ]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "beamlime"
 description = "Live data reduction visualisation framework for ESS."
-authors= [{ name = "Scipp contributors" }]
+authors = [{ name = "Scipp contributors" }]
 license = { file = "LICENSE" }
 readme = "README.md"
 classifiers = [
@@ -25,11 +25,19 @@ classifiers = [
     "Typing :: Typed",
 ]
 requires-python = ">=3.9"
-dependencies = ["numpy"]
+
+# IMPORTANT:
+# Run 'tox -e deps' after making changes here. This will update requirement files.
+# Make sure to list one dependency per line.
+dependencies = [
+  "numpy"
+]
+
 dynamic = ["version"]
 
 [project.urls]
 "Bug Tracker" = "https://github.com/scipp/beamlime/issues"
+"Documentation" = "https://scipp.github.io/beamlime"
 "Source" = "https://github.com/scipp/beamlime"
 
 [tool.setuptools_scm]
@@ -52,6 +60,7 @@ skip-string-normalization = true
 [tool.isort]
 skip_gitignore = true
 profile = "black"
+known_first_party = ["beamlime"]
 
 [tool.mypy]
 strict = true

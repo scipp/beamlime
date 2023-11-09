@@ -9,6 +9,6 @@ try:
 except importlib.metadata.PackageNotFoundError:
     __version__ = "0.0.0"
 
-from .core.protocols import LoggingProtocol
+del importlib
 
-__all__ = ["LoggingProtocol"]
+from .core.protocols import LoggingProtocol
