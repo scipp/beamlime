@@ -31,12 +31,14 @@ def dict_to_scipp_scalar_column(value_unit: dict[str, list]) -> list[sc.Variable
     ]
 
 
-def sample_variance(da: sc.DataArray) -> float:
+def sample_variance(da: sc.DataArray) -> sc.Variable:
     import numpy as np
 
     if len(da) <= 1:
-        return np.nan
-    return (sc.sum((da - da.mean()) ** 2) / (len(da) - 1)).value
+        return sc.scalar(np.nan, unit=da.unit)
+
+    dof = sc.scalar(len(da) - 1, unit=sc.units.dimensionless)
+    return sc.sum((da - da.mean()) ** 2) / dof
 
 
 def _get_bin(binned: sc.DataArray, *dim_idx: tuple[str, int]) -> sc.DataArray:
@@ -115,12 +117,17 @@ def cast_operation_per_bin(
     """
     from itertools import product
 
-    unit_operation = unit_func or operation
-    container = grid_like(binned, unit=unit_operation(binned.values[0].unit))
+    container = grid_like(binned)
+
+    if unit_func is not None:
+        container.unit = unit_func(binned.values[0].unit)
 
     for dim_indices in product(*collect_dimension_indexes(container)):
         cur_bin = _get_bin(binned, *dim_indices).values  # A single DataArrayView
         cur_value = operation(cur_bin)
+
+        if container.unit is None and hasattr(cur_value, 'unit'):
+            container.unit = cur_value.unit
 
         _set_value(container, cur_value, *dim_indices)
 
@@ -128,8 +135,8 @@ def cast_operation_per_bin(
 
 
 def sample_variance_per_bin(binned: sc.DataArray) -> sc.DataArray:
-    return cast_operation_per_bin(binned, sample_variance, unit_func=lambda _: None)
+    return cast_operation_per_bin(binned, sample_variance)
 
 
 def sample_mean_per_bin(binned: sc.DataArray) -> sc.DataArray:
-    return cast_operation_per_bin(binned, sc.mean, unit_func=lambda x: x)
+    return cast_operation_per_bin(binned, sc.mean)
