@@ -26,17 +26,8 @@ class TimeMeasurement:
 
 
 @dataclass
-class SpaceMeasurement:
-    """Memory measurement results."""
-
-    value: float
-    unit: str
-
-
-@dataclass
 class BenchmarkResult:  # Measurement results should always have value and unit.
     time: TimeMeasurement
-    space: Optional[SpaceMeasurement] = None
 
 
 _Item = TypeVar("_Item")
@@ -105,6 +96,17 @@ class BenchmarkReport:
         _append_row(self.arguments, single_run_result.arguments)
 
     def asdataset(self) -> sc.Dataset:
+        """Export report as a scipp Dataset.
+
+        Report can be exported as a scipp Dataset
+        with ``arguments`` and ``target_names``(target-name) as coordinates,
+        and with ``measurements`` as data.
+
+        Coordinates and the data will keep the original keys.
+        ``target_names`` are used as ``target-name`` coordinate of the result.
+
+        """
+
         from .calculations import (
             dict_to_scipp_scalar_column,
             list_to_scipp_scalar_column,
@@ -117,7 +119,10 @@ class BenchmarkReport:
             },
             coords={
                 arg_name: sc.concat(list_to_scipp_scalar_column(arg_values), dim='run')
-                for arg_name, arg_values in self.arguments.items()
+                for arg_name, arg_values in {
+                    **self.arguments,
+                    'target-name': self.target_names,
+                }.items()
             },
         )
 

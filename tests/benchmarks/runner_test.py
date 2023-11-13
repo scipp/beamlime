@@ -6,20 +6,22 @@ from typing import Callable
 import pytest
 
 from .environments import BenchmarkResultFilePath
-from .runner import BenchmarkRunner, BenchmarkSession, R, SingleRunReport
+from .runner import BenchmarkRunner, BenchmarkSession, SingleRunReport
 
 
 class TestRunner(BenchmarkRunner):
-    """Test runner that always has 0 as a time measurement result."""
+    """Test runner with the result of the function as a time measurement result."""
 
-    def __call__(self, func: Callable[..., R], **kwargs) -> SingleRunReport[R]:
+    def __call__(self, func: Callable[..., int], **kwargs) -> SingleRunReport[int]:
         from .runner import BenchmarkResult, BenchmarkTargetName, TimeMeasurement
+
+        output = func(**kwargs)
 
         return SingleRunReport(
             BenchmarkTargetName(func.__qualname__),
-            BenchmarkResult(TimeMeasurement(0, 's')),
+            BenchmarkResult(TimeMeasurement(output, 's')),
             arguments=kwargs,
-            output=func(**kwargs),
+            output=output,
         )
 
 
@@ -60,7 +62,7 @@ def test_benchmark_runner(
     assert benchmark.run(sample_func, a=1) == 1
     benchmark.save()
     saved = _load_results(benchmark_tmp_path)
-    assert saved['measurements']['time']['value'] == [0]
+    assert saved['measurements']['time']['value'] == [1]
     assert saved['arguments']['a'] == [1]
 
 
@@ -74,7 +76,7 @@ def test_benchmark_runner_multi_arguments(
     assert benchmark.run(sample_func, a=1, b=1) == 1
     benchmark.save()
     saved = _load_results(benchmark_tmp_path)
-    assert saved['measurements']['time']['value'] == [0, 0]
+    assert saved['measurements']['time']['value'] == [1, 1]
     assert saved['arguments']['a'] == [1, 1]
     assert saved['arguments']['b'] == [None, 1]
 

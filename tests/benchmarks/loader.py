@@ -2,7 +2,9 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from copy import copy
 from dataclasses import dataclass
-from typing import TypeVar
+from typing import NewType, TypeVar, Union
+
+import scipp as sc
 
 from .environments import BenchmarkResultFilePath, BenchmarkRootDir, env_providers
 from .runner import BenchmarkReport
@@ -11,7 +13,7 @@ loading_providers = copy(env_providers)
 ResultPath = BenchmarkResultFilePath
 
 
-def _reconstruct(contents: dict | list | tuple, target_type: type, strict: bool):
+def _reconstruct(contents: Union[dict, list, tuple], target_type: type, strict: bool):
     """Reconstruct"""
     from dataclasses import is_dataclass
 
@@ -73,22 +75,20 @@ def reconstruct_nested_dataclass(
 
 @dataclass
 class ReportTemplate(BenchmarkReport):
+    """
+    This inheritance is needed to restore the overwritten ``__init__`` method.
+
+    """
+
     ...
 
 
-@loading_providers.provider
-class Result:
-    def __init__(self, file_path: ResultPath) -> None:
-        import json
-
-        self.file_path = file_path
-        self.report = reconstruct_nested_dataclass(
-            json.loads(file_path.read_text()), ReportTemplate
-        )
+ResultMap = dict[ResultPath, BenchmarkReport]
 
 
 @loading_providers.provider
 def collect_result_paths(root_dir: BenchmarkRootDir) -> list[ResultPath]:
+    """Collect all result paths in the benchmark root directory."""
     import os
 
     return [
@@ -99,5 +99,25 @@ def collect_result_paths(root_dir: BenchmarkRootDir) -> list[ResultPath]:
 
 
 @loading_providers.provider
-def collect_results(result_paths: list[ResultPath]) -> list[Result]:
-    return [Result(result_path) for result_path in result_paths]
+def reconstruct_report(path: ResultPath) -> BenchmarkReport:
+    """Reconstruct report saved in the ``path``."""
+    import json
+
+    return reconstruct_nested_dataclass(json.loads(path.read_text()), ReportTemplate)
+
+
+@loading_providers.provider
+def collect_results(result_paths: list[ResultPath]) -> ResultMap:
+    """Collect all results from result_paths."""
+    return ResultMap({path: reconstruct_report(path) for path in result_paths})
+
+
+MergedMeasurements = NewType('MergedMeasurements', sc.Dataset)
+
+
+@loading_providers.provider
+def merge_measurements(results: ResultMap) -> MergedMeasurements:
+    """Convert all reports to Dataset and merge."""
+    return MergedMeasurements(
+        sc.concat([report.asdataset() for report in results.values()], dim='run')
+    )
