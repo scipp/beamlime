@@ -8,30 +8,50 @@ from .. import LoggingProtocol
 
 
 def _compose_msg(application: str, message: str) -> str:
-    from .formatters import BEAMLIME_MESSAGE_HEADERS, BeamlimeLogMessage
+    from .formatters import BEAMLIME_MESSAGE_HEADERS
 
-    return BeamlimeLogMessage(BEAMLIME_MESSAGE_HEADERS.fmt % (application, message))
+    return BEAMLIME_MESSAGE_HEADERS.fmt % (application, message)
 
 
 class LogMixin:
     """Logging interfaces."""
 
-    def debug(self: LoggingProtocol, msg: str, *args: Any, **kwargs: Any) -> None:
+    def debug(
+        self: LoggingProtocol, msg: str, *args: Any, stacklevel=2, **kwargs: Any
+    ) -> None:
         self.logger.debug(
-            _compose_msg(self.__class__.__qualname__, msg), *args, **kwargs
+            _compose_msg(self.__class__.__qualname__, msg),
+            *args,
+            stacklevel=stacklevel,
+            **kwargs,
         )
 
-    def info(self: LoggingProtocol, msg: str, *args: Any, **kwargs: Any) -> None:
+    def info(
+        self: LoggingProtocol, msg: str, *args: Any, stacklevel=2, **kwargs: Any
+    ) -> None:
         self.logger.info(
-            _compose_msg(self.__class__.__qualname__, msg), *args, **kwargs
+            _compose_msg(self.__class__.__qualname__, msg),
+            *args,
+            stacklevel=stacklevel,
+            **kwargs,
         )
 
-    def warning(self: LoggingProtocol, msg: str, *args: Any, **kwargs: Any) -> None:
+    def warning(
+        self: LoggingProtocol, msg: str, *args: Any, stacklevel=2, **kwargs: Any
+    ) -> None:
         self.logger.warning(
-            _compose_msg(self.__class__.__qualname__, msg), *args, **kwargs
+            _compose_msg(self.__class__.__qualname__, msg),
+            *args,
+            stacklevel=stacklevel,
+            **kwargs,
         )
 
-    def error(self: LoggingProtocol, msg: str, *args: Any, **kwargs: Any) -> None:
+    def error(
+        self: LoggingProtocol, msg: str, *args: Any, stacklevel=2, **kwargs: Any
+    ) -> None:
         self.logger.error(
-            _compose_msg(self.__class__.__qualname__, msg), *args, **kwargs
+            _compose_msg(self.__class__.__qualname__, msg),
+            *args,
+            stacklevel=stacklevel,
+            **kwargs,
         )

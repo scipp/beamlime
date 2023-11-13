@@ -4,7 +4,13 @@
 from collections import OrderedDict
 from dataclasses import dataclass
 from logging import Formatter
-from typing import Any, Literal, Optional
+from typing import Literal, NewType, Optional
+
+from rich.highlighter import Highlighter
+from rich.style import Style
+from rich.text import Text
+
+from ..empty_providers import log_providers
 
 HeaderSep = "|"
 _FormatStyle = Literal["{", "%"]
@@ -19,10 +25,10 @@ class LogColumn:
     ----------
     variable_name:
         Name of the variable in formatter.
-    title:
-        Title of the column in header line. Capitalized ``variable_name`` if None.
     min_length:
         Minimum length of the column. Default is None.
+    title:
+        Title of the column in header line. Capitalized ``variable_name`` if None.
     style:
         Formatting style.
 
@@ -54,6 +60,7 @@ class LogColumn:
             return self._str_formatter()
         elif self.style == "%":
             return self._percent_formatter()
+        raise ValueError(f"Invalid style {self.style}")
 
     def _str_formatter(self) -> str:
         if self.min_length is not None:
@@ -78,6 +85,7 @@ class LogColumn:
             return self.formatter % self.title
         elif self.style == "{":
             return self.formatter.format(**{self.variable_name: self.title})
+        raise ValueError(f"Invalid style {self.style}")
 
 
 class LogHeader(OrderedDict[str, LogColumn]):
@@ -86,7 +94,6 @@ class LogHeader(OrderedDict[str, LogColumn]):
 
     Examples
     --------
-    >>> # 1
     >>> time_column = LogColumn(variable_name='asctime',
     ... min_length=8, title='TIME', style='{')
     >>> app_name_column = LogColumn(variable_name='app_name',
@@ -96,13 +103,6 @@ class LogHeader(OrderedDict[str, LogColumn]):
     '{asctime:8} | {app_name}'
     >>> header.format().replace(' ', '_')
     'TIME_____|_APPLICATION'
-    >>> # 2
-    >>> message_column = LogColumn(variable_name='msg',
-    ... title='MESSAGE', style='{')
-    >>> header = LogHeader(time_column, app_name_column,
-    ... message_column, ansi_colored=True)
-    >>> header.fmt
-    '{ansi_color}{asctime:8} | {app_name} | {msg}{reset_color}'
 
     """
 
@@ -111,26 +111,28 @@ class LogHeader(OrderedDict[str, LogColumn]):
         *args: LogColumn,
         padding: tuple[int, int] = (1, 1),
         sep: Literal["|", ","] = "|",
-        ansi_colored: bool = False,
     ):
         self.padding = padding
         self.sep = sep
-        self.ansi_colored = ansi_colored
-        if len(args) > 1 and isinstance(args[0], LogColumn):
+        if len(args) > 1 and all([isinstance(arg, LogColumn) for arg in args]):
             self._init_from_columns(*args)
+        else:
+            raise TypeError("All positional arguments should be ``LogColumn``.")
+        self.style: _FormatStyle = self._retrieve_style(*args)
+
+    def _retrieve_style(self, *columns: LogColumn) -> _FormatStyle:
+        styles: set[_FormatStyle] = set([col.style for col in columns])
+        if len(styles) > 1:
+            raise ValueError("All columns should have the same style of formatting.")
+
+        return styles.pop()
 
     def _init_from_columns(self, *columns: LogColumn) -> None:
         for column in columns:
             self[column.variable_name] = column
 
         sep: str = " " * self.padding[0] + self.sep + " " * self.padding[1]
-        _fmt = sep.join([col.formatter for col in columns])
-        if self.ansi_colored:
-            _ansi_color_col = LogColumn("ansi_color", title="")
-            _reset_color_col = LogColumn("reset_color", title="")
-            self._fmt = _ansi_color_col.formatter + _fmt + _reset_color_col.formatter
-        else:
-            self._fmt = _fmt
+        self._fmt = sep.join([col.formatter for col in columns])
 
     @property
     def fmt(self) -> str:
@@ -148,58 +150,64 @@ BEAMLIME_MESSAGE_HEADERS = LogHeader(
     sep="|",
 )
 
-
-class BeamlimeLogMessage(str):
-    ...
+BeamlimeDefaultHeader = NewType("BeamlimeDefaultHeader", LogHeader)
 
 
-BEAMLIME_MESSAGE_TITLE = BEAMLIME_MESSAGE_HEADERS.format()
-
-DEFAULT_HEADERS = LogHeader(
-    LogColumn("asctime", title="TIME", min_length=23),
-    LogColumn("levelname", title="LEVEL", min_length=8),
-    LogColumn("message", title=BEAMLIME_MESSAGE_TITLE),
-    padding=(1, 1),
-    sep="|",
-)
-
-DEFAULT_COLOR_HEADERS = LogHeader(
-    LogColumn("asctime", title="TIME", min_length=23),
-    LogColumn("levelname", title="LEVEL", min_length=8),
-    LogColumn("message", title=BEAMLIME_MESSAGE_TITLE),
-    padding=(1, 1),
-    sep="|",
-    ansi_colored=True,
-)
-
-DateFmt = Optional[str]
-Defaults = Optional[dict]
+@log_providers.provider
+def provide_default_headers() -> BeamlimeDefaultHeader:
+    return BeamlimeDefaultHeader(
+        LogHeader(
+            LogColumn("asctime", title="TIME", min_length=23),
+            LogColumn("levelname", title="LEVEL", min_length=8),
+            LogColumn("message", title=BEAMLIME_MESSAGE_HEADERS.format()),
+            padding=(1, 1),
+            sep="|",
+        )
+    )
 
 
-class BeamlimeHeaderFormatter(Formatter):
-    """
-    Log formatter with a header.
-    """
-
-    def __init__(
-        self,
-        /,
-        headers: LogHeader = DEFAULT_HEADERS,
-        datefmt: Optional[str] = None,
-        style: _FormatStyle = "{",
-        validate: bool = True,
-        defaults: Optional[dict[str, Any]] = None,
-    ) -> None:
-        self.header_fmt = headers.format()
-        super().__init__(headers.fmt, datefmt, style, validate)
-        try:
-            super().__init__(
-                headers.fmt, datefmt, style, validate, defaults=defaults
-            )  # type: ignore[call-arg]
-        except TypeError:  # py39
-            # ``defaults`` does not exist in ``logging.Formatter`` for python3.9
-            super().__init__(headers.fmt, datefmt, style, validate)
+BeamlimeFileFormatter = NewType("BeamlimeFileFormatter", Formatter)
 
 
-DefaultFormatter = BeamlimeHeaderFormatter(headers=DEFAULT_HEADERS)
-ColoredFormatter = BeamlimeHeaderFormatter(headers=DEFAULT_COLOR_HEADERS)
+@log_providers.provider
+def provide_file_formatter(log_header: BeamlimeDefaultHeader) -> BeamlimeFileFormatter:
+    return BeamlimeFileFormatter(Formatter(log_header.fmt, style=log_header.style))
+
+
+@log_providers.provider
+class BeamlimeStreamHighlighter(Highlighter):
+    def __init__(self) -> None:
+        from itertools import cycle
+
+        super().__init__()
+
+        self.palette = [
+            Style(color='green'),
+            Style(color='blue'),
+            Style(color='red'),
+            Style(color='magenta'),
+            Style(color='bright_blue'),
+        ]
+        self.style_list = cycle(self.palette)
+        self.style_map = {"": Style()}
+
+    def populate_app_style(self, app_name: str) -> None:
+        """Store a style for ``app_name`` for future usage."""
+        self.style_map[app_name] = next(self.style_list)
+
+    def get_application_style(self, app_name: str) -> Style:
+        """Create or retrieve a style for ``app_name``."""
+        if app_name not in self.style_map:
+            self.populate_app_style(app_name)
+        return self.style_map[app_name]
+
+    def _retrieve_app_name(self, text: Text) -> str:
+        if len((name_msg := str(text).split("|"))) == 2:
+            return name_msg[0]
+        else:
+            return ""
+
+    def highlight(self, text: Text) -> None:
+        """Add ``ansi_color`` field to an existing record and emit it."""
+        app_name = self._retrieve_app_name(text)
+        text.stylize(self.get_application_style(app_name))
