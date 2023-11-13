@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-from collections import namedtuple
-from typing import Any, Callable, Generator, Optional
+from typing import Any, Callable, Generator, NamedTuple, Optional
 
 import scipp as sc
 
@@ -80,7 +79,7 @@ def grid_like(binned: sc.DataArray, unit: Optional[str] = None) -> sc.DataArray:
     )
 
 
-DimensionIndex = namedtuple("DimensionIndex", [('dimension', str), ('index', int)])
+DimensionIndex = NamedTuple("DimensionIndex", [('dimension', str), ('index', int)])
 
 
 def collect_dimension_indexes(
