@@ -2,6 +2,8 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # These fixtures cannot be found by pytest,
 # if they are not defined in `conftest.py` under `tests` directory.
+from typing import Generator, Literal
+
 import pytest
 
 
@@ -11,7 +13,7 @@ def pytest_addoption(parser: pytest.Parser):
 
 
 @pytest.fixture
-def kafka_test(request: pytest.FixtureRequest) -> bool:
+def kafka_test(request: pytest.FixtureRequest) -> Literal[True]:
     """
     Requires --kafka-test flag.
     """
@@ -24,7 +26,7 @@ def kafka_test(request: pytest.FixtureRequest) -> bool:
 
 
 @pytest.fixture
-def full_benchmark(request: pytest.FixtureRequest) -> bool:
+def full_benchmark(request: pytest.FixtureRequest) -> Literal[True]:
     """
     Requires --full-benchmark flag.
     """
@@ -35,3 +37,17 @@ def full_benchmark(request: pytest.FixtureRequest) -> bool:
         )
 
     return True
+
+
+@pytest.fixture(scope='function')
+def local_logger() -> Generator[Literal[True], None, None]:
+    """
+    Keep a copy of logger names in logging.Logger.manager.loggerDict
+    and remove newly added loggers at the end of the context.
+
+    It will help a test not to interfere other tests.
+    """
+    from .logging.contexts import local_logger as _local_logger
+
+    with _local_logger():
+        yield True

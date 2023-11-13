@@ -15,8 +15,6 @@ from beamlime.logging.resources import (
     create_log_file_path,
 )
 
-from .contexts import local_logger_factory
-
 
 @patch("beamlime.logging.resources.datetime")
 def test_time_tag(_datetime):
@@ -54,9 +52,12 @@ def test_create_log_file_invalid_prefix_raises():
         )
 
 
-def test_log_file_name_provider():
+def test_log_file_name_provider(local_logger: bool):
     """Test helper context test."""
-    with local_logger_factory() as factory:
+    from beamlime.ready_factory import log_factory
+
+    assert local_logger
+    with log_factory.local_factory() as factory:
         file_prefix = LogFilePrefix("beanline")
         timestamp = UTCTimeTag("rightnow")
         file_extension = LogFileExtension("leaf")
@@ -95,9 +96,12 @@ def test_create_log_file_directory_not_ready_raises():
         )
 
 
-def test_create_log_file_path_provider():
+def test_create_log_file_path_provider(local_logger: bool):
     """Test helper context test."""
-    with local_logger_factory() as factory:
+    from beamlime.ready_factory import log_factory
+
+    assert local_logger
+    with log_factory.local_factory() as factory:
         log_dir = LogDirectoryPath(Path("tmp"))
         log_file = LogFileName(Path("tmp.log"))
         expected_path = log_dir / log_file
