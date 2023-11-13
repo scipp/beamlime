@@ -1,6 +1,5 @@
 -r base.in
 -r extra.in
-scipy
 pytest
 pytest-cov
 pytest-xdist

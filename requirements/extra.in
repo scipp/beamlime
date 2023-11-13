@@ -1,7 +1,5 @@
 confluent-kafka
-colorama
+ess-streaming-data-types
 scipp
 scippneutron
 plopp
-h5py
-ess-streaming-data-types

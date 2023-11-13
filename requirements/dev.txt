@@ -84,7 +84,7 @@ send2trash==1.8.2
     # via jupyter-server
 sniffio==1.3.0
     # via anyio
-terminado==0.17.1
+terminado==0.18.0
     # via
     #   jupyter-server
     #   jupyter-server-terminals
