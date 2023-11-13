@@ -110,16 +110,15 @@ class B:
     a: A
 
 
-def sample_function(a: int, b: float) -> float:
-    return a + b
-
-
 def test_collecting_result_paths(
     benchmark: BenchmarkSession, benchmark_tmp_path: pathlib.Path
 ):
     from .loader import collect_result_paths
 
-    benchmark.run(sample_function, a=1, b=3)
+    def sample_func(a: int, b: float) -> float:
+        return a + b
+
+    benchmark.run(sample_func, a=1, b=3)
     benchmark.save()
     assert collect_result_paths(benchmark_tmp_path.parent)[0] == benchmark_tmp_path
 
@@ -175,27 +174,18 @@ def test_dataclass_reconstruction_wrong_fields_raises():
 def test_reconstruct_report(benchmark: BenchmarkSession):
     from dataclasses import asdict
 
-    from .loader import reconstruct_report
-
-    with benchmark.configure(iterations=3):
-        for a, b in zip([1, 2, 3], [3, 2, 1]):
-            benchmark.run(sample_function, a=a, b=b)
-
-    benchmark.save()
-    reconstructed = reconstruct_report(benchmark.file_manager.file_path)
-    assert asdict(benchmark.report) == asdict(reconstructed)
-
-
-def test_reconstruct_report_as_dataset(benchmark: BenchmarkSession):
     import scipp as sc
 
     from .loader import reconstruct_report
 
+    def sample_func(a: int, b: float) -> float:
+        return a + b
+
     with benchmark.configure(iterations=3):
         for a, b in zip([1, 2, 3], [3, 2, 1]):
-            benchmark.run(sample_function, a=a, b=b)
+            benchmark.run(sample_func, a=a, b=b)
 
     benchmark.save()
     reconstructed = reconstruct_report(benchmark.file_manager.file_path)
-    ds = reconstructed.asdataset()
-    assert sc.identical(ds, benchmark.report.asdataset())
+    assert asdict(benchmark.report) == asdict(reconstructed)
+    assert sc.identical(benchmark.report.asdataset(), reconstructed.asdataset())
