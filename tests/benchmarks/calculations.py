@@ -80,7 +80,7 @@ def grid_like(binned: sc.DataArray, unit: Optional[str] = None) -> sc.DataArray:
     )
 
 
-DimensionIndex = namedtuple("DimensionIndex", ['dimension', 'index'])
+DimensionIndex = namedtuple("DimensionIndex", [('dimension', str), ('index', int)])
 
 
 def collect_dimension_indexes(
