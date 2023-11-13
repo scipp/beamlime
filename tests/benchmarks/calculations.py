@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-from typing import Any, Callable, Generator, NamedTuple, Optional
+from typing import Any, Callable, Generator, NamedTuple, Optional, Union
 
 import scipp as sc
 
@@ -95,41 +95,32 @@ def collect_dimension_indexes(
 
 def cast_operation_per_bin(
     binned: sc.DataArray,
-    operation: Callable[[sc.DataArray], Any],
-    unit_func: Optional[Callable[[sc.DataArray], Any]] = None,
+    operation: Callable[[sc.DataArray], Union[sc.Variable, sc.DataArray]],
 ) -> sc.DataArray:
     """Cast ``operation`` per bin, (data array view) and returns the result.
-
-    ``unit_func`` retrieves the unit of output from the unit of a single bin.
-    If ``unit_func`` is not given, ``operation`` will be used.
 
     Example
     -------
     >>> binned = sc.data.binned_xy(nevent=100, nx=10, ny=10)
-    >>> casted = cast_operation_per_bin(binned, operation=sc.sum, unit_func=lambda _: _)
+    >>> casted = cast_operation_per_bin(binned, operation=sc.sum)
     >>> casted.sizes
     {'x': 10, 'y': 10}
     >>> casted.unit
     Unit(K)
     >>> sc.identical(binned.bins.sum(), casted)
     True
-
     """
     from itertools import product
 
     container = grid_like(binned)
+    values = {
+        tuple(dim_indices): operation(_get_bin(binned, *dim_indices).values)
+        for dim_indices in product(*collect_dimension_indexes(container))
+    }
+    container.unit = [value.unit for value in values.values()].pop(0)
 
-    if unit_func is not None:
-        container.unit = unit_func(binned.values[0].unit)
-
-    for dim_indices in product(*collect_dimension_indexes(container)):
-        cur_bin = _get_bin(binned, *dim_indices).values  # A single DataArrayView
-        cur_value = operation(cur_bin)
-
-        if container.unit is None and hasattr(cur_value, 'unit'):
-            container.unit = cur_value.unit
-
-        _set_value(container, cur_value, *dim_indices)
+    for dim_indices, value in values.items():
+        _set_value(container, value, *dim_indices)
 
     return container
 
