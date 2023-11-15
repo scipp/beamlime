@@ -3,8 +3,9 @@
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from typing import Callable, Generic, NewType, Optional, TypeVar
+from typing import Callable, Generic, NewType, Optional, Type, TypeVar, Union
 
+import pandas as pd
 import scipp as sc
 
 from beamlime.constructors import Factory, ProviderGroup
@@ -15,6 +16,27 @@ from .environments import (
     BenchmarkTargetName,
     env_providers,
 )
+
+T = TypeVar("T")
+
+
+def _extract_only_if_one(values: list[T], target_name: str) -> T:
+    if len(cands := set(values)) > 1:
+        raise ValueError(f"More than 1 {target_name} found in the list.")
+    else:
+        return cands.pop()
+
+
+def _extract_unit(units: list[str]) -> str:
+    return _extract_only_if_one(units, "unit")
+
+
+def _extract_dtype(values: list[T]) -> Union[Type[T], str]:
+    none_type = type(None)
+    cands = [valt for val in values if (valt := type(val)) is not none_type]
+    if (extracted := _extract_only_if_one(cands, "type")) is str:
+        return 'string'
+    return extracted
 
 
 @dataclass
@@ -95,6 +117,25 @@ class BenchmarkReport:
         self.append_measurement(single_run_result.benchmark_result)
         _append_row(self.arguments, single_run_result.arguments)
 
+    def asdataframe(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                **{
+                    f"{dim} [{_extract_unit(val_unit['unit'])}]": pd.Series(
+                        val_unit['value'], dtype=_extract_dtype(val_unit['value'])
+                    )
+                    for dim, val_unit in self.measurements.items()
+                },
+                **{
+                    arg_name: pd.Series(arg_values, dtype=_extract_dtype(arg_values))
+                    for arg_name, arg_values in {
+                        **self.arguments,
+                        'target-name': self.target_names,
+                    }.items()
+                },
+            }
+        )
+
     def asdataset(self) -> sc.Dataset:
         """Export report as a scipp Dataset.
 
@@ -106,24 +147,13 @@ class BenchmarkReport:
         ``target_names`` are used as ``target-name`` coordinate of the result.
 
         """
+        from scipp.compat import from_pandas
+        from scipp.compat.pandas_compat import parse_bracket_header
 
-        from .calculations import (
-            dict_to_scipp_scalar_column,
-            list_to_scipp_scalar_column,
-        )
-
-        return sc.Dataset(
-            data={
-                dim: sc.concat(dict_to_scipp_scalar_column(val_unit), dim='run')
-                for dim, val_unit in self.measurements.items()
-            },
-            coords={
-                arg_name: sc.concat(list_to_scipp_scalar_column(arg_values), dim='run')
-                for arg_name, arg_values in {
-                    **self.arguments,
-                    'target-name': self.target_names,
-                }.items()
-            },
+        return from_pandas(
+            self.asdataframe(),
+            data_columns=list(self.measurements.keys()),
+            header_parser=parse_bracket_header,
         )
 
 

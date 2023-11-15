@@ -1,34 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-from typing import Any, Callable, Generator, NamedTuple, Optional, Union
+from typing import Any, Callable, Generator, NamedTuple, Optional, TypeVar, Union
 
 import scipp as sc
 
-
-def _value_or_nan(value: Any) -> Any:
-    """Returns ``value`` if it is not ``None`` otherwise ``numpy.NaN``."""
-    import numpy as np
-
-    return value if value is not None else np.NaN
-
-
-def list_to_scipp_scalar_column(values: list[Any]) -> list[sc.Variable]:
-    """Return a list of ``scipp.Variable`` from a list of numbers or string.
-
-    If ``value`` is ``None``, it will be replaced with ``numpy.NaN``.
-    """
-    return [sc.scalar(_value_or_nan(value), unit=None) for value in values]
-
-
-def dict_to_scipp_scalar_column(value_unit: dict[str, list]) -> list[sc.Variable]:
-    """Return a list of ``scipp.Variable`` from lists of ``value`` and ``unit``.
-
-    If ``value`` is ``None``, it will be replaced with ``numpy.NaN``.
-    """
-    return [
-        sc.scalar(_value_or_nan(value), unit=unit)
-        for value, unit in zip(value_unit['value'], value_unit["unit"])
-    ]
+T = TypeVar("T")
 
 
 def sample_variance(da: sc.DataArray) -> sc.Variable:

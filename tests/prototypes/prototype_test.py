@@ -62,27 +62,27 @@ def prototype_benchmark(benchmark_test: bool) -> Generator[BenchmarkSession, Any
         benchmark_session.save()
 
 
-def test_mini_prototype_benchmark(prototype_benchmark: BenchmarkSession):
-    recipe = PrototypeBenchmarkRecipe(
-        params=PrototypeParameters(), optional_parameters={'test-run': True}
-    )
+# def test_mini_prototype_benchmark(prototype_benchmark: BenchmarkSession):
+#     recipe = PrototypeBenchmarkRecipe(
+#         params=PrototypeParameters(), optional_parameters={'test-run': True}
+#     )
 
-    with prototype_benchmark.configure(iterations=3):
-        prototype_benchmark.run(
-            mini_prototype_factory().providers,
-            recipe,
-            BenchmarkTargetName('mini_prototype'),
-        )
+#     with prototype_benchmark.configure(iterations=3):
+#         prototype_benchmark.run(
+#             mini_prototype_factory().providers,
+#             recipe,
+#             BenchmarkTargetName('mini_prototype'),
+#         )
 
 
-@pytest.fixture(params=[10_000, 100_000, 1_000_000, 10_000_000])
+@pytest.fixture(params=[1e4, 1e5, 1e6, 1e7], scope='function')
 def num_pixels_all_range(request: pytest.FixtureRequest) -> NumPixels:
-    return NumPixels(request.param)
+    return NumPixels(int(request.param))
 
 
-@pytest.fixture(params=[10_000, 100_000, 1_000_000, 10_000_000])
-def event_rate_all_range(request: pytest.FixtureRequest) -> NumPixels:
-    return NumPixels(request.param)
+@pytest.fixture(params=[1e4, 1e5, 1e6, 1e7], scope='function')
+def event_rate_all_range(request: pytest.FixtureRequest) -> EventRate:
+    return EventRate(int(request.param))
 
 
 @pytest.fixture
@@ -100,13 +100,27 @@ def prototype_recipe_all_range(
     )
 
 
+@pytest.fixture(scope='function')
+def iterations(num_pixels_all_range: NumPixels, event_rate_all_range: EventRate) -> int:
+    if num_pixels_all_range >= 1_000_000 or event_rate_all_range >= 1_000_000:
+        return 3
+    else:
+        return 10
+
+
 def test_mini_prototype_benchmark_all_range(
     prototype_benchmark: BenchmarkSession,
     prototype_recipe_all_range: PrototypeParameters,
+    iterations: int,
 ):
-    recipe = PrototypeBenchmarkRecipe(params=prototype_recipe_all_range)
+    import scipp as sc
 
-    with prototype_benchmark.configure(iterations=3):
+    recipe = PrototypeBenchmarkRecipe(
+        params=prototype_recipe_all_range,
+        optional_parameters={'scipp-version': sc.__version__},
+    )
+
+    with prototype_benchmark.configure(iterations=iterations):
         prototype_benchmark.run(
             mini_prototype_factory().providers,
             recipe,

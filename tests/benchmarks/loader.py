@@ -119,5 +119,5 @@ MergedMeasurements = NewType('MergedMeasurements', sc.Dataset)
 def merge_measurements(results: ResultMap) -> MergedMeasurements:
     """Convert all reports to Dataset and merge."""
     return MergedMeasurements(
-        sc.concat([report.asdataset() for report in results.values()], dim='run')
+        sc.concat([report.asdataset() for report in results.values()], dim='row')
     )

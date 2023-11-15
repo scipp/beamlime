@@ -15,4 +15,5 @@ hidden:
 getting-started
 coding-conventions
 dependency-management
+benchmark
 ```
