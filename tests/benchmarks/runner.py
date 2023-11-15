@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 from typing import Callable, Generic, NewType, Optional, Type, TypeVar, Union
 
 import pandas as pd
-import scipp as sc
+from scipp.typing import VariableLike
 
 from beamlime.constructors import Factory, ProviderGroup
 
@@ -136,10 +136,10 @@ class BenchmarkReport:
             }
         )
 
-    def asdataset(self) -> sc.Dataset:
-        """Export report as a scipp Dataset.
+    def asdataset(self) -> VariableLike:
+        """Export report as a scipp object(Dataset).
 
-        Report can be exported as a scipp Dataset
+        Report can be exported as a scipp object(Dataset)
         with ``arguments`` and ``target_names``(target-name) as coordinates,
         and with ``measurements`` as data.
 
