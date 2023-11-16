@@ -18,6 +18,11 @@ test:
     - beamlime
   requires:
     - pytest
+    - ess-streaming-data-types
+    - scipp
+    - scippneutron
+    - plopp
+    - sciline
   source_files:
     - pyproject.toml
     - tests/
