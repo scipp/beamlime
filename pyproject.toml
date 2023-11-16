@@ -30,7 +30,13 @@ requires-python = ">=3.9"
 # Run 'tox -e deps' after making changes here. This will update requirement files.
 # Make sure to list one dependency per line.
 dependencies = [
-  "numpy"
+  "ess-streaming-data-types",
+  "numpy",
+  "plopp",
+  "rich",
+  "sciline",
+  "scipp==23.08.0",
+  "scippneutron"
 ]
 
 dynamic = ["version"]

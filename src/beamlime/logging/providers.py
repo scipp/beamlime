@@ -13,27 +13,18 @@ BeamlimeLogger = NewType("BeamlimeLogger", logging.Logger)
 
 
 @log_providers.provider
-def get_logger(verbose: bool = True) -> BeamlimeLogger:
+def get_logger(
+    stream_handler: Optional[BeamlimeStreamHandler] = None, verbose: bool = True
+) -> BeamlimeLogger:
     """
-    Retrieves a logger by ``name``.
-    If the logger does not exist, instantiate a new ``logger_class``.
-
-    Parameters
-    ----------
-    name:
-        The name of the logger.
-        Default is ``beamlime``.
-
-    logger_class:
-        Class of the logger to instantiate with.
-        Default is ``beamlime.logging.logger.BeamlimeLogger``.
+    Retrieves a beamlime logger and add ``stream_handler`` if ``verbose``.
 
     """
     from beamlime import __name__ as beamlime_name
 
     logger = logging.getLogger(beamlime_name)
     if verbose and not logger.handlers:
-        logger.addHandler(BeamlimeStreamHandler())
+        logger.addHandler(stream_handler or BeamlimeStreamHandler())
 
     return BeamlimeLogger(logger)
 
