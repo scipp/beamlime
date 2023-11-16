@@ -9,7 +9,7 @@ import beamlime
 sys.path.insert(0, os.path.abspath('.'))
 
 # General information about the project.
-project = u'beamlime'
+project = u'Beamlime'
 copyright = u'2023 Scipp contributors'
 author = u'Scipp contributors'
 
@@ -152,8 +152,8 @@ html_theme_options = {
         {
             "name": "Conda",
             "url": "https://anaconda.org/conda-forge/beamlime",
-            "icon": "_static/anaconda-logo.svg",
-            "type": "local",
+            "icon": "fa-custom fa-anaconda",
+            "type": "fontawesome",
         },
     ],
     "footer_start": ["copyright", "sphinx-version"],
@@ -166,7 +166,7 @@ html_sidebars = {
     "**": ["sidebar-nav-bs", "page-toc"],
 }
 
-html_title = "beamlime"
+html_title = "Beamlime"
 html_logo = "_static/logo.svg"
 html_favicon = "_static/favicon.ico"
 
@@ -174,7 +174,8 @@ html_favicon = "_static/favicon.ico"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
-html_css_files = ["css/custom.css"]
+html_css_files = []
+html_js_files = ["anaconda-icon.js"]
 
 # -- Options for HTMLHelp output ------------------------------------------
 
