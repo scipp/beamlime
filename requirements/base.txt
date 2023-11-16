@@ -9,8 +9,6 @@ certifi==2023.7.22
     # via requests
 charset-normalizer==3.3.2
     # via requests
-confuse==2.0.1
-    # via scipp
 contourpy==1.2.0
     # via matplotlib
 cycler==0.12.1
@@ -31,8 +29,6 @@ h5py==3.10.0
     #   scippnexus
 idna==3.4
     # via requests
-importlib-resources==6.1.1
-    # via matplotlib
 kiwisolver==1.4.5
     # via matplotlib
 markdown-it-py==3.0.0
@@ -58,9 +54,7 @@ packaging==23.2
 pillow==10.1.0
     # via matplotlib
 platformdirs==3.11.0
-    # via
-    #   -r base.in
-    #   pooch
+    # via pooch
 plopp==23.10.1
     # via -r base.in
 pooch==1.8.0
@@ -73,15 +67,13 @@ python-dateutil==2.8.2
     # via
     #   matplotlib
     #   scippnexus
-pyyaml==6.0.1
-    # via confuse
 requests==2.31.0
     # via pooch
 rich==13.7.0
     # via -r base.in
 sciline==23.9.1
     # via -r base.in
-scipp==23.8.0
+scipp==23.11.0
     # via
     #   -r base.in
     #   scippneutron
@@ -98,5 +90,3 @@ six==1.16.0
     # via python-dateutil
 urllib3==2.1.0
     # via requests
-zipp==3.17.0
-    # via importlib-resources
