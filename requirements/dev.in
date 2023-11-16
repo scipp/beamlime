@@ -5,7 +5,6 @@
 -r static.in
 -r test.in
 -r wheels.in
--r benchmark.in
 jupyterlab
 pip-compile-multi
 pre-commit

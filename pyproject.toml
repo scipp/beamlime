@@ -35,7 +35,7 @@ dependencies = [
   "plopp",
   "rich",
   "sciline",
-  "scipp",
+  "scipp==23.08.0",
   "scippneutron"
 ]
 
