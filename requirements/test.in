@@ -1,5 +1,4 @@
 -r base.in
--r extra.in
 pytest
 pytest-cov
 pytest-xdist
