@@ -46,7 +46,7 @@ class HardwareSpec:
     total_memory: TotalMemory
 
 
-GitRootDir = NewType("GitRoot", pathlib.Path)
+GitRootDir = NewType("GitRootDir", pathlib.Path)
 BenchmarkRootDir = NewType("BenchmarkRootPath", pathlib.Path)
 BenchmarkSessionID = NewType("BenchmarkSessionID", str)
 GitCommitID = NewType("GitCommitID", str)
