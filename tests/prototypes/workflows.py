@@ -118,13 +118,13 @@ def provide_workflow(
     providers = ProviderGroup(
         SingletonProvider(provide_wavelength_graph),
         SingletonProvider(provide_Ltotal_graph),
+        SingletonProvider(provide_pixel_id_bin_edges),
         merge_data_list,
         bin_pixel_id,
         calculate_ltotal,
         calculate_wavelength,
         unwrap_frames,
         histogram_result,
-        provide_pixel_id_bin_edges,
     )
 
     providers[NumPixels] = lambda: num_pixels
