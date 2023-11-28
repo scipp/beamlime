@@ -7,6 +7,8 @@ from collections import namedtuple
 from dataclasses import dataclass
 from typing import NewType
 
+import psutil
+
 from beamlime.constructors import ProviderGroup
 
 env_providers = ProviderGroup()
@@ -14,21 +16,70 @@ env_providers = ProviderGroup()
 OperatingSystem = NewType("OperatingSystem", str)
 OperatingSystemVersion = NewType("OperatingSystemVersion", str)
 PlatformDesc = NewType("PlatformDesc", str)
-MachineType = NewType("MachineType", str)
+MachineType = NewType("MachineType", str)  # Processor type.
 TotalMemory = namedtuple('TotalMemory', ['value', 'unit'])
-
+PhysicalCpuCores = namedtuple(
+    'PhysicalCpuCores', ['value', 'unit']
+)  # Physical number of CPU cores.
+LogicalCpuCores = namedtuple(
+    'LogicalCpuCores', ['value', 'unit']
+)  # Logical number of CPU cores.
+CpuFrequency = namedtuple('CpuFrequency', ['current', 'min', 'max'])
+MaximumFrequency = namedtuple('MaximumFrequency', ['value', 'unit'])
+MinimumFrequency = namedtuple('MinimumFrequency', ['value', 'unit'])
 
 env_providers[OperatingSystem] = platform.system
 env_providers[OperatingSystemVersion] = platform.version
 env_providers[PlatformDesc] = platform.platform
 env_providers[MachineType] = platform.machine
+env_providers[CpuFrequency] = psutil.cpu_freq
 
 
 @env_providers.provider
 def provide_totalmemory_gb() -> TotalMemory:
-    import psutil
-
     return TotalMemory(int(psutil.virtual_memory().total / 10**9), 'GB')
+
+
+@env_providers.provider
+def provide_physical_cpu_cores() -> PhysicalCpuCores:
+    """Physical number of CPU cores."""
+
+    return PhysicalCpuCores(psutil.cpu_count(logical=False), 'counts')
+
+
+@env_providers.provider
+def provide_total_cpu_cores() -> LogicalCpuCores:
+    """Logical number of CPU cores."""
+
+    return LogicalCpuCores(psutil.cpu_count(logical=True), 'counts')
+
+
+@env_providers.provider
+def provide_maximum_cpu_frequency(cpu_freqency: CpuFrequency) -> MaximumFrequency:
+    """Maximum frequency of CPU cores."""
+
+    return MaximumFrequency(cpu_freqency.max, 'MHz')
+
+
+@env_providers.provider
+def provide_minimum_cpu_frequency(cpu_freqency: CpuFrequency) -> MinimumFrequency:
+    """Minimum frequency of CPU cores."""
+
+    return MinimumFrequency(cpu_freqency.min, 'MHz')
+
+
+@env_providers.provider
+@dataclass
+class CPUSpec:
+    """
+    Collection of the CPU profile.
+    Physical/logical CPU cores and min/max frequency.
+    """
+
+    physical_cpu_cords: PhysicalCpuCores
+    logical_cpu_cores: LogicalCpuCores
+    maximum_frequency: MaximumFrequency
+    minimum_frequency: MinimumFrequency
 
 
 @env_providers.provider
@@ -36,7 +87,7 @@ def provide_totalmemory_gb() -> TotalMemory:
 class HardwareSpec:
     """
     Collection of the hardware profile.
-    OS, OS version, platform, machine type and memory.
+    OS, OS version, platform, machine type, memory and processor(cpu) spec.
     """
 
     operating_system: OperatingSystem
@@ -44,6 +95,7 @@ class HardwareSpec:
     platform_desc: PlatformDesc
     machine_type: MachineType
     total_memory: TotalMemory
+    cpu_spec: CPUSpec
 
 
 GitRootDir = NewType("GitRootDir", pathlib.Path)
