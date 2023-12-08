@@ -26,18 +26,18 @@ class TestRunner(BenchmarkRunner):
 @pytest.fixture(scope='function')
 def benchmark_tmp_path(tmp_path: pathlib.Path) -> BenchmarkResultFilePath:
     from .environments import BenchmarkRootDir
-    from .runner import create_benchmark_runner_factory
+    from .runner import create_benchmark_session_factory
 
-    factory = create_benchmark_runner_factory()
+    factory = create_benchmark_session_factory()
     with factory.constant_provider(BenchmarkRootDir, tmp_path):
         return factory[BenchmarkResultFilePath]
 
 
 @pytest.fixture(scope='function')
 def benchmark(benchmark_tmp_path: BenchmarkResultFilePath):
-    from .runner import BenchmarkSession, create_benchmark_runner_factory
+    from .runner import BenchmarkSession, create_benchmark_session_factory
 
-    factory = create_benchmark_runner_factory(runner_type=TestRunner)
+    factory = create_benchmark_session_factory(runner_type=TestRunner)
     with factory.constant_provider(BenchmarkResultFilePath, benchmark_tmp_path):
         session = factory[BenchmarkSession]
         yield session

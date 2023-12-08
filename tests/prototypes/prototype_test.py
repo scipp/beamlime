@@ -49,12 +49,12 @@ def test_kafka_prototype(kafka_factory: Factory):
 
 @pytest.fixture(scope='session')
 def prototype_benchmark(benchmark_test: bool) -> Generator[BenchmarkSession, Any, Any]:
-    from ..benchmarks.runner import BenchmarkRunner, create_benchmark_runner_factory
+    from ..benchmarks.runner import BenchmarkRunner, create_benchmark_session_factory
     from .prototype_mini import PrototypeRunner
 
     assert benchmark_test
 
-    benchmark_factory = create_benchmark_runner_factory()
+    benchmark_factory = create_benchmark_session_factory()
     with benchmark_factory.temporary_provider(BenchmarkRunner, PrototypeRunner):
         benchmark_session = benchmark_factory[BenchmarkSession]
         yield benchmark_session
