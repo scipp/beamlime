@@ -47,6 +47,27 @@ def test_kafka_prototype(kafka_factory: Factory):
     prototype_test_helper(kafka_factory)
 
 
+def test_mini_prototype_benchmark():
+    """Test benchmark runner and discard the results."""
+    from ..benchmarks.runner import BenchmarkRunner, create_benchmark_session_factory
+    from .prototype_mini import PrototypeRunner
+
+    benchmark_factory = create_benchmark_session_factory()
+    recipe = PrototypeBenchmarkRecipe(
+        params=PrototypeParameters(), optional_parameters={'test-run': True}
+    )
+
+    with benchmark_factory.temporary_provider(BenchmarkRunner, PrototypeRunner):
+        benchmark_session = benchmark_factory[BenchmarkSession]
+
+        with benchmark_session.configure(iterations=3, auto_save=False):
+            benchmark_session.run(
+                mini_prototype_factory().providers,
+                recipe,
+                BenchmarkTargetName('mini_prototype'),
+            )
+
+
 @pytest.fixture(scope='session')
 def prototype_benchmark(benchmark_test: bool) -> Generator[BenchmarkSession, Any, Any]:
     from ..benchmarks.runner import BenchmarkRunner, create_benchmark_session_factory
@@ -60,19 +81,6 @@ def prototype_benchmark(benchmark_test: bool) -> Generator[BenchmarkSession, Any
         yield benchmark_session
 
         benchmark_session.save()
-
-
-def test_mini_prototype_benchmark(prototype_benchmark: BenchmarkSession):
-    recipe = PrototypeBenchmarkRecipe(
-        params=PrototypeParameters(), optional_parameters={'test-run': True}
-    )
-
-    with prototype_benchmark.configure(iterations=3):
-        prototype_benchmark.run(
-            mini_prototype_factory().providers,
-            recipe,
-            BenchmarkTargetName('mini_prototype'),
-        )
 
 
 @pytest.fixture(params=[10_000, 100_000, 1_000_000, 10_000_000])
