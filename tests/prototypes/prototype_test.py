@@ -83,13 +83,15 @@ def prototype_benchmark(benchmark_test: bool) -> Generator[BenchmarkSession, Any
         benchmark_session.save()
 
 
-@pytest.fixture(params=[10_000, 100_000, 1_000_000, 10_000_000])
+@pytest.fixture(params=[10_000, 100_000, 1_000_000, 10_000_000, 20_000_000])
 def num_pixels_all_range(request: pytest.FixtureRequest) -> NumPixels:
+    """Full range of num_pixels to benchmark."""
     return NumPixels(request.param)
 
 
-@pytest.fixture(params=[10_000, 100_000, 1_000_000, 10_000_000])
+@pytest.fixture(params=[10_000, 100_000, 1_000_000, 10_000_000, 100_000_000])
 def event_rate_all_range(request: pytest.FixtureRequest) -> NumPixels:
+    """Full range of event_rate to benchmark."""
     return NumPixels(request.param)
 
 
