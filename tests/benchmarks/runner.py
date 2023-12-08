@@ -173,6 +173,17 @@ AutoSaveFlag = NewType("AutoSaveFlag", bool)
 
 @dataclass
 class BenchmarkSessionConfiguration:
+    """
+    Parameters
+    ----------
+    iterations:
+        Number of iterations to call a benchmark runner.
+
+    auto_save:
+        Whether to save the result after each iteration.
+
+    """
+
     iterations: BenchmarkIterations = BenchmarkIterations(1)
     auto_save: AutoSaveFlag = AutoSaveFlag(True)
 
@@ -236,9 +247,10 @@ class BenchmarkSession:
         self.file_manager.save(self.report)
 
 
-def create_benchmark_runner_factory(
+def create_benchmark_session_factory(
     runner_type: type[BenchmarkRunner] = SimpleRunner,
 ) -> Factory:
+    """Collect all providers for ``BenchmarkSession`` and create a factory."""
     session_providers = ProviderGroup()
     session_providers[BenchmarkSession] = BenchmarkSession
     session_providers[BenchmarkReport] = BenchmarkReport
