@@ -76,7 +76,7 @@ class CPUSpec:
     Physical/logical CPU cores and min/max frequency.
     """
 
-    physical_cpu_cords: PhysicalCpuCores
+    physical_cpu_cores: PhysicalCpuCores
     logical_cpu_cores: LogicalCpuCores
     maximum_frequency: MaximumFrequency
     minimum_frequency: MinimumFrequency
