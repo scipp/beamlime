@@ -61,7 +61,7 @@ jupyter-server==2.12.1
     #   jupyterlab
     #   jupyterlab-server
     #   notebook-shim
-jupyter-server-terminals==0.4.4
+jupyter-server-terminals==0.5.0
     # via jupyter-server
 jupyterlab==4.0.9
     # via -r dev.in
