@@ -1,0 +1,8 @@
+# Dependencies that are only used by tests.
+# Do not make an environment from this file, use test.txt instead!
+
+pytest
+pytest-cov
+pytest-xdist
+psutil
+pandas

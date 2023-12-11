@@ -7,8 +7,8 @@
 #
 -r base.txt
 confluent-kafka==2.3.0
-    # via -r benchmark.in
-importlib-metadata==6.8.0
+    # via -r stream.in
+importlib-metadata==7.0.0
     # via textual
 linkify-it-py==2.0.2
     # via markdown-it-py
@@ -19,15 +19,9 @@ markdown-it-py[linkify,plugins]==3.0.0
     #   textual
 mdit-py-plugins==0.4.0
     # via markdown-it-py
-mdurl==0.1.2
-    # via markdown-it-py
-pygments==2.16.1
-    # via rich
-rich==13.6.0
-    # via textual
-textual==0.41.0
-    # via -r benchmark.in
-typing-extensions==4.8.0
+textual==0.44.1
+    # via -r stream.in
+typing-extensions==4.9.0
     # via textual
 uc-micro-py==1.0.2
     # via linkify-it-py
