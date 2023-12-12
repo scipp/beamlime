@@ -71,9 +71,9 @@ def test_log_file_name_provider(local_logger: bool):
             assert factory[LogFileName] == Path("beamlime_rightnow.log")
 
 
-def test_create_log_file_path():
+def test_create_log_file_path(tmp_path: Path):
     """Test helper context test."""
-    log_dir = LogDirectoryPath(Path("tmp"))
+    log_dir = LogDirectoryPath(tmp_path / Path("tmp"))
     log_file = LogFileName(Path("tmp.log"))
     expected_path = log_dir / log_file
     assert (
@@ -84,11 +84,11 @@ def test_create_log_file_path():
     )
 
 
-def test_create_log_file_directory_not_ready_raises():
+def test_create_log_file_directory_not_ready_raises(tmp_path: Path):
     """Test helper context test."""
     import pytest
 
-    log_dir = LogDirectoryPath(Path("tmp"))
+    log_dir = LogDirectoryPath(tmp_path / Path("tmp"))
     log_file = LogFileName(Path("tmp.log"))
     with pytest.raises(ValueError):
         create_log_file_path(
@@ -96,13 +96,13 @@ def test_create_log_file_directory_not_ready_raises():
         )
 
 
-def test_create_log_file_path_provider(local_logger: bool):
+def test_create_log_file_path_provider(local_logger: bool, tmp_path: Path):
     """Test helper context test."""
     from beamlime.ready_factory import log_factory
 
     assert local_logger
     with log_factory.local_factory() as factory:
-        log_dir = LogDirectoryPath(Path("tmp"))
+        log_dir = LogDirectoryPath(tmp_path / Path("tmp"))
         log_file = LogFileName(Path("tmp.log"))
         expected_path = log_dir / log_file
         with factory.constant_provider(LogDirectoryPath, log_dir):

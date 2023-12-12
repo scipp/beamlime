@@ -1,4 +1,4 @@
-# About Beamlime
+# About
 
 ## Development
 

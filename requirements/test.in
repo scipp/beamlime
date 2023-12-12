@@ -1,5 +1,4 @@
+# Add test dependencies in basetest.in
+
 -r base.in
-pytest
-pytest-cov
-pytest-xdist
-psutil
+-r basetest.in

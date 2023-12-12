@@ -3,7 +3,7 @@
 [![Anaconda-Server Badge](https://anaconda.org/scipp/beamlime/badges/version.svg)](https://anaconda.org/scipp/beamlime)
 [![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](LICENSE)
 
-# beamlime
+# Beamlime
 
 ## About
 

@@ -33,7 +33,7 @@ test:
 build:
   noarch: python
   script:
-    - pip install .
+    - python -m pip install .
 
 about:
   home: https://github.com/scipp/beamlime
