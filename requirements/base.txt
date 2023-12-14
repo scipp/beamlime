@@ -13,8 +13,6 @@ certifi==2023.11.17
     # via requests
 charset-normalizer==3.3.2
     # via requests
-confuse==2.0.1
-    # via scipp
 contourpy==1.2.0
     # via matplotlib
 cycler==0.12.1
@@ -39,8 +37,6 @@ h5py==3.10.0
     #   scippnexus
 idna==3.6
     # via requests
-importlib-resources==6.1.1
-    # via matplotlib
 ipython==8.9.0
     # via -r base.in
 jedi==0.19.1
@@ -101,15 +97,13 @@ python-dateutil==2.8.2
     # via
     #   matplotlib
     #   scippnexus
-pyyaml==6.0.1
-    # via confuse
 requests==2.31.0
     # via pooch
 rich==13.7.0
     # via -r base.in
 sciline==23.12.0
     # via -r base.in
-scipp==23.8.0
+scipp==23.11.1
     # via
     #   -r base.in
     #   scippneutron
@@ -136,5 +130,3 @@ urllib3==2.1.0
     # via requests
 wcwidth==0.2.12
     # via prompt-toolkit
-zipp==3.17.0
-    # via importlib-resources
