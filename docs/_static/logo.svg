@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="300" height="90" viewBox="0 0 300 90">
+<defs>
+<path d="M6,73 L151.35,73" opacity="0" id="d0" />
+<path d="M151.35,73 L255,73" opacity="0" id="d1" />
+</defs>
+<g>
+<path d="M21,36 L263,36" stroke-width="3" stroke="#5E6100" stroke-linecap="round" />
+<path d="M173.58,36 L263,36" stroke-width="3" stroke="#A3A800" stroke-linecap="round" />
+</g>
+<g>
+<text font-size="61" text-anchor="start" font-family="Comic Neue" font-weight="normal" fill="#5E6100"><textPath xlink:href="#d0" startOffset="0">
+<tspan dy="0em">beam</tspan>
+</textPath></text>
+<text font-size="61" text-anchor="start" font-family="Comic Neue" font-weight="bold" fill="#A3A800"><textPath xlink:href="#d1" startOffset="0">
+<tspan dy="0em">lime</tspan>
+</textPath></text>
+</g>
+<g>
+<path d="M264,36 L244.94744111674234,25.000000000000007" stroke-width="4" stroke="#A3A800" stroke-linecap="round" />
+<circle cx="251.55492065111676" cy="23.554920651116763" r="3.52" stroke-dasharray="2.764601535159018 19.352210746113126" stroke-dashoffset="-9.215338450530062" stroke-width="2" stroke="#A3A800" stroke-linecap="round" fill="none" />
+<path d="M264,36 L258.30598100774455,14.749631821640499" stroke-width="4" stroke="#A3A800" stroke-linecap="round" />
+<circle cx="264.0" cy="18.4" r="3.52" stroke-dasharray="2.764601535159018 19.352210746113126" stroke-dashoffset="-11.97993998568908" stroke-width="2" stroke="#A3A800" stroke-linecap="round" fill="none" />
+<circle cx="255.20000000000002" cy="20.757952893393878" r="3.52" stroke-dasharray="2.764601535159018 19.352210746113126" stroke-dashoffset="-16.587609210954106" stroke-width="2" stroke="#A3A800" stroke-linecap="round" fill="none" />
+<path d="M264,36 L275.0,16.94744111674234" stroke-width="4" stroke="#A3A800" stroke-linecap="round" />
+<circle cx="276.4450793488832" cy="23.554920651116745" r="3.52" stroke-dasharray="2.7646015351590165 19.352210746113126" stroke-dashoffset="-14.744541520848097" stroke-width="2" stroke="#A3A800" stroke-linecap="round" fill="none" />
+<circle cx="268.5552151938044" cy="18.999705457312395" r="3.52" stroke-dasharray="2.764601535159018 19.352210746113126" stroke-dashoffset="-19.352210746113126" stroke-width="2" stroke="#A3A800" stroke-linecap="round" fill="none" />
+<path d="M264,36 L285.2503681783595,30.305981007744546" stroke-width="4" stroke="#A3A800" stroke-linecap="round" />
+<circle cx="281.6" cy="35.99999999999999" r="3.52" stroke-dasharray="2.764601535159018 19.352210746113126" stroke-dashoffset="-17.50914305600711" stroke-width="2" stroke="#A3A800" stroke-linecap="round" fill="none" />
+<circle cx="279.24204710660615" cy="27.200000000000003" r="3.52" stroke-dasharray="2.764601535159018 19.352210746113126" stroke-dashoffset="-0.0" stroke-width="2" stroke="#A3A800" stroke-linecap="round" fill="none" />
+<path d="M264,36 L283.0525588832577,46.999999999999986" stroke-width="4" stroke="#A3A800" stroke-linecap="round" />
+<circle cx="281.0002945426876" cy="40.55521519380436" r="3.52" stroke-dasharray="2.764601535159018 19.352210746113126" stroke-dashoffset="-2.764601535159018" stroke-width="2" stroke="#A3A800" stroke-linecap="round" fill="none" />
+</g>
+<g>
+<circle cx="264" cy="36" r="22" stroke-dasharray="69.11503837897544 69.11503837897544" stroke-dashoffset="-80.63421144213802" stroke-width="5" stroke="#A3A800" stroke-linecap="round" fill="none" />
+</g>
+</svg>
