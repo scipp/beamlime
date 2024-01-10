@@ -9,13 +9,13 @@
 -r basetest.txt
 accessible-pygments==0.0.4
     # via pydata-sphinx-theme
-alabaster==0.7.13
+alabaster==0.7.16
     # via sphinx
-attrs==23.1.0
+attrs==23.2.0
     # via
     #   jsonschema
     #   referencing
-babel==2.13.1
+babel==2.14.0
     # via
     #   pydata-sphinx-theme
     #   sphinx
@@ -25,7 +25,7 @@ beautifulsoup4==4.12.2
     #   pydata-sphinx-theme
 bleach==6.1.0
     # via nbconvert
-comm==0.2.0
+comm==0.2.1
     # via ipykernel
 debugpy==1.8.0
     # via ipykernel
@@ -37,16 +37,16 @@ docutils==0.20.1
     #   nbsphinx
     #   pydata-sphinx-theme
     #   sphinx
-fastjsonschema==2.19.0
+fastjsonschema==2.19.1
     # via nbformat
 imagesize==1.4.1
     # via sphinx
-importlib-metadata==7.0.0
+importlib-metadata==7.0.1
     # via
     #   jupyter-client
     #   nbconvert
     #   sphinx
-ipykernel==6.27.1
+ipykernel==6.28.0
     # via -r docs.in
 jinja2==3.1.2
     # via
@@ -56,13 +56,13 @@ jinja2==3.1.2
     #   sphinx
 jsonschema==4.20.0
     # via nbformat
-jsonschema-specifications==2023.11.2
+jsonschema-specifications==2023.12.1
     # via jsonschema
 jupyter-client==8.6.0
     # via
     #   ipykernel
     #   nbclient
-jupyter-core==5.5.0
+jupyter-core==5.7.1
     # via
     #   ipykernel
     #   jupyter-client
@@ -83,7 +83,7 @@ myst-parser==2.0.0
     # via -r docs.in
 nbclient==0.9.0
     # via nbconvert
-nbconvert==7.12.0
+nbconvert==7.14.0
     # via nbsphinx
 nbformat==5.9.2
     # via
@@ -96,17 +96,19 @@ nest-asyncio==1.5.8
     # via ipykernel
 pandocfilters==1.5.0
     # via nbconvert
-pydata-sphinx-theme==0.14.4
+pydata-sphinx-theme==0.15.1
     # via -r docs.in
+pyyaml==6.0.1
+    # via myst-parser
 pyzmq==25.1.2
     # via
     #   ipykernel
     #   jupyter-client
-referencing==0.32.0
+referencing==0.32.1
     # via
     #   jsonschema
     #   jsonschema-specifications
-rpds-py==0.13.2
+rpds-py==0.16.2
     # via
     #   jsonschema
     #   referencing
