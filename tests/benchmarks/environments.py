@@ -24,6 +24,7 @@ PhysicalCpuCores = namedtuple(
 LogicalCpuCores = namedtuple(
     'LogicalCpuCores', ['value', 'unit']
 )  # Logical number of CPU cores.
+ProcessCpuAffinity = namedtuple('ProcessCpuAffinity', ['value', 'unit'])
 CpuFrequency = namedtuple('CpuFrequency', ['current', 'min', 'max'])
 MaximumFrequency = namedtuple('MaximumFrequency', ['value', 'unit'])
 MinimumFrequency = namedtuple('MinimumFrequency', ['value', 'unit'])
@@ -55,6 +56,13 @@ def provide_total_cpu_cores() -> LogicalCpuCores:
 
 
 @env_providers.provider
+def provide_process_cpu_affinity() -> ProcessCpuAffinity:
+    """Process CPU affinity."""
+
+    return ProcessCpuAffinity(psutil.Process().cpu_affinity(), 'counts')
+
+
+@env_providers.provider
 def provide_maximum_cpu_frequency(cpu_freqency: CpuFrequency) -> MaximumFrequency:
     """Maximum frequency of CPU cores."""
 
@@ -78,6 +86,7 @@ class CPUSpec:
 
     physical_cpu_cores: PhysicalCpuCores
     logical_cpu_cores: LogicalCpuCores
+    process_cpu_affinity: ProcessCpuAffinity
     maximum_frequency: MaximumFrequency
     minimum_frequency: MinimumFrequency
 
