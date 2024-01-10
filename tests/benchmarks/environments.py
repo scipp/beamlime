@@ -59,7 +59,7 @@ def provide_total_cpu_cores() -> LogicalCpuCores:
 def provide_process_cpu_affinity() -> ProcessCpuAffinity:
     """Process CPU affinity."""
 
-    return ProcessCpuAffinity(psutil.Process().cpu_affinity(), 'counts')
+    return ProcessCpuAffinity(len(psutil.Process().cpu_affinity() or []), 'counts')
 
 
 @env_providers.provider
