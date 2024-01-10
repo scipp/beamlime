@@ -91,8 +91,4 @@ if __name__ == '__main__':
     lime_radius = 48
     d.append(draw_lime_splits(cx=lime_cx, cy=lime_cy, radius=lime_radius))
     d.append(draw_lime_arc(cx=lime_cx, cy=lime_cy, radius=lime_radius))
-    d.save_svg('icon.svg')
-    # After saving the image, convert the image with the following command
-    # convert -background transparent \
-    # -define icon:auto-resize="128,96,64,48,32,16" \
-    # icon.svg favicon.ico
+    d.save_svg('favicon.svg')
