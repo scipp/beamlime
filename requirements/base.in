@@ -10,5 +10,5 @@ numpy
 plopp
 rich
 sciline
-scipp==23.12.0
+scipp>23.08.0
 scippneutron

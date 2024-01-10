@@ -18,12 +18,8 @@ ess-streaming-data-types==0.23.1
     # via -r nightly.in
 flatbuffers==23.5.26
     # via ess-streaming-data-types
-fonttools==4.46.0
+fonttools==4.47.0
     # via matplotlib
-graphlib-backport==1.0.3
-    # via
-    #   sciline
-    #   scipp
 h5py==3.10.0
     # via
     #   scippneutron
@@ -40,7 +36,7 @@ matplotlib==3.8.2
     # via plopp
 mdurl==0.1.2
     # via markdown-it-py
-pillow==10.1.0
+pillow==10.2.0
     # via matplotlib
 platformdirs==4.1.0
     # via pooch
