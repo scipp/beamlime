@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from typing import Union
+
 from textual import work
 from textual.app import App, ComposeResult, Screen
 from textual.containers import Container, Horizontal, VerticalScroll
@@ -67,8 +68,8 @@ class WarningScreen(Screen):
     """
 
     def __init__(
-            self, *instructions: Union[Static, Pretty], **option_callbacks
-        ) -> None:
+        self, *instructions: Union[Static, Pretty], **option_callbacks
+    ) -> None:
         super().__init__()
         self.instructions = instructions
         self.option_callbacks = option_callbacks
