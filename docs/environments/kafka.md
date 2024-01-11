@@ -1,24 +1,24 @@
-## Kafka
+# Kafka
 
-### Clients(Producer, Consumer and Admin)
+## Clients(Producer, Consumer and Admin)
 We are using [``confluent-kafka``](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#)
 since it is the most actively maintained python kafka api for now.
 
-### Broker
+## Broker
 You can use [``docker``](https://docs.docker.com/get-started/overview/) to start kafka server.
 
-#### Permission
+### Permission
 The kafka service may fail due to the insufficient permission.
 
 Try adding the super user into the `docker` group so that you can use `docker` command without `sudo`.
 
-#### Start Server
+### Start Server
 ```bash
 docker-compose up # add `-d` to start the service in the background.
 ```
 Copy and paste the following [docker compose recipe](#docker-compose-recipe) and run this command in the same location.
 
-#### Docker-compose Recipe
+### Docker-compose Recipe
 ```{admonition} Unusual Settings
 :class: warning
 This docker recipe contains options that adjust maximum size of the buffers/messages. It is for benchmark testing with large size data.
@@ -69,7 +69,7 @@ networks:
 ```
 > References: [confluent](https://developer.confluent.io/quickstart/kafka-docker/)
 
-#### Topic Management
+### Topic Management
 There is a simple topic managing tool in ``tests/executables/kafka_topic_gui.py`` for **local testing**.
 
 This tool shows all topics that do not start with ``'_'``,
