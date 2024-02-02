@@ -122,7 +122,12 @@ def test_mini_prototype_benchmark_all_range(
     prototype_benchmark: BenchmarkSession,
     prototype_recipe_all_range: PrototypeParameters,
 ):
-    recipe = PrototypeBenchmarkRecipe(params=prototype_recipe_all_range)
+    import scipp as sc
+
+    recipe = PrototypeBenchmarkRecipe(
+        params=prototype_recipe_all_range,
+        optional_parameters={'scipp-version': sc.__version__},
+    )
 
     with prototype_benchmark.configure(iterations=3):
         prototype_benchmark.run(
