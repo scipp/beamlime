@@ -1,5 +1,10 @@
 # About
 
+```{toctree}
+
+ess-instruments
+```
+
 ## Development
 
 Beamlime is an open source project by the [European Spallation Source ERIC](https://europeanspallationsource.se/) (ESS).
