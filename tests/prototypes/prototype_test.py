@@ -5,10 +5,9 @@ from typing import Any, Generator
 import pytest
 
 from beamlime.constructors import Factory
-
-from ..benchmarks.runner import BenchmarkSession
-from .parameters import EventRate, NumPixels, PrototypeParameters
-from .prototype_mini import (
+from tests.benchmarks.runner import BenchmarkSession
+from tests.prototypes.parameters import EventRate, NumPixels, PrototypeParameters
+from tests.prototypes.prototype_mini import (
     BenchmarkTargetName,
     PrototypeBenchmarkRecipe,
     mini_prototype_factory,
@@ -17,21 +16,24 @@ from .prototype_mini import (
 
 @pytest.fixture
 def mini_factory() -> Generator[Factory, None, None]:
-    from .prototype_mini import mini_prototype_factory
+    from tests.prototypes.prototype_mini import mini_prototype_factory
 
     yield mini_prototype_factory()
 
 
 @pytest.fixture
 def kafka_factory(kafka_test: bool) -> Generator[Factory, None, None]:
-    from .prototype_kafka import kafka_prototype_factory
+    from tests.prototypes.prototype_kafka import kafka_prototype_factory
 
     assert kafka_test
     yield kafka_prototype_factory()
 
 
 def prototype_test_helper(prototype_factory: Factory):
-    from .prototype_mini import PrototypeBenchmarkRecipe, PrototypeRunner
+    from tests.prototypes.prototype_mini import (
+        PrototypeBenchmarkRecipe,
+        PrototypeRunner,
+    )
 
     prototype_runner = PrototypeRunner()
 
@@ -49,8 +51,11 @@ def test_kafka_prototype(kafka_factory: Factory):
 
 def test_mini_prototype_benchmark():
     """Test benchmark runner and discard the results."""
-    from ..benchmarks.runner import BenchmarkRunner, create_benchmark_session_factory
-    from .prototype_mini import PrototypeRunner
+    from tests.benchmarks.runner import (
+        BenchmarkRunner,
+        create_benchmark_session_factory,
+    )
+    from tests.prototypes.prototype_mini import PrototypeRunner
 
     benchmark_factory = create_benchmark_session_factory()
     recipe = PrototypeBenchmarkRecipe(
@@ -70,8 +75,11 @@ def test_mini_prototype_benchmark():
 
 @pytest.fixture(scope='session')
 def prototype_benchmark(benchmark_test: bool) -> Generator[BenchmarkSession, Any, Any]:
-    from ..benchmarks.runner import BenchmarkRunner, create_benchmark_session_factory
-    from .prototype_mini import PrototypeRunner
+    from tests.benchmarks.runner import (
+        BenchmarkRunner,
+        create_benchmark_session_factory,
+    )
+    from tests.prototypes.prototype_mini import PrototypeRunner
 
     assert benchmark_test
 
@@ -101,7 +109,7 @@ def prototype_recipe_all_range(
     num_pixels_all_range: NumPixels,
     event_rate_all_range: EventRate,
 ) -> PrototypeParameters:
-    from .prototype_mini import PrototypeParameters
+    from tests.prototypes.prototype_mini import PrototypeParameters
 
     assert full_benchmark_test
 

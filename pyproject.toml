@@ -61,6 +61,7 @@ testpaths = "tests"
 filterwarnings = [
   "error",
 ]
+pythonpath = "tests/helpers"
 
 [tool.bandit]
 # Excluding tests because bandit doesn't like `assert`.

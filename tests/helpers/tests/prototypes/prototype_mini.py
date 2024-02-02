@@ -12,14 +12,14 @@ from typing import Any, Generator, Generic, List, NewType, Optional, TypeVar
 from beamlime.constructors import Factory, ProviderGroup
 from beamlime.logging import BeamlimeLogger
 from beamlime.logging.mixins import LogMixin
-
-from ..benchmarks.environments import BenchmarkTargetName
-from ..benchmarks.runner import (
+from tests.benchmarks.environments import BenchmarkTargetName
+from tests.benchmarks.runner import (
     BenchmarkResult,
     BenchmarkRunner,
     SingleRunReport,
     TimeMeasurement,
 )
+
 from .parameters import ChunkSize, NumFrames, PrototypeParameters
 from .random_data_providers import RandomEvents
 from .workflows import (

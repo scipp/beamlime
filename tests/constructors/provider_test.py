@@ -5,8 +5,7 @@ from typing import Union
 import pytest
 
 from beamlime.constructors import Provider
-
-from .preset_providers import (
+from tests.providers.preset_providers import (
     Adult,
     GoodTelling,
     Joke,

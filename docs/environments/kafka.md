@@ -70,7 +70,7 @@ networks:
 > References: [confluent](https://developer.confluent.io/quickstart/kafka-docker/)
 
 ### Topic Management
-There is a simple topic managing tool in ``tests/executables/kafka_topic_gui.py`` for **local testing**.
+There is a simple topic managing tool in test helper package, ``tests/executables/kafka_topic_gui.py`` for **local testing**.
 
 This tool shows all topics that do not start with ``'_'``,
 which is a prefix for hidden topics.
@@ -78,6 +78,8 @@ which is a prefix for hidden topics.
 It can only delete selected topics.
 
 ```bash
+# With ``tests/helpers`` included in ``sys.path``.
+
 python -m tests.executables.kafka_topic_gui
 ```
 

@@ -5,8 +5,7 @@ from typing import NewType
 import pytest
 
 from beamlime.constructors import Factory, ProviderGroup, ProviderNotFoundError
-
-from .preset_providers import (
+from tests.providers.preset_providers import (
     Adult,
     GoodTelling,
     Joke,
@@ -40,7 +39,7 @@ def test_partial_provider(test_factory: Factory):
 
 def test_partial_of_non_existing_provider_raises(test_factory: Factory):
     """You can only create a partial provider from the existing one."""
-    from .preset_providers import Joke
+    from tests.providers.preset_providers import Joke
 
     with test_factory.local_factory() as factory:
         with pytest.raises(ProviderNotFoundError):

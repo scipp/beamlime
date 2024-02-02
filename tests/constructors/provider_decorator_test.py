@@ -5,8 +5,7 @@ from typing import NewType
 import pytest
 
 from beamlime.constructors import Factory, Provider, ProviderGroup, SingletonProvider
-
-from .preset_providers import orange_joke
+from tests.providers.preset_providers import orange_joke
 
 decorating_provider_group = ProviderGroup()
 UsefulString = NewType("UsefulString", str)

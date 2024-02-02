@@ -5,15 +5,24 @@ from typing import Callable
 
 import pytest
 
-from .environments import BenchmarkResultFilePath
-from .runner import BenchmarkRunner, BenchmarkSession, R, SingleRunReport
+from tests.benchmarks.environments import BenchmarkResultFilePath
+from tests.benchmarks.runner import (
+    BenchmarkRunner,
+    BenchmarkSession,
+    R,
+    SingleRunReport,
+)
 
 
 class TestRunner(BenchmarkRunner):
     """Test runner that always has 0 as a time measurement result."""
 
     def __call__(self, func: Callable[..., R], **kwargs) -> SingleRunReport[R]:
-        from .runner import BenchmarkResult, BenchmarkTargetName, TimeMeasurement
+        from tests.benchmarks.runner import (
+            BenchmarkResult,
+            BenchmarkTargetName,
+            TimeMeasurement,
+        )
 
         return SingleRunReport(
             BenchmarkTargetName(func.__qualname__),
@@ -25,8 +34,8 @@ class TestRunner(BenchmarkRunner):
 
 @pytest.fixture(scope='function')
 def benchmark_tmp_path(tmp_path: pathlib.Path) -> BenchmarkResultFilePath:
-    from .environments import BenchmarkRootDir
-    from .runner import create_benchmark_session_factory
+    from tests.benchmarks.environments import BenchmarkRootDir
+    from tests.benchmarks.runner import create_benchmark_session_factory
 
     factory = create_benchmark_session_factory()
     with factory.constant_provider(BenchmarkRootDir, tmp_path):
@@ -35,7 +44,10 @@ def benchmark_tmp_path(tmp_path: pathlib.Path) -> BenchmarkResultFilePath:
 
 @pytest.fixture(scope='function')
 def benchmark(benchmark_tmp_path: BenchmarkResultFilePath):
-    from .runner import BenchmarkSession, create_benchmark_session_factory
+    from tests.benchmarks.runner import (
+        BenchmarkSession,
+        create_benchmark_session_factory,
+    )
 
     factory = create_benchmark_session_factory(runner_type=TestRunner)
     with factory.constant_provider(BenchmarkResultFilePath, benchmark_tmp_path):
