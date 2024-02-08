@@ -162,18 +162,9 @@ class KafkaTopicManager(Screen):
         ]
 
         all_topics.sort()
-        self._refresh_selection_list()
+        self.topics.clear_options()
         self.topics.add_options([compose_selection(topic) for topic in all_topics])
         await asyncio.sleep(1)  # At maximum once per second.
-
-    def _refresh_selection_list(self):
-        """``SelectionList`` creating helper.
-
-        ``SelectionList`` causes an error at the exit of the application
-        """
-        self.topics.remove()
-        self.topics = SelectionList()
-        self.topic_container.mount(self.topics)
 
     @work(exclusive=True)
     async def delete_confirmed(self, selected: list[str]) -> None:
