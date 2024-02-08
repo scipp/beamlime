@@ -3,8 +3,7 @@
 import pytest
 
 from beamlime.constructors import ProviderGroup
-
-from .preset_providers import (
+from tests.providers.preset_providers import (
     GoodTelling,
     Joke,
     give_a_good_telling,

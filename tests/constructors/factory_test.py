@@ -7,8 +7,7 @@ from typing import Any, Optional, Union
 import pytest
 
 from beamlime.constructors import Factory, ProviderGroup, ProviderNotFoundError
-
-from .preset_providers import (
+from tests.providers.preset_providers import (
     Adult,
     GoodTelling,
     Joke,

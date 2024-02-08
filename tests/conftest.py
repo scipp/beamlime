@@ -64,7 +64,7 @@ def local_logger() -> Generator[Literal[True], None, None]:
 
     It will help a test not to interfere other tests.
     """
-    from .logging.contexts import local_logger as _local_logger
+    from tests.logging.contexts import local_logger as _local_logger
 
     with _local_logger():
         yield True

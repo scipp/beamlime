@@ -7,8 +7,7 @@ from typing import Callable, Generator, NamedTuple
 import pytest
 
 from beamlime.constructors import Factory
-
-from .runner import BenchmarkRunner, BenchmarkSession, SingleRunReport
+from tests.benchmarks.runner import BenchmarkRunner, BenchmarkSession, SingleRunReport
 
 NT = NamedTuple("NT", [('name', str), ('friends', list)])
 
@@ -26,13 +25,17 @@ class B:
 
 @pytest.fixture
 def benchmark_session_factory():
-    from .runner import create_benchmark_session_factory
+    from tests.benchmarks.runner import create_benchmark_session_factory
 
     class TestRunner(BenchmarkRunner):
         """Test runner with the result of the function as a time measurement result."""
 
         def __call__(self, func: Callable[..., int], **kwargs) -> SingleRunReport[int]:
-            from .runner import BenchmarkResult, BenchmarkTargetName, TimeMeasurement
+            from tests.benchmarks.runner import (
+                BenchmarkResult,
+                BenchmarkTargetName,
+                TimeMeasurement,
+            )
 
             output = func(**kwargs)
 
@@ -50,7 +53,7 @@ def benchmark_session_factory():
 def benchmark_tmp_path(
     tmp_path: pathlib.Path, benchmark_session_factory: Factory
 ) -> pathlib.Path:
-    from .environments import BenchmarkResultFilePath, BenchmarkRootDir
+    from tests.benchmarks.environments import BenchmarkResultFilePath, BenchmarkRootDir
 
     with benchmark_session_factory.constant_provider(BenchmarkRootDir, tmp_path):
         return benchmark_session_factory[BenchmarkResultFilePath]
@@ -60,7 +63,7 @@ def benchmark_tmp_path(
 def benchmark_session(
     benchmark_session_factory: Factory, benchmark_tmp_path: pathlib.Path
 ) -> Generator[BenchmarkSession, None, None]:
-    from .environments import BenchmarkResultFilePath
+    from tests.benchmarks.environments import BenchmarkResultFilePath
 
     factory = benchmark_session_factory
     with factory.constant_provider(BenchmarkResultFilePath, benchmark_tmp_path):
@@ -71,7 +74,7 @@ def benchmark_session(
 def test_collecting_result_paths(
     benchmark_session: BenchmarkSession, benchmark_tmp_path: pathlib.Path
 ):
-    from .loader import collect_result_paths
+    from tests.benchmarks.loader import collect_result_paths
 
     def sample_func(a: int, b: float) -> float:
         return a + b
@@ -84,7 +87,7 @@ def test_collecting_result_paths(
 def test_dataclass_reconstruction():
     from dataclasses import asdict
 
-    from .loader import reconstruct_nested_dataclass
+    from tests.benchmarks.loader import reconstruct_nested_dataclass
 
     original = B(a=A(b=1.0, c=NT('Amy', ['Jacob', 'Charles'])))
     reconstructed = reconstruct_nested_dataclass(asdict(original), root_type=B)
@@ -95,7 +98,7 @@ def test_dataclass_reconstruction_missing_field_none():
     """Loader fills ``None`` if a field is missing."""
     from dataclasses import asdict
 
-    from .loader import reconstruct_nested_dataclass
+    from tests.benchmarks.loader import reconstruct_nested_dataclass
 
     nested = B(a=A(b=1.0, c=NT("Amy", ["Jacob", "Charles"])))
     nested_dict = asdict(nested)
@@ -107,7 +110,7 @@ def test_dataclass_reconstruction_missing_field_none():
 def test_reconstruct_report(benchmark_session: BenchmarkSession):
     from dataclasses import asdict
 
-    from .loader import read_report, reconstruct_report
+    from tests.benchmarks.loader import read_report, reconstruct_report
 
     def sample_func(a: int, b: float) -> float:
         return a + b

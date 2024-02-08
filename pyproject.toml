@@ -53,6 +53,7 @@ minversion = "7.0"
 addopts = """
 --strict-config
 --strict-markers
+--import-mode=importlib
 -ra
 -v
 """
@@ -60,6 +61,7 @@ testpaths = "tests"
 filterwarnings = [
   "error",
 ]
+pythonpath = "tests/helpers"
 
 [tool.bandit]
 # Excluding tests because bandit doesn't like `assert`.

@@ -22,7 +22,7 @@ def test_local_loggers():
     ``local_logger_factory`` is used by the fixture ``isolated_logger``.
 
     """
-    from .contexts import local_logger
+    from tests.logging.contexts import local_logger
 
     with local_logger():
         from beamlime.logging import get_logger
@@ -36,8 +36,7 @@ def test_local_loggers():
 
 def test_logmixin_protocol(local_logger: bool):
     from beamlime import LoggingProtocol
-
-    from .dummy_app import LogMixinDummy
+    from tests.logging.dummy_app import LogMixinDummy
 
     assert local_logger
     assert isinstance(LogMixinDummy(Logger("_")), LoggingProtocol)
@@ -60,8 +59,7 @@ def test_app_logging_stream(
     local_logger: bool,
 ):
     from beamlime.logging import get_logger
-
-    from .dummy_app import LogMixinDummy
+    from tests.logging.dummy_app import LogMixinDummy
 
     assert local_logger
     bm_logger: Logger = get_logger(verbose=True)
@@ -145,8 +143,7 @@ def test_app_logging_file(
         provide_file_formatter,
     )
     from beamlime.logging.resources import FileHandlerBasePath
-
-    from .dummy_app import LogMixinDummy
+    from tests.logging.dummy_app import LogMixinDummy
 
     assert local_logger
 
