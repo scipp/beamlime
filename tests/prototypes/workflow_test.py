@@ -187,7 +187,10 @@ def test_offline_workflow_benchmark_all_range(
 ):
     from dataclasses import asdict
 
+    import scipp as sc
+
     params = asdict(prototype_recipe_all_range)
+    params.update({'scipp-version': sc.__version__})
     events = dump_random_events(**params)
     pl = build_pipeline(events=events, **params)
 
