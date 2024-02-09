@@ -27,12 +27,13 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version-file: '.github/workflows/python-version-ci'
-      - run: python -m pip install --upgrade pip
-      - run: python -m pip install -r requirements/ci.txt
-      - run: tox -e static
-      - uses: stefanzweifel/git-auto-commit-action@v5
+      - uses: pre-commit/action@v3.0.1
         with:
-          commit_message: Apply automatic formatting
+          extra_args: --all-files
+      - uses: pre-commit-ci/lite-action@v1.0.1
+        if: always()
+        with:
+          msg: Apply automatic formatting
 
   tests:
     name: Tests

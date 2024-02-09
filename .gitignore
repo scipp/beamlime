@@ -37,8 +37,12 @@ docs/generated/
 *.raw
 *.cif
 *.rcif
+<<<<<<< before updating
 
 # Test outputs
 .coverage
 coverate_html
 .benchmarks/
+=======
+*.ort
+>>>>>>> after updating
