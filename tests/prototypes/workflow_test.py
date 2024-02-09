@@ -133,8 +133,11 @@ class OfflineWorkflowRunner(BenchmarkRunner):
 
 
 @pytest.fixture(scope="session")
-def offline_workflow_benchmark() -> Generator[BenchmarkSession, None, None]:
+def offline_workflow_benchmark(
+    benchmark_test: bool,
+) -> Generator[BenchmarkSession, None, None]:
     """Create a benchmark session for the offline workflow."""
+    assert benchmark_test
 
     benchmark_factory = create_benchmark_session_factory()
     with benchmark_factory.temporary_provider(BenchmarkRunner, OfflineWorkflowRunner):
