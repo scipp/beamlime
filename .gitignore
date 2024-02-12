@@ -37,6 +37,7 @@ docs/generated/
 *.raw
 *.cif
 *.rcif
+*.ort
 
 # Test outputs
 .coverage
