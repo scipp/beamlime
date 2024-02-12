@@ -18,8 +18,7 @@ _FormatStyle = Literal["{", "%"]
 
 @dataclass
 class LogColumn:
-    """
-    Single column of each log.
+    """Single column of each log.
 
     Parameters
     ----------
@@ -34,6 +33,7 @@ class LogColumn:
 
     Examples
     --------
+    >>> from beamlime.logging.formatters import LogColumn
     >>> time_column = LogColumn(variable_name='asctime',
     ... min_length=8, title='TIME', style='{')
     >>> time_column.formatter
@@ -89,11 +89,11 @@ class LogColumn:
 
 
 class LogHeader(OrderedDict[str, LogColumn]):
-    """
-    Formatter constructor from a group of ``LogColumn``s.
+    """Formatter constructor from a group of :class:`~LogColumn` s.
 
     Examples
     --------
+    >>> from beamlime.logging.formatters import LogHeader, LogColumn
     >>> time_column = LogColumn(variable_name='asctime',
     ... min_length=8, title='TIME', style='{')
     >>> app_name_column = LogColumn(variable_name='app_name',
