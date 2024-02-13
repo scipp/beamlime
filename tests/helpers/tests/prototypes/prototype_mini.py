@@ -98,7 +98,7 @@ class StopWatch(LogMixin):
         return {app_name: len(app_lapse) for app_name, app_lapse in self.lapse.items()}
 
     def log_benchmark_result(self):
-        self.info("Lap counts: %s", self.lap_counts)
+        self.info("Lap counts: %s", str(self.lap_counts))
         self.info("Benchmark result: %s [s]", self.duration)
 
 
@@ -321,8 +321,11 @@ def asyncio_event_loop() -> Generator[asyncio.AbstractEventLoop, Any, Any]:
 
     yield loop
 
-    loop.close()
-    asyncio.set_event_loop(asyncio.new_event_loop())
+    try:
+        loop.close()
+        asyncio.set_event_loop(asyncio.new_event_loop())
+    except RuntimeError:
+        ...
 
 
 class BasePrototype(BaseApp, ABC):

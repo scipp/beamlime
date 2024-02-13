@@ -644,6 +644,7 @@ class ProviderGroup:
 
         Examples
         --------
+        >>> from beamlime import ProviderGroup
         >>> from typing import Literal
         >>> number_providers = ProviderGroup()
         >>> @number_providers.provider

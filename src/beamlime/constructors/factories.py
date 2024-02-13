@@ -22,13 +22,12 @@ class Factory:
     Notes
     -----
     Currently it does not inject dependencies for magic variables,
-    i.e. *args and **kwargs.
+    i.e. ``*args`` and ``**kwargs``.
+
     """
 
     def __init__(self, *initial_prov_grs: ProviderGroup) -> None:
-        """
-        Initializes a factory with multiple provider groups.
-        """
+        """Initializes a factory with multiple provider groups."""
         from .providers import merge
 
         self.providers: ProviderGroup = merge(*initial_prov_grs)
@@ -97,8 +96,7 @@ class Factory:
         return product
 
     def __getitem__(self, product_type: Type[Product]) -> Product:
-        """
-        Build an object of ``product_type`` using the registered providers.
+        """Build an object of ``product_type`` using the registered providers.
 
         Notes
         -----
