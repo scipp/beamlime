@@ -117,10 +117,7 @@ def provide_pipeline(
     frame_rate: FrameRate,
     histogram_bin_size: HistogramBinSize,
 ) -> WorkflowPipeline:
-    import scipp as sc
-
     from tests.prototypes.workflows import (
-        FirstPulseTime,
         bin_pixel_id,
         calculate_ltotal,
         calculate_wavelength,
@@ -131,8 +128,6 @@ def provide_pipeline(
         provide_wavelength_graph,
         unwrap_frames,
     )
-
-    first_pulse_time = sc.scalar(0, unit='ms')
 
     return WorkflowPipeline(
         sl.Pipeline(
@@ -151,7 +146,6 @@ def provide_pipeline(
                 HistogramBinSize: histogram_bin_size,
                 NumPixels: num_pixels,
                 FrameRate: frame_rate,
-                FirstPulseTime: first_pulse_time,
                 WavelengthGraph: provide_wavelength_graph(),
                 LtotalGraph: provide_Ltotal_graph(),
                 PixelIDEdges: provide_pixel_id_bin_edges(num_pixels),
