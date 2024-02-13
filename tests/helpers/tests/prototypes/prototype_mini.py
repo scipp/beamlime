@@ -7,7 +7,7 @@ import asyncio
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Generator, Generic, List, NewType, Optional, TypeVar
+from typing import Any, Generator, List, NewType, Optional, TypeVar
 
 from beamlime.constructors import Factory, ProviderGroup
 from beamlime.logging import BeamlimeLogger
@@ -26,10 +26,8 @@ from .workflows import (
     Events,
     FirstPulseTime,
     Histogrammed,
-    MergedData,
-    PixelGrouped,
-    ReducedData,
-    Workflow,
+    WorkflowPipeline,
+    provide_pipeline,
 )
 
 TargetCounts = NewType("TargetCounts", int)
@@ -185,130 +183,71 @@ InputType = TypeVar("InputType")
 OutputType = TypeVar("OutputType")
 
 
-class DataReductionApp(BaseApp, Generic[InputType, OutputType]):
-    workflow: Workflow
-    input_pipe: List[InputType]
-    output_pipe: List[OutputType]
+class DataReductionApp(BaseApp):
+    input_pipe: List[Events]
+    plot_container: PlotContainer
 
-    def __init__(self) -> None:
-        self.input_type = self._retrieve_type_arg('input_pipe')
-        self.output_type = self._retrieve_type_arg('output_pipe')
+    def __init__(self, pipeline: WorkflowPipeline) -> None:
+        self.pipeline = pipeline
+
         self.first_pulse_time: FirstPulseTime
+        self.output_da: Histogrammed
         super().__init__()
 
-    @classmethod
-    def _retrieve_type_arg(cls, attr_name: str) -> type:
-        """
-        Retrieve type arguments of an attribute with generic type.
-        It is only for retrieving input/output pipe type.
-
-        >>> class C(DataReductionApp):
-        ...   attr0: list[int]
-        ...
-        >>> C._retrieve_type_arg('attr0')
-        <class 'int'>
-        """
-        from typing import get_args, get_type_hints
-
-        if not (attr_type := get_type_hints(cls).get(attr_name)):
-            raise ValueError(
-                f"Class {cls} does not have an attribute "
-                f"{attr_name} or it is missing type annotation."
-            )
-        elif not (type_args := get_args(attr_type)):
-            raise TypeError(f"Attribute {attr_name} does not have any type arguments.")
-        else:
-            return type_args[0]
-
-    def format_received(self, data: InputType) -> str:
-        return str(data)
-
-    async def process_every_data(self, data: InputType) -> None:
-        self.debug("Received, %s", self.format_received(data))
-        with self.workflow.constant_provider(self.input_type, data):
-            self.output_pipe.append(self.workflow[self.output_type])
-
-        await self.commit_process()
-
-    def process_first_data(self, data: InputType) -> None:
-        ...
-
-    def wrap_up(self, *args, **kwargs) -> Any:
-        self.info("No more data coming in. Finishing ...")
-
-    async def run(self) -> None:
-        data_monitor = self.data_pipe_monitor(self.input_pipe, target_size=1)
-        if not self.target_count_reached and await data_monitor():
-            data = self.input_pipe.pop(0)
-            self.process_first_data(data)
-            await self.process_every_data(data)
-
-        while not self.target_count_reached and await data_monitor():
-            data = self.input_pipe.pop(0)
-            await self.process_every_data(data)
-
-        self.wrap_up()
-
-
-class DataMerge(DataReductionApp[InputType, OutputType]):
-    input_pipe: List[Events]
-    output_pipe: List[MergedData]
-
     def format_received(self, data: Any) -> str:
-        return f"{len(data)} pieces of {self.input_type.__name__}"
+        return f"{len(data)} pieces of {Events.__name__}"
 
-    def process_first_data(self, data: Events) -> None:
+    def process_first_intput(self) -> None:
+        data = self.input_pipe[0]
         sample_event = data[0]
         first_pulse_time = sample_event.coords['event_time_zero'][0]
-        self.workflow.providers[FirstPulseTime] = lambda: first_pulse_time
+        self.pipeline[FirstPulseTime] = first_pulse_time
 
+    async def process_data(self) -> Histogrammed:
+        data = self.input_pipe.pop(0)
+        self.debug("Received, %s", self.format_received(data))
+        self.pipeline[Events] = data
+        return self.pipeline.compute(Histogrammed)
 
-class DataBinning(DataReductionApp[InputType, OutputType]):
-    input_pipe: List[MergedData]
-    output_pipe: List[PixelGrouped]
-
-
-class DataReduction(DataReductionApp[InputType, OutputType]):
-    input_pipe: List[PixelGrouped]
-    output_pipe: List[ReducedData]
-
-
-class DataHistogramming(DataReductionApp[InputType, OutputType]):
-    input_pipe: List[ReducedData]
-    output_pipe: List[Histogrammed]
-
-
-class VisualizationDaemon(DataReductionApp[InputType, OutputType]):
-    input_pipe: List[Histogrammed]
-    output_pipe: Optional[List[None]] = None
-
-    def show(self):
-        if not hasattr(self, "fig"):
-            raise AttributeError("Please wait until the first figure is created.")
-        return self.fig
-
-    def process_first_data(self, data: Histogrammed) -> None:
-        import plopp as pp
-
-        self.first_data = data
-        self.debug("First data as a seed of histogram: %s", self.first_data)
-        self.stream_node = pp.Node(self.first_data)
-        self.fig = pp.figure1d(self.stream_node)
-
-    async def process_every_data(self, data: Histogrammed) -> None:
-        if data is not self.first_data:
-            self.first_data.values += data.values
-            self.stream_node.notify_children("update")
-            self.debug("Updated plot.")
+    async def process_output(self, data: Histogrammed) -> None:
+        self.output_da.values += data.values
+        self.stream_node.notify_children("update")
         await self.commit_process()
 
-    def wrap_up(self, *args, **kwargs) -> Any:
+    async def process_first_output(self, data: Histogrammed) -> None:
+        import plopp as pp
+
+        self.output_da = data
+        self.debug("First data as a seed of histogram: %s", self.output_da)
+        self.stream_node = pp.Node(self.output_da)
+        self.plot_container.histogram = pp.figure1d(self.stream_node)
+        await self.commit_process()
+
+    def wrap_up(self) -> Any:
         from matplotlib import pyplot as plt
 
         self.stop_watch.stop()
         self.stop_watch.log_benchmark_result()
         plt.close()
-        return super().wrap_up(*args, **kwargs)
+        self.info("No more data coming in. Finishing ...")
+
+    async def run(self) -> None:
+        data_monitor = self.data_pipe_monitor(self.input_pipe, target_size=1)
+        if not self.target_count_reached and await data_monitor():
+            self.process_first_intput()
+            output = await self.process_data()
+            await self.process_first_output(output)
+
+        while not self.target_count_reached and await data_monitor():
+            output = await self.process_data()
+            await self.process_output(self.output_da)
+
+        self.wrap_up()
+
+
+@dataclass
+class PlotContainer:
+    histogram: Optional[Histogrammed] = None
 
 
 @contextmanager
@@ -330,20 +269,12 @@ def asyncio_event_loop() -> Generator[asyncio.AbstractEventLoop, Any, Any]:
 
 class BasePrototype(BaseApp, ABC):
     data_stream_listener: DataStreamListener
-    data_merger: DataMerge[Events, MergedData]
-    data_binner: DataBinning[MergedData, PixelGrouped]
-    data_reducer: DataReduction[PixelGrouped, ReducedData]
-    data_histogrammer: DataHistogramming[ReducedData, Histogrammed]
-    visualizer: VisualizationDaemon
+    data_reduction: DataReductionApp
 
     def collect_sub_daemons(self) -> list[BaseApp]:
         return [
             self.data_stream_listener,
-            self.data_merger,
-            self.data_binner,
-            self.data_reducer,
-            self.data_histogrammer,
-            self.visualizer,
+            self.data_reduction,
         ]
 
     def run(self):
@@ -412,14 +343,13 @@ def prototype_app_providers() -> ProviderGroup:
 
     app_providers = ProviderGroup(
         SingletonProvider(StopWatch),
-        SingletonProvider(VisualizationDaemon),
+        SingletonProvider(PlotContainer),
         SingletonProvider(calculate_target_counts),
+        DataReductionApp,
+        provide_pipeline,
     )
-    app_providers[DataMerge[Events, MergedData]] = DataMerge
-    app_providers[DataBinning[MergedData, PixelGrouped]] = DataBinning
-    app_providers[DataReduction[PixelGrouped, ReducedData]] = DataReduction
-    app_providers[DataHistogramming[ReducedData, Histogrammed]] = DataHistogramming
-    for pipe_type in (Events, PixelGrouped, MergedData, ReducedData, Histogrammed):
+
+    for pipe_type in (Events, Histogrammed):
         app_providers[List[pipe_type]] = SingletonProvider(list)
 
     return app_providers
@@ -431,14 +361,12 @@ def prototype_base_providers() -> ProviderGroup:
 
     from .parameters import collect_default_param_providers
     from .random_data_providers import random_data_providers
-    from .workflows import workflow_providers
 
     return merge(
         collect_default_param_providers(),
         random_data_providers,
         prototype_app_providers(),
         log_providers,
-        workflow_providers,
     )
 
 
