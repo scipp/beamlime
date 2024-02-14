@@ -5,8 +5,17 @@ User's guide.
 ---
 caption: Environments
 maxdepth: 2
-hidden:
 ---
 
 ../environments/index
+
+```
+
+```{toctree}
+---
+caption: Live Data Reduction
+maxdepth: 2
+---
+
+live_data_reduction
 ```

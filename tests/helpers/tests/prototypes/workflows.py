@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import List, NewType
 
+import sciline as sl
 import scipp as sc
-
-from beamlime.constructors import Factory, ProviderGroup, SingletonProvider
 
 from .parameters import FrameRate, HistogramBinSize, NumPixels
 
@@ -109,28 +108,47 @@ def histogram_result(
     return reduced_data.hist(wavelength=bin_size)
 
 
-Workflow = NewType("Workflow", Factory)
+WorkflowPipeline = NewType("WorkflowPipeline", sl.Pipeline)
 
 
-def provide_workflow(
-    num_pixels: NumPixels, histogram_binsize: HistogramBinSize, frame_rate: FrameRate
-) -> Workflow:
-    providers = ProviderGroup(
-        SingletonProvider(provide_wavelength_graph),
-        SingletonProvider(provide_Ltotal_graph),
-        SingletonProvider(provide_pixel_id_bin_edges),
-        merge_data_list,
+def provide_pipeline(
+    *,
+    num_pixels: NumPixels,
+    frame_rate: FrameRate,
+    histogram_bin_size: HistogramBinSize,
+) -> WorkflowPipeline:
+    from tests.prototypes.workflows import (
         bin_pixel_id,
         calculate_ltotal,
         calculate_wavelength,
-        unwrap_frames,
         histogram_result,
+        merge_data_list,
+        provide_Ltotal_graph,
+        provide_pixel_id_bin_edges,
+        provide_wavelength_graph,
+        unwrap_frames,
     )
 
-    providers[NumPixels] = lambda: num_pixels
-    providers[HistogramBinSize] = lambda: histogram_binsize
-    providers[FrameRate] = lambda: frame_rate
-    return Workflow(Factory(providers))
-
-
-workflow_providers = ProviderGroup(SingletonProvider(provide_workflow))
+    return WorkflowPipeline(
+        sl.Pipeline(
+            providers=(
+                histogram_result,
+                calculate_wavelength,
+                unwrap_frames,
+                calculate_ltotal,
+                provide_Ltotal_graph,
+                bin_pixel_id,
+                provide_pixel_id_bin_edges,
+                merge_data_list,
+                provide_wavelength_graph,
+            ),
+            params={
+                HistogramBinSize: histogram_bin_size,
+                NumPixels: num_pixels,
+                FrameRate: frame_rate,
+                WavelengthGraph: provide_wavelength_graph(),
+                LtotalGraph: provide_Ltotal_graph(),
+                PixelIDEdges: provide_pixel_id_bin_edges(num_pixels),
+            },
+        )
+    )

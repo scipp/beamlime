@@ -9,3 +9,4 @@ sphinx
 sphinx-autodoc-typehints
 sphinx-copybutton
 sphinx-design
+ipympl

@@ -70,46 +70,20 @@ def build_pipeline(
     frame_rate: FrameRate,
     **_,
 ) -> sl.Pipeline:
-    import sciline as sl
     import scipp as sc
 
-    from tests.prototypes.workflows import (
-        Events,
-        FirstPulseTime,
-        bin_pixel_id,
-        calculate_ltotal,
-        calculate_wavelength,
-        histogram_result,
-        merge_data_list,
-        provide_Ltotal_graph,
-        provide_pixel_id_bin_edges,
-        provide_wavelength_graph,
-        unwrap_frames,
-    )
+    from tests.prototypes.workflows import Events, FirstPulseTime, provide_pipeline
 
-    first_pulse_time = sc.scalar(0, unit='ms')
-
-    return sl.Pipeline(
-        providers=(
-            histogram_result,
-            calculate_wavelength,
-            unwrap_frames,
-            calculate_ltotal,
-            provide_Ltotal_graph,
-            bin_pixel_id,
-            provide_pixel_id_bin_edges,
-            merge_data_list,
-            provide_wavelength_graph,
-        ),
-        params={
-            Events: events,
-            HistogramBinSize: histogram_bin_size,
-            NumPixels: num_pixels,
-            FrameRate: frame_rate,
-            ChunkSize: chunk_size,
-            FirstPulseTime: first_pulse_time,
-        },
+    pl = provide_pipeline(
+        num_pixels=num_pixels,
+        frame_rate=frame_rate,
+        histogram_bin_size=histogram_bin_size,
     )
+    pl[Events] = events
+    pl[ChunkSize] = chunk_size
+    pl[FirstPulseTime] = sc.scalar(0, unit='ms')
+
+    return pl
 
 
 class OfflineWorkflowRunner(BenchmarkRunner):
