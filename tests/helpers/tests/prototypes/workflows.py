@@ -108,6 +108,28 @@ def histogram_result(
     return reduced_data.hist(wavelength=bin_size)
 
 
+ChunkID = NewType("ChunkID", int)
+SeedHistogram = NewType("SeedHistogram", sc.DataArray)
+Visualized = NewType("Visualized", sc.DataArray)
+
+
+def provide_seed_histogram_to_visualize(
+    histograms: sl.Series[ChunkID, Histogrammed]
+) -> SeedHistogram:
+    for histogram in histograms.values():
+        return SeedHistogram(sc.zeros_like(histogram))
+    raise ValueError("No histograms found")
+
+
+def merge_histograms(
+    histograms: sl.Series[ChunkID, Histogrammed],
+    seed: SeedHistogram,
+) -> Visualized:
+    for histogram in histograms.values():
+        seed += sc.rebin(histogram, {'wavelength': seed.coords['wavelength']})
+    return Visualized(seed)
+
+
 WorkflowPipeline = NewType("WorkflowPipeline", sl.Pipeline)
 
 
@@ -141,6 +163,10 @@ def provide_pipeline(
                 provide_pixel_id_bin_edges,
                 merge_data_list,
                 provide_wavelength_graph,
+                # These two following providers are not used
+                # in the asynchronous prototype
+                provide_seed_histogram_to_visualize,
+                merge_histograms,
             ),
             params={
                 HistogramBinSize: histogram_bin_size,

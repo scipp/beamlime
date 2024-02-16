@@ -72,7 +72,15 @@ def build_pipeline(
 ) -> sl.Pipeline:
     import scipp as sc
 
-    from tests.prototypes.workflows import Events, FirstPulseTime, provide_pipeline
+    from tests.prototypes.workflows import (
+        ChunkID,
+        Events,
+        FirstPulseTime,
+        provide_pipeline,
+    )
+
+    num_chunks = len(events) // chunk_size
+    num_chunks += 1 if len(events) % chunk_size else 0
 
     pl = provide_pipeline(
         num_pixels=num_pixels,
@@ -82,6 +90,18 @@ def build_pipeline(
     pl[Events] = events
     pl[ChunkSize] = chunk_size
     pl[FirstPulseTime] = sc.scalar(0, unit='ms')
+    pl.set_param_table(
+        params=sl.ParamTable(
+            ChunkID,
+            columns={
+                Events: [
+                    Events(events[chunk_id::num_chunks])
+                    for chunk_id in range(num_chunks)
+                ]
+            },
+            index=[ChunkID(chunk_id) for chunk_id in range(num_chunks)],
+        )
+    )
 
     return pl
 
@@ -90,10 +110,10 @@ class OfflineWorkflowRunner(BenchmarkRunner):
     def __call__(self, *, workflow: sl.Pipeline, **params) -> SingleRunReport:
         import time
 
-        from tests.prototypes.workflows import Histogrammed
+        from tests.prototypes.workflows import Visualized
 
         start = time.time()
-        result = workflow.compute(Histogrammed)
+        result = workflow.compute(Visualized)
         end = time.time()
 
         return SingleRunReport(
