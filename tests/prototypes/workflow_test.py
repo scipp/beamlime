@@ -140,6 +140,12 @@ def offline_workflow_benchmark(
         benchmark_session.save()
 
 
+@pytest.fixture(params=[28, 140])
+def chunk_size(request: pytest.FixtureRequest) -> ChunkSize:
+    """Chunk size to benchmark."""
+    return ChunkSize(request.param)
+
+
 @pytest.fixture(params=[10_000, 100_000, 1_000_000, 10_000_000, 20_000_000])
 def num_pixels_all_range(request: pytest.FixtureRequest) -> NumPixels:
     """Full range of num_pixels to benchmark."""
@@ -155,13 +161,16 @@ def event_rate_all_range(request: pytest.FixtureRequest) -> NumPixels:
 @pytest.fixture
 def prototype_recipe_all_range(
     full_benchmark_test: bool,
+    chunk_size: ChunkSize,
     num_pixels_all_range: NumPixels,
     event_rate_all_range: EventRate,
 ) -> PrototypeParameters:
     assert full_benchmark_test
 
     return PrototypeParameters(
-        num_pixels=num_pixels_all_range, event_rate=event_rate_all_range
+        chunk_size=chunk_size,
+        num_pixels=num_pixels_all_range,
+        event_rate=event_rate_all_range,
     )
 
 
