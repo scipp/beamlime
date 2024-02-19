@@ -181,7 +181,8 @@ def test_offline_workflow_runner():
     events = dump_random_events(**params)
     pl = build_pipeline(events=events, **params)
     runner = OfflineWorkflowRunner()
-    runner(workflow=pl, **params)
+    result = runner(workflow=pl, **params)
+    assert result.output == {'wavelength': params['histogram_bin_size']}
 
 
 def test_offline_workflow_benchmark_all_range(
