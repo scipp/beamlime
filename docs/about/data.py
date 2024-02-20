@@ -14,7 +14,7 @@ def _make_pooch():
         retry_if_failed=3,
         base_url='https://public.esss.dk/groups/scipp/beamlime/benchmarks/',
         version=_version,
-        registry={'benchmark_results.json': 'md5:42d48ab2236adb809527664be2897bac'},
+        registry={'benchmark_results.json': 'md5:0a35bf3777e297c1e34f82d94591fcac'},
     )
 
 

@@ -72,7 +72,15 @@ def build_pipeline(
 ) -> sl.Pipeline:
     import scipp as sc
 
-    from tests.prototypes.workflows import Events, FirstPulseTime, provide_pipeline
+    from tests.prototypes.workflows import (
+        ChunkID,
+        Events,
+        FirstPulseTime,
+        provide_pipeline,
+    )
+
+    num_chunks = len(events) // chunk_size
+    num_chunks += 1 if len(events) % chunk_size else 0
 
     pl = provide_pipeline(
         num_pixels=num_pixels,
@@ -82,6 +90,18 @@ def build_pipeline(
     pl[Events] = events
     pl[ChunkSize] = chunk_size
     pl[FirstPulseTime] = sc.scalar(0, unit='ms')
+    pl.set_param_table(
+        params=sl.ParamTable(
+            ChunkID,
+            columns={
+                Events: [
+                    Events(events[chunk_id::num_chunks])
+                    for chunk_id in range(num_chunks)
+                ]
+            },
+            index=[ChunkID(chunk_id) for chunk_id in range(num_chunks)],
+        )
+    )
 
     return pl
 
@@ -90,10 +110,10 @@ class OfflineWorkflowRunner(BenchmarkRunner):
     def __call__(self, *, workflow: sl.Pipeline, **params) -> SingleRunReport:
         import time
 
-        from tests.prototypes.workflows import Histogrammed
+        from tests.prototypes.workflows import Visualized
 
         start = time.time()
-        result = workflow.compute(Histogrammed)
+        result = workflow.compute(Visualized)
         end = time.time()
 
         return SingleRunReport(
@@ -120,6 +140,12 @@ def offline_workflow_benchmark(
         benchmark_session.save()
 
 
+@pytest.fixture(params=[28, 140])
+def chunk_size(request: pytest.FixtureRequest) -> ChunkSize:
+    """Chunk size to benchmark."""
+    return ChunkSize(request.param)
+
+
 @pytest.fixture(params=[10_000, 100_000, 1_000_000, 10_000_000, 20_000_000])
 def num_pixels_all_range(request: pytest.FixtureRequest) -> NumPixels:
     """Full range of num_pixels to benchmark."""
@@ -135,13 +161,16 @@ def event_rate_all_range(request: pytest.FixtureRequest) -> NumPixels:
 @pytest.fixture
 def prototype_recipe_all_range(
     full_benchmark_test: bool,
+    chunk_size: ChunkSize,
     num_pixels_all_range: NumPixels,
     event_rate_all_range: EventRate,
 ) -> PrototypeParameters:
     assert full_benchmark_test
 
     return PrototypeParameters(
-        num_pixels=num_pixels_all_range, event_rate=event_rate_all_range
+        chunk_size=chunk_size,
+        num_pixels=num_pixels_all_range,
+        event_rate=event_rate_all_range,
     )
 
 
@@ -152,7 +181,8 @@ def test_offline_workflow_runner():
     events = dump_random_events(**params)
     pl = build_pipeline(events=events, **params)
     runner = OfflineWorkflowRunner()
-    runner(workflow=pl, **params)
+    result = runner(workflow=pl, **params)
+    assert result.output == {'wavelength': params['histogram_bin_size']}
 
 
 def test_offline_workflow_benchmark_all_range(
