@@ -6,7 +6,7 @@
 #    pip-compile-multi
 #
 -r basetest.txt
-certifi==2023.11.17
+certifi==2024.2.2
     # via requests
 charset-normalizer==3.3.2
     # via requests
@@ -18,7 +18,7 @@ ess-streaming-data-types==0.23.1
     # via -r nightly.in
 flatbuffers==23.5.26
     # via ess-streaming-data-types
-fonttools==4.47.0
+fonttools==4.49.0
     # via matplotlib
 h5py==3.10.0
     # via
@@ -32,17 +32,17 @@ kiwisolver==1.4.5
     # via matplotlib
 markdown-it-py==3.0.0
     # via rich
-matplotlib==3.8.2
+matplotlib==3.8.3
     # via plopp
 mdurl==0.1.2
     # via markdown-it-py
 pillow==10.2.0
     # via matplotlib
-platformdirs==4.1.0
+platformdirs==4.2.0
     # via pooch
 plopp @ git+https://github.com/scipp/plopp@main
     # via -r nightly.in
-pooch==1.8.0
+pooch==1.8.1
     # via scippneutron
 pygments==2.17.2
     # via rich
@@ -61,13 +61,13 @@ scipp @ https://github.com/scipp/scipp/releases/download/nightly/scipp-nightly-c
     #   scippnexus
 scippneutron @ git+https://github.com/scipp/scippneutron@main
     # via -r nightly.in
-scippnexus==23.12.0
+scippnexus==23.12.1
     # via scippneutron
-scipy==1.11.4
+scipy==1.12.0
     # via
     #   scippneutron
     #   scippnexus
-urllib3==2.1.0
+urllib3==2.2.1
     # via requests
 zipp==3.17.0
     # via importlib-resources

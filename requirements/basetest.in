@@ -6,3 +6,4 @@ pytest-cov
 pytest-xdist
 psutil
 pandas
+pyarrow
