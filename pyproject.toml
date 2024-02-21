@@ -41,6 +41,9 @@ dependencies = [
 
 dynamic = ["version"]
 
+[project.scripts]
+beamlime = "beamlime.__main__:main"
+
 [project.urls]
 "Bug Tracker" = "https://github.com/scipp/beamlime/issues"
 "Documentation" = "https://scipp.github.io/beamlime"
