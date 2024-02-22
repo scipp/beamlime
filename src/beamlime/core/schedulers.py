@@ -2,8 +2,9 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # async-related tools
 
-from typing import Any, Awaitable, Callable, Type, TypeVar
-
+from typing import Any, Awaitable, Callable, Type, TypeVar, Generator
+from contextlib import contextmanager
+import asyncio
 
 class MaxTrialsReached(Exception):
     ...
@@ -68,3 +69,20 @@ def retry(
         return wrapper
 
     return inner_decorator
+
+
+@contextmanager
+def temporary_event_loop() -> Generator[asyncio.AbstractEventLoop, Any, Any]:
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    yield loop
+
+    try:
+        loop.close()
+        asyncio.set_event_loop(asyncio.new_event_loop())
+    except RuntimeError:
+        ...

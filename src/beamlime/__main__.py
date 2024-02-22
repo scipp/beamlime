@@ -3,14 +3,10 @@
 
 
 def main() -> None:
-    from beamlime.executables.configurations import (
-        build_arg_parser,
-        load_pyproject_toml_config,
-    )
-
-    load_pyproject_toml_config()
+    from beamlime.executables.options import build_arg_parser, merge_options
     parser = build_arg_parser()
     parser.parse_args()
+    options = merge_options(command_args=parser.parse_args())
 
 
 if __name__ == "__main__":
