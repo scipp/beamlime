@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-import scipp as sc
-import plopp as pp
 import argparse
 import asyncio
 import pathlib
@@ -9,11 +7,12 @@ from abc import ABC
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, List, NewType, Optional
-from .base import BaseDaemon, BaseHandler, BeamlimeMessage, MessageRouter
+
+import plopp as pp
+import scipp as sc
 
 from beamlime.constructors import Factory, ProviderGroup
 from beamlime.logging import BeamlimeLogger
-
 
 from ._parameters import ChunkSize, PrototypeParameters
 from ._random_data_providers import RandomEvents
@@ -24,9 +23,10 @@ from ._workflow import (
     WorkflowPipeline,
     provide_pipeline,
 )
-
+from .base import BaseDaemon, BaseHandler, BeamlimeMessage, MessageRouter
 
 DataStreamListener = NewType("DataStreamListener", BaseDaemon)
+
 
 @dataclass
 class RawDataSent(BeamlimeMessage):
@@ -38,7 +38,7 @@ class DataStreamSimulator(BaseDaemon):
     raw_data_pipe: List[Events]
     random_events: RandomEvents
     chunk_size: ChunkSize
-    messanger: MessageRouter
+    messenger: MessageRouter
 
     def slice_chunk(self) -> Events:
         chunk, self.random_events = (
@@ -48,7 +48,7 @@ class DataStreamSimulator(BaseDaemon):
         return chunk
 
     async def commit_process(self) -> None:
-        return await self.messanger.send_message_async(
+        return await self.messenger.send_message_async(
             RawDataSent(
                 sender=DataStreamSimulator,
                 receiver=Any,
@@ -58,7 +58,6 @@ class DataStreamSimulator(BaseDaemon):
         )
 
     async def run(self) -> None:
-        import time
         self.info("Data streaming started...")
 
         num_chunks = len(self.random_events) // self.chunk_size
@@ -67,7 +66,7 @@ class DataStreamSimulator(BaseDaemon):
             chunk = self.slice_chunk()
             self.raw_data_pipe.append(chunk)
             self.debug("Sent %s th chunk, with %s pieces.", i_chunk + 1, len(chunk))
-            await self.messanger.send_message_async(
+            await self.messenger.send_message_async(
                 RawDataSent(
                     sender=DataStreamSimulator,
                     receiver=Any,
@@ -77,6 +76,7 @@ class DataStreamSimulator(BaseDaemon):
             )
 
         self.info("Data streaming finished...")
+
 
 @dataclass
 class HistogramUpdated(BeamlimeMessage):
@@ -88,17 +88,17 @@ class DataReductionHandler(BaseHandler):
     input_pipe: List[Events]
     pipeline: WorkflowPipeline
 
-    def __init__(self, messanger: MessageRouter) -> None:
+    def __init__(self, messenger: MessageRouter) -> None:
         self.output_da: Histogrammed
         self.stream_node: pp.Node
-        super().__init__(messanger)
+        super().__init__(messenger)
 
     def register_handlers(self) -> None:
-        self.messanger.register_awaitable_handler(RawDataSent, self.process_message)
+        self.messenger.register_awaitable_handler(RawDataSent, self.process_message)
 
     def format_received(self, data: Any) -> str:
         return f"{len(data)} pieces of {Events.__name__}"
-    
+
     def process_first_input(self, da: Events) -> None:
         first_pulse_time = da[0].coords['event_time_zero'][0]
         self.pipeline[FirstPulseTime] = first_pulse_time
@@ -125,7 +125,7 @@ class DataReductionHandler(BaseHandler):
 
         self.output_da.values += output.values
         self.stream_node.notify_children("update")
-        await self.messanger.send_message_async(
+        await self.messenger.send_message_async(
             HistogramUpdated(
                 sender=DataReductionHandler,
                 receiver=Any,
@@ -133,32 +133,40 @@ class DataReductionHandler(BaseHandler):
                 last=message.last,
             )
         )
-    
+
     def __del__(self) -> None:
         from matplotlib import pyplot as plt
+
         plt.close()
 
 
 ImagePath = NewType("ImagePath", pathlib.Path)
+
+
 def random_image_path() -> ImagePath:
     import uuid
 
     return ImagePath(pathlib.Path(f"beamlime_plot_{uuid.uuid4().hex}.png"))
+
 
 class PlottingDone(BeamlimeMessage):
     content: ImagePath
 
 
 class PlotHandler(BaseHandler):
-    def __init__(self, logger: BeamlimeLogger, messanger: MessageRouter, image_path: ImagePath) -> None:
+    def __init__(
+        self, logger: BeamlimeLogger, messenger: MessageRouter, image_path: ImagePath
+    ) -> None:
         self.logger = logger
         self.image_path = image_path
-        super().__init__(messanger)
+        super().__init__(messenger)
 
     def register_handlers(self) -> None:
         self.create_dummy_image()
-        self.messanger.register_handler(HistogramUpdated, self.save_histogram)
-        self.info(f"PlotHandler will save updated image into: {self.image_path.absolute()}")
+        self.messenger.register_handler(HistogramUpdated, self.save_histogram)
+        self.info(
+            f"PlotHandler will save updated image into: {self.image_path.absolute()}"
+        )
 
     def create_dummy_image(self) -> None:
         import matplotlib.pyplot as plt
@@ -167,10 +175,10 @@ class PlotHandler(BaseHandler):
         plt.savefig(self.image_path)
 
     def save_histogram(self, message: HistogramUpdated) -> None:
-        self.debug(f"Received histogram saved.")
+        self.debug("Received histogram saved.")
         message.content.save(self.image_path)
         if message.last:
-            self.messanger.send_message(
+            self.messenger.send_message(
                 PlottingDone(sender=PlotHandler, receiver=Any, content=self.image_path)
             )
             self.info(f"Last plot saved into {self.image_path}.")

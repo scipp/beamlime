@@ -2,9 +2,10 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # async-related tools
 
-from typing import Any, Awaitable, Callable, Type, TypeVar, Generator
-from contextlib import contextmanager
 import asyncio
+from contextlib import contextmanager
+from typing import Any, Awaitable, Callable, Generator, Type, TypeVar
+
 
 class MaxTrialsReached(Exception):
     ...

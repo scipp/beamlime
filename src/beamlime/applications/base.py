@@ -1,10 +1,14 @@
-from ..logging.mixins import LogMixin
-from beamlime.logging import BeamlimeLogger
 from abc import ABC, abstractmethod
-from typing import NewType, List, Any, Callable, Awaitable, Generator
-from dataclasses import dataclass
 from contextlib import contextmanager
+from dataclasses import dataclass
+from typing import Any, Awaitable, Callable, Generator, List, NewType
+
+from beamlime.logging import BeamlimeLogger
+
+from ..logging.mixins import LogMixin
+
 TargetCounts = NewType("TargetCounts", int)
+
 
 class BaseDaemon(LogMixin, ABC):
     logger: BeamlimeLogger
@@ -39,6 +43,7 @@ class BaseDaemon(LogMixin, ABC):
     async def run(self):
         ...
 
+
 @dataclass
 class BeamlimeMessage:
     sender: Any
@@ -48,23 +53,31 @@ class BeamlimeMessage:
 
 class MessageRouter(BaseDaemon):
     message_pipe: List[BeamlimeMessage]
+
     def __init__(self, message_pipe: List[BeamlimeMessage]):
         self.handlers: dict[type, List[Callable[[BeamlimeMessage], Any]]] = dict()
-        self.awaitable_handlers: dict[type, List[Callable[[BeamlimeMessage], Awaitable[Any]]]] = dict()
+        self.awaitable_handlers: dict[
+            type, List[Callable[[BeamlimeMessage], Awaitable[Any]]]
+        ] = dict()
         self.message_pipe = message_pipe
-    
+
     @contextmanager
-    def handler_wrapper(self, handler: Callable[..., Any], message: BeamlimeMessage) -> Generator[None, None, None]:
+    def handler_wrapper(
+        self, handler: Callable[..., Any], message: BeamlimeMessage
+    ) -> Generator[None, None, None]:
         import warnings
+
         try:
             self.debug(f"Routing event {type(message)} to handler {handler}...")
             yield
         except Exception as e:
-            warnings.warn(f"Failed to handle event {type(message)}: {e}")
+            warnings.warn(f"Failed to handle event {type(message)}: {e}", stacklevel=2)
         else:
             self.debug(f"Routing event {type(message)} to handler {handler} done.")
 
-    def register_awaitable_handler(self, event_tp, handler: Callable[[BeamlimeMessage], Awaitable[Any]]):
+    def register_awaitable_handler(
+        self, event_tp, handler: Callable[[BeamlimeMessage], Awaitable[Any]]
+    ):
         if event_tp in self.awaitable_handlers:
             self.awaitable_handlers[event_tp].append(handler)
         else:
@@ -79,16 +92,18 @@ class MessageRouter(BaseDaemon):
     async def route(self, message: BeamlimeMessage) -> None:
         import warnings
 
-        if (handlers:=self.handlers.get(type(message), [])):
+        if handlers := self.handlers.get(type(message), []):
             for handler in handlers:
                 with self.handler_wrapper(handler, message):
                     handler(message)
-        if (awaitable_handlers:=self.awaitable_handlers.get(type(message), [])):
+        if awaitable_handlers := self.awaitable_handlers.get(type(message), []):
             for handler in awaitable_handlers:
                 with self.handler_wrapper(handler, message):
                     await handler(message)
         if not (handlers or awaitable_handlers):
-            warnings.warn(f"No handler for event {type(message)}. Ignoring...")
+            warnings.warn(
+                f"No handler for event {type(message)}. Ignoring...", stacklevel=2
+            )
 
     async def run(self) -> None:
         data_monitor = self.data_pipe_monitor(
@@ -111,12 +126,12 @@ class MessageRouter(BaseDaemon):
 
 class BaseHandler(LogMixin, ABC):
     logger: BeamlimeLogger
-    messanger: MessageRouter
+    messenger: MessageRouter
 
-    def __init__(self, messanger: MessageRouter):
-        self.messanger = messanger
+    def __init__(self, messenger: MessageRouter):
+        self.messenger = messenger
         self.register_handlers()
-    
+
     @abstractmethod
     def register_handlers(self):
         ...

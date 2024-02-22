@@ -139,7 +139,6 @@ def provide_pipeline(
     frame_rate: FrameRate,
     histogram_bin_size: HistogramBinSize,
 ) -> WorkflowPipeline:
-
     return WorkflowPipeline(
         sl.Pipeline(
             providers=(
