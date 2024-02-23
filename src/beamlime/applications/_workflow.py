@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-from __future__ import annotations
-
+# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from typing import List, NewType
 
 import sciline as sl
@@ -26,7 +24,7 @@ Events = NewType("Events", List[sc.DataArray])
 MergedData = NewType("MergedData", sc.DataArray)
 PixelIDEdges = NewType("PixelIDEdges", sc.Variable)
 PixelGrouped = NewType("PixelGrouped", sc.DataArray)
-LTotalCalculated = NewType("Transformed", sc.DataArray)
+LTotalCalculated = NewType("LTotalCalculated", sc.DataArray)
 FrameUnwrapped = NewType("FrameUnwrapped", sc.DataArray)
 ReducedData = NewType("ReducedData", sc.DataArray)
 Histogrammed = NewType("Histogrammed", sc.DataArray)
@@ -79,7 +77,7 @@ def calculate_ltotal(
 def unwrap_frames(
     da: LTotalCalculated, frame_rate: FrameRate, first_pulse_time: FirstPulseTime
 ) -> FrameUnwrapped:
-    from scippneutron.tof import unwrap_frames
+    from scippneutron.tof.frames import unwrap_frames
 
     return FrameUnwrapped(
         unwrap_frames(

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from dataclasses import dataclass
 from typing import NewType, TypeVar
 
@@ -11,6 +11,7 @@ EventRate = NewType("EventRate", int)  # [events/s]
 NumPixels = NewType("NumPixels", int)  # [pixels/detector]
 FrameRate = NewType("FrameRate", int)  # [Hz]
 NumFrames = NewType("NumFrames", int)  # [dimensionless]
+DataFeedingSpeed = NewType("DataFeedingSpeed", float)  # [s/counts]
 
 # Workflow
 ChunkSize = NewType("ChunkSize", int)
@@ -57,6 +58,7 @@ class PrototypeParameters(TypedParameterContainerMixin):
     frame_rate: FrameRate = FrameRate(14)
     num_frames: NumFrames = NumFrames(140)
     random_seed: RandomSeed = RandomSeed(123)
+    data_feeding_speed: DataFeedingSpeed = DataFeedingSpeed(0.0)
 
 
 def collect_default_param_providers():

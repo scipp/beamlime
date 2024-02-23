@@ -1,7 +1,19 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+import asyncio
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Generator, List, NewType
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Coroutine,
+    Generator,
+    List,
+    NewType,
+    Optional,
+)
 
 from beamlime.logging import BeamlimeLogger
 
@@ -34,7 +46,7 @@ class BaseDaemon(LogMixin, ABC):
             try:
                 await wait_for_preferred_size()
             except TimeoutError:
-                ...
+                await asyncio.sleep(0)  # Let other handlers use the event loop.
             return len(pipe) >= target_size
 
         return is_pipe_filled
@@ -60,6 +72,20 @@ class MessageRouter(BaseDaemon):
             type, List[Callable[[BeamlimeMessage], Awaitable[Any]]]
         ] = dict()
         self.message_pipe = message_pipe
+        self._break_routing_loop = False
+
+        class StopRouting(BeamlimeMessage):
+            ...
+
+        self.StopRouting = StopRouting
+        self.register_handler(self.StopRouting, self.break_routing_loop)
+
+    def break_routing_loop(self, message: Optional[BeamlimeMessage] = None) -> None:
+        if not isinstance(message, self.StopRouting):
+            raise TypeError(
+                f"Expected message of type {self.StopRouting}, got {type(message)}."
+            )
+        self._break_routing_loop = True
 
     @contextmanager
     def handler_wrapper(
@@ -76,7 +102,7 @@ class MessageRouter(BaseDaemon):
             self.debug(f"Routing event {type(message)} to handler {handler} done.")
 
     def register_awaitable_handler(
-        self, event_tp, handler: Callable[[BeamlimeMessage], Awaitable[Any]]
+        self, event_tp, handler: Callable[[BeamlimeMessage], Coroutine[Any, Any, Any]]
     ):
         if event_tp in self.awaitable_handlers:
             self.awaitable_handlers[event_tp].append(handler)
@@ -94,6 +120,7 @@ class MessageRouter(BaseDaemon):
 
         if handlers := self.handlers.get(type(message), []):
             for handler in handlers:
+                await asyncio.sleep(0)
                 with self.handler_wrapper(handler, message):
                     handler(message)
         if awaitable_handlers := self.awaitable_handlers.get(type(message), []):
@@ -108,20 +135,23 @@ class MessageRouter(BaseDaemon):
     async def run(self) -> None:
         data_monitor = self.data_pipe_monitor(
             self.message_pipe,
-            target_size=1,
-            timeout=5,
-            interval=1 / 14,
+            timeout=0.1,
+            interval=0.1,
         )
 
-        while await data_monitor():
-            message = self.message_pipe.pop(0)
-            await self.route(message)
+        while not self._break_routing_loop:
+            if await data_monitor():
+                message = self.message_pipe.pop(0)
+                await self.route(message)
 
-    def send_message(self, message: BeamlimeMessage) -> None:
-        self.message_pipe.append(message)
+        self.debug("Breaking routing loop. Routing the rest of the message...")
+        for message in self.message_pipe:
+            await self.route(message)
+        self.debug("Routing the rest of the message done.")
 
     async def send_message_async(self, message: BeamlimeMessage) -> None:
         self.message_pipe.append(message)
+        await asyncio.sleep(0)
 
 
 class BaseHandler(LogMixin, ABC):
