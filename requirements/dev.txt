@@ -42,9 +42,9 @@ funcy==2.0
     # via copier
 h11==0.14.0
     # via httpcore
-httpcore==1.0.3
+httpcore==1.0.4
     # via httpx
-httpx==0.26.0
+httpx==0.27.0
     # via jupyterlab
 isoduration==20.11.0
     # via jsonschema

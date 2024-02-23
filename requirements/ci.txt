@@ -52,5 +52,5 @@ tox==4.13.0
     # via -r ci.in
 urllib3==2.2.1
     # via requests
-virtualenv==20.25.0
+virtualenv==20.25.1
     # via tox

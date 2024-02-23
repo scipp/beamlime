@@ -49,16 +49,11 @@ fastjsonschema==2.19.1
     # via nbformat
 imagesize==1.4.1
     # via sphinx
-importlib-metadata==7.0.1
-    # via
-    #   jupyter-client
-    #   nbconvert
-    #   sphinx
 ipykernel==6.29.2
     # via -r docs.in
 ipympl==0.9.3
     # via -r docs.in
-ipython==8.18.1
+ipython==8.22.1
     # via
     #   -r docs.in
     #   ipykernel
@@ -204,9 +199,7 @@ traitlets==5.14.1
     #   nbformat
     #   nbsphinx
 typing-extensions==4.9.0
-    # via
-    #   ipython
-    #   pydata-sphinx-theme
+    # via pydata-sphinx-theme
 wcwidth==0.2.13
     # via prompt-toolkit
 webencodings==0.5.1
