@@ -5,16 +5,7 @@ from typing import Generator
 import pytest
 import sciline as sl
 
-from tests.benchmarks.runner import (
-    BenchmarkResult,
-    BenchmarkRunner,
-    BenchmarkSession,
-    BenchmarkTargetName,
-    SingleRunReport,
-    TimeMeasurement,
-    create_benchmark_session_factory,
-)
-from tests.prototypes.parameters import (
+from beamlime.applications._parameters import (
     ChunkSize,
     EventRate,
     FrameRate,
@@ -24,7 +15,16 @@ from tests.prototypes.parameters import (
     PrototypeParameters,
     RandomSeed,
 )
-from tests.prototypes.random_data_providers import RandomEvents
+from beamlime.applications._random_data_providers import RandomEvents
+from tests.benchmarks.runner import (
+    BenchmarkResult,
+    BenchmarkRunner,
+    BenchmarkSession,
+    BenchmarkTargetName,
+    SingleRunReport,
+    TimeMeasurement,
+    create_benchmark_session_factory,
+)
 
 
 def dump_random_events(
@@ -36,7 +36,7 @@ def dump_random_events(
     random_seed: RandomSeed,
     **_,
 ) -> RandomEvents:
-    from tests.prototypes.random_data_providers import (
+    from beamlime.applications._random_data_providers import (
         calculate_event_per_frame,
         provide_dummy_counts,
         provide_random_event_generator,
@@ -72,7 +72,7 @@ def build_pipeline(
 ) -> sl.Pipeline:
     import scipp as sc
 
-    from tests.prototypes.workflows import (
+    from beamlime.applications._workflow import (
         ChunkID,
         Events,
         FirstPulseTime,
@@ -110,7 +110,7 @@ class OfflineWorkflowRunner(BenchmarkRunner):
     def __call__(self, *, workflow: sl.Pipeline, **params) -> SingleRunReport:
         import time
 
-        from tests.prototypes.workflows import Visualized
+        from beamlime.applications._workflow import Visualized
 
         start = time.time()
         result = workflow.compute(Visualized)
