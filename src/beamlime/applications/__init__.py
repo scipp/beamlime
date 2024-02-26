@@ -3,7 +3,7 @@
 """ Beamlime application module.
 
 In beamlime context, an application is a daemon instance
-that performs asyncrhonous tasks.
+that performs asynchronous tasks.
 Therefore this module contains beamlime-application protocols, mixins and
 pre-defined application classes.
 """
