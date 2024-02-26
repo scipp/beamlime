@@ -4,22 +4,11 @@ import asyncio
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Coroutine,
-    Generator,
-    List,
-    NewType,
-    Optional,
-)
+from typing import Any, Awaitable, Callable, Coroutine, Generator, List, Optional
 
 from beamlime.logging import BeamlimeLogger
 
 from ..logging.mixins import LogMixin
-
-TargetCounts = NewType("TargetCounts", int)
 
 
 class BaseDaemon(LogMixin, ABC):
@@ -65,12 +54,16 @@ class BaseDaemon(LogMixin, ABC):
 
 @dataclass
 class BeamlimeMessage:
+    """A message object that can be sent through a message router."""
+
     sender: Any
     receiver: Any
     content: Any
 
 
 class MessageRouter(BaseDaemon):
+    """A message router that routes messages to handlers."""
+
     message_pipe: List[BeamlimeMessage]
 
     def __init__(self, message_pipe: List[BeamlimeMessage]):
