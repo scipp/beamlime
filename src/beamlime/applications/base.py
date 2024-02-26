@@ -23,6 +23,13 @@ TargetCounts = NewType("TargetCounts", int)
 
 
 class BaseDaemon(LogMixin, ABC):
+    """Base class for daemons.
+
+    Daemons are long-running processes that handle events/messages.
+    It is expected that the ``run`` method is called in an event loop.
+    Daemons handle events/messages within the ``run`` method.
+    """
+
     logger: BeamlimeLogger
 
     def data_pipe_monitor(
@@ -155,6 +162,15 @@ class MessageRouter(BaseDaemon):
 
 
 class BaseHandler(LogMixin, ABC):
+    """Base class for message handlers.
+
+    Message handlers are expected to register methods to a message router,
+    so that the message router can trigger the methods
+    with the certain type of message.
+
+    Registered methods should accept a message as the only positional argument.
+    """
+
     logger: BeamlimeLogger
     messenger: MessageRouter
 

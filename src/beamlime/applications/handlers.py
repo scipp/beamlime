@@ -29,6 +29,8 @@ class RawDataSent(BeamlimeMessage):
 
 
 class StopWatch(BaseHandler):
+    """Stop watch to measure the duration of the data reduction process."""
+
     class Start(BeamlimeMessage):
         ...
 
@@ -62,6 +64,12 @@ class StopWatch(BaseHandler):
 
 
 class DataReductionHandler(BaseHandler):
+    """Data reduction handler to process the raw data and update the histogram.
+
+    It receives a list of events, and reduces them into a histogram.
+    It also triggers the update of a plot stream node.
+    """
+
     input_pipe: List[Events]
     pipeline: WorkflowPipeline
 
@@ -84,7 +92,11 @@ class DataReductionHandler(BaseHandler):
         self.output_da = Histogrammed(sc.zeros_like(data))
         self.info("First data as a seed of histogram: %s", self.output_da)
         self.stream_node = pp.Node(self.output_da)
-        self.figure = pp.figure1d(self.stream_node)
+        self.figure = pp.figure1d(
+            self.stream_node,
+            title="Wavelength Histogram",
+            grid=True,
+        )
 
     def process_data(self, data: Events) -> Histogrammed:
         self.info("Received, %s", self.format_received(data))
@@ -113,11 +125,6 @@ class DataReductionHandler(BaseHandler):
             )
         )
 
-    def __del__(self) -> None:
-        from matplotlib import pyplot as plt
-
-        plt.close()
-
 
 ImagePath = NewType("ImagePath", pathlib.Path)
 
@@ -128,7 +135,9 @@ def random_image_path() -> ImagePath:
     return ImagePath(pathlib.Path(f"beamlime_plot_{uuid.uuid4().hex}.png"))
 
 
-class PlotHandler(BaseHandler):
+class PlotSaver(BaseHandler):
+    """Plot handler to save the updated histogram into an image file."""
+
     def __init__(
         self, logger: BeamlimeLogger, messenger: MessageRouter, image_path: ImagePath
     ) -> None:
@@ -160,5 +169,5 @@ class PlotHandler(BaseHandler):
         if not isinstance(message, HistogramUpdated):
             raise TypeError(f"Message type should be {HistogramUpdated.__name__}.")
 
-        self.info("Received histogram saved to %s.", self.image_path)
+        self.info("Received histogram, saving into %s...", self.image_path)
         message.content.save(self.image_path)

@@ -3,13 +3,12 @@
 from abc import ABC
 from typing import Any, List, NewType
 
+from ..constructors import ProviderGroup, SingletonProvider
 from ._parameters import ChunkSize, DataFeedingSpeed
 from ._random_data_providers import RandomEvents
 from ._workflow import Events
-from .base import BaseDaemon, MessageRouter
-from .handlers import DataReductionHandler, PlotHandler, RawDataSent, StopWatch
-
-DataStreamListener = NewType("DataStreamListener", BaseDaemon)
+from .base import BaseDaemon, BaseHandler, MessageRouter
+from .handlers import DataReductionHandler, PlotSaver, RawDataSent, StopWatch
 
 
 class DataReductionMessageRouter(MessageRouter):
@@ -25,6 +24,8 @@ class DataReductionMessageRouter(MessageRouter):
 
 
 class DataStreamSimulator(BaseDaemon):
+    """Data that simulates the data streaming from the random generator."""
+
     raw_data_pipe: List[Events]
     random_events: RandomEvents
     chunk_size: ChunkSize
@@ -75,11 +76,20 @@ class DataStreamSimulator(BaseDaemon):
         self.info("Data streaming finished...")
 
 
+DataStreamListener = NewType("DataStreamListener", BaseDaemon)
+PlotHandler = NewType("PlotHandler", BaseHandler)
+WorkflowHandler = NewType("WorkflowHandler", BaseHandler)
+
+
 class DataReductionDaemon(BaseDaemon, ABC):
+    """Data reduction daemon that handles all part of the data reduction process."""
+
+    # Daemons
     data_stream_listener: DataStreamListener
     message_router: MessageRouter
-    data_reduction: DataReductionHandler
-    plot_saver: PlotHandler
+    # Handlers
+    data_reduction_handler: WorkflowHandler
+    plot_handler: PlotHandler
     stop_watch: StopWatch
 
     def collect_sub_daemons(self) -> list[BaseDaemon]:
@@ -148,3 +158,42 @@ class DataReductionDaemon(BaseDaemon, ABC):
             self.tasks = [loop.create_task(coro) for coro in daemon_coroutines]
             if not loop.is_running():
                 loop.run_until_complete(asyncio.gather(*self.tasks))
+
+
+class Prototype(DataReductionDaemon):
+    """Prototype of the data reduction daemon."""
+
+    data_stream_listener: DataStreamSimulator
+    plot_handler: PlotSaver
+    data_reduction_handler: DataReductionHandler
+
+    @staticmethod
+    def collect_default_providers() -> ProviderGroup:
+        """Helper method to collect all default providers for this prototype."""
+        from beamlime.applications._parameters import collect_default_param_providers
+        from beamlime.applications._random_data_providers import random_data_providers
+        from beamlime.applications._workflow import Histogrammed, provide_pipeline
+        from beamlime.applications.base import BeamlimeMessage
+        from beamlime.applications.handlers import random_image_path
+        from beamlime.constructors.providers import merge
+        from beamlime.logging.providers import log_providers
+
+        app_providers = ProviderGroup(
+            Prototype,
+            DataStreamSimulator,
+            DataReductionHandler,
+            PlotSaver,
+            StopWatch,
+            provide_pipeline,
+            random_image_path,
+        )
+        app_providers[MessageRouter] = SingletonProvider(DataReductionMessageRouter)
+        for pipe_type in (Events, Histogrammed, BeamlimeMessage):
+            app_providers[List[pipe_type]] = SingletonProvider(list)
+
+        return merge(
+            collect_default_param_providers(),
+            random_data_providers,
+            app_providers,
+            log_providers,
+        )
