@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-from abc import ABC
+from abc import ABC, abstractproperty
 from typing import Any, List, NewType
 
 from ..constructors import ProviderGroup, SingletonProvider
@@ -81,22 +81,21 @@ PlotHandler = NewType("PlotHandler", BaseHandler)
 WorkflowHandler = NewType("WorkflowHandler", BaseHandler)
 
 
-class DataReductionDaemon(BaseDaemon, ABC):
-    """Data reduction daemon that handles all part of the data reduction process."""
+class Application(BaseDaemon, ABC):
+    @abstractproperty
+    def message_router(self) -> MessageRouter:
+        """Message router that is used in the application."""
+        ...
 
-    # Daemons
-    data_stream_listener: DataStreamListener
-    message_router: MessageRouter
-    # Handlers
-    data_reduction_handler: WorkflowHandler
-    plot_handler: PlotHandler
-    stop_watch: StopWatch
+    @abstractproperty
+    def daemons(self) -> tuple[BaseDaemon, ...]:
+        """Collection of daemons that are running in the application."""
+        ...
 
-    def collect_sub_daemons(self) -> list[BaseDaemon]:
-        return [
-            self.data_stream_listener,
-            self.message_router,
-        ]
+    @abstractproperty
+    def handlers(self) -> tuple[BaseHandler, ...]:
+        """Collection of handlers that are registered in the application."""
+        ...
 
     def run(self):
         """
@@ -151,16 +150,47 @@ class DataReductionDaemon(BaseDaemon, ABC):
 
         from beamlime.core.schedulers import temporary_event_loop
 
-        self.info('Start running %s...', DataReductionDaemon.__qualname__)
+        self.info('Start running %s...', DataReductionApp.__qualname__)
         with temporary_event_loop() as loop:
             self.loop = loop
-            daemon_coroutines = [daemon.run() for daemon in self.collect_sub_daemons()]
+            daemon_coroutines = [daemon.run() for daemon in self.daemons]
             self.tasks = [loop.create_task(coro) for coro in daemon_coroutines]
             if not loop.is_running():
                 loop.run_until_complete(asyncio.gather(*self.tasks))
 
 
-class Prototype(DataReductionDaemon):
+class DataReductionApp(Application):
+    """Data reduction daemon that handles all part of the data reduction process."""
+
+    # Daemons
+    data_stream_listener: DataStreamListener
+    _message_router: MessageRouter
+    # Handlers
+    data_reduction_handler: WorkflowHandler
+    plot_handler: PlotHandler
+    stop_watch: StopWatch
+
+    @property
+    def message_router(self) -> MessageRouter:
+        return self._message_router
+
+    @property
+    def daemons(self) -> tuple[BaseDaemon, ...]:
+        return (
+            self.data_stream_listener,
+            self.message_router,
+        )
+
+    @property
+    def handlers(self) -> tuple[BaseHandler, ...]:
+        return (
+            self.data_reduction_handler,
+            self.plot_handler,
+            self.stop_watch,
+        )
+
+
+class Prototype(DataReductionApp):
     """Prototype of the data reduction daemon."""
 
     data_stream_listener: DataStreamSimulator
