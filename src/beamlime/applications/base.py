@@ -9,7 +9,7 @@ from ..logging import BeamlimeLogger
 from ..logging.mixins import LogMixin
 
 
-class BaseDaemon(LogMixin, ABC):
+class DaemonInterface(LogMixin, ABC):
     """Base class for daemons.
 
     Daemons have ``run`` async method that is expected to have a long life cycle.
@@ -59,10 +59,10 @@ class BeamlimeMessage:
     receiver: type = Any
 
 
-class BaseHandler(LogMixin, ABC):
+class HandlerInterface(LogMixin, ABC):
     """Base class for message handlers.
 
-    Message handlers hold methods that can be called
+    Message handlers hold methods or callable property that can be called
     with one argument: :class:`~BeamlimeMessage` by other daemons.
 
     """
@@ -96,7 +96,7 @@ class ApplicationInterface(LogMixin, ABC):
         ...
 
     @abstractproperty
-    def daemons(self) -> tuple[BaseDaemon, ...]:
+    def daemons(self) -> tuple[DaemonInterface, ...]:
         """Collection of daemons that are running in the application."""
         ...
 
