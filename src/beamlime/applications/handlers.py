@@ -111,9 +111,7 @@ class PlotSaver(BaseHandler):
         plt.savefig(self.image_path)
         self.info(f"PlotHandler will save updated image into: {self.image_path}")
 
-    async def save_histogram(
-        self, message: HistogramUpdated | BeamlimeMessage
-    ) -> BeamlimeMessage:
+    async def save_histogram(self, message: HistogramUpdated | BeamlimeMessage) -> None:
         if not isinstance(message, HistogramUpdated):
             raise TypeError(f"Message type should be {HistogramUpdated.__name__}.")
 

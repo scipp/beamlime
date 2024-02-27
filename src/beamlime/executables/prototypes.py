@@ -5,7 +5,7 @@ import pathlib
 from typing import Optional
 
 from beamlime import Factory
-from beamlime.applications.daemons import DataReductionApp
+from beamlime.applications.apps import DataReductionApp
 from beamlime.logging import BeamlimeLogger
 
 
