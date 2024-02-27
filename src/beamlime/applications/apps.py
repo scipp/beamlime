@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from ..constructors import ProviderGroup, SingletonProvider
-from .base import ApplicationInterface, BaseDaemon
+from .base import ApplicationInterface, DaemonInterface
 from .daemons import DataStreamSimulator, MessageRouter
 from .handlers import DataReductionHandler, HistogramUpdated, PlotSaver, RawDataSent
 
@@ -31,7 +31,7 @@ class DataReductionApp(ApplicationInterface):
         )
 
     @property
-    def daemons(self) -> tuple[BaseDaemon, ...]:
+    def daemons(self) -> tuple[DaemonInterface, ...]:
         return (
             self.data_stream_listener,
             self.message_router,

@@ -7,11 +7,11 @@ from typing import Any, Awaitable, Callable, Coroutine, Generator, List, Optiona
 from ._parameters import ChunkSize, DataFeedingSpeed
 from ._random_data_providers import RandomEvents
 from ._workflow import Events
-from .base import BaseDaemon, BeamlimeMessage
+from .base import BeamlimeMessage, DaemonInterface
 from .handlers import RawDataSent
 
 
-class MessageRouter(BaseDaemon):
+class MessageRouter(DaemonInterface):
     """A message router that routes messages to handlers."""
 
     message_pipe: List[BeamlimeMessage]
@@ -128,7 +128,7 @@ class MessageRouter(BaseDaemon):
         await asyncio.sleep(0)
 
 
-class DataStreamSimulator(BaseDaemon):
+class DataStreamSimulator(DaemonInterface):
     """Data that simulates the data streaming from the random generator."""
 
     random_events: RandomEvents

@@ -10,7 +10,7 @@ import scipp as sc
 from beamlime.logging import BeamlimeLogger
 
 from ._workflow import Events, FirstPulseTime, Histogrammed, WorkflowPipeline
-from .base import BaseHandler, BeamlimeMessage
+from .base import BeamlimeMessage, HandlerInterface
 
 
 @dataclass
@@ -28,7 +28,7 @@ class RawDataSent(BeamlimeMessage):
     content: Events
 
 
-class DataReductionHandler(BaseHandler):
+class DataReductionHandler(HandlerInterface):
     """Data reduction handler to process the raw data and update the histogram.
 
     It receives a list of events, and reduces them into a histogram.
@@ -95,7 +95,7 @@ def random_image_path() -> ImagePath:
     return ImagePath(pathlib.Path(f"beamlime_plot_{uuid.uuid4().hex}.png"))
 
 
-class PlotSaver(BaseHandler):
+class PlotSaver(HandlerInterface):
     """Plot handler to save the updated histogram into an image file."""
 
     def __init__(self, logger: BeamlimeLogger, image_path: ImagePath) -> None:
