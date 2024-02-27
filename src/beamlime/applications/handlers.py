@@ -14,11 +14,6 @@ from .base import BeamlimeMessage, HandlerInterface
 
 
 @dataclass
-class FirstMessageSent(BeamlimeMessage):
-    ...
-
-
-@dataclass
 class HistogramUpdated(BeamlimeMessage):
     content: pp.graphics.basefig.BaseFig
 
