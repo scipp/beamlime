@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import pathlib
 from dataclasses import dataclass
-from typing import Any, List, NewType
+from typing import Any, NewType
 
 import plopp as pp
 import scipp as sc
@@ -10,7 +10,7 @@ import scipp as sc
 from beamlime.logging import BeamlimeLogger
 
 from ._workflow import Events, FirstPulseTime, Histogrammed, WorkflowPipeline
-from .base import BaseHandler, BeamlimeMessage, MessageRouter
+from .base import BaseHandler, BeamlimeMessage
 
 
 @dataclass
@@ -25,42 +25,7 @@ class HistogramUpdated(BeamlimeMessage):
 
 @dataclass
 class RawDataSent(BeamlimeMessage):
-    content: List[Events]
-
-
-class StopWatch(BaseHandler):
-    """Stop watch to measure the duration of the data reduction process."""
-
-    class Start(BeamlimeMessage):
-        ...
-
-    class Stop(BeamlimeMessage):
-        ...
-
-    def __init__(self, messenger: MessageRouter) -> None:
-        super().__init__(messenger)
-        self._start: float
-        self._stop: float
-
-    @property
-    def duration(self) -> float:
-        return self._stop - self._start
-
-    def register_handlers(self) -> None:
-        self.messenger.register_handler(StopWatch.Stop, self.stop)
-        self.messenger.register_handler(StopWatch.Start, self.start)
-
-    def start(self, _: BeamlimeMessage) -> None:
-        import time
-
-        self._start = time.time()
-        self.debug("StopWatch logging started.")
-
-    def stop(self, _: BeamlimeMessage) -> None:
-        import time
-
-        self._stop = time.time()
-        self.debug("StopWatch logging finished. Total duration: %s", self.duration)
+    content: Events
 
 
 class DataReductionHandler(BaseHandler):
@@ -70,16 +35,12 @@ class DataReductionHandler(BaseHandler):
     It also triggers the update of a plot stream node.
     """
 
-    input_pipe: List[Events]
     pipeline: WorkflowPipeline
 
-    def __init__(self, messenger: MessageRouter) -> None:
+    def __init__(self) -> None:
         self.output_da: Histogrammed
         self.stream_node: pp.Node
-        super().__init__(messenger)
-
-    def register_handlers(self) -> None:
-        self.messenger.register_awaitable_handler(RawDataSent, self.process_message)
+        super().__init__()
 
     def format_received(self, data: Any) -> str:
         return f"{len(data)} pieces of {Events.__name__}"
@@ -98,31 +59,30 @@ class DataReductionHandler(BaseHandler):
             grid=True,
         )
 
-    def process_data(self, data: Events) -> Histogrammed:
+    async def process_data(self, data: Events) -> Histogrammed:
         self.info("Received, %s", self.format_received(data))
         self.pipeline[Events] = data
         return self.pipeline.compute(Histogrammed)
 
-    async def process_message(self, message: RawDataSent | BeamlimeMessage) -> None:
+    async def process_message(
+        self, message: RawDataSent | BeamlimeMessage
+    ) -> BeamlimeMessage:
         if not isinstance(message, RawDataSent):
             raise TypeError(f"Message type should be {RawDataSent.__name__}.")
 
-        data = message.content.pop(0)
         if not hasattr(self, "output_da"):
-            self.process_first_input(data)
-            output = self.process_data(data)
+            self.process_first_input(message.content)
+            output = await self.process_data(message.content)
             self.process_first_output(output)
         else:
-            output = self.process_data(data)
+            output = await self.process_data(message.content)
 
         self.output_da.values += output.values
         self.stream_node.notify_children("update")
-        await self.messenger.send_message_async(
-            HistogramUpdated(
-                sender=DataReductionHandler,
-                receiver=Any,
-                content=self.figure,
-            )
+        return HistogramUpdated(
+            sender=DataReductionHandler,
+            receiver=Any,
+            content=self.figure,
         )
 
 
@@ -138,34 +98,22 @@ def random_image_path() -> ImagePath:
 class PlotSaver(BaseHandler):
     """Plot handler to save the updated histogram into an image file."""
 
-    def __init__(
-        self, logger: BeamlimeLogger, messenger: MessageRouter, image_path: ImagePath
-    ) -> None:
+    def __init__(self, logger: BeamlimeLogger, image_path: ImagePath) -> None:
         self.logger = logger
         self.image_path = image_path.absolute()
-        super().__init__(messenger)
-
-    def register_handlers(self) -> None:
         self.create_dummy_image()
-        self.messenger.register_awaitable_handler(HistogramUpdated, self.save_histogram)
-        self.info(f"PlotHandler will save updated image into: {self.image_path}")
-        self.messenger.register_awaitable_handler(
-            self.messenger.StopRouting, self.inform_last_plot
-        )
+        super().__init__()
 
     def create_dummy_image(self) -> None:
         import matplotlib.pyplot as plt
 
         plt.plot([])
         plt.savefig(self.image_path)
+        self.info(f"PlotHandler will save updated image into: {self.image_path}")
 
-    async def inform_last_plot(self, message: BeamlimeMessage) -> None:
-        if not isinstance(message, BeamlimeMessage):
-            raise TypeError(f"Message type should be {self.messenger.StopRouting}.")
-
-        self.info(f"Last plot saved into {self.image_path}.")
-
-    async def save_histogram(self, message: HistogramUpdated | BeamlimeMessage) -> None:
+    async def save_histogram(
+        self, message: HistogramUpdated | BeamlimeMessage
+    ) -> BeamlimeMessage:
         if not isinstance(message, HistogramUpdated):
             raise TypeError(f"Message type should be {HistogramUpdated.__name__}.")
 

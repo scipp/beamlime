@@ -2,33 +2,15 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import argparse
 import pathlib
-from contextlib import contextmanager
-from typing import Any, Optional
+from typing import Optional
 
 from beamlime import Factory
-from beamlime.applications.daemons import Prototype
+from beamlime.applications.daemons import DataReductionApp
 from beamlime.logging import BeamlimeLogger
 
 
 def mini_prototype_factory() -> Factory:
-    return Factory(Prototype.collect_default_providers())
-
-
-@contextmanager
-def temporary_factory(
-    prototype_factory: Factory,
-    parameters: Optional[dict[type, Any]] = None,
-    providers: Optional[dict[type, Any]] = None,
-):
-    from beamlime.constructors import (
-        multiple_constant_providers,
-        multiple_temporary_providers,
-    )
-
-    tmp_factory = Factory(prototype_factory.providers)
-    with multiple_constant_providers(tmp_factory, parameters):
-        with multiple_temporary_providers(tmp_factory, providers):
-            yield tmp_factory
+    return Factory(DataReductionApp.collect_default_providers())
 
 
 def event_generator_arg_parser(
@@ -99,6 +81,7 @@ def run_standalone_prototype(
 ):
     from beamlime.applications._parameters import PrototypeParameters
     from beamlime.applications.handlers import ImagePath
+    from beamlime.constructors import multiple_constant_providers
 
     type_name_map = PrototypeParameters().type_name_map
     parameters = {
@@ -108,12 +91,10 @@ def run_standalone_prototype(
     if arg_name_space.image_path:
         parameters[ImagePath] = ImagePath(pathlib.Path(arg_name_space.image_path))
 
-    with temporary_factory(
-        prototype_factory=prototype_factory,
-        parameters=parameters,
-    ) as factory:
+    factory = Factory(prototype_factory.providers)
+    with multiple_constant_providers(factory, parameters):
         factory[BeamlimeLogger].setLevel(arg_name_space.log_level.upper())
-        factory[Prototype].run()
+        factory[DataReductionApp].run()
 
 
 if __name__ == "__main__":
