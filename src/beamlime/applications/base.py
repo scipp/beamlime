@@ -3,10 +3,25 @@
 import asyncio
 from abc import ABC, abstractmethod, abstractproperty
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any, Callable, List, Optional
 
 from ..logging import BeamlimeLogger
 from ..logging.mixins import LogMixin
+
+
+def _get_size_monitor_function(
+    pipe: Any, size_monitor_func: Optional[Callable[..., int]] = None
+) -> Callable[..., int]:
+    if size_monitor_func is None and (isinstance(pipe, (list, tuple, set, dict))):
+        from functools import partial
+
+        return partial(len, pipe)
+    elif size_monitor_func is not None:
+        return size_monitor_func
+    else:
+        raise ValueError(
+            "``size_monitor_func`` must be provided for non-iterable data pipes."
+        )
 
 
 class DaemonInterface(LogMixin, ABC):
@@ -21,19 +36,22 @@ class DaemonInterface(LogMixin, ABC):
 
     def data_pipe_monitor(
         self,
-        pipe: List[Any],
+        pipe: Any,
         timeout: float = 5,
         interval: float = 1 / 14,
         preferred_size: int = 1,
         target_size: int = 1,
+        size_monitor_func: Optional[Callable[..., int]] = None,
     ):
         from beamlime.core.schedulers import async_retry
+
+        size_monitor = _get_size_monitor_function(pipe, size_monitor_func)
 
         @async_retry(
             TimeoutError, max_trials=int(timeout / interval), interval=interval
         )
         async def wait_for_preferred_size() -> None:
-            if len(pipe) < preferred_size:
+            if size_monitor() < preferred_size:
                 raise TimeoutError
 
         async def is_pipe_filled() -> bool:
@@ -41,7 +59,7 @@ class DaemonInterface(LogMixin, ABC):
                 await wait_for_preferred_size()
             except TimeoutError:
                 await asyncio.sleep(0)  # Let other handlers use the event loop.
-            return len(pipe) >= target_size
+            return size_monitor() >= target_size
 
         return is_pipe_filled
 

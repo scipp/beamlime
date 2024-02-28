@@ -59,9 +59,7 @@ class DataReductionHandler(HandlerInterface):
         self.pipeline[Events] = data
         return self.pipeline.compute(Histogrammed)
 
-    async def process_message(
-        self, message: RawDataSent | BeamlimeMessage
-    ) -> BeamlimeMessage:
+    async def process_message(self, message: BeamlimeMessage) -> BeamlimeMessage:
         if not isinstance(message, RawDataSent):
             raise TypeError(f"Message type should be {RawDataSent.__name__}.")
 

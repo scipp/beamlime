@@ -14,17 +14,17 @@ from .handlers import RawDataSent
 class MessageRouter(DaemonInterface):
     """A message router that routes messages to handlers."""
 
-    message_pipe: List[BeamlimeMessage]
-
     class StopRouting(BeamlimeMessage):
         ...
 
     def __init__(self):
+        from queue import Queue
+
         self.handlers: dict[type, List[Callable[[BeamlimeMessage], Any]]] = dict()
         self.awaitable_handlers: dict[
             type, List[Callable[[BeamlimeMessage], Awaitable[Any]]]
         ] = dict()
-        self.message_pipe = list()
+        self.message_pipe = Queue()
         self._break_routing_loop = False  # Break the routing loop flag
 
     def break_routing_loop(self, message: Optional[BeamlimeMessage] = None) -> None:
@@ -44,7 +44,8 @@ class MessageRouter(DaemonInterface):
             self.debug(f"Routing event {type(message)} to handler {handler}...")
             yield
         except Exception as e:
-            warnings.warn(f"Failed to handle event {type(message)}: {e}", stacklevel=2)
+            warnings.warn(f"Failed to handle event {type(message)}", stacklevel=2)
+            raise e
         else:
             self.debug(f"Routing event {type(message)} to handler {handler} done.")
 
@@ -72,30 +73,32 @@ class MessageRouter(DaemonInterface):
     def register_handler(self, event_tp, handler: Callable[[BeamlimeMessage], Any]):
         self._register(handler_list=self.handlers, event_tp=event_tp, handler=handler)
 
-    def _check_result(self, result: Any) -> None:
+    def _collect_results(self, result: Any) -> List[BeamlimeMessage]:
         """Append or extend ``result`` to ``self.message_pipe``.
 
         It filters out non-BeamlimeMessage objects from ``result``.
         """
         if isinstance(result, BeamlimeMessage):
-            self.message_pipe.append(result)
+            return [result]
         elif isinstance(result, tuple):
-            msgs = (_msg for _msg in result if isinstance(_msg, BeamlimeMessage))
-            self.message_pipe.extend(msgs)
+            return list(_msg for _msg in result if isinstance(_msg, BeamlimeMessage))
+        else:
+            return []
 
     async def route(self, message: BeamlimeMessage) -> None:
         # Synchronous handlers
-        if handlers := self.handlers.get(type(message), []):
-            for handler in handlers:
-                await asyncio.sleep(0)  # Let others use the event loop.
-                with self._handler_wrapper(handler, message):
-                    self._check_result(handler(message))
+        results = []
+        for handler in (handlers := self.handlers.get(type(message), [])):
+            await asyncio.sleep(0)  # Let others use the event loop.
+            with self._handler_wrapper(handler, message):
+                results.extend(self._collect_results(handler(message)))
 
         # Asynchronous handlers
-        if awaitable_handlers := self.awaitable_handlers.get(type(message), []):
-            for handler in awaitable_handlers:
-                with self._handler_wrapper(handler, message):
-                    self._check_result(await handler(message))
+        for handler in (
+            awaitable_handlers := self.awaitable_handlers.get(type(message), [])
+        ):
+            with self._handler_wrapper(handler, message):
+                results.extend(self._collect_results(await handler(message)))
 
         # No handlers
         if not (handlers or awaitable_handlers):
@@ -105,26 +108,32 @@ class MessageRouter(DaemonInterface):
                 f"No handler for event {type(message)}. Ignoring...", stacklevel=2
             )
 
+        # Re-route the results
+        for result in results:
+            self.message_pipe.put(result)
+
     async def run(self) -> None:
         """Message router daemon."""
         data_monitor = self.data_pipe_monitor(
             self.message_pipe,
             timeout=0.1,
             interval=0.1,
+            size_monitor_func=self.message_pipe.qsize,
         )
 
         while not self._break_routing_loop:
             if await data_monitor():
-                message = self.message_pipe.pop(0)
+                message = self.message_pipe.get()
                 await self.route(message)
+                await asyncio.sleep(0)
 
         self.debug("Breaking routing loop. Routing the rest of the message...")
-        while self.message_pipe:
-            await self.route(self.message_pipe.pop(0))
+        while not self.message_pipe.empty():
+            await self.route(self.message_pipe.get())
         self.debug("Routing the rest of the message done.")
 
     async def send_message_async(self, message: BeamlimeMessage) -> None:
-        self.message_pipe.append(message)
+        self.message_pipe.put(message)
         await asyncio.sleep(0)
 
 
