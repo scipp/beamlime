@@ -34,11 +34,10 @@ class DataReductionHandler(HandlerInterface):
     It also triggers the update of a plot stream node.
     """
 
-    pipeline: WorkflowPipeline
-
-    def __init__(self) -> None:
+    def __init__(self, pipeline: WorkflowPipeline) -> None:
         self.output_da: Histogrammed
         self.stream_node: pp.Node
+        self.pipeline = pipeline
         super().__init__()
 
     def format_received(self, data: Any) -> str:
