@@ -4,13 +4,46 @@ import argparse
 import pathlib
 from typing import Optional
 
-from beamlime import Factory
-from beamlime.applications.apps import DataReductionApp
+from beamlime import Factory, ProviderGroup, SingletonProvider
 from beamlime.logging import BeamlimeLogger
 
 
-def mini_prototype_factory() -> Factory:
-    return Factory(DataReductionApp.collect_default_providers())
+def collect_default_providers() -> ProviderGroup:
+    """Helper method to collect all default providers for this prototype."""
+    from beamlime.constructors.providers import merge as merge_providers
+    from beamlime.logging.providers import log_providers
+
+    from ..applications._parameters import collect_default_param_providers
+    from ..applications._random_data_providers import random_data_providers
+    from ..applications._workflow import provide_pipeline
+    from ..applications.base import Application
+    from ..applications.daemons import DataStreamSimulator, MessageRouter
+    from ..applications.handlers import (
+        DataReductionHandler,
+        PlotSaver,
+        random_image_path,
+    )
+
+    app_providers = ProviderGroup(
+        SingletonProvider(Application),
+        DataStreamSimulator,
+        DataReductionHandler,
+        PlotSaver,
+        provide_pipeline,
+        random_image_path,
+    )
+    app_providers[MessageRouter] = SingletonProvider(MessageRouter)
+
+    return merge_providers(
+        collect_default_param_providers(),
+        random_data_providers,
+        app_providers,
+        log_providers,
+    )
+
+
+def default_prototype_factory() -> Factory:
+    return Factory(collect_default_providers())
 
 
 def event_generator_arg_parser(
@@ -79,9 +112,17 @@ def visualization_arg_parser(
 def run_standalone_prototype(
     prototype_factory: Factory, arg_name_space: argparse.Namespace
 ):
-    from beamlime.applications._parameters import PrototypeParameters
-    from beamlime.applications.handlers import ImagePath
-    from beamlime.constructors import multiple_constant_providers
+    from ..applications._parameters import PrototypeParameters
+    from ..applications.base import Application
+    from ..applications.daemons import DataStreamSimulator
+    from ..applications.handlers import (
+        DataReductionHandler,
+        HistogramUpdated,
+        ImagePath,
+        PlotSaver,
+        RawDataSent,
+    )
+    from ..constructors import multiple_constant_providers
 
     type_name_map = PrototypeParameters().type_name_map
     parameters = {
@@ -94,11 +135,25 @@ def run_standalone_prototype(
     factory = Factory(prototype_factory.providers)
     with multiple_constant_providers(factory, parameters):
         factory[BeamlimeLogger].setLevel(arg_name_space.log_level.upper())
-        factory[DataReductionApp].run()
+        app = factory[Application]
+        for daemon_type in (DataStreamSimulator,):
+            app.register_daemon(factory[daemon_type])
+
+        # Handlers
+        plot_saver = factory[PlotSaver]
+        app.register_handling_method(HistogramUpdated, plot_saver.save_histogram)
+        data_reduction_handler = factory[DataReductionHandler]
+        app.register_handling_method(
+            RawDataSent, data_reduction_handler.process_message
+        )
+
+        # Daemons
+        app.register_daemon(factory[DataStreamSimulator])
+        app.run()
 
 
 if __name__ == "__main__":
-    factory = mini_prototype_factory()
+    factory = default_prototype_factory()
     arg_parser = event_generator_arg_parser()
     visualization_arg_parser(arg_parser)
 
