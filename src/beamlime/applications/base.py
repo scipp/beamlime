@@ -258,8 +258,8 @@ class Application(LogMixin):
         """Register handlers to the application message router."""
         if asyncio.iscoroutinefunction(handler):
             self.message_router.register_awaitable_handler(event_tp, handler)
-
-        self.message_router.register_handler(event_tp, handler)
+        else:
+            self.message_router.register_handler(event_tp, handler)
 
     def register_daemon(self, daemon: DaemonInterface) -> None:
         """Register a daemon to the application.

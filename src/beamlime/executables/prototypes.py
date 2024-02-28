@@ -136,8 +136,6 @@ def run_standalone_prototype(
     with multiple_constant_providers(factory, parameters):
         factory[BeamlimeLogger].setLevel(arg_name_space.log_level.upper())
         app = factory[Application]
-        for daemon_type in (DataStreamSimulator,):
-            app.register_daemon(factory[daemon_type])
 
         # Handlers
         plot_saver = factory[PlotSaver]
