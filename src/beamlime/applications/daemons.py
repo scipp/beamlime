@@ -2,13 +2,23 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import asyncio
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Coroutine, Generator, List, Optional
 
 from ._parameters import ChunkSize, DataFeedingSpeed
 from ._random_data_providers import RandomEvents
 from ._workflow import Events
-from .base import BeamlimeMessage, DaemonInterface
+from .base import DaemonInterface, MessageProtocol
 from .handlers import RawDataSent
+
+
+@dataclass
+class BeamlimeMessage:
+    """A message object that can be exchanged between daemons or handlers."""
+
+    content: Any
+    sender: type = Any
+    receiver: type = Any
 
 
 class MessageRouter(DaemonInterface):
@@ -20,14 +30,14 @@ class MessageRouter(DaemonInterface):
     def __init__(self):
         from queue import Queue
 
-        self.handlers: dict[type, List[Callable[[BeamlimeMessage], Any]]] = dict()
+        self.handlers: dict[type, List[Callable[[MessageProtocol], Any]]] = dict()
         self.awaitable_handlers: dict[
-            type, List[Callable[[BeamlimeMessage], Awaitable[Any]]]
+            type, List[Callable[[MessageProtocol], Awaitable[Any]]]
         ] = dict()
         self.message_pipe = Queue()
         self._break_routing_loop = False  # Break the routing loop flag
 
-    def break_routing_loop(self, message: Optional[BeamlimeMessage] = None) -> None:
+    def break_routing_loop(self, message: Optional[MessageProtocol] = None) -> None:
         if not isinstance(message, self.StopRouting):
             raise TypeError(
                 f"Expected message of type {self.StopRouting}, got {type(message)}."
@@ -36,7 +46,7 @@ class MessageRouter(DaemonInterface):
 
     @contextmanager
     def _handler_wrapper(
-        self, handler: Callable[..., Any], message: BeamlimeMessage
+        self, handler: Callable[..., Any], message: MessageProtocol
     ) -> Generator[None, None, None]:
         import warnings
 
@@ -53,10 +63,10 @@ class MessageRouter(DaemonInterface):
         self,
         *,
         handler_list: dict[
-            type[BeamlimeMessage], List[Callable[[BeamlimeMessage], Any]]
+            type[MessageProtocol], List[Callable[[MessageProtocol], Any]]
         ],
-        event_tp: type[BeamlimeMessage],
-        handler: Callable[[BeamlimeMessage], Any],
+        event_tp: type[MessageProtocol],
+        handler: Callable[[MessageProtocol], Any],
     ):
         if event_tp in handler_list:
             handler_list[event_tp].append(handler)
@@ -64,28 +74,28 @@ class MessageRouter(DaemonInterface):
             handler_list[event_tp] = [handler]
 
     def register_awaitable_handler(
-        self, event_tp, handler: Callable[[BeamlimeMessage], Coroutine[Any, Any, Any]]
+        self, event_tp, handler: Callable[[MessageProtocol], Coroutine[Any, Any, Any]]
     ):
         self._register(
             handler_list=self.awaitable_handlers, event_tp=event_tp, handler=handler
         )
 
-    def register_handler(self, event_tp, handler: Callable[[BeamlimeMessage], Any]):
+    def register_handler(self, event_tp, handler: Callable[[MessageProtocol], Any]):
         self._register(handler_list=self.handlers, event_tp=event_tp, handler=handler)
 
-    def _collect_results(self, result: Any) -> List[BeamlimeMessage]:
+    def _collect_results(self, result: Any) -> List[MessageProtocol]:
         """Append or extend ``result`` to ``self.message_pipe``.
 
         It filters out non-BeamlimeMessage objects from ``result``.
         """
-        if isinstance(result, BeamlimeMessage):
+        if isinstance(result, MessageProtocol):
             return [result]
         elif isinstance(result, tuple):
-            return list(_msg for _msg in result if isinstance(_msg, BeamlimeMessage))
+            return list(_msg for _msg in result if isinstance(_msg, MessageProtocol))
         else:
             return []
 
-    async def route(self, message: BeamlimeMessage) -> None:
+    async def route(self, message: MessageProtocol) -> None:
         # Synchronous handlers
         results = []
         for handler in (handlers := self.handlers.get(type(message), [])):
@@ -132,7 +142,7 @@ class MessageRouter(DaemonInterface):
             await self.route(self.message_pipe.get())
         self.debug("Routing the rest of the message done.")
 
-    async def send_message_async(self, message: BeamlimeMessage) -> None:
+    async def send_message_async(self, message: MessageProtocol) -> None:
         self.message_pipe.put(message)
         await asyncio.sleep(0)
 

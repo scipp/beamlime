@@ -10,17 +10,21 @@ import scipp as sc
 from beamlime.logging import BeamlimeLogger
 
 from ._workflow import Events, FirstPulseTime, Histogrammed, WorkflowPipeline
-from .base import BeamlimeMessage, HandlerInterface
+from .base import HandlerInterface, MessageProtocol
 
 
 @dataclass
-class HistogramUpdated(BeamlimeMessage):
+class HistogramUpdated(MessageProtocol):
     content: pp.graphics.basefig.BaseFig
+    sender: type
+    receiver: type
 
 
 @dataclass
-class RawDataSent(BeamlimeMessage):
+class RawDataSent(MessageProtocol):
     content: Events
+    sender: type
+    receiver: type
 
 
 class DataReductionHandler(HandlerInterface):
@@ -59,7 +63,7 @@ class DataReductionHandler(HandlerInterface):
         self.pipeline[Events] = data
         return self.pipeline.compute(Histogrammed)
 
-    async def process_message(self, message: BeamlimeMessage) -> BeamlimeMessage:
+    async def process_message(self, message: MessageProtocol) -> MessageProtocol:
         if not isinstance(message, RawDataSent):
             raise TypeError(f"Message type should be {RawDataSent.__name__}.")
 
@@ -104,7 +108,7 @@ class PlotSaver(HandlerInterface):
         plt.savefig(self.image_path)
         self.info(f"PlotHandler will save updated image into: {self.image_path}")
 
-    async def save_histogram(self, message: HistogramUpdated | BeamlimeMessage) -> None:
+    async def save_histogram(self, message: MessageProtocol) -> None:
         if not isinstance(message, HistogramUpdated):
             raise TypeError(f"Message type should be {HistogramUpdated.__name__}.")
 
