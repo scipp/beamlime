@@ -10,7 +10,7 @@ from scippneutron.io.nexus.load_nexus import JSONGroup, json_nexus_group
 from ._parameters import ChunkSize, DataFeedingSpeed
 from ._random_data_providers import RandomEvents
 from .base import DaemonInterface, MessageProtocol, MessageRouter, Application
-from .handlers import Events, RawDataSent
+from .handlers import Events
 
 Path = Union[str, bytes, os.PathLike]
 
@@ -18,6 +18,11 @@ Path = Union[str, bytes, os.PathLike]
 @dataclass
 class RunStart:
     content: JSONGroup
+
+
+@dataclass
+class RawDataSent:
+    content: Events
 
 
 class DataStreamSimulator(DaemonInterface):
@@ -41,11 +46,7 @@ class DataStreamSimulator(DaemonInterface):
         self.info("Data streaming started...")
         for i_chunk, chunk in enumerate(self.slice_chunk()):
             self.info("Sent %s th chunk, with %s pieces.", i_chunk + 1, len(chunk))
-            yield RawDataSent(
-                sender=DataStreamSimulator,
-                receiver=Any,
-                content=chunk,
-            )
+            yield RawDataSent(content=chunk)
             await asyncio.sleep(self.data_feeding_speed)
 
         self.info("Data streaming finished...")
