@@ -219,7 +219,7 @@ class Application(LogMixin):
         """
         self.daemons.append(daemon)
 
-    def _create_daemon_tasks(self) -> list[Coroutine]:
+    def _create_daemon_coroutines(self) -> list[Coroutine]:
         async def run_daemon(daemon: DaemonInterface):
             async for message in daemon.run():
                 if message is not None:
@@ -250,7 +250,7 @@ class Application(LogMixin):
         start = time.time()
         with temporary_event_loop() as loop:
             self.loop = loop
-            daemon_coroutines = self._create_daemon_tasks()
+            daemon_coroutines = self._create_daemon_coroutines()
             self.tasks = [loop.create_task(coro) for coro in daemon_coroutines]
             if not loop.is_running():
                 loop.run_until_complete(asyncio.gather(*self.tasks))
