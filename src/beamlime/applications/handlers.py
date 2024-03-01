@@ -14,7 +14,14 @@ from .base import HandlerInterface, MessageProtocol
 
 
 @dataclass
-class UpdateHistogram(MessageProtocol):
+class UpdateAHistogram(MessageProtocol):
+    content: Histogrammed
+    sender: type
+    receiver: type
+
+
+@dataclass
+class UpdateBHistogram(MessageProtocol):
     content: Histogrammed
     sender: type
     receiver: type
@@ -30,6 +37,7 @@ class DataReductionHandler(HandlerInterface):
     def __init__(self, pipeline: WorkflowPipeline) -> None:
         self.pipeline = pipeline
         self.first_pulse_time: sc.Variable
+        self.target_histogram = UpdateAHistogram
         super().__init__()
 
     def format_received(self, data: Any) -> str:
@@ -44,17 +52,25 @@ class DataReductionHandler(HandlerInterface):
         self.pipeline[Events] = data
         return self.pipeline.compute(Histogrammed)
 
-    def process_message(self, message: MessageProtocol) -> MessageProtocol:
+    def process_events(self, message: MessageProtocol) -> MessageProtocol:
         try:
             self.first_pulse_time
         except AttributeError:
             self.process_first_input(message.content)
 
-        return UpdateHistogram(
+        return self.target_histogram(
             sender=DataReductionHandler,
             receiver=Any,
             content=self.process_data(message.content),
         )
+
+    def process_log(self, _: MessageProtocol) -> None:
+        if self.target_histogram == UpdateAHistogram:
+            self.debug("Switching to target histogram B")
+            self.target_histogram = UpdateBHistogram
+        else:
+            self.debug("Switching to target histogram A")
+            self.target_histogram = UpdateAHistogram
 
 
 ImagePath = NewType("ImagePath", pathlib.Path)
@@ -79,10 +95,12 @@ class PlotStreamer(HandlerInterface):
         super().__init__()
 
     def process_first_histogram(self, data: Histogrammed) -> None:
-        self.output_da = Histogrammed(sc.zeros_like(data))
+        self.output_a = Histogrammed(sc.zeros_like(data))
+        self.output_a.name = 'a'
+        self.output_b = Histogrammed(sc.zeros_like(data))
+        self.output_b.name = 'b'
         self.binning_coords = {"wavelength": data.coords["wavelength"]}
-        self.info("First data as a seed of histogram: %s", self.output_da)
-        self.figure.update(self.output_da, key='a')
+        self.info("First data as a seed of histogram: %s", self.output_a)
 
     def update_histogram(self, message: MessageProtocol) -> None:
         try:
@@ -90,8 +108,12 @@ class PlotStreamer(HandlerInterface):
         except AttributeError:
             self.process_first_histogram(message.content)
 
-        self.output_da += sc.rebin(message.content, self.binning_coords)
-        self.figure.update(self.output_da, key='a')
+        if type(message) is UpdateAHistogram:
+            self.output_a += sc.rebin(message.content, self.binning_coords)
+            self.figure.update(self.output_a, key='a')
+        else:
+            self.output_b += sc.rebin(message.content, self.binning_coords)
+            self.figure.update(self.output_b, key='b')
 
 
 class PlotSaver(PlotStreamer):

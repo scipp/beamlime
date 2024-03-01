@@ -114,12 +114,13 @@ def run_standalone_prototype(
 ):
     from ..applications._parameters import PrototypeParameters
     from ..applications.base import Application
-    from ..applications.daemons import DataStreamSimulator, RawDataSent
+    from ..applications.daemons import DataStreamSimulator, EventDataSent, LogSent
     from ..applications.handlers import (
         DataReductionHandler,
         ImagePath,
         PlotSaver,
-        UpdateHistogram,
+        UpdateAHistogram,
+        UpdateBHistogram,
     )
     from ..constructors import multiple_constant_providers
 
@@ -139,11 +140,13 @@ def run_standalone_prototype(
 
         # Handlers
         plot_saver = factory[PlotSaver]
-        app.register_handling_method(UpdateHistogram, plot_saver.save_histogram)
+        app.register_handling_method(UpdateAHistogram, plot_saver.save_histogram)
+        app.register_handling_method(UpdateBHistogram, plot_saver.save_histogram)
         data_reduction_handler = factory[DataReductionHandler]
         app.register_handling_method(
-            RawDataSent, data_reduction_handler.process_message
+            EventDataSent, data_reduction_handler.process_events
         )
+        app.register_handling_method(LogSent, data_reduction_handler.process_log)
 
         # Daemons
         app.register_daemon(factory[DataStreamSimulator])

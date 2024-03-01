@@ -191,8 +191,8 @@ class Application(LogMixin):
         self.loop: asyncio.AbstractEventLoop
         self.tasks: List[asyncio.Task]
         self.logger = logger
-        self.message_router = message_router
-        self.daemons: List[DaemonInterface] = [self.message_router]
+        self._message_router = message_router
+        self.daemons: List[DaemonInterface] = [self._message_router]
         self.register_handling_method(self.Stop, self.stop_tasks)
         self._break = False
         super().__init__()
@@ -223,7 +223,7 @@ class Application(LogMixin):
         async def run_daemon(daemon: DaemonInterface):
             async for message in daemon.run():
                 if message is not None:
-                    await self.message_router.send_message_async(message)
+                    await self._message_router.send_message_async(message)
                 if self._break:
                     break
                 await asyncio.sleep(0)

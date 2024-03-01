@@ -10,8 +10,15 @@ from .base import DaemonInterface, MessageProtocol
 
 
 @dataclass
-class RawDataSent(MessageProtocol):
+class EventDataSent(MessageProtocol):
     content: Events
+    sender: type
+    receiver: type
+
+
+@dataclass
+class LogSent(MessageProtocol):
+    content: str
     sender: type
     receiver: type
 
@@ -39,12 +46,18 @@ class DataStreamSimulator(DaemonInterface):
         self.info("Data streaming started...")
         for i_chunk, chunk in enumerate(self.slice_chunk()):
             self.info("Sent %s th chunk, with %s pieces.", i_chunk + 1, len(chunk))
-            yield RawDataSent(
+            yield EventDataSent(
                 sender=DataStreamSimulator,
                 receiver=Any,
                 content=chunk,
             )
             await asyncio.sleep(self.data_feeding_speed)
+            if i_chunk % 2 == 0:
+                yield LogSent(
+                    sender=DataStreamSimulator,
+                    receiver=Application,
+                    content='flip',
+                )
 
         self.info("Data streaming finished...")
         yield Application.Stop(
