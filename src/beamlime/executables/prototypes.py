@@ -117,10 +117,10 @@ def run_standalone_prototype(
     from ..applications.daemons import DataStreamSimulator
     from ..applications.handlers import (
         DataReductionHandler,
-        HistogramUpdated,
         ImagePath,
         PlotSaver,
         RawDataSent,
+        UpdateHistogram,
     )
     from ..constructors import multiple_constant_providers
 
@@ -133,13 +133,14 @@ def run_standalone_prototype(
         parameters[ImagePath] = ImagePath(pathlib.Path(arg_name_space.image_path))
 
     factory = Factory(prototype_factory.providers)
+
     with multiple_constant_providers(factory, parameters):
         factory[BeamlimeLogger].setLevel(arg_name_space.log_level.upper())
         app = factory[Application]
 
         # Handlers
         plot_saver = factory[PlotSaver]
-        app.register_handling_method(HistogramUpdated, plot_saver.save_histogram)
+        app.register_handling_method(UpdateHistogram, plot_saver.save_histogram)
         data_reduction_handler = factory[DataReductionHandler]
         app.register_handling_method(
             RawDataSent, data_reduction_handler.process_message

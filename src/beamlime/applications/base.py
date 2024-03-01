@@ -79,6 +79,13 @@ class DaemonInterface(LogMixin, ABC):
         ...
 
 
+@runtime_checkable
+class MessageProtocol(Protocol):
+    content: Any
+    sender: type
+    receiver: type
+
+
 class HandlerInterface(LogMixin, ABC):
     """Base class for message handlers.
 
@@ -88,13 +95,6 @@ class HandlerInterface(LogMixin, ABC):
     """
 
     logger: BeamlimeLogger
-
-
-@runtime_checkable
-class MessageProtocol(Protocol):
-    content: Any
-    sender: type
-    receiver: type
 
 
 class MessageRouter(DaemonInterface):

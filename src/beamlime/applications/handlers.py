@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import pathlib
 from dataclasses import dataclass
-from typing import Any, NewType
+from typing import Any, Dict, NewType
 
 import plopp as pp
 import scipp as sc
@@ -14,8 +14,8 @@ from .base import HandlerInterface, MessageProtocol
 
 
 @dataclass
-class HistogramUpdated(MessageProtocol):
-    content: pp.graphics.basefig.BaseFig
+class UpdateHistogram(MessageProtocol):
+    content: Histogrammed
     sender: type
     receiver: type
 
@@ -35,50 +35,33 @@ class DataReductionHandler(HandlerInterface):
     """
 
     def __init__(self, pipeline: WorkflowPipeline) -> None:
-        self.output_da: Histogrammed
-        self.stream_node: pp.Node
         self.pipeline = pipeline
+        self.first_pulse_time: sc.Variable
         super().__init__()
 
     def format_received(self, data: Any) -> str:
         return f"{len(data)} pieces of {Events.__name__}"
 
     def process_first_input(self, da: Events) -> None:
-        first_pulse_time = da[0].coords['event_time_zero'][0]
-        self.pipeline[FirstPulseTime] = first_pulse_time
+        self.first_pulse_time = da[0].coords['event_time_zero'][0]
+        self.pipeline[FirstPulseTime] = self.first_pulse_time
 
-    def process_first_output(self, data: Histogrammed) -> None:
-        self.output_da = Histogrammed(sc.zeros_like(data))
-        self.info("First data as a seed of histogram: %s", self.output_da)
-        self.stream_node = pp.Node(self.output_da)
-        self.figure = pp.figure1d(
-            self.stream_node,
-            title="Wavelength Histogram",
-            grid=True,
-        )
-
-    async def process_data(self, data: Events) -> Histogrammed:
+    def process_data(self, data: Events) -> Histogrammed:
         self.info("Received, %s", self.format_received(data))
         self.pipeline[Events] = data
         return self.pipeline.compute(Histogrammed)
 
-    async def process_message(self, message: MessageProtocol) -> MessageProtocol:
+    def process_message(self, message: MessageProtocol) -> MessageProtocol:
         if not isinstance(message, RawDataSent):
             raise TypeError(f"Message type should be {RawDataSent.__name__}.")
 
-        if not hasattr(self, "output_da"):
+        if not hasattr(self, "first_pulse_time"):
             self.process_first_input(message.content)
-            output = await self.process_data(message.content)
-            self.process_first_output(output)
-        else:
-            output = await self.process_data(message.content)
 
-        self.output_da.values += output.values
-        self.stream_node.notify_children("update")
-        return HistogramUpdated(
+        return UpdateHistogram(
             sender=DataReductionHandler,
             receiver=Any,
-            content=self.figure,
+            content=self.process_data(message.content),
         )
 
 
@@ -91,14 +74,39 @@ def random_image_path() -> ImagePath:
     return ImagePath(pathlib.Path(f"beamlime_plot_{uuid.uuid4().hex}.png"))
 
 
-class PlotSaver(HandlerInterface):
+class PlotStreamer(HandlerInterface):
+    def __init__(self, logger: BeamlimeLogger) -> None:
+        self.logger = logger
+        self.figure = pp.figure1d(
+            # If you know the layout, you can just use ``pp.plot`` directly.
+            title="Wavelength Histogram",
+            grid=True,
+        )
+        self.binning_coords: Dict[str, sc.Variable]
+        self.output_da: Histogrammed
+        super().__init__()
+
+    def process_first_histogram(self, data: Histogrammed) -> None:
+        self.output_da = Histogrammed(sc.zeros_like(data))
+        self.binning_coords = {"wavelength": data.coords["wavelength"]}
+        self.info("First data as a seed of histogram: %s", self.output_da)
+        self.figure.update(self.output_da, key='a')
+
+    def update_histogram(self, message: MessageProtocol) -> None:
+        if not hasattr(self, "binning_coords"):
+            self.process_first_histogram(message.content)
+
+        self.output_da += sc.rebin(message.content, self.binning_coords)
+        self.figure.update(self.output_da, key='a')
+
+
+class PlotSaver(PlotStreamer):
     """Plot handler to save the updated histogram into an image file."""
 
     def __init__(self, logger: BeamlimeLogger, image_path: ImagePath) -> None:
-        self.logger = logger
+        super().__init__(logger)
         self.image_path = image_path.absolute()
         self.create_dummy_image()
-        super().__init__()
 
     def create_dummy_image(self) -> None:
         import matplotlib.pyplot as plt
@@ -107,9 +115,7 @@ class PlotSaver(HandlerInterface):
         plt.savefig(self.image_path)
         self.info(f"PlotHandler will save updated image into: {self.image_path}")
 
-    async def save_histogram(self, message: MessageProtocol) -> None:
-        if not isinstance(message, HistogramUpdated):
-            raise TypeError(f"Message type should be {HistogramUpdated.__name__}.")
-
+    def save_histogram(self, message: MessageProtocol) -> None:
+        super().update_histogram(message)
         self.info("Received histogram, saving into %s...", self.image_path)
-        message.content.save(self.image_path)
+        self.figure.save(self.image_path)
