@@ -154,15 +154,18 @@ class MessageRouter(DaemonInterface):
         else:
             handler_list[event_tp] = [handler]
 
-    def register_awaitable_handler(
-        self, event_tp, handler: Callable[[MessageProtocol], Coroutine[Any, Any, Any]]
+    def register_handler(
+        self,
+        event_tp,
+        handler: Callable[[MessageProtocol], Any]
+        | Callable[[MessageProtocol], Coroutine[Any, Any, Any]],
     ):
-        self._register(
-            handler_list=self.awaitable_handlers, event_tp=event_tp, handler=handler
-        )
+        if asyncio.iscoroutinefunction(handler):
+            handler_list = self.awaitable_handlers
+        else:
+            handler_list = self.handlers
 
-    def register_handler(self, event_tp, handler: Callable[[MessageProtocol], Any]):
-        self._register(handler_list=self.handlers, event_tp=event_tp, handler=handler)
+        self._register(handler_list=handler_list, event_tp=event_tp, handler=handler)
 
     def _collect_results(self, result: Any) -> List[MessageProtocol]:
         """Append or extend ``result`` to ``self.message_pipe``.
@@ -245,10 +248,10 @@ class Application(LogMixin):
         self.loop: asyncio.AbstractEventLoop
         self.tasks: List[asyncio.Task]
         self.logger = logger
-        self.message_router = message_router
-        self.daemons: List[DaemonInterface] = [self.message_router]
+        self._message_router = message_router
+        self.daemons: List[DaemonInterface] = [self._message_router]
         self.register_handling_method(
-            self.message_router.StopRouting, self.message_router.break_routing_loop
+            self._message_router.StopRouting, self._message_router.break_routing_loop
         )
         super().__init__()
 
@@ -256,10 +259,7 @@ class Application(LogMixin):
         self, event_tp: type[MessageProtocol], handler: Callable[[MessageProtocol], Any]
     ) -> None:
         """Register handlers to the application message router."""
-        if asyncio.iscoroutinefunction(handler):
-            self.message_router.register_awaitable_handler(event_tp, handler)
-        else:
-            self.message_router.register_handler(event_tp, handler)
+        self._message_router.register_handler(event_tp, handler)
 
     def register_daemon(self, daemon: DaemonInterface) -> None:
         """Register a daemon to the application.
