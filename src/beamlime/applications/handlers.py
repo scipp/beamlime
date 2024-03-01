@@ -52,10 +52,9 @@ class DataReductionHandler(HandlerInterface):
         return self.pipeline.compute(Histogrammed)
 
     def process_message(self, message: MessageProtocol) -> MessageProtocol:
-        if not isinstance(message, RawDataSent):
-            raise TypeError(f"Message type should be {RawDataSent.__name__}.")
-
-        if not hasattr(self, "first_pulse_time"):
+        try:
+            self.first_pulse_time
+        except AttributeError:
             self.process_first_input(message.content)
 
         return UpdateHistogram(
@@ -93,7 +92,9 @@ class PlotStreamer(HandlerInterface):
         self.figure.update(self.output_da, key='a')
 
     def update_histogram(self, message: MessageProtocol) -> None:
-        if not hasattr(self, "binning_coords"):
+        try:
+            self.binning_coords
+        except AttributeError:
             self.process_first_histogram(message.content)
 
         self.output_da += sc.rebin(message.content, self.binning_coords)
