@@ -3,32 +3,21 @@
 import json
 import os
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Any, Union, AsyncGenerator, Generator
 
 from scippneutron.io.nexus.load_nexus import JSONGroup, json_nexus_group
 
 from ._parameters import ChunkSize, DataFeedingSpeed
 from ._random_data_providers import RandomEvents
-from .base import DaemonInterface, MessageProtocol, MessageRouter
+from .base import DaemonInterface, MessageProtocol, MessageRouter, Application
 from .handlers import Events, RawDataSent
 
 Path = Union[str, bytes, os.PathLike]
 
 
 @dataclass
-class BeamlimeMessage:
-    """A message object that can be exchanged between daemons or handlers."""
-
-    content: Any
-    sender: type = Any
-    receiver: type = Any
-
-
-@dataclass
-class RunStart(MessageProtocol):
+class RunStart:
     content: JSONGroup
-    sender: type
-    receiver: type
 
 
 class DataStreamSimulator(DaemonInterface):
@@ -36,42 +25,28 @@ class DataStreamSimulator(DaemonInterface):
 
     random_events: RandomEvents
     chunk_size: ChunkSize
-    messenger: MessageRouter
     data_feeding_speed: DataFeedingSpeed
 
-    def slice_chunk(self) -> Events:
-        chunk, self.random_events = (
-            Events(self.random_events[: self.chunk_size]),
-            RandomEvents(self.random_events[self.chunk_size :]),
-        )
-        return chunk
+    def slice_chunk(self) -> Generator[Events, None, None]:
+        while self.random_events:
+            chunk, self.random_events = (
+                Events(self.random_events[: self.chunk_size]),
+                RandomEvents(self.random_events[self.chunk_size :]),
+            )
+            yield chunk
 
-    async def run(self) -> None:
+    async def run(self) -> AsyncGenerator[MessageProtocol, None]:
         import asyncio
 
         self.info("Data streaming started...")
-
-        num_chunks = len(self.random_events) // self.chunk_size
-
-        for i_chunk in range(num_chunks):
-            chunk = self.slice_chunk()
+        for i_chunk, chunk in enumerate(self.slice_chunk()):
             self.info("Sent %s th chunk, with %s pieces.", i_chunk + 1, len(chunk))
-            await self.messenger.send_message_async(
-                RawDataSent(
-                    sender=DataStreamSimulator,
-                    receiver=Any,
-                    content=chunk,
-                )
+            yield RawDataSent(
+                sender=DataStreamSimulator,
+                receiver=Any,
+                content=chunk,
             )
             await asyncio.sleep(self.data_feeding_speed)
-
-        await self.messenger.send_message_async(
-            self.messenger.StopRouting(
-                content=None,
-                sender=DataStreamSimulator,
-                receiver=self.messenger.__class__,
-            )
-        )
 
         self.info("Data streaming finished...")
 
@@ -92,18 +67,6 @@ class FakeListener(DaemonInterface):
     async def run(self) -> None:
         self.info("Fake data streaming started...")
 
-        await self.messenger.send_message_async(
-            RunStart(
-                content=self._group,
-                sender=self.__class__,
-                receiver=self.messenger.__class__,
-            )
-        )
-        await self.messenger.send_message_async(
-            self.messenger.StopRouting(
-                content=None,
-                sender=self.__class__,
-                receiver=self.messenger.__class__,
-            )
-        )
+        yield RunStart(content=self._group)
+        yield Application.Stop(content=None)
         self.info("Fake data streaming finished...")
