@@ -7,16 +7,13 @@ from ._parameters import ChunkSize, DataFeedingSpeed
 from ._random_data_providers import RandomEvents
 from ._workflow import Events
 from .base import DaemonInterface, MessageProtocol
-from .handlers import RawDataSent
 
 
 @dataclass
-class BeamlimeMessage:
-    """A message object that can be exchanged between daemons or handlers."""
-
-    content: Any
-    sender: type = Any
-    receiver: type = Any
+class RawDataSent(MessageProtocol):
+    content: Events
+    sender: type
+    receiver: type
 
 
 class DataStreamSimulator(DaemonInterface):

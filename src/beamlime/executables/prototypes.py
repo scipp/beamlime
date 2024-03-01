@@ -114,12 +114,11 @@ def run_standalone_prototype(
 ):
     from ..applications._parameters import PrototypeParameters
     from ..applications.base import Application
-    from ..applications.daemons import DataStreamSimulator
+    from ..applications.daemons import DataStreamSimulator, RawDataSent
     from ..applications.handlers import (
         DataReductionHandler,
         ImagePath,
         PlotSaver,
-        RawDataSent,
         UpdateHistogram,
     )
     from ..constructors import multiple_constant_providers

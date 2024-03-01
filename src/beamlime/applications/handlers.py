@@ -20,13 +20,6 @@ class UpdateHistogram(MessageProtocol):
     receiver: type
 
 
-@dataclass
-class RawDataSent(MessageProtocol):
-    content: Events
-    sender: type
-    receiver: type
-
-
 class DataReductionHandler(HandlerInterface):
     """Data reduction handler to process the raw data and update the histogram.
 
