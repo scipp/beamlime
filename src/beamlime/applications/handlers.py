@@ -9,9 +9,10 @@ import scipp as sc
 
 from beamlime.logging import BeamlimeLogger
 
-from ._workflow import Events
 from ..stateless_workflow import StatelessWorkflow, WorkflowResult
 from .base import HandlerInterface, MessageProtocol
+
+Events = NewType("Events", list[sc.DataArray])
 
 
 @dataclass
