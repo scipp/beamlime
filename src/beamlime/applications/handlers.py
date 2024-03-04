@@ -2,9 +2,8 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import pathlib
 from dataclasses import dataclass
-from typing import Any, Dict, NewType
+from typing import Any, NewType
 
-import plopp as pp
 import scipp as sc
 
 from beamlime.logging import BeamlimeLogger
@@ -68,9 +67,10 @@ class PlotStreamer(HandlerInterface):
         figure = self.figures.get(name)
         if figure is None:
             plot = data.plot()
-            self.artists[name] = next(iter(plot.artists))
             # TODO Either improve Plopp's update method, or handle multiple artists
-            # self.artists[name] = {data_name: key for data_name,key in zip(data, plot.artists)}
+            if len(plot.artists) > 1:
+                raise NotImplementedError("Data with multiple items not supported.")
+            self.artists[name] = next(iter(plot.artists))
             self.figures[name] = plot
         else:
             figure.update(data, key=self.artists[name])
