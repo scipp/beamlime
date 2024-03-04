@@ -6,7 +6,7 @@ from typing import Any
 from ._parameters import ChunkSize, DataFeedingSpeed
 from ._random_data_providers import RandomEvents
 from .base import DaemonInterface, MessageRouter
-from .handlers import RawDataSent, Events
+from .handlers import Events, RawDataSent
 
 
 @dataclass

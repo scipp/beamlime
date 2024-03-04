@@ -15,8 +15,6 @@ def collect_default_providers() -> ProviderGroup:
 
     from ..applications._parameters import collect_default_param_providers
     from ..applications._random_data_providers import random_data_providers
-
-    from ..stateless_workflow import provide_stateless_workflow
     from ..applications.base import Application
     from ..applications.daemons import DataStreamSimulator, MessageRouter
     from ..applications.handlers import (
@@ -24,6 +22,7 @@ def collect_default_providers() -> ProviderGroup:
         PlotSaver,
         random_image_path,
     )
+    from ..stateless_workflow import provide_stateless_workflow
 
     app_providers = ProviderGroup(
         SingletonProvider(Application),
