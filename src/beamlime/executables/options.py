@@ -70,5 +70,11 @@ def visualization_arg_parser(
         help="Set logging level. Default is INFO.",
         type=str,
     )
+    group.add_argument(
+        "--workflow-name",
+        default="dummy",
+        help="Name of the workflow that produces the visualization",
+        type=str,
+    )
 
     return parser
