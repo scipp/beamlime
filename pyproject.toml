@@ -41,6 +41,9 @@ dependencies = [
 
 dynamic = ["version"]
 
+[project.scripts]
+beamlime = "beamlime.__main__:main"
+
 [project.urls]
 "Bug Tracker" = "https://github.com/scipp/beamlime/issues"
 "Documentation" = "https://scipp.github.io/beamlime"
@@ -60,6 +63,7 @@ addopts = """
 testpaths = "tests"
 filterwarnings = [
   "error",
+  'ignore:\n.*Sentinel is not a public part of the traitlets API.*:DeprecationWarning',
 ]
 pythonpath = "tests/helpers"
 

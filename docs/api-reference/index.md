@@ -52,6 +52,7 @@ Application interface protocols and matching mixins.
    :template: module-template.rst
    :recursive:
 
+   applications
    constructors
    logging
 

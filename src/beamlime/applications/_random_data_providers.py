@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
 from typing import Any, Generator, List, NewType, Optional
@@ -10,7 +10,7 @@ from numpy.random import Generator as RNG
 from beamlime.constructors import ProviderGroup
 from beamlime.constructors.providers import SingletonProvider
 
-from .parameters import EventRate, FrameRate, NumFrames, NumPixels, RandomSeed
+from ._parameters import EventRate, FrameRate, NumFrames, NumPixels, RandomSeed
 
 # Derived Configuration
 EventFrameRate = NewType("EventFrameRate", int)  # [events/frame]

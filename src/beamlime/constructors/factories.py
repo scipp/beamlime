@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, Iterator, Type
+from typing import Any, Callable, Dict, Iterator, Optional, Type
 
 from .providers import (
     Product,
@@ -177,3 +177,51 @@ class Factory:
             self.providers.pop(product_type)
             if original_provider is not UnknownProvider:
                 self.providers[product_type] = original_provider
+
+
+@contextmanager
+def _multiple_constant_providers(
+    factory: Factory, constants: Optional[dict[type, Any]] = None
+):
+    if constants:
+        tp, val = constants.popitem()
+        with factory.constant_provider(tp, val):
+            with multiple_constant_providers(factory, constants):
+                yield
+    else:
+        yield
+
+
+@contextmanager
+def multiple_constant_providers(
+    factory: Factory, constants: Optional[dict[type, Any]] = None
+):
+    """Create and yield a new factory containing a copy of all given constants."""
+    from copy import copy  # Use a shallow copy of the constant dictionary
+
+    with _multiple_constant_providers(factory, copy(constants)):
+        yield
+
+
+@contextmanager
+def _multiple_temporary_providers(
+    factory: Factory, providers: Optional[dict[type, Any]] = None
+):
+    if providers:
+        tp, prov = providers.popitem()
+        with factory.temporary_provider(tp, prov):
+            with multiple_temporary_providers(factory, providers):
+                yield
+    else:
+        yield
+
+
+@contextmanager
+def multiple_temporary_providers(
+    factory: Factory, providers: Optional[dict[type, Any]] = None
+):
+    """Create and yield a new factory containing a copy of all given providers."""
+    from copy import copy  # Use a shallow copy of the provider dictionary
+
+    with _multiple_temporary_providers(factory, copy(providers)):
+        yield
