@@ -208,7 +208,7 @@ class Application(LogMixin):
         self, event_tp: type[MessageProtocol], handler: Callable[[MessageProtocol], Any]
     ) -> None:
         """Register handlers to the application message router."""
-        self._message_router.register_handler(event_tp, handler)
+        self.message_router.register_handler(event_tp, handler)
 
     def register_daemon(self, daemon: DaemonInterface) -> None:
         """Register a daemon to the application.
