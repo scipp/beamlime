@@ -27,7 +27,7 @@ PixelGrouped = NewType("PixelGrouped", sc.DataArray)
 LTotalCalculated = NewType("LTotalCalculated", sc.DataArray)
 FrameUnwrapped = NewType("FrameUnwrapped", sc.DataArray)
 ReducedData = NewType("ReducedData", sc.DataArray)
-Histogrammed = NewType("Histogrammed", sc.DataArray)
+ProcessedChunk = NewType("Histogrammed", sc.DataArray)
 
 
 def provide_Ltotal_graph() -> LtotalGraph:
@@ -102,7 +102,7 @@ def calculate_wavelength(
 
 def histogram_result(
     bin_size: HistogramBinSize, reduced_data: ReducedData
-) -> Histogrammed:
+) -> ProcessedChunk:
     return reduced_data.hist(wavelength=bin_size)
 
 
@@ -112,7 +112,7 @@ Visualized = NewType("Visualized", sc.DataArray)
 
 
 def provide_seed_histogram_to_visualize(
-    histograms: sl.Series[ChunkID, Histogrammed]
+    histograms: sl.Series[ChunkID, ProcessedChunk]
 ) -> SeedHistogram:
     for histogram in histograms.values():
         return SeedHistogram(sc.zeros_like(histogram))
@@ -120,7 +120,7 @@ def provide_seed_histogram_to_visualize(
 
 
 def merge_histograms(
-    histograms: sl.Series[ChunkID, Histogrammed],
+    histograms: sl.Series[ChunkID, ProcessedChunk],
     seed: SeedHistogram,
 ) -> Visualized:
     for histogram in histograms.values():
