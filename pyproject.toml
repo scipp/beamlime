@@ -89,3 +89,6 @@ enable_error_code = [
 ]
 show_error_codes = true
 warn_unreachable = true
+
+[project.entry-points."beamlime.stateless"]
+dummy = "beamlime.stateless_workflow:dummy_workflow"

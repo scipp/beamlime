@@ -8,6 +8,12 @@ from typing import Optional
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="BEAMLIME configuration.")
+    parser.add_argument(
+        "--workflow",
+        default="dummy",
+        help="Name of the workflow to run",
+        type=str,
+    )
     return parser
 
 
@@ -70,5 +76,4 @@ def visualization_arg_parser(
         help="Set logging level. Default is INFO.",
         type=str,
     )
-
     return parser

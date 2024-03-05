@@ -1,9 +1,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-from typing import Protocol
+from importlib.metadata import entry_points
+from typing import NewType, Protocol
 
 import scipp as sc
 from scippneutron.io.nexus.load_nexus import JSONGroup
+
+Workflow = NewType('Workflow', str)
+'''Name of the workflow plugin to use'''
 
 WorkflowResult = dict[str, sc.DataArray]
 
@@ -33,6 +37,9 @@ class DummyWorkflow:
         }
 
 
-def provide_stateless_workflow() -> StatelessWorkflow:
-    # TODO implement plugin mechanism here, see #132
-    return DummyWorkflow()
+def provide_stateless_workflow(workflow: Workflow) -> StatelessWorkflow:
+    stateless_workflows = entry_points(group='beamlime.stateless')
+    return stateless_workflows[workflow].load()
+
+
+dummy_workflow = DummyWorkflow()
