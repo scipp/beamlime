@@ -123,6 +123,7 @@ def run_standalone_prototype(
         WorkflowResultUpdate,
     )
     from ..constructors import multiple_constant_providers
+    from ..stateless_workflow import Workflow
 
     type_name_map = PrototypeParameters().type_name_map
     parameters = {
@@ -131,6 +132,7 @@ def run_standalone_prototype(
     }
     if arg_name_space.image_path:
         parameters[ImagePath] = ImagePath(pathlib.Path(arg_name_space.image_path))
+    parameters[Workflow] = Workflow(arg_name_space.workflow)
 
     factory = Factory(prototype_factory.providers)
 
