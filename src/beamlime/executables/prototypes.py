@@ -15,7 +15,6 @@ def collect_default_providers() -> ProviderGroup:
 
     from ..applications._parameters import collect_default_param_providers
     from ..applications._random_data_providers import random_data_providers
-    from ..applications._workflow import provide_pipeline
     from ..applications.base import Application
     from ..applications.daemons import DataStreamSimulator, MessageRouter
     from ..applications.handlers import (
@@ -23,13 +22,14 @@ def collect_default_providers() -> ProviderGroup:
         PlotSaver,
         random_image_path,
     )
+    from ..stateless_workflow import provide_stateless_workflow
 
     app_providers = ProviderGroup(
         SingletonProvider(Application),
         DataStreamSimulator,
         DataReductionHandler,
         PlotSaver,
-        provide_pipeline,
+        provide_stateless_workflow,
         random_image_path,
     )
     app_providers[MessageRouter] = SingletonProvider(MessageRouter)
@@ -120,7 +120,7 @@ def run_standalone_prototype(
         ImagePath,
         PlotSaver,
         RawDataSent,
-        UpdateHistogram,
+        WorkflowResultUpdate,
     )
     from ..constructors import multiple_constant_providers
 
@@ -140,7 +140,7 @@ def run_standalone_prototype(
 
         # Handlers
         plot_saver = factory[PlotSaver]
-        app.register_handling_method(UpdateHistogram, plot_saver.save_histogram)
+        app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
         data_reduction_handler = factory[DataReductionHandler]
         app.register_handling_method(
             RawDataSent, data_reduction_handler.process_message
