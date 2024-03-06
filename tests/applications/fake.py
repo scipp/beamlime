@@ -1,11 +1,20 @@
+import json
 import os
+from dataclasses import dataclass
 from typing import Union
 
-from scippneutron.io.load_nexus import json_nexus_group
+from scippneutron.io.load_nexus import JSONGroup, json_nexus_group
 
-from beamlime import DaemonInterface
+from beamlime import DaemonInterface, MessageProtocol, MessageRouter
 
 Path = Union[str, bytes, os.PathLike]
+
+
+@dataclass
+class RunStart(MessageProtocol):
+    content: JSONGroup
+    sender: type
+    receiver: type
 
 
 class FakeListener(DaemonInterface):
@@ -26,7 +35,7 @@ class FakeListener(DaemonInterface):
 
         await self.messenger.send_message_async(
             RunStart(
-                content=self._group,,
+                content=self._group,
                 sender=self.__class__,
                 receiver=self.messenger.__class__,
             )
