@@ -1,4 +1,5 @@
-# Getting Started
+# User Guide
+
 User's guide.
 
 ```{toctree}
@@ -7,6 +8,7 @@ caption: Live Data Reduction
 maxdepth: 2
 ---
 
+getting-started
 live_data_reduction
 ```
 
