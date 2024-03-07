@@ -66,6 +66,7 @@ filterwarnings = [
   'ignore:\n.*Sentinel is not a public part of the traitlets API.*:DeprecationWarning',
 ]
 pythonpath = "tests/helpers"
+asyncio_mode = "auto"
 
 [tool.bandit]
 # Excluding tests because bandit doesn't like `assert`.
