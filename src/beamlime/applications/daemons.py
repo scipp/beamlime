@@ -3,17 +3,13 @@
 import json
 import os
 from dataclasses import dataclass
-<<<<<<< HEAD
-from typing import Any, Union, AsyncGenerator, Generator
+from typing import AsyncGenerator, Generator, Union
 
 from scippneutron.io.nexus.load_nexus import JSONGroup, json_nexus_group
-=======
-from typing import AsyncGenerator, Generator
->>>>>>> b56b951 (Remove unused fields in the protocol.)
 
 from ._parameters import ChunkSize, DataFeedingSpeed
 from ._random_data_providers import RandomEvents
-from .base import DaemonInterface, MessageProtocol, MessageRouter, Application
+from .base import Application, DaemonInterface, MessageProtocol, MessageRouter
 from .handlers import Events
 
 Path = Union[str, bytes, os.PathLike]
