@@ -24,8 +24,6 @@ from ..logging.mixins import LogMixin
 @runtime_checkable
 class MessageProtocol(Protocol):
     content: Any
-    sender: type
-    receiver: type
 
 
 class DaemonInterface(LogMixin, ABC):
@@ -182,8 +180,6 @@ class Application(LogMixin):
         """A message to break the routing loop."""
 
         content: Optional[Any]
-        sender: type
-        receiver: type
 
     def __init__(self, logger: BeamlimeLogger, message_router: MessageRouter) -> None:
         import asyncio

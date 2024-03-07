@@ -3,9 +3,13 @@
 import json
 import os
 from dataclasses import dataclass
+<<<<<<< HEAD
 from typing import Any, Union, AsyncGenerator, Generator
 
 from scippneutron.io.nexus.load_nexus import JSONGroup, json_nexus_group
+=======
+from typing import AsyncGenerator, Generator
+>>>>>>> b56b951 (Remove unused fields in the protocol.)
 
 from ._parameters import ChunkSize, DataFeedingSpeed
 from ._random_data_providers import RandomEvents
@@ -65,7 +69,7 @@ class FakeListener(DaemonInterface):
             nexus_structure = json.load(f)
         return cls(nexus_structure)
 
-    async def run(self) -> None:
+    async def run(self) -> AsyncGenerator[MessageProtocol, None]:
         self.info("Fake data streaming started...")
 
         yield RunStart(content=self._group)
