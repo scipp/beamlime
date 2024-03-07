@@ -10,9 +10,17 @@ Workflow = NewType('Workflow', str)
 '''Name of the workflow plugin to use'''
 
 WorkflowResult = dict[str, sc.DataArray]
+"""Result of a workflow, a dictionary of scipp DataArrays."""
 
 
 class StatelessWorkflow(Protocol):
+    """
+    Protocol for stateless workflows.
+
+    Can be implemented by a class or a function in plugins, in the
+    `beamlime.stateless` entry point group.
+    """
+
     def __call__(self, group: JSONGroup) -> WorkflowResult:
         pass
 
@@ -30,7 +38,7 @@ class DummyWorkflow:
 
     def __call__(self, group: JSONGroup) -> WorkflowResult:
         return {
-            'random counts': sc.DataArray(
+            'random-counts': sc.DataArray(
                 data=sc.array(dims=['x'], values=self.rng.random(10), unit='counts'),
                 coords={'x': self.x},
             )

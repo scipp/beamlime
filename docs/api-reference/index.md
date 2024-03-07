@@ -29,6 +29,8 @@ Application interface protocols and matching mixins.
    ProviderGroup
    Provider
    SingletonProvider
+   StatelessWorkflow
+   WorkflowResult
 
 ```
 
