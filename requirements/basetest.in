@@ -4,6 +4,7 @@
 pytest
 pytest-cov
 pytest-xdist
+pytest-asyncio
 psutil
 pandas
 pyarrow  # Future hard-dependency of pandas, it can be removed from pandas>3.0
