@@ -198,7 +198,7 @@ class Application(LogMixin):
         super().__init__()
 
     def stop_tasks(self, message: Optional[MessageProtocol] = None) -> None:
-        if not isinstance(message, self.Stop):
+        if message is not None and not isinstance(message, self.Stop):
             raise TypeError(
                 f"Expected message of type {self.Stop}, got {type(message)}."
             )
