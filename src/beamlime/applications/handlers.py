@@ -15,7 +15,7 @@ Events = NewType("Events", list[sc.DataArray])
 
 
 @dataclass
-class WorkflowResultUpdate(MessageProtocol):
+class WorkflowResultUpdate:
     content: WorkflowResult
     sender: type
     receiver: type
