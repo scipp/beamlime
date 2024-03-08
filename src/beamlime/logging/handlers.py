@@ -5,15 +5,7 @@ from __future__ import annotations
 
 from logging import FileHandler
 
-try:
-    from rich.logging import RichHandler
-except (ModuleNotFoundError, ImportError) as e:
-    raise e.__class__(
-        "Please install the ``rich`` package to use the ``BeamlimeStreamHandler``.\n"
-        + "  Command: pip install rich\n"
-        "Or if you are using ``beamlime.Factory`` to build the application, "
-        "remove ``BeamlimeStreamHandler`` from the providers.\n",
-    ) from e
+from rich.logging import RichHandler
 
 from ..empty_providers import log_providers
 from .formatters import BeamlimeFileFormatter, BeamlimeStreamHighlighter
