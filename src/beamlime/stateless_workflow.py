@@ -3,8 +3,15 @@
 from importlib.metadata import entry_points
 from typing import NewType, Protocol
 
-import scipp as sc
-from scippneutron.io.nexus.load_nexus import JSONGroup
+try:
+    import scipp as sc
+    from scippneutron.io.nexus.load_nexus import JSONGroup
+except ImportError as e:
+    raise ImportError(
+        "Please install the scipp and "
+        "scippneutron packages to use the ``DummyWorkflow``."
+    ) from e
+
 
 Workflow = NewType('Workflow', str)
 '''Name of the workflow plugin to use'''
