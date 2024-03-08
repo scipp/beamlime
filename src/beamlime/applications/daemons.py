@@ -9,7 +9,7 @@ from scippneutron.io.nexus.load_nexus import JSONGroup, json_nexus_group
 
 from ._parameters import ChunkSize, DataFeedingSpeed
 from ._random_data_providers import RandomEvents
-from .base import Application, DaemonInterface, MessageProtocol, MessageRouter
+from .base import Application, DaemonInterface, MessageProtocol
 from .handlers import Events
 
 Path = Union[str, bytes, os.PathLike]
@@ -49,12 +49,11 @@ class DataStreamSimulator(DaemonInterface):
             yield RawDataSent(content=chunk)
             await asyncio.sleep(self.data_feeding_speed)
 
+        yield Application.Stop(content=None)
         self.info("Data streaming finished...")
 
 
 class FakeListener(DaemonInterface):
-    messenger: MessageRouter
-
     def __init__(self, nexus_structure: dict):
         self._group = json_nexus_group(nexus_structure)
 
