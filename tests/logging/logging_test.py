@@ -14,8 +14,11 @@ def test_get_logger_default(local_logger: bool):
 
 
 def test_logger_provider(local_logger: bool):
+    from beamlime import Factory
     from beamlime.logging import BeamlimeLogger, get_logger
-    from beamlime.ready_factory import log_factory
+    from beamlime.logging.providers import log_providers
+
+    log_factory = Factory(log_providers)
 
     assert local_logger
     with log_factory.local_factory() as factory:

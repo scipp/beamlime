@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from pytest import LogCaptureFixture
 
+from beamlime import Factory
 from beamlime.logging import (
     FileHandlerConfigured,
     LogDirectoryPath,
@@ -76,9 +77,17 @@ def test_app_logging_stream(
         assert expected_field in log_record.message
 
 
-def test_file_handler_configuration(tmp_path: Path, local_logger: bool):
+@pytest.fixture
+def log_factory() -> Factory:
+    from beamlime.logging.providers import log_providers
+
+    return Factory(log_providers)
+
+
+def test_file_handler_configuration(
+    tmp_path: Path, local_logger: bool, log_factory: Factory
+) -> None:
     from beamlime.constructors import ProviderGroup
-    from beamlime.ready_factory import log_factory
 
     assert local_logger
     tmp_log_dir = tmp_path / "tmp"
@@ -110,10 +119,10 @@ def test_file_handler_configuration(tmp_path: Path, local_logger: bool):
         assert Path(f_hdlr.baseFilename) == tmp_log_path
 
 
-def test_file_handler_configuration_existing_dir_raises(local_logger: bool):
+def test_file_handler_configuration_existing_dir_raises(
+    local_logger: bool, log_factory: Factory
+) -> None:
     from inspect import getsourcefile
-
-    from beamlime.ready_factory import log_factory
 
     assert local_logger
     if src_file := getsourcefile(test_file_handler_configuration):
