@@ -11,13 +11,7 @@ requirements:
     - setuptools
     - setuptools_scm
   run:
-    - ess-streaming-data-types
-    - numpy
-    - plopp
     - rich
-    - sciline
-    - scipp
-    - scippneutron
     - python>=3.10
 
 test:
@@ -25,6 +19,11 @@ test:
     - beamlime
   requires:
     - pytest
+    - numpy
+    - scipp
+    - plopp
+    - sciline
+    - scippneutron
   source_files:
     - pyproject.toml
     - tests/
