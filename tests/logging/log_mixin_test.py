@@ -77,15 +77,8 @@ def test_app_logging_stream(
         assert expected_field in log_record.message
 
 
-@pytest.fixture
-def log_factory() -> Factory:
-    from beamlime.logging.providers import log_providers
-
-    return Factory(log_providers)
-
-
 def test_file_handler_configuration(
-    tmp_path: Path, local_logger: bool, log_factory: Factory
+    tmp_path: Path, local_logger: bool, default_factory: Factory
 ) -> None:
     from beamlime.constructors import ProviderGroup
 
@@ -98,7 +91,7 @@ def test_file_handler_configuration(
     tmp_log_providers[LogDirectoryPath] = lambda: tmp_log_dir
     tmp_log_providers[LogFileName] = lambda: tmp_log_filename
 
-    with log_factory.local_factory(tmp_log_providers) as factory:
+    with default_factory.local_factory(tmp_log_providers) as factory:
         logger: Logger = get_logger(verbose=False)
         # Should not have any file handlers set.
         hdlrs = logger.handlers
@@ -120,14 +113,14 @@ def test_file_handler_configuration(
 
 
 def test_file_handler_configuration_existing_dir_raises(
-    local_logger: bool, log_factory: Factory
+    local_logger: bool, default_factory: Factory
 ) -> None:
     from inspect import getsourcefile
 
     assert local_logger
     if src_file := getsourcefile(test_file_handler_configuration):
         this_file_path = Path(src_file)
-        with log_factory.local_factory() as factory:
+        with default_factory.local_factory() as factory:
             with factory.constant_provider(LogDirectoryPath, this_file_path):
                 with pytest.raises(FileExistsError):
                     factory[FileHandlerConfigured]
