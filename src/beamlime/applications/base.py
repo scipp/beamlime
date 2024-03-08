@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import (
     Any,
+    AsyncGenerator,
     Awaitable,
     Callable,
     Coroutine,
@@ -20,19 +21,9 @@ from ..logging import BeamlimeLogger
 from ..logging.mixins import LogMixin
 
 
-def _get_size_monitor_function(
-    pipe: Any, size_monitor_func: Optional[Callable[..., int]] = None
-) -> Callable[..., int]:
-    if size_monitor_func is None and (isinstance(pipe, (list, tuple, set, dict))):
-        from functools import partial
-
-        return partial(len, pipe)
-    elif size_monitor_func is not None:
-        return size_monitor_func
-    else:
-        raise ValueError(
-            "``size_monitor_func`` must be provided for non-iterable data pipes."
-        )
+@runtime_checkable
+class MessageProtocol(Protocol):
+    content: Any
 
 
 class DaemonInterface(LogMixin, ABC):
@@ -45,45 +36,11 @@ class DaemonInterface(LogMixin, ABC):
 
     logger: BeamlimeLogger
 
-    def data_pipe_monitor(
-        self,
-        pipe: Any,
-        timeout: float = 5,
-        interval: float = 1 / 14,
-        preferred_size: int = 1,
-        target_size: int = 1,
-        size_monitor_func: Optional[Callable[..., int]] = None,
-    ):
-        from beamlime.core.schedulers import async_retry
-
-        size_monitor = _get_size_monitor_function(pipe, size_monitor_func)
-
-        @async_retry(
-            TimeoutError, max_trials=int(timeout / interval), interval=interval
-        )
-        async def wait_for_preferred_size() -> None:
-            if size_monitor() < preferred_size:
-                raise TimeoutError
-
-        async def is_pipe_filled() -> bool:
-            try:
-                await wait_for_preferred_size()
-            except TimeoutError:
-                await asyncio.sleep(0)  # Let other handlers use the event loop.
-            return size_monitor() >= target_size
-
-        return is_pipe_filled
-
     @abstractmethod
-    async def run(self):
+    async def run(
+        self,
+    ) -> AsyncGenerator[Optional[MessageProtocol], None]:
         ...
-
-
-@runtime_checkable
-class MessageProtocol(Protocol):
-    content: Any
-    sender: type
-    receiver: type
 
 
 class HandlerInterface(LogMixin, ABC):
@@ -100,14 +57,6 @@ class HandlerInterface(LogMixin, ABC):
 class MessageRouter(DaemonInterface):
     """A message router that routes messages to handlers."""
 
-    @dataclass
-    class StopRouting:
-        """A message to break the routing loop."""
-
-        content: Optional[Any]
-        sender: type
-        receiver: type
-
     def __init__(self):
         from queue import Queue
 
@@ -116,14 +65,6 @@ class MessageRouter(DaemonInterface):
             type, List[Callable[[MessageProtocol], Awaitable[Any]]]
         ] = dict()
         self.message_pipe = Queue()
-        self._break_routing_loop = False  # Break the routing loop flag
-
-    def break_routing_loop(self, message: Optional[MessageProtocol] = None) -> None:
-        if not isinstance(message, self.StopRouting):
-            raise TypeError(
-                f"Expected message of type {self.StopRouting}, got {type(message)}."
-            )
-        self._break_routing_loop = True
 
     @contextmanager
     def _handler_wrapper(
@@ -206,25 +147,17 @@ class MessageRouter(DaemonInterface):
         for result in results:
             self.message_pipe.put(result)
 
-    async def run(self) -> None:
+    async def run(
+        self,
+    ) -> AsyncGenerator[Optional[MessageProtocol], None]:
         """Message router daemon."""
-        data_monitor = self.data_pipe_monitor(
-            self.message_pipe,
-            timeout=0.1,
-            interval=0.1,
-            size_monitor_func=self.message_pipe.qsize,
-        )
-
-        while not self._break_routing_loop:
-            if await data_monitor():
-                message = self.message_pipe.get()
-                await self.route(message)
-                await asyncio.sleep(0)
-
-        self.debug("Breaking routing loop. Routing the rest of the message...")
-        while not self.message_pipe.empty():
-            await self.route(self.message_pipe.get())
-        self.debug("Routing the rest of the message done.")
+        while True:
+            await asyncio.sleep(0)
+            if self.message_pipe.empty():
+                await asyncio.sleep(0.1)
+            while not self.message_pipe.empty():
+                await self.route(self.message_pipe.get())
+            yield
 
     async def send_message_async(self, message: MessageProtocol) -> None:
         self.message_pipe.put(message)
@@ -242,24 +175,36 @@ class Application(LogMixin):
 
     """
 
+    @dataclass
+    class Stop:
+        """A message to break the routing loop."""
+
+        content: Optional[Any]
+
     def __init__(self, logger: BeamlimeLogger, message_router: MessageRouter) -> None:
         import asyncio
 
         self.loop: asyncio.AbstractEventLoop
         self.tasks: List[asyncio.Task]
         self.logger = logger
-        self._message_router = message_router
-        self.daemons: List[DaemonInterface] = [self._message_router]
-        self.register_handling_method(
-            self._message_router.StopRouting, self._message_router.break_routing_loop
-        )
+        self.message_router = message_router
+        self.daemons: List[DaemonInterface] = [self.message_router]
+        self.register_handling_method(self.Stop, self.stop_tasks)
+        self._break = False
         super().__init__()
+
+    def stop_tasks(self, message: Optional[MessageProtocol] = None) -> None:
+        if message is not None and not isinstance(message, self.Stop):
+            raise TypeError(
+                f"Expected message of type {self.Stop}, got {type(message)}."
+            )
+        self._break = True
 
     def register_handling_method(
         self, event_tp: type[MessageProtocol], handler: Callable[[MessageProtocol], Any]
     ) -> None:
         """Register handlers to the application message router."""
-        self._message_router.register_handler(event_tp, handler)
+        self.message_router.register_handler(event_tp, handler)
 
     def register_daemon(self, daemon: DaemonInterface) -> None:
         """Register a daemon to the application.
@@ -269,6 +214,17 @@ class Application(LogMixin):
         The future of the daemon will be collected in the ``self.tasks`` list.
         """
         self.daemons.append(daemon)
+
+    def _create_daemon_coroutines(self) -> list[Coroutine]:
+        async def run_daemon(daemon: DaemonInterface):
+            async for message in daemon.run():
+                if message is not None:
+                    await self.message_router.send_message_async(message)
+                if self._break:
+                    break
+                await asyncio.sleep(0)
+
+        return [run_daemon(daemon) for daemon in self.daemons]
 
     def run(self):
         """
@@ -290,7 +246,7 @@ class Application(LogMixin):
         start = time.time()
         with temporary_event_loop() as loop:
             self.loop = loop
-            daemon_coroutines = [daemon.run() for daemon in self.daemons]
+            daemon_coroutines = self._create_daemon_coroutines()
             self.tasks = [loop.create_task(coro) for coro in daemon_coroutines]
             if not loop.is_running():
                 loop.run_until_complete(asyncio.gather(*self.tasks))

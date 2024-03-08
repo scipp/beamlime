@@ -39,13 +39,18 @@ async def test_fake_listener_produces_start_event(nexus_structure):
     logger = Logger()
     listener.logger = logger
 
-    await listener.run()
+    async for message in listener.run():
+        await messenger.send_message_async(message)
+        break
+
     assert len(messenger) > 0
     assert isinstance(messenger[0], RunStart)
     assert isinstance(messenger[0].content, Group)
 
 
 async def test_fake_listener_produces_stop_routing(nexus_structure):
+    from beamlime.applications.base import Application
+
     listener = FakeListener(nexus_structure)
 
     class Messenger(list):
@@ -64,6 +69,8 @@ async def test_fake_listener_produces_stop_routing(nexus_structure):
     logger = Logger()
     listener.logger = logger
 
-    await listener.run()
+    async for message in listener.run():
+        await messenger.send_message_async(message)
+
     assert len(messenger) > 1
-    assert messenger[-1] == 'StopRouting'
+    assert isinstance(messenger[-1], Application.Stop)

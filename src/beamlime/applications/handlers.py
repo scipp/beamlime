@@ -15,17 +15,8 @@ Events = NewType("Events", list[sc.DataArray])
 
 
 @dataclass
-class WorkflowResultUpdate(MessageProtocol):
+class WorkflowResultUpdate:
     content: WorkflowResult
-    sender: type
-    receiver: type
-
-
-@dataclass
-class RawDataSent(MessageProtocol):
-    content: Events
-    sender: type
-    receiver: type
 
 
 class DataReductionHandler(HandlerInterface):
@@ -42,9 +33,7 @@ class DataReductionHandler(HandlerInterface):
     def process_message(self, message: MessageProtocol) -> MessageProtocol:
         content = message.content
         self.info("Received, %s", self.format_received(content))
-        return WorkflowResultUpdate(
-            sender=DataReductionHandler, receiver=Any, content=self.workflow(content)
-        )
+        return WorkflowResultUpdate(content=self.workflow(content))
 
 
 ImagePath = NewType("ImagePath", pathlib.Path)
