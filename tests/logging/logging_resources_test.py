@@ -3,6 +3,7 @@
 from pathlib import Path
 from unittest.mock import patch
 
+from beamlime import Factory
 from beamlime.logging.resources import (
     FileHandlerBasePath,
     LogDirectoryPath,
@@ -52,12 +53,10 @@ def test_create_log_file_invalid_prefix_raises():
         )
 
 
-def test_log_file_name_provider(local_logger: bool):
+def test_log_file_name_provider(local_logger: bool, default_factory: Factory):
     """Test helper context test."""
-    from beamlime.ready_factory import log_factory
-
     assert local_logger
-    with log_factory.local_factory() as factory:
+    with default_factory.local_factory() as factory:
         file_prefix = LogFilePrefix("beanline")
         timestamp = UTCTimeTag("rightnow")
         file_extension = LogFileExtension("leaf")
@@ -96,12 +95,13 @@ def test_create_log_file_directory_not_ready_raises(tmp_path: Path):
         )
 
 
-def test_create_log_file_path_provider(local_logger: bool, tmp_path: Path):
+def test_create_log_file_path_provider(
+    local_logger: bool, tmp_path: Path, default_factory: Factory
+):
     """Test helper context test."""
-    from beamlime.ready_factory import log_factory
 
     assert local_logger
-    with log_factory.local_factory() as factory:
+    with default_factory.local_factory() as factory:
         log_dir = LogDirectoryPath(tmp_path / Path("tmp"))
         log_file = LogFileName(Path("tmp.log"))
         expected_path = log_dir / log_file

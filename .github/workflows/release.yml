@@ -18,7 +18,7 @@ jobs:
     runs-on: 'ubuntu-22.04'
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
           fetch-depth: 0  # history required so setuptools_scm can determine version
@@ -41,7 +41,7 @@ jobs:
     runs-on: 'ubuntu-22.04'
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # history required so setuptools_scm can determine version
 
@@ -71,7 +71,7 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
     steps:
       - uses: actions/download-artifact@v3
-      - uses: pypa/gh-action-pypi-publish@v1.8.10
+      - uses: pypa/gh-action-pypi-publish@v1.8.12
 
   upload_conda:
     name: Deploy Conda

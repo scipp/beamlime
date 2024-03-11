@@ -2,6 +2,8 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from logging import Logger
 
+from beamlime import Factory
+
 
 def test_get_logger_default(local_logger: bool):
     from beamlime.logging import get_logger
@@ -13,12 +15,11 @@ def test_get_logger_default(local_logger: bool):
     assert default_logger.name == "beamlime"
 
 
-def test_logger_provider(local_logger: bool):
+def test_logger_provider(local_logger: bool, default_factory: Factory):
     from beamlime.logging import BeamlimeLogger, get_logger
-    from beamlime.ready_factory import log_factory
 
     assert local_logger
-    with log_factory.local_factory() as factory:
+    with default_factory.local_factory() as factory:
         assert factory[BeamlimeLogger] is get_logger()
         assert factory[BeamlimeLogger].name == "beamlime"
 

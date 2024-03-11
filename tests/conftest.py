@@ -6,6 +6,8 @@ from typing import Generator, Literal
 
 import pytest
 
+from beamlime import Factory
+
 
 def pytest_addoption(parser: pytest.Parser):
     parser.addoption("--kafka-test", action="store_true", default=False)
@@ -68,3 +70,11 @@ def local_logger() -> Generator[Literal[True], None, None]:
 
     with _local_logger():
         yield True
+
+
+@pytest.fixture
+def default_factory() -> Factory:
+    """Returns a Factory that has all default providers of ``beamlime``."""
+    from beamlime.logging.providers import log_providers
+
+    return Factory(log_providers)

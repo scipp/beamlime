@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from pytest import LogCaptureFixture
 
+from beamlime import Factory
 from beamlime.logging import (
     FileHandlerConfigured,
     LogDirectoryPath,
@@ -76,9 +77,10 @@ def test_app_logging_stream(
         assert expected_field in log_record.message
 
 
-def test_file_handler_configuration(tmp_path: Path, local_logger: bool):
+def test_file_handler_configuration(
+    tmp_path: Path, local_logger: bool, default_factory: Factory
+) -> None:
     from beamlime.constructors import ProviderGroup
-    from beamlime.ready_factory import log_factory
 
     assert local_logger
     tmp_log_dir = tmp_path / "tmp"
@@ -89,7 +91,7 @@ def test_file_handler_configuration(tmp_path: Path, local_logger: bool):
     tmp_log_providers[LogDirectoryPath] = lambda: tmp_log_dir
     tmp_log_providers[LogFileName] = lambda: tmp_log_filename
 
-    with log_factory.local_factory(tmp_log_providers) as factory:
+    with default_factory.local_factory(tmp_log_providers) as factory:
         logger: Logger = get_logger(verbose=False)
         # Should not have any file handlers set.
         hdlrs = logger.handlers
@@ -110,15 +112,15 @@ def test_file_handler_configuration(tmp_path: Path, local_logger: bool):
         assert Path(f_hdlr.baseFilename) == tmp_log_path
 
 
-def test_file_handler_configuration_existing_dir_raises(local_logger: bool):
+def test_file_handler_configuration_existing_dir_raises(
+    local_logger: bool, default_factory: Factory
+) -> None:
     from inspect import getsourcefile
-
-    from beamlime.ready_factory import log_factory
 
     assert local_logger
     if src_file := getsourcefile(test_file_handler_configuration):
         this_file_path = Path(src_file)
-        with log_factory.local_factory() as factory:
+        with default_factory.local_factory() as factory:
             with factory.constant_provider(LogDirectoryPath, this_file_path):
                 with pytest.raises(FileExistsError):
                     factory[FileHandlerConfigured]
