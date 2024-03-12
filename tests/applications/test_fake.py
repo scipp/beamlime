@@ -1,5 +1,6 @@
 import json
 import os
+from unittest.mock import MagicMock
 
 import pytest
 from scippnexus import Group
@@ -20,24 +21,21 @@ def nexus_structure():
         return json.load(f)
 
 
-async def test_fake_listener_produces_start_event(nexus_structure):
+class MockMessenger(list):
+    async def send_message_async(self, m):
+        self.append(m)
+
+    def StopRouting(self, *args, **kwargs):
+        return 'StopRouting'
+
+
+async def test_fake_listener_produces_start_event(
+    nexus_structure, mock_logger: MagicMock
+):
     listener = FakeListener(nexus_structure)
 
-    class Messenger(list):
-        async def send_message_async(self, m):
-            self.append(m)
-
-        def StopRouting(self, *args, **kwargs):
-            return 'StopRouting'
-
-    class Logger(list):
-        def info(self, m, *args, **kwargs):
-            self.append(m)
-
-    messenger = Messenger()
-    listener.messenger = messenger
-    logger = Logger()
-    listener.logger = logger
+    messenger = MockMessenger()
+    listener.logger = mock_logger
 
     async for message in listener.run():
         await messenger.send_message_async(message)
@@ -45,29 +43,18 @@ async def test_fake_listener_produces_start_event(nexus_structure):
 
     assert len(messenger) > 0
     assert isinstance(messenger[0], RunStart)
-    assert isinstance(messenger[0].content, Group)
+    assert isinstance(messenger[0].args[0], Group)
 
 
-async def test_fake_listener_produces_stop_routing(nexus_structure):
+async def test_fake_listener_produces_stop_routing(
+    nexus_structure, mock_logger: MagicMock
+):
     from beamlime.applications.base import Application
 
     listener = FakeListener(nexus_structure)
 
-    class Messenger(list):
-        async def send_message_async(self, m):
-            self.append(m)
-
-        def StopRouting(self, *args, **kwargs):
-            return 'StopRouting'
-
-    class Logger(list):
-        def info(self, m, *args, **kwargs):
-            self.append(m)
-
-    messenger = Messenger()
-    listener.messenger = messenger
-    logger = Logger()
-    listener.logger = logger
+    messenger = MockMessenger()
+    listener.logger = mock_logger
 
     async for message in listener.run():
         await messenger.send_message_async(message)

@@ -78,3 +78,11 @@ def default_factory() -> Factory:
     from beamlime.logging.providers import log_providers
 
     return Factory(log_providers)
+
+
+@pytest.fixture
+def mock_logger():
+    import logging
+    from unittest.mock import MagicMock
+
+    return MagicMock(spec=logging.Logger)

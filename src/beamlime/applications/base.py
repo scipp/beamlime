@@ -4,6 +4,7 @@ import asyncio
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import (
     Any,
     AsyncGenerator,
@@ -12,18 +13,34 @@ from typing import (
     Coroutine,
     Generator,
     List,
+    Mapping,
     Optional,
     Protocol,
+    Tuple,
     runtime_checkable,
 )
 
 from ..logging import BeamlimeLogger
 from ..logging.mixins import LogMixin
 
+EMPTY_ARGS = tuple()
+EMPTY_KWARGS = MappingProxyType(dict())
+
 
 @runtime_checkable
 class MessageProtocol(Protocol):
-    content: Any
+    """Container of arguments and keyword arguments for handlers."""
+
+    args: Tuple
+    kwargs: Mapping
+
+
+@dataclass
+class MessageBase:
+    """Base class for easier implementation of ``MessageProtocol``."""
+
+    args: Tuple = EMPTY_ARGS
+    kwargs: Mapping = EMPTY_KWARGS
 
 
 class DaemonInterface(LogMixin, ABC):
@@ -84,11 +101,9 @@ class MessageRouter(DaemonInterface):
     def _register(
         self,
         *,
-        handler_list: dict[
-            type[MessageProtocol], List[Callable[[MessageProtocol], Any]]
-        ],
+        handler_list: dict[type[MessageProtocol], List[Callable[..., Any]]],
         event_tp: type[MessageProtocol],
-        handler: Callable[[MessageProtocol], Any],
+        handler: Callable[..., Any],
     ):
         if event_tp in handler_list:
             handler_list[event_tp].append(handler)
@@ -97,9 +112,8 @@ class MessageRouter(DaemonInterface):
 
     def register_handler(
         self,
-        event_tp,
-        handler: Callable[[MessageProtocol], Any]
-        | Callable[[MessageProtocol], Coroutine[Any, Any, Any]],
+        event_tp: type[MessageProtocol],
+        handler: Callable[..., Any] | Callable[..., Coroutine[Any, Any, Any]],
     ):
         if asyncio.iscoroutinefunction(handler):
             handler_list = self.awaitable_handlers
@@ -126,14 +140,20 @@ class MessageRouter(DaemonInterface):
         for handler in (handlers := self.handlers.get(type(message), [])):
             await asyncio.sleep(0)  # Let others use the event loop.
             with self._handler_wrapper(handler, message):
-                results.extend(self._collect_results(handler(message)))
+                results.extend(
+                    self._collect_results(handler(*message.args, **message.kwargs))
+                )
 
         # Asynchronous handlers
         for handler in (
             awaitable_handlers := self.awaitable_handlers.get(type(message), [])
         ):
             with self._handler_wrapper(handler, message):
-                results.extend(self._collect_results(await handler(message)))
+                results.extend(
+                    self._collect_results(
+                        await handler(*message.args, **message.kwargs)
+                    )
+                )
 
         # No handlers
         if not (handlers or awaitable_handlers):
@@ -176,10 +196,11 @@ class Application(LogMixin):
     """
 
     @dataclass
-    class Stop:
+    class Stop(MessageBase):
         """A message to break the routing loop."""
 
-        content: Optional[Any]
+        args: Tuple[type]
+        """Sender of the message."""
 
     def __init__(self, logger: BeamlimeLogger, message_router: MessageRouter) -> None:
         import asyncio
@@ -193,15 +214,12 @@ class Application(LogMixin):
         self._break = False
         super().__init__()
 
-    def stop_tasks(self, message: Optional[MessageProtocol] = None) -> None:
-        if message is not None and not isinstance(message, self.Stop):
-            raise TypeError(
-                f"Expected message of type {self.Stop}, got {type(message)}."
-            )
+    def stop_tasks(self, sender: type) -> None:
+        self.info('Stop requested from %s', sender.__qualname__)
         self._break = True
 
     def register_handling_method(
-        self, event_tp: type[MessageProtocol], handler: Callable[[MessageProtocol], Any]
+        self, event_tp: type[MessageProtocol], handler: Callable[..., Any]
     ) -> None:
         """Register handlers to the application message router."""
         self.message_router.register_handler(event_tp, handler)

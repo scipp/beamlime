@@ -3,26 +3,26 @@
 import json
 import os
 from dataclasses import dataclass
-from typing import AsyncGenerator, Generator, Union
+from typing import AsyncGenerator, Generator, Tuple, Union
 
 from scippneutron.io.nexus.load_nexus import JSONGroup, json_nexus_group
 
 from ._parameters import ChunkSize, DataFeedingSpeed
 from ._random_data_providers import RandomEvents
-from .base import Application, DaemonInterface, MessageProtocol
+from .base import Application, DaemonInterface, MessageBase, MessageProtocol
 from .handlers import Events
 
 Path = Union[str, bytes, os.PathLike]
 
 
 @dataclass
-class RunStart:
-    content: JSONGroup
+class RunStart(MessageBase):
+    args: Tuple[JSONGroup]
 
 
 @dataclass
-class RawDataSent:
-    content: Events
+class RawDataSent(MessageBase):
+    args: Tuple[Events]
 
 
 class DataStreamSimulator(DaemonInterface):
@@ -46,10 +46,10 @@ class DataStreamSimulator(DaemonInterface):
         self.info("Data streaming started...")
         for i_chunk, chunk in enumerate(self.slice_chunk()):
             self.info("Sent %s th chunk, with %s pieces.", i_chunk + 1, len(chunk))
-            yield RawDataSent(content=chunk)
+            yield RawDataSent(args=(chunk,))
             await asyncio.sleep(self.data_feeding_speed)
 
-        yield Application.Stop(content=None)
+        yield Application.Stop(args=(self.__class__,))
         self.info("Data streaming finished...")
 
 
@@ -67,6 +67,6 @@ class FakeListener(DaemonInterface):
     async def run(self) -> AsyncGenerator[MessageProtocol, None]:
         self.info("Fake data streaming started...")
 
-        yield RunStart(content=self._group)
-        yield Application.Stop(content=None)
+        yield RunStart(args=(self._group,))
+        yield Application.Stop(args=(self.__class__,))
         self.info("Fake data streaming finished...")
