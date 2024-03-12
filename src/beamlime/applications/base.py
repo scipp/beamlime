@@ -202,6 +202,12 @@ class Application(LogMixin):
         args: Tuple[type]
         """Sender of the message."""
 
+    @dataclass
+    class RegisterHandler(MessageBase):
+        """A message to register a handler to the application."""
+
+        kwargs: Mapping[str, type[MessageProtocol] | Callable[..., Any]]
+
     def __init__(self, logger: BeamlimeLogger, message_router: MessageRouter) -> None:
         import asyncio
 
@@ -211,11 +217,17 @@ class Application(LogMixin):
         self.message_router = message_router
         self.daemons: List[DaemonInterface] = [self.message_router]
         self.register_handling_method(self.Stop, self.stop_tasks)
+        self.register_handling_method(
+            self.RegisterHandler, self.register_handling_method
+        )
         self._break = False
         super().__init__()
 
-    def stop_tasks(self, sender: type) -> None:
-        self.info('Stop requested from %s', sender.__qualname__)
+    def stop_tasks(self, sender: Optional[type] = None) -> None:
+        """Update break loop flag to ``True``."""
+        if sender is not None:
+            self.info('Stop requested from %s', sender.__qualname__)
+
         self._break = True
 
     def register_handling_method(
