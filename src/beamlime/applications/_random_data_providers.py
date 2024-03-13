@@ -43,12 +43,12 @@ def random_ev44_generator(
     et_zero = ReferenceTimeZero(13620492**11)  # No reason
     while True:
         cur_event_number = int(
-            ef_rate * rng.integers(99, 101) / 100
+            ef_rate * (rng.integers(99, 101) / 100)
         )  # 1% of fluctuation
         yield EV44(
             reference_time=[et_zero],
             reference_time_index=[0],
-            time_of_flight=rng.random((ef_rate,)) * 800 + 200,  # No reason
+            time_of_flight=rng.random((cur_event_number,)) * 800 + 200,  # No reason
             pixel_id=rng.choice(detector_numbers, cur_event_number),
         )
         et_zero += int(1e9 / frame_rate)  # Move to next frame
