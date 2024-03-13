@@ -26,7 +26,7 @@ class DetectorDataReceived:
 NexusTemplatePath = NewType("NexusTemplatePath", str)
 
 
-class KafkaListenerSimulator(DaemonInterface):
+class KafkaStreamSimulator(DaemonInterface):
     """Event generator based on the nexus template."""
 
     def __init__(

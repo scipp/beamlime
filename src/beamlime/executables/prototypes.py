@@ -15,7 +15,7 @@ def collect_default_providers() -> ProviderGroup:
 
     from ..applications._parameters import collect_default_param_providers
     from ..applications.base import Application, MessageRouter
-    from ..applications.daemons import KafkaListenerSimulator
+    from ..applications.daemons import KafkaStreamSimulator
     from ..applications.handlers import (
         DataReductionHandler,
         PlotSaver,
@@ -25,7 +25,7 @@ def collect_default_providers() -> ProviderGroup:
 
     app_providers = ProviderGroup(
         SingletonProvider(Application),
-        KafkaListenerSimulator,
+        KafkaStreamSimulator,
         DataReductionHandler,
         PlotSaver,
         provide_stateless_workflow,
@@ -120,7 +120,7 @@ def run_standalone_prototype(
     from ..applications.base import Application
     from ..applications.daemons import (
         DetectorDataReceived,
-        KafkaListenerSimulator,
+        KafkaStreamSimulator,
         NexusTemplatePath,
     )
     from ..applications.handlers import (
@@ -161,7 +161,7 @@ def run_standalone_prototype(
         )
 
         # Daemons
-        app.register_daemon(factory[KafkaListenerSimulator])
+        app.register_daemon(factory[KafkaStreamSimulator])
         app.run()
 
 
