@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-from typing import Any, Generator, Iterable, List, NewType, TypedDict
+from typing import Any, Generator, List, NewType, TypedDict
 
+import numpy as np
 import scipp as sc
 from numpy.random import default_rng
 
@@ -21,10 +22,10 @@ DetectorNumberCands = NewType("DetectorNumberCands", List[int])
 
 
 class EV44(TypedDict):
-    reference_time: Iterable[float]
-    reference_time_index: Iterable[int]
-    time_of_flight: Iterable[float]
-    pixel_id: Iterable[int]
+    reference_time: list[float] | np.ndarray
+    reference_time_index: list[int] | np.ndarray
+    time_of_flight: list[float] | np.ndarray
+    pixel_id: list[int] | np.ndarray
 
 
 RandomEV44Generator = Generator[EV44, Any, Any]
