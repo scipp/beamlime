@@ -56,7 +56,7 @@ class PrototypeParameters(TypedParameterContainerMixin):
     histogram_bin_size: HistogramBinSize = HistogramBinSize(50)
     chunk_size: ChunkSize = ChunkSize(28)
     frame_rate: FrameRate = FrameRate(14)
-    num_frames: NumFrames = NumFrames(140)
+    num_frames: NumFrames = NumFrames(5)
     random_seed: RandomSeed = RandomSeed(123)
     data_feeding_speed: DataFeedingSpeed = DataFeedingSpeed(0.0)
 
