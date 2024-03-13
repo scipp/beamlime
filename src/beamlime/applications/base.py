@@ -70,13 +70,18 @@ class MessageRouter(DaemonInterface):
     def _handler_wrapper(
         self, handler: Callable[..., Any], message: MessageProtocol
     ) -> Generator[None, None, None]:
-        import warnings
-
         try:
             self.debug(f"Routing event {type(message)} to handler {handler}...")
             yield
         except Exception as e:
-            warnings.warn(f"Failed to handle event {type(message)}", stacklevel=2)
+            # Make sure ``Stop`` event is handled.
+            # It is because raising an exception will
+            # only destroy the ``MessageRouter`` coroutine, not other coroutines.
+            # Therefore other coroutines may not be stopped in
+            # some environments, e.g. Jupyter Notebooks.
+            for stop_handler in self.handlers.get(Application.Stop, []):
+                stop_handler(Application.Stop(content=None))
+            self.warning(f"Failed to handle event {type(message)}")
             raise e
         else:
             self.debug(f"Routing event {type(message)} to handler {handler} done.")
@@ -137,11 +142,7 @@ class MessageRouter(DaemonInterface):
 
         # No handlers
         if not (handlers or awaitable_handlers):
-            import warnings
-
-            warnings.warn(
-                f"No handler for event {type(message)}. Ignoring...", stacklevel=2
-            )
+            self.warning(f"No handler for event {type(message)}. Ignoring...")
 
         # Re-route the results
         for result in results:
@@ -199,6 +200,7 @@ class Application(LogMixin):
                 f"Expected message of type {self.Stop}, got {type(message)}."
             )
         self._break = True
+        self.info('Stop running application %s...', self.__class__.__name__)
 
     def register_handling_method(
         self, event_tp: type[MessageProtocol], handler: Callable[[MessageProtocol], Any]
@@ -238,17 +240,13 @@ class Application(LogMixin):
 
         """
         import asyncio
-        import time
 
         from beamlime.core.schedulers import temporary_event_loop
 
         self.info('Start running %s...', self.__class__.__qualname__)
-        start = time.time()
         with temporary_event_loop() as loop:
             self.loop = loop
             daemon_coroutines = self._create_daemon_coroutines()
             self.tasks = [loop.create_task(coro) for coro in daemon_coroutines]
             if not loop.is_running():
                 loop.run_until_complete(asyncio.gather(*self.tasks))
-
-        self.info('Finished running %s...', time.time() - start)
