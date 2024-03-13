@@ -239,17 +239,18 @@ class NXDetectorContainer:
         }
 
 
-class NexusTemplate(dict):
+class NexusContainer:
+    nexus_template: dict
+
     @classmethod
     def from_template_file(cls, path: Path):
         import json
 
         with open(path) as f:
-            return cls(**json.loads(''.join(f.readlines())))
+            return cls(nexus_template=json.load(f))
 
-    def __init__(self, **nexus_structure) -> None:
-        super().__init__(**nexus_structure)
-        instrument_gr = self._get_instrument_group(self)
+    def __init__(self, *, nexus_template: dict) -> None:
+        instrument_gr = self._get_instrument_group(nexus_template)
         self.detectors = [
             NXDetectorContainer(det_dict)
             for det_dict in self._collect_detectors(instrument_gr)
@@ -284,8 +285,8 @@ class NexusTemplate(dict):
         """Return a copy of nexus structure without the pixel information."""
         from copy import deepcopy
 
-        nexus_container = deepcopy(self)
-        instrument_gr = self._get_instrument_group(nexus_container)
+        nexus_container = deepcopy(self.nexus_template)
+        instrument_gr = self._get_instrument_group(self.nexus_template)
         detectors = self._collect_detectors(instrument_gr)
 
         for detector_dict, detector_container in zip(detectors, self.detectors):
