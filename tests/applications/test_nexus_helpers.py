@@ -6,7 +6,7 @@ import pytest
 
 from beamlime.applications._nexus_helpers import NexusContainer
 from beamlime.applications._random_data_providers import (
-    DetectorNumberCands,
+    DetectorNumberCandidates,
     RandomEV44Generator,
     random_ev44_generator,
 )
@@ -19,7 +19,9 @@ def test_nexus_container_initialized_from_path():
 
 @pytest.fixture
 def ev44_generator() -> RandomEV44Generator:
-    return random_ev44_generator(detector_numbers=DetectorNumberCands(list(range(100))))
+    return random_ev44_generator(
+        detector_numbers=DetectorNumberCandidates(list(range(100)))
+    )
 
 
 def test_ev44_generator_size(ev44_generator: RandomEV44Generator):
