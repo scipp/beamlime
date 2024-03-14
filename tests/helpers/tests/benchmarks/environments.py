@@ -58,8 +58,14 @@ def provide_total_cpu_cores() -> LogicalCpuCores:
 @env_providers.provider
 def provide_process_cpu_affinity() -> ProcessCpuAffinity:
     """Process CPU affinity."""
-
-    return ProcessCpuAffinity(len(psutil.Process().cpu_affinity() or []), 'counts')
+    try:
+        return ProcessCpuAffinity(len(psutil.Process().cpu_affinity() or []), 'counts')
+    except AttributeError:
+        # In MacOS, the `cpu_affinity` attribute is not available.
+        # It is not easy to assign specific number of CPU cores to the process in MacOS.
+        # Therefore we can assume that the process can use all available physical cores
+        # when we analyze the benchmark results.
+        return ProcessCpuAffinity(None, 'counts')
 
 
 @env_providers.provider
