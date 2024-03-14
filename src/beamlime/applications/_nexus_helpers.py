@@ -280,24 +280,3 @@ class NexusContainer:
             'children',
             partial(match_nx_class, cls_name='NXinstrument'),
         )
-
-    def prune_pixel_info(self) -> dict:
-        """Return a copy of nexus structure without the pixel information."""
-        from copy import deepcopy
-
-        nexus_container = deepcopy(self.nexus_template)
-        instrument_gr = self._get_instrument_group(self.nexus_template)
-        detectors = self._collect_detectors(instrument_gr)
-
-        for detector_dict, detector_container in zip(detectors, self.detectors):
-            clearing_list = [
-                nested_dict_getitem(detector_dict, *detector_container._pixel_ids_idx),
-            ]
-            clearing_list.extend(
-                nested_dict_getitem(detector_dict, *offset_idx)
-                for offset_idx in detector_container._pixel_offsets_idx.values()
-            )
-            for clearing in clearing_list:
-                clearing.clear()
-
-        return nexus_container
