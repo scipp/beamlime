@@ -18,7 +18,7 @@ RandomEvent = NewType("RandomEvent", sc.DataArray)
 RandomEvents = NewType("RandomEvents", List[sc.DataArray])
 
 
-DetectorNumberCands = NewType("DetectorNumberCands", List[int])
+DetectorNumberCandidates = NewType("DetectorNumberCandidates", List[int])
 
 
 class EV44(TypedDict):
@@ -32,7 +32,7 @@ RandomEV44Generator = Generator[EV44, Any, Any]
 
 
 def random_ev44_generator(
-    detector_numbers: DetectorNumberCands,
+    detector_numbers: DetectorNumberCandidates,
 ) -> Generator[EV44, Any, Any]:
     """Randomly select detector numbers (pixel ids) and generate events per frame."""
     rng = default_rng(123)
