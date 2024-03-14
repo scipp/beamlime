@@ -99,12 +99,6 @@ def _match_module_name(child: dict, name: str) -> bool:
     return child.get('module', None) == name
 
 
-def _match_dataset_name_suffix(child: dict, suffix: str) -> bool:
-    return child.get('module', None) == 'dataset' and child.get('config', {}).get(
-        'name', ''
-    ).endswith(suffix)
-
-
 def collect_nested_module_indices(
     nexus_container: dict, fb_id: FBIdentifier
 ) -> list[tuple]:
@@ -207,7 +201,6 @@ class NXDetectorContainer:
         self.detector_dict = detector_dict
 
         self.init_pixel_ids()
-        self.init_pixel_offsets()
 
     def init_pixel_ids(self) -> None:
         """Initialize the pixel ids of the detector."""
@@ -216,27 +209,6 @@ class NXDetectorContainer:
             self.detector_dict, 'children', pixel_id_filter, 'config', 'values'
         )
         self.pixel_ids = nested_dict_getitem(self.detector_dict, *self._pixel_ids_idx)
-
-    def init_pixel_offsets(self) -> None:
-        """Initialize the pixel offsets of the detector."""
-        pixel_offsets = [
-            child
-            for child in self.detector_dict['children']
-            if _match_dataset_name_suffix(child, 'pixel_offset')
-        ]
-        self.pixel_offsets = {
-            offset['config']['name']: offset['config']['values']
-            for offset in pixel_offsets
-        }
-        self._pixel_offsets_idx = {
-            offset['config']['name']: (
-                'children',
-                self.detector_dict['children'].index(offset),
-                'config',
-                'values',
-            )
-            for offset in pixel_offsets
-        }
 
 
 class NexusContainer:
