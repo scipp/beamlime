@@ -2,38 +2,9 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import os
 from functools import partial
-from types import MappingProxyType
-from typing import Any, Callable, Literal, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 Path = Union[str, bytes, os.PathLike]
-
-
-FBIdentifier = Literal["ev44", "f144", "tdct"]
-ValuesRecipe = MappingProxyType[str, type]
-
-_EV44_RECIPE = MappingProxyType(
-    {
-        "reference_time": list[float],
-        "reference_time_index": list[int],
-        "time_of_flight": list[float],
-        "pixel_id": list[int],
-    }
-)
-
-
-_F144_RECIPE = MappingProxyType({"timestamp": int, "value": float})
-
-
-_TDCT_RECIPE = MappingProxyType({"name": str, "timestamps": list[int]})
-
-
-MODULE_RECIPES: MappingProxyType[FBIdentifier, ValuesRecipe] = MappingProxyType(
-    {
-        "ev44": _EV44_RECIPE,
-        "f144": _F144_RECIPE,
-        "tdct": _TDCT_RECIPE,
-    }
-)
 
 
 def find_index(
@@ -93,98 +64,6 @@ def _match_dataset_name(child: dict, name: str) -> bool:
         child.get('module', None) == 'dataset'
         and child.get('config', {}).get('name', None) == name
     )
-
-
-def _match_module_name(child: dict, name: str) -> bool:
-    return child.get('module', None) == name
-
-
-def collect_nested_module_indices(
-    nexus_container: dict, fb_id: FBIdentifier
-) -> list[tuple]:
-    """Collect the indices of the module with the given id."""
-    collected = list()
-
-    def _recursive_collect_indices(
-        obj: dict,
-        cur_idx: tuple[str | int, ...],
-    ) -> None:
-        # Group
-        for i, cand in enumerate(obj.get('children', [])):
-            cand_idx = cur_idx + ('children', i)
-            if _match_module_name(cand, fb_id):
-                collected.append(cand_idx)
-            else:
-                _recursive_collect_indices(cand, cand_idx)
-
-    _recursive_collect_indices(nexus_container, tuple())
-    return collected
-
-
-class ModularDatasetContainer(dict):
-    """Modular dataset that can update/clear values."""
-
-    def __init__(self, name: str, tp: type) -> None:
-        self.config_container = dict(name=name, dtype=tp.__name__)
-        super().__init__(module='dataset', config=self.config_container)
-
-    def clear(self) -> None:
-        """Clear the values if they are list. Ignore otherwise."""
-        if 'values' in self.config_container and isinstance(
-            self.config_container['values'], list
-        ):
-            self.config_container['values'].clear()
-        elif 'values' in self.config_container:
-            del self.config_container['values']
-
-    def update(self, values: Any) -> None:
-        """Update the values from the ``other``.
-
-        The values are extended if they are list and replaced otherwise.
-        """
-        if 'values' not in self.config_container or not isinstance(values, list):
-            self.config_container['values'] = values
-        elif isinstance(self.config_container['values'], list):
-            self.config_container['values'].extend(values)
-
-
-class ModularDataGroupContainer:
-    """Module container protocol."""
-
-    def __init__(self, group_dict: dict, module_dict: dict, **initial_values) -> None:
-        self.sub_datasets: dict[str, ModularDatasetContainer]
-        self.module_dict = module_dict
-        self.group_dict = group_dict
-        self._populate_sub_dataset()
-        self.update(initial_values)
-
-    def _populate_sub_dataset(self) -> None:
-        """Populate the sub datasets from the module dictionary."""
-        module_id = self.module_dict['module']
-        dataset_recipes = MODULE_RECIPES[module_id]
-        self.group_dict['children'].remove(self.module_dict)
-        self.sub_datasets = {
-            name: ModularDatasetContainer(name, tp)
-            for name, tp in dataset_recipes.items()
-        }
-        self.group_dict['children'].extend(self.sub_datasets.values())
-
-    def update(self, other: dict) -> None:
-        """Update the sub datasets from the other. Ignore if the name is not present.
-
-        See :func:`~ModularDatasetContainer.update` for more details.
-        """
-        for name, sub_dataset in self.sub_datasets.items():
-            if name in other:
-                sub_dataset.update(other[name])
-
-    def clear(self) -> None:
-        """Clear the sub datasets.
-
-        See :func:`~ModularDatasetContainer.clear` for more details.
-        """
-        for sub_dataset in self.sub_datasets.values():
-            sub_dataset.clear()
 
 
 class NXDetectorContainer:
