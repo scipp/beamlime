@@ -7,7 +7,7 @@ from typing import AsyncGenerator, NewType, Union
 
 from ._nexus_helpers import NexusContainer
 from ._parameters import DataFeedingSpeed, NumFrames
-from ._random_data_providers import DetectorNumberCands, random_ev44_generator
+from ._random_data_providers import DetectorNumberCandidates, random_ev44_generator
 from .base import Application, DaemonInterface, MessageProtocol
 
 Path = Union[str, bytes, os.PathLike]
@@ -26,7 +26,7 @@ class DetectorDataReceived:
 NexusTemplatePath = NewType("NexusTemplatePath", str)
 
 
-class ESSKafkaStreamSimulator(DaemonInterface):
+class FakeListener(DaemonInterface):
     """Event generator based on the nexus template."""
 
     def __init__(
@@ -39,7 +39,7 @@ class ESSKafkaStreamSimulator(DaemonInterface):
         self.nexus_container = NexusContainer.from_template_file(nexus_template_path)
         self.random_event_generators = {
             det.detector_name: random_ev44_generator(
-                detector_numbers=DetectorNumberCands(det.pixel_ids),
+                detector_numbers=DetectorNumberCandidates(det.pixel_ids),
             )
             for det in self.nexus_container.detectors
         }

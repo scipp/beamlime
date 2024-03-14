@@ -7,7 +7,7 @@ import pytest
 from beamlime.applications.daemons import (
     Application,
     DetectorDataReceived,
-    ESSKafkaStreamSimulator,
+    FakeListener,
     RunStart,
 )
 
@@ -20,7 +20,7 @@ class MockLogger(list):
 
 
 @pytest.fixture
-def kafka_stream_simulator() -> ESSKafkaStreamSimulator:
+def kafka_stream_simulator() -> FakeListener:
     from beamlime.applications.daemons import (
         DataFeedingSpeed,
         NexusTemplatePath,
@@ -29,7 +29,7 @@ def kafka_stream_simulator() -> ESSKafkaStreamSimulator:
     from beamlime.logging import BeamlimeLogger
 
     path = os.path.join(os.path.dirname(__file__), 'ymir.json')
-    simulator = ESSKafkaStreamSimulator(
+    simulator = FakeListener(
         nexus_template_path=NexusTemplatePath(path),
         speed=DataFeedingSpeed(1),
         num_frames=NumFrames(1),
@@ -40,14 +40,14 @@ def kafka_stream_simulator() -> ESSKafkaStreamSimulator:
 
 
 def test_kafka_simulator_contructor(
-    kafka_stream_simulator: ESSKafkaStreamSimulator,
+    kafka_stream_simulator: FakeListener,
 ) -> None:
     assert (
         len(kafka_stream_simulator.nexus_container.detectors) == 0
     )  # ymir has no detectors
 
 
-async def test_kafka_simulator(kafka_stream_simulator: ESSKafkaStreamSimulator) -> None:
+async def test_kafka_simulator(kafka_stream_simulator: FakeListener) -> None:
     generator = kafka_stream_simulator.run()
     assert isinstance(await anext(generator), RunStart)
     assert isinstance(await anext(generator), DetectorDataReceived)
