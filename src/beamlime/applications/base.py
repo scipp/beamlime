@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import asyncio
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from typing import (
     Any,
@@ -70,13 +70,11 @@ class MessageRouter(DaemonInterface):
     def _handler_wrapper(
         self, handler: Callable[..., Any], message: MessageProtocol
     ) -> Generator[None, None, None]:
-        import warnings
-
         try:
             self.debug(f"Routing event {type(message)} to handler {handler}...")
             yield
         except Exception as e:
-            warnings.warn(f"Failed to handle event {type(message)}", stacklevel=2)
+            self.warning(f"Failed to handle event {type(message)}")
             raise e
         else:
             self.debug(f"Routing event {type(message)} to handler {handler} done.")
@@ -137,11 +135,7 @@ class MessageRouter(DaemonInterface):
 
         # No handlers
         if not (handlers or awaitable_handlers):
-            import warnings
-
-            warnings.warn(
-                f"No handler for event {type(message)}. Ignoring...", stacklevel=2
-            )
+            self.warning(f"No handler for event {type(message)}. Ignoring...")
 
         # Re-route the results
         for result in results:
@@ -185,7 +179,7 @@ class Application(LogMixin):
         import asyncio
 
         self.loop: asyncio.AbstractEventLoop
-        self.tasks: List[asyncio.Task]
+        self.tasks: List[asyncio.Task] = []
         self.logger = logger
         self.message_router = message_router
         self.daemons: List[DaemonInterface] = [self.message_router]
@@ -194,6 +188,7 @@ class Application(LogMixin):
         super().__init__()
 
     def stop_tasks(self, message: Optional[MessageProtocol] = None) -> None:
+        self.info('Stop running application %s...', self.__class__.__name__)
         if message is not None and not isinstance(message, self.Stop):
             raise TypeError(
                 f"Expected message of type {self.Stop}, got {type(message)}."
@@ -215,14 +210,43 @@ class Application(LogMixin):
         """
         self.daemons.append(daemon)
 
+    def cancel_all_tasks(self) -> None:
+        """Cancel all tasks."""
+        for task in self.tasks:
+            task.cancel()
+
+    @asynccontextmanager
+    async def _daemon_wrapper(
+        self, daemon: DaemonInterface
+    ) -> AsyncGenerator[None, None]:
+        try:
+            self.info('Running daemon %s', daemon.__class__.__qualname__)
+            yield
+        except Exception as e:
+            # Make sure all other async tasks are cancelled.
+            # It is because raising an exception will destroy only the task
+            # that had an error raised and may not affect other tasks in some cases,
+            # e.g. in Jupyter Notebooks.
+            self.error(f"Daemon {daemon} failed. Cancelling all other tasks...")
+            # Break all daemon generator loops.
+            self._break = True
+            # Let other daemons/handlers clean up.
+            await self.message_router.route(self.Stop(None))
+            # Make sure all other async tasks are cancelled.
+            self.cancel_all_tasks()
+            raise e
+        else:
+            self.info("Daemon %s completed.", daemon.__class__.__qualname__)
+
     def _create_daemon_coroutines(self) -> list[Coroutine]:
         async def run_daemon(daemon: DaemonInterface):
-            async for message in daemon.run():
-                if message is not None:
-                    await self.message_router.send_message_async(message)
-                if self._break:
-                    break
-                await asyncio.sleep(0)
+            async with self._daemon_wrapper(daemon):
+                async for message in daemon.run():
+                    if message is not None:
+                        await self.message_router.send_message_async(message)
+                    if self._break:
+                        break
+                    await asyncio.sleep(0)
 
         return [run_daemon(daemon) for daemon in self.daemons]
 
@@ -238,17 +262,19 @@ class Application(LogMixin):
 
         """
         import asyncio
-        import time
 
         from beamlime.core.schedulers import temporary_event_loop
 
         self.info('Start running %s...', self.__class__.__qualname__)
-        start = time.time()
+        if self.tasks:
+            raise RuntimeError(
+                "Application is already running. "
+                "Cancel all tasks and clear them before running it again."
+            )
+
         with temporary_event_loop() as loop:
             self.loop = loop
             daemon_coroutines = self._create_daemon_coroutines()
-            self.tasks = [loop.create_task(coro) for coro in daemon_coroutines]
+            self.tasks.extend([loop.create_task(coro) for coro in daemon_coroutines])
             if not loop.is_running():
                 loop.run_until_complete(asyncio.gather(*self.tasks))
-
-        self.info('Finished running %s...', time.time() - start)
