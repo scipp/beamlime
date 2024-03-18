@@ -127,7 +127,7 @@
                       "module": "ev44",
                       "config": {
                         "topic": "hypothetical_detector",
-                        "source": "hypothetial_detector_0"
+                        "source": "hypothetical_detector_0"
                       }
                     }
                   ],
@@ -211,7 +211,7 @@
                       "module": "ev44",
                       "config": {
                         "topic": "hypothetical_detector",
-                        "source": "hypothetial_detector_1"
+                        "source": "hypothetical_detector_1"
                       }
                     }
                   ],
