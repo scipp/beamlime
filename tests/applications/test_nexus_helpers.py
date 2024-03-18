@@ -6,6 +6,7 @@ import pytest
 
 from beamlime.applications._nexus_helpers import NexusContainer
 from beamlime.applications._random_data_providers import (
+    DetectorName,
     DetectorNumberCandidates,
     RandomEV44Generator,
     random_ev44_generator,
@@ -20,13 +21,16 @@ def test_nexus_container_initialized_from_path():
 @pytest.fixture
 def ev44_generator() -> RandomEV44Generator:
     return random_ev44_generator(
-        detector_numbers=DetectorNumberCandidates(list(range(100)))
+        source_name=DetectorName('test'),
+        detector_numbers=DetectorNumberCandidates(list(range(100))),
     )
 
 
 def test_ev44_generator_size(ev44_generator: RandomEV44Generator):
     ef_rate = int(10_000 / 14)  # default event rate / frame rate
     events = next(ev44_generator)
+
+    assert events['source_name'] == 'test'
     assert int(ef_rate * 0.99) <= len(events['time_of_flight']) <= int(ef_rate * 1.01)
     assert len(events['pixel_id']) == len(events['time_of_flight'])
     assert len(events['reference_time']) == len(events['reference_time_index'])
