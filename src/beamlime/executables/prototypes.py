@@ -122,6 +122,7 @@ def run_standalone_prototype(
         DetectorDataReceived,
         FakeListener,
         NexusTemplatePath,
+        RunStart,
     )
     from ..applications.handlers import (
         DataReductionHandler,
@@ -156,6 +157,9 @@ def run_standalone_prototype(
         plot_saver = factory[PlotSaver]
         app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
         data_reduction_handler = factory[DataReductionHandler]
+        app.register_handling_method(
+            RunStart, data_reduction_handler.update_nexus_template
+        )
         app.register_handling_method(
             DetectorDataReceived, data_reduction_handler.process_message
         )

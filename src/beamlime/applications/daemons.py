@@ -7,7 +7,11 @@ from typing import AsyncGenerator, NewType, Union
 
 from ._nexus_helpers import NexusContainer
 from ._parameters import DataFeedingSpeed, NumFrames
-from ._random_data_providers import DetectorNumberCandidates, random_ev44_generator
+from ._random_data_providers import (
+    DetectorName,
+    DetectorNumberCandidates,
+    random_ev44_generator,
+)
 from .base import Application, DaemonInterface, MessageProtocol
 
 Path = Union[str, bytes, os.PathLike]
@@ -20,7 +24,7 @@ class RunStart:
 
 @dataclass
 class DetectorDataReceived:
-    content: dict
+    content: dict  # deserialized events
 
 
 NexusTemplatePath = NewType("NexusTemplatePath", str)
@@ -39,6 +43,7 @@ class FakeListener(DaemonInterface):
         self.nexus_container = NexusContainer.from_template_file(nexus_template_path)
         self.random_event_generators = {
             det.detector_name: random_ev44_generator(
+                source_name=DetectorName(det.detector_name),
                 detector_numbers=DetectorNumberCandidates(det.pixel_ids),
             )
             for det in self.nexus_container.detectors
@@ -52,10 +57,8 @@ class FakeListener(DaemonInterface):
         yield RunStart(content=self.nexus_container)
 
         for i_frame in range(self.num_frames):
-            events = {
-                det: next(gen) for det, gen in self.random_event_generators.items()
-            }
-            yield DetectorDataReceived(content=events)
+            for gen in self.random_event_generators.values():
+                yield DetectorDataReceived(content=next(gen))
             self.info(f"Detector events of frame #{i_frame} was sent.")
             await asyncio.sleep(self.data_feeding_speed)
 

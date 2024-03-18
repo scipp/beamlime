@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import pathlib
 from dataclasses import dataclass
-from typing import Any, NewType
+from typing import NewType
 
 import scipp as sc
 
@@ -10,8 +10,7 @@ from beamlime.logging import BeamlimeLogger
 
 from ..stateless_workflow import StatelessWorkflow, WorkflowResult
 from .base import HandlerInterface, MessageProtocol
-
-Events = NewType("Events", list[sc.DataArray])
+from .daemons import DetectorDataReceived, RunStart
 
 
 @dataclass
@@ -23,17 +22,22 @@ class DataReductionHandler(HandlerInterface):
     """Data reduction handler to process the raw data."""
 
     def __init__(self, workflow: StatelessWorkflow) -> None:
+        from ._nexus_helpers import NexusContainer
+
+        self.nexus_container: NexusContainer
         self.workflow = workflow
         super().__init__()
 
-    def format_received(self, data: Any) -> str:
-        # TODO remove ties to specific type of data
-        return f"{len(data)} pieces of {Events.__name__}"
+    def update_nexus_template(self, message: RunStart) -> None:
+        self.nexus_container = message.content
+        self.info("Received nexus template, ready to process the data.")
 
-    def process_message(self, message: MessageProtocol) -> MessageProtocol:
-        content = message.content
-        self.info("Received, %s", self.format_received(content))
-        return WorkflowResultUpdate(content=self.workflow(content))
+    def process_message(self, message: DetectorDataReceived) -> WorkflowResultUpdate:
+        self.info("Received data from %s.", message.content["source_name"])
+        self.nexus_container.insert_ev44(message.content)
+        return WorkflowResultUpdate(
+            content=self.workflow(self.nexus_container.nexus_dict)
+        )
 
 
 ImagePath = NewType("ImagePath", pathlib.Path)
