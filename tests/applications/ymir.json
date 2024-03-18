@@ -63,6 +63,174 @@
               }
             },
             {
+              "name": "hypothetical_detector_0",
+              "type": "group",
+              "children": [
+                {
+                  "module": "dataset",
+                  "config": {
+                    "name": "detector_number",
+                    "values": [1, 2, 3],
+                    "dtype": "int32"
+                  }
+                },
+                {
+                  "module": "dataset",
+                  "config": {
+                    "name": "x_pixel_offset",
+                    "values": [0.0, 0.0, 0.0, 0.1, 0.1, 0.1, 0.2, 0.2, 0.2],
+                    "dtype": "float"
+                  },
+                  "attributes": [
+                    {
+                      "name": "units",
+                      "dtype": "string",
+                      "values": "m"
+                    }
+                  ]
+                },
+                {
+                  "module": "dataset",
+                  "config": {
+                    "name": "y_pixel_offset",
+                    "values": [0.0, 0.1, 0.2, 0.0, 0.1, 0.2, 0.0, 0.1, 0.2],
+                    "dtype": "float"
+                  },
+                  "attributes": [
+                    {
+                      "name": "units",
+                      "dtype": "string",
+                      "values": "m"
+                    }
+                  ]
+                },
+                {
+                  "module": "dataset",
+                  "config": {
+                    "name": "z_pixel_offset",
+                    "values": [-0.01, -0.01, -0.01],
+                    "dtype": "float"
+                  },
+                  "attributes": [
+                    {
+                      "name": "units",
+                      "dtype": "string",
+                      "values": "m"
+                    }
+                  ]
+                },
+                {
+                  "name": "ymir_detector_events",
+                  "type": "group",
+                  "children": [
+                    {
+                      "module": "ev44",
+                      "config": {
+                        "topic": "hypothetical_detector",
+                        "source": "hypothetial_detector_0"
+                      }
+                    }
+                  ],
+                  "attributes": [
+                    {
+                      "name": "NX_class",
+                      "values": "NXevent_data"
+                    }
+                  ]
+                }
+              ],
+              "attributes": [
+                {
+                  "name": "NX_class",
+                  "values": "NXdetector"
+                }
+              ]
+            },
+            {
+              "name": "hypothetical_detector_1",
+              "type": "group",
+              "children": [
+                {
+                  "module": "dataset",
+                  "config": {
+                    "name": "detector_number",
+                    "values": [4, 5, 6],
+                    "dtype": "int32"
+                  }
+                },
+                {
+                  "module": "dataset",
+                  "config": {
+                    "name": "x_pixel_offset",
+                    "values": [0.0, 0.0, 0.0, 0.1, 0.1, 0.1, 0.2, 0.2, 0.2],
+                    "dtype": "float"
+                  },
+                  "attributes": [
+                    {
+                      "name": "units",
+                      "dtype": "string",
+                      "values": "m"
+                    }
+                  ]
+                },
+                {
+                  "module": "dataset",
+                  "config": {
+                    "name": "y_pixel_offset",
+                    "values": [0.0, 0.1, 0.2, 0.0, 0.1, 0.2, 0.0, 0.1, 0.2],
+                    "dtype": "float"
+                  },
+                  "attributes": [
+                    {
+                      "name": "units",
+                      "dtype": "string",
+                      "values": "m"
+                    }
+                  ]
+                },
+                {
+                  "module": "dataset",
+                  "config": {
+                    "name": "z_pixel_offset",
+                    "values": [-0.11, -0.11, -0.11],
+                    "dtype": "float"
+                  },
+                  "attributes": [
+                    {
+                      "name": "units",
+                      "dtype": "string",
+                      "values": "m"
+                    }
+                  ]
+                },
+                {
+                  "name": "ymir_detector_events",
+                  "type": "group",
+                  "children": [
+                    {
+                      "module": "ev44",
+                      "config": {
+                        "topic": "hypothetical_detector",
+                        "source": "hypothetial_detector_1"
+                      }
+                    }
+                  ],
+                  "attributes": [
+                    {
+                      "name": "NX_class",
+                      "values": "NXevent_data"
+                    }
+                  ]
+                }
+              ],
+              "attributes": [
+                {
+                  "name": "NX_class",
+                  "values": "NXdetector"
+                }
+              ]
+            },
+            {
               "name": "light_source",
               "type": "group",
               "attributes": [
