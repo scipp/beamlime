@@ -3,18 +3,19 @@
 
 
 def main() -> None:
+    from beamlime import Factory
     from beamlime.executables.options import build_arg_parser
     from beamlime.executables.prototypes import (
-        default_prototype_factory,
-        event_generator_arg_parser,
+        collect_default_providers,
+        data_stream_arg_parser,
         run_standalone_prototype,
         visualization_arg_parser,
     )
 
-    factory = default_prototype_factory()
+    factory = Factory(collect_default_providers())
 
     arg_parser = build_arg_parser()
-    event_generator_arg_parser(arg_parser)
+    data_stream_arg_parser(arg_parser)
     visualization_arg_parser(arg_parser)
 
     run_standalone_prototype(factory, arg_name_space=arg_parser.parse_args())

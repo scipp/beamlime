@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+import argparse
 import asyncio
 import os
 from dataclasses import dataclass
@@ -33,6 +34,8 @@ NexusTemplatePath = NewType("NexusTemplatePath", str)
 class FakeListener(DaemonInterface):
     """Event generator based on the nexus template."""
 
+    _arg_group_name: str = "Fake Listener Configuration"
+
     def __init__(
         self,
         *,
@@ -64,3 +67,25 @@ class FakeListener(DaemonInterface):
 
         yield Application.Stop(content=None)
         self.info("Fake data streaming finished...")
+
+    @classmethod
+    def argument_group(cls, base_parser: argparse.ArgumentParser) -> None:
+        group = base_parser.add_argument_group(cls._arg_group_name)
+        group.add_argument(
+            "--data-feeding-speed",
+            default=0.1,
+            help="Data feeding speed in seconds.",
+            type=float,
+        )
+        group.add_argument(
+            "--nexus-template-path",
+            default="",
+            help="Path to the nexus template file.",
+            type=str,
+        )
+        group.add_argument(
+            "--num-frames",
+            default=10,
+            help="Number of frames to generate.",
+            type=int,
+        )
