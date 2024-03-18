@@ -9,7 +9,7 @@ import scipp as sc
 from beamlime.logging import BeamlimeLogger
 
 from ..stateless_workflow import StatelessWorkflow, WorkflowResult
-from .base import HandlerInterface, MessageProtocol
+from .base import HandlerInterface
 from .daemons import DetectorDataReceived, RunStart
 
 
@@ -68,7 +68,7 @@ class PlotStreamer(HandlerInterface):
         else:
             figure.update(data, key=self.artists[name])
 
-    def update_histogram(self, message: MessageProtocol) -> None:
+    def update_histogram(self, message: WorkflowResultUpdate) -> None:
         content = message.content
         for name, data in content.items():
             self.plot_item(name, data)
@@ -81,7 +81,7 @@ class PlotSaver(PlotStreamer):
         super().__init__(logger)
         self.image_path = image_path
 
-    def save_histogram(self, message: MessageProtocol) -> None:
+    def save_histogram(self, message: WorkflowResultUpdate) -> None:
         super().update_histogram(message)
         self.info("Received histogram, saving into %s...", self.image_path)
         for name, figure in self.figures.items():
