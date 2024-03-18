@@ -45,3 +45,42 @@ def test_ev44_generator_reference_time(ev44_generator: RandomEV44Generator):
 
 def test_ev44_module_parsing(nexus_container: NexusContainer) -> None:
     assert len(nexus_container.modules['ev44']) == 2
+    assert len(nexus_container.detectors) == 2
+    for i in range(2):
+        assert f"hypothetical_detector_{i}" in nexus_container.modules['ev44']
+
+
+@pytest.mark.parametrize('detector_id', [0, 1])
+def test_ev44_module_insert(nexus_container: NexusContainer, detector_id: int) -> None:
+    # create a hypothetical event
+    ev44 = dict(
+        source_name=DetectorName(f"hypothetical_detector_{detector_id}"),
+        reference_time=[0.0],
+        reference_time_index=[0],
+        time_of_flight=[0.0, 0.1, 0.2],
+        pixel_id=[i + detector_id for i in range(3)],
+    )
+
+    container = nexus_container.modules['ev44'][f"hypothetical_detector_{detector_id}"]
+    # check that the container is empty
+    for sub_dataset_name in [
+        'time_of_flight',
+        'pixel_id',
+        'reference_time',
+        'reference_time_index',
+    ]:
+        assert len(container.sub_datasets[sub_dataset_name].config_dict['values']) == 0
+
+    nexus_container.insert_ev44(ev44)
+
+    # check that the container is filled
+    for sub_dataset_name in [
+        'time_of_flight',
+        'pixel_id',
+        'reference_time',
+        'reference_time_index',
+    ]:
+        assert all(
+            container.sub_datasets[sub_dataset_name].config_dict['values']
+            == ev44[sub_dataset_name]
+        )
