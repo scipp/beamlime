@@ -14,6 +14,7 @@ from typing import (
     List,
     Optional,
     Protocol,
+    TypeVar,
     runtime_checkable,
 )
 
@@ -54,15 +55,21 @@ class HandlerInterface(LogMixin, ABC):
     logger: BeamlimeLogger
 
 
+MessageT = TypeVar("MessageT", bound=MessageProtocol)
+HandlerT = TypeVar("HandlerT", bound=Callable)
+
+
 class MessageRouter(DaemonInterface):
     """A message router that routes messages to handlers."""
 
     def __init__(self):
         from queue import Queue
 
-        self.handlers: dict[type, List[Callable[[MessageProtocol], Any]]] = dict()
+        self.handlers: dict[
+            type[MessageProtocol], List[Callable[[MessageProtocol], Any]]
+        ] = dict()
         self.awaitable_handlers: dict[
-            type, List[Callable[[MessageProtocol], Awaitable[Any]]]
+            type[MessageProtocol], List[Callable[[MessageProtocol], Awaitable[Any]]]
         ] = dict()
         self.message_pipe = Queue()
 
@@ -82,11 +89,9 @@ class MessageRouter(DaemonInterface):
     def _register(
         self,
         *,
-        handler_list: dict[
-            type[MessageProtocol], List[Callable[[MessageProtocol], Any]]
-        ],
-        event_tp: type[MessageProtocol],
-        handler: Callable[[MessageProtocol], Any],
+        handler_list: dict[type[MessageT], List[HandlerT]],
+        event_tp: type[MessageT],
+        handler: HandlerT,
     ):
         if event_tp in handler_list:
             handler_list[event_tp].append(handler)
@@ -95,9 +100,8 @@ class MessageRouter(DaemonInterface):
 
     def register_handler(
         self,
-        event_tp,
-        handler: Callable[[MessageProtocol], Any]
-        | Callable[[MessageProtocol], Coroutine[Any, Any, Any]],
+        event_tp: type[MessageT],
+        handler: Callable[[MessageT], Any] | Callable[[MessageT], Awaitable[Any]],
     ):
         if asyncio.iscoroutinefunction(handler):
             handler_list = self.awaitable_handlers
@@ -196,7 +200,7 @@ class Application(LogMixin):
         self._break = True
 
     def register_handling_method(
-        self, event_tp: type[MessageProtocol], handler: Callable[[MessageProtocol], Any]
+        self, event_tp: type[MessageT], handler: Callable[[MessageT], Any]
     ) -> None:
         """Register handlers to the application message router."""
         self.message_router.register_handler(event_tp, handler)
