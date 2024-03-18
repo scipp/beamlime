@@ -60,27 +60,19 @@ def test_ev44_module_insert(nexus_container: NexusContainer, detector_id: int) -
         time_of_flight=[0.0, 0.1, 0.2],
         pixel_id=[i + detector_id for i in range(3)],
     )
+    sub_dataset_names = list(key for key in ev44.keys() if key != 'source_name')
 
     container = nexus_container.modules['ev44'][f"hypothetical_detector_{detector_id}"]
     # check that the container is empty
-    for sub_dataset_name in [
-        'time_of_flight',
-        'pixel_id',
-        'reference_time',
-        'reference_time_index',
-    ]:
+    for sub_dataset_name in sub_dataset_names:
         assert len(container.sub_datasets[sub_dataset_name].config_dict['values']) == 0
 
-    nexus_container.insert_ev44(ev44)
-
-    # check that the container is filled
-    for sub_dataset_name in [
-        'time_of_flight',
-        'pixel_id',
-        'reference_time',
-        'reference_time_index',
-    ]:
-        assert all(
-            container.sub_datasets[sub_dataset_name].config_dict['values']
-            == ev44[sub_dataset_name]
-        )
+    for i_insert in range(1, 4):
+        # insert the hypothetical event
+        nexus_container.insert_ev44(ev44)
+        # check that the container is filled
+        for sub_dataset_name in sub_dataset_names:
+            assert all(
+                container.sub_datasets[sub_dataset_name].config_dict['values']
+                == ev44[sub_dataset_name] * i_insert
+            )
