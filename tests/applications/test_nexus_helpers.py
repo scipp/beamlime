@@ -13,9 +13,10 @@ from beamlime.applications._random_data_providers import (
 )
 
 
-def test_nexus_container_initialized_from_path():
+@pytest.fixture
+def nexus_container() -> NexusContainer:
     path = os.path.join(os.path.dirname(__file__), 'ymir.json')
-    NexusContainer.from_template_file(path)
+    return NexusContainer.from_template_file(path)
 
 
 @pytest.fixture
@@ -40,3 +41,7 @@ def test_ev44_generator_reference_time(ev44_generator: RandomEV44Generator):
     events = next(ev44_generator)
     next_events = next(ev44_generator)
     assert events['reference_time'][0] < next_events['reference_time'][0]
+
+
+def test_ev44_module_parsing(nexus_container: NexusContainer) -> None:
+    assert len(nexus_container.modules['ev44']) == 2

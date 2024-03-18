@@ -20,7 +20,12 @@ class MockLogger(list):
 
 
 @pytest.fixture
-def kafka_stream_simulator() -> FakeListener:
+def num_frames() -> int:
+    return 1
+
+
+@pytest.fixture
+def fake_listener(num_frames: int) -> FakeListener:
     from beamlime.applications.daemons import (
         DataFeedingSpeed,
         NexusTemplatePath,
@@ -32,7 +37,7 @@ def kafka_stream_simulator() -> FakeListener:
     simulator = FakeListener(
         nexus_template_path=NexusTemplatePath(path),
         speed=DataFeedingSpeed(1),
-        num_frames=NumFrames(1),
+        num_frames=NumFrames(num_frames),
     )
 
     simulator.logger = BeamlimeLogger(MockLogger())
@@ -40,15 +45,14 @@ def kafka_stream_simulator() -> FakeListener:
 
 
 def test_kafka_simulator_contructor(
-    kafka_stream_simulator: FakeListener,
+    fake_listener: FakeListener,
 ) -> None:
-    assert (
-        len(kafka_stream_simulator.nexus_container.detectors) == 0
-    )  # ymir has no detectors
+    assert len(fake_listener.nexus_container.detectors) == 2  # ymir has no detectors
 
 
-async def test_kafka_simulator(kafka_stream_simulator: FakeListener) -> None:
-    generator = kafka_stream_simulator.run()
+async def test_kafka_listener(fake_listener: FakeListener, num_frames: int) -> None:
+    generator = fake_listener.run()
     assert isinstance(await anext(generator), RunStart)
-    assert isinstance(await anext(generator), DetectorDataReceived)
+    for _ in range(num_frames * 2):
+        assert isinstance(await anext(generator), DetectorDataReceived)
     assert isinstance(await anext(generator), Application.Stop)
