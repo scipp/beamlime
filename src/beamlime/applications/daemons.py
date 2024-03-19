@@ -53,14 +53,22 @@ class FakeListener(DaemonInterface):
         event_rate_per_detector = int(
             event_rate / max(len(self.nexus_container.detectors), 1)
         )
+        detector_names = sorted(self.nexus_container.detectors.keys())
+        ev44_source_names = sorted(self.nexus_container.modules['ev44'].keys())
+
         self.random_event_generators = {
-            det.detector_name: random_ev44_generator(
-                source_name=DetectorName(det.detector_name),
-                detector_numbers=DetectorNumberCandidates(det.pixel_ids),
+            det_name: random_ev44_generator(
+                source_name=DetectorName(ev44_source_name),
+                detector_numbers=DetectorNumberCandidates(
+                    self.nexus_container.detectors[det_name].pixel_ids
+                ),
                 event_rate=EventRate(event_rate_per_detector),
                 frame_rate=frame_rate,
             )
-            for det in self.nexus_container.detectors
+            for det_name, ev44_source_name in zip(detector_names, ev44_source_names)
+            # Assuming the order of the detectors and the ev44 modules are the same
+            # For real data stream, it doesn't matter
+            # since the data is inserted by the source name.
         }
         self.data_feeding_speed = speed
         self.num_frames = num_frames

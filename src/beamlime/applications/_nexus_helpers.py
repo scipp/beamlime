@@ -235,10 +235,13 @@ class NexusContainer:
     def __init__(self, *, nexus_template: dict) -> None:
         self.nexus_dict = nexus_template
         instrument_gr = self._get_instrument_group(nexus_template)
-        self.detectors = [
-            NXDetectorContainer(det_dict)
-            for det_dict in self._collect_detectors(instrument_gr)
-        ]
+        self.detectors = {
+            det.detector_name: det
+            for det in [
+                NXDetectorContainer(det_dict)
+                for det_dict in self._collect_detectors(instrument_gr)
+            ]
+        }
         self.modules: dict[str, dict[str, ModularDataGroupContainer]] = dict()
         self.modules['ev44'] = self._collect_ev44()
 
