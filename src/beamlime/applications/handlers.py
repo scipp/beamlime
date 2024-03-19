@@ -3,21 +3,47 @@
 import argparse
 import pathlib
 from dataclasses import dataclass
-from typing import Any, NewType
+from typing import NewType
 
 import scipp as sc
+from scippneutron.io.nexus._json_nexus import JSONGroup
 
 from beamlime.logging import BeamlimeLogger
 
 from ..stateless_workflow import StatelessWorkflow, WorkflowResult
-from .base import HandlerInterface, MessageProtocol
+from .base import HandlerInterface
+from .daemons import DetectorDataReceived, RunStart
 
 Events = NewType("Events", list[sc.DataArray])
 
 
 @dataclass
+class DataReady:
+    content: JSONGroup
+
+
+@dataclass
 class WorkflowResultUpdate:
     content: WorkflowResult
+
+
+class DataAssembler(HandlerInterface):
+    """Data assembler receives data and assembles it into a single data structure."""
+
+    def __init__(self) -> None:
+        from ._nexus_helpers import NexusContainer
+
+        self.nexus_container: NexusContainer
+
+    def set_run_start(self, message: RunStart) -> None:
+        self.nexus_container = message.content
+
+    def assemble_detector_data(self, message: DetectorDataReceived) -> DataReady:
+        self.info("Received data from detector %s", message.content['source_name'])
+        self.nexus_container.insert_ev44(message.content)
+        return DataReady(
+            content=self.nexus_container.nexus_dict  # should be a JSONGroup later.
+        )
 
 
 class DataReductionHandler(HandlerInterface):
@@ -27,13 +53,9 @@ class DataReductionHandler(HandlerInterface):
         self.workflow = workflow
         super().__init__()
 
-    def format_received(self, data: Any) -> str:
-        # TODO remove ties to specific type of data
-        return f"{len(data)} pieces of {Events.__name__}"
-
-    def process_message(self, message: MessageProtocol) -> MessageProtocol:
+    def reduce_data(self, message: DataReady) -> WorkflowResultUpdate:
         content = message.content
-        self.info("Received, %s", self.format_received(content))
+        self.info("Running data reduction")
         return WorkflowResultUpdate(content=self.workflow(content))
 
 
@@ -65,7 +87,7 @@ class PlotStreamer(HandlerInterface):
         else:
             figure.update(data, key=self.artists[name])
 
-    def update_histogram(self, message: MessageProtocol) -> None:
+    def update_histogram(self, message: WorkflowResultUpdate) -> None:
         content = message.content
         for name, data in content.items():
             self.plot_item(name, data)
@@ -78,7 +100,7 @@ class PlotSaver(PlotStreamer):
         super().__init__(logger)
         self.image_path_prefix = image_path_prefix
 
-    def save_histogram(self, message: MessageProtocol) -> None:
+    def save_histogram(self, message: WorkflowResultUpdate) -> None:
         super().update_histogram(message)
         self.info("Received histogram, saving into %s...", self.image_path_prefix)
         for name, figure in self.figures.items():
