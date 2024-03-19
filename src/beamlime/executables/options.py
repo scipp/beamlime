@@ -20,4 +20,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
         choices=list_entry_points(),
         required=True,
     )
+    parser.add_argument(
+        "--log-level",
+        help="Set logging level. Default is INFO.",
+        type=str,
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        default="INFO",
+    )
+
     return parser
