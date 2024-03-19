@@ -2,9 +2,54 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import os
 from functools import partial
-from typing import Any, Callable, Optional, Union
+from types import MappingProxyType
+from typing import Any, Callable, Literal, NamedTuple, Optional, Union
+
+import numpy as np
 
 Path = Union[str, bytes, os.PathLike]
+
+
+def _nested_mapping_proxy(obj: dict) -> MappingProxyType:
+    """Create a nested shallow copy/mapping proxy of ``obj``.
+
+    If any value in the dictionary is a dictionary,
+    it is converted to a mapping proxy type.
+
+    Examples
+    --------
+    >>> from types import MappingProxyType
+    >>> _nested_mapping_proxy_type({'a': {'b': 1}})
+    mappingproxy({'a': mappingproxy({'b': 1})})
+
+    """
+    return MappingProxyType(
+        {
+            k: _nested_mapping_proxy(v) if isinstance(v, dict) else v
+            for k, v in obj.items()
+        }
+    )
+
+
+class DatasetRecipe(NamedTuple):
+    dtype: type
+    ndim: int
+
+
+FBIdentifier = Literal["ev44", "f144", "tdct"]
+ValuesRecipe = MappingProxyType[str, DatasetRecipe]
+GROUP_RECIPES: MappingProxyType[FBIdentifier, ValuesRecipe] = _nested_mapping_proxy(
+    {
+        "f144": {"timestamp": DatasetRecipe(int, 0), "value": DatasetRecipe(float, 0)},
+        "tdct": {"name": DatasetRecipe(str, 0), "timestamps": DatasetRecipe(int, 1)},
+        "ev44": {
+            "reference_time": DatasetRecipe(float, 1),
+            "reference_time_index": DatasetRecipe(int, 1),
+            "time_of_flight": DatasetRecipe(float, 1),
+            "pixel_id": DatasetRecipe(int, 1),
+        },
+    }
+)
 
 
 def find_index(
@@ -66,6 +111,95 @@ def _match_dataset_name(child: dict, name: str) -> bool:
     )
 
 
+class ModularDatasetContainer:
+    """Modular dataset that can update/clear values."""
+
+    def __init__(self, name: str, recipe: DatasetRecipe) -> None:
+        self.recipe = recipe
+        self.config_dict: dict[str, Any]
+        self.config_dict = dict(name=name, dtype=recipe.dtype.__name__)
+        self.dataset_dict = dict(module='dataset', config=self.config_dict)
+        self._initial_values()
+
+    def _initial_values(self) -> None:
+        """Set the initial values."""
+        if self.recipe.ndim == 0:
+            self.config_dict['values'] = None
+        elif self.recipe.ndim == 1:
+            self.config_dict['values'] = np.array([], dtype=self.recipe.dtype)
+        else:
+            raise ValueError(f"Unsupported ndim: {self.recipe.ndim}")
+
+    def update(self, new_values: Any) -> None:
+        """Update the values from the ``other``.
+
+        The values are extended if they are numpy.ndarray and replaced otherwise.
+        """
+        if self.recipe.ndim == 0:
+            self.config_dict['values'] = new_values
+        elif self.recipe.ndim == 1:
+            self.config_dict['values'] = np.append(
+                self.config_dict['values'],
+                new_values
+                # if ``new_values`` is a sequence, it will be extended
+                # if it is a single value, it will be appended
+            )
+
+
+class ModularDataGroupContainer:
+    """Module dataset container."""
+
+    def __init__(self, group_dict: dict, module_dict: dict) -> None:
+        self.sub_datasets: dict[str, ModularDatasetContainer]
+        self.module_id = module_dict['module']
+        dataset_recipes = GROUP_RECIPES[self.module_id]
+        self.sub_datasets = {
+            name: ModularDatasetContainer(name, dataset_recipe)
+            for name, dataset_recipe in dataset_recipes.items()
+        }
+        group_children: list[dict] = group_dict['children']
+        group_children.extend(
+            (sub_dataset.dataset_dict for sub_dataset in self.sub_datasets.values())
+        )
+
+    def update(self, other: dict) -> None:
+        """Update the sub datasets from the other. Ignore if the name is not present.
+
+        See :func:`~ModularDatasetContainer.update` for more details.
+        """
+        for name, sub_dataset in self.sub_datasets.items():
+            if name in other:
+                sub_dataset.update(other[name])
+
+
+def _match_module_name(child: dict, name: str) -> bool:
+    return child.get('module', None) == name
+
+
+def collect_nested_module_indices(
+    nexus_container: dict, fb_id: FBIdentifier
+) -> list[tuple]:
+    """Collect the indices of the module with the given id."""
+    collected = list()
+
+    def _recursive_collect_module_indices(
+        obj: dict,
+        cur_idx: tuple[str | int, ...],
+    ) -> None:
+        # Find module placeholder in the group.
+        for i, cand in enumerate(
+            [child for child in obj.get('children', []) if isinstance(child, dict)]
+        ):
+            cand_idx = cur_idx + ('children', i)
+            if _match_module_name(cand, fb_id):
+                collected.append(cand_idx)
+            else:
+                _recursive_collect_module_indices(cand, cand_idx)
+
+    _recursive_collect_module_indices(nexus_container, tuple())
+    return collected
+
+
 class NXDetectorContainer:
     """NXDetector container.
 
@@ -91,8 +225,6 @@ class NXDetectorContainer:
 
 
 class NexusContainer:
-    nexus_template: dict
-
     @classmethod
     def from_template_file(cls, path: Path):
         import json
@@ -101,16 +233,19 @@ class NexusContainer:
             return cls(nexus_template=json.load(f))
 
     def __init__(self, *, nexus_template: dict) -> None:
+        self.nexus_dict = nexus_template
         instrument_gr = self._get_instrument_group(nexus_template)
         self.detectors = [
             NXDetectorContainer(det_dict)
             for det_dict in self._collect_detectors(instrument_gr)
         ]
+        self.modules: dict[str, dict[str, ModularDataGroupContainer]] = dict()
+        self.modules['ev44'] = self._collect_ev44()
 
     def _collect_detectors(self, instrument_gr: dict) -> list[dict]:
         """Collect the detectors from the instrument group.
 
-        Only one or more NXdetectors are expected.
+        One or more NXdetectors are expected per NXinstrument.
         """
         return [
             child
@@ -122,7 +257,7 @@ class NexusContainer:
     def _get_instrument_group(self, nexus_container: dict) -> dict:
         """Get the NXinstrument group from the nexus container.
 
-        Only one NXinstrument group is expected.
+        Only one NXinstrument group is expected in one template.
         """
         return nested_dict_select(
             nexus_container,
@@ -131,3 +266,24 @@ class NexusContainer:
             'children',
             partial(match_nx_class, cls_name='NXinstrument'),
         )
+
+    def _collect_ev44(self) -> dict[str, ModularDataGroupContainer]:
+        """Collect the ev44 modules from the detector group."""
+        ev44s = dict()
+
+        def _retrieve_key(module_dict: dict) -> str:
+            return module_dict['config']['source']
+
+        for idx in collect_nested_module_indices(self.nexus_dict, 'ev44'):
+            parent_dict = nested_dict_select(self.nexus_dict, *idx[:-2])
+            module_dict = nested_dict_select(parent_dict, *idx[-2:])
+            ev44s[_retrieve_key(module_dict)] = ModularDataGroupContainer(
+                parent_dict, module_dict
+            )
+
+        return ev44s
+
+    def insert_ev44(self, ev44_data: dict) -> None:
+        """Insert the module data."""
+
+        self.modules['ev44'][ev44_data['source_name']].update(ev44_data)
