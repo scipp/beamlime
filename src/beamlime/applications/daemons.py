@@ -11,6 +11,8 @@ from ._nexus_helpers import NexusContainer
 from ._random_data_providers import (
     DataFeedingSpeed,
     DetectorNumberCandidates,
+    EventRate,
+    FrameRate,
     NumFrames,
     random_ev44_generator,
 )
@@ -42,12 +44,19 @@ class FakeListener(DaemonInterface):
         speed: DataFeedingSpeed,
         nexus_template_path: NexusTemplatePath,
         num_frames: NumFrames,
+        event_rate: EventRate,
+        frame_rate: FrameRate,
     ):
         self.logger = logger
         self.nexus_container = NexusContainer.from_template_file(nexus_template_path)
+        event_rate_per_detector = int(
+            event_rate / max(len(self.nexus_container.detectors), 1)
+        )
         self.random_event_generators = {
             det.detector_name: random_ev44_generator(
                 detector_numbers=DetectorNumberCandidates(det.pixel_ids),
+                event_rate=EventRate(event_rate_per_detector),
+                frame_rate=frame_rate,
             )
             for det in self.nexus_container.detectors
         }
@@ -91,6 +100,18 @@ class FakeListener(DaemonInterface):
             help="Number of frames to generate.",
             type=int,
         )
+        group.add_argument(
+            "--event-rate",
+            default=10_000,
+            help="Event rate [Hz]. It will be distributed among the detectors.",
+            type=int,
+        )
+        group.add_argument(
+            "--frame-rate",
+            default=14,
+            help="Frame rate [Hz].",
+            type=int,
+        )
 
     @classmethod
     def from_args(
@@ -101,4 +122,6 @@ class FakeListener(DaemonInterface):
             speed=DataFeedingSpeed(args.data_feeding_speed),
             nexus_template_path=NexusTemplatePath(args.nexus_template_path),
             num_frames=NumFrames(args.num_frames),
+            event_rate=EventRate(args.event_rate),
+            frame_rate=FrameRate(args.frame_rate),
         )

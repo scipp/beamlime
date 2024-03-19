@@ -6,6 +6,8 @@ import numpy as np
 from numpy.random import default_rng
 
 # Configuration
+EventRate = NewType("EventRate", int)  # [events/s]
+FrameRate = NewType("FrameRate", int)  # [Hz]
 NumFrames = NewType("NumFrames", int)  # [dimensionless]
 DataFeedingSpeed = NewType("DataFeedingSpeed", float)  # [s/counts]
 
@@ -28,11 +30,11 @@ RandomEV44Generator = Generator[EV44, Any, Any]
 
 def random_ev44_generator(
     detector_numbers: DetectorNumberCandidates,
+    event_rate: EventRate,
+    frame_rate: FrameRate,
 ) -> Generator[EV44, Any, Any]:
     """Randomly select detector numbers (pixel ids) and generate events per frame."""
     rng = default_rng(123)
-    event_rate = 10_000
-    frame_rate = 14
     ef_rate = int(event_rate / frame_rate)
 
     et_zero = ReferenceTimeZero(13620492**11)  # No reason
