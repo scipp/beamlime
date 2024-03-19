@@ -22,10 +22,10 @@ class MockLogger(list):
 @pytest.fixture
 def fake_listener() -> FakeListener:
     from beamlime.applications.daemons import (
-        NexusTemplatePath,
         DataFeedingSpeed,
         EventRate,
         FrameRate,
+        NexusTemplatePath,
         NumFrames,
     )
 
