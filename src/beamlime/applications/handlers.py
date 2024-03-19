@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+import argparse
 import pathlib
 from dataclasses import dataclass
 from typing import Any, NewType
@@ -73,12 +74,26 @@ class PlotStreamer(HandlerInterface):
 class PlotSaver(PlotStreamer):
     """Plot handler to save the updated histogram into an image file."""
 
-    def __init__(self, logger: BeamlimeLogger, image_path: ImagePath) -> None:
+    def __init__(self, logger: BeamlimeLogger, image_path_prefix: ImagePath) -> None:
         super().__init__(logger)
-        self.image_path = image_path
+        self.image_path_prefix = image_path_prefix
 
     def save_histogram(self, message: MessageProtocol) -> None:
         super().update_histogram(message)
-        self.info("Received histogram, saving into %s...", self.image_path)
+        self.info("Received histogram, saving into %s...", self.image_path_prefix)
         for name, figure in self.figures.items():
-            figure.save(f'{self.image_path}-{name}.png')
+            figure.save(f'{self.image_path_prefix}-{name}.png')
+
+    @classmethod
+    def add_argument_group(cls, parser: argparse.ArgumentParser) -> None:
+        group = parser.add_argument_group('Plot Saver Configuration')
+        group.add_argument(
+            "--image-path-prefix",
+            help="Path to save the histogram image.",
+            type=str,
+            default=None,
+        )
+
+    @classmethod
+    def from_args(cls, logger: BeamlimeLogger, args: argparse.Namespace) -> "PlotSaver":
+        return cls(logger, args.image_path_prefix or random_image_path())

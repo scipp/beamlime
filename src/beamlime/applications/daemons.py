@@ -1,13 +1,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+import argparse
 import asyncio
 import os
 from dataclasses import dataclass
 from typing import AsyncGenerator, NewType, Union
 
+from ..logging import BeamlimeLogger
 from ._nexus_helpers import NexusContainer
-from ._parameters import DataFeedingSpeed, NumFrames
-from ._random_data_providers import DetectorNumberCandidates, random_ev44_generator
+from ._random_data_providers import (
+    DataFeedingSpeed,
+    DetectorNumberCandidates,
+    NumFrames,
+    random_ev44_generator,
+)
 from .base import Application, DaemonInterface, MessageProtocol
 
 Path = Union[str, bytes, os.PathLike]
@@ -32,10 +38,12 @@ class FakeListener(DaemonInterface):
     def __init__(
         self,
         *,
+        logger: BeamlimeLogger,
         speed: DataFeedingSpeed,
         nexus_template_path: NexusTemplatePath,
         num_frames: NumFrames,
     ):
+        self.logger = logger
         self.nexus_container = NexusContainer.from_template_file(nexus_template_path)
         self.random_event_generators = {
             det.detector_name: random_ev44_generator(
@@ -61,3 +69,36 @@ class FakeListener(DaemonInterface):
 
         yield Application.Stop(content=None)
         self.info("Fake data streaming finished...")
+
+    @classmethod
+    def add_argument_group(cls, parser: argparse.ArgumentParser) -> None:
+        group = parser.add_argument_group('Fake Listener Configuration')
+        group.add_argument(
+            "--nexus-template-path",
+            help="Path to the nexus template file.",
+            type=str,
+            required=True,
+        )
+        group.add_argument(
+            "--data-feeding-speed",
+            default=1 / 14,
+            help="Data feeding speed [s].",
+            type=float,
+        )
+        group.add_argument(
+            "--num-frames",
+            default=3,
+            help="Number of frames to generate.",
+            type=int,
+        )
+
+    @classmethod
+    def from_args(
+        cls, logger: BeamlimeLogger, args: argparse.Namespace
+    ) -> "FakeListener":
+        return cls(
+            logger=logger,
+            speed=DataFeedingSpeed(args.data_feeding_speed),
+            nexus_template_path=NexusTemplatePath(args.nexus_template_path),
+            num_frames=NumFrames(args.num_frames),
+        )
