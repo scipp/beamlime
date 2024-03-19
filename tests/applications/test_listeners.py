@@ -23,6 +23,8 @@ class MockLogger(list):
 def fake_listener() -> FakeListener:
     from beamlime.applications.daemons import (
         DataFeedingSpeed,
+        EventRate,
+        FrameRate,
         NexusTemplatePath,
         NumFrames,
     )
@@ -33,6 +35,8 @@ def fake_listener() -> FakeListener:
         nexus_template_path=NexusTemplatePath(path),
         speed=DataFeedingSpeed(1),
         num_frames=NumFrames(1),
+        event_rate=EventRate(100),
+        frame_rate=FrameRate(14),
     )
 
 
