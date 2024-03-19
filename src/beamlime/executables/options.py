@@ -10,7 +10,7 @@ def list_entry_points() -> list[str]:
     return [ep.name for ep in entry_points(group='beamlime.stateless')]
 
 
-def build_arg_parser() -> argparse.ArgumentParser:
+def build_arg_parser(*sub_group_classes: type) -> argparse.ArgumentParser:
     """Builds the argument parser for the highest-level entry point."""
     parser = argparse.ArgumentParser(description="BEAMLIME configuration.")
     parser.add_argument(
@@ -27,5 +27,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         default="INFO",
     )
+    for sub_group_class in sub_group_classes:
+        if callable(add_arg := getattr(sub_group_class, "add_argument_group", None)):
+            add_arg(parser)
 
     return parser

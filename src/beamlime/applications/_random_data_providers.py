@@ -3,21 +3,16 @@
 from typing import Any, Generator, List, NewType, TypedDict
 
 import numpy as np
-import scipp as sc
 from numpy.random import default_rng
 
-# Derived Configuration
-EventFrameRate = NewType("EventFrameRate", int)  # [events/frame]
+# Configuration
+NumFrames = NewType("NumFrames", int)  # [dimensionless]
+DataFeedingSpeed = NewType("DataFeedingSpeed", float)  # [s/counts]
+
+# Hard-coded Configuration
 ReferenceTimeZero = NewType("ReferenceTimeZero", int)  # [ns]
 
-# Generated Data
-DetectorCounts = NewType("DetectorCounts", sc.Variable)
-TimeCoords = NewType("TimeCoords", dict[str, sc.Variable])
-RandomPixelId = NewType("RandomPixelId", sc.Variable)
-RandomEvent = NewType("RandomEvent", sc.DataArray)
-RandomEvents = NewType("RandomEvents", List[sc.DataArray])
-
-
+# Arguments
 DetectorNumberCandidates = NewType("DetectorNumberCandidates", List[int])
 
 
