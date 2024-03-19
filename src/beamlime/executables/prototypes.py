@@ -54,8 +54,6 @@ def collect_default_providers() -> ProviderGroup:
     additional_providers = ProviderGroup(
         DataReductionHandler,
         provide_stateless_workflow,
-        fake_listener_from_args,
-        plot_saver_from_args,
     )
 
     return merge_providers(app_providers, log_providers, additional_providers)
@@ -75,7 +73,13 @@ def run_standalone_prototype(
         argparse.Namespace: arg_name_space,
     }
 
-    factory = Factory(prototype_factory.providers)
+    factory = Factory(
+        prototype_factory.providers,
+        ProviderGroup(
+            fake_listener_from_args,
+            plot_saver_from_args,
+        ),
+    )
 
     with multiple_constant_providers(factory, parameters):
         factory[BeamlimeLogger].setLevel(arg_name_space.log_level.upper())
