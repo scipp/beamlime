@@ -1,72 +1,63 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-import json
+import asyncio
 import os
 from dataclasses import dataclass
-from typing import AsyncGenerator, Generator, Union
+from typing import AsyncGenerator, NewType, Union
 
-from scippneutron.io.nexus.load_nexus import JSONGroup, json_nexus_group
-
-from ._parameters import ChunkSize, DataFeedingSpeed
-from ._random_data_providers import RandomEvents
+from ._nexus_helpers import NexusContainer
+from ._parameters import DataFeedingSpeed, NumFrames
+from ._random_data_providers import DetectorNumberCandidates, random_ev44_generator
 from .base import Application, DaemonInterface, MessageProtocol
-from .handlers import Events
 
 Path = Union[str, bytes, os.PathLike]
 
 
 @dataclass
 class RunStart:
-    content: JSONGroup
+    content: NexusContainer
 
 
 @dataclass
-class RawDataSent:
-    content: Events
+class DetectorDataReceived:
+    content: dict
 
 
-class DataStreamSimulator(DaemonInterface):
-    """Data that simulates the data streaming from the random generator."""
-
-    random_events: RandomEvents
-    chunk_size: ChunkSize
-    data_feeding_speed: DataFeedingSpeed
-
-    def slice_chunk(self) -> Generator[Events, None, None]:
-        while self.random_events:
-            chunk, self.random_events = (
-                Events(self.random_events[: self.chunk_size]),
-                RandomEvents(self.random_events[self.chunk_size :]),
-            )
-            yield chunk
-
-    async def run(self) -> AsyncGenerator[MessageProtocol, None]:
-        import asyncio
-
-        self.info("Data streaming started...")
-        for i_chunk, chunk in enumerate(self.slice_chunk()):
-            self.info("Sent %s th chunk, with %s pieces.", i_chunk + 1, len(chunk))
-            yield RawDataSent(content=chunk)
-            await asyncio.sleep(self.data_feeding_speed)
-
-        yield Application.Stop(content=None)
-        self.info("Data streaming finished...")
+NexusTemplatePath = NewType("NexusTemplatePath", str)
 
 
 class FakeListener(DaemonInterface):
-    def __init__(self, nexus_structure: dict):
-        self._group = json_nexus_group(nexus_structure)
+    """Event generator based on the nexus template."""
 
-    @classmethod
-    def from_file(cls, path: Path):
-        '''Read nexus structure from json file'''
-        with open(path) as f:
-            nexus_structure = json.load(f)
-        return cls(nexus_structure)
+    def __init__(
+        self,
+        *,
+        speed: DataFeedingSpeed,
+        nexus_template_path: NexusTemplatePath,
+        num_frames: NumFrames,
+    ):
+        self.nexus_container = NexusContainer.from_template_file(nexus_template_path)
+        self.random_event_generators = {
+            det.detector_name: random_ev44_generator(
+                detector_numbers=DetectorNumberCandidates(det.pixel_ids),
+            )
+            for det in self.nexus_container.detectors
+        }
+        self.data_feeding_speed = speed
+        self.num_frames = num_frames
 
     async def run(self) -> AsyncGenerator[MessageProtocol, None]:
         self.info("Fake data streaming started...")
 
-        yield RunStart(content=self._group)
+        yield RunStart(content=self.nexus_container)
+
+        for i_frame in range(self.num_frames):
+            events = {
+                det: next(gen) for det, gen in self.random_event_generators.items()
+            }
+            yield DetectorDataReceived(content=events)
+            self.info(f"Detector events of frame #{i_frame} was sent.")
+            await asyncio.sleep(self.data_feeding_speed)
+
         yield Application.Stop(content=None)
         self.info("Fake data streaming finished...")

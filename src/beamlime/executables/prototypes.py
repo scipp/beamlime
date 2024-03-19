@@ -14,9 +14,8 @@ def collect_default_providers() -> ProviderGroup:
     from beamlime.logging.providers import log_providers
 
     from ..applications._parameters import collect_default_param_providers
-    from ..applications._random_data_providers import random_data_providers
     from ..applications.base import Application, MessageRouter
-    from ..applications.daemons import DataStreamSimulator
+    from ..applications.daemons import FakeListener
     from ..applications.handlers import (
         DataReductionHandler,
         PlotSaver,
@@ -26,7 +25,7 @@ def collect_default_providers() -> ProviderGroup:
 
     app_providers = ProviderGroup(
         SingletonProvider(Application),
-        DataStreamSimulator,
+        FakeListener,
         DataReductionHandler,
         PlotSaver,
         provide_stateless_workflow,
@@ -36,7 +35,6 @@ def collect_default_providers() -> ProviderGroup:
 
     return merge_providers(
         collect_default_param_providers(),
-        random_data_providers,
         app_providers,
         log_providers,
     )
@@ -73,6 +71,12 @@ def event_generator_arg_parser(
             help=f": {param_type}",
             type=extract_underlying_type(param_type),
         )
+    group.add_argument(
+        "--nexus-template-path",
+        default="",
+        help="Path to the nexus template file.",
+        type=str,
+    )
 
     return parser
 
@@ -114,7 +118,11 @@ def run_standalone_prototype(
 ):
     from ..applications._parameters import PrototypeParameters
     from ..applications.base import Application
-    from ..applications.daemons import DataStreamSimulator, RawDataSent
+    from ..applications.daemons import (
+        DetectorDataReceived,
+        FakeListener,
+        NexusTemplatePath,
+    )
     from ..applications.handlers import (
         DataReductionHandler,
         ImagePath,
@@ -131,6 +139,11 @@ def run_standalone_prototype(
     }
     if arg_name_space.image_path:
         parameters[ImagePath] = ImagePath(pathlib.Path(arg_name_space.image_path))
+    if arg_name_space.nexus_template_path:
+        parameters[NexusTemplatePath] = NexusTemplatePath(
+            arg_name_space.nexus_template_path
+        )
+
     parameters[Workflow] = Workflow(arg_name_space.workflow)
 
     factory = Factory(prototype_factory.providers)
@@ -144,11 +157,11 @@ def run_standalone_prototype(
         app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
         data_reduction_handler = factory[DataReductionHandler]
         app.register_handling_method(
-            RawDataSent, data_reduction_handler.process_message
+            DetectorDataReceived, data_reduction_handler.process_message
         )
 
         # Daemons
-        app.register_daemon(factory[DataStreamSimulator])
+        app.register_daemon(factory[FakeListener])
         app.run()
 
 
