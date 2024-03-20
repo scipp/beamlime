@@ -54,7 +54,7 @@ class FakeListener(DaemonInterface):
             event_rate / max(len(self.nexus_container.detectors), 1)
         )
         detector_names = sorted(self.nexus_container.detectors.keys())
-        ev44_source_names = sorted(self.nexus_container.modules['ev44'].keys())
+        ev44_source_names = self._collect_detector_ev44_modules()
 
         self.random_event_generators = {
             det_name: random_ev44_generator(
@@ -72,6 +72,17 @@ class FakeListener(DaemonInterface):
         }
         self.data_feeding_speed = speed
         self.num_frames = num_frames
+
+    def _collect_detector_ev44_modules(self) -> list[str]:
+        """Assumig 'detector' is included in the topic of the module."""
+
+        return sorted(
+            [
+                module_name
+                for module_name, module in self.nexus_container.modules['ev44'].items()
+                if 'detector' in module.module_dict['config']['topic']
+            ]
+        )
 
     async def run(self) -> AsyncGenerator[MessageProtocol, None]:
         self.info("Fake data streaming started...")
