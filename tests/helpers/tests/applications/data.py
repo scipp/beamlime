@@ -34,4 +34,15 @@ def get_path(name: str) -> pathlib.Path:
     This function only works with example data and cannot handle
     paths to custom files.
     """
+
     return pathlib.Path(_pooch.fetch(name))
+
+
+def get_checksum(name: str) -> str:
+    """
+    Return the checksum of a data file bundled with beamlime test helpers.
+
+    This function only works with example data and cannot handle
+    paths to custom files.
+    """
+    return _pooch.registry[name]
