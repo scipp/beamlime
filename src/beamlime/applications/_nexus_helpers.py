@@ -36,7 +36,7 @@ class DatasetRecipe(NamedTuple):
     ndim: int
 
 
-FBIdentifier = Literal["ev44", "f144", "tdct"]
+FlatBufferIdentifier = Literal["ev44", "f144", "tdct"]
 ValuesRecipe = MappingProxyType[str, DatasetRecipe]
 GROUP_RECIPES: MappingProxyType[FBIdentifier, ValuesRecipe] = _nested_mapping_proxy(
     {
