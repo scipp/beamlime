@@ -146,8 +146,8 @@ class ModularDatasetContainer:
             )
 
 
-class ModularDataGroupContainer:
-    """Module dataset container."""
+class ModularGroupContainer:
+    """Modular group container."""
 
     def __init__(self, group_dict: dict, module_dict: dict) -> None:
         self.sub_datasets: dict[str, ModularDatasetContainer]
