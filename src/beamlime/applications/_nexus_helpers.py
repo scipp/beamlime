@@ -2,33 +2,11 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import os
 from functools import partial
-from types import MappingProxyType
-from typing import Any, Callable, Literal, NamedTuple, Optional, Union
+from typing import Any, Callable, Literal, Mapping, NamedTuple, Optional, Union
 
 import numpy as np
 
 Path = Union[str, bytes, os.PathLike]
-
-
-def _nested_mapping_proxy(obj: dict) -> MappingProxyType:
-    """Create a nested shallow copy/mapping proxy of ``obj``.
-
-    If any value in the dictionary is a dictionary,
-    it is converted to a mapping proxy type.
-
-    Examples
-    --------
-    >>> from types import MappingProxyType
-    >>> _nested_mapping_proxy_type({'a': {'b': 1}})
-    mappingproxy({'a': mappingproxy({'b': 1})})
-
-    """
-    return MappingProxyType(
-        {
-            k: _nested_mapping_proxy(v) if isinstance(v, dict) else v
-            for k, v in obj.items()
-        }
-    )
 
 
 class DatasetRecipe(NamedTuple):
@@ -37,19 +15,17 @@ class DatasetRecipe(NamedTuple):
 
 
 FlatBufferIdentifier = Literal["ev44", "f144", "tdct"]
-ValuesRecipe = MappingProxyType[str, DatasetRecipe]
-GROUP_RECIPES: MappingProxyType[FBIdentifier, ValuesRecipe] = _nested_mapping_proxy(
-    {
-        "f144": {"timestamp": DatasetRecipe(int, 0), "value": DatasetRecipe(float, 0)},
-        "tdct": {"name": DatasetRecipe(str, 0), "timestamps": DatasetRecipe(int, 1)},
-        "ev44": {
-            "reference_time": DatasetRecipe(float, 1),
-            "reference_time_index": DatasetRecipe(int, 1),
-            "time_of_flight": DatasetRecipe(float, 1),
-            "pixel_id": DatasetRecipe(int, 1),
-        },
-    }
-)
+ValuesRecipe = Mapping[str, DatasetRecipe]
+GROUP_RECIPES: Mapping[FlatBufferIdentifier, ValuesRecipe] = {
+    "f144": {"timestamp": DatasetRecipe(int, 0), "value": DatasetRecipe(float, 0)},
+    "tdct": {"name": DatasetRecipe(str, 0), "timestamps": DatasetRecipe(int, 1)},
+    "ev44": {
+        "reference_time": DatasetRecipe(float, 1),
+        "reference_time_index": DatasetRecipe(int, 1),
+        "time_of_flight": DatasetRecipe(float, 1),
+        "pixel_id": DatasetRecipe(int, 1),
+    },
+}
 
 
 def find_index(
@@ -146,10 +122,11 @@ class ModularDatasetContainer:
             )
 
 
-class ModularGroupContainer:
+class ModularDataGroupContainer:
     """Modular group container."""
 
     def __init__(self, group_dict: dict, module_dict: dict) -> None:
+        self.module_dict = module_dict
         self.sub_datasets: dict[str, ModularDatasetContainer]
         self.module_id = module_dict['module']
         dataset_recipes = GROUP_RECIPES[self.module_id]
@@ -177,7 +154,7 @@ def _match_module_name(child: dict, name: str) -> bool:
 
 
 def collect_nested_module_indices(
-    nexus_container: dict, fb_id: FBIdentifier
+    nexus_container: dict, fb_id: FlatBufferIdentifier
 ) -> list[tuple]:
     """Collect the indices of the module with the given id."""
     collected = list()
@@ -271,7 +248,7 @@ class NexusContainer:
         )
 
     def _collect_ev44(self) -> dict[str, ModularDataGroupContainer]:
-        """Collect the ev44 modules from the detector group."""
+        """Collect the ev44 modules from the detector or monitor groups."""
         ev44s = dict()
 
         def _retrieve_key(module_dict: dict) -> str:
