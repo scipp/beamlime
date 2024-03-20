@@ -43,7 +43,8 @@ def fake_listener() -> FakeListener:
 def test_fake_listener_constructor(
     fake_listener: FakeListener,
 ) -> None:
-    assert len(fake_listener.nexus_container.detectors) == 0  # ymir has no detectors
+    # ymir has 2 hypothetical detectors
+    assert len(fake_listener.nexus_container.detectors) == 2
 
 
 async def test_fake_listener(fake_listener: FakeListener) -> None:
