@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+import pathlib
+
 import pytest
 
 from beamlime.applications._nexus_helpers import NexusContainer
@@ -37,6 +39,26 @@ def ev44_generator() -> RandomEV44Generator:
         event_rate=EventRate(10_000),
         frame_rate=FrameRate(14),
     )
+
+
+def test_ymir_template_checksum() -> None:
+    """Test that the ymir template is updated.
+
+    ``ymir.json`` is modified to include detector data.
+    Therefore we keep track of the file via version control.
+    This test is for making sure to update the same file
+    in the public server after modifying the file.
+    """
+    import hashlib
+
+    from tests.applications.data import get_checksum
+
+    local_ymir_path = pathlib.Path(__file__).parent / 'ymir.json'
+    # check md5 sum of the ``local_ymir_path`` file
+    with open(local_ymir_path, 'rb') as f:
+        local_ymir_md5 = f"md5:{hashlib.md5(f.read()).hexdigest()}"
+
+    assert local_ymir_md5 == get_checksum('ymir.json')
 
 
 def test_ev44_generator_size(ev44_generator: RandomEV44Generator):
