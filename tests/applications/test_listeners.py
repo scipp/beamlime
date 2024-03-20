@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-import os
-
 import pytest
 
 from beamlime.applications.daemons import (
@@ -33,11 +31,11 @@ def fake_listener(num_frames: int) -> FakeListener:
         NexusTemplatePath,
         NumFrames,
     )
+    from tests.applications.data import get_path
 
-    path = os.path.join(os.path.dirname(__file__), 'ymir.json')
     return FakeListener(
         logger=MockLogger(),
-        nexus_template_path=NexusTemplatePath(path),
+        nexus_template_path=NexusTemplatePath(get_path('ymir.json').as_posix()),
         speed=DataFeedingSpeed(1),
         num_frames=NumFrames(num_frames),
         event_rate=EventRate(100),
@@ -45,13 +43,13 @@ def fake_listener(num_frames: int) -> FakeListener:
     )
 
 
-def test_kafka_simulator_contructor(
+def test_fake_listener_contructor(
     fake_listener: FakeListener,
 ) -> None:
     assert len(fake_listener.nexus_container.detectors) == 2  # ymir has no detectors
 
 
-async def test_kafka_listener(fake_listener: FakeListener, num_frames: int) -> None:
+async def test_fake_listener(fake_listener: FakeListener, num_frames: int) -> None:
     generator = fake_listener.run()
     assert isinstance(await anext(generator), RunStart)
     for _ in range(num_frames * 2):

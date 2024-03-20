@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-import os
-
 import pytest
 
 from beamlime.applications._nexus_helpers import NexusContainer
@@ -16,9 +14,19 @@ from beamlime.applications._random_data_providers import (
 
 
 @pytest.fixture
-def nexus_container() -> NexusContainer:
-    path = os.path.join(os.path.dirname(__file__), 'ymir.json')
-    return NexusContainer.from_template_file(path)
+def ymir_container() -> NexusContainer:
+    from tests.applications.data import get_path
+
+    return NexusContainer.from_template_file(get_path('ymir.json'))
+
+
+@pytest.fixture
+def loki_container(large_file_test: bool) -> NexusContainer:
+    from tests.applications.data import get_path
+
+    assert large_file_test
+
+    return NexusContainer.from_template_file(get_path('loki.json'))
 
 
 @pytest.fixture
@@ -47,18 +55,19 @@ def test_ev44_generator_reference_time(ev44_generator: RandomEV44Generator):
     assert events['reference_time'][0] < next_events['reference_time'][0]
 
 
-def test_ev44_module_parsing(nexus_container: NexusContainer) -> None:
-    assert len(nexus_container.modules['ev44']) == 2
-    assert len(nexus_container.detectors) == 2
+def test_ev44_module_parsing(ymir_container: NexusContainer) -> None:
+    assert len(ymir_container.modules['ev44']) == 2
+    assert len(ymir_container.detectors) == 2
     for i in range(2):
-        assert f"hypothetical_detector_{i}" in nexus_container.modules['ev44']
+        assert f"ymir_{i}" in ymir_container.modules['ev44']
 
 
-@pytest.mark.parametrize('detector_id', [0, 1])
-def test_ev44_module_insert(nexus_container: NexusContainer, detector_id: int) -> None:
+def help_ev44_module_insert_test(
+    container: NexusContainer, detector_id: int, detector_name_prefix: str
+) -> None:
     # create a hypothetical event
     ev44 = dict(
-        source_name=DetectorName(f"hypothetical_detector_{detector_id}"),
+        source_name=DetectorName(f"{detector_name_prefix}_{detector_id}"),
         reference_time=[0.0],
         reference_time_index=[0],
         time_of_flight=[0.0, 0.1, 0.2],
@@ -66,17 +75,30 @@ def test_ev44_module_insert(nexus_container: NexusContainer, detector_id: int) -
     )
     sub_dataset_names = list(key for key in ev44.keys() if key != 'source_name')
 
-    container = nexus_container.modules['ev44'][f"hypothetical_detector_{detector_id}"]
+    sub_container = container.modules['ev44'][f"{detector_name_prefix}_{detector_id}"]
     # check that the container is empty
     for sub_dataset_name in sub_dataset_names:
-        assert len(container.sub_datasets[sub_dataset_name].config_dict['values']) == 0
+        assert (
+            len(sub_container.sub_datasets[sub_dataset_name].config_dict['values']) == 0
+        )
 
     for i_insert in range(1, 4):
         # insert the hypothetical event
-        nexus_container.insert_ev44(ev44)
+        container.insert_ev44(ev44)
         # check that the container is filled
         for sub_dataset_name in sub_dataset_names:
             assert all(
-                container.sub_datasets[sub_dataset_name].config_dict['values']
+                sub_container.sub_datasets[sub_dataset_name].config_dict['values']
                 == ev44[sub_dataset_name] * i_insert
             )
+
+
+def test_ev44_module_insert(ymir_container: NexusContainer) -> None:
+    for detector_id in range(2):
+        help_ev44_module_insert_test(ymir_container, detector_id, 'ymir')
+
+
+def test_ev44_module_insert_loki(loki_container: NexusContainer) -> None:
+    # create a hypothetical event
+    for detector_id in range(8):
+        help_ev44_module_insert_test(loki_container, detector_id, 'loki')
