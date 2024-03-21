@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-import os
-
 import pytest
 
 from beamlime.applications.daemons import (
@@ -20,7 +18,12 @@ class MockLogger(list):
 
 
 @pytest.fixture
-def fake_listener() -> FakeListener:
+def num_frames() -> int:
+    return 1
+
+
+@pytest.fixture
+def fake_listener(num_frames: int) -> FakeListener:
     from beamlime.applications.daemons import (
         DataFeedingSpeed,
         EventRate,
@@ -28,27 +31,29 @@ def fake_listener() -> FakeListener:
         NexusTemplatePath,
         NumFrames,
     )
+    from tests.applications.data import get_path
 
-    path = os.path.join(os.path.dirname(__file__), 'ymir.json')
     return FakeListener(
         logger=MockLogger(),
-        nexus_template_path=NexusTemplatePath(path),
+        nexus_template_path=NexusTemplatePath(
+            get_path('ymir_detectors.json').as_posix()
+        ),
         speed=DataFeedingSpeed(1),
-        num_frames=NumFrames(1),
+        num_frames=NumFrames(num_frames),
         event_rate=EventRate(100),
         frame_rate=FrameRate(14),
     )
 
 
-def test_fake_listener_constructor(
+def test_fake_listener_contructor(
     fake_listener: FakeListener,
 ) -> None:
-    # ymir has 2 hypothetical detectors
-    assert len(fake_listener.nexus_container.detectors) == 2
+    assert len(fake_listener.nexus_container.detectors) == 2  # ymir has no detectors
 
 
-async def test_fake_listener(fake_listener: FakeListener) -> None:
+async def test_fake_listener(fake_listener: FakeListener, num_frames: int) -> None:
     generator = fake_listener.run()
     assert isinstance(await anext(generator), RunStart)
-    assert isinstance(await anext(generator), DetectorDataReceived)
+    for _ in range(num_frames * 2):
+        assert isinstance(await anext(generator), DetectorDataReceived)
     assert isinstance(await anext(generator), Application.Stop)

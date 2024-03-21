@@ -5,7 +5,7 @@ from typing import Protocol, TypeVar
 
 from beamlime import Factory, ProviderGroup, SingletonProvider
 from beamlime.applications.daemons import FakeListener
-from beamlime.applications.handlers import PlotSaver
+from beamlime.applications.handlers import DataAssembler, PlotSaver
 from beamlime.logging import BeamlimeLogger
 
 T = TypeVar("T", bound="ArgumentInstantiable")
@@ -52,6 +52,7 @@ def collect_default_providers() -> ProviderGroup:
     )
 
     additional_providers = ProviderGroup(
+        DataAssembler,
         DataReductionHandler,
         provide_stateless_workflow,
     )
@@ -63,8 +64,13 @@ def run_standalone_prototype(
     prototype_factory: Factory, arg_name_space: argparse.Namespace
 ):
     from ..applications.base import Application
-    from ..applications.daemons import DetectorDataReceived
-    from ..applications.handlers import DataReductionHandler, WorkflowResultUpdate
+    from ..applications.daemons import DetectorDataReceived, RunStart
+    from ..applications.handlers import (
+        DataAssembler,
+        DataReady,
+        DataReductionHandler,
+        WorkflowResultUpdate,
+    )
     from ..constructors import multiple_constant_providers
     from ..stateless_workflow import Workflow
 
@@ -88,10 +94,13 @@ def run_standalone_prototype(
         # Handlers
         plot_saver = factory[PlotSaver]
         app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
-        data_reduction_handler = factory[DataReductionHandler]
+        data_assembler = factory[DataAssembler]
+        app.register_handling_method(RunStart, data_assembler.set_run_start)
         app.register_handling_method(
-            DetectorDataReceived, data_reduction_handler.process_message
+            DetectorDataReceived, data_assembler.assemble_detector_data
         )
+        data_reduction_handler = factory[DataReductionHandler]
+        app.register_handling_method(DataReady, data_reduction_handler.reduce_data)
 
         # Daemons
         app.register_daemon(factory[FakeListener])

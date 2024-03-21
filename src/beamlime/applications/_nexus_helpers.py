@@ -2,9 +2,108 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import os
 from functools import partial
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Literal, Mapping, NamedTuple, Optional, TypeVar, Union
+
+import numpy as np
 
 Path = Union[str, bytes, os.PathLike]
+
+
+class DatasetRecipe(NamedTuple):
+    dtype: type
+    ndim: int
+
+
+FlatBufferIdentifier = Literal["ev44", "f144", "tdct"]
+ValuesRecipe = Mapping[str, DatasetRecipe]
+GROUP_RECIPES: Mapping[FlatBufferIdentifier, ValuesRecipe] = {
+    "f144": {"timestamp": DatasetRecipe(int, 0), "value": DatasetRecipe(float, 0)},
+    "tdct": {"name": DatasetRecipe(str, 0), "timestamps": DatasetRecipe(int, 1)},
+    "ev44": {
+        "reference_time": DatasetRecipe(float, 1),
+        "reference_time_index": DatasetRecipe(int, 1),
+        "time_of_flight": DatasetRecipe(float, 1),
+        "pixel_id": DatasetRecipe(int, 1),
+    },
+}
+
+
+T = TypeVar("T")
+
+
+class OrderedList(list[T]):
+    """An ordered list that preserves the order of the elements."""
+
+    def insert(self, __index, __object: T) -> None:
+        raise RuntimeError("Inserting is not allowed. Use append instead.")
+
+    def append(self, __object: T) -> int:
+        """Append the object and return the index."""
+        super().append(__object)
+        return len(self) - 1
+
+    def pop(self, __: int = -1) -> Any:
+        raise RuntimeError(
+            "Popping is not allowed. Replace the element with ``None`` instead."
+        )
+
+    def __delitem__(self, __: slice) -> None:
+        raise RuntimeError("Deleting an element is not allowed.")
+
+    def copy(self) -> "OrderedList":
+        return OrderedList(self)
+
+    def __copy__(self) -> "OrderedList":
+        return self.copy()
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({super().__repr__()})"
+
+
+def _children_as_ordered_list(root_dict: dict) -> dict:
+    """Convert the children list to an ordered list."""
+    if 'children' not in root_dict:
+        return root_dict
+
+    root_dict['children'] = OrderedList(
+        _children_as_ordered_list(child) if isinstance(child, dict) else child
+        for child in root_dict['children']
+    )
+    return root_dict
+
+
+NestedObjectT = TypeVar("NestedObjectT", dict, list[dict])
+
+
+def nested_shallow_copy(obj: NestedObjectT, *indices) -> NestedObjectT:
+    """Shallow copy the nested dictionary and lists.
+
+    Examples
+    --------
+    >>> a = {'a': 1, 'b': {'b-a': 2}, 'c': {'c-a': 3}}
+    >>> b = nested_shallow_copy(a, 'b')
+    >>> b['b']['b-a'] = 3
+    >>> a['b']['b-a']  # The original dictionary is not changed
+    2
+    >>> b['b']['b-a']  # The copied dictionary is changed
+    3
+    >>> b['c']['c-a'] = 4
+    >>> a['c']['c-a']  # The original dictionary is also changed
+    4
+    """
+    from copy import copy
+
+    root_obj = obj.copy()
+    cur_parent = root_obj
+
+    try:
+        for idx in indices:
+            cur_parent[idx] = copy(cur_parent[idx])
+            cur_parent = cur_parent[idx]
+    except (KeyError, TypeError) as e:
+        raise KeyError(f"Invalid path: {indices}") from e
+
+    return root_obj
 
 
 def find_index(
@@ -66,6 +165,107 @@ def _match_dataset_name(child: dict, name: str) -> bool:
     )
 
 
+def initalize_dataset(name: str, dtype: type, ndim: int) -> dict:
+    """Create a dataset dictionary."""
+
+    return dict(
+        module='dataset',
+        config=dict(
+            name=name,
+            dtype=dtype.__name__,
+            values=None if ndim == 0 else np.array([], dtype=dtype),
+        ),
+    )
+
+
+class ModularDataGroupContainer:
+    """Modular group container."""
+
+    def __init__(
+        self,
+        group_dict: dict,
+        module_dict: dict,
+        group_path_from_root: tuple[int | str, ...],
+    ) -> None:
+        """Initialize the modular group container.
+
+        Parameters
+        ----------
+        group_dict:
+            The dictionary of the group.
+
+        module_dict:
+            The dictionary of the module.
+
+        group_path_from_root:
+            The path to the data group in the nexus template from the root.
+
+        """
+        self.group_path = group_path_from_root
+        self.module_dict = module_dict
+
+        dataset_recipes = GROUP_RECIPES[module_dict['module']]
+        sub_datasets = {
+            dataset_name: initalize_dataset(
+                dataset_name, dataset_recipe.dtype, dataset_recipe.ndim
+            )
+            for dataset_name, dataset_recipe in dataset_recipes.items()
+        }
+        group_children: OrderedList[dict] = group_dict['children']
+        self.sub_datasets_idx: dict[str, int] = {
+            # Keep the index of the sub datasets for later update
+            name: group_children.append(sub_dataset_dict)
+            for name, sub_dataset_dict in sub_datasets.items()
+        }
+
+    def update(self, *, other: dict, root_dict: dict) -> None:
+        """Update the sub datasets from the other in the ``root_dict``.
+
+        Ignore if the name is not present.
+        See :func:`~ModularDatasetContainer.update` for more details.
+        """
+        copied_root = nested_shallow_copy(root_dict, *self.group_path, 'children')
+        children_list: list[dict] = nested_dict_select(
+            copied_root, *self.group_path, 'children'
+        )
+
+        for name, sub_dataset_idx in self.sub_datasets_idx.items():
+            if name in other:
+                copied_dataset = nested_shallow_copy(
+                    children_list[sub_dataset_idx], 'config'
+                )
+                copied_dataset['config']['values'] = other[name]
+                children_list[sub_dataset_idx] = copied_dataset
+
+
+def _match_module_name(child: dict, name: str) -> bool:
+    return child.get('module', None) == name
+
+
+def collect_nested_module_indices(
+    nexus_container: dict, fb_id: FlatBufferIdentifier
+) -> list[tuple]:
+    """Collect the indices of the module with the given id."""
+    collected = list()
+
+    def _recursive_collect_module_indices(
+        obj: dict,
+        cur_idx: tuple[str | int, ...],
+    ) -> None:
+        # Find module placeholder in the group.
+        for i, cand in enumerate(
+            [child for child in obj.get('children', []) if isinstance(child, dict)]
+        ):
+            cand_idx = cur_idx + ('children', i)
+            if _match_module_name(cand, fb_id):
+                collected.append(cand_idx)
+            else:
+                _recursive_collect_module_indices(cand, cand_idx)
+
+    _recursive_collect_module_indices(nexus_container, tuple())
+    return collected
+
+
 class NXDetectorContainer:
     """NXDetector container.
 
@@ -91,8 +291,6 @@ class NXDetectorContainer:
 
 
 class NexusContainer:
-    nexus_template: dict
-
     @classmethod
     def from_template_file(cls, path: Path):
         import json
@@ -101,16 +299,23 @@ class NexusContainer:
             return cls(nexus_template=json.load(f))
 
     def __init__(self, *, nexus_template: dict) -> None:
+        # Make children preserve order
+        self.nexus_dict = _children_as_ordered_list(nexus_template)
         instrument_gr = self._get_instrument_group(nexus_template)
-        self.detectors = [
-            NXDetectorContainer(det_dict)
-            for det_dict in self._collect_detectors(instrument_gr)
-        ]
+        self.detectors = {
+            det.detector_name: det
+            for det in [
+                NXDetectorContainer(det_dict)
+                for det_dict in self._collect_detectors(instrument_gr)
+            ]
+        }
+        self.modules: dict[str, dict[str, ModularDataGroupContainer]] = dict()
+        self.modules['ev44'] = self._collect_ev44()
 
     def _collect_detectors(self, instrument_gr: dict) -> list[dict]:
         """Collect the detectors from the instrument group.
 
-        Only one or more NXdetectors are expected.
+        One or more NXdetectors are expected per NXinstrument.
         """
         return [
             child
@@ -122,7 +327,7 @@ class NexusContainer:
     def _get_instrument_group(self, nexus_container: dict) -> dict:
         """Get the NXinstrument group from the nexus container.
 
-        Only one NXinstrument group is expected.
+        Only one NXinstrument group is expected in one template.
         """
         return nested_dict_select(
             nexus_container,
@@ -131,3 +336,24 @@ class NexusContainer:
             'children',
             partial(match_nx_class, cls_name='NXinstrument'),
         )
+
+    def _collect_ev44(self) -> dict[str, ModularDataGroupContainer]:
+        """Collect the ev44 modules from the detector or monitor groups."""
+        ev44s = dict()
+
+        def _retrieve_key(module_dict: dict) -> str:
+            return module_dict['config']['source']
+
+        for idx in collect_nested_module_indices(self.nexus_dict, 'ev44'):
+            parent_dict = nested_dict_select(self.nexus_dict, *idx[:-2])
+            module_dict = nested_dict_select(parent_dict, *idx[-2:])
+            ev44s[_retrieve_key(module_dict)] = ModularDataGroupContainer(
+                parent_dict, module_dict
+            )
+
+        return ev44s
+
+    def insert_ev44(self, ev44_data: dict) -> None:
+        """Insert the module data."""
+
+        self.modules['ev44'][ev44_data['source_name']].update(ev44_data)

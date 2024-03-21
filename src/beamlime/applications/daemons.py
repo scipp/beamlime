@@ -4,12 +4,13 @@ import argparse
 import asyncio
 import os
 from dataclasses import dataclass
-from typing import AsyncGenerator, NewType, Union
+from typing import AsyncGenerator, Mapping, NewType, Union
 
 from ..logging import BeamlimeLogger
 from ._nexus_helpers import NexusContainer
 from ._random_data_providers import (
     DataFeedingSpeed,
+    DetectorName,
     DetectorNumberCandidates,
     EventRate,
     FrameRate,
@@ -28,7 +29,7 @@ class RunStart:
 
 @dataclass
 class DetectorDataReceived:
-    content: dict
+    content: Mapping
 
 
 NexusTemplatePath = NewType("NexusTemplatePath", str)
@@ -52,16 +53,36 @@ class FakeListener(DaemonInterface):
         event_rate_per_detector = int(
             event_rate / max(len(self.nexus_container.detectors), 1)
         )
+        detector_names = sorted(self.nexus_container.detectors.keys())
+        ev44_source_names = self._collect_detector_ev44_modules()
+
         self.random_event_generators = {
-            det.detector_name: random_ev44_generator(
-                detector_numbers=DetectorNumberCandidates(det.pixel_ids),
+            det_name: random_ev44_generator(
+                source_name=DetectorName(ev44_source_name),
+                detector_numbers=DetectorNumberCandidates(
+                    self.nexus_container.detectors[det_name].pixel_ids
+                ),
                 event_rate=EventRate(event_rate_per_detector),
                 frame_rate=frame_rate,
             )
-            for det in self.nexus_container.detectors
+            for det_name, ev44_source_name in zip(detector_names, ev44_source_names)
+            # Assuming the order of the detectors and the ev44 modules are the same
+            # For real data stream, it doesn't matter
+            # since the data is inserted by the source name.
         }
         self.data_feeding_speed = speed
         self.num_frames = num_frames
+
+    def _collect_detector_ev44_modules(self) -> list[str]:
+        """Assumig 'detector' is included in the topic of the module."""
+
+        return sorted(
+            [
+                module_name
+                for module_name, module in self.nexus_container.modules['ev44'].items()
+                if 'detector' in module.module_dict['config']['topic']
+            ]
+        )
 
     async def run(self) -> AsyncGenerator[MessageProtocol, None]:
         self.info("Fake data streaming started...")
@@ -69,11 +90,10 @@ class FakeListener(DaemonInterface):
         yield RunStart(content=self.nexus_container)
 
         for i_frame in range(self.num_frames):
-            events = {
-                det: next(gen) for det, gen in self.random_event_generators.items()
-            }
-            yield DetectorDataReceived(content=events)
-            self.info(f"Detector events of frame #{i_frame} was sent.")
+            for event_generator in self.random_event_generators.values():
+                yield DetectorDataReceived(content=next(event_generator))
+
+            self.info(f"Detector events of frame #{i_frame} were sent.")
             await asyncio.sleep(self.data_feeding_speed)
 
         yield Application.Stop(content=None)

@@ -15,10 +15,12 @@ DataFeedingSpeed = NewType("DataFeedingSpeed", float)  # [s/counts]
 ReferenceTimeZero = NewType("ReferenceTimeZero", int)  # [ns]
 
 # Arguments
+DetectorName = NewType("DetectorName", str)
 DetectorNumberCandidates = NewType("DetectorNumberCandidates", List[int])
 
 
 class EV44(TypedDict):
+    source_name: DetectorName
     reference_time: list[float] | np.ndarray
     reference_time_index: list[int] | np.ndarray
     time_of_flight: list[float] | np.ndarray
@@ -29,6 +31,7 @@ RandomEV44Generator = Generator[EV44, Any, Any]
 
 
 def random_ev44_generator(
+    source_name: DetectorName,
     detector_numbers: DetectorNumberCandidates,
     event_rate: EventRate,
     frame_rate: FrameRate,
@@ -43,6 +46,7 @@ def random_ev44_generator(
             ef_rate * (rng.integers(99, 101) / 100)
         )  # 1% of fluctuation
         yield EV44(
+            source_name=source_name,
             reference_time=[et_zero],
             reference_time_index=[0],
             time_of_flight=rng.random((cur_event_number,)) * 800 + 200,  # No reason
