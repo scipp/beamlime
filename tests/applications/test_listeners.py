@@ -35,7 +35,9 @@ def fake_listener(num_frames: int) -> FakeListener:
 
     return FakeListener(
         logger=MockLogger(),
-        nexus_template_path=NexusTemplatePath(get_path('ymir.json').as_posix()),
+        nexus_template_path=NexusTemplatePath(
+            get_path('ymir_detectors.json').as_posix()
+        ),
         speed=DataFeedingSpeed(1),
         num_frames=NumFrames(num_frames),
         event_rate=EventRate(100),
