@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import os
 from functools import partial
-from typing import Any, Callable, Literal, Mapping, NamedTuple, Optional, Union
+from typing import Any, Callable, Literal, Mapping, NamedTuple, Optional, TypeVar, Union
 
 import numpy as np
 
@@ -26,6 +26,84 @@ GROUP_RECIPES: Mapping[FlatBufferIdentifier, ValuesRecipe] = {
         "pixel_id": DatasetRecipe(int, 1),
     },
 }
+
+
+T = TypeVar("T")
+
+
+class OrderedList(list[T]):
+    """An ordered list that preserves the order of the elements."""
+
+    def insert(self, __index, __object: T) -> None:
+        raise RuntimeError("Inserting is not allowed. Use append instead.")
+
+    def append(self, __object: T) -> int:
+        """Append the object and return the index."""
+        super().append(__object)
+        return len(self) - 1
+
+    def pop(self, __: int = -1) -> Any:
+        raise RuntimeError(
+            "Popping is not allowed. Replace the element with ``None`` instead."
+        )
+
+    def __delitem__(self, __: slice) -> None:
+        raise RuntimeError("Deleting an element is not allowed.")
+
+    def copy(self) -> "OrderedList":
+        return OrderedList(self)
+
+    def __copy__(self) -> "OrderedList":
+        return self.copy()
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({super().__repr__()})"
+
+
+def _children_as_ordered_list(root_dict: dict) -> dict:
+    """Convert the children list to an ordered list."""
+    if 'children' not in root_dict:
+        return root_dict
+
+    root_dict['children'] = OrderedList(
+        _children_as_ordered_list(child) if isinstance(child, dict) else child
+        for child in root_dict['children']
+    )
+    return root_dict
+
+
+NestedObjectT = TypeVar("NestedObjectT", dict, list[dict])
+
+
+def nested_shallow_copy(obj: NestedObjectT, *indices) -> NestedObjectT:
+    """Shallow copy the nested dictionary and lists.
+
+    Examples
+    --------
+    >>> a = {'a': 1, 'b': {'b-a': 2}, 'c': {'c-a': 3}}
+    >>> b = nested_shallow_copy(a, 'b')
+    >>> b['b']['b-a'] = 3
+    >>> a['b']['b-a']  # The original dictionary is not changed
+    2
+    >>> b['b']['b-a']  # The copied dictionary is changed
+    3
+    >>> b['c']['c-a'] = 4
+    >>> a['c']['c-a']  # The original dictionary is also changed
+    4
+    """
+    from copy import copy
+
+    root_obj = obj.copy()
+    cur_parent = root_obj
+
+    try:
+        for idx in indices:
+            cur_parent[idx] = copy(cur_parent[idx])
+            cur_parent = cur_parent[idx]
+    except (KeyError, TypeError) as e:
+        raise KeyError(f"Invalid path: {indices}") from e
+
+    return root_obj
 
 
 def find_index(
@@ -87,66 +165,77 @@ def _match_dataset_name(child: dict, name: str) -> bool:
     )
 
 
-class ModularDatasetContainer:
-    """Modular dataset that can update/clear values."""
+def initalize_dataset(name: str, dtype: type, ndim: int) -> dict:
+    """Create a dataset dictionary."""
 
-    def __init__(self, name: str, recipe: DatasetRecipe) -> None:
-        self.recipe = recipe
-        self.config_dict: dict[str, Any]
-        self.config_dict = dict(name=name, dtype=recipe.dtype.__name__)
-        self.dataset_dict = dict(module='dataset', config=self.config_dict)
-        self._initial_values()
-
-    def _initial_values(self) -> None:
-        """Set the initial values."""
-        if self.recipe.ndim == 0:
-            self.config_dict['values'] = None
-        elif self.recipe.ndim == 1:
-            self.config_dict['values'] = np.array([], dtype=self.recipe.dtype)
-        else:
-            raise ValueError(f"Unsupported ndim: {self.recipe.ndim}")
-
-    def update(self, new_values: Any) -> None:
-        """Update the values from the ``other``.
-
-        The values are extended if they are numpy.ndarray and replaced otherwise.
-        """
-        if self.recipe.ndim == 0:
-            self.config_dict['values'] = new_values
-        elif self.recipe.ndim == 1:
-            self.config_dict['values'] = np.append(
-                self.config_dict['values'],
-                new_values
-                # if ``new_values`` is a sequence, it will be extended
-                # if it is a single value, it will be appended
-            )
+    return dict(
+        module='dataset',
+        config=dict(
+            name=name,
+            dtype=dtype.__name__,
+            values=None if ndim == 0 else np.array([], dtype=dtype),
+        ),
+    )
 
 
 class ModularDataGroupContainer:
     """Modular group container."""
 
-    def __init__(self, group_dict: dict, module_dict: dict) -> None:
+    def __init__(
+        self,
+        group_dict: dict,
+        module_dict: dict,
+        group_path_from_root: tuple[int | str, ...],
+    ) -> None:
+        """Initialize the modular group container.
+
+        Parameters
+        ----------
+        group_dict:
+            The dictionary of the group.
+
+        module_dict:
+            The dictionary of the module.
+
+        group_path_from_root:
+            The path to the data group in the nexus template from the root.
+
+        """
+        self.group_path = group_path_from_root
         self.module_dict = module_dict
-        self.sub_datasets: dict[str, ModularDatasetContainer]
-        self.module_id = module_dict['module']
-        dataset_recipes = GROUP_RECIPES[self.module_id]
-        self.sub_datasets = {
-            name: ModularDatasetContainer(name, dataset_recipe)
-            for name, dataset_recipe in dataset_recipes.items()
+
+        dataset_recipes = GROUP_RECIPES[module_dict['module']]
+        sub_datasets = {
+            dataset_name: initalize_dataset(
+                dataset_name, dataset_recipe.dtype, dataset_recipe.ndim
+            )
+            for dataset_name, dataset_recipe in dataset_recipes.items()
         }
-        group_children: list[dict] = group_dict['children']
-        group_children.extend(
-            (sub_dataset.dataset_dict for sub_dataset in self.sub_datasets.values())
-        )
+        group_children: OrderedList[dict] = group_dict['children']
+        self.sub_datasets_idx: dict[str, int] = {
+            # Keep the index of the sub datasets for later update
+            name: group_children.append(sub_dataset_dict)
+            for name, sub_dataset_dict in sub_datasets.items()
+        }
 
-    def update(self, other: dict) -> None:
-        """Update the sub datasets from the other. Ignore if the name is not present.
+    def update(self, *, other: dict, root_dict: dict) -> None:
+        """Update the sub datasets from the other in the ``root_dict``.
 
+        Ignore if the name is not present.
         See :func:`~ModularDatasetContainer.update` for more details.
         """
-        for name, sub_dataset in self.sub_datasets.items():
+        copied_root = nested_shallow_copy(root_dict, *self.group_path, 'children')
+        children_list: list[dict] = nested_dict_select(
+            copied_root, *self.group_path, 'children'
+        )
+
+        for name, sub_dataset_idx in self.sub_datasets_idx.items():
             if name in other:
-                sub_dataset.update(other[name])
+                copied_dataset = nested_shallow_copy(
+                    children_list[sub_dataset_idx], 'config'
+                )
+                copied_dataset['config']['values'] = other[name]
+                children_list[sub_dataset_idx] = copied_dataset
 
 
 def _match_module_name(child: dict, name: str) -> bool:
@@ -210,7 +299,8 @@ class NexusContainer:
             return cls(nexus_template=json.load(f))
 
     def __init__(self, *, nexus_template: dict) -> None:
-        self.nexus_dict = nexus_template
+        # Make children preserve order
+        self.nexus_dict = _children_as_ordered_list(nexus_template)
         instrument_gr = self._get_instrument_group(nexus_template)
         self.detectors = {
             det.detector_name: det
