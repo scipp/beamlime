@@ -16,7 +16,8 @@ def _make_pooch():
         version=_version,
         registry={
             'loki.json': 'md5:29574acd34eb6479f14bd8d6c04aed64',
-            'ymir.json': 'md5:dfca3b4ca41dafa6e96ef7f9bad71eab',
+            'ymir_detectors.json': 'md5:dfca3b4ca41dafa6e96ef7f9bad71eab',
+            'ymir.json': 'md5:5e913075094d97c5e9e9aca76fc32554',
             # readme of the dataset
             'README.md': 'md5:778a0f290894182db5db0170b4f102fa',
         },

@@ -16,10 +16,10 @@ from beamlime.applications._random_data_providers import (
 
 
 @pytest.fixture
-def ymir_container() -> NexusContainer:
+def ymir_detectors_container() -> NexusContainer:
     from tests.applications.data import get_path
 
-    return NexusContainer.from_template_file(get_path('ymir.json'))
+    return NexusContainer.from_template_file(get_path('ymir_detectors.json'))
 
 
 @pytest.fixture
@@ -41,10 +41,11 @@ def ev44_generator() -> RandomEV44Generator:
     )
 
 
-def test_ymir_template_checksum() -> None:
-    """Test that the ymir template is updated.
+def test_ymir_detector_template_checksum() -> None:
+    """Test that the ymir template with detectors is updated.
 
-    ``ymir.json`` is modified to include detector data.
+    ``ymir_detectors.json`` is modified version of ``ymir.json``
+    to include detector data.
     Therefore we keep track of the file via version control.
     This test is for making sure to update the same file
     in the public server after modifying the file.
@@ -53,12 +54,12 @@ def test_ymir_template_checksum() -> None:
 
     from tests.applications.data import get_checksum
 
-    local_ymir_path = pathlib.Path(__file__).parent / 'ymir.json'
+    local_ymir_path = pathlib.Path(__file__).parent / 'ymir_detectors.json'
     # check md5 sum of the ``local_ymir_path`` file
     with open(local_ymir_path, 'rb') as f:
         local_ymir_md5 = f"md5:{hashlib.md5(f.read()).hexdigest()}"
 
-    assert local_ymir_md5 == get_checksum('ymir.json')
+    assert local_ymir_md5 == get_checksum('ymir_detectors.json')
 
 
 def test_ev44_generator_size(ev44_generator: RandomEV44Generator):
@@ -77,11 +78,11 @@ def test_ev44_generator_reference_time(ev44_generator: RandomEV44Generator):
     assert events['reference_time'][0] < next_events['reference_time'][0]
 
 
-def test_ev44_module_parsing(ymir_container: NexusContainer) -> None:
-    assert len(ymir_container.modules['ev44']) == 2
-    assert len(ymir_container.detectors) == 2
+def test_ev44_module_parsing(ymir_detectors_container: NexusContainer) -> None:
+    assert len(ymir_detectors_container.modules['ev44']) == 2
+    assert len(ymir_detectors_container.detectors) == 2
     for i in range(2):
-        assert f"ymir_{i}" in ymir_container.modules['ev44']
+        assert f"ymir_{i}" in ymir_detectors_container.modules['ev44']
 
 
 def help_ev44_module_insert_test(
@@ -115,9 +116,9 @@ def help_ev44_module_insert_test(
             )
 
 
-def test_ev44_module_insert(ymir_container: NexusContainer) -> None:
+def test_ev44_module_insert(ymir_detectors_container: NexusContainer) -> None:
     for detector_id in range(2):
-        help_ev44_module_insert_test(ymir_container, detector_id, 'ymir')
+        help_ev44_module_insert_test(ymir_detectors_container, detector_id, 'ymir')
 
 
 def test_ev44_module_insert_loki(loki_container: NexusContainer) -> None:
