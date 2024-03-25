@@ -12,6 +12,7 @@ requirements:
     - setuptools_scm
   run:
     - rich
+    - scippneutron>=24.03.0
     - python>=3.10
 
 test:
@@ -23,7 +24,7 @@ test:
     - scipp
     - plopp
     - sciline
-    - scippneutron
+    - scippneutron>=24.03.0
   source_files:
     - pyproject.toml
     - tests/
