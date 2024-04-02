@@ -11,7 +11,7 @@ charset-normalizer==3.3.2
     # via requests
 contourpy==1.2.0
     # via matplotlib
-coverage[toml]==7.4.3
+coverage[toml]==7.4.4
     # via pytest-cov
 cycler==0.12.1
     # via matplotlib
@@ -19,7 +19,7 @@ exceptiongroup==1.2.0
     # via pytest
 execnet==2.0.2
     # via pytest-xdist
-fonttools==4.49.0
+fonttools==4.50.0
     # via matplotlib
 h5py==3.10.0
     # via
@@ -43,7 +43,7 @@ numpy==1.26.4
     #   scipp
     #   scippneutron
     #   scipy
-packaging==23.2
+packaging==24.0
     # via
     #   matplotlib
     #   pooch
@@ -62,19 +62,19 @@ pooch==1.8.1
     # via scippneutron
 psutil==5.9.8
     # via -r basetest.in
-pyarrow==15.0.1
+pyarrow==15.0.2
     # via -r basetest.in
 pyparsing==3.1.2
     # via matplotlib
-pytest==8.0.2
+pytest==8.1.1
     # via
     #   -r basetest.in
     #   pytest-asyncio
     #   pytest-cov
     #   pytest-xdist
-pytest-asyncio==0.23.5
+pytest-asyncio==0.23.6
     # via -r basetest.in
-pytest-cov==4.1.0
+pytest-cov==5.0.0
     # via -r basetest.in
 pytest-xdist==3.5.0
     # via -r basetest.in
@@ -92,7 +92,7 @@ scipp==24.2.0
     #   -r basetest.in
     #   scippneutron
     #   scippnexus
-scippneutron==24.1.0
+scippneutron==24.3.0
     # via -r basetest.in
 scippnexus==24.3.1
     # via scippneutron

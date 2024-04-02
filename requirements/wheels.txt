@@ -7,7 +7,7 @@
 #
 build==1.1.1
     # via -r wheels.in
-packaging==23.2
+packaging==24.0
     # via build
 pyproject-hooks==1.0.0
     # via build
