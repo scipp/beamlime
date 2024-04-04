@@ -41,6 +41,41 @@ def ev44_generator() -> RandomEV44Generator:
     )
 
 
+def test_nested_shallow_copy() -> None:
+    from beamlime.applications._nexus_helpers import nested_shallow_copy
+
+    original = dict(a=dict(b0=dict(c=1), b1=dict(c=1)))
+    # 0-depth copy
+    copied = nested_shallow_copy(original)
+    assert copied == original
+    assert copied is not original
+    assert copied['a'] is original['a']
+
+    # 1-depth copy up to 'a'
+    copied = nested_shallow_copy(original, 'a')
+    assert copied == original
+    assert copied is not original
+    assert copied['a'] == original['a']
+    assert copied['a'] is not original['a']
+    assert copied['a']['b0'] is original['a']['b0']
+    assert copied['a']['b1'] is original['a']['b1']
+
+    # 2-depth copy up to 'b'
+    copied = nested_shallow_copy(original, 'a', 'b0')
+    assert copied == original
+    assert copied is not original
+    assert copied['a'] == original['a']
+    assert copied['a'] is not original['a']
+    assert copied['a']['b0'] == original['a']['b0']
+    assert copied['a']['b0'] is not original['a']['b0']
+    assert copied['a']['b1'] is original['a']['b1']
+
+    # 3-depth copy up to 'c'
+    copied = nested_shallow_copy(original, 'a', 'b0', 'c')
+    copied['a']['b0']['c'] = 2
+    assert copied['a']['b0']['c'] != original['a']['b0']['c']
+
+
 def test_invalid_nexus_template_multiple_module_placeholders() -> None:
     import json
 
