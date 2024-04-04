@@ -2,74 +2,41 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import os
 from functools import partial
-from typing import Any, Callable, Literal, Mapping, NamedTuple, Optional, TypeVar, Union
-
-import numpy as np
+from typing import (
+    Any,
+    Callable,
+    Literal,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 Path = Union[str, bytes, os.PathLike]
+DTypeDesc = Literal["int", "float", "string"]
 
 
 class DatasetRecipe(NamedTuple):
-    dtype: type
-    ndim: int
+    name: str
+    dtype_description: DTypeDesc
 
 
 FlatBufferIdentifier = Literal["ev44", "f144", "tdct"]
-ValuesRecipe = Mapping[str, DatasetRecipe]
-GROUP_RECIPES: Mapping[FlatBufferIdentifier, ValuesRecipe] = {
-    "f144": {"timestamp": DatasetRecipe(int, 0), "value": DatasetRecipe(float, 0)},
-    "tdct": {"name": DatasetRecipe(str, 0), "timestamps": DatasetRecipe(int, 1)},
-    "ev44": {
-        "reference_time": DatasetRecipe(float, 1),
-        "reference_time_index": DatasetRecipe(int, 1),
-        "time_of_flight": DatasetRecipe(float, 1),
-        "pixel_id": DatasetRecipe(int, 1),
-    },
+GROUP_RECIPES: Mapping[FlatBufferIdentifier, Tuple[DatasetRecipe, ...]] = {
+    "f144": (DatasetRecipe("timestamp", "int"), DatasetRecipe("value", "float")),
+    "tdct": (DatasetRecipe("name", "string"), DatasetRecipe("timestamps", "int")),
+    "ev44": (
+        DatasetRecipe("reference_time", "int"),  # In nanoseconds
+        DatasetRecipe("reference_time_index", "int"),
+        DatasetRecipe("time_of_flight", "int"),  # In nanoseconds
+        DatasetRecipe("pixel_id", "int"),
+    ),
 }
 
 
 T = TypeVar("T")
-
-
-class OrderedList(list[T]):
-    """An ordered list that preserves the order of the elements."""
-
-    def insert(self, __index, __object: T) -> None:
-        raise RuntimeError("Inserting is not allowed. Use append instead.")
-
-    def append(self, __object: T) -> int:
-        """Append the object and return the index."""
-        super().append(__object)
-        return len(self) - 1
-
-    def pop(self, __: int = -1) -> Any:
-        raise RuntimeError(
-            "Popping is not allowed. Replace the element with ``None`` instead."
-        )
-
-    def __delitem__(self, __: slice) -> None:
-        raise RuntimeError("Deleting an element is not allowed.")
-
-    def copy(self) -> "OrderedList":
-        return OrderedList(self)
-
-    def __copy__(self) -> "OrderedList":
-        return self.copy()
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({super().__repr__()})"
-
-
-def _children_as_ordered_list(root_dict: dict) -> dict:
-    """Convert the children list to an ordered list."""
-    if 'children' not in root_dict:
-        return root_dict
-
-    root_dict['children'] = OrderedList(
-        _children_as_ordered_list(child) if isinstance(child, dict) else child
-        for child in root_dict['children']
-    )
-    return root_dict
 
 
 NestedObjectT = TypeVar("NestedObjectT", dict, list[dict])
@@ -165,77 +132,63 @@ def _match_dataset_name(child: dict, name: str) -> bool:
     )
 
 
-def initalize_dataset(name: str, dtype: type, ndim: int) -> dict:
+def populate_dataset(dataset_recipe: DatasetRecipe, initial_values: Any = None) -> dict:
     """Create a dataset dictionary."""
 
     return dict(
         module='dataset',
         config=dict(
-            name=name,
-            dtype=dtype.__name__,
-            values=None if ndim == 0 else np.array([], dtype=dtype),
+            name=dataset_recipe.name,
+            dtype=dataset_recipe.dtype_description,
+            values=initial_values,
         ),
     )
 
 
-class ModularDataGroupContainer:
-    """Modular group container."""
+class ModularDataGroupRecipe:
+    """Modular data group information."""
 
     def __init__(
         self,
-        group_dict: dict,
-        module_dict: dict,
-        group_path_from_root: tuple[int | str, ...],
+        root_dict: dict,
+        path_to_module: tuple[int | str, ...],
     ) -> None:
         """Initialize the modular group container.
 
         Parameters
         ----------
-        group_dict:
-            The dictionary of the group.
+        root_dict:
+            The dictionary of the whole structure.
 
-        module_dict:
-            The dictionary of the module.
-
-        group_path_from_root:
-            The path to the data group in the nexus template from the root.
+        path_to_module:
+            The path to the module placeholder in the nexus template from the root.
 
         """
-        self.group_path = group_path_from_root
-        self.module_dict = module_dict
+        self.target_path = path_to_module[:-1]  # Up to (..., "children")
+        self.module_dict = nested_dict_getitem(root_dict, *path_to_module)
+        self.module_id = self.module_dict['module']
+        self.sub_dataset_recipes = GROUP_RECIPES[self.module_id]
 
-        dataset_recipes = GROUP_RECIPES[module_dict['module']]
-        sub_datasets = {
-            dataset_name: initalize_dataset(
-                dataset_name, dataset_recipe.dtype, dataset_recipe.ndim
-            )
-            for dataset_name, dataset_recipe in dataset_recipes.items()
-        }
-        group_children: OrderedList[dict] = group_dict['children']
-        self.sub_datasets_idx: dict[str, int] = {
-            # Keep the index of the sub datasets for later update
-            name: group_children.append(sub_dataset_dict)
-            for name, sub_dataset_dict in sub_datasets.items()
-        }
 
-    def update(self, *, other: dict, root_dict: dict) -> None:
-        """Update the sub datasets from the other in the ``root_dict``.
+def replace_subdataset(
+    root: dict, modular_group_container: ModularDataGroupRecipe, other: Mapping
+) -> dict:
+    """Make a shallow copy or ``root`` and update it from ``other``.
 
-        Ignore if the name is not present.
-        See :func:`~ModularDatasetContainer.update` for more details.
-        """
-        copied_root = nested_shallow_copy(root_dict, *self.group_path, 'children')
-        children_list: list[dict] = nested_dict_select(
-            copied_root, *self.group_path, 'children'
-        )
-
-        for name, sub_dataset_idx in self.sub_datasets_idx.items():
-            if name in other:
-                copied_dataset = nested_shallow_copy(
-                    children_list[sub_dataset_idx], 'config'
-                )
-                copied_dataset['config']['values'] = other[name]
-                children_list[sub_dataset_idx] = copied_dataset
+    Path to the sub-dataset is provided by the ``modular_group_container``.
+    Ignore if the name is not present in a recipe.
+    """
+    copied_root = nested_shallow_copy(root, *modular_group_container.target_path)
+    sub_dataset_list: list[dict] = nested_dict_select(
+        copied_root,
+        *modular_group_container.target_path,
+    )
+    sub_dataset_list[:] = [
+        populate_dataset(dataset_recipe, initial_values=other[dataset_recipe.name])
+        for dataset_recipe in modular_group_container.sub_dataset_recipes
+        if dataset_recipe.name in other
+    ]
+    return copied_root
 
 
 def _match_module_name(child: dict, name: str) -> bool:
@@ -264,6 +217,17 @@ def collect_nested_module_indices(
 
     _recursive_collect_module_indices(nexus_container, tuple())
     return collected
+
+
+def check_multi_module_datagroup(nexus_template: dict) -> None:
+    """Check if the template has multiple modules in single data group."""
+    module_indices = []
+    for fb_id in GROUP_RECIPES.keys():
+        module_indices.extend(collect_nested_module_indices(nexus_template, fb_id))
+
+    parent_indices = [idx[:-1] for idx in module_indices]
+    if len(parent_indices) > len(set(parent_indices)):
+        raise ValueError("Multiple modules found in the same data group.")
 
 
 class NXDetectorContainer:
@@ -298,9 +262,14 @@ class NexusContainer:
         with open(path) as f:
             return cls(nexus_template=json.load(f))
 
+    @property
+    def nexus_dict(self):
+        return self._nexus_dict
+
     def __init__(self, *, nexus_template: dict) -> None:
-        # Make children preserve order
-        self.nexus_dict = _children_as_ordered_list(nexus_template)
+        # Validate the nexus template
+        check_multi_module_datagroup(nexus_template)
+        self._nexus_dict = nexus_template
         instrument_gr = self._get_instrument_group(nexus_template)
         self.detectors = {
             det.detector_name: det
@@ -309,7 +278,7 @@ class NexusContainer:
                 for det_dict in self._collect_detectors(instrument_gr)
             ]
         }
-        self.modules: dict[str, dict[str, ModularDataGroupContainer]] = dict()
+        self.modules: dict[str, dict[str, ModularDataGroupRecipe]] = dict()
         self.modules['ev44'] = self._collect_ev44()
 
     def _collect_detectors(self, instrument_gr: dict) -> list[dict]:
@@ -337,23 +306,25 @@ class NexusContainer:
             partial(match_nx_class, cls_name='NXinstrument'),
         )
 
-    def _collect_ev44(self) -> dict[str, ModularDataGroupContainer]:
+    def _collect_ev44(self) -> dict[str, ModularDataGroupRecipe]:
         """Collect the ev44 modules from the detector or monitor groups."""
-        ev44s = dict()
 
         def _retrieve_key(module_dict: dict) -> str:
             return module_dict['config']['source']
 
-        for idx in collect_nested_module_indices(self.nexus_dict, 'ev44'):
-            parent_dict = nested_dict_select(self.nexus_dict, *idx[:-2])
-            module_dict = nested_dict_select(parent_dict, *idx[-2:])
-            ev44s[_retrieve_key(module_dict)] = ModularDataGroupContainer(
-                parent_dict, module_dict
-            )
+        module_recipes = [
+            ModularDataGroupRecipe(self._nexus_dict, idx)
+            for idx in collect_nested_module_indices(self._nexus_dict, 'ev44')
+        ]
+        return {
+            _retrieve_key(module_recipe.module_dict): module_recipe
+            for module_recipe in module_recipes
+        }
 
-        return ev44s
-
-    def insert_ev44(self, ev44_data: dict) -> None:
+    def insert_ev44(self, ev44_data: Mapping) -> None:
         """Insert the module data."""
-
-        self.modules['ev44'][ev44_data['source_name']].update(ev44_data)
+        module = self.modules['ev44'][ev44_data['source_name']]
+        updated = replace_subdataset(
+            root=self._nexus_dict, modular_group_container=module, other=ev44_data
+        )
+        self._nexus_dict = updated

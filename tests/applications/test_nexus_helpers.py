@@ -88,7 +88,22 @@ def test_ev44_module_parsing(ymir_detectors_container: NexusContainer) -> None:
 def help_ev44_module_insert_test(
     container: NexusContainer, detector_id: int, detector_name_prefix: str
 ) -> None:
-    # create a hypothetical event
+    from beamlime.applications._nexus_helpers import nested_dict_getitem
+
+    sub_datagroup_recipe = container.modules['ev44'][
+        f"{detector_name_prefix}_{detector_id}"
+    ]
+
+    # Save the original dictionary
+    original_dict = container.nexus_dict
+
+    # Check that the sub dataset is empty
+    original_sub_dataset_list = nested_dict_getitem(
+        container.nexus_dict, *sub_datagroup_recipe.target_path
+    )
+    assert len(original_sub_dataset_list) == 1  # Module placeholder
+
+    # Create a hypothetical event
     ev44 = dict(
         source_name=DetectorName(f"{detector_name_prefix}_{detector_id}"),
         reference_time=[0.0],
@@ -98,22 +113,27 @@ def help_ev44_module_insert_test(
     )
     sub_dataset_names = list(key for key in ev44.keys() if key != 'source_name')
 
-    sub_container = container.modules['ev44'][f"{detector_name_prefix}_{detector_id}"]
-    # check that the container is empty
-    for sub_dataset_name in sub_dataset_names:
-        assert (
-            len(sub_container.sub_datasets[sub_dataset_name].config_dict['values']) == 0
-        )
+    # Insert the hypothetical event
+    container.insert_ev44(ev44)
 
-    for i_insert in range(1, 4):
-        # insert the hypothetical event
-        container.insert_ev44(ev44)
-        # check that the container is filled
-        for sub_dataset_name in sub_dataset_names:
-            assert all(
-                sub_container.sub_datasets[sub_dataset_name].config_dict['values']
-                == ev44[sub_dataset_name] * i_insert
-            )
+    # Check the original dictionary is not modified
+    assert container.nexus_dict is not original_dict
+    original_sub_dataset_list = nested_dict_getitem(
+        original_dict, *sub_datagroup_recipe.target_path
+    )
+    assert len(original_sub_dataset_list) == 1  # Module placeholder
+
+    # Check if the sub-datasets are populated in the shallow-copied dictionary
+    sub_dataset_list = nested_dict_getitem(
+        container.nexus_dict, *sub_datagroup_recipe.target_path
+    )
+    populated_names = [
+        sub_dataset['config']['name'] for sub_dataset in sub_dataset_list
+    ]
+    assert set(populated_names) == set(sub_dataset_names)
+    # Check if the inserted event is correct
+    for sub_dataset in sub_dataset_list:
+        assert sub_dataset['config']['values'] == ev44[sub_dataset['config']['name']]
 
 
 def test_ev44_module_insert(ymir_detectors_container: NexusContainer) -> None:
