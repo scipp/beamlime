@@ -41,6 +41,26 @@ def ev44_generator() -> RandomEV44Generator:
     )
 
 
+def test_invalid_nexus_template_multiple_module_placeholders() -> None:
+    import json
+
+    from beamlime.applications._nexus_helpers import check_multi_module_datagroup
+
+    invalid_nexus_template_path = (
+        pathlib.Path(__file__).parent / "multiple_modules_datagroup.json"
+    )
+    with pytest.raises(
+        ValueError, match="Multiple modules found in the same data group."
+    ):
+        NexusContainer.from_template_file(invalid_nexus_template_path)
+
+    with pytest.raises(
+        ValueError, match="Multiple modules found in the same data group."
+    ):
+        invalid_nexus_dict = json.loads(invalid_nexus_template_path.read_text())
+        check_multi_module_datagroup(invalid_nexus_dict)
+
+
 def test_ymir_detector_template_checksum() -> None:
     """Test that the ymir template with detectors is updated.
 
