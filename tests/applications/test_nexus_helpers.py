@@ -41,6 +41,102 @@ def ev44_generator() -> RandomEV44Generator:
     )
 
 
+def test_find_index_general() -> None:
+    from beamlime.applications._nexus_helpers import find_index
+
+    nested_obj = {
+        'children': [
+            {'name': 'b0'},
+            {'name': 'b1'},
+            {'name': 'b2'},
+        ],
+        'name': 'a',
+    }
+
+    assert find_index(nested_obj, 'children', lambda obj: obj['name'] == 'b1') == (
+        'children',
+        1,
+    )
+
+
+def test_find_index_filters() -> None:
+    from beamlime.applications._nexus_helpers import find_index
+
+    def child_filter(k: str, v: dict[str, str]):
+        return k.startswith('child') and v['name'].startswith('B')
+
+    def grand_child_filter(obj: dict[str, str]):
+        return obj['name'].startswith('Green')
+
+    nested_obj = {
+        "child_1": {
+            "name": "Apple",
+            "children": [
+                {"name": "Red Apple"},
+                {"name": "Green Apple"},
+                {"name": "Yellow Apple"},
+            ],
+        },
+        "child_2": {
+            "name": "Banana",
+            "children": [
+                {"name": "Yellow Banana"},
+                {"name": "Green Banana"},
+                {"name": "Brown Banana"},
+            ],
+        },
+        "sibling_1": {
+            "name": "Cherry",
+            "children": [
+                {"name": "Red Cherry"},
+                {"name": "Green Cherry"},
+                {"name": "Yellow Cherry"},
+            ],
+        },
+    }
+
+    assert find_index(nested_obj, child_filter, "children", grand_child_filter) == (
+        'child_2',
+        'children',
+        1,
+    )
+
+
+def test_find_index_lambda_filters() -> None:
+    from beamlime.applications._nexus_helpers import find_index
+
+    nested_obj = {
+        'children': [
+            {'name': 'b0'},
+            {'name': 'b1'},
+            {'name': 'b2'},
+        ],
+        'name': 'a',
+    }
+
+    assert find_index(
+        nested_obj, lambda _, v: len(v) == 3, lambda obj: obj['name'] == 'b1'
+    ) == ('children', 1)
+
+
+def test_find_index_multiple_matches() -> None:
+    from beamlime.applications._nexus_helpers import find_index
+
+    nested_obj = {
+        'children': [
+            {'name': 'b1'},
+            {'name': 'b1'},
+            {'name': 'b2'},
+        ],
+        'name': 'a',
+    }
+
+    assert find_index(nested_obj, 'children', lambda obj: obj['name'] == 'b1') == (
+        'children',
+        0,  # Always find the first match
+    )
+
+
 def test_nested_shallow_copy() -> None:
     from beamlime.applications._nexus_helpers import nested_shallow_copy
 
