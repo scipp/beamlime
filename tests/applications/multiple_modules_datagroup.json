@@ -23,14 +23,6 @@
             ],
             "children": [
               {
-                "module": "dataset",
-                "config": {
-                  "name": "name",
-                  "values": "YMIR",
-                  "type": "string"
-                }
-              },
-              {
                 "name": "hypothetical_detector_0",
                 "type": "group",
                 "children": [
@@ -47,36 +39,6 @@
                     "config": {
                       "name": "x_pixel_offset",
                       "values": [0.0, 0.0, 0.0, 0.1, 0.1, 0.1, 0.2, 0.2, 0.2],
-                      "dtype": "float"
-                    },
-                    "attributes": [
-                      {
-                        "name": "units",
-                        "dtype": "string",
-                        "values": "m"
-                      }
-                    ]
-                  },
-                  {
-                    "module": "dataset",
-                    "config": {
-                      "name": "y_pixel_offset",
-                      "values": [0.0, 0.1, 0.2, 0.0, 0.1, 0.2, 0.0, 0.1, 0.2],
-                      "dtype": "float"
-                    },
-                    "attributes": [
-                      {
-                        "name": "units",
-                        "dtype": "string",
-                        "values": "m"
-                      }
-                    ]
-                  },
-                  {
-                    "module": "dataset",
-                    "config": {
-                      "name": "z_pixel_offset",
-                      "values": [-0.01, -0.01, -0.01],
                       "dtype": "float"
                     },
                     "attributes": [
