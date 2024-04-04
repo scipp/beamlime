@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-import os
-
 import pytest
 
 from beamlime.applications.daemons import (
@@ -28,11 +26,13 @@ def fake_listener() -> FakeListener:
         NexusTemplatePath,
         NumFrames,
     )
+    from tests.applications.data import get_path
 
-    path = os.path.join(os.path.dirname(__file__), 'ymir.json')
     return FakeListener(
         logger=MockLogger(),
-        nexus_template_path=NexusTemplatePath(path),
+        nexus_template_path=NexusTemplatePath(
+            get_path('ymir_detectors.json').as_posix()
+        ),
         speed=DataFeedingSpeed(1),
         num_frames=NumFrames(1),
         event_rate=EventRate(100),
@@ -43,7 +43,7 @@ def fake_listener() -> FakeListener:
 def test_fake_listener_constructor(
     fake_listener: FakeListener,
 ) -> None:
-    # ymir has 2 hypothetical detectors
+    # ymir_detectors has 2 hypothetical detectors
     assert len(fake_listener.nexus_container.detectors) == 2
 
 
