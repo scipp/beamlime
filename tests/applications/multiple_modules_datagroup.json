@@ -1,0 +1,92 @@
+{
+    "children": [
+      {
+        "name": "entry",
+        "type": "group",
+        "attributes": [
+          {
+            "name": "NX_class",
+            "dtype": "string",
+            "values": "NXentry"
+          }
+        ],
+        "children": [
+          {
+            "name": "instrument",
+            "type": "group",
+            "attributes": [
+              {
+                "name": "NX_class",
+                "dtype": "string",
+                "values": "NXinstrument"
+              }
+            ],
+            "children": [
+              {
+                "name": "hypothetical_detector_0",
+                "type": "group",
+                "children": [
+                  {
+                    "module": "dataset",
+                    "config": {
+                      "name": "detector_number",
+                      "values": [1, 2, 3],
+                      "dtype": "int32"
+                    }
+                  },
+                  {
+                    "module": "dataset",
+                    "config": {
+                      "name": "x_pixel_offset",
+                      "values": [0.0, 0.0, 0.0, 0.1, 0.1, 0.1, 0.2, 0.2, 0.2],
+                      "dtype": "float"
+                    },
+                    "attributes": [
+                      {
+                        "name": "units",
+                        "dtype": "string",
+                        "values": "m"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "ymir_detector_events",
+                    "type": "group",
+                    "children": [
+                      {
+                        "module": "ev44",
+                        "config": {
+                          "topic": "hypothetical_detector",
+                          "source": "ymir_00"
+                        }
+                      },
+                      {
+                        "module": "ev44",
+                        "config": {
+                          "topic": "hypothetical_detector",
+                          "source": "ymir_01"
+                        }
+                      }
+                    ],
+                    "attributes": [
+                      {
+                        "name": "NX_class",
+                        "values": "NXevent_data"
+                      }
+                    ]
+                  }
+                ],
+                "attributes": [
+                  {
+                    "name": "NX_class",
+                    "values": "NXdetector"
+                  }
+                ]
+              }
+            ]
+          },
+          "$USERS$"
+        ]
+      }
+    ]
+  }
