@@ -13,6 +13,7 @@ def pytest_addoption(parser: pytest.Parser):
     parser.addoption("--kafka-test", action="store_true", default=False)
     parser.addoption("--benchmark-test", action="store_true", default=False)
     parser.addoption("--full-benchmark-test", action="store_true", default=False)
+    parser.addoption("--large-file-test", action="store_true", default=False)
 
 
 @pytest.fixture(scope='session')
@@ -53,6 +54,20 @@ def full_benchmark_test(request: pytest.FixtureRequest) -> Literal[True]:
         pytest.skip(
             "Skipping full benchmark. "
             "Use ``--full-benchmark-test`` option to run this test."
+        )
+
+    return True
+
+
+@pytest.fixture(scope='session')
+def large_file_test(request: pytest.FixtureRequest) -> Literal[True]:
+    """
+    Requires --large-file-test flag.
+    """
+    if not request.config.getoption('--large-file-test'):
+        pytest.skip(
+            "Skipping full benchmark. "
+            "Use ``--large-file-test`` option to run this test."
         )
 
     return True
