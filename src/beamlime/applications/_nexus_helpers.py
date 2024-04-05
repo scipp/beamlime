@@ -39,7 +39,7 @@ GROUP_RECIPES: Mapping[FlatBufferIdentifier, Tuple[DatasetRecipe, ...]] = {
 NestedObjectT = TypeVar("NestedObjectT", dict, list[dict])
 
 
-def nested_shallow_copy(obj: NestedObjectT, *indices) -> NestedObjectT:
+def nested_shallow_copy(obj: NestedObjectT, *path_to_target) -> NestedObjectT:
     """Shallow copy the nested dictionary and lists.
 
     Examples
@@ -61,11 +61,11 @@ def nested_shallow_copy(obj: NestedObjectT, *indices) -> NestedObjectT:
     cur_parent = root_obj
 
     try:
-        for idx in indices:
+        for idx in path_to_target:
             cur_parent[idx] = copy(cur_parent[idx])
             cur_parent = cur_parent[idx]
     except (KeyError, TypeError) as e:
-        raise KeyError(f"Invalid path: {indices}") from e
+        raise KeyError(f"Invalid path: {path_to_target}") from e
 
     return root_obj
 
