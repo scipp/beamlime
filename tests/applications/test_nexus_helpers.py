@@ -4,6 +4,7 @@ import pytest
 
 from beamlime.applications._nexus_helpers import NexusContainer
 from beamlime.applications._random_data_providers import (
+    DetectorName,
     DetectorNumberCandidates,
     EventRate,
     FrameRate,
@@ -31,6 +32,7 @@ def loki_container(large_file_test: bool) -> NexusContainer:
 @pytest.fixture
 def ev44_generator() -> RandomEV44Generator:
     return random_ev44_generator(
+        source_name=DetectorName('test'),
         detector_numbers=DetectorNumberCandidates(list(range(100))),
         event_rate=EventRate(10_000),
         frame_rate=FrameRate(14),
@@ -62,6 +64,8 @@ def test_ymir_detector_template_checksum() -> None:
 def test_ev44_generator_size(ev44_generator: RandomEV44Generator):
     ef_rate = int(10_000 / 14)  # default event rate / frame rate
     events = next(ev44_generator)
+
+    assert events['source_name'] == 'test'
     assert int(ef_rate * 0.99) <= len(events['time_of_flight']) <= int(ef_rate * 1.01)
     assert len(events['pixel_id']) == len(events['time_of_flight'])
     assert len(events['reference_time']) == len(events['reference_time_index'])
