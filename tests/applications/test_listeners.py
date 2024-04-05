@@ -17,8 +17,13 @@ class MockLogger(list):
         self.append(m)
 
 
+@pytest.fixture(params=[1, 2, 3])
+def num_frames(request) -> int:
+    return request.param
+
+
 @pytest.fixture
-def fake_listener() -> FakeListener:
+def fake_listener(num_frames: int) -> FakeListener:
     from beamlime.applications.daemons import (
         DataFeedingSpeed,
         EventRate,
@@ -34,21 +39,20 @@ def fake_listener() -> FakeListener:
             get_path('ymir_detectors.json').as_posix()
         ),
         speed=DataFeedingSpeed(1),
-        num_frames=NumFrames(1),
+        num_frames=NumFrames(num_frames),
         event_rate=EventRate(100),
         frame_rate=FrameRate(14),
     )
 
 
-def test_fake_listener_constructor(
-    fake_listener: FakeListener,
-) -> None:
+def test_fake_listener_constructor(fake_listener: FakeListener) -> None:
     # ymir_detectors has 2 hypothetical detectors
     assert len(fake_listener.nexus_container.detectors) == 2
 
 
-async def test_fake_listener(fake_listener: FakeListener) -> None:
+async def test_fake_listener(fake_listener: FakeListener, num_frames: int) -> None:
     generator = fake_listener.run()
     assert isinstance(await anext(generator), RunStart)
-    assert isinstance(await anext(generator), DetectorDataReceived)
+    for _ in range(num_frames * 2):
+        assert isinstance(await anext(generator), DetectorDataReceived)
     assert isinstance(await anext(generator), Application.Stop)

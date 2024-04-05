@@ -2,9 +2,10 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import os
 from functools import partial
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Literal, Optional, Union
 
 Path = Union[str, bytes, os.PathLike]
+FlatBufferIdentifier = Literal["ev44", "f144", "tdct"]
 
 
 def find_index(
@@ -66,6 +67,58 @@ def _match_dataset_name(child: dict, name: str) -> bool:
     )
 
 
+class ModularDataGroupRecipe:
+    """Modular data group information."""
+
+    def __init__(
+        self,
+        root_dict: dict,
+        path_to_module: tuple[int | str, ...],
+    ) -> None:
+        """Initialize the modular group container.
+
+        Parameters
+        ----------
+        root_dict:
+            The dictionary of the whole structure.
+
+        path_to_module:
+            The path to the module placeholder in the nexus template from the root.
+
+        """
+        self.target_path = path_to_module[:-1]  # Up to (..., "children")
+        self.module_dict = nested_dict_getitem(root_dict, *path_to_module)
+        self.module_id = self.module_dict['module']
+
+
+def _match_module_name(child: dict, name: str) -> bool:
+    return child.get('module', None) == name
+
+
+def collect_nested_module_indices(
+    nexus_container: dict, fb_id: FlatBufferIdentifier
+) -> list[tuple]:
+    """Collect the indices of the module with the given id."""
+    collected = list()
+
+    def _recursive_collect_module_indices(
+        obj: dict,
+        cur_idx: tuple[str | int, ...],
+    ) -> None:
+        # Find module placeholder in the group.
+        for i, cand in enumerate(
+            [child for child in obj.get('children', []) if isinstance(child, dict)]
+        ):
+            cand_idx = cur_idx + ('children', i)
+            if _match_module_name(cand, fb_id):
+                collected.append(cand_idx)
+            else:
+                _recursive_collect_module_indices(cand, cand_idx)
+
+    _recursive_collect_module_indices(nexus_container, tuple())
+    return collected
+
+
 class NXDetectorContainer:
     """NXDetector container.
 
@@ -91,8 +144,6 @@ class NXDetectorContainer:
 
 
 class NexusContainer:
-    nexus_template: dict
-
     @classmethod
     def from_template_file(cls, path: Path):
         import json
@@ -100,17 +151,28 @@ class NexusContainer:
         with open(path) as f:
             return cls(nexus_template=json.load(f))
 
+    @property
+    def nexus_dict(self):
+        return self._nexus_dict
+
     def __init__(self, *, nexus_template: dict) -> None:
+        # Validate the nexus template
+        self._nexus_dict = nexus_template
         instrument_gr = self._get_instrument_group(nexus_template)
-        self.detectors = [
-            NXDetectorContainer(det_dict)
-            for det_dict in self._collect_detectors(instrument_gr)
-        ]
+        self.detectors = {
+            det.detector_name: det
+            for det in [
+                NXDetectorContainer(det_dict)
+                for det_dict in self._collect_detectors(instrument_gr)
+            ]
+        }
+        self.modules: dict[str, dict[str, ModularDataGroupRecipe]] = dict()
+        self.modules['ev44'] = self._collect_ev44()
 
     def _collect_detectors(self, instrument_gr: dict) -> list[dict]:
         """Collect the detectors from the instrument group.
 
-        Only one or more NXdetectors are expected.
+        One or more NXdetectors are expected per NXinstrument.
         """
         return [
             child
@@ -122,7 +184,7 @@ class NexusContainer:
     def _get_instrument_group(self, nexus_container: dict) -> dict:
         """Get the NXinstrument group from the nexus container.
 
-        Only one NXinstrument group is expected.
+        Only one NXinstrument group is expected in one template.
         """
         return nested_dict_select(
             nexus_container,
@@ -131,3 +193,18 @@ class NexusContainer:
             'children',
             partial(match_nx_class, cls_name='NXinstrument'),
         )
+
+    def _collect_ev44(self) -> dict[str, ModularDataGroupRecipe]:
+        """Collect the ev44 modules from the detector or monitor groups."""
+
+        def _retrieve_key(module_dict: dict) -> str:
+            return module_dict['config']['source']
+
+        module_recipes = [
+            ModularDataGroupRecipe(self._nexus_dict, idx)
+            for idx in collect_nested_module_indices(self._nexus_dict, 'ev44')
+        ]
+        return {
+            _retrieve_key(module_recipe.module_dict): module_recipe
+            for module_recipe in module_recipes
+        }
