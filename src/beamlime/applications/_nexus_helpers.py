@@ -2,10 +2,72 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import os
 from functools import partial
-from typing import Any, Callable, Literal, Optional, Union
+from typing import (
+    Any,
+    Callable,
+    Literal,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 Path = Union[str, bytes, os.PathLike]
+DTypeDesc = Literal["int", "float", "string"]
+
+
+class DatasetRecipe(NamedTuple):
+    name: str
+    dtype_description: DTypeDesc
+
+
 FlatBufferIdentifier = Literal["ev44", "f144", "tdct"]
+GROUP_RECIPES: Mapping[FlatBufferIdentifier, Tuple[DatasetRecipe, ...]] = {
+    "f144": (DatasetRecipe("timestamp", "int"), DatasetRecipe("value", "float")),
+    "tdct": (DatasetRecipe("name", "string"), DatasetRecipe("timestamps", "int")),
+    "ev44": (
+        DatasetRecipe("reference_time", "int"),  # In nanoseconds
+        DatasetRecipe("reference_time_index", "int"),
+        DatasetRecipe("time_of_flight", "int"),  # In nanoseconds
+        DatasetRecipe("pixel_id", "int"),
+    ),
+}
+
+
+NestedObjectT = TypeVar("NestedObjectT", dict, list[dict])
+
+
+def nested_shallow_copy(obj: NestedObjectT, *path_to_target) -> NestedObjectT:
+    """Shallow copy the nested dictionary and lists.
+
+    Examples
+    --------
+    >>> a = {'a': 1, 'b': {'b-a': 2}, 'c': {'c-a': 3}}
+    >>> b = nested_shallow_copy(a, 'b')
+    >>> b['b']['b-a'] = 3
+    >>> a['b']['b-a']  # The original dictionary is not changed
+    2
+    >>> b['b']['b-a']  # The copied dictionary is changed
+    3
+    >>> b['c']['c-a'] = 4
+    >>> a['c']['c-a']  # The original dictionary is also changed
+    4
+    """
+    from copy import copy
+
+    root_obj = obj.copy()
+    cur_parent = root_obj
+
+    try:
+        for idx in path_to_target:
+            cur_parent[idx] = copy(cur_parent[idx])
+            cur_parent = cur_parent[idx]
+    except (KeyError, TypeError) as e:
+        raise KeyError(f"Invalid path: {path_to_target}") from e
+
+    return root_obj
 
 
 def find_index(
@@ -67,6 +129,19 @@ def _match_dataset_name(child: dict, name: str) -> bool:
     )
 
 
+def populate_dataset(dataset_recipe: DatasetRecipe, initial_values: Any = None) -> dict:
+    """Create a dataset dictionary."""
+
+    return dict(
+        module='dataset',
+        config=dict(
+            name=dataset_recipe.name,
+            dtype=dataset_recipe.dtype_description,
+            values=initial_values,
+        ),
+    )
+
+
 class ModularDataGroupRecipe:
     """Modular data group information."""
 
@@ -89,6 +164,28 @@ class ModularDataGroupRecipe:
         self.target_path = path_to_module[:-1]  # Up to (..., "children")
         self.module_dict = nested_dict_getitem(root_dict, *path_to_module)
         self.module_id = self.module_dict['module']
+        self.sub_dataset_recipes = GROUP_RECIPES[self.module_id]
+
+
+def replace_subdataset(
+    root: dict, modular_group_container: ModularDataGroupRecipe, other: Mapping
+) -> dict:
+    """Make a shallow copy or ``root`` and update it from ``other``.
+
+    Path to the sub-dataset is provided by the ``modular_group_container``.
+    Ignore if the name is not present in a recipe.
+    """
+    copied_root = nested_shallow_copy(root, *modular_group_container.target_path)
+    sub_dataset_list: list[dict] = nested_dict_select(
+        copied_root,
+        *modular_group_container.target_path,
+    )
+    sub_dataset_list[:] = [
+        populate_dataset(dataset_recipe, initial_values=other[dataset_recipe.name])
+        for dataset_recipe in modular_group_container.sub_dataset_recipes
+        if dataset_recipe.name in other
+    ]
+    return copied_root
 
 
 def _match_module_name(child: dict, name: str) -> bool:
@@ -117,6 +214,17 @@ def collect_nested_module_indices(
 
     _recursive_collect_module_indices(nexus_container, tuple())
     return collected
+
+
+def check_multi_module_datagroup(nexus_template: dict) -> None:
+    """Check if the template has multiple modules in single data group."""
+    module_indices = []
+    for fb_id in GROUP_RECIPES.keys():
+        module_indices.extend(collect_nested_module_indices(nexus_template, fb_id))
+
+    parent_indices = [idx[:-1] for idx in module_indices]
+    if len(parent_indices) > len(set(parent_indices)):
+        raise ValueError("Multiple modules found in the same data group.")
 
 
 class NXDetectorContainer:
@@ -157,6 +265,7 @@ class NexusContainer:
 
     def __init__(self, *, nexus_template: dict) -> None:
         # Validate the nexus template
+        check_multi_module_datagroup(nexus_template)
         self._nexus_dict = nexus_template
         instrument_gr = self._get_instrument_group(nexus_template)
         self.detectors = {
@@ -208,3 +317,11 @@ class NexusContainer:
             _retrieve_key(module_recipe.module_dict): module_recipe
             for module_recipe in module_recipes
         }
+
+    def insert_ev44(self, ev44_data: Mapping) -> None:
+        """Insert the module data."""
+        module = self.modules['ev44'][ev44_data['source_name']]
+        updated = replace_subdataset(
+            root=self._nexus_dict, modular_group_container=module, other=ev44_data
+        )
+        self._nexus_dict = updated
