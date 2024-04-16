@@ -305,14 +305,14 @@ def _merge_tdct(group, message):
             )
 
 
-def merge(acc, message):
+def merge(group, message):
     kind, content = message
     if kind == 'ev44':
-        _merge_ev44(acc, content)
+        _merge_ev44(group, content)
     elif kind == 'f144':
-        _merge_f144(acc, content)
+        _merge_f144(group, content)
     elif kind == 'tdct':
-        _merge_tdct(acc, content)
+        _merge_tdct(group, content)
     else:
         raise NotImplementedError
 
