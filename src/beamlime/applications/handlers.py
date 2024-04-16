@@ -11,8 +11,14 @@ from scippneutron.io.nexus._json_nexus import JSONGroup
 from beamlime.logging import BeamlimeLogger
 
 from ..stateless_workflow import StatelessWorkflow, WorkflowResult
+from ._nexus_helpers import combine_store_and_structure, merge_message_into_store
 from .base import HandlerInterface
-from .daemons import DetectorDataReceived, RunStart
+from .daemons import (
+    ChopperDataReceived,
+    DetectorDataReceived,
+    LogDataReceived,
+    RunStart,
+)
 
 Events = NewType("Events", list[sc.DataArray])
 
@@ -30,20 +36,36 @@ class WorkflowResultUpdate:
 class DataAssembler(HandlerInterface):
     """Receives data and assembles it into a single data structure."""
 
-    def __init__(self) -> None:
-        from ._nexus_helpers import NexusContainer
-
-        self.nexus_container: NexusContainer
+    def __init__(self, merge_every):
+        self._store = {}
+        self._counter = 0
+        self.merge_every = merge_every
 
     def set_run_start(self, message: RunStart) -> None:
-        self.nexus_container = message.content
+        self.structure = message.content
+
+    def message_if_ready(self):
+        self.counter += 1
+        if self.counter >= self.merge_every:
+            message = DataReady(
+                combine_store_and_structure(self.store, self.structure),
+            )
+            self.counter = 0
+            self.store = {}
+            return message
 
     def assemble_detector_data(self, message: DetectorDataReceived) -> DataReady:
         self.info("Received data from detector %s", message.content['source_name'])
-        self.nexus_container.insert_ev44(message.content)
-        return DataReady(
-            content=self.nexus_container.nexus_dict  # should be a JSONGroup later.
-        )
+        merge_message_into_store(self.store, self.structure, ('ev44', message.content))
+        return self.message_if_ready()
+
+    def assemble_log_data(self, message: LogDataReceived) -> DataReady:
+        merge_message_into_store(self.store, self.structure, ('f144', message.content))
+        return self.message_if_ready()
+
+    def assemble_chopper_data(self, message: ChopperDataReceived) -> DataReady:
+        merge_message_into_store(self.store, self.structure, ('tdct', message.content))
+        return self.message_if_ready()
 
 
 class DataReductionHandler(HandlerInterface):

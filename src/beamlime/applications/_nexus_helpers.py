@@ -14,6 +14,9 @@ from typing import (
     Union,
 )
 
+import numpy as np
+from deepcopy import deepcopy
+
 Path = Union[str, bytes, os.PathLike]
 DTypeDesc = Literal["int", "float", "string"]
 
@@ -249,6 +252,99 @@ class NXDetectorContainer:
             self.detector_dict, 'children', pixel_id_filter, 'config', 'values'
         )
         self.pixel_ids = nested_dict_getitem(self.detector_dict, *self._pixel_ids_idx)
+
+
+def _merge_ev44(s, m):
+    accumulation_fields = (
+        'time_of_flight',
+        'pixel_id',
+    )
+    for field in set(m.keys()) - set(accumulation_fields):
+        s[field] = m[field]
+    for field in accumulation_fields:
+        s[field] = np.concatenate((s.get(field, []), m[field]))
+
+
+def _merge_f144(s, m):
+    accumulation_fields = ('timestamp', 'value')
+    for field in set(m.keys()) - set(accumulation_fields):
+        s[field] = m[field]
+    for field in accumulation_fields:
+        s[field] = np.stack((s.get(field, []), [m[field]]))
+
+
+def _merge_tdct(s, m):
+    for field in set(m.keys()) - {'timestamps'}:
+        s[field] = m[field]
+    s['timestamps'] = np.concatenate((s.get('timestamps', []), m['timestamps']))
+
+
+def merge(acc, message):
+    kind, content = message
+    if kind == 'ev44':
+        _merge_ev44(acc, content)
+    elif kind == 'f144':
+        _merge_f144(acc, content)
+    elif kind == 'tdct':
+        _merge_tdct(acc, content)
+    else:
+        raise NotImplementedError
+
+
+def node_name(n):
+    config = n.get('config', {})
+    return n.get('name', config.get('name', config.get('source', '')))
+
+
+def iter_nexus_structure(structure, root=()):
+    if not isinstance(structure, dict):
+        return
+    path = (*root, node_name(structure))
+    yield path, structure
+    for child in structure.get('children', []):
+        yield from iter_nexus_structure(child, root=path)
+
+
+def find_nexus_structure(structure, path):
+    if path == ():
+        return structure
+    head, *tail = path
+    for child in structure['children']:
+        if head == node_name(child):
+            return find_nexus_structure(child, tail)
+
+
+def path_to_message_container(structure, message):
+    kind, content = message
+    for path, node in iter_nexus_structure(structure):
+        if (
+            node.get('module') == kind
+            and node.get('config', {}).get('source') == content['source_name']
+        ):
+            return path
+
+
+def merge_message_into_store(store, structure, message):
+    path = path_to_message_container(structure, message)
+    merge(store.setdefault(path, {}), message)
+
+
+def combine_store_and_structure(store, structure):
+    structure = deepcopy(structure)
+    for path, data in store.items():
+        c = find_nexus_structure(structure, path)
+        c.pop('module')
+        c['children'] = [
+            dict(
+                module='dataset',
+                config=dict(
+                    name=name,
+                    values=values,
+                ),
+            )
+            for name, values in data.items()
+        ]
+    return structure
 
 
 class NexusContainer:
