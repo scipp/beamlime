@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import os
+from copy import deepcopy
 from functools import partial
 from typing import (
     Any,
@@ -15,7 +16,6 @@ from typing import (
 )
 
 import numpy as np
-from deepcopy import deepcopy
 
 Path = Union[str, bytes, os.PathLike]
 DTypeDesc = Literal["int", "float", "string"]
