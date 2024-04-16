@@ -32,6 +32,16 @@ class DetectorDataReceived:
     content: Mapping
 
 
+@dataclass
+class LogDataReceived:
+    content: Mapping
+
+
+@dataclass
+class ChopperDataReceived:
+    content: Mapping
+
+
 NexusTemplatePath = NewType("NexusTemplatePath", str)
 
 

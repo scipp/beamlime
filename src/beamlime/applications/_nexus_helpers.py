@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import os
-from copy import deepcopy
 from functools import partial
 from typing import (
     Any,
@@ -254,29 +253,56 @@ class NXDetectorContainer:
         self.pixel_ids = nested_dict_getitem(self.detector_dict, *self._pixel_ids_idx)
 
 
-def _merge_ev44(s, m):
-    accumulation_fields = (
-        'time_of_flight',
-        'pixel_id',
-    )
-    for field in set(m.keys()) - set(accumulation_fields):
-        s[field] = m[field]
-    for field in accumulation_fields:
-        s[field] = np.concatenate((s.get(field, []), m[field]))
+def _dtype(value):
+    if hasattr(value, 'dtype'):
+        return str(value.dtype)
+    if isinstance(value, str):
+        return 'string'
+    if isinstance(value, int):
+        return 'int'
+    if isinstance(value, float):
+        return 'float'
+    return 'unknown'
 
 
-def _merge_f144(s, m):
-    accumulation_fields = ('timestamp', 'value')
-    for field in set(m.keys()) - set(accumulation_fields):
-        s[field] = m[field]
-    for field in accumulation_fields:
-        s[field] = np.stack((s.get(field, []), [m[field]]))
+def _init_dataset(group, field, value):
+    dataset = find_nexus_structure(group, (field,))
+    if dataset is None:
+        dataset = dict(
+            module='dataset',
+            config=dict(
+                name=field,
+                dtype=_dtype(value),
+                values=value,
+            ),
+        )
+        group['children'].append(dataset)
+    return dataset
 
 
-def _merge_tdct(s, m):
-    for field in set(m.keys()) - {'timestamps'}:
-        s[field] = m[field]
-    s['timestamps'] = np.concatenate((s.get('timestamps', []), m['timestamps']))
+def _merge_ev44(group, message):
+    for field, value in message.items():
+        dataset = _init_dataset(group, field, value)
+        if field in ('time_of_flight', 'pixel_id'):
+            dataset['config']['values'] = np.concatenate(
+                (dataset['config']['values'], value)
+            )
+
+
+def _merge_f144(group, message):
+    for field, value in message.items():
+        dataset = _init_dataset(group, field, value)
+        if field in ('timestamp', 'value'):
+            dataset['config']['values'] = np.stack((dataset['config']['values'], value))
+
+
+def _merge_tdct(group, message):
+    for field, value in message.items():
+        dataset = _init_dataset(group, field, value)
+        if field in ('timestamps',):
+            dataset['config']['values'] = np.concatenate(
+                (dataset['config']['values'], value)
+            )
 
 
 def merge(acc, message):
@@ -291,26 +317,26 @@ def merge(acc, message):
         raise NotImplementedError
 
 
-def node_name(n):
+def _node_name(n):
     config = n.get('config', {})
     return n.get('name', config.get('name', config.get('source', '')))
 
 
-def iter_nexus_structure(structure, root=()):
+def iter_nexus_structure(structure, root=None):
     if not isinstance(structure, dict):
         return
-    path = (*root, node_name(structure))
+    path = (*root, _node_name(structure)) if root is not None else ()
     yield path, structure
     for child in structure.get('children', []):
         yield from iter_nexus_structure(child, root=path)
 
 
 def find_nexus_structure(structure, path):
-    if path == ():
+    if len(path) == 0:
         return structure
     head, *tail = path
     for child in structure['children']:
-        if head == node_name(child):
+        if head == _node_name(child):
             return find_nexus_structure(child, tail)
 
 
@@ -326,24 +352,28 @@ def path_to_message_container(structure, message):
 
 def merge_message_into_store(store, structure, message):
     path = path_to_message_container(structure, message)
-    merge(store.setdefault(path, {}), message)
+    merge(store.setdefault(path, dict(children=[], name=path[-1])), message)
 
 
 def combine_store_and_structure(store, structure):
-    structure = deepcopy(structure)
-    for path, data in store.items():
-        c = find_nexus_structure(structure, path)
-        c.pop('module')
-        c['children'] = [
-            dict(
-                module='dataset',
-                config=dict(
-                    name=name,
-                    values=values,
-                ),
+    structure = structure.copy()
+    if 'children' in structure:
+        children = []
+        for child in structure['children']:
+            children.append(
+                combine_store_and_structure(
+                    {
+                        tuple(tail): group
+                        for (head, *tail), group in store.items()
+                        if head == _node_name(child)
+                    },
+                    child,
+                )
             )
-            for name, values in data.items()
-        ]
+        structure['children'] = children
+    if () in store:
+        structure.clear()
+        structure.update(store[()])
     return structure
 
 
