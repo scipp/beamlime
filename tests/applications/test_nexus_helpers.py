@@ -28,7 +28,9 @@ from tests.applications.data import get_path
 def ymir():
     with open(get_path('ymir_detectors.json')) as f:
         data = json.load(f)
-    data['children'][0]['children'].pop()  # $USERS
+    # The ymir json file contains template strings (see "$USERS")
+    # Remove it
+    data['children'][0]['children'].pop()
     return data
 
 
@@ -58,9 +60,9 @@ def ymir_ev44_generator(ymir):
     )
 
     def events():
-        for a, b in zip(*generators.values()):
-            yield a
-            yield b
+        for values in zip(*generators.values()):
+            for value in values:
+                yield value
 
     return events()
 

@@ -2,6 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import argparse
 import pathlib
+import time
 from dataclasses import dataclass
 from typing import NewType
 
@@ -33,39 +34,50 @@ class WorkflowResultUpdate:
     content: WorkflowResult
 
 
+def nth_or_maxtime(n, maxtime):
+    count = 0
+    last = time.time()
+
+    def run():
+        nonlocal count, last
+        count += 1
+        if count >= n or time.time() - last >= maxtime:
+            count = 0
+            last = time.time()
+            return True
+
+    return run
+
+
 class DataAssembler(HandlerInterface):
     """Receives data and assembles it into a single data structure."""
 
-    def __init__(self, merge_every):
+    def __init__(self, merge_every_nth=float('inf'), max_seconds_between_messages=5):
         self._store = {}
-        self._counter = 0
-        self.merge_every = merge_every
+        self._should_send_message = nth_or_maxtime(
+            merge_every_nth, max_seconds_between_messages
+        )
 
     def set_run_start(self, message: RunStart) -> None:
         self.structure = message.content
 
-    def message_if_ready(self):
-        self.counter += 1
-        if self.counter >= self.merge_every:
+    def _merge_message_and_return_response_if_ready(self, kind, message):
+        merge_message_into_store(self._store, self.structure, (kind, message))
+        if self._should_send_message():
             message = DataReady(
-                combine_store_and_structure(self.store, self.structure),
+                combine_store_and_structure(self._store, self.structure),
             )
-            self.counter = 0
-            self.store = {}
+            self._store = {}
             return message
 
     def assemble_detector_data(self, message: DetectorDataReceived) -> DataReady:
-        self.info("Received data from detector %s", message.content['source_name'])
-        merge_message_into_store(self.store, self.structure, ('ev44', message.content))
-        return self.message_if_ready()
+        return self._merge_message_and_return_response_if_ready('ev44', message.content)
 
     def assemble_log_data(self, message: LogDataReceived) -> DataReady:
-        merge_message_into_store(self.store, self.structure, ('f144', message.content))
-        return self.message_if_ready()
+        return self._merge_message_and_return_response_if_ready('f144', message.content)
 
     def assemble_chopper_data(self, message: ChopperDataReceived) -> DataReady:
-        merge_message_into_store(self.store, self.structure, ('tdct', message.content))
-        return self.message_if_ready()
+        return self._merge_message_and_return_response_if_ready('tdct', message.content)
 
 
 class DataReductionHandler(HandlerInterface):

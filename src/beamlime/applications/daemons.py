@@ -100,6 +100,9 @@ class FakeListener(DaemonInterface):
         with open(nexus_template_path) as f:
             self.nexus_structure = json.load(f)
 
+        if self.nexus_structure['children'][0]['children'][-1] == '$USERS$':
+            self.nexus_structure['children'][0]['children'].pop()
+
         self.random_event_generators = fake_event_generators(
             self.nexus_structure,
             event_rate,

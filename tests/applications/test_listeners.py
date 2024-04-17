@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+import time
+
 import pytest
 
 from beamlime.applications.daemons import (
@@ -8,6 +10,7 @@ from beamlime.applications.daemons import (
     FakeListener,
     RunStart,
 )
+from beamlime.applications.handlers import DataAssembler
 
 pytest_plugins = ('pytest_asyncio',)
 
@@ -57,3 +60,24 @@ async def test_fake_listener(fake_listener: FakeListener, num_frames: int) -> No
     for _ in range(num_frames * 2):
         assert isinstance(await anext(generator), DetectorDataReceived)
     assert isinstance(await anext(generator), Application.Stop)
+
+
+async def test_data_assembler_returns_after_n_messages(fake_listener):
+    handler = DataAssembler(merge_every_nth=2)
+    gen = fake_listener.run()
+    handler.set_run_start(await anext(gen))
+    response = handler.assemble_detector_data(await anext(gen))
+    assert response is None
+    response = handler.assemble_detector_data(await anext(gen))
+    assert response is not None
+
+
+async def test_data_assembler_returns_after_s_seconds(fake_listener):
+    handler = DataAssembler(max_seconds_between_messages=0.1)
+    gen = fake_listener.run()
+    handler.set_run_start(await anext(gen))
+    response = handler.assemble_detector_data(await anext(gen))
+    assert response is None
+    time.sleep(0.1)
+    response = handler.assemble_detector_data(await anext(gen))
+    assert response is not None
