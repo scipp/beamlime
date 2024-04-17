@@ -64,7 +64,7 @@ def _node_name(n):
 
 
 def iter_nexus_structure(
-    structure: Mapping, root: Optional[Tuple[str, ...]] = None
+    structure: Mapping, root: Optional[Tuple[Optional[str], ...]] = None
 ) -> Iterable[Tuple[str, Mapping]]:
     '''Visits all branches and leafs in the nexus tree'''
     path = (*root, _node_name(structure)) if root is not None else ()
@@ -74,7 +74,7 @@ def iter_nexus_structure(
 
 
 def find_nexus_structure(
-    structure: Mapping, path: Tuple[str, ...]
+    structure: Mapping, path: Tuple[Optional[str], ...]
 ) -> Optional[Mapping]:
     '''Returns the branch or leaf associated with `path`, or None if not found'''
     if len(path) == 0:
@@ -96,7 +96,11 @@ def path_to_message_group(structure: Mapping, message: Mapping) -> str:
             return path
 
 
-def merge_message_into_store(store: Mapping, structure: Mapping, message: Mapping):
+def merge_message_into_store(
+    store: Mapping[Tuple[Optional[str], ...], Mapping],
+    structure: Mapping,
+    message: Tuple[str, Mapping],
+):
     '''Merges message into the associated nexus group'''
     path = path_to_message_group(structure, message)
     if path not in store:
@@ -120,7 +124,9 @@ def merge_message_into_store(store: Mapping, structure: Mapping, message: Mappin
         raise NotImplementedError
 
 
-def combine_store_and_structure(store, structure):
+def combine_store_and_structure(
+    store: Mapping[Tuple[Optional[str], ...], Mapping], structure: Mapping
+):
     '''Creates a new nexus structure, replacing the stream modules
     with the datasets in `store`, while avoiding
     to copy data from `structure` if unessecary'''
