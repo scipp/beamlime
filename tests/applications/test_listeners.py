@@ -50,7 +50,6 @@ def fake_listener(num_frames: int) -> FakeListener:
 
 def test_fake_listener_constructor(fake_listener: FakeListener) -> None:
     # ymir_detectors has 2 hypothetical detectors
-    print(fake_listener.random_event_generators)
     assert len(fake_listener.random_event_generators) == 2
 
 
