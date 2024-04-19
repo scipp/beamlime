@@ -21,24 +21,7 @@ from beamlime.applications._random_data_providers import (
     random_ev44_generator,
 )
 from beamlime.applications.daemons import fake_event_generators
-from tests.applications.data import get_path
-
-
-@pytest.fixture
-def ymir():
-    with open(get_path('ymir_detectors.json')) as f:
-        data = json.load(f)
-    # The ymir json file contains template strings (see "$USERS")
-    # Remove it
-    data['children'][0]['children'].pop()
-    return data
-
-
-@pytest.fixture
-def loki(large_file_test: bool):
-    assert large_file_test
-    with open(get_path('loki.json')) as f:
-        return json.load(f)
+from tests.applications.data import ymir  # noqa: F401
 
 
 @pytest.fixture
@@ -52,7 +35,7 @@ def ev44_generator() -> RandomEV44Generator:
 
 
 @pytest.fixture
-def ymir_ev44_generator(ymir):
+def ymir_ev44_generator(ymir):  # noqa: F811
     generators = fake_event_generators(
         ymir,
         event_rate=100,
@@ -127,7 +110,7 @@ def test_ev44_generator_reference_time(ev44_generator: RandomEV44Generator):
     assert events['reference_time'][0] < next_events['reference_time'][0]
 
 
-def test_ev44_module_parsing(ymir, ymir_ev44_generator):
+def test_ev44_module_parsing(ymir, ymir_ev44_generator):  # noqa: F811
     store = {}
     for _, e in zip(range(4), ymir_ev44_generator):
         merge_message_into_store(store, ymir, ('ev44', e))

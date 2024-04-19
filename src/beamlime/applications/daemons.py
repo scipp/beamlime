@@ -42,6 +42,13 @@ class ChopperDataReceived:
 
 
 NexusTemplatePath = NewType("NexusTemplatePath", str)
+NexusTemplate = NewType("NexusTemplate", Mapping)
+'''A template describing the nexus file structure for the instrument'''
+
+
+def read_nexus_template_file(path: NexusTemplatePath) -> NexusTemplate:
+    with open(path) as f:
+        return NexusTemplate(json.load(f))
 
 
 def fake_event_generators(
@@ -90,18 +97,14 @@ class FakeListener(DaemonInterface):
         *,
         logger: BeamlimeLogger,
         speed: DataFeedingSpeed,
-        nexus_template_path: NexusTemplatePath,
+        nexus_template: NexusTemplate,
         num_frames: NumFrames,
         event_rate: EventRate,
         frame_rate: FrameRate,
     ):
         self.logger = logger
 
-        with open(nexus_template_path) as f:
-            self.nexus_structure = json.load(f)
-
-        if self.nexus_structure['children'][0]['children'][-1] == '$USERS$':
-            self.nexus_structure['children'][0]['children'].pop()
+        self.nexus_structure = nexus_template
 
         self.random_event_generators = fake_event_generators(
             self.nexus_structure,
@@ -164,10 +167,12 @@ class FakeListener(DaemonInterface):
     def from_args(
         cls, logger: BeamlimeLogger, args: argparse.Namespace
     ) -> "FakeListener":
+        with open(args.nexus_template_path) as f:
+            nexus_template = json.load(f)
         return cls(
             logger=logger,
             speed=DataFeedingSpeed(args.data_feeding_speed),
-            nexus_template_path=NexusTemplatePath(args.nexus_template_path),
+            nexus_template=nexus_template,
             num_frames=NumFrames(args.num_frames),
             event_rate=EventRate(args.event_rate),
             frame_rate=FrameRate(args.frame_rate),

@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
+import json
 import pathlib
 
 import pooch
+import pytest
 
 _version = '0'
 
@@ -16,7 +18,7 @@ def _make_pooch():
         version=_version,
         registry={
             'loki.json': 'md5:29574acd34eb6479f14bd8d6c04aed64',
-            'ymir_detectors.json': 'md5:dfca3b4ca41dafa6e96ef7f9bad71eab',
+            'ymir_detectors.json': 'md5:02bc6160081a96733c5056cfaa047fca',
             'ymir.json': 'md5:5e913075094d97c5e9e9aca76fc32554',
             # readme of the dataset
             'README.md': 'md5:778a0f290894182db5db0170b4f102fa',
@@ -47,3 +49,17 @@ def get_checksum(name: str) -> str:
     paths to custom files.
     """
     return _pooch.registry[name]
+
+
+@pytest.fixture
+def ymir():
+    with open(get_path('ymir_detectors.json')) as f:
+        data = json.load(f)
+    return data
+
+
+@pytest.fixture
+def loki(large_file_test: bool):
+    assert large_file_test
+    with open(get_path('loki.json')) as f:
+        return json.load(f)

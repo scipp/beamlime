@@ -11,6 +11,7 @@ from beamlime.applications.daemons import (
     RunStart,
 )
 from beamlime.applications.handlers import DataAssembler
+from tests.applications.data import ymir  # noqa: F401
 
 pytest_plugins = ('pytest_asyncio',)
 
@@ -26,21 +27,17 @@ def num_frames(request) -> int:
 
 
 @pytest.fixture
-def fake_listener(num_frames: int) -> FakeListener:
+def fake_listener(num_frames: int, ymir) -> FakeListener:  # noqa: F811
     from beamlime.applications.daemons import (
         DataFeedingSpeed,
         EventRate,
         FrameRate,
-        NexusTemplatePath,
         NumFrames,
     )
-    from tests.applications.data import get_path
 
     return FakeListener(
         logger=MockLogger(),
-        nexus_template_path=NexusTemplatePath(
-            get_path('ymir_detectors.json').as_posix()
-        ),
+        nexus_template=ymir,
         speed=DataFeedingSpeed(1),
         num_frames=NumFrames(num_frames),
         event_rate=EventRate(100),

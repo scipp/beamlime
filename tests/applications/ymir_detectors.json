@@ -1576,8 +1576,7 @@
           ],
           "name": "daq_publication",
           "type": "group"
-        },
-        "$USERS$"
+        }
       ]
     }
   ]
