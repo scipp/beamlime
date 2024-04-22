@@ -34,7 +34,7 @@ class WorkflowResultUpdate:
     content: WorkflowResult
 
 
-def nth_or_maxtime(n, maxtime):
+def nth_or_maxtime(n: int, maxtime: float):
     count = 0
     last = time.time()
 
