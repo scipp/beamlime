@@ -1,10 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-import json
 import pathlib
 
 import pooch
-import pytest
 
 _version = '0'
 
@@ -49,17 +47,3 @@ def get_checksum(name: str) -> str:
     paths to custom files.
     """
     return _pooch.registry[name]
-
-
-@pytest.fixture
-def ymir():
-    with open(get_path('ymir_detectors.json')) as f:
-        data = json.load(f)
-    return data
-
-
-@pytest.fixture
-def loki(large_file_test: bool):
-    assert large_file_test
-    with open(get_path('loki.json')) as f:
-        return json.load(f)

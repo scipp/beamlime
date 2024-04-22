@@ -11,7 +11,6 @@ from beamlime.applications.daemons import (
     RunStart,
 )
 from beamlime.applications.handlers import DataAssembler
-from tests.applications.data import ymir  # noqa: F401
 
 pytest_plugins = ('pytest_asyncio',)
 
@@ -27,7 +26,7 @@ def num_frames(request) -> int:
 
 
 @pytest.fixture
-def fake_listener(num_frames: int, ymir) -> FakeListener:  # noqa: F811
+def fake_listener(num_frames: int, ymir) -> FakeListener:
     from beamlime.applications.daemons import (
         DataFeedingSpeed,
         EventRate,

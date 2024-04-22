@@ -2,11 +2,13 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # These fixtures cannot be found by pytest,
 # if they are not defined in `conftest.py` under `tests` directory.
+import json
 from typing import Generator, Literal
 
 import pytest
 
 from beamlime import Factory
+from tests.applications.data import get_path
 
 
 def pytest_addoption(parser: pytest.Parser):
@@ -93,3 +95,17 @@ def default_factory() -> Factory:
     from beamlime.logging.providers import log_providers
 
     return Factory(log_providers)
+
+
+@pytest.fixture
+def ymir():
+    with open(get_path('ymir_detectors.json')) as f:
+        data = json.load(f)
+    return data
+
+
+@pytest.fixture
+def loki(large_file_test: bool):
+    assert large_file_test
+    with open(get_path('loki.json')) as f:
+        return json.load(f)

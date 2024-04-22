@@ -21,7 +21,6 @@ from beamlime.applications._random_data_providers import (
     random_ev44_generator,
 )
 from beamlime.applications.daemons import fake_event_generators
-from tests.applications.data import ymir  # noqa: F401
 
 
 @pytest.fixture
@@ -35,7 +34,7 @@ def ev44_generator() -> RandomEV44Generator:
 
 
 @pytest.fixture
-def ymir_ev44_generator(ymir):  # noqa: F811
+def ymir_ev44_generator(ymir):
     generators = fake_event_generators(
         ymir,
         event_rate=100,
