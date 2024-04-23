@@ -2,16 +2,15 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import argparse
 import asyncio
+import json
 import os
 from dataclasses import dataclass
 from typing import AsyncGenerator, Mapping, NewType, Union
 
 from ..logging import BeamlimeLogger
-from ._nexus_helpers import NexusContainer
+from ._nexus_helpers import find_nexus_structure, iter_nexus_structure
 from ._random_data_providers import (
     DataFeedingSpeed,
-    DetectorName,
-    DetectorNumberCandidates,
     EventRate,
     FrameRate,
     NumFrames,
@@ -24,7 +23,7 @@ Path = Union[str, bytes, os.PathLike]
 
 @dataclass
 class RunStart:
-    content: NexusContainer
+    content: Mapping
 
 
 @dataclass
@@ -32,7 +31,62 @@ class DetectorDataReceived:
     content: Mapping
 
 
+@dataclass
+class LogDataReceived:
+    content: Mapping
+
+
+@dataclass
+class ChopperDataReceived:
+    content: Mapping
+
+
 NexusTemplatePath = NewType("NexusTemplatePath", str)
+NexusTemplate = NewType("NexusTemplate", Mapping)
+'''A template describing the nexus file structure for the instrument'''
+
+
+def read_nexus_template_file(path: NexusTemplatePath) -> NexusTemplate:
+    with open(path) as f:
+        return NexusTemplate(json.load(f))
+
+
+def fake_event_generators(
+    nexus_structure: Mapping,
+    event_rate: EventRate,
+    frame_rate: FrameRate,
+):
+    detectors = [
+        node
+        for _, node in iter_nexus_structure(nexus_structure)
+        if any(
+            attr.get('name') == 'NX_class' and attr.get('values') == 'NXdetector'
+            for attr in node.get('attributes', ())
+        )
+    ]
+    ev44_source_names = [
+        node['config']['source']
+        for _, node in iter_nexus_structure(nexus_structure)
+        if node.get('module') == 'ev44'
+        and 'detector' in node.get('config', {}).get('topic', '')
+    ]
+
+    return {
+        detector['name']: random_ev44_generator(
+            source_name=ev44_source_name,
+            detector_numbers=(
+                find_nexus_structure(detector, ('detector_number',))['config'][
+                    'values'
+                ],
+            ),
+            event_rate=event_rate,
+            frame_rate=frame_rate,
+        )
+        for detector, ev44_source_name in zip(detectors, ev44_source_names)
+        # Assuming the order of the detectors and the ev44 modules are the same
+        # For real data stream, it doesn't matter
+        # since the data is inserted by the source name.
+    }
 
 
 class FakeListener(DaemonInterface):
@@ -43,51 +97,27 @@ class FakeListener(DaemonInterface):
         *,
         logger: BeamlimeLogger,
         speed: DataFeedingSpeed,
-        nexus_template_path: NexusTemplatePath,
+        nexus_template: NexusTemplate,
         num_frames: NumFrames,
         event_rate: EventRate,
         frame_rate: FrameRate,
     ):
         self.logger = logger
-        self.nexus_container = NexusContainer.from_template_file(nexus_template_path)
-        event_rate_per_detector = int(
-            event_rate / max(len(self.nexus_container.detectors), 1)
-        )
-        detector_names = sorted(self.nexus_container.detectors.keys())
-        ev44_source_names = self._collect_detector_ev44_modules()
 
-        self.random_event_generators = {
-            det_name: random_ev44_generator(
-                source_name=DetectorName(ev44_source_name),
-                detector_numbers=DetectorNumberCandidates(
-                    self.nexus_container.detectors[det_name].pixel_ids
-                ),
-                event_rate=EventRate(event_rate_per_detector),
-                frame_rate=frame_rate,
-            )
-            for det_name, ev44_source_name in zip(detector_names, ev44_source_names)
-            # Assuming the order of the detectors and the ev44 modules are the same
-            # For real data stream, it doesn't matter
-            # since the data is inserted by the source name.
-        }
+        self.nexus_structure = nexus_template
+
+        self.random_event_generators = fake_event_generators(
+            self.nexus_structure,
+            event_rate,
+            frame_rate,
+        )
         self.data_feeding_speed = speed
         self.num_frames = num_frames
-
-    def _collect_detector_ev44_modules(self) -> list[str]:
-        """Assumig 'detector' is included in the topic of the module."""
-
-        return sorted(
-            [
-                module_name
-                for module_name, module in self.nexus_container.modules['ev44'].items()
-                if 'detector' in module.module_dict['config']['topic']
-            ]
-        )
 
     async def run(self) -> AsyncGenerator[MessageProtocol, None]:
         self.info("Fake data streaming started...")
 
-        yield RunStart(content=self.nexus_container)
+        yield RunStart(content=self.nexus_structure)
 
         for i_frame in range(self.num_frames):
             for event_generator in self.random_event_generators.values():
@@ -137,10 +167,12 @@ class FakeListener(DaemonInterface):
     def from_args(
         cls, logger: BeamlimeLogger, args: argparse.Namespace
     ) -> "FakeListener":
+        with open(args.nexus_template_path) as f:
+            nexus_template = json.load(f)
         return cls(
             logger=logger,
             speed=DataFeedingSpeed(args.data_feeding_speed),
-            nexus_template_path=NexusTemplatePath(args.nexus_template_path),
+            nexus_template=nexus_template,
             num_frames=NumFrames(args.num_frames),
             event_rate=EventRate(args.event_rate),
             frame_rate=FrameRate(args.frame_rate),

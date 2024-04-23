@@ -4,7 +4,7 @@ import argparse
 from typing import Protocol, TypeVar
 
 from beamlime import Factory, ProviderGroup, SingletonProvider
-from beamlime.applications.daemons import FakeListener
+from beamlime.applications.daemons import FakeListener, read_nexus_template_file
 from beamlime.applications.handlers import DataAssembler, PlotSaver
 from beamlime.logging import BeamlimeLogger
 
@@ -55,6 +55,7 @@ def collect_default_providers() -> ProviderGroup:
         DataAssembler,
         DataReductionHandler,
         provide_stateless_workflow,
+        read_nexus_template_file,
     )
 
     return merge_providers(app_providers, log_providers, additional_providers)

@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+import time
+
 import pytest
 
 from beamlime.applications.daemons import (
@@ -8,6 +10,7 @@ from beamlime.applications.daemons import (
     FakeListener,
     RunStart,
 )
+from beamlime.applications.handlers import DataAssembler
 
 pytest_plugins = ('pytest_asyncio',)
 
@@ -23,21 +26,17 @@ def num_frames(request) -> int:
 
 
 @pytest.fixture
-def fake_listener(num_frames: int) -> FakeListener:
+def fake_listener(num_frames: int, ymir) -> FakeListener:
     from beamlime.applications.daemons import (
         DataFeedingSpeed,
         EventRate,
         FrameRate,
-        NexusTemplatePath,
         NumFrames,
     )
-    from tests.applications.data import get_path
 
     return FakeListener(
         logger=MockLogger(),
-        nexus_template_path=NexusTemplatePath(
-            get_path('ymir_detectors.json').as_posix()
-        ),
+        nexus_template=ymir,
         speed=DataFeedingSpeed(1),
         num_frames=NumFrames(num_frames),
         event_rate=EventRate(100),
@@ -47,7 +46,7 @@ def fake_listener(num_frames: int) -> FakeListener:
 
 def test_fake_listener_constructor(fake_listener: FakeListener) -> None:
     # ymir_detectors has 2 hypothetical detectors
-    assert len(fake_listener.nexus_container.detectors) == 2
+    assert len(fake_listener.random_event_generators) == 2
 
 
 async def test_fake_listener(fake_listener: FakeListener, num_frames: int) -> None:
@@ -56,3 +55,24 @@ async def test_fake_listener(fake_listener: FakeListener, num_frames: int) -> No
     for _ in range(num_frames * 2):
         assert isinstance(await anext(generator), DetectorDataReceived)
     assert isinstance(await anext(generator), Application.Stop)
+
+
+async def test_data_assembler_returns_after_n_messages(fake_listener):
+    handler = DataAssembler(merge_every_nth=2)
+    gen = fake_listener.run()
+    handler.set_run_start(await anext(gen))
+    response = handler.assemble_detector_data(await anext(gen))
+    assert response is None
+    response = handler.assemble_detector_data(await anext(gen))
+    assert response is not None
+
+
+async def test_data_assembler_returns_after_s_seconds(fake_listener):
+    handler = DataAssembler(max_seconds_between_messages=0.1)
+    gen = fake_listener.run()
+    handler.set_run_start(await anext(gen))
+    response = handler.assemble_detector_data(await anext(gen))
+    assert response is None
+    time.sleep(0.1)
+    response = handler.assemble_detector_data(await anext(gen))
+    assert response is not None

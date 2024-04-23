@@ -2,7 +2,9 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import argparse
 import pathlib
+import time
 from dataclasses import dataclass
+from numbers import Number
 from typing import NewType
 
 import scipp as sc
@@ -11,10 +13,21 @@ from scippneutron.io.nexus._json_nexus import JSONGroup
 from beamlime.logging import BeamlimeLogger
 
 from ..stateless_workflow import StatelessWorkflow, WorkflowResult
+from ._nexus_helpers import combine_store_and_structure, merge_message_into_store
 from .base import HandlerInterface
-from .daemons import DetectorDataReceived, RunStart
+from .daemons import (
+    ChopperDataReceived,
+    DetectorDataReceived,
+    LogDataReceived,
+    RunStart,
+)
 
 Events = NewType("Events", list[sc.DataArray])
+MergeMessageEveryNth = NewType("MergeMessageEveryNth", Number)
+'''Every n:th message the data assembler receives, the data reduction is run'''
+MergeMessageTimeInterval = NewType("MergeMessageTimeInterval", Number)
+'''The data reduction is run when the DataAssembler receives a message and the time
+since the last reduction exceeds the length of the interval (in seconds)'''
 
 
 @dataclass
@@ -27,23 +40,59 @@ class WorkflowResultUpdate:
     content: WorkflowResult
 
 
+def nth_or_maxtime(n: Number, maxtime: Number):
+    if n <= 0:
+        raise ValueError('n must be positive')
+    if maxtime <= 0:
+        raise ValueError('maxtime must be positive')
+
+    count = 0
+    last = time.time()
+
+    def run():
+        nonlocal count, last
+        count += 1
+        if count >= n or time.time() - last >= maxtime:
+            count = 0
+            last = time.time()
+            return True
+
+    return run
+
+
 class DataAssembler(HandlerInterface):
     """Receives data and assembles it into a single data structure."""
 
-    def __init__(self) -> None:
-        from ._nexus_helpers import NexusContainer
-
-        self.nexus_container: NexusContainer
+    def __init__(
+        self,
+        merge_every_nth: MergeMessageEveryNth = float('inf'),
+        max_seconds_between_messages: MergeMessageTimeInterval = 5,
+    ):
+        self._store = {}
+        self._should_send_message = nth_or_maxtime(
+            merge_every_nth, max_seconds_between_messages
+        )
 
     def set_run_start(self, message: RunStart) -> None:
-        self.nexus_container = message.content
+        self.structure = message.content
+
+    def _merge_message_and_return_response_if_ready(self, kind, message):
+        merge_message_into_store(self._store, self.structure, (kind, message))
+        if self._should_send_message():
+            message = DataReady(
+                combine_store_and_structure(self._store, self.structure),
+            )
+            self._store = {}
+            return message
 
     def assemble_detector_data(self, message: DetectorDataReceived) -> DataReady:
-        self.info("Received data from detector %s", message.content['source_name'])
-        self.nexus_container.insert_ev44(message.content)
-        return DataReady(
-            content=self.nexus_container.nexus_dict  # should be a JSONGroup later.
-        )
+        return self._merge_message_and_return_response_if_ready('ev44', message.content)
+
+    def assemble_log_data(self, message: LogDataReceived) -> DataReady:
+        return self._merge_message_and_return_response_if_ready('f144', message.content)
+
+    def assemble_chopper_data(self, message: ChopperDataReceived) -> DataReady:
+        return self._merge_message_and_return_response_if_ready('tdct', message.content)
 
 
 class DataReductionHandler(HandlerInterface):
