@@ -23,8 +23,9 @@ from .daemons import (
 )
 
 Events = NewType("Events", list[sc.DataArray])
-MergeMessageEveryNth = NewType("MergeMessageEveryNth", Number)
-'''Every n:th message the data assembler receives, the data reduction is run'''
+MergeMessageCountInterval = NewType("MergeMessageCountInterval", Number)
+'''Every MergeMessageCountInterval-th message the data assembler receives
+the data reduction is run'''
 MergeMessageTimeInterval = NewType("MergeMessageTimeInterval", Number)
 '''The data reduction is run when the DataAssembler receives a message and the time
 since the last reduction exceeds the length of the interval (in seconds)'''
@@ -40,9 +41,9 @@ class WorkflowResultUpdate:
     content: WorkflowResult
 
 
-def nth_or_maxtime(n: Number, maxtime: Number):
-    if n <= 0:
-        raise ValueError('n must be positive')
+def maxcount_or_maxtime(maxcount: Number, maxtime: Number):
+    if maxcount <= 0:
+        raise ValueError('maxcount must be positive')
     if maxtime <= 0:
         raise ValueError('maxtime must be positive')
 
@@ -52,7 +53,7 @@ def nth_or_maxtime(n: Number, maxtime: Number):
     def run():
         nonlocal count, last
         count += 1
-        if count >= n or time.time() - last >= maxtime:
+        if count >= maxcount or time.time() - last >= maxtime:
             count = 0
             last = time.time()
             return True
@@ -65,11 +66,11 @@ class DataAssembler(HandlerInterface):
 
     def __init__(
         self,
-        merge_every_nth: MergeMessageEveryNth = float('inf'),
+        merge_every_nth: MergeMessageCountInterval = float('inf'),
         max_seconds_between_messages: MergeMessageTimeInterval = 5,
     ):
         self._store = {}
-        self._should_send_message = nth_or_maxtime(
+        self._should_send_message = maxcount_or_maxtime(
             merge_every_nth, max_seconds_between_messages
         )
 
