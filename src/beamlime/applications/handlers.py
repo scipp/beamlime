@@ -66,8 +66,9 @@ class DataAssembler(HandlerInterface):
 
     def __init__(
         self,
-        merge_every_nth: MergeMessageCountInterval = float('inf'),
-        max_seconds_between_messages: MergeMessageTimeInterval = 5,
+        *,
+        merge_every_nth: MergeMessageCountInterval = 1,
+        max_seconds_between_messages: MergeMessageTimeInterval = float('inf'),
     ):
         self._store = {}
         self._should_send_message = maxcount_or_maxtime(
@@ -135,7 +136,7 @@ class PlotStreamer(HandlerInterface):
             self.artists[name] = next(iter(plot.artists))
             self.figures[name] = plot
         else:
-            figure.update(data, key=self.artists[name])
+            figure.update({self.artists[name]: data})
 
     def update_histogram(self, message: WorkflowResultUpdate) -> None:
         content = message.content
