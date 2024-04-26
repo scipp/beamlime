@@ -68,7 +68,10 @@ async def test_data_assembler_returns_after_n_messages(fake_listener):
 
 
 async def test_data_assembler_returns_after_s_seconds(fake_listener):
-    handler = DataAssembler(max_seconds_between_messages=0.1)
+    handler = DataAssembler(
+        merge_every_nth=3,  # higher than number of messages we push below
+        max_seconds_between_messages=0.1,
+    )
     gen = fake_listener.run()
     handler.set_run_start(await anext(gen))
     response = handler.assemble_detector_data(await anext(gen))
