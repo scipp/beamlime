@@ -5,7 +5,7 @@
 #
 #    pip-compile-multi
 #
-build==1.1.1
+build==1.2.1
     # via -r wheels.in
 packaging==24.0
     # via build

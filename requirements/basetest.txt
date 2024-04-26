@@ -9,29 +9,29 @@ certifi==2024.2.2
     # via requests
 charset-normalizer==3.3.2
     # via requests
-contourpy==1.2.0
+contourpy==1.2.1
     # via matplotlib
-coverage[toml]==7.4.4
+coverage[toml]==7.5.0
     # via pytest-cov
 cycler==0.12.1
     # via matplotlib
-exceptiongroup==1.2.0
+exceptiongroup==1.2.1
     # via pytest
-execnet==2.0.2
+execnet==2.1.1
     # via pytest-xdist
-fonttools==4.50.0
+fonttools==4.51.0
     # via matplotlib
-h5py==3.10.0
+h5py==3.11.0
     # via
     #   scippneutron
     #   scippnexus
-idna==3.6
+idna==3.7
     # via requests
 iniconfig==2.0.0
     # via pytest
 kiwisolver==1.4.5
     # via matplotlib
-matplotlib==3.8.3
+matplotlib==3.8.4
     # via plopp
 numpy==1.26.4
     # via
@@ -48,21 +48,21 @@ packaging==24.0
     #   matplotlib
     #   pooch
     #   pytest
-pandas==2.2.1
+pandas==2.2.2
     # via -r basetest.in
-pillow==10.2.0
+pillow==10.3.0
     # via matplotlib
-platformdirs==4.2.0
+platformdirs==4.2.1
     # via pooch
-plopp==24.2.0
+plopp==24.4.0
     # via -r basetest.in
-pluggy==1.4.0
+pluggy==1.5.0
     # via pytest
 pooch==1.8.1
     # via scippneutron
 psutil==5.9.8
     # via -r basetest.in
-pyarrow==15.0.2
+pyarrow==16.0.0
     # via -r basetest.in
 pyparsing==3.1.2
     # via matplotlib
@@ -96,7 +96,7 @@ scippneutron==24.3.0
     # via -r basetest.in
 scippnexus==24.3.1
     # via scippneutron
-scipy==1.12.0
+scipy==1.13.0
     # via
     #   scippneutron
     #   scippnexus

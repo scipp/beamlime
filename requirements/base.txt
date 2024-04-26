@@ -9,11 +9,11 @@ certifi==2024.2.2
     # via requests
 charset-normalizer==3.3.2
     # via requests
-h5py==3.10.0
+h5py==3.11.0
     # via
     #   scippneutron
     #   scippnexus
-idna==3.6
+idna==3.7
     # via requests
 markdown-it-py==3.0.0
     # via rich
@@ -27,7 +27,7 @@ numpy==1.26.4
     #   scipy
 packaging==24.0
     # via pooch
-platformdirs==4.2.0
+platformdirs==4.2.1
     # via pooch
 pooch==1.8.1
     # via scippneutron
@@ -47,7 +47,7 @@ scippneutron==24.3.0
     # via -r base.in
 scippnexus==24.3.1
     # via scippneutron
-scipy==1.12.0
+scipy==1.13.0
     # via
     #   scippneutron
     #   scippnexus
