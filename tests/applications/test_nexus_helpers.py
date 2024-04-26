@@ -23,10 +23,30 @@ from beamlime.applications._random_data_providers import (
 from beamlime.applications.daemons import fake_event_generators
 
 
+def test_ev44_generator_no_detector_numbers() -> None:
+    """Monitors don't have pixel_id."""
+    ev44 = random_ev44_generator(
+        source_name=DetectorName("test"),
+        detector_numbers=None,
+        event_rate=EventRate(10_000),
+        frame_rate=FrameRate(14),
+    )
+
+    events = next(ev44)
+    assert events["source_name"] == "test"
+    assert (
+        int((10_000 // 14) * 0.99)
+        <= len(events["time_of_flight"])
+        <= int((10000 // 14) * 1.01)  # 1% fluctuation expected
+    )
+    assert events["pixel_id"] is None
+    assert len(events["reference_time"]) == len(events["reference_time_index"])
+
+
 @pytest.fixture
 def ev44_generator() -> RandomEV44Generator:
     return random_ev44_generator(
-        source_name=DetectorName('test'),
+        source_name=DetectorName("test"),
         detector_numbers=DetectorNumberCandidates(list(range(100))),
         event_rate=EventRate(10_000),
         frame_rate=FrameRate(14),
@@ -50,16 +70,16 @@ def ymir_ev44_generator(ymir):
 
 
 def test_find_index_general():
-    first = {'name': 'b0'}
+    first = {"name": "b0"}
     nested_obj = {
-        'children': [
+        "children": [
             first,
-            {'name': 'b1'},
-            {'name': 'b2'},
+            {"name": "b1"},
+            {"name": "b2"},
         ],
-        'name': 'a',
+        "name": "a",
     }
-    assert find_nexus_structure(nested_obj, ('b0',)) == first
+    assert find_nexus_structure(nested_obj, ("b0",)) == first
 
 
 def test_invalid_nexus_template_multiple_module_placeholders() -> None:
@@ -70,7 +90,7 @@ def test_invalid_nexus_template_multiple_module_placeholders() -> None:
         ValueError, match="Multiple modules found in the same data group."
     ):
         merge_message_into_store(
-            {}, nexus_structure, ('ev44', {'source_name': 'ymir_00'})
+            {}, nexus_structure, ("ev44", {"source_name": "ymir_00"})
         )
 
 
@@ -85,34 +105,34 @@ def test_ymir_detector_template_checksum() -> None:
     """
     from tests.applications.data import get_checksum
 
-    local_ymir_path = pathlib.Path(__file__).parent / 'ymir_detectors.json'
+    local_ymir_path = pathlib.Path(__file__).parent / "ymir_detectors.json"
     # check md5 sum of the ``local_ymir_path`` file
-    with open(local_ymir_path, 'rb') as f:
+    with open(local_ymir_path, "rb") as f:
         local_ymir_md5 = f"md5:{hashlib.md5(f.read()).hexdigest()}"
 
-    assert local_ymir_md5 == get_checksum('ymir_detectors.json')
+    assert local_ymir_md5 == get_checksum("ymir_detectors.json")
 
 
 def test_ev44_generator_size(ev44_generator: RandomEV44Generator):
     ef_rate = int(10_000 / 14)  # default event rate / frame rate
     events = next(ev44_generator)
 
-    assert events['source_name'] == 'test'
-    assert int(ef_rate * 0.99) <= len(events['time_of_flight']) <= int(ef_rate * 1.01)
-    assert len(events['pixel_id']) == len(events['time_of_flight'])
-    assert len(events['reference_time']) == len(events['reference_time_index'])
+    assert events["source_name"] == "test"
+    assert int(ef_rate * 0.99) <= len(events["time_of_flight"]) <= int(ef_rate * 1.01)
+    assert len(events["pixel_id"]) == len(events["time_of_flight"])
+    assert len(events["reference_time"]) == len(events["reference_time_index"])
 
 
 def test_ev44_generator_reference_time(ev44_generator: RandomEV44Generator):
     events = next(ev44_generator)
     next_events = next(ev44_generator)
-    assert events['reference_time'][0] < next_events['reference_time'][0]
+    assert events["reference_time"][0] < next_events["reference_time"][0]
 
 
 def test_ev44_module_parsing(ymir, ymir_ev44_generator):  # noqa: F811
     store = {}
     for _, e in zip(range(4), ymir_ev44_generator):
-        merge_message_into_store(store, ymir, ('ev44', e))
+        merge_message_into_store(store, ymir, ("ev44", e))
 
     assert len(store) == 2
     result = combine_store_and_structure(store, ymir)
@@ -120,15 +140,15 @@ def test_ev44_module_parsing(ymir, ymir_ev44_generator):  # noqa: F811
     assert 2 == sum(
         1
         for _, c in iter_nexus_structure(result)
-        if any(a.get('values') == 'NXdetector' for a in c.get('attributes', ()))
+        if any(a.get("values") == "NXdetector" for a in c.get("attributes", ()))
     )
     for _, c in iter_nexus_structure(result):
-        if any(a.get('values') == 'NXevent_data' for a in c.get('attributes', ())):
-            assert 'module' not in c
-            assert 'children' in c
-            assert all(v['module'] == 'dataset' for v in c['children'])
+        if any(a.get("values") == "NXevent_data" for a in c.get("attributes", ())):
+            assert "module" not in c
+            assert "children" in c
+            assert all(v["module"] == "dataset" for v in c["children"])
 
     # original unchanged
     for _, c in iter_nexus_structure(ymir):
-        if any(a.get('values') == 'NXevent_data' for a in c.get('attributes', ())):
-            assert c['children'][0]['module'] == 'ev44'
+        if any(a.get("values") == "NXevent_data" for a in c.get("attributes", ())):
+            assert c["children"][0]["module"] == "ev44"
