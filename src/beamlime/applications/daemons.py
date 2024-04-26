@@ -76,7 +76,10 @@ def fake_event_generators(
             detector_numbers = None
         else:
             raise ValueError(f"Detector or monitor group not found for {path}")
-        generators[ev44_source_name] = random_ev44_generator(
+        # Not using ev44_source_name as key, for now at least: We are not using it
+        # currently, but have json files with duplicate source names.
+        key = '/'.join(path)
+        generators[key] = random_ev44_generator(
             source_name=ev44_source_name,
             detector_numbers=detector_numbers,
             event_rate=event_rate,
@@ -127,10 +130,11 @@ class FakeListener(DaemonInterface):
         yield RunStart(content=self.nexus_structure)
 
         for i_frame in range(self.num_frames):
-            for event_generator in self.random_event_generators.values():
+            for name, event_generator in self.random_event_generators.items():
+                self.info(f"Frame #{i_frame}: sending neutron events for {name}.")
                 yield DetectorDataReceived(content=next(event_generator))
 
-            self.info(f"Detector events of frame #{i_frame} were sent.")
+            self.info(f"Neutron events of frame #{i_frame} were sent.")
             await asyncio.sleep(self.data_feeding_speed)
 
         yield Application.Stop(content=None)
