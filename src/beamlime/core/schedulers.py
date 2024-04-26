@@ -7,8 +7,7 @@ from contextlib import contextmanager
 from typing import Any, Awaitable, Callable, Generator, Type, TypeVar
 
 
-class MaxTrialsReached(Exception):
-    ...
+class MaxTrialsReached(Exception): ...
 
 
 T = TypeVar("T")

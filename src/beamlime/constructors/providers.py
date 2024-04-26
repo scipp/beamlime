@@ -37,24 +37,20 @@ DependencySpecDict = Dict[str, DependencySpec]
 _lambda_name = (lambda: None).__qualname__
 
 
-class ProviderNotFoundError(Exception):
-    ...
+class ProviderNotFoundError(Exception): ...
 
 
-class ConflictProvidersError(Exception):
-    ...
+class ConflictProvidersError(Exception): ...
 
 
-class ProviderExistsError(Exception):
-    ...
+class ProviderExistsError(Exception): ...
 
 
-class MismatchingProductTypeError(Exception):
-    ...
+class MismatchingProductTypeError(Exception): ...
 
 
 def _validate_callable_as_provider(
-    callable_obj: Callable[..., Product]
+    callable_obj: Callable[..., Product],
 ) -> Literal[True]:
     """
     Raises
@@ -253,12 +249,10 @@ class _ArgumentFilter(ABC):
         self.arguments: dict[str, Any]
 
     @abstractmethod
-    def arguments_filter(self, arg_name: str, arg_val: Any) -> bool:
-        ...
+    def arguments_filter(self, arg_name: str, arg_val: Any) -> bool: ...
 
     @abstractmethod
-    def save_arguments(self, arguments: dict) -> None:
-        ...
+    def save_arguments(self, arguments: dict) -> None: ...
 
     def was_called(self) -> bool:
         return hasattr(self, 'arguments')
@@ -365,8 +359,7 @@ class ArgumentsFilter:
         return len(hash_filter_rest) == 0
 
 
-class SingletonProviderCalledWithDifferentArgs(Exception):
-    ...
+class SingletonProviderCalledWithDifferentArgs(Exception): ...
 
 
 class SingletonProvider(Provider[Product]):
@@ -410,8 +403,7 @@ class SingletonProvider(Provider[Product]):
         return self.cached_result
 
 
-class UnknownProviderCalled(Exception):
-    ...
+class UnknownProviderCalled(Exception): ...
 
 
 def unknown_provider_call() -> Any:
@@ -615,14 +607,12 @@ class ProviderGroup:
         /,
         *,
         provider_type: Type[Provider] = Provider,
-    ) -> Callable[..., Product]:
-        ...
+    ) -> Callable[..., Product]: ...
 
     @overload
     def provider(
         self, provider_call: None = None, /, *, provider_type: Type[Provider]
-    ) -> Callable[[P], P]:
-        ...
+    ) -> Callable[[P], P]: ...
 
     def provider(
         self,
@@ -658,14 +648,12 @@ class ProviderGroup:
         @overload
         def wrapper(
             provider_call: Callable[..., Product], provider_tp: Type[Provider] | None
-        ) -> Callable[..., Product]:
-            ...
+        ) -> Callable[..., Product]: ...
 
         @overload
         def wrapper(
             provider_call: Type[Product], provider_tp: Type[Provider] | None
-        ) -> Type[Product]:
-            ...
+        ) -> Type[Product]: ...
 
         def wrapper(
             provider_call: Callable[..., Product] | Type[Product],

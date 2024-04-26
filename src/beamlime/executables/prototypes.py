@@ -13,12 +13,12 @@ T = TypeVar("T", bound="ArgumentInstantiable")
 
 class ArgumentInstantiable(Protocol):
     @classmethod
-    def add_argument_group(cls, parser: argparse.ArgumentParser) -> None:
-        ...
+    def add_argument_group(cls, parser: argparse.ArgumentParser) -> None: ...
 
     @classmethod
-    def from_args(cls: type[T], logger: BeamlimeLogger, args: argparse.Namespace) -> T:
-        ...
+    def from_args(
+        cls: type[T], logger: BeamlimeLogger, args: argparse.Namespace
+    ) -> T: ...
 
 
 def instantiate_from_args(

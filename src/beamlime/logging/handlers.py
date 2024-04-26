@@ -27,8 +27,7 @@ def provide_beamlime_filehandler(
     return handler
 
 
-class BeamlimeStreamHandler(RichHandler):
-    ...
+class BeamlimeStreamHandler(RichHandler): ...
 
 
 @log_providers.provider
