@@ -119,6 +119,7 @@ def test_ev44_generator_size(ev44_generator: RandomEV44Generator):
 
     assert events["source_name"] == "test"
     assert int(ef_rate * 0.99) <= len(events["time_of_flight"]) <= int(ef_rate * 1.01)
+    assert events["pixel_id"] is not None
     assert len(events["pixel_id"]) == len(events["time_of_flight"])
     assert len(events["reference_time"]) == len(events["reference_time_index"])
 
