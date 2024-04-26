@@ -24,15 +24,16 @@ class EV44(TypedDict):
     reference_time: list[float] | np.ndarray
     reference_time_index: list[int] | np.ndarray
     time_of_flight: list[float] | np.ndarray
-    pixel_id: list[int] | np.ndarray
+    pixel_id: list[int] | np.ndarray | None
 
 
 RandomEV44Generator = Generator[EV44, Any, Any]
 
 
 def random_ev44_generator(
+    *,
     source_name: DetectorName,
-    detector_numbers: DetectorNumberCandidates,
+    detector_numbers: DetectorNumberCandidates | None = None,
     event_rate: EventRate,
     frame_rate: FrameRate,
 ) -> Generator[EV44, Any, Any]:
@@ -50,6 +51,10 @@ def random_ev44_generator(
             reference_time=[et_zero],
             reference_time_index=[0],
             time_of_flight=rng.random((cur_event_number,)) * 800 + 200,  # No reason
-            pixel_id=rng.choice(detector_numbers, cur_event_number),
+            pixel_id=(
+                None
+                if detector_numbers is None
+                else rng.choice(detector_numbers, cur_event_number)
+            ),
         )
         et_zero += int(1e9 / frame_rate)  # Move to next frame

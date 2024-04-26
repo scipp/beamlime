@@ -56,36 +56,46 @@ def fake_event_generators(
     event_rate: EventRate,
     frame_rate: FrameRate,
 ):
-    detectors = [
-        node
-        for _, node in iter_nexus_structure(nexus_structure)
-        if any(
-            attr.get('name') == 'NX_class' and attr.get('values') == 'NXdetector'
-            for attr in node.get('attributes', ())
-        )
-    ]
-    ev44_source_names = [
-        node['config']['source']
-        for _, node in iter_nexus_structure(nexus_structure)
-        if node.get('module') == 'ev44'
-        and 'detector' in node.get('config', {}).get('topic', '')
-    ]
+    detectors = _find_groups_by_nx_class(nexus_structure, nx_class='NXdetector')
+    monitors = _find_groups_by_nx_class(nexus_structure, nx_class='NXmonitor')
 
-    return {
-        detector['name']: random_ev44_generator(
+    ev44_source_names = {
+        # [:-2] trims nested NXevent_data and 'None' (from stream?)
+        path[:-2]: node['config']['source']
+        for path, node in iter_nexus_structure(nexus_structure)
+        if node.get('module') == 'ev44'
+    }
+
+    generators = {}
+    for path, ev44_source_name in ev44_source_names.items():
+        if (det := detectors.get(path)) is not None:
+            detector_numbers = (
+                find_nexus_structure(det, ('detector_number',))['config']['values'],
+            )
+        elif path in monitors:
+            detector_numbers = None
+        else:
+            raise ValueError(f"Detector or monitor group not found for {path}")
+        # Not using ev44_source_name as key, for now at least: We are not using it
+        # currently, but have json files with duplicate source names.
+        key = '/'.join(path)
+        generators[key] = random_ev44_generator(
             source_name=ev44_source_name,
-            detector_numbers=(
-                find_nexus_structure(detector, ('detector_number',))['config'][
-                    'values'
-                ],
-            ),
+            detector_numbers=detector_numbers,
             event_rate=event_rate,
             frame_rate=frame_rate,
         )
-        for detector, ev44_source_name in zip(detectors, ev44_source_names)
-        # Assuming the order of the detectors and the ev44 modules are the same
-        # For real data stream, it doesn't matter
-        # since the data is inserted by the source name.
+    return generators
+
+
+def _find_groups_by_nx_class(nexus_structure, nx_class: str) -> dict[str, Mapping]:
+    return {
+        path: node
+        for path, node in iter_nexus_structure(nexus_structure)
+        if any(
+            attr.get('name') == 'NX_class' and attr.get('values') == nx_class
+            for attr in node.get('attributes', ())
+        )
     }
 
 
@@ -120,10 +130,11 @@ class FakeListener(DaemonInterface):
         yield RunStart(content=self.nexus_structure)
 
         for i_frame in range(self.num_frames):
-            for event_generator in self.random_event_generators.values():
+            for name, event_generator in self.random_event_generators.items():
+                self.info(f"Frame #{i_frame}: sending neutron events for {name}.")
                 yield DetectorDataReceived(content=next(event_generator))
 
-            self.info(f"Detector events of frame #{i_frame} were sent.")
+            self.info(f"Neutron events of frame #{i_frame} were sent.")
             await asyncio.sleep(self.data_feeding_speed)
 
         yield Application.Stop(content=None)

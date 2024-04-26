@@ -34,6 +34,8 @@ def _init_dataset(group, field, value):
 
 def _merge_ev44(group, message):
     for field, value in message.items():
+        if value is None:  # Could be monitor without pixel_id
+            continue
         dataset = _init_dataset(group, field, value)
         if field in ('time_of_flight', 'pixel_id'):
             dataset['config']['values'] = np.concatenate(
