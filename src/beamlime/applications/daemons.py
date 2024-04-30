@@ -69,9 +69,9 @@ def fake_event_generators(
     generators = {}
     for path, ev44_source_name in ev44_source_names.items():
         if (det := detectors.get(path)) is not None:
-            detector_numbers = (
-                find_nexus_structure(det, ('detector_number',))['config']['values'],
-            )
+            detector_numbers = find_nexus_structure(det, ('detector_number',))[
+                'config'
+            ]['values']
         elif path in monitors:
             detector_numbers = None
         else:
