@@ -60,21 +60,25 @@ def read_nexus_template_file(path: NexusTemplatePath) -> NexusTemplate:
 def _try_load_nxevent_data(
     file_path: str | None, group_path: tuple[str]
 ) -> dict[str, np.ndarray] | None:
+    """
+    Try to load NXevent_data for a given group from a file.
+
+    If found, this will be used instead of random data generation.
+    """
     if file_path is None:
         return
-    with h5py.File(file_path, 'r') as group:
+    with h5py.File(file_path, 'r') as f:
         group_path = group_path + (group_path[-1] + '_events',)
-        for name in group_path:
-            try:
-                group = group[name]
-            except KeyError:
-                return
+        try:
+            group = f['/'.join(group_path)]
+        except KeyError:
+            return
         return {key: group[key][()] for key in group.keys() if key.startswith('event')}
 
 
 def fake_event_generators(
     nexus_structure: Mapping,
-    event_data_source_file: EventDataSourceFile | None,
+    event_data_source_path: EventDataSourceFile | None,
     event_rate: EventRate,
     frame_rate: FrameRate,
 ):
@@ -103,7 +107,7 @@ def fake_event_generators(
         key = '/'.join(path)
         if (
             event_data := _try_load_nxevent_data(
-                file_path=event_data_source_file, group_path=path
+                file_path=event_data_source_path, group_path=path
             )
         ) is not None:
             generators[key] = nxevent_data_ev44_generator(
@@ -150,7 +154,7 @@ class FakeListener(DaemonInterface):
 
         self.random_event_generators = fake_event_generators(
             nexus_structure=self.nexus_structure,
-            event_data_source_file=event_data_source_file,
+            event_data_source_path=event_data_source_file,
             event_rate=event_rate,
             frame_rate=frame_rate,
         )
