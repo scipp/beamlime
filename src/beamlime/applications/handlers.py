@@ -105,7 +105,7 @@ class DataReductionHandler(HandlerInterface):
         super().__init__()
 
     def reduce_data(self, message: DataReady) -> WorkflowResultUpdate:
-        content = message.content
+        content = JSONGroup(message.content)
         self.info("Running data reduction")
         return WorkflowResultUpdate(content=self.workflow(content))
 
