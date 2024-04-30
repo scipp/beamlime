@@ -7,6 +7,9 @@ import os
 from dataclasses import dataclass
 from typing import AsyncGenerator, Mapping, NewType, Union
 
+import h5py
+import numpy as np
+
 from ..logging import BeamlimeLogger
 from ._nexus_helpers import find_nexus_structure, iter_nexus_structure
 from ._random_data_providers import (
@@ -14,6 +17,7 @@ from ._random_data_providers import (
     EventRate,
     FrameRate,
     NumFrames,
+    nxevent_data_ev44_generator,
     random_ev44_generator,
 )
 from .base import Application, DaemonInterface, MessageProtocol
@@ -51,6 +55,18 @@ def read_nexus_template_file(path: NexusTemplatePath) -> NexusTemplate:
         return NexusTemplate(json.load(f))
 
 
+def _try_load_nxevent_data(path: tuple[str]) -> dict[str, np.ndarray] | None:
+    file_path = '/home/simon/.cache/esssans/2/60339-2022-02-28_2215.nxs'
+    with h5py.File(file_path, 'r') as group:
+        path = path + (path[-1] + '_events',)
+        for name in path:
+            try:
+                group = group[name]
+            except KeyError:
+                return
+        return {key: group[key][()] for key in group.keys() if key.startswith('event')}
+
+
 def fake_event_generators(
     nexus_structure: Mapping,
     event_rate: EventRate,
@@ -79,12 +95,17 @@ def fake_event_generators(
         # Not using ev44_source_name as key, for now at least: We are not using it
         # currently, but have json files with duplicate source names.
         key = '/'.join(path)
-        generators[key] = random_ev44_generator(
-            source_name=ev44_source_name,
-            detector_numbers=detector_numbers,
-            event_rate=event_rate,
-            frame_rate=frame_rate,
-        )
+        if (event_data := _try_load_nxevent_data(path)) is not None:
+            generators[key] = nxevent_data_ev44_generator(
+                source_name=ev44_source_name, **event_data
+            )
+        else:
+            generators[key] = random_ev44_generator(
+                source_name=ev44_source_name,
+                detector_numbers=detector_numbers,
+                event_rate=event_rate,
+                frame_rate=frame_rate,
+            )
     return generators
 
 
