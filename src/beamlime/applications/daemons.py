@@ -49,7 +49,7 @@ NexusTemplatePath = NewType("NexusTemplatePath", str)
 NexusTemplate = NewType("NexusTemplate", Mapping)
 '''A template describing the nexus file structure for the instrument'''
 
-EventDataSourceFile = NewType("EventDataSourceFile", str)
+EventDataSourcePath = NewType("EventDataSourcePath", str)
 
 
 def read_nexus_template_file(path: NexusTemplatePath) -> NexusTemplate:
@@ -78,9 +78,9 @@ def _try_load_nxevent_data(
 
 def fake_event_generators(
     nexus_structure: Mapping,
-    event_data_source_path: EventDataSourceFile | None,
     event_rate: EventRate,
     frame_rate: FrameRate,
+    event_data_source_path: EventDataSourcePath | None = None,
 ):
     detectors = _find_groups_by_nx_class(nexus_structure, nx_class='NXdetector')
     monitors = _find_groups_by_nx_class(nexus_structure, nx_class='NXmonitor')
@@ -143,10 +143,10 @@ class FakeListener(DaemonInterface):
         logger: BeamlimeLogger,
         speed: DataFeedingSpeed,
         nexus_template: NexusTemplate,
-        event_data_source_file: EventDataSourceFile | None,
         num_frames: NumFrames,
         event_rate: EventRate,
         frame_rate: FrameRate,
+        event_data_source_path: EventDataSourcePath | None = None,
     ):
         self.logger = logger
 
@@ -154,7 +154,7 @@ class FakeListener(DaemonInterface):
 
         self.random_event_generators = fake_event_generators(
             nexus_structure=self.nexus_structure,
-            event_data_source_path=event_data_source_file,
+            event_data_source_path=event_data_source_path,
             event_rate=event_rate,
             frame_rate=frame_rate,
         )
@@ -190,6 +190,7 @@ class FakeListener(DaemonInterface):
             "--event-data-source-path",
             help="Path to the event data source file.",
             type=str,
+            default=None,
         )
         group.add_argument(
             "--data-feeding-speed",
@@ -226,7 +227,7 @@ class FakeListener(DaemonInterface):
             logger=logger,
             speed=DataFeedingSpeed(args.data_feeding_speed),
             nexus_template=nexus_template,
-            event_data_source_file=EventDataSourceFile(args.event_data_source_path),
+            event_data_source_path=EventDataSourcePath(args.event_data_source_path),
             num_frames=NumFrames(args.num_frames),
             event_rate=EventRate(args.event_rate),
             frame_rate=FrameRate(args.frame_rate),
