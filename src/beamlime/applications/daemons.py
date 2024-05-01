@@ -7,6 +7,9 @@ import os
 from dataclasses import dataclass
 from typing import AsyncGenerator, Mapping, NewType, Union
 
+import h5py
+import numpy as np
+
 from ..logging import BeamlimeLogger
 from ._nexus_helpers import find_nexus_structure, iter_nexus_structure
 from ._random_data_providers import (
@@ -14,6 +17,7 @@ from ._random_data_providers import (
     EventRate,
     FrameRate,
     NumFrames,
+    nxevent_data_ev44_generator,
     random_ev44_generator,
 )
 from .base import Application, DaemonInterface, MessageProtocol
@@ -45,16 +49,38 @@ NexusTemplatePath = NewType("NexusTemplatePath", str)
 NexusTemplate = NewType("NexusTemplate", Mapping)
 '''A template describing the nexus file structure for the instrument'''
 
+EventDataSourcePath = NewType("EventDataSourcePath", str)
+
 
 def read_nexus_template_file(path: NexusTemplatePath) -> NexusTemplate:
     with open(path) as f:
         return NexusTemplate(json.load(f))
 
 
+def _try_load_nxevent_data(
+    file_path: str | None, group_path: tuple[str]
+) -> dict[str, np.ndarray] | None:
+    """
+    Try to load NXevent_data for a given group from a file.
+
+    If found, this will be used instead of random data generation.
+    """
+    if file_path is None:
+        return
+    with h5py.File(file_path, 'r') as f:
+        group_path = group_path + (group_path[-1] + '_events',)
+        try:
+            group = f['/'.join(group_path)]
+        except KeyError:
+            return
+        return {key: group[key][()] for key in group.keys() if key.startswith('event')}
+
+
 def fake_event_generators(
     nexus_structure: Mapping,
     event_rate: EventRate,
     frame_rate: FrameRate,
+    event_data_source_path: EventDataSourcePath | None = None,
 ):
     detectors = _find_groups_by_nx_class(nexus_structure, nx_class='NXdetector')
     monitors = _find_groups_by_nx_class(nexus_structure, nx_class='NXmonitor')
@@ -69,9 +95,9 @@ def fake_event_generators(
     generators = {}
     for path, ev44_source_name in ev44_source_names.items():
         if (det := detectors.get(path)) is not None:
-            detector_numbers = (
-                find_nexus_structure(det, ('detector_number',))['config']['values'],
-            )
+            detector_numbers = find_nexus_structure(det, ('detector_number',))[
+                'config'
+            ]['values']
         elif path in monitors:
             detector_numbers = None
         else:
@@ -79,12 +105,21 @@ def fake_event_generators(
         # Not using ev44_source_name as key, for now at least: We are not using it
         # currently, but have json files with duplicate source names.
         key = '/'.join(path)
-        generators[key] = random_ev44_generator(
-            source_name=ev44_source_name,
-            detector_numbers=detector_numbers,
-            event_rate=event_rate,
-            frame_rate=frame_rate,
-        )
+        if (
+            event_data := _try_load_nxevent_data(
+                file_path=event_data_source_path, group_path=path
+            )
+        ) is not None:
+            generators[key] = nxevent_data_ev44_generator(
+                source_name=ev44_source_name, **event_data
+            )
+        else:
+            generators[key] = random_ev44_generator(
+                source_name=ev44_source_name,
+                detector_numbers=detector_numbers,
+                event_rate=event_rate,
+                frame_rate=frame_rate,
+            )
     return generators
 
 
@@ -111,15 +146,17 @@ class FakeListener(DaemonInterface):
         num_frames: NumFrames,
         event_rate: EventRate,
         frame_rate: FrameRate,
+        event_data_source_path: EventDataSourcePath | None = None,
     ):
         self.logger = logger
 
         self.nexus_structure = nexus_template
 
         self.random_event_generators = fake_event_generators(
-            self.nexus_structure,
-            event_rate,
-            frame_rate,
+            nexus_structure=self.nexus_structure,
+            event_data_source_path=event_data_source_path,
+            event_rate=event_rate,
+            frame_rate=frame_rate,
         )
         self.data_feeding_speed = speed
         self.num_frames = num_frames
@@ -148,6 +185,12 @@ class FakeListener(DaemonInterface):
             help="Path to the nexus template file.",
             type=str,
             required=True,
+        )
+        group.add_argument(
+            "--event-data-source-path",
+            help="Path to the event data source file.",
+            type=str,
+            default=None,
         )
         group.add_argument(
             "--data-feeding-speed",
@@ -184,6 +227,7 @@ class FakeListener(DaemonInterface):
             logger=logger,
             speed=DataFeedingSpeed(args.data_feeding_speed),
             nexus_template=nexus_template,
+            event_data_source_path=EventDataSourcePath(args.event_data_source_path),
             num_frames=NumFrames(args.num_frames),
             event_rate=EventRate(args.event_rate),
             frame_rate=FrameRate(args.frame_rate),

@@ -18,6 +18,7 @@ from beamlime.applications._random_data_providers import (
     EventRate,
     FrameRate,
     RandomEV44Generator,
+    nxevent_data_ev44_generator,
     random_ev44_generator,
 )
 from beamlime.applications.daemons import fake_event_generators
@@ -153,3 +154,37 @@ def test_ev44_module_parsing(ymir, ymir_ev44_generator):  # noqa: F811
     for _, c in iter_nexus_structure(ymir):
         if any(a.get("values") == "NXevent_data" for a in c.get("attributes", ())):
             assert c["children"][0]["module"] == "ev44"
+
+
+def test_nxevent_data_ev44_generator_yields_frame_by_frame() -> None:
+    ev44 = nxevent_data_ev44_generator(
+        source_name=DetectorName("test"),
+        event_id=[1, 1, 2, 1, 2, 1],
+        event_index=[0, 3, 3, 5],
+        event_time_offset=[1, 2, 3, 4, 5, 6],
+        event_time_zero=[1, 2, 3],
+    )
+
+    events = next(ev44)
+    assert events["source_name"] == "test"
+    assert events["reference_time"] == [1]
+    assert events["reference_time_index"] == [0]
+    assert events["time_of_flight"] == [1, 2, 3]
+    assert events["pixel_id"] == [1, 1, 2]
+
+    events = next(ev44)
+    assert events["source_name"] == "test"
+    assert events["reference_time"] == [2]
+    assert events["reference_time_index"] == [3]
+    assert events["time_of_flight"] == []
+    assert events["pixel_id"] == []
+
+    events = next(ev44)
+    assert events["source_name"] == "test"
+    assert events["reference_time"] == [3]
+    assert events["reference_time_index"] == [3]
+    assert events["time_of_flight"] == [4, 5]
+    assert events["pixel_id"] == [1, 2]
+
+    with pytest.raises(StopIteration):
+        next(ev44)

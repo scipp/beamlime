@@ -58,3 +58,22 @@ def random_ev44_generator(
             ),
         )
         et_zero += int(1e9 / frame_rate)  # Move to next frame
+
+
+def nxevent_data_ev44_generator(
+    *,
+    source_name: DetectorName,
+    event_id: np.ndarray | None,
+    event_index: np.ndarray,
+    event_time_offset: np.ndarray,
+    event_time_zero: np.ndarray,
+) -> Generator[EV44, Any, Any]:
+    """Generate EV44 from datasets of a NXevent_data group."""
+    for i, (start, end) in enumerate(zip(event_index[:-1], event_index[1:])):
+        yield EV44(
+            source_name=source_name,
+            reference_time=event_time_zero[i : i + 1],
+            reference_time_index=[start],
+            time_of_flight=event_time_offset[start:end],
+            pixel_id=None if event_id is None else event_id[start:end],
+        )
