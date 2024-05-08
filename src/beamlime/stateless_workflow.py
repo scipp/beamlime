@@ -45,10 +45,11 @@ class DummyWorkflow:
 
     def __call__(self, group: JSONGroup) -> WorkflowResult:
         return {
-            'random-counts': sc.DataArray(
+            f'random-counts-{i}': sc.DataArray(
                 data=sc.array(dims=['x'], values=self.rng.random(10), unit='counts'),
                 coords={'x': self.x},
             )
+            for i in range(4)
         }
 
 
