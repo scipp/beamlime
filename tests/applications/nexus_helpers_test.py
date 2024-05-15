@@ -133,7 +133,6 @@ def test_ev44_generator_reference_time(ev44_generator: RandomEV44Generator) -> N
     assert events["reference_time"][0] < next_events["reference_time"][0]
 
 
-<<<<<<< HEAD
 def _is_class(partial_structure: Mapping, cls_name: str) -> bool:
     return any(
         a.get("values") == cls_name and a.get("name") == "NX_class"
@@ -159,17 +158,11 @@ def test_ev44_module_parsing(ymir: dict) -> None:
 def test_ev44_module_merging(
     ymir: dict, ymir_ev44_generator: Generator[dict, None, None]
 ) -> None:
-=======
-def test_ev44_module_parsing(ymir, ymir_ev44_generator):
-    import numpy as np
-
->>>>>>> 8f12691 (Add tests.)
     store = {}
     for _, e in zip(range(4), ymir_ev44_generator):
         merge_message_into_store(store, ymir, ("ev44", e))
     result = combine_store_and_structure(store, ymir)
 
-<<<<<<< HEAD
     for nx_event in (c for _, c in iter_nexus_structure(result) if _is_event_data(c)):
         assert "children" in nx_event
         assert all(v["module"] == "dataset" for v in nx_event["children"])
@@ -195,25 +188,6 @@ def test_ev44_module_parsing_original_unchanged(ymir, ymir_ev44_generator) -> No
     for _, e in zip(range(4), ymir_ev44_generator):
         merge_message_into_store(store, ymir, ("ev44", e))
     combine_store_and_structure(store, ymir)
-=======
-    assert 2 == sum(
-        1
-        for _, c in iter_nexus_structure(result)
-        if any(a.get("values") == "NXdetector" for a in c.get("attributes", ()))
-    )
-    for _, c in iter_nexus_structure(result):
-        if any(a.get("values") == "NXevent_data" for a in c.get("attributes", ())):
-            assert "module" not in c
-            assert "children" in c
-            assert all(v["module"] == "dataset" for v in c["children"])
-            assert all(
-                isinstance(v["config"]["values"], np.ndarray)
-                for v in c["children"]
-                if v["config"]["name"]
-                in ("event_id", "event_index", "event_time_offset", "event_time_zero")
-            )
->>>>>>> 8f12691 (Add tests.)
-
     # original unchanged
     for nx_event in (c for _, c in iter_nexus_structure(ymir) if _is_event_data(c)):
         assert len(nx_event["children"]) == 1
