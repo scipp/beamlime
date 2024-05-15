@@ -48,8 +48,8 @@ def random_ev44_generator(
         )  # 1% of fluctuation
         yield EV44(
             source_name=source_name,
-            reference_time=[et_zero],
-            reference_time_index=[0],
+            reference_time=np.asarray([et_zero]),
+            reference_time_index=np.asarray([0]),
             time_of_flight=rng.random((cur_event_number,)) * 800 + 200,  # No reason
             pixel_id=(
                 None
