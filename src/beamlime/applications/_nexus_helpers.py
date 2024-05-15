@@ -39,7 +39,7 @@ def _merge_ev44(group, message):
         dataset = _init_dataset(group, field, value)
         if field in ('time_of_flight', 'pixel_id'):
             dataset['config']['values'] = np.concatenate(
-                (dataset['config']['values'], value)
+                (dataset['config']['values'], np.asarray(value))
             )
 
 
@@ -47,7 +47,9 @@ def _merge_f144(group, message):
     for field, value in message.items():
         dataset = _init_dataset(group, field, value)
         if field in ('timestamp', 'value'):
-            dataset['config']['values'] = np.stack((dataset['config']['values'], value))
+            dataset['config']['values'] = np.stack(
+                (dataset['config']['values'], np.asarray(value))
+            )
 
 
 def _merge_tdct(group, message):
@@ -55,7 +57,7 @@ def _merge_tdct(group, message):
         dataset = _init_dataset(group, field, value)
         if field in ('timestamps',):
             dataset['config']['values'] = np.concatenate(
-                (dataset['config']['values'], value)
+                (dataset['config']['values'], np.asarray(value))
             )
 
 
