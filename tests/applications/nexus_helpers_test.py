@@ -131,7 +131,9 @@ def test_ev44_generator_reference_time(ev44_generator: RandomEV44Generator):
     assert events["reference_time"][0] < next_events["reference_time"][0]
 
 
-def test_ev44_module_parsing(ymir, ymir_ev44_generator):  # noqa: F811
+def test_ev44_module_parsing(ymir, ymir_ev44_generator):
+    import numpy as np
+
     store = {}
     for _, e in zip(range(4), ymir_ev44_generator):
         merge_message_into_store(store, ymir, ("ev44", e))
@@ -149,6 +151,12 @@ def test_ev44_module_parsing(ymir, ymir_ev44_generator):  # noqa: F811
             assert "module" not in c
             assert "children" in c
             assert all(v["module"] == "dataset" for v in c["children"])
+            assert all(
+                isinstance(v["config"]["values"], np.ndarray)
+                for v in c["children"]
+                if v["config"]["name"]
+                in ("event_id", "event_index", "event_time_offset", "event_time_zero")
+            )
 
     # original unchanged
     for _, c in iter_nexus_structure(ymir):
