@@ -24,11 +24,11 @@ from .daemons import (
 
 Events = NewType("Events", list[sc.DataArray])
 MergeMessageCountInterval = NewType("MergeMessageCountInterval", Number)
-'''Every MergeMessageCountInterval-th message the data assembler receives
-the data reduction is run'''
+"""Every MergeMessageCountInterval-th message the data assembler receives
+the data reduction is run"""
 MergeMessageTimeInterval = NewType("MergeMessageTimeInterval", Number)
-'''The data reduction is run when the DataAssembler receives a message and the time
-since the last reduction exceeds the length of the interval (in seconds)'''
+"""The data reduction is run when the DataAssembler receives a message and the time
+since the last reduction exceeds the length of the interval (in seconds)"""
 
 
 @dataclass
@@ -43,9 +43,9 @@ class WorkflowResultUpdate:
 
 def maxcount_or_maxtime(maxcount: Number, maxtime: Number):
     if maxcount <= 0:
-        raise ValueError('maxcount must be positive')
+        raise ValueError("maxcount must be positive")
     if maxtime <= 0:
-        raise ValueError('maxtime must be positive')
+        raise ValueError("maxtime must be positive")
 
     count = 0
     last = time.time()
@@ -88,13 +88,13 @@ class DataAssembler(HandlerInterface):
             return message
 
     def assemble_detector_data(self, message: DetectorDataReceived) -> DataReady:
-        return self._merge_message_and_return_response_if_ready('ev44', message.content)
+        return self._merge_message_and_return_response_if_ready("ev44", message.content)
 
     def assemble_log_data(self, message: LogDataReceived) -> DataReady:
-        return self._merge_message_and_return_response_if_ready('f144', message.content)
+        return self._merge_message_and_return_response_if_ready("f144", message.content)
 
     def assemble_chopper_data(self, message: ChopperDataReceived) -> DataReady:
-        return self._merge_message_and_return_response_if_ready('tdct', message.content)
+        return self._merge_message_and_return_response_if_ready("tdct", message.content)
 
 
 class DataReductionHandler(HandlerInterface):
