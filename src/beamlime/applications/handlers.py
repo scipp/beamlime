@@ -68,7 +68,7 @@ class DataAssembler(HandlerInterface):
         self,
         *,
         merge_every_nth: MergeMessageCountInterval = 1,
-        max_seconds_between_messages: MergeMessageTimeInterval = float('inf'),
+        max_seconds_between_messages: MergeMessageTimeInterval = float("inf"),
     ):
         self._store = {}
         self._should_send_message = maxcount_or_maxtime(
@@ -155,22 +155,17 @@ class PlotStreamer(HandlerInterface):
 
     def show(self):
         """Show the figures in a grid layout."""
-        from plopp.widgets import Box, HBar, VBar
+        from plopp.widgets import Box
 
         figures = list(self.figures.values())
         n_rows = len(figures) // self.max_column + 1
         return Box(
-            VBar(
-                [
-                    HBar(
-                        figures[
-                            i_row * self.max_column : i_row * self.max_column
-                            + self.max_column
-                        ]
-                    )
-                    for i_row in range(n_rows)
+            [
+                figures[
+                    i_row * self.max_column : i_row * self.max_column + self.max_column
                 ]
-            )
+                for i_row in range(n_rows)
+            ]
         )
 
 
