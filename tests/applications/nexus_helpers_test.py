@@ -93,7 +93,7 @@ def test_invalid_nexus_template_multiple_module_placeholders() -> None:
         ValueError, match="Multiple modules found in the same data group."
     ):
         merge_message_into_store(
-            {}, nexus_structure, ("ev44", {"source_name": "ymir_00"})
+            {}, nexus_structure, "ev44", {"source_name": "ymir_00"}
         )
 
 
@@ -160,7 +160,7 @@ def test_ev44_module_merging(
 ) -> None:
     store = {}
     for _, e in zip(range(4), ymir_ev44_generator):
-        merge_message_into_store(store, ymir, ("ev44", e))
+        merge_message_into_store(store, ymir, "ev44", e)
     result = combine_store_and_structure(store, ymir)
 
     for nx_event in (c for _, c in iter_nexus_structure(result) if _is_event_data(c)):
@@ -171,7 +171,7 @@ def test_ev44_module_merging(
 def test_ev44_module_merging_numpy_array_wrapped(ymir, ymir_ev44_generator) -> None:
     store = {}
     for _, e in zip(range(4), ymir_ev44_generator):
-        merge_message_into_store(store, ymir, ("ev44", e))
+        merge_message_into_store(store, ymir, "ev44", e)
     result = combine_store_and_structure(store, ymir)
     NUMPY_DATASETS = ("event_id", "event_index", "event_time_offset", "event_time_zero")
 
@@ -186,7 +186,7 @@ def test_ev44_module_merging_numpy_array_wrapped(ymir, ymir_ev44_generator) -> N
 def test_ev44_module_parsing_original_unchanged(ymir, ymir_ev44_generator) -> None:
     store = {}
     for _, e in zip(range(4), ymir_ev44_generator):
-        merge_message_into_store(store, ymir, ("ev44", e))
+        merge_message_into_store(store, ymir, "ev44", e)
     combine_store_and_structure(store, ymir)
     # original unchanged
     for nx_event in (c for _, c in iter_nexus_structure(ymir) if _is_event_data(c)):

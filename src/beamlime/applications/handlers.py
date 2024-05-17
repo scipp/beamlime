@@ -79,7 +79,8 @@ class DataAssembler(HandlerInterface):
         self.structure = message.content
 
     def _merge_message_and_return_response_if_ready(self, kind, message):
-        merge_message_into_store(self._store, self.structure, (kind, message))
+        merge_message_into_store(self._store, self.structure, kind, message)
+        self.info(self._store)
         if self._should_send_message():
             message = DataReady(
                 combine_store_and_structure(self._store, self.structure),
