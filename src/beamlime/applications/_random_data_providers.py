@@ -41,7 +41,7 @@ def random_ev44_generator(
     rng = default_rng(123)
     ef_rate = int(event_rate / frame_rate)
 
-    et_zero = ReferenceTimeZero(13620492**11)  # No reason
+    et_zero = ReferenceTimeZero(13620492 * 10**11)  # No reason
     while True:
         cur_event_number = int(
             ef_rate * (rng.integers(99, 101) / 100)
@@ -50,7 +50,8 @@ def random_ev44_generator(
             source_name=source_name,
             reference_time=np.asarray([et_zero]),
             reference_time_index=np.asarray([0]),
-            time_of_flight=rng.random((cur_event_number,)) * 800 + 200,  # No reason
+            time_of_flight=rng.random((cur_event_number,)) * 48_000_000
+            + 4_000_000,  # No reason
             pixel_id=(
                 None
                 if detector_numbers is None
