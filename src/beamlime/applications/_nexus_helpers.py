@@ -8,14 +8,10 @@ from typing import (
     Mapping,
     Optional,
     Sequence,
-    Tuple,
     TypedDict,
 )
 
 import numpy as np
-
-NexusDtype = Literal["int", "float", "string"]
-"""Supported data types in the nexus json format to be parsed by ``scippnexus``."""
 
 
 class _NexusDataset(TypedDict):
@@ -45,10 +41,10 @@ class DataModuleParent(TypedDict):
 DataModuleStore = dict[NexusPath, DataModuleParent]
 
 
-def populate_dataset(
+def create_dataset(
     *, name: str, dtype: str, initial_values: Any, unit: str | None = None
 ) -> _NexusDataset:
-    """Populates the dataset according to the recipe."""
+    """Creates a dataset according to the arguments."""
     dataset: _NexusDataset = {
         "module": "dataset",
         "config": {
@@ -74,11 +70,39 @@ ModuleNameType = Literal["ev44"]  # "f144", "tdct" will be added in the future
 """Name of the module that is supported by beamlime."""
 
 
+def _get_array_values(dataset: Mapping) -> np.ndarray:
+    return dataset["config"]["values"]
+
+
+def _set_values(dataset: Mapping, values: Any) -> None:
+    dataset["config"]["values"] = values
+
+
 def _initialize_ev44(group: DataModuleParent) -> None:
+    """Initialize ev44 datasets in the parent.
+
+    Params
+    ------
+    group:
+        A data group that has a module place holder as a child.
+
+    Side Effects
+    ------------
+    ``children`` of the ``group`` will have 4 datasets with empty values.
+
+    - event_time_zero
+    - event_time_offset
+    - event_index
+    - event_id
+
+    This function doesn't remove a place holder from the ``children``.
+    It is expected to be removed outside of this function.
+
+    """
     children = group.setdefault("children", [])
     # event_time_zero
     children.append(
-        populate_dataset(
+        create_dataset(
             name="event_time_zero",
             dtype="int",
             initial_values=np.asarray([]),
@@ -87,7 +111,7 @@ def _initialize_ev44(group: DataModuleParent) -> None:
     )
     # event_time_offset
     children.append(
-        populate_dataset(
+        create_dataset(
             name="event_time_offset",
             dtype="int",
             initial_values=np.asarray([]),
@@ -96,7 +120,7 @@ def _initialize_ev44(group: DataModuleParent) -> None:
     )
     # event_index
     children.append(
-        populate_dataset(
+        create_dataset(
             name="event_index",
             dtype="int",
             initial_values=np.asarray([]),
@@ -107,7 +131,7 @@ def _initialize_ev44(group: DataModuleParent) -> None:
         ...  # Monitor doesn't have ``event_id``
     else:
         children.append(
-            populate_dataset(
+            create_dataset(
                 name="event_id",
                 dtype="int",
                 initial_values=np.asarray([]),
@@ -115,18 +139,29 @@ def _initialize_ev44(group: DataModuleParent) -> None:
         )
 
 
-def _array_values(dataset: Mapping) -> np.ndarray:
-    return dataset["config"]["values"]
-
-
-def _set_values(dataset: Mapping, values: Any) -> None:
-    dataset["config"]["values"] = values
-
-
 def _merge_ev44(group: DataModuleParent, data_piece: Mapping) -> None:
+    """Merges new values from a message into the data group.
+
+    Params
+    ------
+    group:
+        A data group that has a module place holder as a child.
+    data_piece:
+        New message containing deserialized ev44.
+
+    Side Effects
+    ------------
+    Each dataset in the children of ``group`` will have new values appended.
+    Most of array-like values are simply appended
+    but the ``event_index``(``reference_time_index`` from ev44) is increased
+    by the number of previous values of ``event_time_offset``
+    to find the global ``event_index``.
+    ``data_piece`` only has local ``event_index`` which always starts with 0.
+
+    """
     # event_time_zero - reference_time
     event_time_zero_dataset = find_nexus_structure(group, ("event_time_zero",))
-    original_event_time_zero = _array_values(event_time_zero_dataset)
+    original_event_time_zero = _get_array_values(event_time_zero_dataset)
     new_event_time_zero = data_piece["reference_time"]
     _set_values(
         event_time_zero_dataset,
@@ -134,7 +169,7 @@ def _merge_ev44(group: DataModuleParent, data_piece: Mapping) -> None:
     )
     # event_time_offset - time_of_flight
     event_time_offset_dataset = find_nexus_structure(group, ("event_time_offset",))
-    original_event_time_offset = _array_values(event_time_offset_dataset)
+    original_event_time_offset = _get_array_values(event_time_offset_dataset)
     new_event_time_offset = data_piece["time_of_flight"]
     _set_values(
         event_time_offset_dataset,
@@ -142,7 +177,7 @@ def _merge_ev44(group: DataModuleParent, data_piece: Mapping) -> None:
     )
     # event_index - reference_time_index
     event_index_dataset = find_nexus_structure(group, ("event_index",))
-    original_event_index = _array_values(event_index_dataset)
+    original_event_index = _get_array_values(event_index_dataset)
     event_index_offset = len(original_event_time_offset)
     new_event_index = data_piece["reference_time_index"] + event_index_offset
     _set_values(
@@ -150,10 +185,10 @@ def _merge_ev44(group: DataModuleParent, data_piece: Mapping) -> None:
     )
     # event_id - pixel_id
     if (
-        "pixel_id" in data_piece and data_piece['pixel_id'] is not None
+        "pixel_id" in data_piece and data_piece["pixel_id"] is not None
     ):  # Pixel id is optional.
         event_id_dataset = find_nexus_structure(group, ("event_id",))
-        original_event_id = _array_values(event_id_dataset)
+        original_event_id = _get_array_values(event_id_dataset)
         new_event_id = data_piece["pixel_id"]
         _set_values(event_id_dataset, np.concatenate((original_event_id, new_event_id)))
 
@@ -165,7 +200,7 @@ def _node_name(n):
 
 
 def iter_nexus_structure(
-    structure: Mapping, root: Optional[Tuple[Optional[str], ...]] = None
+    structure: Mapping, root: Optional[NexusPath] = None
 ) -> Iterable[tuple[tuple[str | None, ...], Mapping]]:
     """Visits all branches and leafs in the nexus tree"""
     path = (*root, _node_name(structure)) if root is not None else tuple()
@@ -192,7 +227,7 @@ def find_parent(structure: Mapping, path: Sequence[Optional[str]]) -> DataModule
 
 def find_ev44_matching_paths(
     structure: Mapping, data_piece: Mapping
-) -> Iterable[Tuple[Optional[str], ...]]:
+) -> Iterable[NexusPath]:
     source_name = data_piece["source_name"]
     for path, node in iter_nexus_structure(structure):
         if (
@@ -236,7 +271,7 @@ def _merge_message_into_data_module_store(
 
     Side Effects
     ------------
-    The ``store`` is updated with the merged data.
+    The ``data_module_store`` is updated with the merged data.
 
     """
     for path in path_matching_func(structure, data_piece):
