@@ -74,7 +74,7 @@ def nxevent_data_ev44_generator(
         yield EV44(
             source_name=source_name,
             reference_time=np.asarray(event_time_zero[i : i + 1]),
-            reference_time_index=np.asarray([start]),
+            reference_time_index=np.asarray([0]),
             time_of_flight=np.asarray(event_time_offset[start:end]),
             pixel_id=None if event_id is None else np.asarray(event_id[start:end]),
         )
