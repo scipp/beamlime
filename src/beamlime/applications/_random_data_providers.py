@@ -41,16 +41,17 @@ def random_ev44_generator(
     rng = default_rng(123)
     ef_rate = int(event_rate / frame_rate)
 
-    et_zero = ReferenceTimeZero(13620492**11)  # No reason
+    et_zero = ReferenceTimeZero(13620492 * 10**11)  # No reason
     while True:
         cur_event_number = int(
             ef_rate * (rng.integers(99, 101) / 100)
         )  # 1% of fluctuation
         yield EV44(
             source_name=source_name,
-            reference_time=[et_zero],
-            reference_time_index=[0],
-            time_of_flight=rng.random((cur_event_number,)) * 800 + 200,  # No reason
+            reference_time=np.asarray([et_zero]),
+            reference_time_index=np.asarray([0]),
+            time_of_flight=rng.random((cur_event_number,)) * 48_000_000
+            + 4_000_000,  # No reason
             pixel_id=(
                 None
                 if detector_numbers is None
@@ -72,8 +73,8 @@ def nxevent_data_ev44_generator(
     for i, (start, end) in enumerate(zip(event_index[:-1], event_index[1:])):
         yield EV44(
             source_name=source_name,
-            reference_time=event_time_zero[i : i + 1],
-            reference_time_index=[start],
-            time_of_flight=event_time_offset[start:end],
-            pixel_id=None if event_id is None else event_id[start:end],
+            reference_time=np.asarray(event_time_zero[i : i + 1]),
+            reference_time_index=np.asarray([0]),
+            time_of_flight=np.asarray(event_time_offset[start:end]),
+            pixel_id=None if event_id is None else np.asarray(event_id[start:end]),
         )

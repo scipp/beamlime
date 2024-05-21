@@ -3,7 +3,9 @@
 import hashlib
 import json
 import pathlib
+from typing import Generator, Mapping
 
+import numpy as np
 import pytest
 
 from beamlime.applications._nexus_helpers import (
@@ -55,14 +57,14 @@ def ev44_generator() -> RandomEV44Generator:
 
 
 @pytest.fixture
-def ymir_ev44_generator(ymir):
+def ymir_ev44_generator(ymir: dict) -> Generator[dict, None, None]:
     generators = fake_event_generators(
         ymir,
-        event_rate=100,
-        frame_rate=14,
+        event_rate=EventRate(100),
+        frame_rate=FrameRate(14),
     )
 
-    def events():
+    def events() -> Generator[dict, None, None]:
         for values in zip(*generators.values()):
             for value in values:
                 yield value
@@ -70,7 +72,7 @@ def ymir_ev44_generator(ymir):
     return events()
 
 
-def test_find_index_general():
+def test_find_index_general() -> None:
     first = {"name": "b0"}
     nested_obj = {
         "children": [
@@ -114,7 +116,7 @@ def test_ymir_detector_template_checksum() -> None:
     assert local_ymir_md5 == get_checksum("ymir_detectors.json")
 
 
-def test_ev44_generator_size(ev44_generator: RandomEV44Generator):
+def test_ev44_generator_size(ev44_generator: RandomEV44Generator) -> None:
     ef_rate = int(10_000 / 14)  # default event rate / frame rate
     events = next(ev44_generator)
 
@@ -125,66 +127,103 @@ def test_ev44_generator_size(ev44_generator: RandomEV44Generator):
     assert len(events["reference_time"]) == len(events["reference_time_index"])
 
 
-def test_ev44_generator_reference_time(ev44_generator: RandomEV44Generator):
+def test_ev44_generator_reference_time(ev44_generator: RandomEV44Generator) -> None:
     events = next(ev44_generator)
     next_events = next(ev44_generator)
     assert events["reference_time"][0] < next_events["reference_time"][0]
 
 
-def test_ev44_module_parsing(ymir, ymir_ev44_generator):  # noqa: F811
+def _is_class(partial_structure: Mapping, cls_name: str) -> bool:
+    return any(
+        a.get("values") == cls_name and a.get("name") == "NX_class"
+        for a in partial_structure.get("attributes", ())
+    )
+
+
+def _is_detector(c: Mapping) -> bool:
+    return _is_class(c, "NXdetector")
+
+
+def _is_event_data(c: Mapping) -> bool:
+    return _is_class(c, "NXevent_data")
+
+
+def test_ev44_module_parsing(ymir: dict) -> None:
+    result = combine_store_and_structure({}, ymir)
+
+    detectors = [c for _, c in iter_nexus_structure(result) if _is_detector(c)]
+    assert len(detectors) == 2  # We inserted 2 detectors in the ymir_detectors template
+
+
+def test_ev44_module_merging(
+    ymir: dict, ymir_ev44_generator: Generator[dict, None, None]
+) -> None:
     store = {}
     for _, e in zip(range(4), ymir_ev44_generator):
         merge_message_into_store(store, ymir, ("ev44", e))
-
-    assert len(store) == 2
     result = combine_store_and_structure(store, ymir)
 
-    assert 2 == sum(
-        1
-        for _, c in iter_nexus_structure(result)
-        if any(a.get("values") == "NXdetector" for a in c.get("attributes", ()))
-    )
-    for _, c in iter_nexus_structure(result):
-        if any(a.get("values") == "NXevent_data" for a in c.get("attributes", ())):
-            assert "module" not in c
-            assert "children" in c
-            assert all(v["module"] == "dataset" for v in c["children"])
+    for nx_event in (c for _, c in iter_nexus_structure(result) if _is_event_data(c)):
+        assert "children" in nx_event
+        assert all(v["module"] == "dataset" for v in nx_event["children"])
+
+
+def test_ev44_module_merging_numpy_array_wrapped(ymir, ymir_ev44_generator) -> None:
+    store = {}
+    for _, e in zip(range(4), ymir_ev44_generator):
+        merge_message_into_store(store, ymir, ("ev44", e))
+    result = combine_store_and_structure(store, ymir)
+    NUMPY_DATASETS = ("event_id", "event_index", "event_time_offset", "event_time_zero")
+
+    for nx_event in (c for _, c in iter_nexus_structure(result) if _is_event_data(c)):
+        assert all(
+            isinstance(v["config"]["values"], np.ndarray)
+            for v in nx_event["children"]
+            if v["config"]["name"] in NUMPY_DATASETS
+        )
+
+
+def test_ev44_module_parsing_original_unchanged(ymir, ymir_ev44_generator) -> None:
+    store = {}
+    for _, e in zip(range(4), ymir_ev44_generator):
+        merge_message_into_store(store, ymir, ("ev44", e))
+    combine_store_and_structure(store, ymir)
 
     # original unchanged
-    for _, c in iter_nexus_structure(ymir):
-        if any(a.get("values") == "NXevent_data" for a in c.get("attributes", ())):
-            assert c["children"][0]["module"] == "ev44"
+    for nx_event in (c for _, c in iter_nexus_structure(ymir) if _is_event_data(c)):
+        assert len(nx_event["children"]) == 1
+        assert nx_event["children"][0]["module"] == "ev44"
 
 
 def test_nxevent_data_ev44_generator_yields_frame_by_frame() -> None:
     ev44 = nxevent_data_ev44_generator(
         source_name=DetectorName("test"),
-        event_id=[1, 1, 2, 1, 2, 1],
-        event_index=[0, 3, 3, 5],
-        event_time_offset=[1, 2, 3, 4, 5, 6],
-        event_time_zero=[1, 2, 3],
+        event_id=np.asarray([1, 1, 2, 1, 2, 1]),
+        event_index=np.asarray([0, 3, 3, 5]),
+        event_time_offset=np.asarray([1, 2, 3, 4, 5, 6]),
+        event_time_zero=np.asarray([1, 2, 3]),
     )
 
     events = next(ev44)
     assert events["source_name"] == "test"
     assert events["reference_time"] == [1]
     assert events["reference_time_index"] == [0]
-    assert events["time_of_flight"] == [1, 2, 3]
-    assert events["pixel_id"] == [1, 1, 2]
+    assert np.all(events["time_of_flight"] == [1, 2, 3])
+    assert np.all(events["pixel_id"] == [1, 1, 2])
 
     events = next(ev44)
     assert events["source_name"] == "test"
     assert events["reference_time"] == [2]
-    assert events["reference_time_index"] == [3]
-    assert events["time_of_flight"] == []
-    assert events["pixel_id"] == []
+    assert events["reference_time_index"] == [0]  # always 0
+    assert len(events["time_of_flight"]) == 0
+    assert events["pixel_id"] is not None and len(events["pixel_id"]) == 0
 
     events = next(ev44)
     assert events["source_name"] == "test"
     assert events["reference_time"] == [3]
-    assert events["reference_time_index"] == [3]
-    assert events["time_of_flight"] == [4, 5]
-    assert events["pixel_id"] == [1, 2]
+    assert events["reference_time_index"] == [0]  # always 0
+    assert np.all(events["time_of_flight"] == [4, 5])
+    assert np.all(events["pixel_id"] == [1, 2])
 
     with pytest.raises(StopIteration):
         next(ev44)

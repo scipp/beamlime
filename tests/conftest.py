@@ -98,14 +98,14 @@ def default_factory() -> Factory:
 
 
 @pytest.fixture
-def ymir():
+def ymir() -> dict:
     with open(get_path('ymir_detectors.json')) as f:
         data = json.load(f)
     return data
 
 
 @pytest.fixture
-def loki(large_file_test: bool):
+def loki(large_file_test: bool) -> dict:
     assert large_file_test
     with open(get_path('loki.json')) as f:
         return json.load(f)
