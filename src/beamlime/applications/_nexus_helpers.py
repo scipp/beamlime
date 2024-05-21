@@ -100,6 +100,9 @@ MODULE_RECIPE_MAPS: Mapping[ModuleNameType, ModuleRecipe] = MappingProxyType(
 """Default dataset recipes for the supported modules."""
 
 
+_EV44_ARRAY_FIELDS = ("event_time_zero", "event_index", "event_time_offset", "pixel_id")
+
+
 def _merge_ev44(group: dict, data_piece: Mapping) -> None:
     for field, value in data_piece.items():
         if value is None or field not in _EV44_RECIPE:
@@ -108,12 +111,7 @@ def _merge_ev44(group: dict, data_piece: Mapping) -> None:
             continue
         try:
             dataset = find_nexus_structure(group, (_EV44_RECIPE[field].name,))
-            if _EV44_RECIPE[field].name in (
-                "event_time_zero",
-                "event_index",
-                "event_time_offset",
-                "pixel_id",
-            ):
+            if _EV44_RECIPE[field].name in _EV44_ARRAY_FIELDS:
                 dataset["config"]["values"] = np.concatenate(
                     (dataset["config"]["values"], value)
                 )
@@ -170,9 +168,9 @@ def _merge_message_into_store(
     path_matching_func: Callable[[Mapping, Mapping], Iterable[tuple[str | None, ...]]],
     merge_func: Callable[[dict, Mapping], None],
 ) -> None:
-    """Template function to merge a message into the store.
+    """Bridge function to merge a message into the store.
 
-    This template-style function was needed since different modules
+    This bridge was needed since different modules
     have different ways to match the paths and merge the data.
 
     Parameters
