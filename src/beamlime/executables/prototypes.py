@@ -37,6 +37,12 @@ def plot_saver_from_args(logger: BeamlimeLogger, args: argparse.Namespace) -> Pl
     return instantiate_from_args(logger, args, PlotSaver)
 
 
+def data_assembler_from_args(
+    logger: BeamlimeLogger, args: argparse.Namespace
+) -> DataAssembler:
+    return instantiate_from_args(logger, args, DataAssembler)
+
+
 def collect_default_providers() -> ProviderGroup:
     """Helper method to collect all default providers for this prototype."""
     from beamlime.constructors.providers import merge as merge_providers
@@ -52,7 +58,6 @@ def collect_default_providers() -> ProviderGroup:
     )
 
     additional_providers = ProviderGroup(
-        DataAssembler,
         DataReductionHandler,
         provide_stateless_workflow,
         read_nexus_template_file,
@@ -85,6 +90,7 @@ def run_standalone_prototype(
         ProviderGroup(
             fake_listener_from_args,
             plot_saver_from_args,
+            data_assembler_from_args,
         ),
     )
 

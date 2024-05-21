@@ -67,9 +67,11 @@ class DataAssembler(HandlerInterface):
     def __init__(
         self,
         *,
+        logger: BeamlimeLogger,
         merge_every_nth: MergeMessageCountInterval = 1,
         max_seconds_between_messages: MergeMessageTimeInterval = float("inf"),
     ):
+        self.logger = logger
         self._store = {}
         self._should_send_message = maxcount_or_maxtime(
             merge_every_nth, max_seconds_between_messages
@@ -95,6 +97,33 @@ class DataAssembler(HandlerInterface):
 
     def assemble_chopper_data(self, message: ChopperDataReceived) -> DataReady:
         return self._merge_message_and_return_response_if_ready("tdct", message.content)
+
+    @classmethod
+    def add_argument_group(cls, parser: argparse.ArgumentParser) -> None:
+        group = parser.add_argument_group("Data Assembler Configuration")
+        group.add_argument(
+            "--merge-every-nth",
+            help="Merge data every nth message.",
+            type=int,
+            default=1,
+        )
+        group.add_argument(
+            "--max-seconds-between-messages",
+            help="Maximum time between messages in seconds.\
+                  This should be (N: int) times (number of messages per frame).",
+            type=float,
+            default=float("inf"),
+        )
+
+    @classmethod
+    def from_args(
+        cls, logger: BeamlimeLogger, args: argparse.Namespace
+    ) -> "DataAssembler":
+        return cls(
+            logger=logger,
+            merge_every_nth=args.merge_every_nth,
+            max_seconds_between_messages=args.max_seconds_between_messages,
+        )
 
 
 class DataReductionHandler(HandlerInterface):

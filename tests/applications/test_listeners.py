@@ -58,7 +58,7 @@ async def test_fake_listener(fake_listener: FakeListener, num_frames: int) -> No
 
 
 async def test_data_assembler_returns_after_n_messages(fake_listener):
-    handler = DataAssembler(merge_every_nth=2)
+    handler = DataAssembler(logger=MockLogger(), merge_every_nth=2)
     gen = fake_listener.run()
     handler.set_run_start(await anext(gen))
     response = handler.assemble_detector_data(await anext(gen))
@@ -69,6 +69,7 @@ async def test_data_assembler_returns_after_n_messages(fake_listener):
 
 async def test_data_assembler_returns_after_s_seconds(fake_listener):
     handler = DataAssembler(
+        logger=MockLogger(),
         merge_every_nth=3,  # higher than number of messages we push below
         max_seconds_between_messages=0.1,
     )
