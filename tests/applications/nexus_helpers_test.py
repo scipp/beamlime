@@ -85,6 +85,11 @@ def test_find_index_general() -> None:
     assert find_nexus_structure(nested_obj, ("b0",)) == first
 
 
+def test_find_nexus_structure_not_found_raises() -> None:
+    with pytest.raises(KeyError):
+        find_nexus_structure({}, ("b0",))
+
+
 def test_invalid_nexus_template_multiple_module_placeholders() -> None:
     with open(pathlib.Path(__file__).parent / "multiple_modules_datagroup.json") as f:
         nexus_structure = json.load(f)
