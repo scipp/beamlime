@@ -24,11 +24,11 @@ from .daemons import (
 
 Events = NewType("Events", list[sc.DataArray])
 MergeMessageCountInterval = NewType("MergeMessageCountInterval", Number)
-'''Every MergeMessageCountInterval-th message the data assembler receives
-the data reduction is run'''
+"""Every MergeMessageCountInterval-th message the data assembler receives
+the data reduction is run"""
 MergeMessageTimeInterval = NewType("MergeMessageTimeInterval", Number)
-'''The data reduction is run when the DataAssembler receives a message and the time
-since the last reduction exceeds the length of the interval (in seconds)'''
+"""The data reduction is run when the DataAssembler receives a message and the time
+since the last reduction exceeds the length of the interval (in seconds)"""
 
 
 @dataclass
@@ -43,9 +43,9 @@ class WorkflowResultUpdate:
 
 def maxcount_or_maxtime(maxcount: Number, maxtime: Number):
     if maxcount <= 0:
-        raise ValueError('maxcount must be positive')
+        raise ValueError("maxcount must be positive")
     if maxtime <= 0:
-        raise ValueError('maxtime must be positive')
+        raise ValueError("maxtime must be positive")
 
     count = 0
     last = time.time()
@@ -68,7 +68,7 @@ class DataAssembler(HandlerInterface):
         self,
         *,
         merge_every_nth: MergeMessageCountInterval = 1,
-        max_seconds_between_messages: MergeMessageTimeInterval = float('inf'),
+        max_seconds_between_messages: MergeMessageTimeInterval = float("inf"),
     ):
         self._store = {}
         self._should_send_message = maxcount_or_maxtime(
@@ -88,13 +88,13 @@ class DataAssembler(HandlerInterface):
             return message
 
     def assemble_detector_data(self, message: DetectorDataReceived) -> DataReady:
-        return self._merge_message_and_return_response_if_ready('ev44', message.content)
+        return self._merge_message_and_return_response_if_ready("ev44", message.content)
 
     def assemble_log_data(self, message: LogDataReceived) -> DataReady:
-        return self._merge_message_and_return_response_if_ready('f144', message.content)
+        return self._merge_message_and_return_response_if_ready("f144", message.content)
 
     def assemble_chopper_data(self, message: ChopperDataReceived) -> DataReady:
-        return self._merge_message_and_return_response_if_ready('tdct', message.content)
+        return self._merge_message_and_return_response_if_ready("tdct", message.content)
 
 
 class DataReductionHandler(HandlerInterface):
@@ -119,17 +119,27 @@ def random_image_path() -> ImagePath:
     return ImagePath(pathlib.Path(f"beamlime_plot_{uuid.uuid4().hex}"))
 
 
+MaxPlotColumn = NewType("MaxPlotColumn", int)
+DefaultMaxPlotColumn = MaxPlotColumn(2)
+
+
 class PlotStreamer(HandlerInterface):
-    def __init__(self, logger: BeamlimeLogger) -> None:
+    def __init__(
+        self,
+        *,
+        logger: BeamlimeLogger,
+        max_column: MaxPlotColumn = DefaultMaxPlotColumn,
+    ) -> None:
         self.logger = logger
         self.figures = {}
         self.artists = {}
+        self.max_column = max_column
         super().__init__()
 
     def plot_item(self, name: str, data: sc.DataArray) -> None:
         figure = self.figures.get(name)
         if figure is None:
-            plot = data.plot()
+            plot = data.plot(title=name)
             # TODO Either improve Plopp's update method, or handle multiple artists
             if len(plot.artists) > 1:
                 raise NotImplementedError("Data with multiple items not supported.")
@@ -143,23 +153,50 @@ class PlotStreamer(HandlerInterface):
         for name, data in content.items():
             self.plot_item(name, data)
 
+    def show(self):
+        """Show the figures in a grid layout."""
+        from plopp.widgets import Box
+
+        figures = list(self.figures.values())
+        n_rows = len(figures) // self.max_column + 1
+        return Box(
+            [
+                figures[
+                    i_row * self.max_column : i_row * self.max_column + self.max_column
+                ]
+                for i_row in range(n_rows)
+            ]
+        )
+
 
 class PlotSaver(PlotStreamer):
     """Plot handler to save the updated histogram into an image file."""
 
-    def __init__(self, logger: BeamlimeLogger, image_path_prefix: ImagePath) -> None:
-        super().__init__(logger)
+    def __init__(
+        self,
+        *,
+        logger: BeamlimeLogger,
+        image_path_prefix: ImagePath,
+        max_column: MaxPlotColumn = DefaultMaxPlotColumn,
+    ) -> None:
+        super().__init__(logger=logger, max_column=max_column)
         self.image_path_prefix = image_path_prefix
 
     def save_histogram(self, message: WorkflowResultUpdate) -> None:
+        from plopp import tiled
+
         super().update_histogram(message)
-        self.info("Received histogram, saving into %s...", self.image_path_prefix)
-        for name, figure in self.figures.items():
-            figure.save(f'{self.image_path_prefix}-{name}.png')
+        image_file_name = f"{self.image_path_prefix}.png"
+        self.info("Received histogram(s), saving into %s...", image_file_name)
+        plot_tile = tiled((len(self.figures) // self.max_column) + 1, self.max_column)
+        for i_fig, figure in enumerate(self.figures.values()):
+            plot_tile[i_fig // self.max_column, i_fig % self.max_column] = figure
+
+        plot_tile.save(image_file_name)
 
     @classmethod
     def add_argument_group(cls, parser: argparse.ArgumentParser) -> None:
-        group = parser.add_argument_group('Plot Saver Configuration')
+        group = parser.add_argument_group("Plot Saver Configuration")
         group.add_argument(
             "--image-path-prefix",
             help="Path to save the histogram image.",
@@ -169,4 +206,7 @@ class PlotSaver(PlotStreamer):
 
     @classmethod
     def from_args(cls, logger: BeamlimeLogger, args: argparse.Namespace) -> "PlotSaver":
-        return cls(logger, args.image_path_prefix or random_image_path())
+        return cls(
+            logger=logger,
+            image_path_prefix=args.image_path_prefix or random_image_path(),
+        )
