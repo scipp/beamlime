@@ -214,14 +214,14 @@ def test_nxevent_data_ev44_generator_yields_frame_by_frame() -> None:
     events = next(ev44)
     assert events["source_name"] == "test"
     assert events["reference_time"] == [2]
-    assert events["reference_time_index"] == [3]
+    assert events["reference_time_index"] == [0]  # always 0
     assert len(events["time_of_flight"]) == 0
     assert events["pixel_id"] is not None and len(events["pixel_id"]) == 0
 
     events = next(ev44)
     assert events["source_name"] == "test"
     assert events["reference_time"] == [3]
-    assert events["reference_time_index"] == [3]
+    assert events["reference_time_index"] == [0]  # always 0
     assert np.all(events["time_of_flight"] == [4, 5])
     assert np.all(events["pixel_id"] == [1, 2])
 
