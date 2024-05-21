@@ -5,7 +5,7 @@ import pathlib
 import time
 from dataclasses import dataclass
 from numbers import Number
-from typing import NewType
+from typing import Mapping, NewType
 
 import scipp as sc
 from scippneutron.io.nexus._json_nexus import JSONGroup
@@ -13,7 +13,11 @@ from scippneutron.io.nexus._json_nexus import JSONGroup
 from beamlime.logging import BeamlimeLogger
 
 from ..stateless_workflow import StatelessWorkflow, WorkflowResult
-from ._nexus_helpers import combine_store_and_structure, merge_message_into_store
+from ._nexus_helpers import (
+    DataModuleStore,
+    combine_data_module_store_and_structure,
+    merge_message_into_data_module_store,
+)
 from .base import HandlerInterface
 from .daemons import (
     ChopperDataReceived,
@@ -33,7 +37,7 @@ since the last reduction exceeds the length of the interval (in seconds)"""
 
 @dataclass
 class DataReady:
-    content: JSONGroup
+    content: Mapping
 
 
 @dataclass
@@ -71,8 +75,9 @@ class DataAssembler(HandlerInterface):
         merge_every_nth: MergeMessageCountInterval = 1,
         max_seconds_between_messages: MergeMessageTimeInterval = float("inf"),
     ):
+        self.structure: Mapping
         self.logger = logger
-        self._store = {}
+        self._data_module_store: DataModuleStore = {}
         self._should_send_message = maxcount_or_maxtime(
             merge_every_nth, max_seconds_between_messages
         )
@@ -81,12 +86,16 @@ class DataAssembler(HandlerInterface):
         self.structure = message.content
 
     def _merge_message_and_return_response_if_ready(self, kind, message):
-        merge_message_into_store(self._store, self.structure, kind, message)
+        merge_message_into_data_module_store(
+            self._data_module_store, self.structure, kind, message
+        )
         if self._should_send_message():
             message = DataReady(
-                combine_store_and_structure(self._store, self.structure),
+                combine_data_module_store_and_structure(
+                    self._data_module_store, self.structure
+                ),
             )
-            self._store = {}
+            self._data_module_store = {}
             return message
 
     def assemble_detector_data(self, message: DetectorDataReceived) -> DataReady:

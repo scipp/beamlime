@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-from dataclasses import dataclass
-from types import MappingProxyType
 from typing import (
     Any,
     Callable,
@@ -28,97 +26,136 @@ class _NexusDataset(TypedDict):
     attributes: list[Mapping[str, Any]]
 
 
-@dataclass(frozen=True)
-class DatasetRecipe:
-    """Recipe that describes dtype and unit of a dataset in a module."""
+NexusPath = tuple[str | None, ...]
 
+
+class DataModuleParent(TypedDict):
+    """``group`` that holds the data module place holder or datasets
+
+    It was named as a parent, not a module
+    since the module place holder is one of the children of it.
+    """
+
+    children: list[Mapping]
+    """A module place holder or datasets."""
     name: str
-    """Real name of the dataset in the file."""
-    dtype: NexusDtype
-    """Data type of the dataset in string."""
-    unit: str | None = None
-    """Unit of the dataset in string."""
-
-    def populate(self, values: Any) -> _NexusDataset:
-        """Populates the dataset according to the recipe."""
-        dataset: _NexusDataset = {
-            "module": "dataset",
-            "config": {
-                "name": self.name,
-                "dtype": self.dtype,
-                "values": values,
-            },
-            "attributes": [],
-        }
-        if self.unit is not None:
-            attrs = dataset["attributes"]
-            attrs.append(
-                {
-                    "name": "units",
-                    "dtype": "string",
-                    "values": self.unit,
-                }
-            )
-        return dataset
+    """Name of the group."""
 
 
-FlatBufferSchemaFieldNameType = Literal[
-    # ev44
-    "reference_time",
-    "reference_time_index",
-    "time_of_flight",
-    "pixel_id",
-]
-ModuleRecipe = Mapping[FlatBufferSchemaFieldNameType, DatasetRecipe]
-"""Module recipe that describes the dataset structure of a module.
+DataModuleStore = dict[NexusPath, DataModuleParent]
 
-For example,
-{
-    "event_id": DatasetRecipe(dtype="int64"),
-    "event_time_offset": DatasetRecipe(dtype="float", unit="ns"),
-}
-"""
+
+def populate_dataset(
+    *, name: str, dtype: str, initial_values: Any, unit: str | None = None
+) -> _NexusDataset:
+    """Populates the dataset according to the recipe."""
+    dataset: _NexusDataset = {
+        "module": "dataset",
+        "config": {
+            "name": name,
+            "dtype": dtype,
+            "values": initial_values,
+        },
+        "attributes": [],
+    }
+    if unit is not None:
+        attrs = dataset["attributes"]
+        attrs.append(
+            {
+                "name": "units",
+                "dtype": "string",
+                "values": unit,
+            }
+        )
+    return dataset
+
 
 ModuleNameType = Literal["ev44"]  # "f144", "tdct" will be added in the future
 """Name of the module that is supported by beamlime."""
 
-_EV44_RECIPE: ModuleRecipe = MappingProxyType(
-    {
-        "reference_time": DatasetRecipe(name="event_time_zero", dtype="int", unit="ns"),
-        "reference_time_index": DatasetRecipe(name="event_index", dtype="int"),
-        "time_of_flight": DatasetRecipe(
-            name="event_time_offset", dtype="int", unit="ns"
-        ),
-        "pixel_id": DatasetRecipe(name="event_id", dtype="int"),
-    }
-)
-MODULE_RECIPE_MAPS: Mapping[ModuleNameType, ModuleRecipe] = MappingProxyType(
-    {
-        "ev44": _EV44_RECIPE,
-    }
-)
-"""Default dataset recipes for the supported modules."""
+
+def _initialize_ev44(group: DataModuleParent) -> None:
+    children = group.setdefault("children", [])
+    # event_time_zero
+    children.append(
+        populate_dataset(
+            name="event_time_zero",
+            dtype="int",
+            initial_values=np.asarray([]),
+            unit="ns",
+        )
+    )
+    # event_time_offset
+    children.append(
+        populate_dataset(
+            name="event_time_offset",
+            dtype="int",
+            initial_values=np.asarray([]),
+            unit="ns",
+        )
+    )
+    # event_index
+    children.append(
+        populate_dataset(
+            name="event_index",
+            dtype="int",
+            initial_values=np.asarray([]),
+        )
+    )
+    # event_id
+    if "monitor" in group["name"]:
+        ...  # Monitor doesn't have ``event_id``
+    else:
+        children.append(
+            populate_dataset(
+                name="event_id",
+                dtype="int",
+                initial_values=np.asarray([]),
+            )
+        )
 
 
-_EV44_ARRAY_FIELDS = ("event_time_zero", "event_index", "event_time_offset", "pixel_id")
+def _array_values(dataset: Mapping) -> np.ndarray:
+    return dataset["config"]["values"]
 
 
-def _merge_ev44(group: dict, data_piece: Mapping) -> None:
-    for field, value in data_piece.items():
-        if value is None or field not in _EV44_RECIPE:
-            # Could be monitor without pixel_id
-            # or other fields that is not included in the file.
-            continue
-        try:
-            dataset = find_nexus_structure(group, (_EV44_RECIPE[field].name,))
-            if _EV44_RECIPE[field].name in _EV44_ARRAY_FIELDS:
-                dataset["config"]["values"] = np.concatenate(
-                    (dataset["config"]["values"], value)
-                )
-            else:
-                dataset["config"]["values"] = value
-        except KeyError:
-            group.setdefault('children', []).append(_EV44_RECIPE[field].populate(value))
+def _set_values(dataset: Mapping, values: Any) -> None:
+    dataset["config"]["values"] = values
+
+
+def _merge_ev44(group: DataModuleParent, data_piece: Mapping) -> None:
+    # event_time_zero - reference_time
+    event_time_zero_dataset = find_nexus_structure(group, ("event_time_zero",))
+    original_event_time_zero = _array_values(event_time_zero_dataset)
+    new_event_time_zero = data_piece["reference_time"]
+    _set_values(
+        event_time_zero_dataset,
+        np.concatenate((original_event_time_zero, new_event_time_zero)),
+    )
+    # event_time_offset - time_of_flight
+    event_time_offset_dataset = find_nexus_structure(group, ("event_time_offset",))
+    original_event_time_offset = _array_values(event_time_offset_dataset)
+    new_event_time_offset = data_piece["time_of_flight"]
+    _set_values(
+        event_time_offset_dataset,
+        np.concatenate((original_event_time_offset, new_event_time_offset)),
+    )
+    # event_index - reference_time_index
+    event_index_dataset = find_nexus_structure(group, ("event_index",))
+    original_event_index = _array_values(event_index_dataset)
+    event_index_offset = len(original_event_time_offset)
+    new_event_index = data_piece["reference_time_index"] + event_index_offset
+    _set_values(
+        event_index_dataset, np.concatenate((original_event_index, new_event_index))
+    )
+    # event_id - pixel_id
+    if (
+        "pixel_id" in data_piece and data_piece['pixel_id'] is not None
+    ):  # Pixel id is optional.
+        event_id_dataset = find_nexus_structure(group, ("event_id",))
+        original_event_id = _array_values(event_id_dataset)
+        new_event_id = data_piece["pixel_id"]
+        _set_values(event_id_dataset, np.concatenate((original_event_id, new_event_id)))
 
 
 def _node_name(n):
@@ -148,6 +185,11 @@ def find_nexus_structure(structure: Mapping, path: Sequence[Optional[str]]) -> M
     raise KeyError(f"Path {path} not found in the nexus structure.")
 
 
+def find_parent(structure: Mapping, path: Sequence[Optional[str]]) -> DataModuleParent:
+    # TODO: We can use typeguard here later.
+    return find_nexus_structure(structure, path[:-1])
+
+
 def find_ev44_matching_paths(
     structure: Mapping, data_piece: Mapping
 ) -> Iterable[Tuple[Optional[str], ...]]:
@@ -160,13 +202,14 @@ def find_ev44_matching_paths(
             yield path
 
 
-def _merge_message_into_store(
+def _merge_message_into_data_module_store(
     *,
-    store: dict[tuple[str | None, ...], dict],
+    data_module_store: DataModuleStore,
     structure: Mapping,
     data_piece: Mapping,
     path_matching_func: Callable[[Mapping, Mapping], Iterable[tuple[str | None, ...]]],
-    merge_func: Callable[[dict, Mapping], None],
+    data_field_initialize_func: Callable[[DataModuleParent], None],
+    merge_func: Callable[[DataModuleParent, Mapping], None],
 ) -> None:
     """Bridge function to merge a message into the store.
 
@@ -175,14 +218,19 @@ def _merge_message_into_store(
 
     Parameters
     ----------
-    store:
-        The store that holds the data.
+    data_module_store:
+        The data module store that holds the data.
     structure:
         The nexus structure.
     data_piece:
         The content of the message.
     path_matching_func:
         A function that returns the paths that match the message.
+    data_field_initialize_func:
+        A function that initializes the datasets in the module.
+        *Initialize is done only when the relevant message arrives.*
+        It is because we should distinguish between empty dataset and
+        unexpectedly-not-receiving data.
     merge_func:
         A function that merges the message into the store.
 
@@ -192,21 +240,26 @@ def _merge_message_into_store(
 
     """
     for path in path_matching_func(structure, data_piece):
-        if path not in store:
-            parent = find_nexus_structure(structure, path[:-1])
-            store[path] = dict(
-                children=[],
-                name=_node_name(parent),
-            )
-            if "attributes" in parent:
-                store[path]["attributes"] = parent["attributes"]
+        try:
+            merge_func(data_module_store[path], data_piece)
+        except KeyError:
+            parent = find_parent(structure, path)
+            # Validate the module place holder in the parent
             if len(parent["children"]) > 1:
                 raise ValueError("Multiple modules found in the same data group.")
-        merge_func(store[path], data_piece)
+            # Initialize the data module storage.
+            data_module_store[path] = {
+                **parent,
+                "children": [],  # Drop the module place holder
+            }
+            # Initialize the data fields.
+            data_field_initialize_func(data_module_store[path])
+            # Merge data piece
+            merge_func(data_module_store[path], data_piece)
 
 
-def merge_message_into_store(
-    store: dict[tuple[str | None, ...], dict],
+def merge_message_into_data_module_store(
+    data_module_store: DataModuleStore,
     structure: Mapping,
     kind: ModuleNameType,
     data_piece: Mapping,
@@ -234,37 +287,40 @@ def merge_message_into_store(
     then the data of the rest of detectors will be lost.
     """
     if kind == "ev44":
-        _merge_message_into_store(
-            store=store,
+        _merge_message_into_data_module_store(
+            data_module_store=data_module_store,
             structure=structure,
             data_piece=data_piece,
             path_matching_func=find_ev44_matching_paths,
+            data_field_initialize_func=_initialize_ev44,
             merge_func=_merge_ev44,
         )
     else:
         raise NotImplementedError
 
 
-def combine_store_and_structure(
-    store: Mapping[Tuple[Optional[str], ...], Mapping], structure: dict
-):
+def combine_data_module_store_and_structure(
+    data_module_store: DataModuleStore, structure: Mapping
+) -> Mapping:
     """Creates a new nexus structure, replacing the stream modules
     with the datasets in `store`, while avoiding
     to copy data from `structure` if unnecessary"""
-    if len(store) == 0:
+    if len(data_module_store) == 0:
         return structure
-    if (None,) in store:
-        return store[(None,)]
+    if (None,) in data_module_store:
+        return data_module_store[(None,)]
 
-    new = structure.copy()
+    new = {**structure}  # Faster than `dict()`
+    # and avoid static type-error of `copy`
+    # since `structure` is `Mapping`
     if "children" in structure:
         children = []
         for child in structure["children"]:
             children.append(
-                combine_store_and_structure(
+                combine_data_module_store_and_structure(
                     {
                         tuple(tail): group
-                        for (head, *tail), group in store.items()
+                        for (head, *tail), group in data_module_store.items()
                         if head == _node_name(child)
                     },
                     child,
