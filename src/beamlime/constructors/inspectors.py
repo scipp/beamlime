@@ -25,9 +25,10 @@ def validate_annotation(annotation: Any) -> Literal[True]:
 
     If it for later implementation of Union type handling.
     """
+    from types import UnionType
     from typing import get_origin
 
-    if get_origin(annotation) == Union:
+    if get_origin(annotation) == Union or isinstance(annotation, UnionType):
         raise NotImplementedError("Union annotation is not supported.")
     return True
 
@@ -127,9 +128,12 @@ class DependencySpec(Generic[Product]):
 
     @staticmethod
     def extract_dependency_type(dependency_type: Any) -> None:
+        from types import UnionType
         from typing import Union, get_args, get_origin
 
-        if get_origin(dependency_type) == Union:
+        if get_origin(dependency_type) == Union or isinstance(
+            dependency_type, UnionType
+        ):
             if len((args := get_args(dependency_type))) == 2 and type(None) in args:
                 # Optional
                 return args[0] if isinstance(None, args[1]) else args[1]
