@@ -116,7 +116,7 @@ def test_reconstruct_report(benchmark_session: BenchmarkSession):
         return a + b
 
     with benchmark_session.configure(iterations=3):
-        for a, b in zip([1, 2, 3], [3, 2, 1]):
+        for a, b in zip([1, 2, 3], [3, 2, 1], strict=True):
             benchmark_session.run(sample_func, a=a, b=b)
 
     benchmark_session.save()
