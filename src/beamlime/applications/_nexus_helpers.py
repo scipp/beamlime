@@ -290,9 +290,7 @@ def _merge_message_into_nexus_group_store(
 
     """
     for path in path_matching_func(structure, data_piece):
-        try:
-            merge_func(nexus_group_store[path], data_piece)
-        except KeyError:
+        if path not in nexus_group_store:
             parent = find_parent(structure, path)
             # Validate the module place holder in the parent
             if len(parent["children"]) > 1:
@@ -304,8 +302,9 @@ def _merge_message_into_nexus_group_store(
             }
             # Initialize the data fields.
             data_field_initialize_func(nexus_group_store[path], data_piece)
-            # Merge data piece
-            merge_func(nexus_group_store[path], data_piece)
+
+        # Merge data piece
+        merge_func(nexus_group_store[path], data_piece)
 
 
 def merge_message_into_nexus_group_store(
