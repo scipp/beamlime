@@ -119,7 +119,7 @@ def test_provider_local_scope_function_raises():
         Provider(local_function)
 
 
-def func_with_union_arg(_: Union[int, float, None]) -> int:
+def func_with_union_arg(_: float | None) -> int:
     return 0
 
 

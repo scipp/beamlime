@@ -3,9 +3,8 @@
 import pathlib
 import platform
 import uuid
-from collections import namedtuple
 from dataclasses import dataclass
-from typing import NewType
+from typing import NamedTuple, NewType
 
 import psutil
 
@@ -17,17 +16,19 @@ OperatingSystem = NewType("OperatingSystem", str)
 OperatingSystemVersion = NewType("OperatingSystemVersion", str)
 PlatformDesc = NewType("PlatformDesc", str)
 MachineType = NewType("MachineType", str)  # Processor type.
-TotalMemory = namedtuple('TotalMemory', ['value', 'unit'])
-PhysicalCpuCores = namedtuple(
-    'PhysicalCpuCores', ['value', 'unit']
+TotalMemory = NamedTuple('TotalMemory', [('value', int), ('unit', str)])
+PhysicalCpuCores = NamedTuple(
+    'PhysicalCpuCores', [('value', int), ('unit', str)]
 )  # Physical number of CPU cores.
-LogicalCpuCores = namedtuple(
-    'LogicalCpuCores', ['value', 'unit']
+LogicalCpuCores = NamedTuple(
+    'LogicalCpuCores', [('value', int), ('unit', str)]
 )  # Logical number of CPU cores.
-ProcessCpuAffinity = namedtuple('ProcessCpuAffinity', ['value', 'unit'])
-CpuFrequency = namedtuple('CpuFrequency', ['current', 'min', 'max'])
-MaximumFrequency = namedtuple('MaximumFrequency', ['value', 'unit'])
-MinimumFrequency = namedtuple('MinimumFrequency', ['value', 'unit'])
+ProcessCpuAffinity = NamedTuple('ProcessCpuAffinity', [('value', int), ('unit', str)])
+CpuFrequency = NamedTuple(
+    'CpuFrequency', [('current', int), ('min', int), ('max', int)]
+)
+MaximumFrequency = NamedTuple('MaximumFrequency', [('value', int), ('unit', str)])
+MinimumFrequency = NamedTuple('MinimumFrequency', [('value', int), ('unit', str)])
 
 env_providers[OperatingSystem] = platform.system
 env_providers[OperatingSystemVersion] = platform.version
@@ -114,7 +115,7 @@ class HardwareSpec:
 
 
 GitRootDir = NewType("GitRootDir", pathlib.Path)
-BenchmarkRootDir = NewType("BenchmarkRootPath", pathlib.Path)
+BenchmarkRootDir = NewType("BenchmarkRootDir", pathlib.Path)
 BenchmarkSessionID = NewType("BenchmarkSessionID", str)
 GitCommitID = NewType("GitCommitID", str)
 DateTimeSuffix = NewType("DateTimeSuffix", str)

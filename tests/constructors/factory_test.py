@@ -92,7 +92,7 @@ def test_factory_optional_annotation_none(optional_arg_func):
     assert factory[object] is None
 
 
-def func_union_arg(arg: Union[None, int, float] = None) -> Any:
+def func_union_arg(arg: float | None = None) -> Any:
     return arg
 
 
@@ -105,7 +105,7 @@ def func_optional_return(arg: Optional[int] = None) -> Optional[int]:
     return arg
 
 
-def func_union_return(arg: Union[int, float, None] = None) -> Union[int, float, None]:
+def func_union_return(arg: float | None = None) -> Union[int, float, None]:
     return arg
 
 
