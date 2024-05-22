@@ -88,8 +88,7 @@ def test_provider_can_provide_generic():
 
 
 def test_provider_can_provide_false():
-    class StrChild(str):
-        ...
+    class StrChild(str): ...
 
     assert not Provider(make_a_joke).can_provide(int)
     assert not Provider(make_a_joke).can_provide(StrChild)
@@ -114,8 +113,7 @@ def test_provider_class_method_raises():
 
 
 def test_provider_local_scope_function_raises():
-    def local_function():
-        ...
+    def local_function(): ...
 
     with pytest.raises(NotImplementedError):
         Provider(local_function)
@@ -153,8 +151,7 @@ def test_insufficient_annotation_raises():
 def test_singleton_provider():
     from beamlime.constructors import SingletonProvider
 
-    class TestClass:
-        ...
+    class TestClass: ...
 
     singleton_provider = SingletonProvider(TestClass)
     assert singleton_provider() is singleton_provider()

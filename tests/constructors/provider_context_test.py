@@ -105,8 +105,7 @@ def test_temporary_provider_compatible_new_type(test_factory: Factory):
             assert factory[Joke] == bin(99)
 
 
-class HexJoke(str):
-    ...
+class HexJoke(str): ...
 
 
 def how_many_problems_i_hex() -> BinaryJoke:

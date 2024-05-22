@@ -7,20 +7,16 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Generic, Literal, NewType, Type, TypeVar, Union
 
 
-class Empty:
-    ...
+class Empty: ...
 
 
-class InsufficientAnnotationError(Exception):
-    ...
+class InsufficientAnnotationError(Exception): ...
 
 
-class ProductNotFoundError(Exception):
-    ...
+class ProductNotFoundError(Exception): ...
 
 
-class UnknownType:
-    ...
+class UnknownType: ...
 
 
 def validate_annotation(annotation: Any) -> Literal[True]:
@@ -203,7 +199,7 @@ def collect_argument_specs(
 
 
 def collect_attr_specs(
-    callable_class: Callable[..., Product]
+    callable_class: Callable[..., Product],
 ) -> Dict[str, DependencySpec]:
     """
     Collect Dependencies from the type hints of the class.
