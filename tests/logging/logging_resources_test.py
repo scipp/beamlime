@@ -3,6 +3,8 @@
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from beamlime import Factory
 from beamlime.logging.resources import (
     FileHandlerBasePath,
@@ -17,15 +19,22 @@ from beamlime.logging.resources import (
 )
 
 
-@patch("beamlime.logging.resources.datetime")
-def test_time_tag(_datetime):
+@pytest.fixture()
+def real_now():
     from datetime import datetime as real_dt
     from datetime import timezone
 
-    from beamlime.logging.resources import create_utc_time_without_microsecond
+    return real_dt.now(tz=timezone.utc).replace(microsecond=0)
 
-    real_now = real_dt.now(tz=timezone.utc).replace(microsecond=0)
-    _datetime.now.return_value = real_now
+
+@pytest.fixture()
+def mock_now(real_now):
+    return patch("beamlime.logging.resources.datetime.now", return_value=real_now)
+
+
+@pytest.mark.usefixtures('mock_now', 'real_now')
+def test_time_tag(real_now):
+    from beamlime.logging.resources import create_utc_time_without_microsecond
 
     assert create_utc_time_without_microsecond() == UTCTimeTag(real_now.isoformat())
 
@@ -47,7 +56,9 @@ def test_create_log_file_invalid_prefix_raises():
     file_prefix = LogFilePrefix("bean_line")
     time_tag = UTCTimeTag("rightnow")
     file_extension = LogFileExtension("leaf")
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="Log file prefix should not contain any underscore"
+    ):
         create_log_file_name(
             prefix=file_prefix, time_tag=time_tag, extension=file_extension
         )
@@ -89,7 +100,7 @@ def test_create_log_file_directory_not_ready_raises(tmp_path: Path):
 
     log_dir = LogDirectoryPath(tmp_path / Path("tmp"))
     log_file = LogFileName(Path("tmp.log"))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Directory should be ready first."):
         create_log_file_path(
             directory_ready=False, parent_dir=log_dir, file_name=log_file
         )

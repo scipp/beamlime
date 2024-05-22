@@ -46,7 +46,7 @@ def test_ev44_generator_no_detector_numbers() -> None:
     assert len(events["reference_time"]) == len(events["reference_time_index"])
 
 
-@pytest.fixture
+@pytest.fixture()
 def ev44_generator() -> RandomEV44Generator:
     return random_ev44_generator(
         source_name=DetectorName("test"),
@@ -56,7 +56,7 @@ def ev44_generator() -> RandomEV44Generator:
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def ymir_ev44_generator(ymir: dict) -> Generator[dict, None, None]:
     generators = fake_event_generators(
         ymir,
@@ -244,7 +244,8 @@ def test_nxevent_data_ev44_generator_yields_frame_by_frame() -> None:
     assert events["reference_time"] == [2]
     assert events["reference_time_index"] == [0]  # always 0
     assert len(events["time_of_flight"]) == 0
-    assert events["pixel_id"] is not None and len(events["pixel_id"]) == 0
+    assert events["pixel_id"] is not None
+    assert len(events["pixel_id"]) == 0
 
     events = next(ev44)
     assert events["source_name"] == "test"

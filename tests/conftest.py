@@ -75,7 +75,7 @@ def large_file_test(request: pytest.FixtureRequest) -> Literal[True]:
     return True
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture()
 def local_logger() -> Generator[Literal[True], None, None]:
     """
     Keep a copy of logger names in logging.Logger.manager.loggerDict
@@ -89,7 +89,7 @@ def local_logger() -> Generator[Literal[True], None, None]:
         yield True
 
 
-@pytest.fixture
+@pytest.fixture()
 def default_factory() -> Factory:
     """Returns a Factory that has all default providers of ``beamlime``."""
     from beamlime.logging.providers import log_providers
@@ -97,14 +97,14 @@ def default_factory() -> Factory:
     return Factory(log_providers)
 
 
-@pytest.fixture
+@pytest.fixture()
 def ymir() -> dict:
     with open(get_path('ymir_detectors.json')) as f:
         data = json.load(f)
     return data
 
 
-@pytest.fixture
+@pytest.fixture()
 def loki(large_file_test: bool) -> dict:
     assert large_file_test
     with open(get_path('loki.json')) as f:

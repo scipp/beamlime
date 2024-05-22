@@ -25,7 +25,7 @@ def num_frames(request) -> int:
     return request.param
 
 
-@pytest.fixture
+@pytest.fixture()
 def fake_listener(num_frames: int, ymir) -> FakeListener:
     from beamlime.applications.daemons import (
         DataFeedingSpeed,

@@ -18,12 +18,12 @@ from tests.providers.preset_providers import (
 )
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_provider_group() -> ProviderGroup:
     return ProviderGroup(Adult, Parent, give_a_good_telling)
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_factory(test_provider_group) -> Factory:
     return Factory(test_provider_group)
 
@@ -69,7 +69,7 @@ def func_union_optional_arg(arg: Union[None, int] = None) -> object:
 
 @pytest.mark.parametrize(
     "optional_arg_func",
-    (func_optional_arg, func_implicit_optional_arg, func_union_optional_arg),
+    [func_optional_arg, func_implicit_optional_arg, func_union_optional_arg],
 )
 def test_factory_optional_annotation(optional_arg_func):
     provider_group = ProviderGroup(optional_arg_func)
@@ -80,11 +80,11 @@ def test_factory_optional_annotation(optional_arg_func):
 
 @pytest.mark.parametrize(
     "optional_arg_func",
-    (
+    [
         func_optional_arg,
         func_implicit_optional_arg,
         func_union_optional_arg,
-    ),
+    ],
 )
 def test_factory_optional_annotation_none(optional_arg_func):
     provider_group = ProviderGroup(optional_arg_func)
@@ -111,10 +111,10 @@ def func_union_return(arg: Union[int, float, None] = None) -> Union[int, float, 
 
 @pytest.mark.parametrize(
     "union_return_func",
-    (
+    [
         func_optional_return,
         func_union_return,
-    ),
+    ],
 )
 def test_factory_optional_return_raises(union_return_func):
     with pytest.raises(NotImplementedError):

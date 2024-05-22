@@ -5,7 +5,6 @@ from logging import DEBUG, ERROR, INFO, WARNING, Logger, getLevelName
 from pathlib import Path
 
 import pytest
-from pytest import LogCaptureFixture
 
 from beamlime import Factory
 from beamlime.logging import (
@@ -44,7 +43,7 @@ def test_logmixin_protocol(local_logger: bool):
 
 
 @pytest.mark.parametrize(
-    ["level", "log_method", "msg_suffix"],
+    ("level", "log_method", "msg_suffix"),
     [
         (DEBUG, "debug", "debugged"),
         (INFO, "info", "informed"),
@@ -56,7 +55,7 @@ def test_app_logging_stream(
     level: int,
     log_method,
     msg_suffix: str,
-    caplog: LogCaptureFixture,
+    caplog: pytest.LogCaptureFixture,
     local_logger: bool,
 ):
     from beamlime.logging import get_logger
@@ -129,7 +128,7 @@ def test_file_handler_configuration_existing_dir_raises(
 
 
 @pytest.mark.parametrize(
-    ["level", "log_method", "msg_suffix"],
+    ("level", "log_method", "msg_suffix"),
     [
         (DEBUG, "debug", "debugged"),
         (INFO, "info", "informed"),
