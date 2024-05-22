@@ -31,7 +31,8 @@ def async_retry(
             for _ in range(max_trials - 1):
                 try:
                     return await func(*args, **kwargs)
-                except exceptions:
+                except exceptions:  # noqa: PERF203
+                    # Ignoring PERF203, not allowing an try-except within a for loop.
                     await asyncio.sleep(interval)
 
             return await func(*args, **kwargs)
@@ -61,7 +62,8 @@ def retry(
             for _ in range(max_trials - 1):
                 try:
                     return func(*args, **kwargs)
-                except exceptions:
+                except exceptions:  # noqa: PERF203
+                    # Ignoring PERF203, not allowing an try-except within a for loop.
                     time.sleep(interval)
 
             return func(*args, **kwargs)

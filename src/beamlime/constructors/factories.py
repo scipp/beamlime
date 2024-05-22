@@ -87,7 +87,8 @@ class Factory:
         for attr_name, attr_type in attr_dependencies.items():
             try:
                 setattr(product, attr_name, self[attr_type])
-            except ProviderNotFoundError as err:
+            except ProviderNotFoundError as err:  # noqa: PERF203
+                # Ignoring PERF203, not allowing an try-except within a for loop.
                 if not hasattr(product, attr_name):
                     raise err
                 else:

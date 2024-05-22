@@ -337,17 +337,15 @@ def combine_nexus_group_store_and_structure(
 
     new = {**structure}
     if "children" in structure:
-        children = []
-        for child in structure["children"]:
-            children.append(
-                combine_nexus_group_store_and_structure(
-                    structure=child,
-                    nexus_group_store={
-                        tuple(tail): group
-                        for (head, *tail), group in nexus_group_store.items()
-                        if head == _node_name(child)
-                    },
-                )
+        new["children"] = [
+            combine_nexus_group_store_and_structure(
+                structure=child,
+                nexus_group_store={
+                    tuple(tail): group
+                    for (head, *tail), group in nexus_group_store.items()
+                    if head == _node_name(child)
+                },
             )
-        new["children"] = children
+            for child in structure["children"]
+        ]
     return new
