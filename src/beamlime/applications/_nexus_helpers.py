@@ -38,7 +38,7 @@ class NexusGroupDict(TypedDict):
     """Name of the group."""
 
 
-DataModuleStore = dict[NexusPath, NexusGroupDict]
+NexusGroupDictStore = dict[NexusPath, NexusGroupDict]
 
 
 def create_dataset(
@@ -239,7 +239,7 @@ def find_ev44_matching_paths(
 
 def _merge_message_into_data_module_store(
     *,
-    data_module_store: DataModuleStore,
+    data_module_store: NexusGroupDictStore,
     structure: Mapping,
     data_piece: Mapping,
     path_matching_func: Callable[[Mapping, Mapping], Iterable[tuple[str | None, ...]]],
@@ -294,7 +294,7 @@ def _merge_message_into_data_module_store(
 
 
 def merge_message_into_data_module_store(
-    data_module_store: DataModuleStore,
+    data_module_store: NexusGroupDictStore,
     structure: Mapping,
     kind: ModuleNameType,
     data_piece: Mapping,
@@ -335,7 +335,7 @@ def merge_message_into_data_module_store(
 
 
 def combine_data_module_store_and_structure(
-    data_module_store: DataModuleStore, structure: Mapping
+    data_module_store: NexusGroupDictStore, structure: Mapping
 ) -> Mapping:
     """Creates a new nexus structure, replacing the stream modules
     with the datasets in `store`, while avoiding

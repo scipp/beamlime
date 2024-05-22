@@ -14,7 +14,7 @@ from beamlime.logging import BeamlimeLogger
 
 from ..stateless_workflow import StatelessWorkflow, WorkflowResult
 from ._nexus_helpers import (
-    DataModuleStore,
+    NexusGroupDictStore,
     combine_data_module_store_and_structure,
     merge_message_into_data_module_store,
 )
@@ -77,7 +77,7 @@ class DataAssembler(HandlerInterface):
     ):
         self.structure: Mapping
         self.logger = logger
-        self._data_module_store: DataModuleStore = {}
+        self._data_module_store: NexusGroupDictStore = {}
         self._should_send_message = maxcount_or_maxtime(
             merge_every_nth, max_seconds_between_messages
         )
