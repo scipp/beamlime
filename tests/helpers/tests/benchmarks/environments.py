@@ -130,7 +130,7 @@ def provide_git_root() -> GitRootDir:
     import subprocess
 
     command = ['git', 'rev-parse', '--show-toplevel']
-    command_result = subprocess.run(command, stdout=subprocess.PIPE, text=True)
+    command_result = subprocess.run(command, stdout=subprocess.PIPE, text=True)  # noqa: S603
     git_root_path = pathlib.Path(command_result.stdout.removesuffix('\n'))
     return GitRootDir(git_root_path)
 
@@ -140,7 +140,7 @@ def provide_git_commit_id() -> GitCommitID:
     import subprocess
 
     command = ['git', 'rev-parse', 'HEAD']
-    command_result = subprocess.run(command, stdout=subprocess.PIPE, text=True)
+    command_result = subprocess.run(command, stdout=subprocess.PIPE, text=True)  # noqa: S603
     return GitCommitID(command_result.stdout.removesuffix('\n'))
 
 
