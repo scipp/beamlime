@@ -96,7 +96,7 @@ def _initialize_ev44(group: NexusGroupDict, data_piece: DeserializedMessage) -> 
     - event_id
 
     """
-    children = group.setdefault("children", [])
+    children = group["children"]
     # event_time_zero
     children.append(
         create_dataset(
