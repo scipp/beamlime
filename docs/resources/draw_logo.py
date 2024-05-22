@@ -41,10 +41,10 @@ def partial_radial_line(
 ) -> Line:
     l_start = center.copy()
     l_start[0] += radius * crop_ratio
-    r_start = rotate_coordinate(indices=l_start, center=center, angle=angle) + [0]
+    r_start = [*rotate_coordinate(indices=l_start, center=center, angle=angle), 0]
     l_end = center.copy()
     l_end[0] += radius
-    new_end = rotate_coordinate(indices=l_end, center=center, angle=angle) + [0]
+    new_end = [*rotate_coordinate(indices=l_end, center=center, angle=angle), 0]
     return Line(start=r_start, end=new_end, stroke_width=thickness)
 
 

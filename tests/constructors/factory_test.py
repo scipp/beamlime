@@ -48,7 +48,7 @@ def test_factory_getitem_with_arg_dependency():
     assert factory[GoodTelling] == another_good_telling
 
 
-def func_implicit_optional_arg(arg: int = None) -> object:  # type:ignore[assignment]
+def func_implicit_optional_arg(arg: int | None = None) -> object:  # type:ignore[assignment]
     # TODO: Remove this test case when ``inspect.signature``
     # does not annotation implicit Optional.
     # When a default value is set as ``None``,

@@ -17,7 +17,7 @@ class DrawingOptions:
     max_label_anchor: tuple = (0, 0)
 
 
-@dataclass
+@dataclass(frozen=True)
 class ESSInstrumentRequirements:
     num_pixels: tuple
     event_rate: tuple
@@ -45,53 +45,62 @@ def _min_max_pair(values: tuple) -> tuple:
     return min(values), max(values)
 
 
+BEER_REQUIREMENTS = ESSInstrumentRequirements(
+    num_pixels=(200000, 400000),
+    event_rate=(3e5, 2e6, 5e7),
+    drawing_options=DrawingOptions(color="red", min_label_anchor=(1e4, 2e4)),
+)
+BIFROST_REQUIREMENTS = ESSInstrumentRequirements(
+    num_pixels=(5000,),
+    event_rate=(1e6, 1e5),
+    drawing_options=DrawingOptions(color="blue", min_label_anchor=(0, 0.5e3)),
+)
+CSPEC_REQUIREMENTS = ESSInstrumentRequirements(
+    num_pixels=(400000, 750000),
+    event_rate=(1e6, 1e7),
+    drawing_options=DrawingOptions(color="magenta", min_label_anchor=(0, 3e4)),
+)
+DREAM_REQUIREMENTS = ESSInstrumentRequirements(
+    num_pixels=(4000000, 12000000),
+    event_rate=(1.3e6, 1e7, 7.5e7),
+    drawing_options=DrawingOptions(
+        color="black", min_label_anchor=(0, 1.5e5), max_label_anchor=(0, 4e5)
+    ),
+)
+LOKI_REQUIREMENTS = ESSInstrumentRequirements(
+    num_pixels=(750000, 1500000),
+    event_rate=(1e7, 3.33e5, 1.92e6, 1.2e5, 7.5e5, 4.69e4),
+    drawing_options=DrawingOptions(color="pink", min_label_anchor=(0, 5e4)),
+)
+MAGIC_REQUIREMENTS = ESSInstrumentRequirements(
+    num_pixels=(1440000, 2880000),
+    event_rate=(1e6, 1e7),
+    drawing_options=DrawingOptions(
+        color="purple",
+        min_label_anchor=(1.1e7, -1e5),
+        max_label_anchor=(1.1e7, -2e5),
+    ),
+)
+ESTIA_REQUIREMENTS = ESSInstrumentRequirements(
+    num_pixels=(250000, 500000),
+    event_rate=(4e6, 2e6, 8e5, 8e5),
+    drawing_options=DrawingOptions(
+        color="grey", min_label_anchor=(4e6, -2e4), max_label_anchor=(4e6, -3e4)
+    ),
+)
+
+
 @dataclass
 class ESSInstruments:
     """ESS Instrument Requirements for benchmarking."""
 
-    beer: ESSInstrumentRequirements = ESSInstrumentRequirements(
-        num_pixels=(200000, 400000),
-        event_rate=(3e5, 2e6, 5e7),
-        drawing_options=DrawingOptions(color="red", min_label_anchor=(1e4, 2e4)),
-    )
-    bifrost: ESSInstrumentRequirements = ESSInstrumentRequirements(
-        num_pixels=(5000,),
-        event_rate=(1e6, 1e5),
-        drawing_options=DrawingOptions(color="blue", min_label_anchor=(0, 0.5e3)),
-    )
-    cspec: ESSInstrumentRequirements = ESSInstrumentRequirements(
-        num_pixels=(400000, 750000),
-        event_rate=(1e6, 1e7),
-        drawing_options=DrawingOptions(color="magenta", min_label_anchor=(0, 3e4)),
-    )
-    dream: ESSInstrumentRequirements = ESSInstrumentRequirements(
-        num_pixels=(4000000, 12000000),
-        event_rate=(1.3e6, 1e7, 7.5e7),
-        drawing_options=DrawingOptions(
-            color="black", min_label_anchor=(0, 1.5e5), max_label_anchor=(0, 4e5)
-        ),
-    )
-    loki: ESSInstrumentRequirements = ESSInstrumentRequirements(
-        num_pixels=(750000, 1500000),
-        event_rate=(1e7, 3.33e5, 1.92e6, 1.2e5, 7.5e5, 4.69e4),
-        drawing_options=DrawingOptions(color="pink", min_label_anchor=(0, 5e4)),
-    )
-    magic: ESSInstrumentRequirements = ESSInstrumentRequirements(
-        num_pixels=(1440000, 2880000),
-        event_rate=(1e6, 1e7),
-        drawing_options=DrawingOptions(
-            color="purple",
-            min_label_anchor=(1.1e7, -1e5),
-            max_label_anchor=(1.1e7, -2e5),
-        ),
-    )
-    estia: ESSInstrumentRequirements = ESSInstrumentRequirements(
-        num_pixels=(250000, 500000),
-        event_rate=(4e6, 2e6, 8e5, 8e5),
-        drawing_options=DrawingOptions(
-            color="grey", min_label_anchor=(4e6, -2e4), max_label_anchor=(4e6, -3e4)
-        ),
-    )
+    beer: ESSInstrumentRequirements = BEER_REQUIREMENTS
+    bifrost: ESSInstrumentRequirements = BIFROST_REQUIREMENTS
+    cspec: ESSInstrumentRequirements = CSPEC_REQUIREMENTS
+    dream: ESSInstrumentRequirements = DREAM_REQUIREMENTS
+    loki: ESSInstrumentRequirements = LOKI_REQUIREMENTS
+    magic: ESSInstrumentRequirements = MAGIC_REQUIREMENTS
+    estia: ESSInstrumentRequirements = ESTIA_REQUIREMENTS
     # TODO: NMX
     # TODO: ODIN
 

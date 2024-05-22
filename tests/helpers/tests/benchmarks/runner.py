@@ -171,6 +171,10 @@ BenchmarkIterations = NewType("BenchmarkIterations", int)
 AutoSaveFlag = NewType("AutoSaveFlag", bool)
 
 
+DEFAULT_ITERATIONS = BenchmarkIterations(1)
+DEFAULT_AUTO_SAVE = AutoSaveFlag(True)
+
+
 @dataclass
 class BenchmarkSessionConfiguration:
     """
@@ -184,8 +188,8 @@ class BenchmarkSessionConfiguration:
 
     """
 
-    iterations: BenchmarkIterations = BenchmarkIterations(1)
-    auto_save: AutoSaveFlag = AutoSaveFlag(True)
+    iterations: BenchmarkIterations = DEFAULT_ITERATIONS
+    auto_save: AutoSaveFlag = DEFAULT_AUTO_SAVE
 
 
 @dataclass

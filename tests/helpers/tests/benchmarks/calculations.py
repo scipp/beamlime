@@ -93,7 +93,7 @@ def cast_operation_per_bin(
         tuple(dim_indices): operation(_get_bin(binned, *dim_indices).values)
         for dim_indices in product(*collect_dimension_indexes(container))
     }
-    container.unit = [value.unit for value in values.values()].pop(0)
+    container.unit = next(value.unit for value in values.values())
 
     for dim_indices, value in values.items():
         _set_value(container, value, *dim_indices)

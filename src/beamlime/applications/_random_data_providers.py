@@ -71,7 +71,9 @@ def nxevent_data_ev44_generator(
     event_time_zero: np.ndarray,
 ) -> Generator[EV44, Any, Any]:
     """Generate EV44 from datasets of a NXevent_data group."""
-    for i, (start, end) in enumerate(zip(event_index[:-1], event_index[1:])):
+    from itertools import pairwise
+
+    for i, (start, end) in enumerate(pairwise(event_index)):
         yield EV44(
             source_name=source_name,
             reference_time=np.asarray(event_time_zero[i : i + 1]),

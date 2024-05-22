@@ -34,7 +34,7 @@ class KafkaTopicInput(Horizontal):
     def compose(self) -> ComposeResult:
         self.topic_input = Input('', 'Enter a new topic name')
         yield Container(self.topic_input)
-        yield Container(Button('Add Topic ➕', id='add-topic'))
+        yield Container(Button('Add Topic ➕', id='add-topic'))  # noqa: RUF001
 
     def on_button_pressed(self, event: Button.Pressed):
         event.stop()

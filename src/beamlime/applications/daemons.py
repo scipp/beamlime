@@ -58,7 +58,7 @@ def read_nexus_template_file(path: NexusTemplatePath) -> NexusTemplate:
 
 
 def _try_load_nxevent_data(
-    file_path: str | None, group_path: tuple[str]
+    file_path: str | None, group_path: tuple[str, ...]
 ) -> dict[str, np.ndarray] | None:
     """
     Try to load NXevent_data for a given group from a file.
@@ -68,7 +68,7 @@ def _try_load_nxevent_data(
     if file_path is None:
         return
     with h5py.File(file_path, 'r') as f:
-        group_path = group_path + (group_path[-1] + '_events',)
+        group_path = (*group_path, group_path[-1] + '_events')
         try:
             group = f['/'.join(group_path)]
         except KeyError:
