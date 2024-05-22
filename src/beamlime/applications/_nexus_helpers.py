@@ -40,7 +40,7 @@ class NexusGroupDict(TypedDict):
 
 NexusGroupDictStore = dict[NexusPath, NexusGroupDict]
 """A dictionary to store nexus groups for merging data pieces."""
-NexusStructure = Mapping
+NexusDictStructure = dict
 """A whole/partial nexus structure used for the data acquisition."""
 
 
@@ -208,7 +208,7 @@ def _node_name(n):
 
 
 def iter_nexus_structure(
-    structure: NexusStructure, root: Optional[NexusPath] = None
+    structure: NexusDictStructure, root: Optional[NexusPath] = None
 ) -> Iterable[tuple[tuple[str | None, ...], Mapping]]:
     """Visits all branches and leafs in the nexus tree"""
     path = (*root, _node_name(structure)) if root is not None else tuple()
@@ -218,7 +218,7 @@ def iter_nexus_structure(
 
 
 def find_nexus_structure(
-    structure: NexusStructure, path: Sequence[Optional[str]]
+    structure: NexusDictStructure, path: Sequence[Optional[str]]
 ) -> Mapping:
     """Returns the branch or leaf associated with `path`, or None if not found"""
     if len(path) == 0:
@@ -231,14 +231,14 @@ def find_nexus_structure(
 
 
 def find_parent(
-    structure: NexusStructure, path: Sequence[Optional[str]]
+    structure: NexusDictStructure, path: Sequence[Optional[str]]
 ) -> NexusGroupDict:
     # TODO: We can use typeguard here later.
     return find_nexus_structure(structure, path[:-1])
 
 
 def find_ev44_matching_paths(
-    structure: NexusStructure, data_piece: DeserializedMessage
+    structure: NexusDictStructure, data_piece: DeserializedMessage
 ) -> Iterable[NexusPath]:
     source_name = data_piece["source_name"]
     for path, node in iter_nexus_structure(structure):
@@ -251,11 +251,11 @@ def find_ev44_matching_paths(
 
 def _merge_message_into_nexus_group_store(
     *,
-    structure: NexusStructure,
+    structure: NexusDictStructure,
     nexus_group_store: NexusGroupDictStore,
     data_piece: DeserializedMessage,
     path_matching_func: Callable[
-        [NexusStructure, DeserializedMessage], Iterable[NexusPath]
+        [NexusDictStructure, DeserializedMessage], Iterable[NexusPath]
     ],
     data_field_initialize_func: Callable[[NexusGroupDict, DeserializedMessage], None],
     merge_func: Callable[[NexusGroupDict, DeserializedMessage], None],
@@ -310,7 +310,7 @@ def _merge_message_into_nexus_group_store(
 
 def merge_message_into_nexus_group_store(
     *,
-    structure: NexusStructure,
+    structure: NexusDictStructure,
     nexus_group_store: NexusGroupDictStore,
     data_piece: DeserializedMessage,
     module_name: ModuleNameType,
@@ -351,8 +351,8 @@ def merge_message_into_nexus_group_store(
 
 
 def combine_nexus_group_store_and_structure(
-    *, structure: NexusStructure, nexus_group_store: NexusGroupDictStore
-) -> NexusStructure:
+    *, structure: NexusDictStructure, nexus_group_store: NexusGroupDictStore
+) -> NexusDictStructure:
     """Creates a new nexus structure, replacing the stream modules
     with the datasets in `store`, while avoiding
     to copy data from `structure` if unnecessary"""
@@ -361,9 +361,7 @@ def combine_nexus_group_store_and_structure(
     if (None,) in nexus_group_store:
         return nexus_group_store[(None,)]
 
-    new = {**structure}  # Faster than `dict()`
-    # and avoid static type-error of `copy`
-    # since `structure` is `Mapping`
+    new = {**structure}
     if "children" in structure:
         children = []
         for child in structure["children"]:

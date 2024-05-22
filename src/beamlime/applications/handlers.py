@@ -16,8 +16,8 @@ from ..stateless_workflow import StatelessWorkflow, WorkflowResult
 from ._nexus_helpers import (
     DeserializedMessage,
     ModuleNameType,
+    NexusDictStructure,
     NexusGroupDictStore,
-    NexusStructure,
     combine_nexus_group_store_and_structure,
     merge_message_into_nexus_group_store,
 )
@@ -78,7 +78,7 @@ class DataAssembler(HandlerInterface):
         merge_every_nth: MergeMessageCountInterval = 1,
         max_seconds_between_messages: MergeMessageTimeInterval = float("inf"),
     ):
-        self.structure: NexusStructure
+        self.structure: NexusDictStructure
         self.logger = logger
         self._nexus_group_store: NexusGroupDictStore = {}
         self._should_send_message = maxcount_or_maxtime(
