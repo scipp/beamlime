@@ -85,16 +85,16 @@ class BenchmarkReport:
     arguments: dict[str, list]
 
     def __init__(self) -> None:
-        self.target_names = list()
-        self.measurements = dict()
-        self.arguments = dict()
+        self.target_names = []
+        self.measurements = {}
+        self.arguments = {}
 
     def append_measurement(self, result: BenchmarkResult) -> None:
         measurement = asdict(result)
         for meas_dim in measurement:
             _append_row(
-                self.measurements.setdefault(meas_dim, dict(value=[], unit=[])),
-                measurement.get(meas_dim) or dict(value=None, unit=None),
+                self.measurements.setdefault(meas_dim, {"value": [], "unit": []}),
+                measurement.get(meas_dim) or {"value": None, "unit": None},
             )
 
     def append(self, single_run_result: SingleRunReport) -> None:

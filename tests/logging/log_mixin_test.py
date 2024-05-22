@@ -94,7 +94,7 @@ def test_file_handler_configuration(
         logger: Logger = get_logger(verbose=False)
         # Should not have any file handlers set.
         hdlrs = logger.handlers
-        assert not any([hdlr for hdlr in hdlrs if isinstance(hdlr, FileHandler)])
+        assert not any(hdlr for hdlr in hdlrs if isinstance(hdlr, FileHandler))
 
         # Set a file handler.
         assert factory[FileHandlerConfigured]

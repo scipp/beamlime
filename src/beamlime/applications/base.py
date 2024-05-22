@@ -66,10 +66,10 @@ class MessageRouter(DaemonInterface):
 
         self.handlers: dict[
             type[MessageProtocol], List[Callable[[MessageProtocol], Any]]
-        ] = dict()
+        ] = {}
         self.awaitable_handlers: dict[
             type[MessageProtocol], List[Callable[[MessageProtocol], Awaitable[Any]]]
-        ] = dict()
+        ] = {}
         self.message_pipe = Queue()
 
     @contextmanager
@@ -117,7 +117,7 @@ class MessageRouter(DaemonInterface):
         if isinstance(result, MessageProtocol):
             return [result]
         elif isinstance(result, tuple):
-            return list(_msg for _msg in result if isinstance(_msg, MessageProtocol))
+            return [_msg for _msg in result if isinstance(_msg, MessageProtocol)]
         else:
             return []
 

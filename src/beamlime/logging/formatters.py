@@ -114,14 +114,14 @@ class LogHeader(OrderedDict[str, LogColumn]):
     ):
         self.padding = padding
         self.sep = sep
-        if len(args) > 1 and all([isinstance(arg, LogColumn) for arg in args]):
+        if len(args) > 1 and all(isinstance(arg, LogColumn) for arg in args):
             self._init_from_columns(*args)
         else:
             raise TypeError("All positional arguments should be ``LogColumn``.")
         self.style: _FormatStyle = self._retrieve_style(*args)
 
     def _retrieve_style(self, *columns: LogColumn) -> _FormatStyle:
-        styles: set[_FormatStyle] = set([col.style for col in columns])
+        styles: set[_FormatStyle] = {col.style for col in columns}
         if len(styles) > 1:
             raise ValueError("All columns should have the same style of formatting.")
 

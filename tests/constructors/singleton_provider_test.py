@@ -6,7 +6,7 @@ from beamlime.constructors import SingletonProvider
 
 
 def function_with_unhashable_arguments(unhashable_arg: list) -> list:
-    return [_ for _ in unhashable_arg]
+    return list(unhashable_arg)
 
 
 def random_number() -> float:

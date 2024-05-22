@@ -193,7 +193,7 @@ def iter_nexus_structure(
     structure: NexusStructure, root: Optional[NexusPath] = None
 ) -> Iterable[tuple[tuple[str | None, ...], Mapping]]:
     """Visits all branches and leafs in the nexus tree"""
-    path = (*root, _node_name(structure)) if root is not None else tuple()
+    path = (*root, _node_name(structure)) if root is not None else ()
     yield path, structure
     for child in structure.get("children", []):
         yield from iter_nexus_structure(child, root=path)

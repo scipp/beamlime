@@ -262,7 +262,7 @@ class _ArgumentFilter(ABC):
     ) -> dict[str, Any]:
         if not self.was_called():
             self.save_arguments(arguments)
-            filtered, rest = arguments, dict()
+            filtered, rest = arguments, {}
         else:
             filtered, rest = split_dict_by_filter(self.arguments_filter, arguments)
 
@@ -288,7 +288,7 @@ class _ArgumentsHashFilter(_ArgumentFilter):
         from functools import _lru_cache_wrapper
 
         super().__init__()
-        self.indicators: dict[str, _lru_cache_wrapper] = dict()
+        self.indicators: dict[str, _lru_cache_wrapper] = {}
 
     def initialize_indicators(self) -> None:
         for arg_name, arg_val in self.arguments.items():
@@ -421,7 +421,7 @@ def check_conflicting_providers(*prov_grs: ProviderGroup) -> None:
     union_keys = reduce(lambda x, y: x.union(y), keys_list)
 
     def _collect_by(tp: Type[Product]) -> set[Provider[Product]]:
-        return set([group[tp] for group in prov_grs if tp in group])
+        return {group[tp] for group in prov_grs if tp in group}
 
     # If there is any overlapping providers or conflicting providers
     if conflicts := {
@@ -457,7 +457,7 @@ class ProviderGroup:
         Initializes an empty internal provider dictionary
         and fills it with the initial providers from the argument.
         """
-        self._providers: Dict[Type[Product], Provider[Product]] = dict()
+        self._providers: Dict[Type[Product], Provider[Product]] = {}
         for _provider in initial_providers:
             self.provider(_provider)
 

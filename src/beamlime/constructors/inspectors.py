@@ -208,7 +208,7 @@ def collect_attr_specs(
     from typing import get_type_hints
 
     if not isinstance(callable_class, type):
-        return dict()
+        return {}
     else:
         return {
             attr_name: DependencySpec(
