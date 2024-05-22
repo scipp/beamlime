@@ -14,7 +14,7 @@ from typing import (
 import numpy as np
 
 
-class _NexusDataset(TypedDict):
+class NexusDatasetDict(TypedDict):
     """``dataset`` module structure in the nexus json format."""
 
     module: str
@@ -25,10 +25,10 @@ class _NexusDataset(TypedDict):
 NexusPath = tuple[str | None, ...]
 
 
-class DataModuleParent(TypedDict):
-    """``group`` that holds the data module place holder or datasets
+class NexusGroupDict(TypedDict):
+    """A nexus group that holds the data module place holder or datasets.
 
-    It was named as a parent, not a module
+    It was named as a group, not a module
     since the module place holder is one of the children of it.
     """
 
@@ -38,14 +38,14 @@ class DataModuleParent(TypedDict):
     """Name of the group."""
 
 
-DataModuleStore = dict[NexusPath, DataModuleParent]
+DataModuleStore = dict[NexusPath, NexusGroupDict]
 
 
 def create_dataset(
     *, name: str, dtype: str, initial_values: Any, unit: str | None = None
-) -> _NexusDataset:
+) -> NexusDatasetDict:
     """Creates a dataset according to the arguments."""
-    dataset: _NexusDataset = {
+    dataset: NexusDatasetDict = {
         "module": "dataset",
         "config": {
             "name": name,
@@ -78,7 +78,7 @@ def _set_values(dataset: Mapping, values: Any) -> None:
     dataset["config"]["values"] = values
 
 
-def _initialize_ev44(group: DataModuleParent) -> None:
+def _initialize_ev44(group: NexusGroupDict) -> None:
     """Initialize ev44 datasets in the parent.
 
     Params
@@ -139,7 +139,7 @@ def _initialize_ev44(group: DataModuleParent) -> None:
         )
 
 
-def _merge_ev44(group: DataModuleParent, data_piece: Mapping) -> None:
+def _merge_ev44(group: NexusGroupDict, data_piece: Mapping) -> None:
     """Merges new values from a message into the data group.
 
     Params
@@ -220,7 +220,7 @@ def find_nexus_structure(structure: Mapping, path: Sequence[Optional[str]]) -> M
     raise KeyError(f"Path {path} not found in the nexus structure.")
 
 
-def find_parent(structure: Mapping, path: Sequence[Optional[str]]) -> DataModuleParent:
+def find_parent(structure: Mapping, path: Sequence[Optional[str]]) -> NexusGroupDict:
     # TODO: We can use typeguard here later.
     return find_nexus_structure(structure, path[:-1])
 
@@ -243,8 +243,8 @@ def _merge_message_into_data_module_store(
     structure: Mapping,
     data_piece: Mapping,
     path_matching_func: Callable[[Mapping, Mapping], Iterable[tuple[str | None, ...]]],
-    data_field_initialize_func: Callable[[DataModuleParent], None],
-    merge_func: Callable[[DataModuleParent, Mapping], None],
+    data_field_initialize_func: Callable[[NexusGroupDict], None],
+    merge_func: Callable[[NexusGroupDict, Mapping], None],
 ) -> None:
     """Bridge function to merge a message into the store.
 
