@@ -76,14 +76,6 @@ DeserializedMessage = Mapping
 """Deserialized message from one of the schemas bound to :attr:`~ModuleNameType`."""
 
 
-def _get_array_values(dataset: Mapping) -> np.ndarray:
-    return dataset["config"]["values"]
-
-
-def _set_values(dataset: Mapping, values: Any) -> None:
-    dataset["config"]["values"] = values
-
-
 def _initialize_ev44(group: NexusGroupDict, data_piece: DeserializedMessage) -> None:
     """Initialize ev44 datasets in the parent.
 
@@ -165,39 +157,29 @@ def _merge_ev44(group: NexusGroupDict, data_piece: DeserializedMessage) -> None:
     """
     # event_time_zero - reference_time
     event_time_zero_dataset = find_nexus_structure(group, ("event_time_zero",))
-    _set_values(
-        event_time_zero_dataset,
-        np.concatenate(
-            (_get_array_values(event_time_zero_dataset), data_piece["reference_time"])
-        ),
+    event_time_zero_dataset["config"]["values"] = np.concatenate(
+        (event_time_zero_dataset["config"]["values"], data_piece["reference_time"])
     )
     # event_time_offset - time_of_flight
     event_time_offset_dataset = find_nexus_structure(group, ("event_time_offset",))
-    original_event_time_offset = _get_array_values(event_time_offset_dataset)
-    _set_values(
-        event_time_offset_dataset,
-        np.concatenate((original_event_time_offset, data_piece["time_of_flight"])),
+    original_event_time_offset = event_time_offset_dataset["config"]["values"]
+    event_time_offset_dataset["config"]["values"] = np.concatenate(
+        (original_event_time_offset, data_piece["time_of_flight"])
     )
     # event_index - reference_time_index
     # Increase event index according to the ``original_event_time_index``
     event_index_dataset = find_nexus_structure(group, ("event_index",))
-    _set_values(
-        event_index_dataset,
-        np.concatenate(
-            (
-                _get_array_values(event_index_dataset),
-                data_piece["reference_time_index"] + len(original_event_time_offset),
-            )
-        ),
+    event_index_dataset["config"]["values"] = np.concatenate(
+        (
+            event_index_dataset["config"]["values"],
+            data_piece["reference_time_index"] + len(original_event_time_offset),
+        )
     )
     # event_id - pixel_id
     if data_piece.get("pixel_id") is not None:  # Pixel id is optional.
         event_id_dataset = find_nexus_structure(group, ("event_id",))
-        _set_values(
-            event_id_dataset,
-            np.concatenate(
-                (_get_array_values(event_id_dataset), data_piece["pixel_id"])
-            ),
+        event_id_dataset["config"]["values"] = np.concatenate(
+            (event_id_dataset["config"]["values"], data_piece["pixel_id"])
         )
 
 
@@ -219,7 +201,7 @@ def iter_nexus_structure(
 
 def find_nexus_structure(
     structure: NexusDictStructure, path: Sequence[Optional[str]]
-) -> Mapping:
+) -> NexusDictStructure:
     """Returns the branch or leaf associated with `path`, or None if not found"""
     if len(path) == 0:
         return structure
@@ -231,7 +213,7 @@ def find_nexus_structure(
 
 
 def find_parent(
-    structure: NexusDictStructure, path: Sequence[Optional[str]]
+    structure: NexusGroupDict | NexusDictStructure, path: Sequence[Optional[str]]
 ) -> NexusGroupDict:
     # TODO: We can use typeguard here later.
     return find_nexus_structure(structure, path[:-1])
