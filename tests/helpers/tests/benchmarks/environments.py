@@ -155,9 +155,9 @@ def provide_benchmark_root(git_root_path: GitRootDir) -> BenchmarkRootDir:
 
 @env_providers.provider
 def provide_now() -> DateTimeSuffix:
-    from datetime import datetime
+    from datetime import datetime, timezone
 
-    return DateTimeSuffix(datetime.utcnow().isoformat(timespec='seconds'))
+    return DateTimeSuffix(datetime.now(tz=timezone.utc).isoformat(timespec='seconds'))
 
 
 @env_providers.provider

@@ -78,16 +78,17 @@ def initialize_file_handler(
     check_file_handlers(logger)
     _hdlrs = [hdlr for hdlr in logger.handlers if isinstance(hdlr, BeamlimeFileHandler)]
     file_paths = [hdlr.baseFilename for hdlr in _hdlrs]
-    if any((file_paths)):
+    if any(file_paths):
         logger.warning(
             "Attempt to add a new file handler to the current logger, "
             "but a file handler is already configured. "
-            f"Log file base path is {file_paths}"
-            "Aborting without changing the logger..."
+            "Log file base path is %s"
+            "Aborting without changing the logger...",
+            file_paths,
         )
         return FileHandlerConfigured(True)
 
-    logger.info(f"Start collecting logs into {file_handler.baseFilename}")
+    logger.info("Start collecting logs into %s", file_handler.baseFilename)
     logger.addHandler(file_handler)
 
     return FileHandlerConfigured(True)
