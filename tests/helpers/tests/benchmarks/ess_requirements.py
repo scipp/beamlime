@@ -118,7 +118,10 @@ class ESSInstruments:
             label_anchors = [do.min_label_anchor, do.max_label_anchor]
 
             for num_pixels, label_anchor in zip(
-                {min_np, max_np}, label_anchors, strict=True
+                {min_np, max_np},
+                label_anchors,
+                strict=False,
+                # strict=False since ``min_np`` and ``max_np`` can be the same.
             ):
                 _plot_bound_line(ax, (min_er, num_pixels), (max_er, num_pixels), do)
                 label_pos = _shift_pos((min_er, num_pixels), label_anchor)
