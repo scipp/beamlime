@@ -23,7 +23,7 @@ class B:
     a: A
 
 
-@pytest.fixture
+@pytest.fixture()
 def benchmark_session_factory():
     from tests.benchmarks.runner import create_benchmark_session_factory
 
@@ -49,7 +49,7 @@ def benchmark_session_factory():
     return create_benchmark_session_factory(runner_type=TestRunner)
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture()
 def benchmark_tmp_path(
     tmp_path: pathlib.Path, benchmark_session_factory: Factory
 ) -> pathlib.Path:
@@ -59,7 +59,7 @@ def benchmark_tmp_path(
         return benchmark_session_factory[BenchmarkResultFilePath]
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture()
 def benchmark_session(
     benchmark_session_factory: Factory, benchmark_tmp_path: pathlib.Path
 ) -> Generator[BenchmarkSession, None, None]:
