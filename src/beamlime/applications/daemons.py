@@ -11,7 +11,7 @@ import h5py
 import numpy as np
 
 from ..logging import BeamlimeLogger
-from ._nexus_helpers import find_nexus_structure, iter_nexus_structure
+from ._nexus_helpers import NexusPath, find_nexus_structure, iter_nexus_structure
 from ._random_data_providers import (
     DataFeedingSpeed,
     EventRate,
@@ -123,7 +123,9 @@ def fake_event_generators(
     return generators
 
 
-def _find_groups_by_nx_class(nexus_structure, nx_class: str) -> dict[str, Mapping]:
+def _find_groups_by_nx_class(
+    nexus_structure: Mapping, nx_class: str
+) -> dict[NexusPath, Mapping]:
     return {
         path: node
         for path, node in iter_nexus_structure(nexus_structure)

@@ -5,7 +5,7 @@
 def main() -> None:
     from beamlime import Factory
     from beamlime.applications.daemons import FakeListener
-    from beamlime.applications.handlers import PlotSaver
+    from beamlime.applications.handlers import DataAssembler, PlotSaver
     from beamlime.executables.options import build_arg_parser
     from beamlime.executables.prototypes import (
         collect_default_providers,
@@ -13,7 +13,7 @@ def main() -> None:
     )
 
     factory = Factory(collect_default_providers())
-    arg_parser = build_arg_parser(FakeListener, PlotSaver)
+    arg_parser = build_arg_parser(FakeListener, PlotSaver, DataAssembler)
 
     run_standalone_prototype(factory, arg_name_space=arg_parser.parse_args())
 

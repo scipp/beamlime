@@ -9,10 +9,10 @@ import numpy as np
 import pytest
 
 from beamlime.applications._nexus_helpers import (
-    combine_store_and_structure,
+    combine_nexus_group_store_and_structure,
     find_nexus_structure,
     iter_nexus_structure,
-    merge_message_into_store,
+    merge_message_into_nexus_group_store,
 )
 from beamlime.applications._random_data_providers import (
     DetectorName,
@@ -85,6 +85,11 @@ def test_find_index_general() -> None:
     assert find_nexus_structure(nested_obj, ("b0",)) == first
 
 
+def test_find_nexus_structure_not_found_raises() -> None:
+    with pytest.raises(KeyError):
+        find_nexus_structure({}, ("b0",))
+
+
 def test_invalid_nexus_template_multiple_module_placeholders() -> None:
     with open(pathlib.Path(__file__).parent / "multiple_modules_datagroup.json") as f:
         nexus_structure = json.load(f)
@@ -92,8 +97,11 @@ def test_invalid_nexus_template_multiple_module_placeholders() -> None:
     with pytest.raises(
         ValueError, match="Multiple modules found in the same data group."
     ):
-        merge_message_into_store(
-            {}, nexus_structure, ("ev44", {"source_name": "ymir_00"})
+        merge_message_into_nexus_group_store(
+            structure=nexus_structure,
+            nexus_group_store={},
+            module_name="ev44",
+            data_piece={"source_name": "ymir_00"},
         )
 
 
@@ -149,7 +157,9 @@ def _is_event_data(c: Mapping) -> bool:
 
 
 def test_ev44_module_parsing(ymir: dict) -> None:
-    result = combine_store_and_structure({}, ymir)
+    result = combine_nexus_group_store_and_structure(
+        structure=ymir, nexus_group_store={}
+    )
 
     detectors = [c for _, c in iter_nexus_structure(result) if _is_detector(c)]
     assert len(detectors) == 2  # We inserted 2 detectors in the ymir_detectors template
@@ -159,9 +169,16 @@ def test_ev44_module_merging(
     ymir: dict, ymir_ev44_generator: Generator[dict, None, None]
 ) -> None:
     store = {}
-    for _, e in zip(range(4), ymir_ev44_generator):
-        merge_message_into_store(store, ymir, ("ev44", e))
-    result = combine_store_and_structure(store, ymir)
+    for _, data_piece in zip(range(4), ymir_ev44_generator):
+        merge_message_into_nexus_group_store(
+            structure=ymir,
+            nexus_group_store=store,
+            module_name="ev44",
+            data_piece=data_piece,
+        )
+    result = combine_nexus_group_store_and_structure(
+        structure=ymir, nexus_group_store=store
+    )
 
     for nx_event in (c for _, c in iter_nexus_structure(result) if _is_event_data(c)):
         assert "children" in nx_event
@@ -170,9 +187,16 @@ def test_ev44_module_merging(
 
 def test_ev44_module_merging_numpy_array_wrapped(ymir, ymir_ev44_generator) -> None:
     store = {}
-    for _, e in zip(range(4), ymir_ev44_generator):
-        merge_message_into_store(store, ymir, ("ev44", e))
-    result = combine_store_and_structure(store, ymir)
+    for _, data_piece in zip(range(4), ymir_ev44_generator):
+        merge_message_into_nexus_group_store(
+            structure=ymir,
+            nexus_group_store=store,
+            module_name="ev44",
+            data_piece=data_piece,
+        )
+    result = combine_nexus_group_store_and_structure(
+        structure=ymir, nexus_group_store=store
+    )
     NUMPY_DATASETS = ("event_id", "event_index", "event_time_offset", "event_time_zero")
 
     for nx_event in (c for _, c in iter_nexus_structure(result) if _is_event_data(c)):
@@ -185,10 +209,14 @@ def test_ev44_module_merging_numpy_array_wrapped(ymir, ymir_ev44_generator) -> N
 
 def test_ev44_module_parsing_original_unchanged(ymir, ymir_ev44_generator) -> None:
     store = {}
-    for _, e in zip(range(4), ymir_ev44_generator):
-        merge_message_into_store(store, ymir, ("ev44", e))
-    combine_store_and_structure(store, ymir)
-
+    for _, data_piece in zip(range(4), ymir_ev44_generator):
+        merge_message_into_nexus_group_store(
+            structure=ymir,
+            nexus_group_store=store,
+            module_name="ev44",
+            data_piece=data_piece,
+        )
+    combine_nexus_group_store_and_structure(structure=ymir, nexus_group_store=store)
     # original unchanged
     for nx_event in (c for _, c in iter_nexus_structure(ymir) if _is_event_data(c)):
         assert len(nx_event["children"]) == 1
