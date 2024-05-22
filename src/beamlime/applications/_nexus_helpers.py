@@ -95,9 +95,6 @@ def _initialize_ev44(group: NexusGroupDict) -> None:
     - event_index
     - event_id
 
-    This function doesn't remove a place holder from the ``children``.
-    It is expected to be removed outside of this function.
-
     """
     children = group.setdefault("children", [])
     # event_time_zero
