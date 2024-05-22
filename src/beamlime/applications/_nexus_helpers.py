@@ -165,36 +165,40 @@ def _merge_ev44(group: NexusGroupDict, data_piece: DeserializedMessage) -> None:
     """
     # event_time_zero - reference_time
     event_time_zero_dataset = find_nexus_structure(group, ("event_time_zero",))
-    original_event_time_zero = _get_array_values(event_time_zero_dataset)
-    new_event_time_zero = data_piece["reference_time"]
     _set_values(
         event_time_zero_dataset,
-        np.concatenate((original_event_time_zero, new_event_time_zero)),
+        np.concatenate(
+            (_get_array_values(event_time_zero_dataset), data_piece["reference_time"])
+        ),
     )
     # event_time_offset - time_of_flight
     event_time_offset_dataset = find_nexus_structure(group, ("event_time_offset",))
     original_event_time_offset = _get_array_values(event_time_offset_dataset)
-    new_event_time_offset = data_piece["time_of_flight"]
     _set_values(
         event_time_offset_dataset,
-        np.concatenate((original_event_time_offset, new_event_time_offset)),
+        np.concatenate((original_event_time_offset, data_piece["time_of_flight"])),
     )
     # event_index - reference_time_index
+    # Increase event index according to the ``original_event_time_index``
     event_index_dataset = find_nexus_structure(group, ("event_index",))
-    original_event_index = _get_array_values(event_index_dataset)
-    event_index_offset = len(original_event_time_offset)
-    new_event_index = data_piece["reference_time_index"] + event_index_offset
     _set_values(
-        event_index_dataset, np.concatenate((original_event_index, new_event_index))
+        event_index_dataset,
+        np.concatenate(
+            (
+                _get_array_values(event_index_dataset),
+                data_piece["reference_time_index"] + len(original_event_time_offset),
+            )
+        ),
     )
     # event_id - pixel_id
-    if (
-        "pixel_id" in data_piece and data_piece["pixel_id"] is not None
-    ):  # Pixel id is optional.
+    if data_piece.get("pixel_id") is not None:  # Pixel id is optional.
         event_id_dataset = find_nexus_structure(group, ("event_id",))
-        original_event_id = _get_array_values(event_id_dataset)
-        new_event_id = data_piece["pixel_id"]
-        _set_values(event_id_dataset, np.concatenate((original_event_id, new_event_id)))
+        _set_values(
+            event_id_dataset,
+            np.concatenate(
+                (_get_array_values(event_id_dataset), data_piece["pixel_id"])
+            ),
+        )
 
 
 def _node_name(n):
