@@ -109,8 +109,8 @@ def _initialize_ev44(group: NexusGroupDict, data_piece: DeserializedMessage) -> 
     children.append(
         create_dataset(
             name="event_time_zero",
-            dtype="int",
-            initial_values=np.asarray([]),
+            dtype="int64",
+            initial_values=np.asarray([], dtype="int64"),
             unit="ns",
         )
     )
@@ -118,8 +118,8 @@ def _initialize_ev44(group: NexusGroupDict, data_piece: DeserializedMessage) -> 
     children.append(
         create_dataset(
             name="event_time_offset",
-            dtype="int",
-            initial_values=np.asarray([]),
+            dtype="int32",
+            initial_values=np.asarray([], dtype="int32"),
             unit="ns",
         )
     )
@@ -127,8 +127,8 @@ def _initialize_ev44(group: NexusGroupDict, data_piece: DeserializedMessage) -> 
     children.append(
         create_dataset(
             name="event_index",
-            dtype="int",
-            initial_values=np.asarray([]),
+            dtype="int32",
+            initial_values=np.asarray([], dtype="int32"),
         )
     )
     # event_id
@@ -137,8 +137,8 @@ def _initialize_ev44(group: NexusGroupDict, data_piece: DeserializedMessage) -> 
         children.append(
             create_dataset(
                 name="event_id",
-                dtype="int",
-                initial_values=np.asarray([]),
+                dtype="int32",
+                initial_values=np.asarray([], dtype="int32"),
             )
         )
 
