@@ -212,13 +212,6 @@ def find_nexus_structure(
     raise KeyError(f"Path {path} not found in the nexus structure.")
 
 
-def find_parent(
-    structure: NexusGroup | NexusStructure, path: Sequence[Optional[str]]
-) -> NexusGroup:
-    # TODO: We can use typeguard here later.
-    return find_nexus_structure(structure, path[:-1])
-
-
 def find_ev44_matching_paths(
     structure: NexusStructure, data_piece: DeserializedMessage
 ) -> Iterable[NexusPath]:
@@ -273,7 +266,7 @@ def _merge_message_into_nexus_group_store(
     """
     for path in path_matching_func(structure, data_piece):
         if path not in nexus_group_store:
-            parent = find_parent(structure, path)
+            parent = find_nexus_structure(structure, path[:-1])
             # Validate the module place holder in the parent
             if len(parent["children"]) > 1:
                 raise ValueError("Multiple modules found in the same data group.")
