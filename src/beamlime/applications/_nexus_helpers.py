@@ -39,6 +39,9 @@ class NexusGroupDict(TypedDict):
 
 
 NexusGroupDictStore = dict[NexusPath, NexusGroupDict]
+"""A dictionary to store nexus groups for merging data pieces."""
+NexusStructure = Mapping
+"""A whole/partial nexus structure used for the data acquisition."""
 
 
 def create_dataset(
@@ -69,6 +72,9 @@ def create_dataset(
 ModuleNameType = Literal["ev44"]  # "f144", "tdct" will be added in the future
 """Name of the module that is supported by beamlime."""
 
+DeserializedMessage = Mapping
+"""Deserialized message from one of the schemas bound to :attr:`~ModuleNameType`."""
+
 
 def _get_array_values(dataset: Mapping) -> np.ndarray:
     return dataset["config"]["values"]
@@ -78,13 +84,15 @@ def _set_values(dataset: Mapping, values: Any) -> None:
     dataset["config"]["values"] = values
 
 
-def _initialize_ev44(group: NexusGroupDict) -> None:
+def _initialize_ev44(group: NexusGroupDict, data_piece: DeserializedMessage) -> None:
     """Initialize ev44 datasets in the parent.
 
     Params
     ------
     group:
         A data group that has a module place holder as a child.
+    data_piece:
+        A deserialized message corresponding to ``ev44`` schema.
 
     Side Effects
     ------------
@@ -124,9 +132,8 @@ def _initialize_ev44(group: NexusGroupDict) -> None:
         )
     )
     # event_id
-    if "monitor" in group["name"]:
-        ...  # Monitor doesn't have ``event_id``
-    else:
+    if data_piece.get("pixel_id") is not None:
+        # ``event_id``(pixel_id) is optional. i.e. Monitor doesn't have pixel ids.
         children.append(
             create_dataset(
                 name="event_id",
@@ -136,7 +143,7 @@ def _initialize_ev44(group: NexusGroupDict) -> None:
         )
 
 
-def _merge_ev44(group: NexusGroupDict, data_piece: Mapping) -> None:
+def _merge_ev44(group: NexusGroupDict, data_piece: DeserializedMessage) -> None:
     """Merges new values from a message into the data group.
 
     Params
@@ -197,7 +204,7 @@ def _node_name(n):
 
 
 def iter_nexus_structure(
-    structure: Mapping, root: Optional[NexusPath] = None
+    structure: NexusStructure, root: Optional[NexusPath] = None
 ) -> Iterable[tuple[tuple[str | None, ...], Mapping]]:
     """Visits all branches and leafs in the nexus tree"""
     path = (*root, _node_name(structure)) if root is not None else tuple()
@@ -206,7 +213,9 @@ def iter_nexus_structure(
         yield from iter_nexus_structure(child, root=path)
 
 
-def find_nexus_structure(structure: Mapping, path: Sequence[Optional[str]]) -> Mapping:
+def find_nexus_structure(
+    structure: NexusStructure, path: Sequence[Optional[str]]
+) -> Mapping:
     """Returns the branch or leaf associated with `path`, or None if not found"""
     if len(path) == 0:
         return structure
@@ -217,13 +226,15 @@ def find_nexus_structure(structure: Mapping, path: Sequence[Optional[str]]) -> M
     raise KeyError(f"Path {path} not found in the nexus structure.")
 
 
-def find_parent(structure: Mapping, path: Sequence[Optional[str]]) -> NexusGroupDict:
+def find_parent(
+    structure: NexusStructure, path: Sequence[Optional[str]]
+) -> NexusGroupDict:
     # TODO: We can use typeguard here later.
     return find_nexus_structure(structure, path[:-1])
 
 
 def find_ev44_matching_paths(
-    structure: Mapping, data_piece: Mapping
+    structure: NexusStructure, data_piece: DeserializedMessage
 ) -> Iterable[NexusPath]:
     source_name = data_piece["source_name"]
     for path, node in iter_nexus_structure(structure):
@@ -234,14 +245,16 @@ def find_ev44_matching_paths(
             yield path
 
 
-def _merge_message_into_data_module_store(
+def _merge_message_into_nexus_group_store(
     *,
-    data_module_store: NexusGroupDictStore,
-    structure: Mapping,
-    data_piece: Mapping,
-    path_matching_func: Callable[[Mapping, Mapping], Iterable[tuple[str | None, ...]]],
-    data_field_initialize_func: Callable[[NexusGroupDict], None],
-    merge_func: Callable[[NexusGroupDict, Mapping], None],
+    structure: NexusStructure,
+    nexus_group_store: NexusGroupDictStore,
+    data_piece: DeserializedMessage,
+    path_matching_func: Callable[
+        [NexusStructure, DeserializedMessage], Iterable[NexusPath]
+    ],
+    data_field_initialize_func: Callable[[NexusGroupDict, DeserializedMessage], None],
+    merge_func: Callable[[NexusGroupDict, DeserializedMessage], None],
 ) -> None:
     """Bridge function to merge a message into the store.
 
@@ -250,7 +263,7 @@ def _merge_message_into_data_module_store(
 
     Parameters
     ----------
-    data_module_store:
+    nexus_group_store:
         The data module store that holds the data.
     structure:
         The nexus structure.
@@ -263,38 +276,40 @@ def _merge_message_into_data_module_store(
         *Initialize is done only when the relevant message arrives.*
         It is because we should distinguish between empty dataset and
         unexpectedly-not-receiving data.
+        It also depends on the ``data_piece`` to handle optional fields.
     merge_func:
         A function that merges the message into the store.
 
     Side Effects
     ------------
-    The ``data_module_store`` is updated with the merged data.
+    The ``nexus_group_store`` is updated with the merged data.
 
     """
     for path in path_matching_func(structure, data_piece):
         try:
-            merge_func(data_module_store[path], data_piece)
+            merge_func(nexus_group_store[path], data_piece)
         except KeyError:
             parent = find_parent(structure, path)
             # Validate the module place holder in the parent
             if len(parent["children"]) > 1:
                 raise ValueError("Multiple modules found in the same data group.")
             # Initialize the data module storage.
-            data_module_store[path] = {
+            nexus_group_store[path] = {
                 **parent,
                 "children": [],  # Drop the module place holder
             }
             # Initialize the data fields.
-            data_field_initialize_func(data_module_store[path])
+            data_field_initialize_func(nexus_group_store[path], data_piece)
             # Merge data piece
-            merge_func(data_module_store[path], data_piece)
+            merge_func(nexus_group_store[path], data_piece)
 
 
-def merge_message_into_data_module_store(
-    data_module_store: NexusGroupDictStore,
-    structure: Mapping,
-    kind: ModuleNameType,
-    data_piece: Mapping,
+def merge_message_into_nexus_group_store(
+    *,
+    structure: NexusStructure,
+    nexus_group_store: NexusGroupDictStore,
+    data_piece: DeserializedMessage,
+    module_name: ModuleNameType,
 ):
     """Merges message into the associated nexus group.
 
@@ -318,9 +333,9 @@ def merge_message_into_data_module_store(
     However, if we choose to store the data in only one of the detector data banks,
     then the data of the rest of detectors will be lost.
     """
-    if kind == "ev44":
-        _merge_message_into_data_module_store(
-            data_module_store=data_module_store,
+    if module_name == "ev44":
+        _merge_message_into_nexus_group_store(
+            nexus_group_store=nexus_group_store,
             structure=structure,
             data_piece=data_piece,
             path_matching_func=find_ev44_matching_paths,
@@ -331,16 +346,16 @@ def merge_message_into_data_module_store(
         raise NotImplementedError
 
 
-def combine_data_module_store_and_structure(
-    data_module_store: NexusGroupDictStore, structure: Mapping
-) -> Mapping:
+def combine_nexus_group_store_and_structure(
+    *, structure: NexusStructure, nexus_group_store: NexusGroupDictStore
+) -> NexusStructure:
     """Creates a new nexus structure, replacing the stream modules
     with the datasets in `store`, while avoiding
     to copy data from `structure` if unnecessary"""
-    if len(data_module_store) == 0:
+    if len(nexus_group_store) == 0:
         return structure
-    if (None,) in data_module_store:
-        return data_module_store[(None,)]
+    if (None,) in nexus_group_store:
+        return nexus_group_store[(None,)]
 
     new = {**structure}  # Faster than `dict()`
     # and avoid static type-error of `copy`
@@ -349,13 +364,13 @@ def combine_data_module_store_and_structure(
         children = []
         for child in structure["children"]:
             children.append(
-                combine_data_module_store_and_structure(
-                    {
+                combine_nexus_group_store_and_structure(
+                    structure=child,
+                    nexus_group_store={
                         tuple(tail): group
-                        for (head, *tail), group in data_module_store.items()
+                        for (head, *tail), group in nexus_group_store.items()
                         if head == _node_name(child)
                     },
-                    child,
                 )
             )
         new["children"] = children

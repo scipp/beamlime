@@ -14,9 +14,12 @@ from beamlime.logging import BeamlimeLogger
 
 from ..stateless_workflow import StatelessWorkflow, WorkflowResult
 from ._nexus_helpers import (
+    DeserializedMessage,
+    ModuleNameType,
     NexusGroupDictStore,
-    combine_data_module_store_and_structure,
-    merge_message_into_data_module_store,
+    NexusStructure,
+    combine_nexus_group_store_and_structure,
+    merge_message_into_nexus_group_store,
 )
 from .base import HandlerInterface
 from .daemons import (
@@ -75,9 +78,9 @@ class DataAssembler(HandlerInterface):
         merge_every_nth: MergeMessageCountInterval = 1,
         max_seconds_between_messages: MergeMessageTimeInterval = float("inf"),
     ):
-        self.structure: Mapping
+        self.structure: NexusStructure
         self.logger = logger
-        self._data_module_store: NexusGroupDictStore = {}
+        self._nexus_group_store: NexusGroupDictStore = {}
         self._should_send_message = maxcount_or_maxtime(
             merge_every_nth, max_seconds_between_messages
         )
@@ -85,26 +88,32 @@ class DataAssembler(HandlerInterface):
     def set_run_start(self, message: RunStart) -> None:
         self.structure = message.content
 
-    def _merge_message_and_return_response_if_ready(self, kind, message):
-        merge_message_into_data_module_store(
-            self._data_module_store, self.structure, kind, message
+    def _merge_message_and_return_response_if_ready(
+        self, module_name: ModuleNameType, data_piece: DeserializedMessage
+    ) -> DataReady | None:
+        merge_message_into_nexus_group_store(
+            structure=self.structure,
+            nexus_group_store=self._nexus_group_store,
+            data_piece=data_piece,
+            module_name=module_name,
         )
         if self._should_send_message():
             message = DataReady(
-                combine_data_module_store_and_structure(
-                    self._data_module_store, self.structure
+                combine_nexus_group_store_and_structure(
+                    structure=self.structure,
+                    nexus_group_store=self._nexus_group_store,
                 ),
             )
-            self._data_module_store = {}
+            self._nexus_group_store = {}
             return message
 
-    def assemble_detector_data(self, message: DetectorDataReceived) -> DataReady:
+    def assemble_detector_data(self, message: DetectorDataReceived) -> DataReady | None:
         return self._merge_message_and_return_response_if_ready("ev44", message.content)
 
-    def assemble_log_data(self, message: LogDataReceived) -> DataReady:
+    def assemble_log_data(self, message: LogDataReceived) -> DataReady | None:
         return self._merge_message_and_return_response_if_ready("f144", message.content)
 
-    def assemble_chopper_data(self, message: ChopperDataReceived) -> DataReady:
+    def assemble_chopper_data(self, message: ChopperDataReceived) -> DataReady | None:
         return self._merge_message_and_return_response_if_ready("tdct", message.content)
 
     @classmethod
