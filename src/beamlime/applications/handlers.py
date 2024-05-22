@@ -186,7 +186,9 @@ class PlotStreamer(HandlerInterface):
     def plot_item(self, name: str, data: sc.DataArray) -> None:
         figure = self.figures.get(name)
         if figure is None:
-            plot = data.plot(title=name)
+            plot = data.plot(
+                title='\n['.join(name.split("["))
+            )  # line break for long names
             # TODO Either improve Plopp's update method, or handle multiple artists
             if len(plot.artists) > 1:
                 raise NotImplementedError("Data with multiple items not supported.")
