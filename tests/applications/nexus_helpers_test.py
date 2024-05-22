@@ -65,7 +65,7 @@ def ymir_ev44_generator(ymir: dict) -> Generator[dict, None, None]:
     )
 
     def events() -> Generator[dict, None, None]:
-        for values in zip(*generators.values(), strict=True):
+        for values in zip(*generators.values()):
             for value in values:
                 yield value
 
@@ -119,7 +119,7 @@ def test_ymir_detector_template_checksum() -> None:
     local_ymir_path = pathlib.Path(__file__).parent / "ymir_detectors.json"
     # check md5 sum of the ``local_ymir_path`` file
     with open(local_ymir_path, "rb") as f:
-        local_ymir_md5 = f"md5:{hashlib.md5(f.read()).hexdigest()}"
+        local_ymir_md5 = f"md5:{hashlib.md5(f.read()).hexdigest()}"  # noqa: S324
 
     assert local_ymir_md5 == get_checksum("ymir_detectors.json")
 
@@ -169,7 +169,7 @@ def test_ev44_module_merging(
     ymir: dict, ymir_ev44_generator: Generator[dict, None, None]
 ) -> None:
     store = {}
-    for _, data_piece in zip(range(4), ymir_ev44_generator, strict=False):
+    for _, data_piece in zip(range(4), ymir_ev44_generator):
         merge_message_into_nexus_group_store(
             structure=ymir,
             nexus_group_store=store,
@@ -187,7 +187,7 @@ def test_ev44_module_merging(
 
 def test_ev44_module_merging_numpy_array_wrapped(ymir, ymir_ev44_generator) -> None:
     store = {}
-    for _, data_piece in zip(range(4), ymir_ev44_generator, strict=False):
+    for _, data_piece in zip(range(4), ymir_ev44_generator):
         merge_message_into_nexus_group_store(
             structure=ymir,
             nexus_group_store=store,
@@ -209,7 +209,7 @@ def test_ev44_module_merging_numpy_array_wrapped(ymir, ymir_ev44_generator) -> N
 
 def test_ev44_module_parsing_original_unchanged(ymir, ymir_ev44_generator) -> None:
     store = {}
-    for _, data_piece in zip(range(4), ymir_ev44_generator, strict=False):
+    for _, data_piece in zip(range(4), ymir_ev44_generator):
         merge_message_into_nexus_group_store(
             structure=ymir,
             nexus_group_store=store,
