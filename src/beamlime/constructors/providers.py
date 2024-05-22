@@ -558,7 +558,9 @@ class ProviderGroup:
             return self._providers[product_type]
         except KeyError:
             product_label = _product_type_label(product_type)
-            raise ProviderNotFoundError(f"Provider for ``{product_label}`` not found.")
+            raise ProviderNotFoundError(
+                f"Provider for ``{product_label}`` not found."
+            ) from None
 
     @staticmethod
     def _wrap_provider(

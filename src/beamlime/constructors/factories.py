@@ -109,10 +109,10 @@ class Factory:
         try:
             product = self._call_provider(product_type)
             return self._inject_attributes(product, product_type)
-        except RecursionError:
+        except RecursionError as err:
             raise RecursionError(
                 "Cyclic dependencies found" f"while assembling {product_type}."
-            )
+            ) from err
 
     @contextmanager
     def local_factory(self, *provider_groups: ProviderGroup) -> Iterator[Factory]:

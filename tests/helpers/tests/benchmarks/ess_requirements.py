@@ -117,7 +117,9 @@ class ESSInstruments:
             min_np, max_np = _min_max_pair(inst_req.num_pixels)
             label_anchors = [do.min_label_anchor, do.max_label_anchor]
 
-            for num_pixels, label_anchor in zip({min_np, max_np}, label_anchors):
+            for num_pixels, label_anchor in zip(
+                {min_np, max_np}, label_anchors, strict=True
+            ):
                 _plot_bound_line(ax, (min_er, num_pixels), (max_er, num_pixels), do)
                 label_pos = _shift_pos((min_er, num_pixels), label_anchor)
                 ax.annotate(inst_name.upper(), label_pos, size=10)

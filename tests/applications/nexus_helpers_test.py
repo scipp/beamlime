@@ -65,7 +65,7 @@ def ymir_ev44_generator(ymir: dict) -> Generator[dict, None, None]:
     )
 
     def events() -> Generator[dict, None, None]:
-        for values in zip(*generators.values()):
+        for values in zip(*generators.values(), strict=True):
             for value in values:
                 yield value
 
@@ -169,7 +169,7 @@ def test_ev44_module_merging(
     ymir: dict, ymir_ev44_generator: Generator[dict, None, None]
 ) -> None:
     store = {}
-    for _, data_piece in zip(range(4), ymir_ev44_generator):
+    for _, data_piece in zip(range(4), ymir_ev44_generator, strict=True):
         merge_message_into_nexus_group_store(
             structure=ymir,
             nexus_group_store=store,
@@ -187,7 +187,7 @@ def test_ev44_module_merging(
 
 def test_ev44_module_merging_numpy_array_wrapped(ymir, ymir_ev44_generator) -> None:
     store = {}
-    for _, data_piece in zip(range(4), ymir_ev44_generator):
+    for _, data_piece in zip(range(4), ymir_ev44_generator, strict=True):
         merge_message_into_nexus_group_store(
             structure=ymir,
             nexus_group_store=store,
@@ -209,7 +209,7 @@ def test_ev44_module_merging_numpy_array_wrapped(ymir, ymir_ev44_generator) -> N
 
 def test_ev44_module_parsing_original_unchanged(ymir, ymir_ev44_generator) -> None:
     store = {}
-    for _, data_piece in zip(range(4), ymir_ev44_generator):
+    for _, data_piece in zip(range(4), ymir_ev44_generator, strict=True):
         merge_message_into_nexus_group_store(
             structure=ymir,
             nexus_group_store=store,
