@@ -147,12 +147,12 @@ class BenchmarkFileManager(ABC):
     @abstractmethod
     def save(
         self, report: BenchmarkReport, path: Optional[BenchmarkResultFilePath] = None
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @abstractmethod
-    def load(self, path: Optional[BenchmarkResultFilePath] = None) -> BenchmarkReport:
-        ...
+    def load(
+        self, path: Optional[BenchmarkResultFilePath] = None
+    ) -> BenchmarkReport: ...
 
 
 class SimpleFileManager(BenchmarkFileManager):

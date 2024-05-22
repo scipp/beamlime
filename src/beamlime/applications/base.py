@@ -40,8 +40,7 @@ class DaemonInterface(LogMixin, ABC):
     @abstractmethod
     async def run(
         self,
-    ) -> AsyncGenerator[Optional[MessageProtocol], None]:
-        ...
+    ) -> AsyncGenerator[Optional[MessageProtocol], None]: ...
 
 
 class HandlerInterface(LogMixin, ABC):

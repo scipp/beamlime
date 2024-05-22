@@ -52,9 +52,7 @@ def random_ev44_generator(
             reference_time_index=np.asarray([0]),
             time_of_flight=(
                 rng.random((cur_event_number,)) * 48_000_000 + 4_000_000
-            ).astype(
-                "int32"
-            ),  # No reason
+            ).astype("int32"),  # No reason
             pixel_id=(
                 None
                 if detector_numbers is None
