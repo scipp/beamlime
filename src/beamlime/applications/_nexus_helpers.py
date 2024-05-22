@@ -14,8 +14,8 @@ from typing import (
 import numpy as np
 
 
-class NexusDatasetDict(TypedDict):
-    """``dataset`` module structure in the nexus json format."""
+class NexusDataset(TypedDict):
+    """``dataset`` module in the nexus json format."""
 
     module: str
     config: dict[str, Any]
@@ -25,7 +25,7 @@ class NexusDatasetDict(TypedDict):
 NexusPath = tuple[str | None, ...]
 
 
-class NexusGroupDict(TypedDict):
+class NexusGroup(TypedDict):
     """A nexus group that holds the data module place holder or datasets.
 
     It was named as a group, not a module
@@ -38,17 +38,17 @@ class NexusGroupDict(TypedDict):
     """Name of the group."""
 
 
-NexusGroupDictStore = dict[NexusPath, NexusGroupDict]
+NexusGroupStore = dict[NexusPath, NexusGroup]
 """A dictionary to store nexus groups for merging data pieces."""
-NexusDictStructure = dict
+NexusStructure = dict
 """A whole/partial nexus structure used for the data acquisition."""
 
 
 def create_dataset(
     *, name: str, dtype: str, initial_values: Any, unit: str | None = None
-) -> NexusDatasetDict:
+) -> NexusDataset:
     """Creates a dataset according to the arguments."""
-    dataset: NexusDatasetDict = {
+    dataset: NexusDataset = {
         "module": "dataset",
         "config": {
             "name": name,
@@ -76,7 +76,7 @@ DeserializedMessage = Mapping
 """Deserialized message from one of the schemas bound to :attr:`~ModuleNameType`."""
 
 
-def _initialize_ev44(group: NexusGroupDict, data_piece: DeserializedMessage) -> None:
+def _initialize_ev44(group: NexusGroup, data_piece: DeserializedMessage) -> None:
     """Initialize ev44 datasets in the parent.
 
     Params
@@ -135,7 +135,7 @@ def _initialize_ev44(group: NexusGroupDict, data_piece: DeserializedMessage) -> 
         )
 
 
-def _merge_ev44(group: NexusGroupDict, data_piece: DeserializedMessage) -> None:
+def _merge_ev44(group: NexusGroup, data_piece: DeserializedMessage) -> None:
     """Merges new values from a message into the data group.
 
     Params
@@ -190,7 +190,7 @@ def _node_name(n):
 
 
 def iter_nexus_structure(
-    structure: NexusDictStructure, root: Optional[NexusPath] = None
+    structure: NexusStructure, root: Optional[NexusPath] = None
 ) -> Iterable[tuple[tuple[str | None, ...], Mapping]]:
     """Visits all branches and leafs in the nexus tree"""
     path = (*root, _node_name(structure)) if root is not None else tuple()
@@ -200,8 +200,8 @@ def iter_nexus_structure(
 
 
 def find_nexus_structure(
-    structure: NexusDictStructure, path: Sequence[Optional[str]]
-) -> NexusDictStructure:
+    structure: NexusStructure, path: Sequence[Optional[str]]
+) -> NexusStructure:
     """Returns the branch or leaf associated with `path`, or None if not found"""
     if len(path) == 0:
         return structure
@@ -213,14 +213,14 @@ def find_nexus_structure(
 
 
 def find_parent(
-    structure: NexusGroupDict | NexusDictStructure, path: Sequence[Optional[str]]
-) -> NexusGroupDict:
+    structure: NexusGroup | NexusStructure, path: Sequence[Optional[str]]
+) -> NexusGroup:
     # TODO: We can use typeguard here later.
     return find_nexus_structure(structure, path[:-1])
 
 
 def find_ev44_matching_paths(
-    structure: NexusDictStructure, data_piece: DeserializedMessage
+    structure: NexusStructure, data_piece: DeserializedMessage
 ) -> Iterable[NexusPath]:
     source_name = data_piece["source_name"]
     for path, node in iter_nexus_structure(structure):
@@ -233,14 +233,14 @@ def find_ev44_matching_paths(
 
 def _merge_message_into_nexus_group_store(
     *,
-    structure: NexusDictStructure,
-    nexus_group_store: NexusGroupDictStore,
+    structure: NexusStructure,
+    nexus_group_store: NexusGroupStore,
     data_piece: DeserializedMessage,
     path_matching_func: Callable[
-        [NexusDictStructure, DeserializedMessage], Iterable[NexusPath]
+        [NexusStructure, DeserializedMessage], Iterable[NexusPath]
     ],
-    data_field_initialize_func: Callable[[NexusGroupDict, DeserializedMessage], None],
-    merge_func: Callable[[NexusGroupDict, DeserializedMessage], None],
+    data_field_initialize_func: Callable[[NexusGroup, DeserializedMessage], None],
+    merge_func: Callable[[NexusGroup, DeserializedMessage], None],
 ) -> None:
     """Bridge function to merge a message into the store.
 
@@ -291,8 +291,8 @@ def _merge_message_into_nexus_group_store(
 
 def merge_message_into_nexus_group_store(
     *,
-    structure: NexusDictStructure,
-    nexus_group_store: NexusGroupDictStore,
+    structure: NexusStructure,
+    nexus_group_store: NexusGroupStore,
     data_piece: DeserializedMessage,
     module_name: ModuleNameType,
 ):
@@ -332,8 +332,8 @@ def merge_message_into_nexus_group_store(
 
 
 def combine_nexus_group_store_and_structure(
-    *, structure: NexusDictStructure, nexus_group_store: NexusGroupDictStore
-) -> NexusDictStructure:
+    *, structure: NexusStructure, nexus_group_store: NexusGroupStore
+) -> NexusStructure:
     """Creates a new nexus structure, replacing the stream modules
     with the datasets in `store`, while avoiding
     to copy data from `structure` if unnecessary"""
