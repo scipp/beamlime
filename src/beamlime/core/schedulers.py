@@ -3,8 +3,9 @@
 # async-related tools
 
 import asyncio
+from collections.abc import Awaitable, Callable, Generator
 from contextlib import contextmanager
-from typing import Any, Awaitable, Callable, Generator, Type, TypeVar
+from typing import Any, TypeVar
 
 
 class MaxTrialsReached(Exception): ...
@@ -15,7 +16,7 @@ WrappedAsyncCallable = Callable[..., Awaitable[T]]
 
 
 def async_retry(
-    *exceptions: Type[Exception], max_trials: int = 1, interval: float = 0
+    *exceptions: type[Exception], max_trials: int = 1, interval: float = 0
 ) -> Callable[..., WrappedAsyncCallable[T]]:
     """
     Retry calling an async method under expected exceptions.
@@ -46,7 +47,7 @@ WrappedCallable = Callable[..., T]
 
 
 def retry(
-    *exceptions: Type[Exception], max_trials: int = 1, interval: float = 0
+    *exceptions: type[Exception], max_trials: int = 1, interval: float = 0
 ) -> Callable[..., WrappedCallable[T]]:
     """
     Retry calling a method under expected exceptions.

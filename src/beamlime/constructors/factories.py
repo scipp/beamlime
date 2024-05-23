@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from typing import Any, Callable, Dict, Iterator, Optional, Type
+from typing import Any
 
 from .providers import (
     Product,
@@ -33,11 +34,11 @@ class Factory:
         self.providers: ProviderGroup = merge(*initial_prov_grs)
 
     @property
-    def catalogue(self) -> frozenset[Type[Product]]:
+    def catalogue(self) -> frozenset[type[Product]]:
         """Frozen set of the product type(s) this factory can manufacture."""
         return frozenset(self.providers.keys())
 
-    def __iter__(self) -> Iterator[Type[Product]]:
+    def __iter__(self) -> Iterator[type[Product]]:
         """Return an iterator of the product type(s) this factory can manufacture."""
         return iter(self.catalogue)
 
@@ -45,7 +46,7 @@ class Factory:
         """Return the number of product type(s) this factory can manufacture."""
         return len(self.catalogue)
 
-    def _call_provider(self, product_type: Type[Product]) -> Product:
+    def _call_provider(self, product_type: type[Product]) -> Product:
         """
         Build keyword argument dependencies of the provider
         and call the provider with them.
@@ -78,7 +79,7 @@ class Factory:
 
         """
         provider = self.providers[product_type]
-        attr_dependencies: Dict[str, Any] = {
+        attr_dependencies: dict[str, Any] = {
             attr_name: attr_spec.dependency_type
             for attr_name, attr_spec in provider.attr_dep_specs.items()
             if getattr(product, attr_name, None) is None
@@ -96,7 +97,7 @@ class Factory:
 
         return product
 
-    def __getitem__(self, product_type: Type[Product]) -> Product:
+    def __getitem__(self, product_type: type[Product]) -> Product:
         """Build an object of ``product_type`` using the registered providers.
 
         Notes
@@ -128,14 +129,14 @@ class Factory:
 
         merged = merge(*provider_groups)
         my_providers = copy(self.providers)
-        product_type: Type[Any]
+        product_type: type[Any]
         for product_type in merged:
             my_providers.pop(product_type)
         yield Factory(my_providers, merged)
 
     @contextmanager
     def constant_provider(
-        self, product_type: Type[Product], hardcoded_value: Product
+        self, product_type: type[Product], hardcoded_value: Product
     ) -> Iterator[None]:
         """
         Use a lambda function that returns ``hardcoded_value``.
@@ -146,7 +147,7 @@ class Factory:
 
     @contextmanager
     def partial_provider(
-        self, product_type: Type[Product], *args: Any, **kwargs: Any
+        self, product_type: type[Product], *args: Any, **kwargs: Any
     ) -> Iterator[None]:
         """
         Create a partial provider for ``product_type`` with ``args`` and ``kwargs``
@@ -160,7 +161,7 @@ class Factory:
 
     @contextmanager
     def temporary_provider(
-        self, product_type: Type[Product], temp_provider: Callable[..., Product]
+        self, product_type: type[Product], temp_provider: Callable[..., Product]
     ) -> Iterator[None]:
         """
         Replace an existing provider of ``product_type`` with ``temp_provider``
@@ -182,7 +183,7 @@ class Factory:
 
 @contextmanager
 def _multiple_constant_providers(
-    factory: Factory, constants: Optional[dict[type, Any]] = None
+    factory: Factory, constants: dict[type, Any] | None = None
 ):
     if constants:
         tp, val = constants.popitem()
@@ -195,7 +196,7 @@ def _multiple_constant_providers(
 
 @contextmanager
 def multiple_constant_providers(
-    factory: Factory, constants: Optional[dict[type, Any]] = None
+    factory: Factory, constants: dict[type, Any] | None = None
 ):
     """Create and yield a new factory containing a copy of all given constants."""
     from copy import copy  # Use a shallow copy of the constant dictionary
@@ -206,7 +207,7 @@ def multiple_constant_providers(
 
 @contextmanager
 def _multiple_temporary_providers(
-    factory: Factory, providers: Optional[dict[type, Any]] = None
+    factory: Factory, providers: dict[type, Any] | None = None
 ):
     if providers:
         tp, prov = providers.popitem()
@@ -219,7 +220,7 @@ def _multiple_temporary_providers(
 
 @contextmanager
 def multiple_temporary_providers(
-    factory: Factory, providers: Optional[dict[type, Any]] = None
+    factory: Factory, providers: dict[type, Any] | None = None
 ):
     """Create and yield a new factory containing a copy of all given providers."""
     from copy import copy  # Use a shallow copy of the provider dictionary

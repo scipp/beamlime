@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Literal, NewType, Optional
+from typing import Literal, NewType
 
 from ..empty_providers import log_providers
 from .handlers import BeamlimeFileHandler, BeamlimeStreamHandler
@@ -14,7 +14,7 @@ BeamlimeLogger = NewType("BeamlimeLogger", logging.Logger)
 
 @log_providers.provider
 def get_logger(
-    stream_handler: Optional[BeamlimeStreamHandler] = None, verbose: bool = True
+    stream_handler: BeamlimeStreamHandler | None = None, verbose: bool = True
 ) -> BeamlimeLogger:
     """
     Retrieves a beamlime logger and add ``stream_handler`` if ``verbose``.
@@ -36,7 +36,7 @@ ScippLogger = NewType("ScippLogger", logging.Logger)
 
 @log_providers.provider
 def get_scipp_logger(
-    log_level: Optional[LogLevels] = None,
+    log_level: LogLevels | None = None,
     widget: ScippWidgetFlag = DefaultWidgetFlag,
 ) -> ScippLogger:
     from scipp.logging import get_logger, get_widget_handler

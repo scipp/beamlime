@@ -1,15 +1,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 import pathlib
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
-from typing import Callable, Generator, NamedTuple
+from typing import NamedTuple
 
 import pytest
 
 from beamlime.constructors import Factory
 from tests.benchmarks.runner import BenchmarkRunner, BenchmarkSession, SingleRunReport
 
-NT = NamedTuple("NT", [('name', str), ('friends', list)])
+
+class NT(NamedTuple):
+    name: str
+    friends: list
 
 
 @dataclass
