@@ -16,19 +16,55 @@ OperatingSystem = NewType("OperatingSystem", str)
 OperatingSystemVersion = NewType("OperatingSystemVersion", str)
 PlatformDesc = NewType("PlatformDesc", str)
 MachineType = NewType("MachineType", str)  # Processor type.
-TotalMemory = NamedTuple('TotalMemory', [('value', int), ('unit', str)])
-PhysicalCpuCores = NamedTuple(
-    'PhysicalCpuCores', [('value', int), ('unit', str)]
-)  # Physical number of CPU cores.
-LogicalCpuCores = NamedTuple(
-    'LogicalCpuCores', [('value', int), ('unit', str)]
-)  # Logical number of CPU cores.
-ProcessCpuAffinity = NamedTuple('ProcessCpuAffinity', [('value', int), ('unit', str)])
-CpuFrequency = NamedTuple(
-    'CpuFrequency', [('current', int), ('min', int), ('max', int)]
-)
-MaximumFrequency = NamedTuple('MaximumFrequency', [('value', int), ('unit', str)])
-MinimumFrequency = NamedTuple('MinimumFrequency', [('value', int), ('unit', str)])
+
+
+class TotalMemory(NamedTuple):
+    value: int
+    unit: str
+
+
+class PhysicalCpuCores(NamedTuple):
+    """Physical number of CPU cores."""
+
+    value: int
+    unit: str
+
+
+class LogicalCpuCores(NamedTuple):
+    """Logical number of CPU cores."""
+
+    value: int
+    unit: str
+
+
+class ProcessCpuAffinity(NamedTuple):
+    """Number of process CPU affinities."""
+
+    value: int
+    unit: str
+
+
+class CpuFrequency(NamedTuple):
+    """CPU frequency profile."""
+
+    current: int
+    min: int
+    max: int
+
+
+class MaximumFrequency(NamedTuple):
+    """Maximum frequency of CPU cores."""
+
+    value: int
+    unit: str
+
+
+class MinimumFrequency(NamedTuple):
+    """Minimum frequency of CPU cores."""
+
+    value: int
+    unit: str
+
 
 env_providers[OperatingSystem] = platform.system
 env_providers[OperatingSystemVersion] = platform.version

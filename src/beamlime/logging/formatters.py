@@ -4,7 +4,7 @@
 from collections import OrderedDict
 from dataclasses import dataclass
 from logging import Formatter
-from typing import Literal, NewType, Optional
+from typing import Literal, NewType
 
 from rich.highlighter import Highlighter
 from rich.style import Style
@@ -50,8 +50,8 @@ class LogColumn:
     """
 
     variable_name: str
-    min_length: Optional[int] = None
-    title: Optional[str] = None
+    min_length: int | None = None
+    title: str | None = None
     style: _FormatStyle = "{"
 
     @property
@@ -202,7 +202,7 @@ class BeamlimeStreamHighlighter(Highlighter):
         return self.style_map[app_name]
 
     def _retrieve_app_name(self, text: Text) -> str:
-        if len((name_msg := str(text).split("|"))) == 2:
+        if len(name_msg := str(text).split("|")) == 2:
             return name_msg[0]
         else:
             return ""

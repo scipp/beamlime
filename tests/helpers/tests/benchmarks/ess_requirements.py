@@ -3,8 +3,8 @@
 # Author    : Sunyoung Yoo (ESS)
 # Please feel free to update the hard-coded numbers in this file
 # and submit a merge request(PR).
+from collections.abc import Generator
 from dataclasses import dataclass
-from typing import Generator
 
 import numpy as np
 from matplotlib import pyplot as plt

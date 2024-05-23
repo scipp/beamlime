@@ -59,17 +59,33 @@ def func_implicit_optional_arg(arg: int | None = None) -> object:  # type:ignore
     return arg
 
 
-def func_optional_arg(arg: Optional[int] = None) -> object:
+def func_optional_arg(arg: int | None = None) -> object:
     return arg
 
 
-def func_union_optional_arg(arg: Union[None, int] = None) -> object:
+def func_explicit_optional_arg(arg: Optional[int] = None) -> object:  # noqa: UP007
+    # Optional annotation is used here on purpose here.
+    return arg
+
+
+def func_union_optional_arg(arg: None | int = None) -> object:
+    return arg
+
+
+def func_explicit_union_optional_arg(arg: Union[None, int] = None) -> object:  # noqa: UP007
+    # Union annotation is used here on purpose here.
     return arg
 
 
 @pytest.mark.parametrize(
     "optional_arg_func",
-    [func_optional_arg, func_implicit_optional_arg, func_union_optional_arg],
+    [
+        func_optional_arg,
+        func_explicit_optional_arg,
+        func_implicit_optional_arg,
+        func_union_optional_arg,
+        func_explicit_union_optional_arg,
+    ],
 )
 def test_factory_optional_annotation(optional_arg_func):
     provider_group = ProviderGroup(optional_arg_func)
@@ -101,11 +117,23 @@ def test_union_arg_raises():
         ProviderGroup(func_union_arg)
 
 
-def func_optional_return(arg: Optional[int] = None) -> Optional[int]:
+def func_explicit_optional_return(arg: Optional[int] = None) -> Optional[int]:  # noqa: UP007
+    # Optional annotation is used here on purpose here.
     return arg
 
 
-def func_union_return(arg: float | str | None = None) -> Union[str, float, None]:
+def func_optional_return(arg: int | None = None) -> int | None:
+    return arg
+
+
+def func_explicit_union_return(
+    arg: float | str | None = None,
+) -> Union[str, float, None]:  # noqa: UP007
+    # Union annotation is used here on purpose here.
+    return arg
+
+
+def func_union_return(arg: float | str | None = None) -> str | float | None:
     return arg
 
 
@@ -113,7 +141,9 @@ def func_union_return(arg: float | str | None = None) -> Union[str, float, None]
     "union_return_func",
     [
         func_optional_return,
+        func_explicit_optional_return,
         func_union_return,
+        func_explicit_union_return,
     ],
 )
 def test_factory_optional_return_raises(union_return_func):

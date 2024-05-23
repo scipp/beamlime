@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-from typing import Any, Callable, Generator, NamedTuple, Optional, TypeVar, Union
+from collections.abc import Callable, Generator
+from typing import Any, NamedTuple, TypeVar
 
 import scipp as sc
 
@@ -33,7 +34,7 @@ def _set_value(da: sc.DataArray, value: Any, *dim_idx: tuple[str, int]) -> None:
         return _set_value(child, value, *dim_idx[1:])
 
 
-def grid_like(binned: sc.DataArray, unit: Optional[str] = None) -> sc.DataArray:
+def grid_like(binned: sc.DataArray, unit: str | None = None) -> sc.DataArray:
     """Create a data array with ``binned`` coordinates and data with size of bins.
 
     The data of the returned array is filled with ``NaN``.
@@ -57,7 +58,9 @@ def grid_like(binned: sc.DataArray, unit: Optional[str] = None) -> sc.DataArray:
     )
 
 
-DimensionIndex = NamedTuple("DimensionIndex", [('dimension', str), ('index', int)])
+class DimensionIndex(NamedTuple):
+    dimension: str
+    index: int
 
 
 def collect_dimension_indexes(
@@ -71,7 +74,7 @@ def collect_dimension_indexes(
 
 def cast_operation_per_bin(
     binned: sc.DataArray,
-    operation: Callable[[sc.DataArray], Union[sc.Variable, sc.DataArray]],
+    operation: Callable[[sc.DataArray], sc.Variable | sc.DataArray],
 ) -> sc.DataArray:
     """Cast ``operation`` per bin, (data array view) and returns the result.
 

@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from typing import Callable, Generic, NewType, Optional, TypeVar
+from typing import Generic, NewType, TypeVar
 
 from beamlime.constructors import Factory, ProviderGroup
 
@@ -34,15 +35,15 @@ class SpaceMeasurement:
 @dataclass
 class BenchmarkResult:  # Measurement results should always have value and unit.
     time: TimeMeasurement
-    space: Optional[SpaceMeasurement] = None
+    space: SpaceMeasurement | None = None
 
 
 _Item = TypeVar("_Item")
 
 
 def _append_row(
-    obj: dict[str, list[Optional[_Item]]], row: dict[str, _Item]
-) -> dict[str, list[Optional[_Item]]]:
+    obj: dict[str, list[_Item | None]], row: dict[str, _Item]
+) -> dict[str, list[_Item | None]]:
     """
     Helper function to extend Pandas Dataframe-like dictionary.
     All columns(Corresponding to the highest level keys)
@@ -72,7 +73,7 @@ class SingleRunReport(Generic[R]):
     callable_name: BenchmarkTargetName
     benchmark_result: BenchmarkResult
     arguments: dict
-    output: Optional[R] = None
+    output: R | None = None
 
 
 @dataclass  # Need dataclass decorator to use ``as_dict``.
@@ -146,13 +147,11 @@ class BenchmarkFileManager(ABC):
 
     @abstractmethod
     def save(
-        self, report: BenchmarkReport, path: Optional[BenchmarkResultFilePath] = None
+        self, report: BenchmarkReport, path: BenchmarkResultFilePath | None = None
     ) -> None: ...
 
     @abstractmethod
-    def load(
-        self, path: Optional[BenchmarkResultFilePath] = None
-    ) -> BenchmarkReport: ...
+    def load(self, path: BenchmarkResultFilePath | None = None) -> BenchmarkReport: ...
 
 
 class SimpleFileManager(BenchmarkFileManager):
@@ -232,7 +231,7 @@ class BenchmarkSession:
         instead of having extra arguments in ``run`` methods.
         So that all arguments of ``run`` can be directly passed to ``BenchmarkRunner``.
         """
-        single_report: Optional[SingleRunReport] = None
+        single_report: SingleRunReport | None = None
 
         for _ in range(self.configurations.iterations):
             single_report = self.runner(*runner_args, **parameters)
