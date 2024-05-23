@@ -123,7 +123,8 @@ def func_with_union_arg(_: float | str | None) -> int | str:
     return 0
 
 
-def func_with_explicit_union_arg(_: Union[float, str, None]) -> int | str:
+def func_with_explicit_union_arg(_: Union[float, str, None]) -> int | str:  # noqa: UP007
+    # Union annotation is used here on purpose here.
     return 0
 
 
@@ -131,7 +132,8 @@ def func_with_union_return() -> int | str | None:
     return None
 
 
-def func_with_explicit_union_return() -> Union[int, str, None]:
+def func_with_explicit_union_return() -> Union[int, str, None]:  # noqa: UP007
+    # Union annotation is used here on purpose here.
     return None
 
 
