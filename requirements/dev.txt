@@ -71,9 +71,9 @@ jupyter-server==2.14.0
     #   notebook-shim
 jupyter-server-terminals==0.5.3
     # via jupyter-server
-jupyterlab==4.2.0
+jupyterlab==4.2.1
     # via -r dev.in
-jupyterlab-server==2.27.1
+jupyterlab-server==2.27.2
     # via jupyterlab
 notebook-shim==0.2.4
     # via jupyterlab

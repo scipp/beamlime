@@ -47,7 +47,7 @@ scippneutron==24.3.0
     # via -r base.in
 scippnexus==24.3.1
     # via scippneutron
-scipy==1.13.0
+scipy==1.13.1
     # via
     #   scippneutron
     #   scippnexus
