@@ -2,7 +2,7 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from copy import copy
 from dataclasses import dataclass
-from typing import NewType, Type, TypeVar, Union
+from typing import NewType, TypeVar
 
 import pandas as pd
 
@@ -15,7 +15,7 @@ ResultPath = BenchmarkResultFilePath
 T = TypeVar("T")
 
 
-def _extract_only_if_one(values: list[T], target_name: str) -> Union[T, None]:
+def _extract_only_if_one(values: list[T], target_name: str) -> T | None:
     if len(cands := set(values)) > 1:
         raise ValueError(f"More than 1 {target_name} found in the list.")
     elif len(cands) == 0:
@@ -24,11 +24,11 @@ def _extract_only_if_one(values: list[T], target_name: str) -> Union[T, None]:
         return cands.pop()
 
 
-def _extract_unit(units: list[Union[str, None]]) -> Union[str, None]:
+def _extract_unit(units: list[str | None]) -> str | None:
     return _extract_only_if_one([unit for unit in units if unit is not None], "unit")
 
 
-def _extract_dtype(values: list[T]) -> Union[Type[T], str, None]:
+def _extract_dtype(values: list[T]) -> type[T] | str | None:
     none_type = type(None)
     cands = [valt for val in values if (valt := type(val)) is not none_type]
     if (extracted := _extract_only_if_one(cands, "type")) is str:
@@ -36,7 +36,7 @@ def _extract_dtype(values: list[T]) -> Union[Type[T], str, None]:
     return extracted
 
 
-def _reconstruct(contents: Union[dict, list, tuple], target_type: type, strict: bool):
+def _reconstruct(contents: dict | list | tuple, target_type: type, strict: bool):
     """Reconstruct"""
     from dataclasses import is_dataclass
 
@@ -119,11 +119,11 @@ def list_to_pd_series(values: list) -> pd.Series:
         return pd.Series(values)
 
 
-def compose_name(dim: str, units: list[Union[str, None]]) -> str:
+def compose_name(dim: str, units: list[str | None]) -> str:
     return f"{dim} [{_extract_unit(units)}]"
 
 
-def compose_pandas_column(dim: str, items: Union[dict, list]) -> tuple[str, pd.Series]:
+def compose_pandas_column(dim: str, items: dict | list) -> tuple[str, pd.Series]:
     if isinstance(items, dict):
         return compose_name(dim, items['unit']), list_to_pd_series(items['value'])
     else:

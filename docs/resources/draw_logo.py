@@ -10,12 +10,13 @@ def get_rotation_matrix(degree: int = 0):
 
 
 def rotate_coordinate(indices, center: list = (0, 0), angle: int = 0) -> tuple:
-    centered = [idx - c for idx, c in zip(indices[:2], center[:2])]
+    centered = [idx - c for idx, c in zip(indices[:2], center[:2], strict=True)]
     rotation_matrix = get_rotation_matrix(degree=angle)
     rotated_indices = [
-        sum([elem * idx for elem, idx in zip(row, centered)]) for row in rotation_matrix
+        sum([elem * idx for elem, idx in zip(row, centered, strict=True)])
+        for row in rotation_matrix
     ]
-    return [idx + c for idx, c in zip(rotated_indices, center[:2])]
+    return tuple(idx + c for idx, c in zip(rotated_indices, center[:2], strict=True))
 
 
 def build_beam(
@@ -57,7 +58,7 @@ def build_lime(center: np.array, radius: int, color: str) -> Group:
 
     lines = [
         partial_radial_line(center, angle, radius, thickness)
-        for thickness, angle in zip(thicknesses, angles)
+        for thickness, angle in zip(thicknesses, angles, strict=True)
     ]
 
     lines.append(

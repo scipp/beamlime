@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-from typing import Any, Generator, List, NewType, TypedDict
+from collections.abc import Generator
+from typing import Any, NewType, TypedDict
 
 import numpy as np
 from numpy.random import default_rng
@@ -16,7 +17,7 @@ ReferenceTimeZero = NewType("ReferenceTimeZero", int)  # [ns]
 
 # Arguments
 DetectorName = NewType("DetectorName", str)
-DetectorNumberCandidates = NewType("DetectorNumberCandidates", List[int])
+DetectorNumberCandidates = NewType("DetectorNumberCandidates", list[int])
 
 
 class EV44(TypedDict):

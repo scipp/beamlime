@@ -4,7 +4,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Generic, Literal, NewType, Type, TypeVar, Union
+from collections.abc import Callable
+from typing import Any, Generic, Literal, NewType, TypeVar
 
 
 class Empty: ...
@@ -25,43 +26,19 @@ def validate_annotation(annotation: Any) -> Literal[True]:
 
     If it for later implementation of Union type handling.
     """
-    from typing import get_origin
+    from types import UnionType
+    from typing import Union, get_origin
 
-    if get_origin(annotation) == Union:
+    if get_origin(annotation) == Union or isinstance(annotation, UnionType):
         raise NotImplementedError("Union annotation is not supported.")
     return True
 
 
 Product = TypeVar("Product")
 
-_NewT = NewType("_NewT", int)
 
-
-def _is_type_newtype_py39(tp: Any) -> bool:
-    return (
-        callable(tp)
-        and hasattr(tp, "__supertype__")
-        and _NewT.__module__ == tp.__module__
-        and _NewT.__qualname__ == tp.__qualname__
-    )
-
-
-class NewTypeMeta(type):
-    def __instancecheck__(cls, instance: Any) -> bool:
-        import sys
-
-        if sys.version_info < (3, 10):  # py39
-            return _is_type_newtype_py39(instance)
-        else:
-            return isinstance(instance, NewType)
-
-
-class NewTypeProtocol(Generic[Product], metaclass=NewTypeMeta):
-    __supertype__: Type[Product]
-
-
-def extract_underlying_type(product_type: Type[Product]) -> Type[Product]:
-    if isinstance(product_type, NewTypeProtocol):
+def extract_underlying_type(product_type: type[Product]) -> type[Product]:
+    if isinstance(product_type, NewType):
         return extract_underlying_type(product_type.__supertype__)
     else:
         return product_type
@@ -72,9 +49,9 @@ class ProductSpec:
     Specification of a product (returned value) of a provider.
     """
 
-    def __init__(self, product_type: Union[Type[Product], ProductSpec]) -> None:
-        self.product_type: Type[Product]
-        self.returned_type: Type[Product]
+    def __init__(self, product_type: type[Product] | ProductSpec) -> None:
+        self.product_type: type[Product]
+        self.returned_type: type[Product]
 
         if isinstance(product_type, ProductSpec):
             self.product_type = product_type.product_type
@@ -93,7 +70,7 @@ class ProductSpec:
             return self.product_type == other.product_type
 
 
-def collect_arg_typehints(callable_obj: Callable[..., Product]) -> Dict[str, Type[Any]]:
+def collect_arg_typehints(callable_obj: Callable[..., Product]) -> dict[str, type[Any]]:
     from typing import get_type_hints
 
     if isinstance(callable_obj, type):
@@ -127,10 +104,13 @@ class DependencySpec(Generic[Product]):
 
     @staticmethod
     def extract_dependency_type(dependency_type: Any) -> None:
+        from types import UnionType
         from typing import Union, get_args, get_origin
 
-        if get_origin(dependency_type) == Union:
-            if len((args := get_args(dependency_type))) == 2 and type(None) in args:
+        if get_origin(dependency_type) == Union or isinstance(
+            dependency_type, UnionType
+        ):
+            if len(args := get_args(dependency_type)) == 2 and type(None) in args:
                 # Optional
                 return args[0] if isinstance(None, args[1]) else args[1]
             else:
@@ -159,7 +139,7 @@ class DependencySpec(Generic[Product]):
 
 def collect_argument_specs(
     callable_obj: Callable[..., Product], *default_args: Any, **default_keywords: Any
-) -> Dict[str, DependencySpec]:
+) -> dict[str, DependencySpec]:
     """
     Collect Dependencies from the signature and type hints.
     ``default_args`` and ``default_keywords`` will overwrite the annotation.
@@ -200,7 +180,7 @@ def collect_argument_specs(
 
 def collect_attr_specs(
     callable_class: Callable[..., Product],
-) -> Dict[str, DependencySpec]:
+) -> dict[str, DependencySpec]:
     """
     Collect Dependencies from the type hints of the class.
     It ignores any attributes without type hints.
@@ -208,7 +188,7 @@ def collect_attr_specs(
     from typing import get_type_hints
 
     if not isinstance(callable_class, type):
-        return dict()
+        return {}
     else:
         return {
             attr_name: DependencySpec(

@@ -3,8 +3,8 @@
 # Author    : Sunyoung Yoo (ESS)
 # Please feel free to update the hard-coded numbers in this file
 # and submit a merge request(PR).
+from collections.abc import Generator
 from dataclasses import dataclass
-from typing import Generator
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -117,7 +117,12 @@ class ESSInstruments:
             min_np, max_np = _min_max_pair(inst_req.num_pixels)
             label_anchors = [do.min_label_anchor, do.max_label_anchor]
 
-            for num_pixels, label_anchor in zip(set([min_np, max_np]), label_anchors):
+            for num_pixels, label_anchor in zip(
+                {min_np, max_np},
+                label_anchors,
+                strict=False,
+                # strict=False since ``min_np`` and ``max_np`` can be the same.
+            ):
                 _plot_bound_line(ax, (min_er, num_pixels), (max_er, num_pixels), do)
                 label_pos = _shift_pos((min_er, num_pixels), label_anchor)
                 ax.annotate(inst_name.upper(), label_pos, size=10)

@@ -3,9 +3,10 @@
 import argparse
 import pathlib
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from numbers import Number
-from typing import Mapping, NewType
+from typing import NewType
 
 import scipp as sc
 from scippneutron.io.nexus._json_nexus import JSONGroup
