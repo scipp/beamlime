@@ -4,8 +4,9 @@ import argparse
 import asyncio
 import json
 import os
+from collections.abc import AsyncGenerator, Mapping
 from dataclasses import dataclass
-from typing import AsyncGenerator, Mapping, NewType, Union
+from typing import NewType
 
 import h5py
 import numpy as np
@@ -22,7 +23,7 @@ from ._random_data_providers import (
 )
 from .base import Application, DaemonInterface, MessageProtocol
 
-Path = Union[str, bytes, os.PathLike]
+Path = str | bytes | os.PathLike
 
 
 @dataclass

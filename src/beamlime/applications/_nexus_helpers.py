@@ -1,13 +1,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import (
     Any,
-    Callable,
-    Iterable,
     Literal,
-    Mapping,
-    Optional,
-    Sequence,
     TypedDict,
 )
 
@@ -190,7 +186,7 @@ def _node_name(n):
 
 
 def iter_nexus_structure(
-    structure: NexusStructure, root: Optional[NexusPath] = None
+    structure: NexusStructure, root: NexusPath | None = None
 ) -> Iterable[tuple[tuple[str | None, ...], Mapping]]:
     """Visits all branches and leafs in the nexus tree"""
     path = (*root, _node_name(structure)) if root is not None else ()
@@ -200,7 +196,7 @@ def iter_nexus_structure(
 
 
 def find_nexus_structure(
-    structure: NexusStructure, path: Sequence[Optional[str]]
+    structure: NexusStructure, path: Sequence[str | None]
 ) -> NexusStructure:
     """Returns the branch or leaf associated with `path`, or None if not found"""
     if len(path) == 0:
@@ -337,17 +333,15 @@ def combine_nexus_group_store_and_structure(
 
     new = {**structure}
     if "children" in structure:
-        children = []
-        for child in structure["children"]:
-            children.append(
-                combine_nexus_group_store_and_structure(
-                    structure=child,
-                    nexus_group_store={
-                        tuple(tail): group
-                        for (head, *tail), group in nexus_group_store.items()
-                        if head == _node_name(child)
-                    },
-                )
+        new["children"] = [
+            combine_nexus_group_store_and_structure(
+                structure=child,
+                nexus_group_store={
+                    tuple(tail): group
+                    for (head, *tail), group in nexus_group_store.items()
+                    if head == _node_name(child)
+                },
             )
-        new["children"] = children
+            for child in structure["children"]
+        ]
     return new

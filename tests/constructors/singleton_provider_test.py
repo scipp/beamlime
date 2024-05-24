@@ -12,14 +12,14 @@ def function_with_unhashable_arguments(unhashable_arg: list) -> list:
 def random_number() -> float:
     import random
 
-    return random.random()
+    return random.random()  # noqa: S311
 
 
 def random_number_with_seed(seed: int) -> float:
     import random
 
     random.seed(seed)
-    return random.random()
+    return random.random()  # noqa: S311
 
 
 def test_singleton_provider_without_arguments():
@@ -38,8 +38,8 @@ def test_singleton_provider_with_arguments():
     assert singleton_random_number(123) is singleton_random_number(123)
 
     random.seed(123)
-    assert singleton_random_number(123) == random.random()
-    assert singleton_random_number(123) != random.random()
+    assert singleton_random_number(123) == random.random()  # noqa: S311
+    assert singleton_random_number(123) != random.random()  # noqa: S311
 
 
 def test_singleton_provider_unhashable_arguments():
@@ -72,7 +72,7 @@ def test_singleton_provider_hash_key_changes():
         def __hash__(self) -> int:
             from random import random
 
-            return int(random() * 10)
+            return int(random() * 10)  # noqa: S311
 
     hashable_argument = NeverTheSame()
     provider = SingletonProvider(hash_object)

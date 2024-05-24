@@ -3,22 +3,20 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from functools import lru_cache, partial
-from typing import (
-    Any,
+from collections.abc import (
     Callable,
-    Dict,
-    Generic,
     ItemsView,
     Iterable,
     Iterator,
     KeysView,
-    Literal,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
     ValuesView,
+)
+from functools import lru_cache, partial
+from typing import (
+    Any,
+    Generic,
+    Literal,
+    TypeVar,
     overload,
 )
 
@@ -32,7 +30,7 @@ from .inspectors import (
     get_product_spec,
 )
 
-DependencySpecDict = Dict[str, DependencySpec]
+DependencySpecDict = dict[str, DependencySpec]
 
 _lambda_name = (lambda: None).__qualname__
 
@@ -133,7 +131,7 @@ class Provider(Generic[Product]):
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
     ) -> None:
-        if isinstance(_constructor, (partial, Provider)):
+        if isinstance(_constructor, partial | Provider):
             self.args = (*_constructor.args, *args)
             self.keywords = {**_constructor.keywords, **kwargs}
         else:
@@ -155,7 +153,7 @@ class Provider(Generic[Product]):
     def constructor(self) -> Callable[..., Product]:
         return self._constructor
 
-    def can_provide(self, product_type: Union[Type[Product], ProductSpec]) -> bool:
+    def can_provide(self, product_type: type[Product] | ProductSpec) -> bool:
         """
         Check if the given ``product_type`` can be supported by this provider.
         Product type should be the same type as the returned type of this provider.
@@ -214,7 +212,7 @@ _Item = TypeVar("_Item")
 
 def split_sequence_by_filter(
     filter_func: Callable[[_Item], bool], sequence: Iterable[_Item]
-) -> Tuple[Tuple[_Item, ...], Tuple[_Item, ...]]:
+) -> tuple[tuple[_Item, ...], tuple[_Item, ...]]:
     """Split a sequence into two sequences based on the filter.
 
     The first one of returned sequences contains items that pass the filter.
@@ -231,7 +229,7 @@ _Value = TypeVar("_Value")
 
 def split_dict_by_filter(
     filter_func: Callable[[_Key, _Value], bool], sequence: dict[_Key, _Value]
-) -> Tuple[dict[_Key, _Value], dict[_Key, _Value]]:
+) -> tuple[dict[_Key, _Value], dict[_Key, _Value]]:
     """Split a dictionary into two dictionaries based on the filter.
 
     The first one of returned dictionaries contains items that pass the filter.
@@ -417,15 +415,15 @@ def check_conflicting_providers(*prov_grs: ProviderGroup) -> None:
     """Raise an error is given factories have any conflicting providers."""
     from functools import reduce
 
-    keys_list: list[set[Type[Any]]] = [set(prov_gr.keys()) for prov_gr in prov_grs]
+    keys_list: list[set[type[Any]]] = [set(prov_gr.keys()) for prov_gr in prov_grs]
     union_keys = reduce(lambda x, y: x.union(y), keys_list)
 
-    def _collect_by(tp: Type[Product]) -> set[Provider[Product]]:
+    def _collect_by(tp: type[Product]) -> set[Provider[Product]]:
         return {group[tp] for group in prov_grs if tp in group}
 
     # If there is any overlapping providers or conflicting providers
     if conflicts := {
-        tp: providers for tp in union_keys if len((providers := _collect_by(tp))) > 1
+        tp: providers for tp in union_keys if len(providers := _collect_by(tp)) > 1
     }:
         raise ConflictProvidersError(
             f"Factories have conflicting providers for, {conflicts}"
@@ -439,11 +437,11 @@ def merge(*prov_grs: ProviderGroup) -> ProviderGroup:
     return prov_gr
 
 
-def _product_type_label(tp: Type[Product]) -> str:
+def _product_type_label(tp: type[Product]) -> str:
     return tp.__name__ if hasattr(tp, "__name__") else str(tp)
 
 
-Constructor = Union[Provider[Product], partial[Product], Callable[..., Product]]
+Constructor = Provider[Product] | partial[Product] | Callable[..., Product]
 P = TypeVar("P")
 
 
@@ -457,17 +455,17 @@ class ProviderGroup:
         Initializes an empty internal provider dictionary
         and fills it with the initial providers from the argument.
         """
-        self._providers: Dict[Type[Product], Provider[Product]] = {}
+        self._providers: dict[type[Product], Provider[Product]] = {}
         for _provider in initial_providers:
             self.provider(_provider)
 
-    def keys(self) -> KeysView[Type[Product]]:
+    def keys(self) -> KeysView[type[Product]]:
         return self._providers.keys()
 
     def values(self) -> ValuesView[Provider[Product]]:
         return self._providers.values()
 
-    def items(self) -> ItemsView[Type[Product], Provider[Product]]:
+    def items(self) -> ItemsView[type[Product], Provider[Product]]:
         return self._providers.items()
 
     @classmethod
@@ -475,7 +473,7 @@ class ProviderGroup:
         """Return a new provider group containing same providers."""
         return merge(_obj)
 
-    def __iter__(self) -> Iterator[Type[Product]]:
+    def __iter__(self) -> Iterator[type[Product]]:
         """Return an iterator of the product type(s) this group can provide."""
         return iter(self.keys())
 
@@ -502,7 +500,7 @@ class ProviderGroup:
             )
         return merge(self, another)
 
-    def pop(self, product_type: Type[Product]) -> Provider[Product]:
+    def pop(self, product_type: type[Product]) -> Provider[Product]:
         """
         Remove and return the provider of ``product_type``.
         Return ``UnknownProvider`` if not found.
@@ -514,7 +512,7 @@ class ProviderGroup:
         self._providers.clear()
 
     def _validate_and_register(
-        self, product_type: Type[Product], provider: Provider[Product]
+        self, product_type: type[Product], provider: Provider[Product]
     ) -> None:
         """
         Validate a provider and add the provider if valid.
@@ -544,7 +542,7 @@ class ProviderGroup:
             )
         self._providers[product_type] = provider
 
-    def __getitem__(self, product_type: Type[Product]) -> Provider[Product]:
+    def __getitem__(self, product_type: type[Product]) -> Provider[Product]:
         """
         Return the provider of the requested product type.
 
@@ -564,7 +562,7 @@ class ProviderGroup:
 
     @staticmethod
     def _wrap_provider(
-        provider_call: Callable[..., Product], provider_tp: Type[Provider] | None = None
+        provider_call: Callable[..., Product], provider_tp: type[Provider] | None = None
     ) -> Provider[Product]:
         """Wrap a callable object with a ``Provider`` or its subclass."""
         if provider_tp is None:
@@ -576,7 +574,7 @@ class ProviderGroup:
             return provider_tp(provider_call)
 
     def __setitem__(
-        self, product_type: Type[Product], provider_call: Callable[..., Product]
+        self, product_type: type[Product], provider_call: Callable[..., Product]
     ) -> None:
         """
         Register a callable object ``provider_call`` as a provider of ``product_type``.
@@ -595,11 +593,11 @@ class ProviderGroup:
     @overload
     def provider(
         self,
-        provider_call: Type[Product],
+        provider_call: type[Product],
         /,
         *,
-        provider_type: Type[Provider] = Provider,
-    ) -> Type[Product]:  # This signiture is needed when it decorates a class.
+        provider_type: type[Provider] = Provider,
+    ) -> type[Product]:  # This signiture is needed when it decorates a class.
         ...
 
     @overload
@@ -608,27 +606,27 @@ class ProviderGroup:
         provider_call: Callable[..., Product],
         /,
         *,
-        provider_type: Type[Provider] = Provider,
+        provider_type: type[Provider] = Provider,
     ) -> Callable[..., Product]: ...
 
     @overload
     def provider(
-        self, provider_call: None = None, /, *, provider_type: Type[Provider]
+        self, provider_call: None = None, /, *, provider_type: type[Provider]
     ) -> Callable[[P], P]: ...
 
     def provider(
         self,
-        provider_call: None | Callable[..., Product] | Type[Product] = None,
+        provider_call: None | Callable[..., Product] | type[Product] = None,
         /,
         *,
-        provider_type: Type[Provider] | None = None,
+        provider_type: type[Provider] | None = None,
     ) -> (
         Callable[
-            [Callable[..., Product] | Type[Product]],
-            Callable[..., Product] | Type[Product],
+            [Callable[..., Product] | type[Product]],
+            Callable[..., Product] | type[Product],
         ]
         | Callable[..., Product]
-        | Type[Product]
+        | type[Product]
     ):
         """
         Register the decorated callable into this group.
@@ -649,18 +647,18 @@ class ProviderGroup:
 
         @overload
         def wrapper(
-            provider_call: Callable[..., Product], provider_tp: Type[Provider] | None
+            provider_call: Callable[..., Product], provider_tp: type[Provider] | None
         ) -> Callable[..., Product]: ...
 
         @overload
         def wrapper(
-            provider_call: Type[Product], provider_tp: Type[Provider] | None
-        ) -> Type[Product]: ...
+            provider_call: type[Product], provider_tp: type[Provider] | None
+        ) -> type[Product]: ...
 
         def wrapper(
-            provider_call: Callable[..., Product] | Type[Product],
-            provider_tp: Type[Provider] | None,
-        ) -> Callable[..., Product] | Type[Product]:
+            provider_call: Callable[..., Product] | type[Product],
+            provider_tp: type[Provider] | None,
+        ) -> Callable[..., Product] | type[Product]:
             new_provider = self._wrap_provider(provider_call, provider_tp)
             _product_type = new_provider.product_spec.product_type
             self[_product_type] = new_provider

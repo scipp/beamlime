@@ -3,7 +3,7 @@
 import hashlib
 import json
 import pathlib
-from typing import Generator, Mapping
+from collections.abc import Generator, Mapping
 
 import numpy as np
 import pytest
@@ -66,8 +66,7 @@ def ymir_ev44_generator(ymir: dict) -> Generator[dict, None, None]:
 
     def events() -> Generator[dict, None, None]:
         for values in zip(*generators.values(), strict=True):
-            for value in values:
-                yield value
+            yield from values
 
     return events()
 
@@ -119,7 +118,7 @@ def test_ymir_detector_template_checksum() -> None:
     local_ymir_path = pathlib.Path(__file__).parent / "ymir_detectors.json"
     # check md5 sum of the ``local_ymir_path`` file
     with open(local_ymir_path, "rb") as f:
-        local_ymir_md5 = f"md5:{hashlib.md5(f.read()).hexdigest()}"
+        local_ymir_md5 = f"md5:{hashlib.md5(f.read()).hexdigest()}"  # noqa: S324
 
     assert local_ymir_md5 == get_checksum("ymir_detectors.json")
 
