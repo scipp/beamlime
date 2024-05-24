@@ -4,7 +4,7 @@ import pytest
 
 
 @pytest.mark.parametrize(
-    ["max_trials", "success"],
+    ("max_trials", "success"),
     [(10, True), (15, False)],
 )
 def test_retry_decorator_max_trial(max_trials: int, success: bool):
@@ -39,7 +39,7 @@ def test_retry_decorator_max_trial(max_trials: int, success: bool):
 
 
 @pytest.mark.parametrize(
-    ["max_trials", "success"],
+    ("max_trials", "success"),
     [(10, True), (15, False)],
 )
 def test_async_retry_decorator_max_trial(max_trials: int, success: bool):

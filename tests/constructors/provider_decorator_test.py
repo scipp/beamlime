@@ -43,8 +43,7 @@ def test_provider_class():
     provider_gr = ProviderGroup()
 
     @provider_gr.provider
-    class UsefulProduct:
-        ...
+    class UsefulProduct: ...
 
     assert provider_gr[UsefulProduct].constructor is UsefulProduct
     assert isinstance(provider_gr[UsefulProduct](), UsefulProduct)
@@ -54,8 +53,7 @@ def test_provider_singleton_class():
     provider_gr = ProviderGroup()
 
     @provider_gr.provider(provider_type=SingletonProvider)
-    class UsefulProduct:
-        ...
+    class UsefulProduct: ...
 
     assert provider_gr[UsefulProduct].constructor is UsefulProduct
     assert provider_gr[UsefulProduct]() is provider_gr[UsefulProduct]()
@@ -66,8 +64,7 @@ def test_provider_singleton_class_as_dependency():
     provider_gr = ProviderGroup()
 
     @provider_gr.provider(provider_type=SingletonProvider)
-    class SingletonList(list):
-        ...
+    class SingletonList(list): ...
 
     @provider_gr.provider(provider_type=Provider)
     class App1:
@@ -90,8 +87,7 @@ def test_provider_method_raises():
 
         class _:
             @provider_gr.provider
-            def __(self):
-                ...
+            def __(self): ...
 
 
 def test_provider_local_function_raises():

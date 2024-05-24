@@ -2,17 +2,11 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import asyncio
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine, Generator
 from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from typing import (
     Any,
-    AsyncGenerator,
-    Awaitable,
-    Callable,
-    Coroutine,
-    Generator,
-    List,
-    Optional,
     Protocol,
     TypeVar,
     runtime_checkable,
@@ -40,8 +34,7 @@ class DaemonInterface(LogMixin, ABC):
     @abstractmethod
     async def run(
         self,
-    ) -> AsyncGenerator[Optional[MessageProtocol], None]:
-        ...
+    ) -> AsyncGenerator[MessageProtocol | None, None]: ...
 
 
 class HandlerInterface(LogMixin, ABC):
@@ -66,11 +59,11 @@ class MessageRouter(DaemonInterface):
         from queue import Queue
 
         self.handlers: dict[
-            type[MessageProtocol], List[Callable[[MessageProtocol], Any]]
-        ] = dict()
+            type[MessageProtocol], list[Callable[[MessageProtocol], Any]]
+        ] = {}
         self.awaitable_handlers: dict[
-            type[MessageProtocol], List[Callable[[MessageProtocol], Awaitable[Any]]]
-        ] = dict()
+            type[MessageProtocol], list[Callable[[MessageProtocol], Awaitable[Any]]]
+        ] = {}
         self.message_pipe = Queue()
 
     @contextmanager
@@ -89,7 +82,7 @@ class MessageRouter(DaemonInterface):
     def _register(
         self,
         *,
-        handler_list: dict[type[MessageT], List[HandlerT]],
+        handler_list: dict[type[MessageT], list[HandlerT]],
         event_tp: type[MessageT],
         handler: HandlerT,
     ):
@@ -110,7 +103,7 @@ class MessageRouter(DaemonInterface):
 
         self._register(handler_list=handler_list, event_tp=event_tp, handler=handler)
 
-    def _collect_results(self, result: Any) -> List[MessageProtocol]:
+    def _collect_results(self, result: Any) -> list[MessageProtocol]:
         """Append or extend ``result`` to ``self.message_pipe``.
 
         It filters out non-BeamlimeMessage objects from ``result``.
@@ -118,7 +111,7 @@ class MessageRouter(DaemonInterface):
         if isinstance(result, MessageProtocol):
             return [result]
         elif isinstance(result, tuple):
-            return list(_msg for _msg in result if isinstance(_msg, MessageProtocol))
+            return [_msg for _msg in result if isinstance(_msg, MessageProtocol)]
         else:
             return []
 
@@ -147,7 +140,7 @@ class MessageRouter(DaemonInterface):
 
     async def run(
         self,
-    ) -> AsyncGenerator[Optional[MessageProtocol], None]:
+    ) -> AsyncGenerator[MessageProtocol | None, None]:
         """Message router daemon."""
         while True:
             await asyncio.sleep(0)
@@ -177,21 +170,21 @@ class Application(LogMixin):
     class Stop:
         """A message to break the routing loop."""
 
-        content: Optional[Any]
+        content: Any
 
     def __init__(self, logger: BeamlimeLogger, message_router: MessageRouter) -> None:
         import asyncio
 
         self.loop: asyncio.AbstractEventLoop
-        self.tasks: List[asyncio.Task] = []
+        self.tasks: list[asyncio.Task] = []
         self.logger = logger
         self.message_router = message_router
-        self.daemons: List[DaemonInterface] = [self.message_router]
+        self.daemons: list[DaemonInterface] = [self.message_router]
         self.register_handling_method(self.Stop, self.stop_tasks)
         self._break = False
         super().__init__()
 
-    def stop_tasks(self, message: Optional[MessageProtocol] = None) -> None:
+    def stop_tasks(self, message: MessageProtocol | None = None) -> None:
         self.info('Stop running application %s...', self.__class__.__name__)
         if message is not None and not isinstance(message, self.Stop):
             raise TypeError(

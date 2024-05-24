@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # Benchmark result visualization helpers for scipp data structure.
-from typing import Optional
-
 import scipp as sc
 from matplotlib.contour import ContourSet
 from matplotlib.figure import Figure
@@ -14,10 +12,10 @@ def plot_contourf(
     *,
     x_coord: str,
     y_coord: str,
-    fig: Optional[Figure] = None,
+    fig: Figure | None = None,
     ax: Axes,
-    under_color: Optional[str] = None,
-    over_color: Optional[str] = None,
+    under_color: str | None = None,
+    over_color: str | None = None,
     **contourf_kwargs,
 ) -> ContourSet:
     """Plot contour plots using coordinates of a ``DataArray``.

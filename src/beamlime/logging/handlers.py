@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-# flake8: noqa B010
 from __future__ import annotations
 
 from logging import FileHandler
@@ -27,8 +26,7 @@ def provide_beamlime_filehandler(
     return handler
 
 
-class BeamlimeStreamHandler(RichHandler):
-    ...
+class BeamlimeStreamHandler(RichHandler): ...
 
 
 @log_providers.provider

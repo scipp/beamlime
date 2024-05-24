@@ -47,6 +47,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.branch == '' && github.ref_name || inputs.branch }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           fetch-depth: 0  # history required so cmake can determine version
       - uses: actions/setup-python@v5
         with:
@@ -64,7 +65,7 @@ jobs:
           name: docs_html
           path: html/
 
-      - uses: JamesIves/github-pages-deploy-action@v4.5.0
+      - uses: JamesIves/github-pages-deploy-action@v4.6.1
         if: ${{ inputs.publish }}
         with:
           branch: gh-pages

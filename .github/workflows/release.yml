@@ -67,7 +67,7 @@ jobs:
       id-token: write
     if: github.event_name == 'release' && github.event.action == 'published'
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
       - uses: pypa/gh-action-pypi-publish@v1.8.14
 
   upload_conda:
@@ -77,7 +77,7 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
 
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
       - uses: mamba-org/setup-micromamba@v1
         with:
           environment-name: upload-env
@@ -101,7 +101,7 @@ jobs:
     permissions:
       contents: write  # This is needed so that the action can upload the asset
     steps:
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
     - name: Zip documentation
       run: |
         mv docs_html documentation-${{ github.ref_name }}

@@ -16,12 +16,12 @@ from tests.providers.preset_providers import (
 )
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_provider_group() -> ProviderGroup:
     return ProviderGroup(Adult, Parent, give_a_good_telling)
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_factory(test_provider_group) -> Factory:
     return Factory(test_provider_group)
 
@@ -105,8 +105,7 @@ def test_temporary_provider_compatible_new_type(test_factory: Factory):
             assert factory[Joke] == bin(99)
 
 
-class HexJoke(str):
-    ...
+class HexJoke(str): ...
 
 
 def how_many_problems_i_hex() -> BinaryJoke:

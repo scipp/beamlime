@@ -1,17 +1,14 @@
-# -*- coding: utf-8 -*-
-
 import doctest
 import os
 import sys
-
-import beamlime
+from importlib.metadata import version as get_version
 
 sys.path.insert(0, os.path.abspath('.'))
 
 # General information about the project.
-project = u'Beamlime'
-copyright = u'2024 Scipp contributors'
-author = u'Scipp contributors'
+project = 'Beamlime'
+copyright = '2024 Scipp contributors'
+author = 'Scipp contributors'
 
 html_show_sourcelink = True
 
@@ -112,10 +109,8 @@ master_doc = 'index'
 # built documents.
 #
 
-# The short X.Y version.
-version = beamlime.__version__
-# The full version, including alpha/beta/rc tags.
-release = beamlime.__version__
+release = get_version("beamlime")
+version = ".".join(release.split('.')[:3])  # CalVer
 
 warning_is_error = True
 

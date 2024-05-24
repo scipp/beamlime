@@ -88,8 +88,7 @@ def test_provider_can_provide_generic():
 
 
 def test_provider_can_provide_false():
-    class StrChild(str):
-        ...
+    class StrChild(str): ...
 
     assert not Provider(make_a_joke).can_provide(int)
     assert not Provider(make_a_joke).can_provide(StrChild)
@@ -114,18 +113,27 @@ def test_provider_class_method_raises():
 
 
 def test_provider_local_scope_function_raises():
-    def local_function():
-        ...
+    def local_function(): ...
 
     with pytest.raises(NotImplementedError):
         Provider(local_function)
 
 
-def func_with_union_arg(_: Union[int, float, None]) -> int:
+def func_with_union_arg(_: float | str | None) -> int | str:
     return 0
 
 
-def func_with_union_return() -> Union[int, float, None]:
+def func_with_explicit_union_arg(_: Union[float, str, None]) -> int | str:  # noqa: UP007
+    # Union annotation is used here on purpose here.
+    return 0
+
+
+def func_with_union_return() -> int | str | None:
+    return None
+
+
+def func_with_explicit_union_return() -> Union[int, str, None]:  # noqa: UP007
+    # Union annotation is used here on purpose here.
     return None
 
 
@@ -134,9 +142,19 @@ def test_union_annotation_arg_raises():
         Provider(func_with_union_arg)
 
 
+def test_explicit_union_annotation_arg_raises():
+    with pytest.raises(NotImplementedError):
+        Provider(func_with_explicit_union_arg)
+
+
 def test_union_annotation_return_raises():
     with pytest.raises(NotImplementedError):
-        Provider(func_with_union_arg)
+        Provider(func_with_union_return)
+
+
+def test_explicit_union_annotation_return_raises():
+    with pytest.raises(NotImplementedError):
+        Provider(func_with_explicit_union_return)
 
 
 def func_without_arg_type(_) -> int:
@@ -153,8 +171,7 @@ def test_insufficient_annotation_raises():
 def test_singleton_provider():
     from beamlime.constructors import SingletonProvider
 
-    class TestClass:
-        ...
+    class TestClass: ...
 
     singleton_provider = SingletonProvider(TestClass)
     assert singleton_provider() is singleton_provider()

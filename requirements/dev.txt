@@ -12,7 +12,7 @@
 -r static.txt
 -r test.txt
 -r wheels.txt
-annotated-types==0.6.0
+annotated-types==0.7.0
     # via pydantic
 anyio==4.3.0
     # via
@@ -34,7 +34,7 @@ click==8.1.7
     #   pip-tools
 copier==9.2.0
     # via -r dev.in
-dunamai==1.21.0
+dunamai==1.21.1
     # via copier
 fqdn==1.5.1
     # via jsonschema
@@ -71,7 +71,7 @@ jupyter-server==2.14.0
     #   notebook-shim
 jupyter-server-terminals==0.5.3
     # via jupyter-server
-jupyterlab==4.1.8
+jupyterlab==4.2.0
     # via -r dev.in
 jupyterlab-server==2.27.1
     # via jupyterlab

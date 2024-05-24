@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 import pathlib
-from typing import Callable
+from collections.abc import Callable
 
 import pytest
 
@@ -32,7 +32,7 @@ class TestRunner(BenchmarkRunner):
         )
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture()
 def benchmark_tmp_path(tmp_path: pathlib.Path) -> BenchmarkResultFilePath:
     from tests.benchmarks.environments import BenchmarkRootDir
     from tests.benchmarks.runner import create_benchmark_session_factory
@@ -42,7 +42,7 @@ def benchmark_tmp_path(tmp_path: pathlib.Path) -> BenchmarkResultFilePath:
         return factory[BenchmarkResultFilePath]
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture()
 def benchmark(benchmark_tmp_path: BenchmarkResultFilePath):
     from tests.benchmarks.runner import (
         BenchmarkSession,
