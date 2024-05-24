@@ -30,6 +30,9 @@ test:
     - beamlime
   requires:
     - pytest
+    - pytest-asyncio
+    - psutil
+    - pandas
     - numpy
     - scipp
     - plopp
