@@ -16,12 +16,12 @@ from tests.providers.preset_providers import (
 )
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_provider_group() -> ProviderGroup:
     return ProviderGroup(Adult, Parent, give_a_good_telling)
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_factory(test_provider_group) -> Factory:
     return Factory(test_provider_group)
 

@@ -18,12 +18,12 @@ from tests.providers.preset_providers import (
 )
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_provider_group() -> ProviderGroup:
     return ProviderGroup(Adult, Parent, give_a_good_telling)
 
 
-@pytest.fixture
+@pytest.fixture()
 def test_factory(test_provider_group) -> Factory:
     return Factory(test_provider_group)
 
@@ -48,7 +48,7 @@ def test_factory_getitem_with_arg_dependency():
     assert factory[GoodTelling] == another_good_telling
 
 
-def func_implicit_optional_arg(arg: int = None) -> object:  # type:ignore[assignment]
+def func_implicit_optional_arg(arg: int | None = None) -> object:  # type:ignore[assignment]
     # TODO: Remove this test case when ``inspect.signature``
     # does not annotation implicit Optional.
     # When a default value is set as ``None``,
@@ -59,17 +59,33 @@ def func_implicit_optional_arg(arg: int = None) -> object:  # type:ignore[assign
     return arg
 
 
-def func_optional_arg(arg: Optional[int] = None) -> object:
+def func_optional_arg(arg: int | None = None) -> object:
     return arg
 
 
-def func_union_optional_arg(arg: Union[None, int] = None) -> object:
+def func_explicit_optional_arg(arg: Optional[int] = None) -> object:  # noqa: UP007
+    # Optional annotation is used here on purpose here.
+    return arg
+
+
+def func_union_optional_arg(arg: None | int = None) -> object:
+    return arg
+
+
+def func_explicit_union_optional_arg(arg: Union[None, int] = None) -> object:  # noqa: UP007
+    # Union annotation is used here on purpose here.
     return arg
 
 
 @pytest.mark.parametrize(
     "optional_arg_func",
-    (func_optional_arg, func_implicit_optional_arg, func_union_optional_arg),
+    [
+        func_optional_arg,
+        func_explicit_optional_arg,
+        func_implicit_optional_arg,
+        func_union_optional_arg,
+        func_explicit_union_optional_arg,
+    ],
 )
 def test_factory_optional_annotation(optional_arg_func):
     provider_group = ProviderGroup(optional_arg_func)
@@ -80,11 +96,11 @@ def test_factory_optional_annotation(optional_arg_func):
 
 @pytest.mark.parametrize(
     "optional_arg_func",
-    (
+    [
         func_optional_arg,
         func_implicit_optional_arg,
         func_union_optional_arg,
-    ),
+    ],
 )
 def test_factory_optional_annotation_none(optional_arg_func):
     provider_group = ProviderGroup(optional_arg_func)
@@ -92,7 +108,7 @@ def test_factory_optional_annotation_none(optional_arg_func):
     assert factory[object] is None
 
 
-def func_union_arg(arg: Union[None, int, float] = None) -> Any:
+def func_union_arg(arg: float | str | None = None) -> Any:
     return arg
 
 
@@ -101,20 +117,34 @@ def test_union_arg_raises():
         ProviderGroup(func_union_arg)
 
 
-def func_optional_return(arg: Optional[int] = None) -> Optional[int]:
+def func_explicit_optional_return(arg: Optional[int] = None) -> Optional[int]:  # noqa: UP007
+    # Optional annotation is used here on purpose here.
     return arg
 
 
-def func_union_return(arg: Union[int, float, None] = None) -> Union[int, float, None]:
+def func_optional_return(arg: int | None = None) -> int | None:
+    return arg
+
+
+def func_explicit_union_return(
+    arg: float | str | None = None,
+) -> Union[str, float, None]:  # noqa: UP007
+    # Union annotation is used here on purpose here.
+    return arg
+
+
+def func_union_return(arg: float | str | None = None) -> str | float | None:
     return arg
 
 
 @pytest.mark.parametrize(
     "union_return_func",
-    (
+    [
         func_optional_return,
+        func_explicit_optional_return,
         func_union_return,
-    ),
+        func_explicit_union_return,
+    ],
 )
 def test_factory_optional_return_raises(union_return_func):
     with pytest.raises(NotImplementedError):
