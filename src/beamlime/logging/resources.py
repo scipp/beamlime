@@ -112,7 +112,7 @@ def check_file_handlers(logger: logging.Logger) -> None:
         hdlr for hdlr in logger.handlers if isinstance(hdlr, logging.FileHandler)
     ]
     missing = [
-        file_name for hdlr in f_hdlrs if not exists((file_name := hdlr.baseFilename))
+        file_name for hdlr in f_hdlrs if not exists(file_name := hdlr.baseFilename)
     ]
     if missing:
         raise RuntimeError("Files attached to the file handlers are missing.", missing)

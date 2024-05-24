@@ -11,7 +11,7 @@ charset-normalizer==3.3.2
     # via requests
 contourpy==1.2.1
     # via matplotlib
-coverage[toml]==7.5.0
+coverage[toml]==7.5.1
     # via pytest-cov
 cycler==0.12.1
     # via matplotlib
@@ -31,7 +31,7 @@ iniconfig==2.0.0
     # via pytest
 kiwisolver==1.4.5
     # via matplotlib
-matplotlib==3.8.4
+matplotlib==3.9.0
     # via plopp
 numpy==1.26.4
     # via
@@ -52,7 +52,7 @@ pandas==2.2.2
     # via -r basetest.in
 pillow==10.3.0
     # via matplotlib
-platformdirs==4.2.1
+platformdirs==4.2.2
     # via pooch
 plopp==24.4.0
     # via -r basetest.in
@@ -62,17 +62,17 @@ pooch==1.8.1
     # via scippneutron
 psutil==5.9.8
     # via -r basetest.in
-pyarrow==16.0.0
+pyarrow==16.1.0
     # via -r basetest.in
 pyparsing==3.1.2
     # via matplotlib
-pytest==8.2.0
+pytest==8.2.1
     # via
     #   -r basetest.in
     #   pytest-asyncio
     #   pytest-cov
     #   pytest-xdist
-pytest-asyncio==0.23.6
+pytest-asyncio==0.23.7
     # via -r basetest.in
 pytest-cov==5.0.0
     # via -r basetest.in
@@ -85,7 +85,7 @@ python-dateutil==2.9.0.post0
     #   scippnexus
 pytz==2024.1
     # via pandas
-requests==2.31.0
+requests==2.32.2
     # via pooch
 scipp==24.2.0
     # via

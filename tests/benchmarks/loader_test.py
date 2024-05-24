@@ -1,15 +1,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 import pathlib
+from collections.abc import Callable, Generator
 from dataclasses import dataclass
-from typing import Callable, Generator, NamedTuple
+from typing import NamedTuple
 
 import pytest
 
 from beamlime.constructors import Factory
 from tests.benchmarks.runner import BenchmarkRunner, BenchmarkSession, SingleRunReport
 
-NT = NamedTuple("NT", [('name', str), ('friends', list)])
+
+class NT(NamedTuple):
+    name: str
+    friends: list
 
 
 @dataclass
@@ -23,7 +27,7 @@ class B:
     a: A
 
 
-@pytest.fixture
+@pytest.fixture()
 def benchmark_session_factory():
     from tests.benchmarks.runner import create_benchmark_session_factory
 
@@ -49,7 +53,7 @@ def benchmark_session_factory():
     return create_benchmark_session_factory(runner_type=TestRunner)
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture()
 def benchmark_tmp_path(
     tmp_path: pathlib.Path, benchmark_session_factory: Factory
 ) -> pathlib.Path:
@@ -59,7 +63,7 @@ def benchmark_tmp_path(
         return benchmark_session_factory[BenchmarkResultFilePath]
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture()
 def benchmark_session(
     benchmark_session_factory: Factory, benchmark_tmp_path: pathlib.Path
 ) -> Generator[BenchmarkSession, None, None]:
@@ -116,7 +120,7 @@ def test_reconstruct_report(benchmark_session: BenchmarkSession):
         return a + b
 
     with benchmark_session.configure(iterations=3):
-        for a, b in zip([1, 2, 3], [3, 2, 1]):
+        for a, b in zip([1, 2, 3], [3, 2, 1], strict=True):
             benchmark_session.run(sample_func, a=a, b=b)
 
     benchmark_session.save()

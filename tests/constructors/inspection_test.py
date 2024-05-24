@@ -71,9 +71,7 @@ def test_dependency_spec_not_optional():
 
 
 def test_dependency_spec_optional_annotation():
-    from typing import Optional, Union
-
-    union_int_spec = DependencySpec(Union[None, int], None)
+    union_int_spec = DependencySpec(None | int, None)
     assert union_int_spec.dependency_type is int
-    optional_int_spec = DependencySpec(Optional[int], None)
+    optional_int_spec = DependencySpec(int | None, None)
     assert optional_int_spec.dependency_type is int
