@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-from typing import Any, Generator, List, NewType, TypedDict
+from collections.abc import Generator
+from typing import Any, NewType, TypedDict
 
 import numpy as np
 from numpy.random import default_rng
@@ -16,7 +17,7 @@ ReferenceTimeZero = NewType("ReferenceTimeZero", int)  # [ns]
 
 # Arguments
 DetectorName = NewType("DetectorName", str)
-DetectorNumberCandidates = NewType("DetectorNumberCandidates", List[int])
+DetectorNumberCandidates = NewType("DetectorNumberCandidates", list[int])
 
 
 class EV44(TypedDict):
@@ -71,7 +72,9 @@ def nxevent_data_ev44_generator(
     event_time_zero: np.ndarray,
 ) -> Generator[EV44, Any, Any]:
     """Generate EV44 from datasets of a NXevent_data group."""
-    for i, (start, end) in enumerate(zip(event_index[:-1], event_index[1:])):
+    from itertools import pairwise
+
+    for i, (start, end) in enumerate(pairwise(event_index)):
         yield EV44(
             source_name=source_name,
             reference_time=np.asarray(event_time_zero[i : i + 1]),

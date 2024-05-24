@@ -4,7 +4,7 @@
 from collections import OrderedDict
 from dataclasses import dataclass
 from logging import Formatter
-from typing import Literal, NewType, Optional
+from typing import Literal, NewType
 
 from rich.highlighter import Highlighter
 from rich.style import Style
@@ -50,8 +50,8 @@ class LogColumn:
     """
 
     variable_name: str
-    min_length: Optional[int] = None
-    title: Optional[str] = None
+    min_length: int | None = None
+    title: str | None = None
     style: _FormatStyle = "{"
 
     @property
@@ -114,14 +114,14 @@ class LogHeader(OrderedDict[str, LogColumn]):
     ):
         self.padding = padding
         self.sep = sep
-        if len(args) > 1 and all([isinstance(arg, LogColumn) for arg in args]):
+        if len(args) > 1 and all(isinstance(arg, LogColumn) for arg in args):
             self._init_from_columns(*args)
         else:
             raise TypeError("All positional arguments should be ``LogColumn``.")
         self.style: _FormatStyle = self._retrieve_style(*args)
 
     def _retrieve_style(self, *columns: LogColumn) -> _FormatStyle:
-        styles: set[_FormatStyle] = set([col.style for col in columns])
+        styles: set[_FormatStyle] = {col.style for col in columns}
         if len(styles) > 1:
             raise ValueError("All columns should have the same style of formatting.")
 
@@ -202,7 +202,7 @@ class BeamlimeStreamHighlighter(Highlighter):
         return self.style_map[app_name]
 
     def _retrieve_app_name(self, text: Text) -> str:
-        if len((name_msg := str(text).split("|"))) == 2:
+        if len(name_msg := str(text).split("|")) == 2:
             return name_msg[0]
         else:
             return ""

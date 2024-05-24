@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from typing import Callable, Generic, NewType, Optional, TypeVar
+from typing import Generic, NewType, TypeVar
 
 from beamlime.constructors import Factory, ProviderGroup
 
@@ -34,15 +35,15 @@ class SpaceMeasurement:
 @dataclass
 class BenchmarkResult:  # Measurement results should always have value and unit.
     time: TimeMeasurement
-    space: Optional[SpaceMeasurement] = None
+    space: SpaceMeasurement | None = None
 
 
 _Item = TypeVar("_Item")
 
 
 def _append_row(
-    obj: dict[str, list[Optional[_Item]]], row: dict[str, _Item]
-) -> dict[str, list[Optional[_Item]]]:
+    obj: dict[str, list[_Item | None]], row: dict[str, _Item]
+) -> dict[str, list[_Item | None]]:
     """
     Helper function to extend Pandas Dataframe-like dictionary.
     All columns(Corresponding to the highest level keys)
@@ -72,7 +73,7 @@ class SingleRunReport(Generic[R]):
     callable_name: BenchmarkTargetName
     benchmark_result: BenchmarkResult
     arguments: dict
-    output: Optional[R] = None
+    output: R | None = None
 
 
 @dataclass  # Need dataclass decorator to use ``as_dict``.
@@ -85,16 +86,16 @@ class BenchmarkReport:
     arguments: dict[str, list]
 
     def __init__(self) -> None:
-        self.target_names = list()
-        self.measurements = dict()
-        self.arguments = dict()
+        self.target_names = []
+        self.measurements = {}
+        self.arguments = {}
 
     def append_measurement(self, result: BenchmarkResult) -> None:
         measurement = asdict(result)
         for meas_dim in measurement:
             _append_row(
-                self.measurements.setdefault(meas_dim, dict(value=[], unit=[])),
-                measurement.get(meas_dim) or dict(value=None, unit=None),
+                self.measurements.setdefault(meas_dim, {"value": [], "unit": []}),
+                measurement.get(meas_dim) or {"value": None, "unit": None},
             )
 
     def append(self, single_run_result: SingleRunReport) -> None:
@@ -146,13 +147,11 @@ class BenchmarkFileManager(ABC):
 
     @abstractmethod
     def save(
-        self, report: BenchmarkReport, path: Optional[BenchmarkResultFilePath] = None
+        self, report: BenchmarkReport, path: BenchmarkResultFilePath | None = None
     ) -> None: ...
 
     @abstractmethod
-    def load(
-        self, path: Optional[BenchmarkResultFilePath] = None
-    ) -> BenchmarkReport: ...
+    def load(self, path: BenchmarkResultFilePath | None = None) -> BenchmarkReport: ...
 
 
 class SimpleFileManager(BenchmarkFileManager):
@@ -171,6 +170,10 @@ BenchmarkIterations = NewType("BenchmarkIterations", int)
 AutoSaveFlag = NewType("AutoSaveFlag", bool)
 
 
+DEFAULT_ITERATIONS = BenchmarkIterations(1)
+DEFAULT_AUTO_SAVE = AutoSaveFlag(True)
+
+
 @dataclass
 class BenchmarkSessionConfiguration:
     """
@@ -184,8 +187,8 @@ class BenchmarkSessionConfiguration:
 
     """
 
-    iterations: BenchmarkIterations = BenchmarkIterations(1)
-    auto_save: AutoSaveFlag = AutoSaveFlag(True)
+    iterations: BenchmarkIterations = DEFAULT_ITERATIONS
+    auto_save: AutoSaveFlag = DEFAULT_AUTO_SAVE
 
 
 @dataclass
@@ -228,7 +231,7 @@ class BenchmarkSession:
         instead of having extra arguments in ``run`` methods.
         So that all arguments of ``run`` can be directly passed to ``BenchmarkRunner``.
         """
-        single_report: Optional[SingleRunReport] = None
+        single_report: SingleRunReport | None = None
 
         for _ in range(self.configurations.iterations):
             single_report = self.runner(*runner_args, **parameters)

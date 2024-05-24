@@ -3,9 +3,8 @@
 import pathlib
 import platform
 import uuid
-from collections import namedtuple
 from dataclasses import dataclass
-from typing import NewType
+from typing import NamedTuple, NewType
 
 import psutil
 
@@ -17,17 +16,55 @@ OperatingSystem = NewType("OperatingSystem", str)
 OperatingSystemVersion = NewType("OperatingSystemVersion", str)
 PlatformDesc = NewType("PlatformDesc", str)
 MachineType = NewType("MachineType", str)  # Processor type.
-TotalMemory = namedtuple('TotalMemory', ['value', 'unit'])
-PhysicalCpuCores = namedtuple(
-    'PhysicalCpuCores', ['value', 'unit']
-)  # Physical number of CPU cores.
-LogicalCpuCores = namedtuple(
-    'LogicalCpuCores', ['value', 'unit']
-)  # Logical number of CPU cores.
-ProcessCpuAffinity = namedtuple('ProcessCpuAffinity', ['value', 'unit'])
-CpuFrequency = namedtuple('CpuFrequency', ['current', 'min', 'max'])
-MaximumFrequency = namedtuple('MaximumFrequency', ['value', 'unit'])
-MinimumFrequency = namedtuple('MinimumFrequency', ['value', 'unit'])
+
+
+class TotalMemory(NamedTuple):
+    value: int
+    unit: str
+
+
+class PhysicalCpuCores(NamedTuple):
+    """Physical number of CPU cores."""
+
+    value: int
+    unit: str
+
+
+class LogicalCpuCores(NamedTuple):
+    """Logical number of CPU cores."""
+
+    value: int
+    unit: str
+
+
+class ProcessCpuAffinity(NamedTuple):
+    """Number of process CPU affinities."""
+
+    value: int
+    unit: str
+
+
+class CpuFrequency(NamedTuple):
+    """CPU frequency profile."""
+
+    current: int
+    min: int
+    max: int
+
+
+class MaximumFrequency(NamedTuple):
+    """Maximum frequency of CPU cores."""
+
+    value: int
+    unit: str
+
+
+class MinimumFrequency(NamedTuple):
+    """Minimum frequency of CPU cores."""
+
+    value: int
+    unit: str
+
 
 env_providers[OperatingSystem] = platform.system
 env_providers[OperatingSystemVersion] = platform.version
@@ -114,7 +151,7 @@ class HardwareSpec:
 
 
 GitRootDir = NewType("GitRootDir", pathlib.Path)
-BenchmarkRootDir = NewType("BenchmarkRootPath", pathlib.Path)
+BenchmarkRootDir = NewType("BenchmarkRootDir", pathlib.Path)
 BenchmarkSessionID = NewType("BenchmarkSessionID", str)
 GitCommitID = NewType("GitCommitID", str)
 DateTimeSuffix = NewType("DateTimeSuffix", str)
@@ -130,7 +167,7 @@ def provide_git_root() -> GitRootDir:
     import subprocess
 
     command = ['git', 'rev-parse', '--show-toplevel']
-    command_result = subprocess.run(command, stdout=subprocess.PIPE, text=True)
+    command_result = subprocess.run(command, stdout=subprocess.PIPE, text=True)  # noqa: S603
     git_root_path = pathlib.Path(command_result.stdout.removesuffix('\n'))
     return GitRootDir(git_root_path)
 
@@ -140,7 +177,7 @@ def provide_git_commit_id() -> GitCommitID:
     import subprocess
 
     command = ['git', 'rev-parse', 'HEAD']
-    command_result = subprocess.run(command, stdout=subprocess.PIPE, text=True)
+    command_result = subprocess.run(command, stdout=subprocess.PIPE, text=True)  # noqa: S603
     return GitCommitID(command_result.stdout.removesuffix('\n'))
 
 
@@ -155,9 +192,9 @@ def provide_benchmark_root(git_root_path: GitRootDir) -> BenchmarkRootDir:
 
 @env_providers.provider
 def provide_now() -> DateTimeSuffix:
-    from datetime import datetime
+    from datetime import datetime, timezone
 
-    return DateTimeSuffix(datetime.utcnow().isoformat(timespec='seconds'))
+    return DateTimeSuffix(datetime.now(tz=timezone.utc).isoformat(timespec='seconds'))
 
 
 @env_providers.provider

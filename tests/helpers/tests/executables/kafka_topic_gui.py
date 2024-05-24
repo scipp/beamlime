@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-from typing import Union
-
 from textual import work
 from textual.app import App, ComposeResult, Screen
 from textual.containers import Container, Horizontal, VerticalScroll
@@ -34,7 +32,7 @@ class KafkaTopicInput(Horizontal):
     def compose(self) -> ComposeResult:
         self.topic_input = Input('', 'Enter a new topic name')
         yield Container(self.topic_input)
-        yield Container(Button('Add Topic ➕', id='add-topic'))
+        yield Container(Button('Add Topic ➕', id='add-topic'))  # noqa: RUF001
 
     def on_button_pressed(self, event: Button.Pressed):
         event.stop()
@@ -67,17 +65,14 @@ class WarningScreen(Screen):
     }
     """
 
-    def __init__(
-        self, *instructions: Union[Static, Pretty], **option_callbacks
-    ) -> None:
+    def __init__(self, *instructions: Static | Pretty, **option_callbacks) -> None:
         super().__init__()
         self.instructions = instructions
         self.option_callbacks = option_callbacks
 
     def compose(self) -> ComposeResult:
         with VerticalScroll():
-            for instruction in self.instructions:
-                yield instruction
+            yield from self.instructions
         with Horizontal():
             for option_callback in self.option_callbacks:
                 yield Button(option_callback, id=option_callback)

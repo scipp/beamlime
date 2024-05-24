@@ -31,7 +31,7 @@ def test_local_loggers():
             logger: Logger = get_logger()
             assert get_logger() is logger
 
-        assert not get_logger() is logger
+        assert get_logger() is not logger
 
 
 def test_logmixin_protocol(local_logger: bool):
@@ -94,7 +94,7 @@ def test_file_handler_configuration(
         logger: Logger = get_logger(verbose=False)
         # Should not have any file handlers set.
         hdlrs = logger.handlers
-        assert not any([hdlr for hdlr in hdlrs if isinstance(hdlr, FileHandler)])
+        assert not any(hdlr for hdlr in hdlrs if isinstance(hdlr, FileHandler))
 
         # Set a file handler.
         assert factory[FileHandlerConfigured]
@@ -107,7 +107,7 @@ def test_file_handler_configuration(
         assert len(_f_hdlrs) == 1
 
         # Check file path.
-        f_hdlr = [hdlr for hdlr in logger.handlers if isinstance(hdlr, FileHandler)][0]
+        f_hdlr = next(hdlr for hdlr in logger.handlers if isinstance(hdlr, FileHandler))
         assert Path(f_hdlr.baseFilename) == tmp_log_path
 
 
