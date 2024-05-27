@@ -15,8 +15,6 @@ coverage[toml]==7.5.1
     # via pytest-cov
 cycler==0.12.1
     # via matplotlib
-exceptiongroup==1.2.1
-    # via pytest
 execnet==2.1.1
     # via pytest-xdist
 fonttools==4.51.0
@@ -87,7 +85,7 @@ pytz==2024.1
     # via pandas
 requests==2.32.2
     # via pooch
-scipp==24.2.0
+scipp==24.5.0
     # via
     #   -r basetest.in
     #   scippneutron
@@ -102,10 +100,6 @@ scipy==1.13.1
     #   scippnexus
 six==1.16.0
     # via python-dateutil
-tomli==2.0.1
-    # via
-    #   coverage
-    #   pytest
 tzdata==2024.1
     # via pandas
 urllib3==2.2.1
