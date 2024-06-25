@@ -429,7 +429,7 @@ def combine_nexus_store_and_structure(
             if len(path) == 1:
                 # Don't replace existing values, they were added in the previous step
                 try:
-                    find_nexus_structure(structure, path)
+                    find_nexus_structure(new, path)
                 except KeyError:
                     new["children"].append(value)
 
