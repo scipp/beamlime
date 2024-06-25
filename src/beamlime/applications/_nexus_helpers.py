@@ -421,6 +421,7 @@ def combine_nexus_store_and_structure(
                 },
             )
             for child in structure.get("children", ())
+            # Filter stream modules
             if "module" not in child or child["module"] == "dataset"
         ]
         # Here we add children that were not in the template
