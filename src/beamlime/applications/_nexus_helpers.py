@@ -223,7 +223,7 @@ def _initialize_f144(
             name="value",
             dtype=module["config"]["dtype"],
             initial_values=np.empty(
-                (0, data['value'].shape[1:]), dtype=module["config"]["dtype"]
+                (0, *data['value'].shape[1:]), dtype=module["config"]["dtype"]
             ),
             unit=module["config"]["value_units"],
         ),
@@ -266,7 +266,7 @@ def _initialize_tdct(
 
 def _merge_tdct(top_dead_center: NexusDataset, data: DeserializedMessage) -> None:
     top_dead_center["config"]["values"] = np.concatenate(
-        (top_dead_center["config"]["values"], data["value"])
+        (top_dead_center["config"]["values"], data["timestamps"])
     )
 
 
@@ -421,5 +421,16 @@ def combine_nexus_store_and_structure(
                 },
             )
             for child in structure.get("children", ())
+            if "module" not in child or child["module"] == "dataset"
         ]
+        # Here we add children that were not in the template
+        # but should be added according to the nexus_store.
+        for path, value in nexus_store.items():
+            if len(path) == 1:
+                # Don't replace existing values, they were added in the previous step
+                try:
+                    find_nexus_structure(structure, path)
+                except KeyError:
+                    new["children"].append(value)
+
     return new

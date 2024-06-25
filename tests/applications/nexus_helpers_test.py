@@ -247,3 +247,152 @@ def test_nxevent_data_ev44_generator_yields_frame_by_frame() -> None:
 
     with pytest.raises(StopIteration):
         next(ev44)
+
+
+@pytest.fixture()
+def nexus_template_with_streamed_log(dtype):
+    return {
+        "name": "the_log_name",
+        "children": [
+            {
+                "module": "f144",
+                "config": {
+                    "dtype": dtype,
+                    "value_units": "km",
+                    "source": "the_source_name",
+                },
+            }
+        ],
+    }
+
+
+def f144_event_generator(shape, dtype):
+    generator = (
+        (lambda n: np.random.randint(-1000, 1000, (n, *shape)).astype(dtype))
+        if np.issubdtype(np.dtype(dtype), np.signedinteger)
+        else (lambda n: np.random.randint(0, 1000, (n, *shape)).astype(dtype))
+        if np.issubdtype(np.dtype(dtype), np.unsignedinteger)
+        else (lambda n: np.random.randn(n, *shape).astype(dtype))
+    )
+    timestamp = 0
+    while True:
+        value = generator(np.random.randint(0, 100))
+        timestamp += np.random.randint(0, 1000_000_000)
+        yield dict(value=value, timestamp=timestamp, source_name="the_source_name")  # noqa: C408
+
+
+@pytest.mark.parametrize('shape', [(1,), (2,), (2, 2)])
+@pytest.mark.parametrize('dtype', ['int32', 'uint32', 'float32', 'float64', 'bool'])
+def test_f144(nexus_template_with_streamed_log, shape, dtype):
+    store = {}
+    for _, data in zip(range(10), f144_event_generator(shape, dtype), strict=False):
+        merge_message_into_nexus_store(
+            nexus_template_with_streamed_log,
+            store,
+            data,
+            "f144",
+        )
+
+    assert () in store
+    assert len(store[()]['children']) == 2
+    values = find_nexus_structure(store[()], ('value',))
+    assert values['module'] == 'dataset'
+    times = find_nexus_structure(store[()], ('time',))
+    assert times['module'] == 'dataset'
+    assert values['config']['values'].shape[1:] == shape
+    assert values['attributes'][0]['values'] == 'km'
+
+
+@pytest.fixture()
+def nexus_template_with_streamed_tdct():
+    return {
+        "name": "chopper_3",
+        "children": [
+            {
+                "module": "tdct",
+                "config": {"source": "source", "topic": "dream_choppers"},
+            },
+        ],
+    }
+
+
+def tdct_event_generator():
+    max_last_timestamp = 0
+    counter = 0
+    while True:
+        timestamps = (
+            np.random.randint(0, 1000_000, 100, dtype='uint64').cumsum()
+            + max_last_timestamp
+        )
+        yield dict(  # noqa: C408
+            timestamps=timestamps,
+            sequence_counter=counter,
+            name="chopper_3",
+        )
+        counter += 1
+        max_last_timestamp = timestamps.max()
+
+
+def test_tdct(nexus_template_with_streamed_tdct):
+    store = {}
+    for _, data in zip(range(10), tdct_event_generator(), strict=False):
+        merge_message_into_nexus_store(
+            nexus_template_with_streamed_tdct,
+            store,
+            data,
+            "tdct",
+        )
+
+    assert ('top_dead_center',) in store
+    tdct = store[('top_dead_center',)]
+    assert tdct['module'] == 'dataset'
+    assert np.issubdtype(
+        tdct['config']['values'].dtype, np.dtype(tdct['config']['dtype'])
+    )
+
+
+@pytest.fixture()
+def nexus_template_with_mixed_streams(
+    nexus_template_with_streamed_log, nexus_template_with_streamed_tdct
+):
+    return {
+        "children": [
+            nexus_template_with_streamed_log,
+            nexus_template_with_streamed_tdct,
+        ],
+    }
+
+
+@pytest.mark.parametrize('dtype', ['uint32'])
+@pytest.mark.parametrize('shape', [(2, 1, 3)])
+def test_mixed_streams(nexus_template_with_mixed_streams, shape, dtype):
+    store = {}
+    for _, tdct, f144 in zip(
+        range(10),
+        tdct_event_generator(),
+        f144_event_generator(shape, dtype),
+        strict=False,
+    ):
+        merge_message_into_nexus_store(
+            nexus_template_with_mixed_streams,
+            store,
+            f144,
+            "f144",
+        )
+        merge_message_into_nexus_store(
+            nexus_template_with_mixed_streams,
+            store,
+            tdct,
+            "tdct",
+        )
+    result = combine_nexus_store_and_structure(nexus_template_with_mixed_streams, store)
+    assert len(result['children']) == 2
+    log = find_nexus_structure(result, ('the_log_name',))
+    assert len(log['children']) == 2
+    tdct = find_nexus_structure(
+        result,
+        (
+            'chopper_3',
+            'top_dead_center',
+        ),
+    )
