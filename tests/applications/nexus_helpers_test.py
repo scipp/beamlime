@@ -396,3 +396,4 @@ def test_mixed_streams(nexus_template_with_mixed_streams, shape, dtype):
             'top_dead_center',
         ),
     )
+    assert tdct['module'] == 'dataset'
