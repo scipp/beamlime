@@ -166,10 +166,10 @@ def test_ev44_module_merging(
     store = {}
     for _, data_piece in zip(range(4), ymir_ev44_generator, strict=False):
         merge_message_into_nexus_store(
-            ymir,
-            store,
-            data_piece,
-            "ev44",
+            structure=ymir,
+            nexus_store=store,
+            data=data_piece,
+            module_name="ev44",
         )
     result = combine_nexus_store_and_structure(structure=ymir, nexus_store=store)
 
@@ -182,10 +182,10 @@ def test_ev44_module_merging_numpy_array_wrapped(ymir, ymir_ev44_generator) -> N
     store = {}
     for _, data_piece in zip(range(4), ymir_ev44_generator, strict=False):
         merge_message_into_nexus_store(
-            ymir,
-            store,
-            data_piece,
-            "ev44",
+            structure=ymir,
+            nexus_store=store,
+            data=data_piece,
+            module_name="ev44",
         )
     result = combine_nexus_store_and_structure(structure=ymir, nexus_store=store)
     NUMPY_DATASETS = ("event_id", "event_index", "event_time_offset", "event_time_zero")
@@ -202,10 +202,10 @@ def test_ev44_module_parsing_original_unchanged(ymir, ymir_ev44_generator) -> No
     store = {}
     for _, data_piece in zip(range(4), ymir_ev44_generator, strict=False):
         merge_message_into_nexus_store(
-            ymir,
-            store,
-            data_piece,
-            "ev44",
+            structure=ymir,
+            nexus_store=store,
+            data=data_piece,
+            module_name="ev44",
         )
     combine_nexus_store_and_structure(ymir, store)
     # original unchanged
@@ -287,10 +287,10 @@ def test_f144(nexus_template_with_streamed_log, shape, dtype):
     store = {}
     for _, data in zip(range(10), f144_event_generator(shape, dtype), strict=False):
         merge_message_into_nexus_store(
-            nexus_template_with_streamed_log,
-            store,
-            data,
-            "f144",
+            structure=nexus_template_with_streamed_log,
+            nexus_store=store,
+            data=data,
+            module_name="f144",
         )
 
     assert () in store
@@ -337,10 +337,10 @@ def test_tdct(nexus_template_with_streamed_tdct):
     store = {}
     for _, data in zip(range(10), tdct_event_generator(), strict=False):
         merge_message_into_nexus_store(
-            nexus_template_with_streamed_tdct,
-            store,
-            data,
-            "tdct",
+            structure=nexus_template_with_streamed_tdct,
+            nexus_store=store,
+            data=data,
+            module_name="tdct",
         )
 
     assert ('top_dead_center',) in store
@@ -374,16 +374,16 @@ def test_mixed_streams(nexus_template_with_mixed_streams, shape, dtype):
         strict=False,
     ):
         merge_message_into_nexus_store(
-            nexus_template_with_mixed_streams,
-            store,
-            f144,
-            "f144",
+            structure=nexus_template_with_mixed_streams,
+            nexus_store=store,
+            data=f144,
+            module_name="f144",
         )
         merge_message_into_nexus_store(
-            nexus_template_with_mixed_streams,
-            store,
-            tdct,
-            "tdct",
+            structure=nexus_template_with_mixed_streams,
+            nexus_store=store,
+            data=tdct,
+            module_name="tdct",
         )
     result = combine_nexus_store_and_structure(nexus_template_with_mixed_streams, store)
     assert len(result['children']) == 2

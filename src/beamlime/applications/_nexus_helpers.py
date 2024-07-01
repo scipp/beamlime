@@ -326,7 +326,8 @@ def _merge_message_into_nexus_store(
     data:
         The content of the message.
     find_insert_paths:
-        A function that returns the paths that match the message.
+        A function that returns the paths in the structure where the
+        message should be merged.
     initialize:
         A function that initializes the dataset / group.
         *Initialize is done only when the relevant message arrives.*
@@ -348,6 +349,7 @@ def _merge_message_into_nexus_store(
 
 
 def merge_message_into_nexus_store(
+    *,
     structure: NexusStructure,
     nexus_store: NexusStore,
     data: DeserializedMessage,
