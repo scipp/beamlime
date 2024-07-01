@@ -9,10 +9,10 @@ import numpy as np
 import pytest
 
 from beamlime.applications._nexus_helpers import (
-    combine_nexus_group_store_and_structure,
+    combine_nexus_store_and_structure,
     find_nexus_structure,
     iter_nexus_structure,
-    merge_message_into_nexus_group_store,
+    merge_message_into_nexus_store,
 )
 from beamlime.applications._random_data_providers import (
     DetectorName,
@@ -93,14 +93,12 @@ def test_invalid_nexus_template_multiple_module_placeholders() -> None:
     with open(pathlib.Path(__file__).parent / "multiple_modules_datagroup.json") as f:
         nexus_structure = json.load(f)
 
-    with pytest.raises(
-        ValueError, match="Multiple modules found in the same data group."
-    ):
-        merge_message_into_nexus_group_store(
+    with pytest.raises(ValueError, match="should have exactly one child"):
+        merge_message_into_nexus_store(
             structure=nexus_structure,
-            nexus_group_store={},
+            nexus_store={},
             module_name="ev44",
-            data_piece={"source_name": "ymir_00"},
+            data={"source_name": "ymir_00"},
         )
 
 
@@ -156,9 +154,7 @@ def _is_event_data(c: Mapping) -> bool:
 
 
 def test_ev44_module_parsing(ymir: dict) -> None:
-    result = combine_nexus_group_store_and_structure(
-        structure=ymir, nexus_group_store={}
-    )
+    result = combine_nexus_store_and_structure(structure=ymir, nexus_store={})
 
     detectors = [c for _, c in iter_nexus_structure(result) if _is_detector(c)]
     assert len(detectors) == 2  # We inserted 2 detectors in the ymir_detectors template
@@ -169,15 +165,13 @@ def test_ev44_module_merging(
 ) -> None:
     store = {}
     for _, data_piece in zip(range(4), ymir_ev44_generator, strict=False):
-        merge_message_into_nexus_group_store(
+        merge_message_into_nexus_store(
             structure=ymir,
-            nexus_group_store=store,
+            nexus_store=store,
+            data=data_piece,
             module_name="ev44",
-            data_piece=data_piece,
         )
-    result = combine_nexus_group_store_and_structure(
-        structure=ymir, nexus_group_store=store
-    )
+    result = combine_nexus_store_and_structure(structure=ymir, nexus_store=store)
 
     for nx_event in (c for _, c in iter_nexus_structure(result) if _is_event_data(c)):
         assert "children" in nx_event
@@ -187,15 +181,13 @@ def test_ev44_module_merging(
 def test_ev44_module_merging_numpy_array_wrapped(ymir, ymir_ev44_generator) -> None:
     store = {}
     for _, data_piece in zip(range(4), ymir_ev44_generator, strict=False):
-        merge_message_into_nexus_group_store(
+        merge_message_into_nexus_store(
             structure=ymir,
-            nexus_group_store=store,
+            nexus_store=store,
+            data=data_piece,
             module_name="ev44",
-            data_piece=data_piece,
         )
-    result = combine_nexus_group_store_and_structure(
-        structure=ymir, nexus_group_store=store
-    )
+    result = combine_nexus_store_and_structure(structure=ymir, nexus_store=store)
     NUMPY_DATASETS = ("event_id", "event_index", "event_time_offset", "event_time_zero")
 
     for nx_event in (c for _, c in iter_nexus_structure(result) if _is_event_data(c)):
@@ -209,13 +201,13 @@ def test_ev44_module_merging_numpy_array_wrapped(ymir, ymir_ev44_generator) -> N
 def test_ev44_module_parsing_original_unchanged(ymir, ymir_ev44_generator) -> None:
     store = {}
     for _, data_piece in zip(range(4), ymir_ev44_generator, strict=False):
-        merge_message_into_nexus_group_store(
+        merge_message_into_nexus_store(
             structure=ymir,
-            nexus_group_store=store,
+            nexus_store=store,
+            data=data_piece,
             module_name="ev44",
-            data_piece=data_piece,
         )
-    combine_nexus_group_store_and_structure(structure=ymir, nexus_group_store=store)
+    combine_nexus_store_and_structure(ymir, store)
     # original unchanged
     for nx_event in (c for _, c in iter_nexus_structure(ymir) if _is_event_data(c)):
         assert len(nx_event["children"]) == 1
@@ -255,3 +247,153 @@ def test_nxevent_data_ev44_generator_yields_frame_by_frame() -> None:
 
     with pytest.raises(StopIteration):
         next(ev44)
+
+
+@pytest.fixture()
+def nexus_template_with_streamed_log(dtype):
+    return {
+        "name": "the_log_name",
+        "children": [
+            {
+                "module": "f144",
+                "config": {
+                    "dtype": dtype,
+                    "value_units": "km",
+                    "source": "the_source_name",
+                },
+            }
+        ],
+    }
+
+
+def f144_event_generator(shape, dtype):
+    generator = (
+        (lambda n: np.random.randint(-1000, 1000, (n, *shape)).astype(dtype))
+        if np.issubdtype(np.dtype(dtype), np.signedinteger)
+        else (lambda n: np.random.randint(0, 1000, (n, *shape)).astype(dtype))
+        if np.issubdtype(np.dtype(dtype), np.unsignedinteger)
+        else (lambda n: np.random.randn(n, *shape).astype(dtype))
+    )
+    timestamp = 0
+    while True:
+        value = generator(np.random.randint(0, 100))
+        timestamp += np.random.randint(0, 1000_000_000)
+        yield dict(value=value, timestamp=timestamp, source_name="the_source_name")  # noqa: C408
+
+
+@pytest.mark.parametrize('shape', [(1,), (2,), (2, 2)])
+@pytest.mark.parametrize('dtype', ['int32', 'uint32', 'float32', 'float64', 'bool'])
+def test_f144(nexus_template_with_streamed_log, shape, dtype):
+    store = {}
+    for _, data in zip(range(10), f144_event_generator(shape, dtype), strict=False):
+        merge_message_into_nexus_store(
+            structure=nexus_template_with_streamed_log,
+            nexus_store=store,
+            data=data,
+            module_name="f144",
+        )
+
+    assert () in store
+    assert len(store[()]['children']) == 2
+    values = find_nexus_structure(store[()], ('value',))
+    assert values['module'] == 'dataset'
+    times = find_nexus_structure(store[()], ('time',))
+    assert times['module'] == 'dataset'
+    assert values['config']['values'].shape[1:] == shape
+    assert values['attributes'][0]['values'] == 'km'
+
+
+@pytest.fixture()
+def nexus_template_with_streamed_tdct():
+    return {
+        "name": "chopper_3",
+        "children": [
+            {
+                "module": "tdct",
+                "config": {"source": "source", "topic": "dream_choppers"},
+            },
+        ],
+    }
+
+
+def tdct_event_generator():
+    max_last_timestamp = 0
+    counter = 0
+    while True:
+        timestamps = (
+            np.random.randint(0, 1000_000, 100, dtype='uint64').cumsum()
+            + max_last_timestamp
+        )
+        yield dict(  # noqa: C408
+            timestamps=timestamps,
+            sequence_counter=counter,
+            name="chopper_3",
+        )
+        counter += 1
+        max_last_timestamp = timestamps.max()
+
+
+def test_tdct(nexus_template_with_streamed_tdct):
+    store = {}
+    for _, data in zip(range(10), tdct_event_generator(), strict=False):
+        merge_message_into_nexus_store(
+            structure=nexus_template_with_streamed_tdct,
+            nexus_store=store,
+            data=data,
+            module_name="tdct",
+        )
+
+    assert ('top_dead_center',) in store
+    tdct = store[('top_dead_center',)]
+    assert tdct['module'] == 'dataset'
+    assert np.issubdtype(
+        tdct['config']['values'].dtype, np.dtype(tdct['config']['dtype'])
+    )
+
+
+@pytest.fixture()
+def nexus_template_with_mixed_streams(
+    nexus_template_with_streamed_log, nexus_template_with_streamed_tdct
+):
+    return {
+        "children": [
+            nexus_template_with_streamed_log,
+            nexus_template_with_streamed_tdct,
+        ],
+    }
+
+
+@pytest.mark.parametrize('dtype', ['uint32'])
+@pytest.mark.parametrize('shape', [(2, 1, 3)])
+def test_mixed_streams(nexus_template_with_mixed_streams, shape, dtype):
+    store = {}
+    for _, tdct, f144 in zip(
+        range(10),
+        tdct_event_generator(),
+        f144_event_generator(shape, dtype),
+        strict=False,
+    ):
+        merge_message_into_nexus_store(
+            structure=nexus_template_with_mixed_streams,
+            nexus_store=store,
+            data=f144,
+            module_name="f144",
+        )
+        merge_message_into_nexus_store(
+            structure=nexus_template_with_mixed_streams,
+            nexus_store=store,
+            data=tdct,
+            module_name="tdct",
+        )
+    result = combine_nexus_store_and_structure(nexus_template_with_mixed_streams, store)
+    assert len(result['children']) == 2
+    log = find_nexus_structure(result, ('the_log_name',))
+    assert len(log['children']) == 2
+    tdct = find_nexus_structure(
+        result,
+        (
+            'chopper_3',
+            'top_dead_center',
+        ),
+    )
+    assert tdct['module'] == 'dataset'

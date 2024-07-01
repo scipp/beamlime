@@ -17,10 +17,10 @@ from ..stateless_workflow import StatelessWorkflow, WorkflowResult
 from ._nexus_helpers import (
     DeserializedMessage,
     ModuleNameType,
-    NexusGroupStore,
-    NexusStructure,
-    combine_nexus_group_store_and_structure,
-    merge_message_into_nexus_group_store,
+    NexusStore,
+    NexusTemplate,
+    combine_nexus_store_and_structure,
+    merge_message_into_nexus_store,
 )
 from .base import HandlerInterface
 from .daemons import (
@@ -79,9 +79,9 @@ class DataAssembler(HandlerInterface):
         merge_every_nth: MergeMessageCountInterval = 1,
         max_seconds_between_messages: MergeMessageTimeInterval = float("inf"),
     ):
-        self.structure: NexusStructure
+        self.structure: NexusTemplate
         self.logger = logger
-        self._nexus_group_store: NexusGroupStore = {}
+        self._nexus_store: NexusStore = {}
         self._should_send_message = maxcount_or_maxtime(
             merge_every_nth, max_seconds_between_messages
         )
@@ -92,20 +92,20 @@ class DataAssembler(HandlerInterface):
     def _merge_message_and_return_response_if_ready(
         self, module_name: ModuleNameType, data_piece: DeserializedMessage
     ) -> DataReady | None:
-        merge_message_into_nexus_group_store(
+        merge_message_into_nexus_store(
             structure=self.structure,
-            nexus_group_store=self._nexus_group_store,
-            data_piece=data_piece,
+            nexus_store=self._nexus_store,
+            data=data_piece,
             module_name=module_name,
         )
         if self._should_send_message():
             message = DataReady(
-                combine_nexus_group_store_and_structure(
-                    structure=self.structure,
-                    nexus_group_store=self._nexus_group_store,
+                combine_nexus_store_and_structure(
+                    self.structure,
+                    self._nexus_store,
                 ),
             )
-            self._nexus_group_store = {}
+            self._nexus_store = {}
             return message
 
     def assemble_detector_data(self, message: DetectorDataReceived) -> DataReady | None:
