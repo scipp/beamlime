@@ -93,10 +93,10 @@ class DataAssembler(HandlerInterface):
         self, module_name: ModuleNameType, data_piece: DeserializedMessage
     ) -> DataReady | None:
         merge_message_into_nexus_store(
-            self.structure,
-            self._nexus_store,
-            data_piece,
-            module_name,
+            structure=self.structure,
+            nexus_store=self._nexus_store,
+            data=data_piece,
+            module_name=module_name,
         )
         if self._should_send_message():
             message = DataReady(
