@@ -30,7 +30,7 @@ class StatelessWorkflow(Protocol):
 
     def __call__(
         self,
-        skeleton_file: Path,
+        nexus_filename: Path,
         nxevent_data: dict[str, JSONGroup],
         nxlog: dict[str, JSONGroup],
     ) -> WorkflowResult:
