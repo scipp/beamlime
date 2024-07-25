@@ -30,7 +30,7 @@ class StatelessWorkflow(Protocol):
 
     def __call__(
         self,
-        nexus_filename: Path,
+        skeleton_file: Path,
         nxevent_data: dict[str, JSONGroup],
         nxlog: dict[str, JSONGroup],
     ) -> WorkflowResult: ...
@@ -47,14 +47,14 @@ class DummyWorkflow:
 
     def __call__(
         self,
-        nexus_filename: Path,
+        skeleton_file: Path,
         nxevent_data: dict[str, JSONGroup],
         nxlog: dict[str, JSONGroup],
     ) -> WorkflowResult:
         from itertools import chain
 
         return {
-            f'random-counts-{nexus_filename}-{name}': sc.DataArray(
+            f'random-counts-{skeleton_file}-{name}': sc.DataArray(
                 data=sc.array(dims=['x'], values=self.rng.random(10), unit='counts'),
                 coords={'x': self.x},
             )
