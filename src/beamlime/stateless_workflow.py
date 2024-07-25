@@ -28,7 +28,12 @@ class StatelessWorkflow(Protocol):
     `beamlime.stateless` entry point group.
     """
 
-    def __call__(self, group: JSONGroup) -> WorkflowResult:
+    def __call__(
+        self,
+        nexus_filename: Path,
+        nxevent_data: dict[str, JSONGroup],
+        nxlog: dict[str, JSONGroup],
+    ) -> WorkflowResult:
         pass
 
 
