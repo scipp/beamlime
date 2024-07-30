@@ -3,7 +3,6 @@
 import argparse
 import pathlib
 import time
-from collections.abc import Mapping
 from dataclasses import dataclass
 from numbers import Number
 from typing import NewType
@@ -19,7 +18,6 @@ from ._nexus_helpers import (
     ModuleNameType,
     NexusStore,
     NexusTemplate,
-    combine_nexus_store_and_structure,
     merge_message_into_nexus_store,
 )
 from .base import HandlerInterface
@@ -40,8 +38,15 @@ since the last reduction exceeds the length of the interval (in seconds)"""
 
 
 @dataclass
+class StatelessWorkflowInput:
+    nexus_filename: pathlib.Path
+    nxevent_data: dict[str, JSONGroup]
+    nxlog: dict[str, JSONGroup]
+
+
+@dataclass
 class DataReady:
-    content: Mapping
+    content: StatelessWorkflowInput
 
 
 @dataclass
@@ -100,10 +105,11 @@ class DataAssembler(HandlerInterface):
         )
         if self._should_send_message():
             message = DataReady(
-                combine_nexus_store_and_structure(
-                    self.structure,
-                    self._nexus_store,
-                ),
+                content=StatelessWorkflowInput(
+                    nexus_filename="",
+                    nxevent_data={"a": {}},
+                    nxlog={},
+                )
             )
             self._nexus_store = {}
             return message
@@ -153,9 +159,15 @@ class DataReductionHandler(HandlerInterface):
         super().__init__()
 
     def reduce_data(self, message: DataReady) -> WorkflowResultUpdate:
-        content = JSONGroup(message.content)
+        content = message.content
         self.info("Running data reduction")
-        return WorkflowResultUpdate(content=self.workflow(content))
+        return WorkflowResultUpdate(
+            content=self.workflow(
+                nexus_filename=content.nexus_filename,
+                nxevent_data=content.nxevent_data,
+                nxlog=content.nxlog,
+            )
+        )
 
 
 ImagePath = NewType("ImagePath", pathlib.Path)

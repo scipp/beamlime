@@ -54,7 +54,7 @@ class DummyWorkflow:
         self,
         *,
         nexus_filename: Path,
-        nxevent_map: dict[str, JSONGroup],
+        nxevent_data: dict[str, JSONGroup],
         nxlog: dict[str, JSONGroup],
     ) -> WorkflowResult:
         return WorkflowResult(
@@ -65,7 +65,7 @@ class DummyWorkflow:
                     ),
                     coords={'x': self.x},
                 )
-                for nxevent_name in nxevent_map
+                for nxevent_name in nxevent_data
             }
         )
 
