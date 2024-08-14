@@ -5,53 +5,64 @@
 #
 #    pip-compile-multi
 #
-certifi==2024.2.2
-    # via requests
-charset-normalizer==3.3.2
-    # via requests
+contourpy==1.2.1
+    # via matplotlib
+cycler==0.12.1
+    # via matplotlib
+fonttools==4.53.1
+    # via matplotlib
 h5py==3.11.0
     # via
     #   scippneutron
     #   scippnexus
-idna==3.7
-    # via requests
+kiwisolver==1.4.5
+    # via matplotlib
 markdown-it-py==3.0.0
     # via rich
+matplotlib==3.9.2
+    # via
+    #   mpltoolbox
+    #   plopp
 mdurl==0.1.2
     # via markdown-it-py
-numpy==1.26.4
+mpltoolbox==24.5.1
+    # via scippneutron
+numpy==2.0.1
     # via
+    #   contourpy
     #   h5py
+    #   matplotlib
+    #   mpltoolbox
     #   scipp
     #   scippneutron
     #   scipy
-packaging==24.0
-    # via pooch
-platformdirs==4.2.2
-    # via pooch
-pooch==1.8.1
+packaging==24.1
+    # via matplotlib
+pillow==10.4.0
+    # via matplotlib
+plopp==24.6.0
     # via scippneutron
 pygments==2.18.0
     # via rich
+pyparsing==3.1.2
+    # via matplotlib
 python-dateutil==2.9.0.post0
-    # via scippnexus
-requests==2.32.2
-    # via pooch
+    # via
+    #   matplotlib
+    #   scippnexus
 rich==13.7.1
     # via -r base.in
 scipp==24.6.0
     # via
     #   scippneutron
     #   scippnexus
-scippneutron==24.3.0
+scippneutron==24.8.0
     # via -r base.in
-scippnexus==24.3.1
+scippnexus==24.8.1
     # via scippneutron
-scipy==1.13.1
+scipy==1.14.0
     # via
     #   scippneutron
     #   scippnexus
 six==1.16.0
     # via python-dateutil
-urllib3==2.2.1
-    # via requests

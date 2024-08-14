@@ -6,7 +6,7 @@
 #    pip-compile-multi
 #
 -r base.txt
-confluent-kafka==2.4.0
+confluent-kafka==2.5.0
     # via -r stream.in
 linkify-it-py==2.0.3
     # via markdown-it-py
@@ -17,9 +17,9 @@ markdown-it-py[linkify,plugins]==3.0.0
     #   textual
 mdit-py-plugins==0.4.1
     # via markdown-it-py
-textual==0.63.2
+textual==0.76.0
     # via -r stream.in
-typing-extensions==4.12.0
+typing-extensions==4.12.2
     # via textual
 uc-micro-py==1.0.3
     # via linkify-it-py
