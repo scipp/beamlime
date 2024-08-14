@@ -11,3 +11,4 @@ pyarrow  # Future hard-dependency of pandas, it can be removed from pandas>3.0
 scipp
 essreduce
 plopp
+pooch

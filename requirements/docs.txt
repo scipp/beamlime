@@ -27,10 +27,6 @@ beautifulsoup4==4.12.3
     #   pydata-sphinx-theme
 bleach==6.1.0
     # via nbconvert
-certifi==2024.7.4
-    # via requests
-charset-normalizer==3.3.2
-    # via requests
 comm==0.2.2
     # via
     #   ipykernel
@@ -51,8 +47,6 @@ executing==2.0.1
     # via stack-data
 fastjsonschema==2.20.0
     # via nbformat
-idna==3.7
-    # via requests
 imagesize==1.4.1
     # via sphinx
 ipydatawidgets==4.3.5
@@ -134,8 +128,6 @@ parso==0.8.4
     # via jedi
 pexpect==4.9.0
     # via ipython
-platformdirs==4.2.2
-    # via jupyter-core
 prompt-toolkit==3.0.47
     # via ipython
 ptyprocess==0.7.0
@@ -156,8 +148,6 @@ referencing==0.35.1
     # via
     #   jsonschema
     #   jsonschema-specifications
-requests==2.32.3
-    # via sphinx
 rpds-py==0.20.0
     # via
     #   jsonschema
@@ -223,8 +213,6 @@ typing-extensions==4.12.2
     # via
     #   ipython
     #   pydata-sphinx-theme
-urllib3==2.2.2
-    # via requests
 wcwidth==0.2.13
     # via prompt-toolkit
 webencodings==0.5.1
