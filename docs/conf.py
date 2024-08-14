@@ -163,11 +163,10 @@ html_theme_options = {
         "image_dark": "_static/logo-dark.svg",
     },
     "external_links": [
-{"name": "Essreduce", "url": "https://scipp.github.io/essreduce"},
-{"name": "Plopp", "url": "https://scipp.github.io/plopp"},
-{"name": "Sciline", "url": "https://scipp.github.io/sciline"},
-{"name": "Scipp", "url": "https://scipp.github.io"},
-
+        {"name": "Essreduce", "url": "https://scipp.github.io/essreduce"},
+        {"name": "Plopp", "url": "https://scipp.github.io/plopp"},
+        {"name": "Sciline", "url": "https://scipp.github.io/sciline"},
+        {"name": "Scipp", "url": "https://scipp.github.io"},
     ],
     "icon_links": [
         {
