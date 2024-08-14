@@ -5,7 +5,7 @@ from typing import NewType, Protocol
 
 try:
     import scipp as sc
-    from scippneutron.io.nexus.load_nexus import JSONGroup
+    from ess.reduce.nexus.json_nexus import JSONGroup
 except ImportError as e:
     raise ImportError(
         "Please install the scipp and "
