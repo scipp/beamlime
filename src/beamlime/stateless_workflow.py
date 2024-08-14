@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from importlib.metadata import entry_points
-from typing import NewType, Protocol
+from pathlib import Path
+from typing import NewType, Protocol, runtime_checkable
 
 from ess.reduce.nexus.json_nexus import JSONGroup
 
@@ -18,6 +19,7 @@ WorkflowResult = dict[str, sc.DataArray]
 """Result of a workflow, a dictionary of scipp DataArrays."""
 
 
+@runtime_checkable
 class StatelessWorkflow(Protocol):
     """
     Protocol for stateless workflows.
@@ -31,14 +33,11 @@ class StatelessWorkflow(Protocol):
         nexus_filename: Path,
         nxevent_data: dict[str, JSONGroup],
         nxlog: dict[str, JSONGroup],
-    ) -> WorkflowResult:
-        pass
+    ) -> WorkflowResult: ...
 
 
 class DummyWorkflow:
-    """
-    Dummy workflow for testing purposes, returning single result with random counts.
-    """
+    "Dummy workflow for testing purposes, returning random counts per event and log."
 
     def __init__(self):
         import numpy as np
@@ -46,13 +45,20 @@ class DummyWorkflow:
         self.rng = np.random.default_rng()
         self.x = sc.array(dims=['x'], values=np.arange(10), unit='m')
 
-    def __call__(self, group: JSONGroup) -> WorkflowResult:
+    def __call__(
+        self,
+        nexus_filename: Path,
+        nxevent_data: dict[str, JSONGroup],
+        nxlog: dict[str, JSONGroup],
+    ) -> WorkflowResult:
+        from itertools import chain
+
         return {
-            f'random-counts-{i}': sc.DataArray(
+            f'random-counts-{nexus_filename}-{name}': sc.DataArray(
                 data=sc.array(dims=['x'], values=self.rng.random(10), unit='counts'),
                 coords={'x': self.x},
             )
-            for i in range(4)
+            for name in chain(nxevent_data.items(), nxlog.items())
         }
 
 
