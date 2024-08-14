@@ -3,14 +3,12 @@
 from importlib.metadata import entry_points
 from typing import NewType, Protocol
 
+from ess.reduce.nexus.json_nexus import JSONGroup
+
 try:
     import scipp as sc
-    from ess.reduce.nexus.json_nexus import JSONGroup
 except ImportError as e:
-    raise ImportError(
-        "Please install the scipp and "
-        "scippneutron packages to use the ``DummyWorkflow``."
-    ) from e
+    raise ImportError("Please install the scipp to use the ``DummyWorkflow``.") from e
 
 
 Workflow = NewType('Workflow', str)
