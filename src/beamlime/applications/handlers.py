@@ -9,7 +9,7 @@ from numbers import Number
 from typing import NewType
 
 import scipp as sc
-from scippneutron.io.nexus._json_nexus import JSONGroup
+from ess.reduce.nexus.json_nexus import JSONGroup
 
 from beamlime.logging import BeamlimeLogger
 
