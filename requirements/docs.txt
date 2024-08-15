@@ -9,15 +9,15 @@
 -r basetest.txt
 accessible-pygments==0.0.5
     # via pydata-sphinx-theme
-alabaster==0.7.16
+alabaster==1.0.0
     # via sphinx
 asttokens==2.4.1
     # via stack-data
-attrs==23.2.0
+attrs==24.2.0
     # via
     #   jsonschema
     #   referencing
-babel==2.15.0
+babel==2.16.0
     # via
     #   pydata-sphinx-theme
     #   sphinx
@@ -31,7 +31,7 @@ comm==0.2.2
     # via
     #   ipykernel
     #   ipywidgets
-debugpy==1.8.1
+debugpy==1.8.5
     # via ipykernel
 decorator==5.1.1
     # via ipython
@@ -45,17 +45,17 @@ docutils==0.21.2
     #   sphinx
 executing==2.0.1
     # via stack-data
-fastjsonschema==2.19.1
+fastjsonschema==2.20.0
     # via nbformat
 imagesize==1.4.1
     # via sphinx
 ipydatawidgets==4.3.5
     # via pythreejs
-ipykernel==6.29.4
+ipykernel==6.29.5
     # via -r docs.in
 ipympl==0.9.4
     # via -r docs.in
-ipython==8.24.0
+ipython==8.26.0
     # via
     #   -r docs.in
     #   ipykernel
@@ -63,7 +63,7 @@ ipython==8.24.0
     #   ipywidgets
 ipython-genutils==0.2.0
     # via ipympl
-ipywidgets==8.1.2
+ipywidgets==8.1.3
     # via
     #   ipydatawidgets
     #   ipympl
@@ -76,7 +76,7 @@ jinja2==3.1.4
     #   nbconvert
     #   nbsphinx
     #   sphinx
-jsonschema==4.22.0
+jsonschema==4.23.0
     # via nbformat
 jsonschema-specifications==2023.12.1
     # via jsonschema
@@ -93,7 +93,7 @@ jupyter-core==5.7.2
     #   nbformat
 jupyterlab-pygments==0.3.0
     # via nbconvert
-jupyterlab-widgets==3.0.10
+jupyterlab-widgets==3.0.11
     # via ipywidgets
 markupsafe==2.1.5
     # via
@@ -107,7 +107,7 @@ mdit-py-plugins==0.4.1
     # via myst-parser
 mistune==3.0.2
     # via nbconvert
-myst-parser==3.0.1
+myst-parser==4.0.0
     # via -r docs.in
 nbclient==0.10.0
     # via nbconvert
@@ -118,7 +118,7 @@ nbformat==5.10.4
     #   nbclient
     #   nbconvert
     #   nbsphinx
-nbsphinx==0.9.4
+nbsphinx==0.9.5
     # via -r docs.in
 nest-asyncio==1.6.0
     # via ipykernel
@@ -128,19 +128,19 @@ parso==0.8.4
     # via jedi
 pexpect==4.9.0
     # via ipython
-prompt-toolkit==3.0.43
+prompt-toolkit==3.0.47
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
-pure-eval==0.2.2
+pure-eval==0.2.3
     # via stack-data
-pydata-sphinx-theme==0.15.2
+pydata-sphinx-theme==0.15.4
     # via -r docs.in
 pythreejs==2.4.2
     # via -r docs.in
-pyyaml==6.0.1
+pyyaml==6.0.2
     # via myst-parser
-pyzmq==26.0.3
+pyzmq==26.1.0
     # via
     #   ipykernel
     #   jupyter-client
@@ -148,15 +148,15 @@ referencing==0.35.1
     # via
     #   jsonschema
     #   jsonschema-specifications
-rpds-py==0.18.1
+rpds-py==0.20.0
     # via
     #   jsonschema
     #   referencing
 snowballstemmer==2.2.0
     # via sphinx
-soupsieve==2.5
+soupsieve==2.6
     # via beautifulsoup4
-sphinx==7.3.7
+sphinx==8.0.2
     # via
     #   -r docs.in
     #   myst-parser
@@ -165,29 +165,29 @@ sphinx==7.3.7
     #   sphinx-autodoc-typehints
     #   sphinx-copybutton
     #   sphinx-design
-sphinx-autodoc-typehints==2.1.0
+sphinx-autodoc-typehints==2.2.3
     # via -r docs.in
 sphinx-copybutton==0.5.2
     # via -r docs.in
-sphinx-design==0.6.0
+sphinx-design==0.6.1
     # via -r docs.in
-sphinxcontrib-applehelp==1.0.8
+sphinxcontrib-applehelp==2.0.0
     # via sphinx
-sphinxcontrib-devhelp==1.0.6
+sphinxcontrib-devhelp==2.0.0
     # via sphinx
-sphinxcontrib-htmlhelp==2.0.5
+sphinxcontrib-htmlhelp==2.1.0
     # via sphinx
 sphinxcontrib-jsmath==1.0.1
     # via sphinx
-sphinxcontrib-qthelp==1.0.7
+sphinxcontrib-qthelp==2.0.0
     # via sphinx
-sphinxcontrib-serializinghtml==1.1.10
+sphinxcontrib-serializinghtml==2.0.0
     # via sphinx
 stack-data==0.6.3
     # via ipython
 tinycss2==1.3.0
     # via nbconvert
-tornado==6.4
+tornado==6.4.1
     # via
     #   ipykernel
     #   jupyter-client
@@ -209,7 +209,7 @@ traitlets==5.14.3
     #   traittypes
 traittypes==0.2.1
     # via ipydatawidgets
-typing-extensions==4.12.0
+typing-extensions==4.12.2
     # via
     #   ipython
     #   pydata-sphinx-theme
@@ -219,5 +219,5 @@ webencodings==0.5.1
     # via
     #   bleach
     #   tinycss2
-widgetsnbextension==4.0.10
+widgetsnbextension==4.0.11
     # via ipywidgets

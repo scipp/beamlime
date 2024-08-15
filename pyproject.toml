@@ -31,7 +31,7 @@ requires-python = ">=3.10"
 # Make sure to list one dependency per line.
 dependencies = [
   "rich",
-  "scippneutron>=24.03.0",
+  "essreduce",
 ]
 
 dynamic = ["version"]
