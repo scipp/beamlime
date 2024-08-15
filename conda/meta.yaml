@@ -33,11 +33,13 @@ test:
     - pytest-asyncio
     - psutil
     - pandas
+    - pyarrow  # Future hard-dependency of pandas, it can be removed from pandas>3.0
     - numpy
     - scipp
     - plopp
     - sciline
-    - scippneutron>=24.03.0
+    - essreduce
+    - pooch
   source_files:
     - pyproject.toml
     - tests/
