@@ -36,7 +36,8 @@ def fake_listener(num_frames: int, ymir) -> FakeListener:
 
     return FakeListener(
         logger=MockLogger(),
-        nexus_template=ymir,
+        nexus_structure=ymir,
+        nexus_template_file="",
         speed=DataFeedingSpeed(1),
         num_frames=NumFrames(num_frames),
         event_rate=EventRate(100),
