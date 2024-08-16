@@ -30,6 +30,7 @@ from .daemons import (
     RunStart,
 )
 
+ResultRegistry = NewType("ResultRegistry", dict[str, sc.DataArray])
 Events = NewType("Events", list[sc.DataArray])
 MergeMessageCountInterval = NewType("MergeMessageCountInterval", Number)
 """Every MergeMessageCountInterval-th message the data assembler receives
@@ -169,19 +170,25 @@ class DataAssembler(HandlerInterface):
 class DataReductionHandler(HandlerInterface):
     """Data reduction handler to process the raw data."""
 
-    def __init__(self, workflow: StatelessWorkflow) -> None:
+    def __init__(
+        self,
+        workflow: StatelessWorkflow,
+        result_registry: ResultRegistry | None = None,
+    ) -> None:
         self.workflow = workflow
+        self.result_registry = result_registry or {}
         super().__init__()
 
     def reduce_data(self, message: DataReady) -> WorkflowResultUpdate:
         self.info("Running data reduction")
-        return WorkflowResultUpdate(
-            content=self.workflow(
+        self.result_registry.update(
+            content := self.workflow(
                 nexus_filename=message.content.filename,
                 nxevent_data=message.content.nxevent_data,
                 nxlog=message.content.nxlog,
             )
         )
+        return WorkflowResultUpdate(content=content)
 
 
 ImagePath = NewType("ImagePath", pathlib.Path)
@@ -213,7 +220,7 @@ class PlotStreamer(HandlerInterface):
     def plot_item(self, name: str, data: sc.DataArray) -> None:
         figure = self.figures.get(name)
         if figure is None:
-            plot = pp.plot(data, title='\n['.join(name.split("[")))
+            plot = pp.plot(data, title='\n'.join(name.split("-")))
             # line break for long names
             # TODO Either improve Plopp's update method, or handle multiple artists
             if len(plot.artists) > 1:
@@ -221,8 +228,7 @@ class PlotStreamer(HandlerInterface):
             self.artists[name] = next(iter(plot.artists))
             self.figures[name] = plot
         else:
-            # figure.update({self.artists[name]: data})
-            ...
+            figure.update({self.artists[name]: data})
 
     def update_histogram(self, message: WorkflowResultUpdate) -> None:
         content = message.content
