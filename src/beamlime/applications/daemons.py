@@ -6,13 +6,18 @@ import json
 import os
 from collections.abc import AsyncGenerator, Mapping
 from dataclasses import dataclass
-from typing import NewType
+from typing import NewType, TypedDict
 
 import h5py
 import numpy as np
 
 from ..logging import BeamlimeLogger
-from ._nexus_helpers import NexusPath, find_nexus_structure, iter_nexus_structure
+from ._nexus_helpers import (
+    NexusGroup,
+    NexusPath,
+    find_nexus_structure,
+    iter_nexus_structure,
+)
 from ._random_data_providers import (
     DataFeedingSpeed,
     EventRate,
@@ -26,9 +31,14 @@ from .base import Application, DaemonInterface, MessageProtocol
 Path = str | bytes | os.PathLike
 
 
+class RunStartInfo(TypedDict):
+    structure: NexusGroup
+    filename: Path
+
+
 @dataclass
 class RunStart:
-    content: Mapping
+    content: RunStartInfo
 
 
 @dataclass
@@ -47,15 +57,13 @@ class ChopperDataReceived:
 
 
 NexusTemplatePath = NewType("NexusTemplatePath", str)
-NexusTemplate = NewType("NexusTemplate", Mapping)
-'''A template describing the nexus file structure for the instrument'''
 
 EventDataSourcePath = NewType("EventDataSourcePath", str)
 
 
-def read_nexus_template_file(path: NexusTemplatePath) -> NexusTemplate:
+def read_nexus_template_file(path: NexusTemplatePath) -> NexusGroup:
     with open(path) as f:
-        return NexusTemplate(json.load(f))
+        return NexusGroup(json.load(f))
 
 
 def _try_load_nxevent_data(
@@ -145,7 +153,8 @@ class FakeListener(DaemonInterface):
         *,
         logger: BeamlimeLogger,
         speed: DataFeedingSpeed,
-        nexus_template: NexusTemplate,
+        nexus_structure: NexusGroup,
+        nexus_template_file: Path,
         num_frames: NumFrames,
         event_rate: EventRate,
         frame_rate: FrameRate,
@@ -153,7 +162,8 @@ class FakeListener(DaemonInterface):
     ):
         self.logger = logger
 
-        self.nexus_structure = nexus_template
+        self.nexus_structure = nexus_structure
+        self.filename = nexus_template_file
 
         self.random_event_generators = fake_event_generators(
             nexus_structure=self.nexus_structure,
@@ -167,7 +177,9 @@ class FakeListener(DaemonInterface):
     async def run(self) -> AsyncGenerator[MessageProtocol, None]:
         self.info("Fake data streaming started...")
 
-        yield RunStart(content=self.nexus_structure)
+        yield RunStart(
+            content={"structure": self.nexus_structure, "filename": self.filename}
+        )
 
         for i_frame in range(self.num_frames):
             for name, event_generator in self.random_event_generators.items():
@@ -225,11 +237,12 @@ class FakeListener(DaemonInterface):
         cls, logger: BeamlimeLogger, args: argparse.Namespace
     ) -> "FakeListener":
         with open(args.nexus_template_path) as f:
-            nexus_template = json.load(f)
+            nexus_structure = json.load(f)
         return cls(
             logger=logger,
             speed=DataFeedingSpeed(args.data_feeding_speed),
-            nexus_template=nexus_template,
+            nexus_structure=nexus_structure,
+            nexus_template_file=args.nexus_template_path,
             event_data_source_path=EventDataSourcePath(args.event_data_source_path),
             num_frames=NumFrames(args.num_frames),
             event_rate=EventRate(args.event_rate),

@@ -3,10 +3,9 @@
 import argparse
 import pathlib
 import time
-from collections.abc import Mapping
 from dataclasses import dataclass
 from numbers import Number
-from typing import NewType
+from typing import NewType, cast
 
 import scipp as sc
 from ess.reduce.nexus.json_nexus import JSONGroup
@@ -17,10 +16,10 @@ from ..stateless_workflow import StatelessWorkflow, WorkflowResult
 from ._nexus_helpers import (
     DeserializedMessage,
     ModuleNameType,
-    NexusStore,
-    NexusTemplate,
-    combine_nexus_store_and_structure,
-    merge_message_into_nexus_store,
+    ModuleRegistry,
+    NexusGroup,
+    collect_modules,
+    merge_message,
 )
 from .base import HandlerInterface
 from .daemons import (
@@ -40,8 +39,15 @@ since the last reduction exceeds the length of the interval (in seconds)"""
 
 
 @dataclass
+class WorkflowInput:
+    filename: pathlib.Path
+    nxevent_data: dict[str, JSONGroup]
+    nxlog: dict[str, JSONGroup]
+
+
+@dataclass
 class DataReady:
-    content: Mapping
+    content: WorkflowInput
 
 
 @dataclass
@@ -79,33 +85,47 @@ class DataAssembler(HandlerInterface):
         merge_every_nth: MergeMessageCountInterval = 1,
         max_seconds_between_messages: MergeMessageTimeInterval = float("inf"),
     ):
-        self.structure: NexusTemplate
         self.logger = logger
-        self._nexus_store: NexusStore = {}
+        self._module_registry: ModuleRegistry
         self._should_send_message = maxcount_or_maxtime(
             merge_every_nth, max_seconds_between_messages
         )
+        self._store: dict[ModuleNameType, dict[str, NexusGroup]]
+        self._initialize_data_store()
+
+    def _initialize_data_store(self) -> None:
+        self._store = {"ev44": {}, "f144": {}, "tdct": {}}
 
     def set_run_start(self, message: RunStart) -> None:
-        self.structure = message.content
+        self._module_registry = collect_modules(
+            cast(NexusGroup, message.content["structure"])
+        )
+        self.file_name = message.content["filename"]
 
     def _merge_message_and_return_response_if_ready(
         self, module_name: ModuleNameType, data_piece: DeserializedMessage
     ) -> DataReady | None:
-        merge_message_into_nexus_store(
-            structure=self.structure,
-            nexus_store=self._nexus_store,
+        merge_message(
+            store=self._store[module_name],
+            modules=self._module_registry,
             data=data_piece,
             module_name=module_name,
         )
         if self._should_send_message():
             message = DataReady(
-                combine_nexus_store_and_structure(
-                    self.structure,
-                    self._nexus_store,
-                ),
+                content=WorkflowInput(
+                    filename=pathlib.Path(self.file_name),
+                    nxevent_data={
+                        path: JSONGroup(ev44)
+                        for path, ev44 in self._store["ev44"].items()
+                    },
+                    nxlog={
+                        path: JSONGroup(f144)
+                        for path, f144 in self._store["f144"].items()
+                    },
+                )
             )
-            self._nexus_store = {}
+            self._initialize_data_store()
             return message
 
     def assemble_detector_data(self, message: DetectorDataReceived) -> DataReady | None:
@@ -153,9 +173,14 @@ class DataReductionHandler(HandlerInterface):
         super().__init__()
 
     def reduce_data(self, message: DataReady) -> WorkflowResultUpdate:
-        content = JSONGroup(message.content)
         self.info("Running data reduction")
-        return WorkflowResultUpdate(content=self.workflow(content))
+        return WorkflowResultUpdate(
+            content=self.workflow(
+                nexus_filename=message.content.filename,
+                nxevent_data=message.content.nxevent_data,
+                nxlog=message.content.nxlog,
+            )
+        )
 
 
 ImagePath = NewType("ImagePath", pathlib.Path)
