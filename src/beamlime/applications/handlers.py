@@ -86,7 +86,7 @@ class DataAssembler(HandlerInterface):
         max_seconds_between_messages: MergeMessageTimeInterval = float("inf"),
     ):
         self.logger = logger
-        self._module_registry: ModuleRegistry
+        self._module_registry: dict[ModuleNameType, ModuleRegistry]
         self._should_send_message = maxcount_or_maxtime(
             merge_every_nth, max_seconds_between_messages
         )
@@ -107,7 +107,7 @@ class DataAssembler(HandlerInterface):
     ) -> DataReady | None:
         merge_message(
             store=self._store[module_name],
-            modules=self._module_registry,
+            modules=self._module_registry[module_name],
             data=data_piece,
             module_name=module_name,
         )

@@ -9,10 +9,12 @@ import numpy as np
 import pytest
 
 from beamlime.applications._nexus_helpers import (
-    combine_nexus_store_and_structure,
+    Nexus,
+    NexusGroup,
+    collect_modules,
     find_nexus_structure,
     iter_nexus_structure,
-    merge_message_into_nexus_store,
+    merge_message,
 )
 from beamlime.applications._random_data_providers import (
     DetectorName,
@@ -71,6 +73,18 @@ def ymir_ev44_generator(ymir: dict) -> Generator[dict, None, None]:
     return events()
 
 
+def test_iter_nexus_structure() -> None:
+    expected_keys = [(), ('a',), ('a', 'c'), ('b',)]
+    test_structure = {
+        "children": [
+            {"config": {"name": "a"}, "children": [{"config": {"name": "c"}}]},
+            {"config": {"name": "b"}},
+        ]
+    }
+    keys = [path for path, _ in iter_nexus_structure(test_structure)]
+    assert set(expected_keys) == set(keys)
+
+
 def test_find_index_general() -> None:
     first = {"name": "b0"}
     nested_obj = {
@@ -92,13 +106,12 @@ def test_find_nexus_structure_not_found_raises() -> None:
 def test_invalid_nexus_template_multiple_module_placeholders() -> None:
     with open(pathlib.Path(__file__).parent / "multiple_modules_datagroup.json") as f:
         nexus_structure = json.load(f)
-
     with pytest.raises(ValueError, match="should have exactly one child"):
-        merge_message_into_nexus_store(
-            structure=nexus_structure,
-            nexus_store={},
-            module_name="ev44",
+        merge_message(
+            store={},
+            modules=collect_modules(nexus_structure)['ev44'],
             data={"source_name": "ymir_00"},
+            module_name='ev44',
         )
 
 
@@ -145,71 +158,109 @@ def _is_class(partial_structure: Mapping, cls_name: str) -> bool:
     )
 
 
-def _is_detector(c: Mapping) -> bool:
-    return _is_class(c, "NXdetector")
-
-
 def _is_event_data(c: Mapping) -> bool:
     return _is_class(c, "NXevent_data")
 
 
-def test_ev44_module_parsing(ymir: dict) -> None:
-    result = combine_nexus_store_and_structure(structure=ymir, nexus_store={})
+def test_ev44_module_parsing(ymir: NexusGroup) -> None:
+    assert (
+        len([c for _, c in collect_modules(ymir)["ev44"].items() if _is_event_data(c)])
+        == 2
+    )  # We inserted 2 detectors in the ymir_detectors template
 
-    detectors = [c for _, c in iter_nexus_structure(result) if _is_detector(c)]
-    assert len(detectors) == 2  # We inserted 2 detectors in the ymir_detectors template
+
+def test_f144_module_parsing(ymir: NexusGroup) -> None:
+    assert (
+        len(
+            [
+                c
+                for _, c in collect_modules(ymir)["f144"].items()
+                if _is_class(c, "NXlog")
+            ]
+        )
+        == 17
+    )  # There are 17 f144 modules in ymir example.
+
+
+def _get_child(group: NexusGroup, child_name: str) -> Nexus:
+    for child in group["children"]:
+        if child.get("config", {}).get("name", None) == child_name:
+            return child
+    raise KeyError(child_name)
+
+
+def _get_child_values(group: NexusGroup, child_name: str) -> np.ndarray:
+    return _get_child(group, child_name).get('config', {}).get('values', [])
 
 
 def test_ev44_module_merging(
-    ymir: dict, ymir_ev44_generator: Generator[dict, None, None]
+    ymir: NexusGroup, ymir_ev44_generator: Generator[dict, None, None]
 ) -> None:
     store = {}
+    modules = collect_modules(ymir)["ev44"]
+    expected_event_time_offsets = {}
+    expected_event_index = {}
+    NUM_DETECTORS = 2
     for _, data_piece in zip(range(4), ymir_ev44_generator, strict=False):
-        merge_message_into_nexus_store(
-            structure=ymir,
-            nexus_store=store,
+        i_detector = _ % NUM_DETECTORS
+        merge_message(
+            store=store,
+            modules=modules,
             data=data_piece,
             module_name="ev44",
         )
-    result = combine_nexus_store_and_structure(structure=ymir, nexus_store=store)
+        expected_event_index.setdefault(i_detector, []).append(
+            len(expected_event_time_offsets.get(i_detector, []))
+        )
+        expected_event_time_offsets.setdefault(i_detector, []).extend(
+            data_piece["time_of_flight"]
+        )
 
-    for nx_event in (c for _, c in iter_nexus_structure(result) if _is_event_data(c)):
+    for i_nx_event, nx_event in enumerate(store.values()):
         assert "children" in nx_event
         assert all(v["module"] == "dataset" for v in nx_event["children"])
+        # Test if all event data is appended
+        assert all(
+            _get_child_values(nx_event, "event_time_offset")
+            == expected_event_time_offsets[i_nx_event]
+        )
+        # Test if all event index is adjusted correctly
+        assert all(
+            _get_child_values(nx_event, "event_index")
+            == expected_event_index[i_nx_event]
+        )
 
 
 def test_ev44_module_merging_numpy_array_wrapped(ymir, ymir_ev44_generator) -> None:
+    NUMPY_DATASETS = ("event_id", "event_index", "event_time_offset", "event_time_zero")
     store = {}
+    modules = collect_modules(ymir)["ev44"]
     for _, data_piece in zip(range(4), ymir_ev44_generator, strict=False):
-        merge_message_into_nexus_store(
-            structure=ymir,
-            nexus_store=store,
+        merge_message(
+            store=store,
+            modules=modules,
             data=data_piece,
             module_name="ev44",
         )
-    result = combine_nexus_store_and_structure(structure=ymir, nexus_store=store)
-    NUMPY_DATASETS = ("event_id", "event_index", "event_time_offset", "event_time_zero")
-
-    for nx_event in (c for _, c in iter_nexus_structure(result) if _is_event_data(c)):
+    for nx_event in store.values():
         assert all(
-            isinstance(v["config"]["values"], np.ndarray)
-            for v in nx_event["children"]
-            if v["config"]["name"] in NUMPY_DATASETS
+            isinstance(_get_child_values(nx_event, child_name), np.ndarray)
+            for child_name in NUMPY_DATASETS
         )
 
 
 def test_ev44_module_parsing_original_unchanged(ymir, ymir_ev44_generator) -> None:
     store = {}
+    modules = collect_modules(ymir)["ev44"]
     for _, data_piece in zip(range(4), ymir_ev44_generator, strict=False):
-        merge_message_into_nexus_store(
-            structure=ymir,
-            nexus_store=store,
+        merge_message(
+            store=store,
+            modules=modules,
             data=data_piece,
             module_name="ev44",
         )
-    combine_nexus_store_and_structure(ymir, store)
     # original unchanged
-    for nx_event in (c for _, c in iter_nexus_structure(ymir) if _is_event_data(c)):
+    for nx_event in (c for c in modules.values() if _is_event_data(c)):
         assert len(nx_event["children"]) == 1
         assert nx_event["children"][0]["module"] == "ev44"
 
@@ -285,19 +336,19 @@ def f144_event_generator(shape, dtype):
 @pytest.mark.parametrize('dtype', ['int32', 'uint32', 'float32', 'float64', 'bool'])
 def test_f144(nexus_template_with_streamed_log, shape, dtype):
     store = {}
+    modules = collect_modules(nexus_template_with_streamed_log)['f144']
     for _, data in zip(range(10), f144_event_generator(shape, dtype), strict=False):
-        merge_message_into_nexus_store(
-            structure=nexus_template_with_streamed_log,
-            nexus_store=store,
+        merge_message(
+            store=store,
+            modules=modules,
             data=data,
             module_name="f144",
         )
 
-    assert () in store
-    assert len(store[()]['children']) == 2
-    values = find_nexus_structure(store[()], ('value',))
+    assert len(store['']['children']) == 2
+    values = find_nexus_structure(store[""], ('value',))
     assert values['module'] == 'dataset'
-    times = find_nexus_structure(store[()], ('time',))
+    times = find_nexus_structure(store[""], ('time',))
     assert times['module'] == 'dataset'
     assert values['config']['values'].shape[1:] == shape
     assert values['attributes'][0]['values'] == 'km'
@@ -335,65 +386,11 @@ def tdct_event_generator():
 
 def test_tdct(nexus_template_with_streamed_tdct):
     store = {}
-    for _, data in zip(range(10), tdct_event_generator(), strict=False):
-        merge_message_into_nexus_store(
-            structure=nexus_template_with_streamed_tdct,
-            nexus_store=store,
-            data=data,
+    modules = collect_modules(nexus_template_with_streamed_tdct)["tdct"]
+    with pytest.raises(NotImplementedError):
+        merge_message(
+            store=store,
+            modules=modules,
+            data=next(tdct_event_generator()),
             module_name="tdct",
         )
-
-    assert ('top_dead_center',) in store
-    tdct = store[('top_dead_center',)]
-    assert tdct['module'] == 'dataset'
-    assert np.issubdtype(
-        tdct['config']['values'].dtype, np.dtype(tdct['config']['dtype'])
-    )
-
-
-@pytest.fixture()
-def nexus_template_with_mixed_streams(
-    nexus_template_with_streamed_log, nexus_template_with_streamed_tdct
-):
-    return {
-        "children": [
-            nexus_template_with_streamed_log,
-            nexus_template_with_streamed_tdct,
-        ],
-    }
-
-
-@pytest.mark.parametrize('dtype', ['uint32'])
-@pytest.mark.parametrize('shape', [(2, 1, 3)])
-def test_mixed_streams(nexus_template_with_mixed_streams, shape, dtype):
-    store = {}
-    for _, tdct, f144 in zip(
-        range(10),
-        tdct_event_generator(),
-        f144_event_generator(shape, dtype),
-        strict=False,
-    ):
-        merge_message_into_nexus_store(
-            structure=nexus_template_with_mixed_streams,
-            nexus_store=store,
-            data=f144,
-            module_name="f144",
-        )
-        merge_message_into_nexus_store(
-            structure=nexus_template_with_mixed_streams,
-            nexus_store=store,
-            data=tdct,
-            module_name="tdct",
-        )
-    result = combine_nexus_store_and_structure(nexus_template_with_mixed_streams, store)
-    assert len(result['children']) == 2
-    log = find_nexus_structure(result, ('the_log_name',))
-    assert len(log['children']) == 2
-    tdct = find_nexus_structure(
-        result,
-        (
-            'chopper_3',
-            'top_dead_center',
-        ),
-    )
-    assert tdct['module'] == 'dataset'

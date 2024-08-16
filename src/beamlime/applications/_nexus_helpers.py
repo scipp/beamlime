@@ -74,7 +74,8 @@ def _find_ev44(
     for module_key, module_parent in modules.items():
         if (
             (children := module_parent.get("children")) is not None
-            and len(children) == 1  # ev44 placeholder should be the only child
+            and len(children) >= 1  # ev44 placeholder should be the only child
+            # but it is an extra safety layer to check if they actually are.
             and (module := children[0]).get("module") == "ev44"
             and module.get("config", {}).get("source") == source_name
         ):
@@ -186,6 +187,7 @@ def _find_f144(
         if (
             (children := module_parent.get("children")) is not None
             and len(children) == 1  # f144 placeholder should be the only child
+            # but it is an extra safety layer to check if they actually are.
             and (module := children[0]).get("module") == "f144"
             and module.get("config", {}).get("source") == source_name
         ):
@@ -229,15 +231,7 @@ def _merge_f144(group: NexusGroup, data: DeserializedMessage) -> None:
 def _find_tdct(
     modules: ModuleRegistry, data: DeserializedMessage
 ) -> Generator[tuple[str, NexusGroup]]:
-    name = data["name"]
-    for module_key, module_parent in modules.items():
-        if (
-            (children := module_parent.get("children")) is not None
-            and len(children) == 1  # tdct placeholder should be the only child
-            and (module := children[0]).get("module") == "tdct"
-            and module.get("config", {}).get("topic") == name
-        ):
-            yield (module_key, module_parent)
+    raise NotImplementedError("TDCT is not supported yet.")
 
 
 def _initialize_tdct(
@@ -378,19 +372,19 @@ def merge_message(
     """
     merge = partial(_merge_message_into_store, store=store, data=data, modules=modules)
     if module_name == "ev44":
-        merge(
+        return merge(
             match_module=_find_ev44,
             initialize=_initialize_ev44,
             merge_message=_merge_ev44,
         )
     elif module_name == "f144":
-        merge(
+        return merge(
             match_module=_find_f144,
             initialize=_initialize_f144,
             merge_message=_merge_f144,
         )
     elif module_name == "tdct":
-        merge(
+        return merge(
             match_module=_find_tdct,
             initialize=_initialize_tdct,
             merge_message=_merge_tdct,
@@ -405,19 +399,34 @@ def _is_nexus_group(n: Nexus) -> TypeGuard[NexusGroup]:
     return "children" in n
 
 
-def _is_module_parent(group: Nexus) -> bool:
+def _is_module_parent(group: Nexus) -> TypeGuard[NexusGroup]:
     return (
         _is_nexus_group(group)
-        and len(children := group.get("children", [])) == 1
+        and len(children := group.get("children", [])) >= 1
+        # module place holder should be the only child
+        # but this check is for an extra safety layer to check if they actually are.
         and children[0].get("module") in _MODULE_NAMES
     )
 
 
-def collect_modules(structure: NexusGroup) -> ModuleRegistry:
+def _is_stream_module(child: Nexus) -> TypeGuard[NexusStreamedModule]:
+    return child.get("module") is not None
+
+
+def collect_modules(structure: NexusGroup) -> dict[ModuleNameType, ModuleRegistry]:
     """Collects all modules in the nexus structure"""
 
-    return {
-        '/'.join(path): cast(NexusGroup, node)
+    modules: dict[str, NexusGroup] = {
+        '/'.join(path): node
         for path, node in iter_nexus_structure(structure)
         if _is_module_parent(node)
+    }
+    return {
+        module_name: {
+            module_path: module_parent
+            for module_path, module_parent in modules.items()
+            if _is_stream_module(module := module_parent["children"][0])
+            and module["module"] == module_name
+        }
+        for module_name in _MODULE_NAMES
     }
