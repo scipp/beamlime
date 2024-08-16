@@ -54,11 +54,11 @@ class DummyWorkflow:
         from itertools import chain
 
         return {
-            f'random-counts-{nexus_filename}-{name}': sc.DataArray(
+            f'random-counts-{nexus_filename.stem}-{Path(name).stem}': sc.DataArray(
                 data=sc.array(dims=['x'], values=self.rng.random(10), unit='counts'),
                 coords={'x': self.x},
             )
-            for name in chain(nxevent_data.items(), nxlog.items())
+            for name in chain(nxevent_data, nxlog)
         }
 
 

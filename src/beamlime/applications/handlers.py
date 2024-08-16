@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from numbers import Number
 from typing import NewType, cast
 
+import plopp as pp
 import scipp as sc
 from ess.reduce.nexus.json_nexus import JSONGroup
 
@@ -212,16 +213,16 @@ class PlotStreamer(HandlerInterface):
     def plot_item(self, name: str, data: sc.DataArray) -> None:
         figure = self.figures.get(name)
         if figure is None:
-            plot = data.plot(
-                title='\n['.join(name.split("["))
-            )  # line break for long names
+            plot = pp.plot(data, title='\n['.join(name.split("[")))
+            # line break for long names
             # TODO Either improve Plopp's update method, or handle multiple artists
             if len(plot.artists) > 1:
                 raise NotImplementedError("Data with multiple items not supported.")
             self.artists[name] = next(iter(plot.artists))
             self.figures[name] = plot
         else:
-            figure.update({self.artists[name]: data})
+            # figure.update({self.artists[name]: data})
+            ...
 
     def update_histogram(self, message: WorkflowResultUpdate) -> None:
         content = message.content

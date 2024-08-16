@@ -13,6 +13,7 @@ import numpy as np
 
 from ..logging import BeamlimeLogger
 from ._nexus_helpers import (
+    Nexus,
     NexusGroup,
     NexusPath,
     find_nexus_structure,
@@ -29,6 +30,7 @@ from ._random_data_providers import (
 from .base import Application, DaemonInterface, MessageProtocol
 
 Path = str | bytes | os.PathLike
+NexusSkeletonPath = NewType("NexusSkeletonPath", str)
 
 
 class RunStartInfo(TypedDict):
@@ -56,12 +58,12 @@ class ChopperDataReceived:
     content: Mapping
 
 
-NexusTemplatePath = NewType("NexusTemplatePath", str)
+NexusStructurePath = NewType("NexusStructurePath", str)
 
 EventDataSourcePath = NewType("EventDataSourcePath", str)
 
 
-def read_nexus_template_file(path: NexusTemplatePath) -> NexusGroup:
+def read_nexus_template_file(path: NexusStructurePath) -> NexusGroup:
     with open(path) as f:
         return NexusGroup(json.load(f))
 
@@ -86,7 +88,7 @@ def _try_load_nxevent_data(
 
 
 def fake_event_generators(
-    nexus_structure: Mapping,
+    nexus_structure: NexusGroup,
     event_rate: EventRate,
     frame_rate: FrameRate,
     event_data_source_path: EventDataSourcePath | None = None,
@@ -133,8 +135,8 @@ def fake_event_generators(
 
 
 def _find_groups_by_nx_class(
-    nexus_structure: Mapping, nx_class: str
-) -> dict[NexusPath, Mapping]:
+    nexus_structure: NexusGroup, nx_class: str
+) -> dict[NexusPath, Nexus]:
     return {
         path: node
         for path, node in iter_nexus_structure(nexus_structure)
@@ -154,7 +156,7 @@ class FakeListener(DaemonInterface):
         logger: BeamlimeLogger,
         speed: DataFeedingSpeed,
         nexus_structure: NexusGroup,
-        nexus_template_file: Path,
+        nexus_template_file: NexusSkeletonPath,
         num_frames: NumFrames,
         event_rate: EventRate,
         frame_rate: FrameRate,
@@ -196,6 +198,12 @@ class FakeListener(DaemonInterface):
     def add_argument_group(cls, parser: argparse.ArgumentParser) -> None:
         group = parser.add_argument_group('Fake Listener Configuration')
         group.add_argument(
+            "--nexus-structure-path",
+            help="Path to the nexus template file.",
+            type=str,
+            required=True,
+        )
+        group.add_argument(
             "--nexus-template-path",
             help="Path to the nexus template file.",
             type=str,
@@ -236,7 +244,7 @@ class FakeListener(DaemonInterface):
     def from_args(
         cls, logger: BeamlimeLogger, args: argparse.Namespace
     ) -> "FakeListener":
-        with open(args.nexus_template_path) as f:
+        with open(args.nexus_structure_path) as f:
             nexus_structure = json.load(f)
         return cls(
             logger=logger,
