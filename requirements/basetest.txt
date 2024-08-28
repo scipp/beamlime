@@ -17,8 +17,6 @@ cycler==0.12.1
     # via matplotlib
 essreduce==24.8.0
     # via -r basetest.in
-exceptiongroup==1.2.2
-    # via pytest
 execnet==2.1.1
     # via pytest-xdist
 fonttools==4.53.1
@@ -86,7 +84,7 @@ pytz==2024.1
     # via pandas
 requests==2.32.3
     # via pooch
-scipp==24.6.0
+scipp==24.8.0
     # via
     #   -r basetest.in
     #   essreduce
@@ -97,10 +95,6 @@ scipy==1.14.0
     # via scippnexus
 six==1.16.0
     # via python-dateutil
-tomli==2.0.1
-    # via
-    #   coverage
-    #   pytest
 tzdata==2024.1
     # via pandas
 urllib3==2.2.2
