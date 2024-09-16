@@ -24,7 +24,7 @@ python-dateutil==2.9.0.post0
     # via scippnexus
 rich==13.7.1
     # via -r base.in
-scipp==24.8.0
+scipp==24.9.1
     # via
     #   essreduce
     #   scippnexus
