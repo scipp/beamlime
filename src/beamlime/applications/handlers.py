@@ -29,6 +29,8 @@ from .daemons import (
     RunStart,
 )
 
+ResultRegistry = NewType("ResultRegistry", dict[str, sc.DataArray])
+"""Workflow result container."""
 Events = NewType("Events", list[sc.DataArray])
 MergeMessageCountInterval = NewType("MergeMessageCountInterval", Number)
 """Every MergeMessageCountInterval-th message the data assembler receives
@@ -157,8 +159,11 @@ class DataAssembler(HandlerInterface):
 class DataReductionHandler(HandlerInterface):
     """Data reduction handler to process the raw data."""
 
-    def __init__(self, workflow: StatelessWorkflow) -> None:
+    def __init__(
+        self, workflow: StatelessWorkflow, reuslt_registry: ResultRegistry | None = None
+    ) -> None:
         self.workflow = workflow
+        self.result_registry = {} if reuslt_registry is None else reuslt_registry
         super().__init__()
 
     def reduce_data(self, message: DataReady) -> WorkflowResultUpdate:
@@ -167,13 +172,13 @@ class DataReductionHandler(HandlerInterface):
         }
         nxlog = {key: JSONGroup(value) for key, value in message.content.nxlog.items()}
         self.info("Running data reduction")
-        return WorkflowResultUpdate(
-            content=self.workflow(
-                nexus_filename=message.content.nexus_filename,
-                nxevent_data=nxevent_data,
-                nxlog=nxlog,
-            )
+        results = self.workflow(
+            nexus_filename=message.content.nexus_filename,
+            nxevent_data=nxevent_data,
+            nxlog=nxlog,
         )
+        self.result_registry.update(results)
+        return WorkflowResultUpdate(content=results)
 
 
 ImagePath = NewType("ImagePath", pathlib.Path)
