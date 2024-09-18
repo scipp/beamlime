@@ -49,6 +49,7 @@ class ChopperDataReceived:
 NexusTemplatePath = NewType("NexusTemplatePath", str)
 NexusTemplate = NewType("NexusTemplate", Mapping)
 '''A template describing the nexus file structure for the instrument'''
+NexusFilePath = NewType("NexusFilePath", str)
 
 EventDataSourcePath = NewType("EventDataSourcePath", str)
 
@@ -146,6 +147,7 @@ class FakeListener(DaemonInterface):
         logger: BeamlimeLogger,
         speed: DataFeedingSpeed,
         nexus_template: NexusTemplate,
+        nexus_file_path: NexusFilePath,
         num_frames: NumFrames,
         event_rate: EventRate,
         frame_rate: FrameRate,
@@ -154,6 +156,7 @@ class FakeListener(DaemonInterface):
         self.logger = logger
 
         self.nexus_structure = nexus_template
+        self.nexus_file_path = nexus_file_path
 
         self.random_event_generators = fake_event_generators(
             nexus_structure=self.nexus_structure,
@@ -167,7 +170,12 @@ class FakeListener(DaemonInterface):
     async def run(self) -> AsyncGenerator[MessageProtocol, None]:
         self.info("Fake data streaming started...")
 
-        yield RunStart(content=self.nexus_structure)
+        yield RunStart(
+            content={
+                "nexus_structure": self.nexus_structure,
+                "file_path": self.nexus_file_path,
+            }
+        )
 
         for i_frame in range(self.num_frames):
             for name, event_generator in self.random_event_generators.items():

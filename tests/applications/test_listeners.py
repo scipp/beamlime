@@ -31,12 +31,14 @@ def fake_listener(num_frames: int, ymir) -> FakeListener:
         DataFeedingSpeed,
         EventRate,
         FrameRate,
+        NexusFilePath,
         NumFrames,
     )
 
     return FakeListener(
         logger=MockLogger(),
         nexus_template=ymir,
+        nexus_file_path=NexusFilePath(''),
         speed=DataFeedingSpeed(1),
         num_frames=NumFrames(num_frames),
         event_rate=EventRate(100),
