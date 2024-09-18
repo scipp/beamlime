@@ -26,6 +26,18 @@ from beamlime.applications._random_data_providers import (
 from beamlime.applications.daemons import fake_event_generators
 
 
+def test_iter_nexus_structure() -> None:
+    expected_keys = [(), ('a',), ('a', 'c'), ('b',)]
+    test_structure = {
+        "children": [
+            {"config": {"name": "a"}, "children": [{"config": {"name": "c"}}]},
+            {"config": {"name": "b"}},
+        ]
+    }
+    keys = [path for path, _ in iter_nexus_structure(test_structure)]
+    assert set(expected_keys) == set(keys)
+
+
 def test_ev44_generator_no_detector_numbers() -> None:
     """Monitors don't have pixel_id."""
     ev44 = random_ev44_generator(
