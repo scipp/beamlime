@@ -19,6 +19,8 @@ from ._nexus_helpers import (
     ModuleNameType,
     NexusStore,
     NexusTemplate,
+    StreamModuleKey,
+    StreamModuleValue,
     merge_message_into_nexus_store,
 )
 from .base import HandlerInterface
@@ -88,7 +90,8 @@ class DataAssembler(HandlerInterface):
         max_seconds_between_messages: MergeMessageTimeInterval = float("inf"),
     ):
         self.structure: NexusTemplate
-        self.static_file_path: pathlib.Path
+        self.static_filename: pathlib.Path
+        self.streaming_modules: dict[StreamModuleKey, StreamModuleValue]
         self.logger = logger
         self._nexus_store: NexusStore = {}
         self._should_send_message = maxcount_or_maxtime(
@@ -96,8 +99,9 @@ class DataAssembler(HandlerInterface):
         )
 
     def set_run_start(self, message: RunStart) -> None:
-        self.structure = message.content["nexus_structure"]
-        self.static_file_path = pathlib.Path(message.content["file_path"])
+        self.structure = message.content.nexus_structure
+        self.streaming_modules = message.content.streaming_modules
+        self.static_filename = pathlib.Path(message.content.filename)
 
     def _merge_message_and_return_response_if_ready(
         self, module_name: ModuleNameType, data_piece: DeserializedMessage
@@ -111,7 +115,7 @@ class DataAssembler(HandlerInterface):
         if self._should_send_message():
             message = DataReady(
                 content=WorkflowInput(
-                    nexus_filename=self.static_file_path,
+                    nexus_filename=self.static_filename,
                     nxevent_data=self._nexus_store,
                     nxlog=self._nexus_store,
                 )

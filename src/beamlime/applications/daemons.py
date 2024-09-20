@@ -12,7 +12,13 @@ import h5py
 import numpy as np
 
 from ..logging import BeamlimeLogger
-from ._nexus_helpers import NexusPath, find_nexus_structure, iter_nexus_structure
+from ._nexus_helpers import (
+    NexusPath,
+    RunStartInfo,
+    collect_streaming_modules,
+    find_nexus_structure,
+    iter_nexus_structure,
+)
 from ._random_data_providers import (
     DataFeedingSpeed,
     EventRate,
@@ -28,7 +34,7 @@ Path = str | bytes | os.PathLike
 
 @dataclass
 class RunStart:
-    content: Mapping
+    content: RunStartInfo
 
 
 @dataclass
@@ -169,14 +175,19 @@ class FakeListener(DaemonInterface):
 
     async def run(self) -> AsyncGenerator[MessageProtocol, None]:
         self.info("Fake data streaming started...")
+        # Real listener will wait for the RunStart message to parse the structure
+        streaming_modules = collect_streaming_modules(self.nexus_structure)
 
         yield RunStart(
-            content={
-                "nexus_structure": self.nexus_structure,
-                "file_path": self.nexus_file_path,
-            }
+            content=RunStartInfo(
+                filename=self.nexus_file_path,
+                streaming_modules=streaming_modules,
+                nexus_structure=self.nexus_structure,
+            )
         )
 
+        # Real listener will subscribe to the topics in the ``streaming_modules``
+        # and wait for the messages to arrive.
         for i_frame in range(self.num_frames):
             for name, event_generator in self.random_event_generators.items():
                 self.info(f"Frame #{i_frame}: sending neutron events for {name}.")

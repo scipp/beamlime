@@ -1,8 +1,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
 from functools import partial
-from typing import Any, Literal, TypeAlias, TypedDict, TypeVar, cast
+from typing import (
+    Any,
+    Literal,
+    NamedTuple,
+    TypeAlias,
+    TypedDict,
+    TypeGuard,
+    TypeVar,
+    cast,
+    get_args,
+)
 
 import numpy as np
 
@@ -29,7 +40,80 @@ NexusStore = dict[NexusPath, Nexus]
 """Stores nexus datasets or groups that are to be merged into a nexus template"""
 
 ModuleNameType = Literal["ev44", "f144", "tdct"]
-"""Names of the streamed modules supported by beamlime"""
+"""Names of the streamed modules supported by beamlime."""
+
+ALL_MODULE_NAMES = get_args(ModuleNameType)
+"""All module names supported by beamlime."""
+
+
+def is_supported_module_type(module_type: str) -> TypeGuard[ModuleNameType]:
+    """Check if the module type is supported by beamlime."""
+    return module_type in ALL_MODULE_NAMES
+
+
+class StreamModuleKey(NamedTuple):
+    """Hashable key to identify a streamed module in a nexus template"""
+
+    module_type: ModuleNameType
+    """Type of the module"""
+    topic: str
+    """Topic to subscribe to"""
+    source: str
+    """Name of the source"""
+
+
+class StreamModuleValue(NamedTuple):
+    """Value of a streamed module in a nexus template"""
+
+    path: NexusPath
+    """Path in the nexus template where the module is located"""
+    parent: dict
+    """Parent of the module"""
+    dtype: str | None = None
+    """Data type of the module. Only used for ``NXlog``"""
+    value_units: str | None = None
+    """Units of the module. Only used for ``NXlog``"""
+
+
+@dataclass
+class RunStartInfo:
+    """Information needed for the start of the live data reduciton.
+
+    It is a subset of ``run_start_message``.
+    """
+
+    filename: str
+    """The name of the file containing static information."""
+    streaming_modules: dict[StreamModuleKey, StreamModuleValue]
+    """The streaming modules to be used."""
+    nexus_structure: Mapping
+    """The nexus structure to be used.
+    TODO: Remove this field when it is no longer used."""
+
+
+def collect_streaming_modules(
+    structure: Mapping,
+) -> dict[StreamModuleKey, StreamModuleValue]:
+    """Collect all stream modules in a nexus template."""
+    return {
+        StreamModuleKey(
+            module_type=module_type, topic=topic, source=source
+        ): StreamModuleValue(
+            path=path[
+                :-1
+            ],  # Modules do not have name so we remove the last element(None)
+            parent=find_nexus_structure(structure, path[:-1]),
+            dtype=config.get("dtype"),
+            value_units=config.get("value_units"),
+        )
+        for path, node in iter_nexus_structure(structure)
+        if (
+            is_supported_module_type(module_type := node.get("module", ""))
+            and isinstance((config := node.get("config")), dict)
+            and (topic := config.get("topic")) is not None
+            and (source := config.get("source")) is not None
+        )
+    }
 
 
 class NexusStreamedModule(TypedDict):
