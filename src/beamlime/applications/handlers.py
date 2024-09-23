@@ -3,11 +3,11 @@
 import argparse
 import pathlib
 import time
-from collections.abc import Mapping
 from dataclasses import dataclass
 from numbers import Number
 from typing import NewType
 
+import plopp as pp
 import scipp as sc
 from ess.reduce.nexus.json_nexus import JSONGroup
 
@@ -19,7 +19,6 @@ from ._nexus_helpers import (
     ModuleNameType,
     NexusStore,
     NexusTemplate,
-    combine_nexus_store_and_structure,
     merge_message_into_nexus_store,
 )
 from .base import HandlerInterface
@@ -40,8 +39,15 @@ since the last reduction exceeds the length of the interval (in seconds)"""
 
 
 @dataclass
+class WorkflowInput:
+    nexus_filename: pathlib.Path
+    nxevent_data: dict[str, JSONGroup]
+    nxlog: dict[str, JSONGroup]
+
+
+@dataclass
 class DataReady:
-    content: Mapping
+    content: WorkflowInput
 
 
 @dataclass
@@ -80,6 +86,7 @@ class DataAssembler(HandlerInterface):
         max_seconds_between_messages: MergeMessageTimeInterval = float("inf"),
     ):
         self.structure: NexusTemplate
+        self.static_file_path: pathlib.Path
         self.logger = logger
         self._nexus_store: NexusStore = {}
         self._should_send_message = maxcount_or_maxtime(
@@ -87,7 +94,8 @@ class DataAssembler(HandlerInterface):
         )
 
     def set_run_start(self, message: RunStart) -> None:
-        self.structure = message.content
+        self.structure = message.content["nexus_structure"]
+        self.static_file_path = pathlib.Path(message.content["file_path"])
 
     def _merge_message_and_return_response_if_ready(
         self, module_name: ModuleNameType, data_piece: DeserializedMessage
@@ -100,10 +108,11 @@ class DataAssembler(HandlerInterface):
         )
         if self._should_send_message():
             message = DataReady(
-                combine_nexus_store_and_structure(
-                    self.structure,
-                    self._nexus_store,
-                ),
+                content=WorkflowInput(
+                    nexus_filename=self.static_file_path,
+                    nxevent_data=self._nexus_store,
+                    nxlog=self._nexus_store,
+                )
             )
             self._nexus_store = {}
             return message
@@ -153,9 +162,18 @@ class DataReductionHandler(HandlerInterface):
         super().__init__()
 
     def reduce_data(self, message: DataReady) -> WorkflowResultUpdate:
-        content = JSONGroup(message.content)
+        nxevent_data = {
+            key: JSONGroup(value) for key, value in message.content.nxevent_data.items()
+        }
+        nxlog = {key: JSONGroup(value) for key, value in message.content.nxlog.items()}
         self.info("Running data reduction")
-        return WorkflowResultUpdate(content=self.workflow(content))
+        return WorkflowResultUpdate(
+            content=self.workflow(
+                nexus_filename=message.content.nexus_filename,
+                nxevent_data=nxevent_data,
+                nxlog=nxlog,
+            )
+        )
 
 
 ImagePath = NewType("ImagePath", pathlib.Path)
@@ -187,9 +205,8 @@ class PlotStreamer(HandlerInterface):
     def plot_item(self, name: str, data: sc.DataArray) -> None:
         figure = self.figures.get(name)
         if figure is None:
-            plot = data.plot(
-                title='\n['.join(name.split("["))
-            )  # line break for long names
+            plot = pp.plot(data, title='\n'.join(name.split("-")))
+            # line break for long names
             # TODO Either improve Plopp's update method, or handle multiple artists
             if len(plot.artists) > 1:
                 raise NotImplementedError("Data with multiple items not supported.")
