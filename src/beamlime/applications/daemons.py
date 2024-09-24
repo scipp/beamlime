@@ -209,6 +209,12 @@ class FakeListener(DaemonInterface):
             required=True,
         )
         group.add_argument(
+            "--nexus-file-path",
+            help="Path to the nexus file that contains static information.",
+            type=str,
+            required=True,
+        )
+        group.add_argument(
             "--event-data-source-path",
             help="Path to the event data source file.",
             type=str,
@@ -249,6 +255,7 @@ class FakeListener(DaemonInterface):
             logger=logger,
             speed=DataFeedingSpeed(args.data_feeding_speed),
             nexus_template=nexus_template,
+            nexus_file_path=NexusFilePath(args.nexus_file_path),
             event_data_source_path=EventDataSourcePath(args.event_data_source_path),
             num_frames=NumFrames(args.num_frames),
             event_rate=EventRate(args.event_rate),
