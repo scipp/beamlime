@@ -70,7 +70,7 @@ def run_standalone_prototype(
     prototype_factory: Factory, arg_name_space: argparse.Namespace
 ):
     from ..applications.base import Application
-    from ..applications.daemons import DetectorDataReceived, RunStart
+    from ..applications.daemons import DataPieceReceived, RunStart
     from ..applications.handlers import (
         DataAssembler,
         DataReady,
@@ -104,7 +104,7 @@ def run_standalone_prototype(
         data_assembler = factory[DataAssembler]
         app.register_handling_method(RunStart, data_assembler.set_run_start)
         app.register_handling_method(
-            DetectorDataReceived, data_assembler.assemble_detector_data
+            DataPieceReceived, data_assembler.assemble_data_piece
         )
         data_reduction_handler = factory[DataReductionHandler]
         app.register_handling_method(DataReady, data_reduction_handler.reduce_data)

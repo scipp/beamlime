@@ -15,21 +15,14 @@ from beamlime.logging import BeamlimeLogger
 
 from ..stateless_workflow import StatelessWorkflow, WorkflowResult
 from ._nexus_helpers import (
-    DeserializedMessage,
-    ModuleNameType,
     NexusStore,
-    NexusTemplate,
     StreamModuleKey,
     StreamModuleValue,
     merge_message_into_nexus_store,
+    nexus_path_as_string,
 )
 from .base import HandlerInterface
-from .daemons import (
-    ChopperDataReceived,
-    DetectorDataReceived,
-    LogDataReceived,
-    RunStart,
-)
+from .daemons import DataPieceReceived, RunStart
 
 ResultRegistry = NewType("ResultRegistry", dict[str, sc.DataArray])
 """Workflow result container."""
@@ -89,7 +82,6 @@ class DataAssembler(HandlerInterface):
         merge_every_nth: MergeMessageCountInterval = 1,
         max_seconds_between_messages: MergeMessageTimeInterval = float("inf"),
     ):
-        self.structure: NexusTemplate
         self.static_filename: pathlib.Path
         self.streaming_modules: dict[StreamModuleKey, StreamModuleValue]
         self.logger = logger
@@ -99,39 +91,39 @@ class DataAssembler(HandlerInterface):
         )
 
     def set_run_start(self, message: RunStart) -> None:
-        self.structure = message.content.nexus_structure
         self.streaming_modules = message.content.streaming_modules
         self.debug("Expecting data for modules: %s", self.streaming_modules.values())
         self.static_filename = pathlib.Path(message.content.filename)
 
-    def _merge_message_and_return_response_if_ready(
-        self, module_name: ModuleNameType, data_piece: DeserializedMessage
-    ) -> DataReady | None:
+    def assemble_data_piece(self, message: DataPieceReceived) -> DataReady | None:
+        module_spec = self.streaming_modules[message.content.key]
         merge_message_into_nexus_store(
-            structure=self.structure,
+            module_key=message.content.key,
+            module_spec=module_spec,
             nexus_store=self._nexus_store,
-            data=data_piece,
-            module_name=module_name,
+            data=message.content.deserizlied,
         )
+        self.debug("Data piece merged for %s", message.content.key)
         if self._should_send_message():
-            message = DataReady(
+            nxevent_data = {
+                nexus_path_as_string(module_spec.path): JSONGroup(value)
+                for key, value in self._nexus_store.items()
+                if key.module_type == "ev44"
+            }
+            nxlog = {
+                nexus_path_as_string(module_spec.path): JSONGroup(value)
+                for key, value in self._nexus_store.items()
+                if key.module_type == "f144"
+            }
+            result = DataReady(
                 content=WorkflowInput(
                     nexus_filename=self.static_filename,
-                    nxevent_data=self._nexus_store,
-                    nxlog=self._nexus_store,
+                    nxevent_data=nxevent_data,
+                    nxlog=nxlog,
                 )
             )
             self._nexus_store = {}
-            return message
-
-    def assemble_detector_data(self, message: DetectorDataReceived) -> DataReady | None:
-        return self._merge_message_and_return_response_if_ready("ev44", message.content)
-
-    def assemble_log_data(self, message: LogDataReceived) -> DataReady | None:
-        return self._merge_message_and_return_response_if_ready("f144", message.content)
-
-    def assemble_chopper_data(self, message: ChopperDataReceived) -> DataReady | None:
-        return self._merge_message_and_return_response_if_ready("tdct", message.content)
+            return result
 
     @classmethod
     def add_argument_group(cls, parser: argparse.ArgumentParser) -> None:

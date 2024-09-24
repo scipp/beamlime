@@ -4,7 +4,7 @@ import argparse
 import asyncio
 import json
 import os
-from collections.abc import AsyncGenerator, Mapping
+from collections.abc import AsyncGenerator, Generator, Mapping
 from dataclasses import dataclass
 from typing import NewType
 
@@ -13,14 +13,20 @@ import numpy as np
 
 from ..logging import BeamlimeLogger
 from ._nexus_helpers import (
+    DeserializedMessage,
     NexusPath,
+    NexusTemplate,
     RunStartInfo,
+    StreamModuleKey,
+    StreamModuleValue,
     collect_streaming_modules,
     find_nexus_structure,
     iter_nexus_structure,
 )
 from ._random_data_providers import (
+    EV44,
     DataFeedingSpeed,
+    DetectorName,
     EventRate,
     FrameRate,
     NumFrames,
@@ -38,23 +44,17 @@ class RunStart:
 
 
 @dataclass
-class DetectorDataReceived:
-    content: Mapping
+class DataPiece:
+    key: StreamModuleKey
+    deserizlied: DeserializedMessage
 
 
 @dataclass
-class LogDataReceived:
-    content: Mapping
-
-
-@dataclass
-class ChopperDataReceived:
-    content: Mapping
+class DataPieceReceived:
+    content: DataPiece
 
 
 NexusTemplatePath = NewType("NexusTemplatePath", str)
-NexusTemplate = NewType("NexusTemplate", Mapping)
-'''A template describing the nexus file structure for the instrument'''
 NexusFilePath = NewType("NexusFilePath", str)
 
 EventDataSourcePath = NewType("EventDataSourcePath", str)
@@ -85,45 +85,43 @@ def _try_load_nxevent_data(
 
 
 def fake_event_generators(
+    *,
+    streaming_modules: dict[StreamModuleKey, StreamModuleValue],
     nexus_structure: Mapping,
     event_rate: EventRate,
     frame_rate: FrameRate,
     event_data_source_path: EventDataSourcePath | None = None,
-):
+) -> dict[StreamModuleKey, Generator[dict[str, np.ndarray] | EV44]]:
     detectors = _find_groups_by_nx_class(nexus_structure, nx_class='NXdetector')
     monitors = _find_groups_by_nx_class(nexus_structure, nx_class='NXmonitor')
 
-    ev44_source_names = {
-        # [:-2] trims nested NXevent_data and 'None' (from stream?)
-        path[:-2]: node['config']['source']
-        for path, node in iter_nexus_structure(nexus_structure)
-        if node.get('module') == 'ev44'
+    ev44_modules = {
+        key: value
+        for key, value in streaming_modules.items()
+        if key.module_type == 'ev44'
     }
 
-    generators = {}
-    for path, ev44_source_name in ev44_source_names.items():
-        if (det := detectors.get(path)) is not None:
-            detector_numbers = find_nexus_structure(det, ('detector_number',))[
-                'config'
-            ]['values']
-        elif path in monitors:
+    generators: dict[StreamModuleKey, Generator[dict[str, np.ndarray] | EV44]] = {}
+    for key, value in ev44_modules.items():
+        # TODO: Geometry should be parsed from a file instead of nexus_structure.
+        if (det_path := detectors.get(value.path[:-1])) is not None:
+            det_group = find_nexus_structure(det_path, ('detector_number',))
+            detector_numbers = det_group['config']['values']
+        elif value.path[:-1] in monitors:
             detector_numbers = None
         else:
-            raise ValueError(f"Detector or monitor group not found for {path}")
-        # Not using ev44_source_name as key, for now at least: We are not using it
-        # currently, but have json files with duplicate source names.
-        key = '/'.join(path)
+            raise ValueError(f"Detector or monitor group not found for {value.path}")
         if (
             event_data := _try_load_nxevent_data(
-                file_path=event_data_source_path, group_path=path
+                file_path=event_data_source_path, group_path=value.path
             )
         ) is not None:
             generators[key] = nxevent_data_ev44_generator(
-                source_name=ev44_source_name, **event_data
+                source_name=DetectorName(key.source), **event_data
             )
         else:
             generators[key] = random_ev44_generator(
-                source_name=ev44_source_name,
+                source_name=DetectorName(key.source),
                 detector_numbers=detector_numbers,
                 event_rate=event_rate,
                 frame_rate=frame_rate,
@@ -169,6 +167,7 @@ class FakeListener(DaemonInterface):
             event_data_source_path=event_data_source_path,
             event_rate=event_rate,
             frame_rate=frame_rate,
+            streaming_modules=collect_streaming_modules(self.nexus_structure),
         )
         self.data_feeding_speed = speed
         self.num_frames = num_frames
@@ -177,21 +176,23 @@ class FakeListener(DaemonInterface):
         self.info("Fake data streaming started...")
         # Real listener will wait for the RunStart message to parse the structure
         streaming_modules = collect_streaming_modules(self.nexus_structure)
+        self.debug(f"Streaming modules: {streaming_modules}")
 
         yield RunStart(
             content=RunStartInfo(
                 filename=self.nexus_file_path,
                 streaming_modules=streaming_modules,
-                nexus_structure=self.nexus_structure,
             )
         )
 
         # Real listener will subscribe to the topics in the ``streaming_modules``
         # and wait for the messages to arrive.
         for i_frame in range(self.num_frames):
-            for name, event_generator in self.random_event_generators.items():
-                self.info(f"Frame #{i_frame}: sending neutron events for {name}.")
-                yield DetectorDataReceived(content=next(event_generator))
+            for key, event_generator in self.random_event_generators.items():
+                self.info(f"Frame #{i_frame}: sending neutron events for {key}.")
+                yield DataPieceReceived(
+                    content=DataPiece(key=key, deserizlied=next(event_generator))
+                )
 
             self.info(f"Neutron events of frame #{i_frame} were sent.")
             await asyncio.sleep(self.data_feeding_speed)
