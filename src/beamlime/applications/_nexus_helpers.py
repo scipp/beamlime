@@ -116,11 +116,13 @@ def _validate_module_keys(
 ) -> None:
     """Validate the module keys."""
     from collections import Counter
-    key_list = [key for key, _ in key_value_pairs]
-    key_counts = Counter(key_list)
-    if max(key_counts.values()) > 1:
+
+    key_counts = Counter([key for key, _ in key_value_pairs])
+    duplicated_keys = [key for key, count in key_counts.items() if count > 1]
+    if duplicated_keys:
         raise InvalidNexusStructureError(
-            "Duplicate module place holder(s) found in the nexus structure: ", key_list
+            "Duplicate module place holder(s) found in the nexus structure: ",
+            duplicated_keys,
         )
 
 
