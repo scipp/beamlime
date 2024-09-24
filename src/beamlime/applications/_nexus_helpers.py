@@ -115,12 +115,10 @@ def _validate_module_keys(
     key_value_pairs: tuple[tuple[StreamModuleKey, StreamModuleValue], ...],
 ) -> None:
     """Validate the module keys."""
-    key_set = {key for key, _ in key_value_pairs}
+    from collections import Counter
     key_list = [key for key, _ in key_value_pairs]
-    for unique_key in key_set:
-        key_list.remove(unique_key)
-    # ``key_list`` should be empty if all keys are unique.
-    if len(key_list) != 0:
+    key_counts = Counter(key_list)
+    if max(key_counts.values()) > 1:
         raise InvalidNexusStructureError(
             "Duplicate module place holder(s) found in the nexus structure: ", key_list
         )
