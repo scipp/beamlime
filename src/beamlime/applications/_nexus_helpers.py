@@ -134,9 +134,9 @@ def collect_streaming_modules(
     Raises
     ------
     ValueError
-        If the structure does not have a valid module place holder configuration.
-        - Contains ``topic`` and ``source``.
-        - ``module`` - ``topic`` - ``source`` combination is unique.
+        If the structure does not have a valid module place holder.
+        - Contains ``topic`` and ``source`` in the configuration.
+        - Every ``module`` - ``topic`` - ``source`` combination is unique.
 
     """
     # Collect stream module key-value pairs as tuple
