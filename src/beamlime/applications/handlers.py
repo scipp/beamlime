@@ -95,7 +95,7 @@ class DataAssembler(HandlerInterface):
         self.debug("Expecting data for modules: %s", self.streaming_modules.values())
         self.static_filename = pathlib.Path(message.content.filename)
 
-    def assemble_data_piece(self, message: DataPieceReceived) -> DataReady | None:
+    def merge_data_piece(self, message: DataPieceReceived) -> DataReady | None:
         module_spec = self.streaming_modules[message.content.key]
         merge_message_into_nexus_store(
             module_key=message.content.key,

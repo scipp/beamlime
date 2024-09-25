@@ -103,9 +103,7 @@ def run_standalone_prototype(
         app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
         data_assembler = factory[DataAssembler]
         app.register_handling_method(RunStart, data_assembler.set_run_start)
-        app.register_handling_method(
-            DataPieceReceived, data_assembler.assemble_data_piece
-        )
+        app.register_handling_method(DataPieceReceived, data_assembler.merge_data_piece)
         data_reduction_handler = factory[DataReductionHandler]
         app.register_handling_method(DataReady, data_reduction_handler.reduce_data)
 

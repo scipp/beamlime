@@ -66,9 +66,9 @@ async def test_data_assembler_returns_after_n_messages(fake_listener):
     handler = DataAssembler(logger=MockLogger(), merge_every_nth=2)
     gen = fake_listener.run()
     handler.set_run_start(await anext(gen))
-    response = handler.assemble_data_piece(await anext(gen))
+    response = handler.merge_data_piece(await anext(gen))
     assert response is None
-    response = handler.assemble_data_piece(await anext(gen))
+    response = handler.merge_data_piece(await anext(gen))
     assert response is not None
 
 
@@ -80,8 +80,8 @@ async def test_data_assembler_returns_after_s_seconds(fake_listener):
     )
     gen = fake_listener.run()
     handler.set_run_start(await anext(gen))
-    response = handler.assemble_data_piece(await anext(gen))
+    response = handler.merge_data_piece(await anext(gen))
     assert response is None
     time.sleep(0.1)
-    response = handler.assemble_data_piece(await anext(gen))
+    response = handler.merge_data_piece(await anext(gen))
     assert response is not None
