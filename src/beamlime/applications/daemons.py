@@ -46,7 +46,7 @@ class RunStart:
 @dataclass
 class DataPiece:
     key: StreamModuleKey
-    deserizlied: DeserializedMessage
+    deserialized: DeserializedMessage
 
 
 @dataclass
@@ -191,7 +191,7 @@ class FakeListener(DaemonInterface):
             for key, event_generator in self.random_event_generators.items():
                 self.info(f"Frame #{i_frame}: sending neutron events for {key}.")
                 yield DataPieceReceived(
-                    content=DataPiece(key=key, deserizlied=next(event_generator))
+                    content=DataPiece(key=key, deserialized=next(event_generator))
                 )
 
             self.info(f"Neutron events of frame #{i_frame} were sent.")

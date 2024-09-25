@@ -101,7 +101,7 @@ class DataAssembler(HandlerInterface):
             module_key=message.content.key,
             module_spec=module_spec,
             nexus_store=self._nexus_store,
-            data=message.content.deserizlied,
+            data=message.content.deserialized,
         )
         self.debug("Data piece merged for %s", message.content.key)
         if self._should_send_message():
