@@ -19,6 +19,9 @@ class MockLogger(list):
     def info(self, m, *args, **kwargs):
         self.append(m)
 
+    def debug(self, m, *args, **kwargs):
+        self.append(m)
+
 
 @pytest.fixture(params=[1, 2, 3])
 def num_frames(request) -> int:

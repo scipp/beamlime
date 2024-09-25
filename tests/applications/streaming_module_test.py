@@ -1,10 +1,70 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+
+import pytest
+
 from beamlime.applications._nexus_helpers import (
+    ALL_MODULE_NAMES,
+    InvalidNexusStructureError,
+    ModuleNameType,
     StreamModuleKey,
     StreamModuleValue,
     collect_streaming_modules,
 )
+
+
+def _make_group_with_module_place_holder(
+    gr_name: str, module_type: ModuleNameType, **config
+) -> dict:
+    return {
+        "name": gr_name,
+        "type": "group",
+        "children": [
+            {
+                "module": module_type,
+                "config": config,
+            }
+        ],
+    }
+
+
+def test_collect_streaming_modules_invalid_missing_topic_raises() -> None:
+    invalid_structure = {
+        "children": [
+            _make_group_with_module_place_holder(
+                "chopper", ALL_MODULE_NAMES[0], source="chopper"
+            )  # missing topic
+        ]
+    }
+    with pytest.raises(InvalidNexusStructureError):
+        collect_streaming_modules(invalid_structure)
+
+
+def test_collect_streaming_modules_invalid_missing_source_raises() -> None:
+    invalid_structure = {
+        "children": [
+            _make_group_with_module_place_holder(
+                "chopper", ALL_MODULE_NAMES[0], topic="chopper"
+            )  # missing source
+        ]
+    }
+    with pytest.raises(InvalidNexusStructureError):
+        collect_streaming_modules(invalid_structure)
+
+
+def test_collect_streaming_modules_duplicating_keys_raises() -> None:
+    _source_name = "chopper"
+    _topic = "chopper"
+    invalid_structure = {
+        "children": [
+            _make_group_with_module_place_holder(
+                f"chopper{i}", ALL_MODULE_NAMES[0], topic=_topic, source=_source_name
+            )
+            for i in range(2)
+        ]
+    }
+    with pytest.raises(InvalidNexusStructureError):
+        collect_streaming_modules(invalid_structure)
 
 
 def test_collect_streaming_modules_event_data(ymir: dict) -> None:

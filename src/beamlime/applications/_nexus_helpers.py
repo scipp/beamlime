@@ -91,29 +91,82 @@ class RunStartInfo:
     TODO: Remove this field when it is no longer used."""
 
 
+class InvalidNexusStructureError(ValueError):
+    """Raised when the nexus structure is invalid."""
+
+
+def _validate_module_configs(
+    key_value_pairs: tuple[tuple[StreamModuleKey, StreamModuleValue], ...],
+) -> None:
+    """Validate the module configuration in the nexus structure."""
+    invalid_module_paths = tuple(
+        "/".join(part for part in value.path if part is not None)
+        for key, value in key_value_pairs
+        if not isinstance(key.topic, str) or not isinstance(key.source, str)
+    )
+    if len(invalid_module_paths) != 0:
+        raise InvalidNexusStructureError(
+            "Invalid module place holder(s) found in the nexus structure: ",
+            "\n".join(invalid_module_paths),
+        )
+
+
+def _validate_module_keys(
+    key_value_pairs: tuple[tuple[StreamModuleKey, StreamModuleValue], ...],
+) -> None:
+    """Validate the module keys."""
+    from collections import Counter
+
+    key_counts = Counter([key for key, _ in key_value_pairs])
+    duplicated_keys = [key for key, count in key_counts.items() if count > 1]
+    if duplicated_keys:
+        raise InvalidNexusStructureError(
+            "Duplicate module place holder(s) found in the nexus structure: ",
+            duplicated_keys,
+        )
+
+
 def collect_streaming_modules(
     structure: Mapping,
 ) -> dict[StreamModuleKey, StreamModuleValue]:
-    """Collect all stream modules in a nexus template."""
-    return {
-        StreamModuleKey(
-            module_type=module_type, topic=topic, source=source
-        ): StreamModuleValue(
-            path=path[
-                :-1
-            ],  # Modules do not have name so we remove the last element(None)
-            parent=find_nexus_structure(structure, path[:-1]),
-            dtype=config.get("dtype"),
-            value_units=config.get("value_units"),
+    """Collect all stream modules in a nexus template.
+
+    Raises
+    ------
+    ValueError
+        If the structure does not have a valid module place holder.
+        - Contains ``topic`` and ``source`` in the configuration.
+        - Every ``module`` - ``topic`` - ``source`` combination is unique.
+
+    """
+    # Collect stream module key-value pairs as tuple
+    # to allow for validation of duplication before returning the dictionary.
+    key_value_pairs = tuple(
+        (
+            StreamModuleKey(
+                module_type=module_type,
+                topic=config.get("topic", None),
+                source=config.get("source", None),
+            ),
+            StreamModuleValue(
+                # Modules do not have name so we remove the last element(None)
+                path=(parent_path := path[:-1]),
+                parent=cast(dict, find_nexus_structure(structure, parent_path)),
+                dtype=config.get("dtype"),
+                value_units=config.get("value_units"),
+            ),
         )
         for path, node in iter_nexus_structure(structure)
-        if (
+        if
+        (
+            # Filter module place holders
             is_supported_module_type(module_type := node.get("module", ""))
             and isinstance((config := node.get("config")), dict)
-            and (topic := config.get("topic")) is not None
-            and (source := config.get("source")) is not None
         )
-    }
+    )
+    _validate_module_configs(key_value_pairs)
+    _validate_module_keys(key_value_pairs)
+    return dict(key_value_pairs)
 
 
 class NexusStreamedModule(TypedDict):

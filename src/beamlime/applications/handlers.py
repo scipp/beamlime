@@ -101,6 +101,7 @@ class DataAssembler(HandlerInterface):
     def set_run_start(self, message: RunStart) -> None:
         self.structure = message.content.nexus_structure
         self.streaming_modules = message.content.streaming_modules
+        self.debug("Expecting data for modules: %s", self.streaming_modules.values())
         self.static_filename = pathlib.Path(message.content.filename)
 
     def _merge_message_and_return_response_if_ready(
