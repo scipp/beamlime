@@ -6,7 +6,7 @@ import pytest
 
 from beamlime.applications.daemons import (
     Application,
-    DetectorDataReceived,
+    DataPieceReceived,
     FakeListener,
     RunStart,
 )
@@ -58,7 +58,7 @@ async def test_fake_listener(fake_listener: FakeListener, num_frames: int) -> No
     generator = fake_listener.run()
     assert isinstance(await anext(generator), RunStart)
     for _ in range(num_frames * 2):
-        assert isinstance(await anext(generator), DetectorDataReceived)
+        assert isinstance(await anext(generator), DataPieceReceived)
     assert isinstance(await anext(generator), Application.Stop)
 
 

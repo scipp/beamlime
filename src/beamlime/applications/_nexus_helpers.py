@@ -348,8 +348,8 @@ def _initialize_f144(module_spec: StreamModuleValue) -> NexusGroup:
     parent = module_spec.parent
     if len(parent['children']) != 1:
         raise ValueError('Group containing f144 module should have exactly one child')
-    if module_spec.dtype is None or module_spec.value_units is None:
-        raise ValueError('f144 module spec should have dtype and value_units')
+    if module_spec.dtype is None:
+        raise ValueError('f144 module spec should have dtype')
 
     group: NexusGroup = cast(NexusGroup, parent.copy())
     group["children"] = [
