@@ -72,17 +72,6 @@ class NexusTemplate(TypedDict):
     attributes: list[Mapping[str, Any]]
 
 
-SourceNameFinder = Callable[[Mapping], str]
-"""Function to find the source name from a message."""
-SourceNameFinders: Mapping[ModuleNameType, SourceNameFinder] = MappingProxyType(
-    {
-        "ev44": lambda message: message["source_name"],
-        "f144": lambda message: message["source_name"],
-        "tdct": lambda message: message["name"],
-    }
-)
-
-
 class StreamModuleKey(NamedTuple):
     """Hashable key to identify a streamed module in a nexus template"""
 
