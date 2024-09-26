@@ -1,6 +1,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 
+import json
+import pathlib
+
 import pytest
 
 from beamlime.applications._nexus_helpers import (
@@ -26,6 +29,15 @@ def _make_group_with_module_place_holder(
             }
         ],
     }
+
+
+def test_invalid_nexus_template_multiple_module_placeholders() -> None:
+    with open(pathlib.Path(__file__).parent / "multiple_modules_datagroup.json") as f:
+        with pytest.raises(
+            InvalidNexusStructureError,
+            match="Group containing ev44 module should have exactly one child",
+        ):
+            collect_streaming_modules(json.load(f))
 
 
 def test_collect_streaming_modules_invalid_missing_topic_raises() -> None:
@@ -122,11 +134,13 @@ def test_collect_streaming_modules_nxlogs(ymir: dict) -> None:
                             "source": "delay_source_chopper",
                             "topic": "ymir_motion",
                             "dtype": "double",
+                            "value_units": "s",
                         },
                     }
                 ],
             },
             dtype="double",
+            value_units="s",
         ),
         StreamModuleKey(
             "f144", "ymir_motion", "YMIR-SEE:SE-LS336-004:KRDG0"
