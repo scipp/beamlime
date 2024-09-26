@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
-from functools import partial
+from types import MappingProxyType
 from typing import (
     Any,
     Literal,
@@ -10,7 +10,6 @@ from typing import (
     TypeAlias,
     TypedDict,
     TypeGuard,
-    TypeVar,
     cast,
     get_args,
 )
@@ -35,9 +34,14 @@ class NexusGroup(TypedDict):
 
 
 NexusPath = tuple[str | None, ...]
+
+
+def nexus_path_as_string(path: NexusPath) -> str:
+    return "/".join(p for p in path if p is not None)
+
+
 Nexus: TypeAlias = NexusGroup | NexusDataset
-NexusStore = dict[NexusPath, Nexus]
-"""Stores nexus datasets or groups that are to be merged into a nexus template"""
+
 
 ModuleNameType = Literal["ev44", "f144", "tdct"]
 """Names of the streamed modules supported by beamlime."""
@@ -46,9 +50,26 @@ ALL_MODULE_NAMES = get_args(ModuleNameType)
 """All module names supported by beamlime."""
 
 
-def is_supported_module_type(module_type: str) -> TypeGuard[ModuleNameType]:
-    """Check if the module type is supported by beamlime."""
-    return module_type in ALL_MODULE_NAMES
+class NexusStreamedModule(TypedDict):
+    """Definition of streamed dataset or group in a nexus template"""
+
+    module: ModuleNameType
+    config: dict[str, Any]
+
+
+NexusStructure: TypeAlias = 'Nexus | NexusStreamedModule | NexusTemplate'
+
+DeserializedMessage = Mapping
+"""Deserialized message from one of the schemas bound to :attr:`~ModuleNameType`."""
+
+
+class NexusTemplate(TypedDict):
+    """A nexus template. Nested structure of static datasets or groups,
+    or streamed datasets or groups"""
+
+    children: list["NexusStructure"]
+    name: str | None
+    attributes: list[Mapping[str, Any]]
 
 
 class StreamModuleKey(NamedTuple):
@@ -86,9 +107,44 @@ class RunStartInfo:
     """The name of the file containing static information."""
     streaming_modules: dict[StreamModuleKey, StreamModuleValue]
     """The streaming modules to be used."""
-    nexus_structure: Mapping
-    """The nexus structure to be used.
-    TODO: Remove this field when it is no longer used."""
+
+
+NexusModuleMap = dict[StreamModuleKey, StreamModuleValue]
+"""Map of streamed modules in a nexus template."""
+NexusStore = dict[StreamModuleKey, Nexus]
+"""Stores nexus datasets or groups that are to be merged."""
+
+
+def _node_name(n: NexusStructure):
+    """Defines the name of a nexus tree branch or leaf"""
+    config = n.get("config", {})
+    return n.get("name", config.get("name"))
+
+
+def iter_nexus_structure(
+    structure: NexusStructure, root: NexusPath | None = None
+) -> Iterable[tuple[NexusPath, NexusStructure]]:
+    """Visits all branches and leafs in the nexus tree"""
+    path = (*root, _node_name(structure)) if root is not None else ()
+    yield path, structure
+    for child in structure.get("children", []):
+        yield from iter_nexus_structure(child, root=path)
+
+
+def find_nexus_structure(structure: NexusStructure, path: NexusPath) -> NexusStructure:
+    """Returns the branch or leaf associated with `path`, or None if not found"""
+    if len(path) == 0:
+        return structure
+    head, *tail = path
+    for child in structure.get("children", ()):
+        if head == _node_name(child):
+            return find_nexus_structure(child, tuple(tail))
+    raise KeyError(f"Path {path} not found in the nexus structure.")
+
+
+def is_supported_module_type(module_type: str) -> TypeGuard[ModuleNameType]:
+    """Check if the module type is supported by beamlime."""
+    return module_type in ALL_MODULE_NAMES
 
 
 class InvalidNexusStructureError(ValueError):
@@ -169,25 +225,6 @@ def collect_streaming_modules(
     return dict(key_value_pairs)
 
 
-class NexusStreamedModule(TypedDict):
-    """Definition of streamed dataset or group in a nexus template"""
-
-    module: ModuleNameType
-    config: dict[str, Any]
-
-
-NexusStructure: TypeAlias = 'Nexus | NexusStreamedModule | NexusTemplate'
-
-
-class NexusTemplate(TypedDict):
-    """A nexus template. Nested structure of static datasets or groups,
-    or streamed datasets or groups"""
-
-    children: list[NexusStructure]
-    name: str | None
-    attributes: list[Mapping[str, Any]]
-
-
 def create_dataset(
     *, name: str, dtype: str, initial_values: Any, unit: str | None = None
 ) -> NexusDataset:
@@ -212,37 +249,15 @@ def create_dataset(
     return dataset
 
 
-DeserializedMessage = Mapping
-"""Deserialized message from one of the schemas bound to :attr:`~ModuleNameType`."""
+def _is_monitor(group: NexusGroup) -> bool:
+    return any(
+        attr.get("name") == "NX_class" and attr.get("values") == "NXmonitor"
+        for attr in group.get("attributes", ())
+    )
 
 
-def _find_ev44(
-    structure: NexusStructure, data: DeserializedMessage
-) -> Iterable[NexusPath]:
-    source_name = data["source_name"]
-    for path, node in iter_nexus_structure(structure):
-        if (
-            node.get("module") == "ev44"
-            and node.get("config", {}).get("source") == source_name
-        ):
-            yield path[:-1]
-
-
-def _initialize_ev44(
-    structure: NexusStructure, path: NexusPath, data: DeserializedMessage
-) -> NexusGroup:
-    """
-    Params
-    ------
-    structure:
-        Nexus template containing the ev44 module.
-    path:
-        Path in the structure where the ev44 module was located.
-    data:
-        A deserialized message corresponding to ``ev44`` schema.
-
-    """
-    parent = cast(NexusTemplate, find_nexus_structure(structure, path))
+def _initialize_ev44(module_spec: StreamModuleValue) -> NexusGroup:
+    parent = module_spec.parent
     if len(parent['children']) != 1:
         raise ValueError('Group containing ev44 module should have exactly one child')
     group: NexusGroup = cast(NexusGroup, parent.copy())
@@ -265,8 +280,8 @@ def _initialize_ev44(
             initial_values=np.asarray([], dtype="int32"),
         ),
     ]
-    if data.get("pixel_id") is not None:
-        # ``event_id``(pixel_id) is optional. i.e. Monitor doesn't have pixel ids.
+    if not _is_monitor(group):
+        # Monitor doesn't have pixel ids.
         group['children'].append(
             create_dataset(
                 name="event_id",
@@ -329,25 +344,13 @@ def _merge_ev44(group: NexusGroup, data: DeserializedMessage) -> None:
         )
 
 
-def _find_f144(
-    structure: NexusStructure, data: DeserializedMessage
-) -> Iterable[NexusPath]:
-    source_name = data["source_name"]
-    for path, node in iter_nexus_structure(structure):
-        if (
-            node.get("module") == "f144"
-            and node.get("config", {}).get("source") == source_name
-        ):
-            yield path[:-1]
-
-
-def _initialize_f144(
-    structure: NexusStructure, path: NexusPath, data: DeserializedMessage
-) -> NexusGroup:
-    parent = cast(NexusTemplate, find_nexus_structure(structure, path))
+def _initialize_f144(module_spec: StreamModuleValue) -> NexusGroup:
+    parent = module_spec.parent
     if len(parent['children']) != 1:
         raise ValueError('Group containing f144 module should have exactly one child')
-    module = cast(NexusStreamedModule, parent['children'][0])
+    if module_spec.dtype is None:
+        raise ValueError('f144 module spec should have dtype')
+
     group: NexusGroup = cast(NexusGroup, parent.copy())
     group["children"] = [
         create_dataset(
@@ -358,11 +361,9 @@ def _initialize_f144(
         ),
         create_dataset(
             name="value",
-            dtype=module["config"]["dtype"],
-            initial_values=np.empty(
-                (0, *data['value'].shape[1:]), dtype=module["config"]["dtype"]
-            ),
-            unit=module["config"]["value_units"],
+            dtype=module_spec.dtype,
+            initial_values=None,  # initial values should be replaced by the first data
+            unit=module_spec.value_units,
         ),
     ]
     return group
@@ -374,25 +375,15 @@ def _merge_f144(group: NexusGroup, data: DeserializedMessage) -> None:
         (time["config"]["values"], [data["timestamp"]])
     )
     value = cast(NexusDataset, find_nexus_structure(group, ("value",)))
-    value["config"]["values"] = np.concatenate(
-        (value["config"]["values"], data["value"])
-    )
+    if value["config"]["values"] is None:  # First data
+        value["config"]["values"] = data["value"]
+    else:
+        value["config"]["values"] = np.concatenate(
+            (value["config"]["values"], data["value"])
+        )
 
 
-def _find_tdct(
-    structure: NexusStructure, data: DeserializedMessage
-) -> Iterable[NexusPath]:
-    name = data["name"]
-    for path, node in iter_nexus_structure(structure):
-        if node.get("name") == name:
-            for _, child in iter_nexus_structure(node):
-                if child.get("module") == "tdct":
-                    yield (*path, 'top_dead_center')
-
-
-def _initialize_tdct(
-    structure: NexusStructure, path: NexusPath, data: DeserializedMessage
-) -> NexusDataset:
+def _initialize_tdct(_: StreamModuleValue) -> NexusDataset:
     return create_dataset(
         name="top_dead_center",
         dtype="uint64",
@@ -407,170 +398,38 @@ def _merge_tdct(top_dead_center: NexusDataset, data: DeserializedMessage) -> Non
     )
 
 
-def _node_name(n: NexusStructure):
-    """Defines the name of a nexus tree branch or leaf"""
-    config = n.get("config", {})
-    return n.get("name", config.get("name"))
+ModuleInitializer = Callable[[StreamModuleValue], Nexus]
+MODULE_INITIALIZERS: Mapping[ModuleNameType, ModuleInitializer] = MappingProxyType(
+    {
+        "ev44": _initialize_ev44,
+        "f144": _initialize_f144,
+        "tdct": _initialize_tdct,
+    }
+)
 
-
-def iter_nexus_structure(
-    structure: NexusStructure, root: NexusPath | None = None
-) -> Iterable[tuple[NexusPath, NexusStructure]]:
-    """Visits all branches and leafs in the nexus tree"""
-    path = (*root, _node_name(structure)) if root is not None else ()
-    yield path, structure
-    for child in structure.get("children", []):
-        yield from iter_nexus_structure(child, root=path)
-
-
-def find_nexus_structure(structure: NexusStructure, path: NexusPath) -> NexusStructure:
-    """Returns the branch or leaf associated with `path`, or None if not found"""
-    if len(path) == 0:
-        return structure
-    head, *tail = path
-    for child in structure.get("children", ()):
-        if head == _node_name(child):
-            return find_nexus_structure(child, tuple(tail))
-    raise KeyError(f"Path {path} not found in the nexus structure.")
-
-
-DatasetOrGroup = TypeVar("DatasetOrGroup", NexusDataset, NexusGroup)
-
-
-def _merge_message_into_nexus_store(
-    structure: NexusStructure,
-    nexus_store: NexusStore,
-    data: DeserializedMessage,
-    find_insert_paths: Callable[
-        [NexusStructure, DeserializedMessage], Iterable[NexusPath]
-    ],
-    initialize: Callable[
-        [NexusStructure, NexusPath, DeserializedMessage], DatasetOrGroup
-    ],
-    merge_message: Callable[[DatasetOrGroup, DeserializedMessage], None],
-) -> None:
-    """Bridge function to merge a message into the store.
-
-    This bridge was needed since different modules
-    have different ways to match the paths and merge the data.
-
-    Parameters
-    ----------
-    structure:
-        The nexus structure.
-    nexus_store:
-        The module store that holds the data to be merged in the template.
-    data:
-        The content of the message.
-    find_insert_paths:
-        A function that returns the paths in the structure where the
-        message should be merged.
-    initialize:
-        A function that initializes the dataset / group.
-        *Initialize is done only when the relevant message arrives.*
-        It is because we should distinguish between empty dataset and
-        unexpectedly-not-receiving data.
-        It also depends on the ``data`` to handle optional fields.
-    merge_message:
-        A function that merges the message into the initialized nexus dataset / group.
-
-    Side Effects
-    ------------
-    The ``nexus_group_store`` is updated with the merged data.
-
-    """
-    for path in find_insert_paths(structure, data):
-        if path not in nexus_store:
-            nexus_store[path] = initialize(structure, path, data)
-        merge_message(cast(DatasetOrGroup, nexus_store[path]), data)
+ModuleMerger = Callable[[Any, DeserializedMessage], None]
+MODULE_MERGERS: Mapping[ModuleNameType, ModuleMerger] = MappingProxyType(
+    {
+        "ev44": _merge_ev44,
+        "f144": _merge_f144,
+        "tdct": _merge_tdct,
+    }
+)
 
 
 def merge_message_into_nexus_store(
     *,
-    structure: NexusStructure,
+    module_key: StreamModuleKey,
+    module_spec: StreamModuleValue,
     nexus_store: NexusStore,
     data: DeserializedMessage,
-    module_name: ModuleNameType,
-):
-    """Merges message into the associated nexus group.
+) -> None:
+    """Merge a deserialized message into the associated nexus group or dataset."""
+    if not is_supported_module_type(module_key.module_type):
+        raise ValueError(f"Unsupported module type: {module_key.module_type}")
 
-    If there are multiple paths that match the message,
-    all paths will be used.
-    In principle, there should only be one path that matches the message.
-
-    But the nexus template does not guarantee that there is a unique matching module.
-    There are still some nexus templates that contain multi-matching
-    module place holders (i.e. same ``source_name`` in ev44 module).
-
-    In this case, it is more safe to use all paths
-    so that no data is lost in the data reduction,
-    even though it means unnecessary memory usage
-    and slower in the grouping/binning process
-    (``N`` times slower where ``N`` is number of duplicating modules).
-
-    For example, if we store all data in to every detector data bank,
-    then irrelevant data points will not affect the data reduction
-    once the data is grouped by the pixel ids.
-    However, if we choose to store the data in only one of the detector data banks,
-    then the data of the rest of detectors will be lost.
-    """
-    merge = partial(_merge_message_into_nexus_store, structure, nexus_store, data)
-    if module_name == "ev44":
-        merge(
-            _find_ev44,
-            _initialize_ev44,
-            _merge_ev44,
-        )
-    elif module_name == "f144":
-        merge(
-            _find_f144,
-            _initialize_f144,
-            _merge_f144,
-        )
-    elif module_name == "tdct":
-        merge(
-            _find_tdct,
-            _initialize_tdct,
-            _merge_tdct,
-        )
-    else:
-        raise NotImplementedError
-
-
-def combine_nexus_store_and_structure(
-    structure: NexusStructure, nexus_store: NexusStore
-) -> Nexus:
-    """Creates a new nexus structure, replacing the stream modules
-    with the datasets in `store`, while avoiding
-    to copy data from `structure` if unnecessary"""
-    if len(nexus_store) == 0:
-        return cast(Nexus, structure)
-    if () in nexus_store:
-        return nexus_store[()]
-
-    new = structure.copy()
-    if "children" in structure:
-        new["children"] = [
-            combine_nexus_store_and_structure(
-                structure=child,
-                nexus_store={
-                    tuple(tail): node
-                    for (head, *tail), node in nexus_store.items()
-                    if head == _node_name(child)
-                },
-            )
-            for child in structure.get("children", ())
-            # Filter stream modules
-            if "module" not in child or child["module"] == "dataset"
-        ]
-        # Here we add children that were not in the template
-        # but should be added according to the nexus_store.
-        for path, value in nexus_store.items():
-            if len(path) == 1:
-                # Don't replace existing values, they were added in the previous step
-                try:
-                    find_nexus_structure(new, path)
-                except KeyError:
-                    new["children"].append(value)
-
-    return new
+    initializer = MODULE_INITIALIZERS[module_key.module_type]
+    merger = MODULE_MERGERS[module_key.module_type]
+    if nexus_store.get(module_key) is None:
+        nexus_store[module_key] = initializer(module_spec)
+    merger(nexus_store[module_key], data)

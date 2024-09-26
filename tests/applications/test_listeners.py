@@ -6,7 +6,7 @@ import pytest
 
 from beamlime.applications.daemons import (
     Application,
-    DetectorDataReceived,
+    DataPieceReceived,
     FakeListener,
     RunStart,
 )
@@ -58,7 +58,7 @@ async def test_fake_listener(fake_listener: FakeListener, num_frames: int) -> No
     generator = fake_listener.run()
     assert isinstance(await anext(generator), RunStart)
     for _ in range(num_frames * 2):
-        assert isinstance(await anext(generator), DetectorDataReceived)
+        assert isinstance(await anext(generator), DataPieceReceived)
     assert isinstance(await anext(generator), Application.Stop)
 
 
@@ -66,9 +66,9 @@ async def test_data_assembler_returns_after_n_messages(fake_listener):
     handler = DataAssembler(logger=MockLogger(), merge_every_nth=2)
     gen = fake_listener.run()
     handler.set_run_start(await anext(gen))
-    response = handler.assemble_detector_data(await anext(gen))
+    response = handler.merge_data_piece(await anext(gen))
     assert response is None
-    response = handler.assemble_detector_data(await anext(gen))
+    response = handler.merge_data_piece(await anext(gen))
     assert response is not None
 
 
@@ -80,8 +80,8 @@ async def test_data_assembler_returns_after_s_seconds(fake_listener):
     )
     gen = fake_listener.run()
     handler.set_run_start(await anext(gen))
-    response = handler.assemble_detector_data(await anext(gen))
+    response = handler.merge_data_piece(await anext(gen))
     assert response is None
     time.sleep(0.1)
-    response = handler.assemble_detector_data(await anext(gen))
+    response = handler.merge_data_piece(await anext(gen))
     assert response is not None
