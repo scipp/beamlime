@@ -362,8 +362,7 @@ def _initialize_f144(module_spec: StreamModuleValue) -> NexusGroup:
         create_dataset(
             name="value",
             dtype=module_spec.dtype,
-            initial_values=np.empty((0,), dtype=module_spec.dtype),
-            # initial values can be reshaped by (0, *data['value'].shape[1:]) later.
+            initial_values=None,  # initial values should be replaced by the first data
             unit=module_spec.value_units,
         ),
     ]
