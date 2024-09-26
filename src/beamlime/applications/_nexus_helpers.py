@@ -375,7 +375,7 @@ def _merge_f144(group: NexusGroup, data: DeserializedMessage) -> None:
         (time["config"]["values"], [data["timestamp"]])
     )
     value = cast(NexusDataset, find_nexus_structure(group, ("value",)))
-    if value["config"]["values"].shape[0] == 0:  # First data
+    if value["config"]["values"] is None:  # First data
         value["config"]["values"] = data["value"]
     else:
         value["config"]["values"] = np.concatenate(
