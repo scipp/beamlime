@@ -5,7 +5,7 @@ from importlib.metadata import entry_points
 
 import pytest
 
-from beamlime.stateless_workflow import StatelessWorkflow
+from beamlime import StatelessWorkflow
 
 stateless_workflows = entry_points(group='beamlime.stateless')
 
