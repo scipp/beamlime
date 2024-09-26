@@ -19,7 +19,7 @@ def _make_pooch():
             # A version of ymir.json where we added two fake detectors and
             # removed a templating string - to make it like something we might
             # read in a real run start message
-            'ymir_detectors.json': 'md5:02bc6160081a96733c5056cfaa047fca',
+            'ymir_detectors.json': 'md5:d9a25d4375ae3d414d91bfe504baa844',
             'ymir.json': 'md5:5e913075094d97c5e9e9aca76fc32554',
             # readme of the dataset
             'README.md': 'md5:778a0f290894182db5db0170b4f102fa',

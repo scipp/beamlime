@@ -182,6 +182,48 @@ def _validate_module_keys(
         )
 
 
+def _validate_f144_module_spec(
+    module_spec: StreamModuleValue,
+) -> None:
+    """Validate the f144 module."""
+    if len(module_spec.parent["children"]) != 1:
+        raise InvalidNexusStructureError(
+            "Group containing f144 module should have exactly one child"
+        )
+    if module_spec.dtype is None or module_spec.value_units is None:
+        raise InvalidNexusStructureError(
+            "f144 module spec should have dtype and value_units"
+        )
+
+
+def _validate_f144_module_values(
+    key_value_dict: dict[StreamModuleKey, StreamModuleValue],
+) -> None:
+    """Validate the module values for the f144 module."""
+    for key, value in key_value_dict.items():
+        if key.module_type == "f144":
+            _validate_f144_module_spec(value)
+
+
+def _validate_ev44_module_spec(
+    module_spec: StreamModuleValue,
+) -> None:
+    """Validate the ev44 module."""
+    if len(module_spec.parent["children"]) != 1:
+        raise InvalidNexusStructureError(
+            "Group containing ev44 module should have exactly one child"
+        )
+
+
+def _validate_ev44_module_values(
+    key_value_dict: dict[StreamModuleKey, StreamModuleValue],
+) -> None:
+    """Validate the module values for the ev44 module."""
+    for key, value in key_value_dict.items():
+        if key.module_type == "ev44":
+            _validate_ev44_module_spec(value)
+
+
 def collect_streaming_modules(
     structure: Mapping,
 ) -> dict[StreamModuleKey, StreamModuleValue]:
@@ -222,7 +264,10 @@ def collect_streaming_modules(
     )
     _validate_module_configs(key_value_pairs)
     _validate_module_keys(key_value_pairs)
-    return dict(key_value_pairs)
+    key_value_dict = dict(key_value_pairs)
+    _validate_f144_module_values(key_value_dict)
+    _validate_ev44_module_values(key_value_dict)
+    return key_value_dict
 
 
 def create_dataset(
@@ -258,8 +303,7 @@ def _is_monitor(group: NexusGroup) -> bool:
 
 def _initialize_ev44(module_spec: StreamModuleValue) -> NexusGroup:
     parent = module_spec.parent
-    if len(parent['children']) != 1:
-        raise ValueError('Group containing ev44 module should have exactly one child')
+    _validate_ev44_module_spec(module_spec)
     group: NexusGroup = cast(NexusGroup, parent.copy())
     group['children'] = [
         create_dataset(
@@ -346,11 +390,7 @@ def _merge_ev44(group: NexusGroup, data: DeserializedMessage) -> None:
 
 def _initialize_f144(module_spec: StreamModuleValue) -> NexusGroup:
     parent = module_spec.parent
-    if len(parent['children']) != 1:
-        raise ValueError('Group containing f144 module should have exactly one child')
-    if module_spec.dtype is None:
-        raise ValueError('f144 module spec should have dtype')
-
+    _validate_f144_module_spec(module_spec)
     group: NexusGroup = cast(NexusGroup, parent.copy())
     group["children"] = [
         create_dataset(
