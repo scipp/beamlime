@@ -196,15 +196,6 @@ def _validate_f144_module_spec(
         )
 
 
-def _validate_f144_module_values(
-    key_value_dict: dict[StreamModuleKey, StreamModuleValue],
-) -> None:
-    """Validate the module values for the f144 module."""
-    for key, value in key_value_dict.items():
-        if key.module_type == "f144":
-            _validate_f144_module_spec(value)
-
-
 def _validate_ev44_module_spec(
     module_spec: StreamModuleValue,
 ) -> None:
@@ -213,15 +204,6 @@ def _validate_ev44_module_spec(
         raise InvalidNexusStructureError(
             "Group containing ev44 module should have exactly one child"
         )
-
-
-def _validate_ev44_module_values(
-    key_value_dict: dict[StreamModuleKey, StreamModuleValue],
-) -> None:
-    """Validate the module values for the ev44 module."""
-    for key, value in key_value_dict.items():
-        if key.module_type == "ev44":
-            _validate_ev44_module_spec(value)
 
 
 def collect_streaming_modules(
@@ -264,9 +246,13 @@ def collect_streaming_modules(
     )
     _validate_module_configs(key_value_pairs)
     _validate_module_keys(key_value_pairs)
-    key_value_dict = dict(key_value_pairs)
-    _validate_f144_module_values(key_value_dict)
-    _validate_ev44_module_values(key_value_dict)
+    # Validate each spec
+    for key, value in (key_value_dict := dict(key_value_pairs)).items():
+        if key.module_type == 'ev44':
+            _validate_ev44_module_spec(value)
+        elif key.module_type == 'f144':
+            _validate_f144_module_spec(value)
+
     return key_value_dict
 
 
