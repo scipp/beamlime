@@ -303,7 +303,6 @@ def _is_monitor(group: NexusGroup) -> bool:
 
 def _initialize_ev44(module_spec: StreamModuleValue) -> NexusGroup:
     parent = module_spec.parent
-    _validate_ev44_module_spec(module_spec)
     group: NexusGroup = cast(NexusGroup, parent.copy())
     group['children'] = [
         create_dataset(
@@ -390,7 +389,6 @@ def _merge_ev44(group: NexusGroup, data: DeserializedMessage) -> None:
 
 def _initialize_f144(module_spec: StreamModuleValue) -> NexusGroup:
     parent = module_spec.parent
-    _validate_f144_module_spec(module_spec)
     group: NexusGroup = cast(NexusGroup, parent.copy())
     group["children"] = [
         create_dataset(
