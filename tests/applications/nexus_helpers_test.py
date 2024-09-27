@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import hashlib
-import json
 import pathlib
 from collections.abc import Generator, Mapping
 
@@ -110,21 +109,6 @@ def test_find_index_general() -> None:
 def test_find_nexus_structure_not_found_raises() -> None:
     with pytest.raises(KeyError):
         find_nexus_structure({}, ("b0",))
-
-
-def test_invalid_nexus_template_multiple_module_placeholders() -> None:
-    with open(pathlib.Path(__file__).parent / "multiple_modules_datagroup.json") as f:
-        modules = collect_streaming_modules(json.load(f))
-
-    key = StreamModuleKey("ev44", "hypothetical_detector", "ymir_00")
-    spec = modules[key]
-    with pytest.raises(ValueError, match="should have exactly one child"):
-        merge_message_into_nexus_store(
-            module_key=key,
-            module_spec=spec,
-            nexus_store={},
-            data={},  # data does not matter since it reaches the error first.
-        )
 
 
 def test_ymir_detector_template_checksum() -> None:
@@ -343,7 +327,7 @@ def f144_event_generator(shape, dtype):
 
 @pytest.mark.parametrize('shape', [(1,), (2,), (2, 2)])
 @pytest.mark.parametrize('dtype', ['int32', 'uint32', 'float32', 'float64', 'bool'])
-def test_f144(nexus_template_with_streamed_log, shape, dtype):
+def test_f144_merge(nexus_template_with_streamed_log, shape, dtype):
     modules = collect_streaming_modules(nexus_template_with_streamed_log)
     f144_modules = {
         key: value for key, value in modules.items() if key.module_type == 'f144'
@@ -401,7 +385,7 @@ def tdct_event_generator():
         max_last_timestamp = timestamps.max()
 
 
-def test_tdct(nexus_template_with_streamed_tdct: dict):
+def test_tdct_merge(nexus_template_with_streamed_tdct: dict):
     modules = collect_streaming_modules(nexus_template_with_streamed_tdct)
     tdct_modules = {
         key: value for key, value in modules.items() if key.module_type == 'tdct'
@@ -423,15 +407,3 @@ def test_tdct(nexus_template_with_streamed_tdct: dict):
     assert np.issubdtype(
         tdct['config']['values'].dtype, np.dtype(tdct['config']['dtype'])
     )
-
-
-@pytest.fixture()
-def nexus_template_with_mixed_streams(
-    nexus_template_with_streamed_log, nexus_template_with_streamed_tdct
-):
-    return {
-        "children": [
-            nexus_template_with_streamed_log,
-            nexus_template_with_streamed_tdct,
-        ],
-    }

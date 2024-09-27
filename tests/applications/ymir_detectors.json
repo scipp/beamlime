@@ -326,7 +326,8 @@
                       "config": {
                         "source": "delay_source_chopper",
                         "topic": "ymir_motion",
-                        "dtype": "double"
+                        "dtype": "double",
+                        "value_units": "s"
                       }
                     }
                   ]
@@ -618,7 +619,8 @@
                       "config": {
                         "source": "YMIR-SETS:SE-BADC-001:SLOWDATA",
                         "topic": "ymir_motion",
-                        "dtype": "double"
+                        "dtype": "double",
+                        "value_units": "mm"
                       }
                     }
                   ]
@@ -639,7 +641,8 @@
                       "config": {
                         "source": "YMIR-SETS:SE-BPTP-001:PTP_STATUS",
                         "topic": "ymir_motion",
-                        "dtype": "double"
+                        "dtype": "double",
+                        "value_units": "mm"
                       }
                     }
                   ]
@@ -1086,7 +1089,8 @@
                       "config": {
                         "source": "YMIR-SpScn:MC-Y-01:Mtr.VELO",
                         "topic": "ymir_motion",
-                        "dtype": "double"
+                        "dtype": "double",
+                        "value_units": "mm"
                       }
                     }
                   ]
@@ -1107,7 +1111,8 @@
                       "config": {
                         "source": "YMIR-SpScn:MC-Z-01:Mtr.VELO",
                         "topic": "ymir_motion",
-                        "dtype": "double"
+                        "dtype": "double",
+                        "value_units": "mm"
                       }
                     }
                   ]
@@ -1128,7 +1133,8 @@
                       "config": {
                         "source": "YMIR-SpScn:MC-X-01:Mtr.VELO",
                         "topic": "ymir_motion",
-                        "dtype": "double"
+                        "dtype": "double",
+                        "value_units": "mm"
                       }
                     }
                   ]
@@ -1184,7 +1190,8 @@
                           "config": {
                             "source": "YMIR-SpScn:MC-Y-01:Mtr-RBV-TSE",
                             "topic": "ymir_motion",
-                            "dtype": "double"
+                            "dtype": "double",
+                            "value_units": "mm"
                           }
                         }
                       ]
@@ -1229,7 +1236,8 @@
                           "config": {
                             "source": "YMIR-SpScn:MC-Z-01:Mtr-RBV-TSE",
                             "topic": "ymir_motion",
-                            "dtype": "double"
+                            "dtype": "double",
+                            "value_units": "mm"
                           }
                         }
                       ]
@@ -1274,7 +1282,8 @@
                           "config": {
                             "source": "YMIR-SpScn:MC-X-01:Mtr-RBV-TSE",
                             "topic": "ymir_motion",
-                            "dtype": "double"
+                            "dtype": "double",
+                            "value_units": "mm"
                           }
                         }
                       ]
