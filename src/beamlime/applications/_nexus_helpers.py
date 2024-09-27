@@ -232,8 +232,8 @@ def collect_streaming_modules(
                 # Modules do not have name so we remove the last element(None)
                 path=(parent_path := path[:-1]),
                 parent=cast(dict, find_nexus_structure(structure, parent_path)),
-                dtype=config.get("dtype"),
-                value_units=config.get("value_units"),
+                dtype=config.get("dtype", config.get("type")),
+                value_units=config.get("value_units", config.get("units")),
             ),
         )
         for path, node in iter_nexus_structure(structure)
@@ -252,7 +252,6 @@ def collect_streaming_modules(
             _validate_ev44_module_spec(value)
         elif key.module_type == 'f144':
             _validate_f144_module_spec(value)
-
     return key_value_dict
 
 

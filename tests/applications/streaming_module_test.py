@@ -187,3 +187,23 @@ def test_collect_streaming_modules_tdct(ymir: dict) -> None:
     # but tdct parents have many children
     for expected_key in expected_tdct_keys:
         assert expected_key in modules
+
+
+def test_collect_streaming_module_alternative_field_name_dtype() -> None:
+    group = _make_group_with_module_place_holder(
+        "", "f144", source="_", topic="_", type="double", value_units=""
+    )
+    modules = collect_streaming_modules({"children": [group]})
+    key = StreamModuleKey("f144", "_", "_")
+    assert key in modules
+    assert modules[key].dtype == "double"
+
+
+def test_collect_streaming_module_alternative_field_name_units() -> None:
+    group = _make_group_with_module_place_holder(
+        "", "f144", source="_", topic="_", dtype="", units="s"
+    )
+    modules = collect_streaming_modules({"children": [group]})
+    key = StreamModuleKey("f144", "_", "_")
+    assert key in modules
+    assert modules[key].value_units == "s"

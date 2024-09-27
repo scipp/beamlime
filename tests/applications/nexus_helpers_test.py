@@ -32,6 +32,14 @@ def ymir_streaming_modules(ymir: dict) -> dict[StreamModuleKey, StreamModuleValu
     return collect_streaming_modules(ymir)
 
 
+def _find_attributes(group: dict[str, list[dict]], attr_name: str) -> dict:
+    attributes = group.get("attributes", [])
+    try:
+        return next(attr for attr in attributes if attr["name"] == attr_name)
+    except StopIteration as e:
+        raise KeyError(f"Attribute {attr_name} not found in {group}") from e
+
+
 def test_iter_nexus_structure() -> None:
     expected_keys = [(), ('a',), ('a', 'c'), ('b',)]
     test_structure = {
@@ -154,15 +162,15 @@ def _is_class(partial_structure: Mapping, cls_name: str) -> bool:
     )
 
 
-def _is_detector(c: Mapping) -> bool:
-    return _is_class(c, "NXdetector")
-
-
 def _is_event_data(c: Mapping) -> bool:
     return _is_class(c, "NXevent_data")
 
 
-def _find_event_time_zerov_values(c: Mapping) -> np.ndarray:
+def _get_values(c: Mapping) -> np.ndarray:
+    return c["config"]["values"]
+
+
+def _find_event_time_zero_values(c: Mapping) -> np.ndarray:
     return find_nexus_structure(c, ("event_time_zero",))["config"]["values"]
 
 
@@ -206,26 +214,40 @@ def test_ev44_module_merging(
         assert stored_value['name'] == 'ymir_detector_events'
         assert len(stored_value['children']) == 4  # 4 datasets
         # Test event time zero
-        event_time_zero_values = _find_event_time_zerov_values(stored_value)
+        event_time_zero = find_nexus_structure(stored_value, ("event_time_zero",))
+        event_time_zero_values = _get_values(event_time_zero)
+        event_time_zero_unit = _find_attributes(event_time_zero, "units")
+        assert event_time_zero_unit["values"] == "ns"
         inserted_event_time_zeros = np.concatenate(
             [d["reference_time"] for d in stored_data[key]]
         )
         assert np.all(event_time_zero_values == inserted_event_time_zeros)
         # Test event time offset
-        event_time_offset_values = _find_event_time_offset_values(stored_value)
+        event_time_offset = find_nexus_structure(stored_value, ("event_time_offset",))
+        event_time_offset_values = _get_values(event_time_offset)
+        event_time_offset_unit = _find_attributes(event_time_offset, "units")
+        assert event_time_offset_unit["values"] == "ns"
         inserted_event_time_offsets = np.concatenate(
             [d["time_of_flight"] for d in stored_data[key]]
         )
         assert np.all(event_time_offset_values == inserted_event_time_offsets)
         # Test event id
-        event_id_values = _find_event_id_values(stored_value)
+        event_id = find_nexus_structure(stored_value, ("event_id",))
+        event_id_values = _get_values(event_id)
+        with pytest.raises(KeyError, match="units"):
+            # Event id should not have units
+            _find_attributes(event_id, "units")
         inserted_event_ids = np.concatenate([d["pixel_id"] for d in stored_data[key]])
         assert np.all(event_id_values == inserted_event_ids)
         # Test event index
         # event index values are calculated based on the length of the previous events
         first_event_length = len(stored_data[key][0]["time_of_flight"])
         expected_event_indices = np.array([0, first_event_length])
-        event_index_values = _find_event_index_values(stored_value)
+        event_index = find_nexus_structure(stored_value, ("event_index",))
+        event_index_values = _get_values(event_index)
+        with pytest.raises(KeyError, match="units"):
+            # Event index should not have units
+            _find_attributes(event_index, "units")
         assert np.all(event_index_values == expected_event_indices)
 
 
@@ -351,7 +373,9 @@ def test_f144_merge(nexus_template_with_streamed_log, shape, dtype):
     times = find_nexus_structure(stored_value, ('time',))
     assert times['module'] == 'dataset'
     assert values['config']['values'].shape[1:] == shape
-    assert values['attributes'][0]['values'] == 'km'
+    unit_attr = _find_attributes(values, 'units')
+    assert unit_attr['values'] == 'km'
+    assert unit_attr['dtype'] == 'string'
 
 
 @pytest.fixture()
