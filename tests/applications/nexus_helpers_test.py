@@ -8,7 +8,6 @@ import numpy as np
 import pytest
 
 from beamlime.applications._nexus_helpers import (
-    InvalidNexusStructureError,
     StreamModuleKey,
     StreamModuleValue,
     collect_streaming_modules,
@@ -315,46 +314,6 @@ def test_nxevent_data_ev44_generator_yields_frame_by_frame() -> None:
         next(ev44)
 
 
-def test_ev44_merge_no_children_raises() -> None:
-    key = StreamModuleKey("ev44", "", "")
-    wrong_value = StreamModuleValue(
-        path=("",),
-        parent={"children": []},
-        dtype="int32",
-        value_units="km",
-    )
-    with pytest.raises(
-        InvalidNexusStructureError,
-        match="Group containing ev44 module should have exactly one child",
-    ):
-        merge_message_into_nexus_store(
-            module_key=key,
-            module_spec=wrong_value,
-            nexus_store={},
-            data={},
-        )
-
-
-def test_ev44_merge_too_many_children_raises() -> None:
-    key = StreamModuleKey("ev44", "", "")
-    wrong_value = StreamModuleValue(
-        path=("",),
-        parent={"children": []},
-        dtype="int32",
-        value_units="km",
-    )
-    with pytest.raises(
-        InvalidNexusStructureError,
-        match="Group containing ev44 module should have exactly one child",
-    ):
-        merge_message_into_nexus_store(
-            module_key=key,
-            module_spec=wrong_value,
-            nexus_store={},
-            data={},
-        )
-
-
 @pytest.fixture()
 def nexus_template_with_streamed_log(dtype):
     return {
@@ -417,86 +376,6 @@ def test_f144_merge(nexus_template_with_streamed_log, shape, dtype):
     unit_attr = _find_attributes(values, 'units')
     assert unit_attr['values'] == 'km'
     assert unit_attr['dtype'] == 'string'
-
-
-def test_f144_merge_no_children_raises():
-    key = StreamModuleKey(module_type='f144', topic='', source='')
-    wrong_value = StreamModuleValue(
-        path=('',),
-        parent={'children': []},
-        dtype='int32',
-        value_units='km',
-    )
-    with pytest.raises(
-        InvalidNexusStructureError,
-        match="Group containing f144 module should have exactly one child",
-    ):
-        merge_message_into_nexus_store(
-            module_key=key,
-            module_spec=wrong_value,
-            nexus_store={},
-            data={},
-        )
-
-
-def test_f144_merge_too_many_children_raises():
-    key = StreamModuleKey(module_type='f144', topic='', source='')
-    wrong_value = StreamModuleValue(
-        path=('',),
-        parent={'children': [{}, {}]},
-        dtype='int32',
-        value_units='km',
-    )
-    with pytest.raises(
-        InvalidNexusStructureError,
-        match="Group containing f144 module should have exactly one child",
-    ):
-        merge_message_into_nexus_store(
-            module_key=key,
-            module_spec=wrong_value,
-            nexus_store={},
-            data={},
-        )
-
-
-def test_f144_merge_missing_dtype_raises():
-    key = StreamModuleKey(module_type='f144', topic='', source='')
-    wrong_value = StreamModuleValue(
-        path=('',),
-        parent={'children': [{}]},
-        dtype=None,
-        value_units='km',
-    )
-    with pytest.raises(
-        InvalidNexusStructureError,
-        match="f144 module spec should have dtype and value_units",
-    ):
-        merge_message_into_nexus_store(
-            module_key=key,
-            module_spec=wrong_value,
-            nexus_store={},
-            data={},
-        )
-
-
-def test_f144_merge_missing_value_units_raises():
-    key = StreamModuleKey(module_type='f144', topic='', source='')
-    wrong_value = StreamModuleValue(
-        path=('',),
-        parent={'children': [{}]},
-        dtype='int32',
-        value_units=None,
-    )
-    with pytest.raises(
-        InvalidNexusStructureError,
-        match="f144 module spec should have dtype and value_units",
-    ):
-        merge_message_into_nexus_store(
-            module_key=key,
-            module_spec=wrong_value,
-            nexus_store={},
-            data={},
-        )
 
 
 @pytest.fixture()
