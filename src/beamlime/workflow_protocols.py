@@ -36,7 +36,7 @@ class StatelessWorkflow(Protocol):
     ) -> WorkflowResult: ...
 
 
-class DummyWorkflow:
+class DummyStatelessWorkflow:
     "Dummy workflow for testing purposes, returning random counts per event and log."
 
     def __init__(self):
@@ -67,4 +67,41 @@ def provide_stateless_workflow(workflow: Workflow) -> StatelessWorkflow:
     return stateless_workflows[workflow].load()
 
 
-dummy_workflow = DummyWorkflow()
+dummy_stateless_workflow = DummyStatelessWorkflow()
+
+
+@runtime_checkable
+class LiveWorkflow(Protocol):
+    def __init__(self, nexus_filename: Path) -> None:
+        """Initialize the workflow with all static information.
+
+        The only argument we need is the path to the nexus file or
+        a file object that workflow can read from,
+        since the file carrys all the static information.
+        """
+        ...
+
+    def __call__(
+        self, nxevent_data: dict[str, JSONGroup], nxlog: dict[str, JSONGroup]
+    ) -> WorkflowResult:
+        """Call the workflow and return the computed results that can be visualized.
+
+        Parameters
+        ----------
+        nxevent_data:
+            Dictionary of event data groups.
+            It should contain empty events even if no events was received
+            since the last call.
+
+        nxlog:
+            Dictionary of log data groups.
+            It should only contain keys that we received since the last call.
+
+
+        Returns
+        -------
+        :
+            A dictionary of objects that can be visualized.
+
+        """
+        ...

@@ -15,4 +15,4 @@ from .constructors import Factory, Provider, ProviderGroup, SingletonProvider
 from .core.protocols import LoggingProtocol
 from .core.schedulers import async_retry, retry
 from .logging.mixins import LogMixin
-from .stateless_workflow import StatelessWorkflow, WorkflowResult
+from .workflow_protocols import StatelessWorkflow, WorkflowResult, LiveWorkflow

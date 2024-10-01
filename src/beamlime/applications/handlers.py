@@ -13,7 +13,7 @@ from ess.reduce.nexus.json_nexus import JSONGroup
 
 from beamlime.logging import BeamlimeLogger
 
-from ..stateless_workflow import StatelessWorkflow, WorkflowResult
+from ..workflow_protocols import StatelessWorkflow, WorkflowResult
 from ._nexus_helpers import (
     NexusStore,
     StreamModuleKey,

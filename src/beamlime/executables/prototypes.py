@@ -50,7 +50,7 @@ def collect_default_providers() -> ProviderGroup:
 
     from ..applications.base import Application, MessageRouter
     from ..applications.handlers import DataReductionHandler
-    from ..stateless_workflow import provide_stateless_workflow
+    from ..workflow_protocols import provide_stateless_workflow
 
     app_providers = ProviderGroup(
         SingletonProvider(Application),

@@ -29,6 +29,7 @@ Application interface protocols and matching mixins.
    ProviderGroup
    Provider
    SingletonProvider
+   LiveWorkflow
    StatelessWorkflow
    WorkflowResult
 
@@ -57,5 +58,6 @@ Application interface protocols and matching mixins.
    applications
    constructors
    logging
+   workflow_protocols
 
 ```
