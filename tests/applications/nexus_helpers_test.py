@@ -170,22 +170,6 @@ def _get_values(c: Mapping) -> np.ndarray:
     return c["config"]["values"]
 
 
-def _find_event_time_zero_values(c: Mapping) -> np.ndarray:
-    return find_nexus_structure(c, ("event_time_zero",))["config"]["values"]
-
-
-def _find_event_time_offset_values(c: Mapping) -> np.ndarray:
-    return find_nexus_structure(c, ("event_time_offset",))["config"]["values"]
-
-
-def _find_event_index_values(c: Mapping) -> np.ndarray:
-    return find_nexus_structure(c, ("event_index",))["config"]["values"]
-
-
-def _find_event_id_values(c: Mapping) -> np.ndarray:
-    return find_nexus_structure(c, ("event_id",))["config"]["values"]
-
-
 def test_ev44_module_merging(
     ymir_streaming_modules: dict[StreamModuleKey, StreamModuleValue],
     ymir_ev44_generator: Generator[dict, None, None],
