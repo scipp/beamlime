@@ -86,8 +86,22 @@ class LiveWorkflow(Protocol):
     ) -> WorkflowResult:
         """Call the workflow and return the computed results that can be visualized.
 
-        ``nxevent_data`` should contain empty events even if no events was received
-        since the last call.
-        ``nxlog`` should only contain keys that we received since the last call.
+        Parameters
+        ----------
+        nxevent_data:
+            Dictionary of event data groups.
+            It should contain empty events even if no events was received
+            since the last call.
+
+        nxlog:
+            Dictionary of log data groups.
+            It should only contain keys that we received since the last call.
+
+
+        Returns
+        -------
+        :
+            A dictionary of objects that can be visualized.
+
         """
         ...
