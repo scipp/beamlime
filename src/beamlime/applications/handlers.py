@@ -206,8 +206,7 @@ class PlotStreamer(HandlerInterface):
     def plot_item(self, name: str, data: sc.DataArray) -> None:
         figure = self.figures.get(name)
         if figure is None:
-            plot = pp.plot(data, title='\n'.join(name.split("-")))
-            # line break for long names
+            plot = pp.plot(data, title=name)
             # TODO Either improve Plopp's update method, or handle multiple artists
             if len(plot.artists) > 1:
                 raise NotImplementedError("Data with multiple items not supported.")
@@ -233,7 +232,7 @@ class PlotStreamer(HandlerInterface):
                     i_row * self.max_column : i_row * self.max_column + self.max_column
                 ]
                 for i_row in range(n_rows)
-            ]
+            ],
         )
 
 
