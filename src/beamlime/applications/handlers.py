@@ -13,7 +13,7 @@ from ess.reduce.nexus.json_nexus import JSONGroup
 
 from beamlime.logging import BeamlimeLogger
 
-from ..workflow_protocols import StatelessWorkflow, WorkflowResult
+from ..workflow_protocols import LiveWorkflow, WorkflowResult
 from ._nexus_helpers import (
     NexusStore,
     StreamModuleKey,
@@ -37,7 +37,6 @@ since the last reduction exceeds the length of the interval (in seconds)"""
 
 @dataclass
 class WorkflowInput:
-    nexus_filename: pathlib.Path
     nxevent_data: dict[str, JSONGroup]
     nxlog: dict[str, JSONGroup]
 
@@ -116,11 +115,7 @@ class DataAssembler(HandlerInterface):
                 if key.module_type == "f144"
             }
             result = DataReady(
-                content=WorkflowInput(
-                    nexus_filename=self.static_filename,
-                    nxevent_data=nxevent_data,
-                    nxlog=nxlog,
-                )
+                content=WorkflowInput(nxevent_data=nxevent_data, nxlog=nxlog)
             )
             self._nexus_store = {}
             return result
@@ -157,11 +152,19 @@ class DataReductionHandler(HandlerInterface):
     """Data reduction handler to process the raw data."""
 
     def __init__(
-        self, workflow: StatelessWorkflow, reuslt_registry: ResultRegistry | None = None
+        self,
+        workflow: type[LiveWorkflow],
+        reuslt_registry: ResultRegistry | None = None,
     ) -> None:
-        self.workflow = workflow
+        self.workflow_constructor = workflow
+        self.workflow: LiveWorkflow
         self.result_registry = {} if reuslt_registry is None else reuslt_registry
         super().__init__()
+
+    def set_run_start(self, message: RunStart) -> None:
+        file_path = pathlib.Path(message.content.filename)
+        self.debug("Initializing workflow with %s", file_path)
+        self.workflow = self.workflow_constructor(file_path)
 
     def reduce_data(self, message: DataReady) -> WorkflowResultUpdate:
         nxevent_data = {
@@ -169,11 +172,7 @@ class DataReductionHandler(HandlerInterface):
         }
         nxlog = {key: JSONGroup(value) for key, value in message.content.nxlog.items()}
         self.info("Running data reduction")
-        results = self.workflow(
-            nexus_filename=message.content.nexus_filename,
-            nxevent_data=nxevent_data,
-            nxlog=nxlog,
-        )
+        results = self.workflow(nxevent_data=nxevent_data, nxlog=nxlog)
         self.result_registry.update(results)
         return WorkflowResultUpdate(content=results)
 
