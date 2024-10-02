@@ -7,7 +7,7 @@ from importlib.metadata import entry_points
 
 
 def list_entry_points() -> list[str]:
-    return [ep.name for ep in entry_points(group='beamlime.stateless')]
+    return [ep.name for ep in entry_points(group='beamlime.workflow_plugin')]
 
 
 def build_arg_parser(*sub_group_classes: type) -> argparse.ArgumentParser:

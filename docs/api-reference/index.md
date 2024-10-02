@@ -30,7 +30,6 @@ Application interface protocols and matching mixins.
    Provider
    SingletonProvider
    LiveWorkflow
-   StatelessWorkflow
    WorkflowResult
 
 ```

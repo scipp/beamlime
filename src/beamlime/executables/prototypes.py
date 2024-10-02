@@ -50,7 +50,7 @@ def collect_default_providers() -> ProviderGroup:
 
     from ..applications.base import Application, MessageRouter
     from ..applications.handlers import DataReductionHandler
-    from ..workflow_protocols import provide_stateless_workflow
+    from ..workflow_protocols import provide_beamlime_workflow
 
     app_providers = ProviderGroup(
         SingletonProvider(Application),
@@ -59,7 +59,7 @@ def collect_default_providers() -> ProviderGroup:
 
     additional_providers = ProviderGroup(
         DataReductionHandler,
-        provide_stateless_workflow,
+        provide_beamlime_workflow,
         read_nexus_template_file,
     )
 
@@ -78,10 +78,10 @@ def run_standalone_prototype(
         WorkflowResultUpdate,
     )
     from ..constructors import multiple_constant_providers
-    from ..stateless_workflow import Workflow
+    from ..workflow_protocols import WorkflowName
 
     parameters = {
-        Workflow: Workflow(arg_name_space.workflow),
+        WorkflowName: WorkflowName(arg_name_space.workflow),
         argparse.Namespace: arg_name_space,
     }
 
@@ -105,6 +105,7 @@ def run_standalone_prototype(
         app.register_handling_method(RunStart, data_assembler.set_run_start)
         app.register_handling_method(DataPieceReceived, data_assembler.merge_data_piece)
         data_reduction_handler = factory[DataReductionHandler]
+        app.register_handling_method(RunStart, data_reduction_handler.set_run_start)
         app.register_handling_method(DataReady, data_reduction_handler.reduce_data)
 
         # Daemons

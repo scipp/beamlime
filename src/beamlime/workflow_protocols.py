@@ -12,62 +12,11 @@ except ImportError as e:
     raise ImportError("Please install the scipp to use the ``DummyWorkflow``.") from e
 
 
-Workflow = NewType('Workflow', str)
+WorkflowName = NewType('WorkflowName', str)
 '''Name of the workflow plugin to use'''
 
 WorkflowResult = dict[str, sc.DataArray]
 """Result of a workflow, a dictionary of scipp DataArrays."""
-
-
-@runtime_checkable
-class StatelessWorkflow(Protocol):
-    """
-    Protocol for stateless workflows.
-
-    Can be implemented by a class or a function in plugins, in the
-    `beamlime.stateless` entry point group.
-    """
-
-    def __call__(
-        self,
-        nexus_filename: Path,
-        nxevent_data: dict[str, JSONGroup],
-        nxlog: dict[str, JSONGroup],
-    ) -> WorkflowResult: ...
-
-
-class DummyStatelessWorkflow:
-    "Dummy workflow for testing purposes, returning random counts per event and log."
-
-    def __init__(self):
-        import numpy as np
-
-        self.rng = np.random.default_rng()
-        self.x = sc.array(dims=['x'], values=np.arange(10), unit='m')
-
-    def __call__(
-        self,
-        nexus_filename: Path,
-        nxevent_data: dict[str, JSONGroup],
-        nxlog: dict[str, JSONGroup],
-    ) -> WorkflowResult:
-        from itertools import chain
-
-        return {
-            f'random_counts-{nexus_filename.as_posix()}-{name}': sc.DataArray(
-                data=sc.array(dims=['x'], values=self.rng.random(10), unit='counts'),
-                coords={'x': self.x},
-            )
-            for name in chain(nxevent_data, nxlog)
-        }
-
-
-def provide_stateless_workflow(workflow: Workflow) -> StatelessWorkflow:
-    stateless_workflows = entry_points(group='beamlime.stateless')
-    return stateless_workflows[workflow].load()
-
-
-dummy_stateless_workflow = DummyStatelessWorkflow()
 
 
 @runtime_checkable
@@ -105,3 +54,35 @@ class LiveWorkflow(Protocol):
 
         """
         ...
+
+
+class DummyLiveWorkflow:
+    "Dummy workflow for testing purposes, returning random counts per event and log."
+
+    def __init__(self, nexus_filename: Path) -> None:
+        import numpy as np
+
+        self.nexus_filename = nexus_filename.as_posix()
+        self.rng = np.random.default_rng()
+        self.x = sc.array(dims=['x'], values=np.arange(10), unit='m')
+
+    def __call__(
+        self,
+        nxevent_data: dict[str, JSONGroup],
+        nxlog: dict[str, JSONGroup],
+    ) -> WorkflowResult:
+        from itertools import chain
+
+        return {
+            f'random-counts\n{self.nexus_filename}\n{name}': sc.DataArray(
+                data=sc.array(dims=['x'], values=self.rng.random(10), unit='counts'),
+                coords={'x': self.x},
+            )
+            for name in chain(nxevent_data, nxlog)
+        }
+
+
+def provide_beamlime_workflow(workflow: WorkflowName) -> type[LiveWorkflow]:
+    """Provide the workflow plugin class based on the name."""
+    workflow_plugins = entry_points(group='beamlime.workflow_plugin')
+    return workflow_plugins[workflow].load()
