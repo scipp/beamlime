@@ -105,7 +105,7 @@ class DataAssembler(HandlerInterface):
         self.debug("Data piece merged for %s", message.content.key)
         if self._should_send_message():
             nxevent_data = {
-                nexus_path_as_string(module_spec.path): JSONGroup(value)
+                nexus_path_as_string(self.streaming_modules[key].path): JSONGroup(value)
                 for key, value in self._nexus_store.items()
                 if key.module_type == "ev44"
             }

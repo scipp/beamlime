@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+import pathlib
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -10,11 +11,13 @@ from typing import (
     TypeAlias,
     TypedDict,
     TypeGuard,
+    TypeVar,
     cast,
     get_args,
 )
 
 import numpy as np
+import scippnexus as snx
 
 
 class NexusDataset(TypedDict):
@@ -204,6 +207,85 @@ def _validate_ev44_module_spec(
         raise InvalidNexusStructureError(
             "Group containing ev44 module should have exactly one child"
         )
+
+
+FallBackNameType = TypeVar("FallBackNameType")
+
+
+def _get_instrument_name(
+    nxs_file: snx.File, fail_fall_back: FallBackNameType
+) -> FallBackNameType:
+    try:
+        return nxs_file["entry/instrument/name"][()]
+    except KeyError:
+        return fail_fall_back
+
+
+def _get_nx_class_attribute(group: snx.Group) -> dict[str, str]:
+    if group.nx_class == snx.NXdetector:
+        class_name = "NXdetector"
+    elif group.nx_class == snx.NXmonitor:
+        class_name = "NXmonitor"
+    elif group.nx_class == snx.NXevent_data:
+        class_name = "NXevent_data"
+    else:
+        raise NotImplementedError(f"NX class {group.nx_class} is not supported.")
+
+    return {
+        'name': 'NX_class',
+        'values': class_name,
+    }
+
+
+def _group_to_dict(group: snx.Group) -> NexusGroup:
+    return {
+        "children": [],
+        "name": group.name,
+        "attributes": [_get_nx_class_attribute(group)],
+    }
+
+
+def _retrieve_groups_by_nx_class(
+    nxs_file: snx.File, nx_class: type
+) -> dict[tuple[str, ...], snx.Group]:
+    instrument_path = "entry/instrument"
+    return {
+        tuple("/".join([instrument_path, grp_path]).split('/')): grp
+        for grp_path, grp in nxs_file[instrument_path][nx_class].items()
+    }
+
+
+def _collect_nx_event(
+    groups: dict[tuple[str, ...], snx.Group],
+) -> dict[tuple[str, ...], snx.Group]:
+    children = {}
+    for path, group in groups.items():
+        nx_events = group[snx.NXevent_data]
+        for name, nx_event in nx_events.items():
+            children[(*path, name)] = nx_event
+    return children
+
+
+def collect_streaming_modules_from_nexus_file(
+    nexus_file: str | pathlib.Path,
+) -> dict[StreamModuleKey, StreamModuleValue]:
+    """Collect all stream modules in a nexus file."""
+
+    with snx.File(nexus_file) as f:
+        detectors = _collect_nx_event(_retrieve_groups_by_nx_class(f, snx.NXdetector))
+        monitors = _collect_nx_event(_retrieve_groups_by_nx_class(f, snx.NXmonitor))
+        instrument_name = _get_instrument_name(f, fail_fall_back="unknown")
+        return {
+            StreamModuleKey(
+                module_type='ev44',
+                topic=f"{instrument_name}_detector",
+                source=det.parent.name,
+            ): StreamModuleValue(
+                path=det_path,
+                parent=_group_to_dict(det),
+            )
+            for det_path, det in {**detectors, **monitors}.items()
+        }
 
 
 def collect_streaming_modules(
