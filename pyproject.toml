@@ -32,6 +32,8 @@ requires-python = ">=3.10"
 dependencies = [
   "rich",
   "essreduce",
+  "confluent_kafka",
+  "ess-streaming-data-types"
 ]
 
 dynamic = ["version"]
