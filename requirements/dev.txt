@@ -14,7 +14,7 @@
 -r wheels.txt
 annotated-types==0.7.0
     # via pydantic
-anyio==4.4.0
+anyio==4.6.0
     # via
     #   httpx
     #   jupyter-server
@@ -26,7 +26,7 @@ arrow==1.3.0
     # via isoduration
 async-lru==2.0.4
     # via jupyterlab
-cffi==1.17.0
+cffi==1.17.1
     # via argon2-cffi-bindings
 click==8.1.7
     # via
@@ -42,9 +42,9 @@ funcy==2.0
     # via copier
 h11==0.14.0
     # via httpcore
-httpcore==1.0.5
+httpcore==1.0.6
     # via httpx
-httpx==0.27.0
+httpx==0.27.2
     # via jupyterlab
 isoduration==20.11.0
     # via jsonschema
@@ -71,7 +71,7 @@ jupyter-server==2.14.2
     #   notebook-shim
 jupyter-server-terminals==0.5.3
     # via jupyter-server
-jupyterlab==4.2.4
+jupyterlab==4.2.5
     # via -r dev.in
 jupyterlab-server==2.27.3
     # via jupyterlab
@@ -87,13 +87,13 @@ pip-tools==7.4.1
     # via pip-compile-multi
 plumbum==1.8.3
     # via copier
-prometheus-client==0.20.0
+prometheus-client==0.21.0
     # via jupyter-server
 pycparser==2.22
     # via cffi
-pydantic==2.8.2
+pydantic==2.9.2
     # via copier
-pydantic-core==2.20.1
+pydantic-core==2.23.4
     # via pydantic
 python-json-logger==2.0.7
     # via jupyter-events
@@ -119,7 +119,7 @@ terminado==0.18.1
     #   jupyter-server-terminals
 toposort==1.10
     # via pip-compile-multi
-types-python-dateutil==2.9.0.20240316
+types-python-dateutil==2.9.0.20241003
     # via arrow
 uri-template==1.3.0
     # via jsonschema

@@ -31,7 +31,7 @@ comm==0.2.2
     # via
     #   ipykernel
     #   ipywidgets
-debugpy==1.8.5
+debugpy==1.8.6
     # via ipykernel
 decorator==5.1.1
     # via ipython
@@ -43,7 +43,7 @@ docutils==0.21.2
     #   nbsphinx
     #   pydata-sphinx-theme
     #   sphinx
-executing==2.0.1
+executing==2.1.0
     # via stack-data
 fastjsonschema==2.20.0
     # via nbformat
@@ -55,7 +55,7 @@ ipykernel==6.29.5
     # via -r docs.in
 ipympl==0.9.4
     # via -r docs.in
-ipython==8.26.0
+ipython==8.28.0
     # via
     #   -r docs.in
     #   ipykernel
@@ -63,7 +63,7 @@ ipython==8.26.0
     #   ipywidgets
 ipython-genutils==0.2.0
     # via ipympl
-ipywidgets==8.1.3
+ipywidgets==8.1.5
     # via
     #   ipydatawidgets
     #   ipympl
@@ -80,7 +80,7 @@ jsonschema==4.23.0
     # via nbformat
 jsonschema-specifications==2023.12.1
     # via jsonschema
-jupyter-client==8.6.2
+jupyter-client==8.6.3
     # via
     #   ipykernel
     #   nbclient
@@ -93,7 +93,7 @@ jupyter-core==5.7.2
     #   nbformat
 jupyterlab-pygments==0.3.0
     # via nbconvert
-jupyterlab-widgets==3.0.11
+jupyterlab-widgets==3.0.13
     # via ipywidgets
 markupsafe==2.1.5
     # via
@@ -103,7 +103,7 @@ matplotlib-inline==0.1.7
     # via
     #   ipykernel
     #   ipython
-mdit-py-plugins==0.4.1
+mdit-py-plugins==0.4.2
     # via myst-parser
 mistune==3.0.2
     # via nbconvert
@@ -128,7 +128,7 @@ parso==0.8.4
     # via jedi
 pexpect==4.9.0
     # via ipython
-prompt-toolkit==3.0.47
+prompt-toolkit==3.0.48
     # via ipython
 ptyprocess==0.7.0
     # via pexpect
@@ -140,7 +140,7 @@ pythreejs==2.4.2
     # via -r docs.in
 pyyaml==6.0.2
     # via myst-parser
-pyzmq==26.1.0
+pyzmq==26.2.0
     # via
     #   ipykernel
     #   jupyter-client
@@ -165,7 +165,7 @@ sphinx==8.0.2
     #   sphinx-autodoc-typehints
     #   sphinx-copybutton
     #   sphinx-design
-sphinx-autodoc-typehints==2.2.3
+sphinx-autodoc-typehints==2.4.4
     # via -r docs.in
 sphinx-copybutton==0.5.2
     # via -r docs.in
@@ -209,15 +209,11 @@ traitlets==5.14.3
     #   traittypes
 traittypes==0.2.1
     # via ipydatawidgets
-typing-extensions==4.12.2
-    # via
-    #   ipython
-    #   pydata-sphinx-theme
 wcwidth==0.2.13
     # via prompt-toolkit
 webencodings==0.5.1
     # via
     #   bleach
     #   tinycss2
-widgetsnbextension==4.0.11
+widgetsnbextension==4.0.13
     # via ipywidgets
