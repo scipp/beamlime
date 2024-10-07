@@ -390,6 +390,7 @@ def _initialize_ev44(module_spec: StreamModuleValue) -> NexusGroup:
             initial_values=np.asarray([], dtype="int32"),
         ),
     ]
+    # TODO This check does not appear to work as expected.
     if not _is_monitor(group):
         # Monitor doesn't have pixel ids.
         group['children'].append(
@@ -452,6 +453,15 @@ def _merge_ev44(group: NexusGroup, data: DeserializedMessage) -> None:
         event_id_dataset["config"]["values"] = np.concatenate(
             (event_id_dataset["config"]["values"], data["pixel_id"])
         )
+    else:
+        # TODO See above, monitor check is not working, remove now that we know there is
+        # no pixel id.
+        try:
+            find_nexus_structure(group, ("event_id",))
+        except KeyError:
+            pass
+        else:
+            del group['children'][-1]
 
 
 def _initialize_f144(module_spec: StreamModuleValue) -> NexusGroup:
