@@ -8,6 +8,7 @@ from beamlime.applications.daemons import (
     Application,
     DataPieceReceived,
     FakeListener,
+    NexusFilePath,
     RunStart,
 )
 from beamlime.applications.handlers import DataAssembler
@@ -29,19 +30,20 @@ def num_frames(request) -> int:
 
 
 @pytest.fixture()
-def fake_listener(num_frames: int, ymir) -> FakeListener:
+def fake_listener(
+    num_frames: int, ymir, ymir_static_file: NexusFilePath
+) -> FakeListener:
     from beamlime.applications.daemons import (
         DataFeedingSpeed,
         EventRate,
         FrameRate,
-        NexusFilePath,
         NumFrames,
     )
 
     return FakeListener(
         logger=MockLogger(),
         nexus_template=ymir,
-        nexus_file_path=NexusFilePath(''),
+        nexus_file_path=ymir_static_file,
         speed=DataFeedingSpeed(1),
         num_frames=NumFrames(num_frames),
         event_rate=EventRate(100),

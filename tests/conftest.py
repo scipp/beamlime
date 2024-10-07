@@ -9,6 +9,7 @@ from typing import Literal
 import pytest
 
 from beamlime import Factory
+from beamlime.applications.daemons import NexusFilePath
 from tests.applications.data import get_path
 
 
@@ -103,6 +104,11 @@ def ymir() -> dict:
     with open(get_path('ymir_detectors.json')) as f:
         data = json.load(f)
     return data
+
+
+@pytest.fixture()
+def ymir_static_file() -> NexusFilePath:
+    return NexusFilePath(get_path("ymir_detectors.nxs").as_posix())
 
 
 @pytest.fixture()

@@ -4,24 +4,23 @@ import argparse
 import asyncio
 import json
 import os
-from collections.abc import AsyncGenerator, Generator, Mapping
+from collections.abc import AsyncGenerator, Generator
 from dataclasses import dataclass
 from typing import NewType
 
 import h5py
 import numpy as np
+import scippnexus as snx
 
 from ..logging import BeamlimeLogger
 from ._nexus_helpers import (
     DeserializedMessage,
-    NexusPath,
     NexusTemplate,
     RunStartInfo,
     StreamModuleKey,
-    StreamModuleValue,
+    _retrieve_groups_by_nx_class,
     collect_streaming_modules,
-    find_nexus_structure,
-    iter_nexus_structure,
+    collect_streaming_modules_from_nexus_file,
 )
 from ._random_data_providers import (
     EV44,
@@ -57,8 +56,6 @@ class DataPieceReceived:
 NexusTemplatePath = NewType("NexusTemplatePath", str)
 NexusFilePath = NewType("NexusFilePath", str)
 
-EventDataSourcePath = NewType("EventDataSourcePath", str)
-
 
 def read_nexus_template_file(path: NexusTemplatePath) -> NexusTemplate:
     with open(path) as f:
@@ -76,7 +73,6 @@ def _try_load_nxevent_data(
     if file_path is None:
         return
     with h5py.File(file_path, 'r') as f:
-        group_path = (*group_path, group_path[-1] + '_events')
         try:
             group = f['/'.join(group_path)]
         except KeyError:
@@ -86,14 +82,23 @@ def _try_load_nxevent_data(
 
 def fake_event_generators(
     *,
-    streaming_modules: dict[StreamModuleKey, StreamModuleValue],
-    nexus_structure: Mapping,
+    nexus_structure: NexusTemplate | None,
+    static_file: NexusFilePath,
     event_rate: EventRate,
     frame_rate: FrameRate,
-    event_data_source_path: EventDataSourcePath | None = None,
+    event_data_source_path: NexusFilePath | None = None,
 ) -> dict[StreamModuleKey, Generator[dict[str, np.ndarray] | EV44]]:
-    detectors = _find_groups_by_nx_class(nexus_structure, nx_class='NXdetector')
-    monitors = _find_groups_by_nx_class(nexus_structure, nx_class='NXmonitor')
+    with snx.File(static_file) as f:
+        detectors = _retrieve_groups_by_nx_class(f, snx.NXdetector)
+        detector_numbers = {
+            key: value['detector_number'][()] for key, value in detectors.items()
+        }
+        monitors = _retrieve_groups_by_nx_class(f, snx.NXmonitor)
+
+    if nexus_structure is not None:
+        streaming_modules = collect_streaming_modules(nexus_structure)
+    else:
+        streaming_modules = collect_streaming_modules_from_nexus_file(static_file)
 
     ev44_modules = {
         key: value
@@ -103,14 +108,13 @@ def fake_event_generators(
 
     generators: dict[StreamModuleKey, Generator[dict[str, np.ndarray] | EV44]] = {}
     for key, value in ev44_modules.items():
-        # TODO: Geometry should be parsed from a file instead of nexus_structure.
-        if (det_path := detectors.get(value.path[:-1])) is not None:
-            det_group = find_nexus_structure(det_path, ('detector_number',))
-            detector_numbers = det_group['config']['values']
+        if (detector_number := detector_numbers.get(value.path[:-1])) is not None:
+            detector_number = detector_number.values
         elif value.path[:-1] in monitors:
-            detector_numbers = None
+            detector_number = None
         else:
             raise ValueError(f"Detector or monitor group not found for {value.path}")
+        # TODO This is bad! Silent fallback to random data generation!
         if (
             event_data := _try_load_nxevent_data(
                 file_path=event_data_source_path, group_path=value.path
@@ -122,24 +126,14 @@ def fake_event_generators(
         else:
             generators[key] = random_ev44_generator(
                 source_name=DetectorName(key.source),
-                detector_numbers=detector_numbers,
+                detector_numbers=detector_number,
                 event_rate=event_rate,
                 frame_rate=frame_rate,
             )
     return generators
 
 
-def _find_groups_by_nx_class(
-    nexus_structure: Mapping, nx_class: str
-) -> dict[NexusPath, Mapping]:
-    return {
-        path: node
-        for path, node in iter_nexus_structure(nexus_structure)
-        if any(
-            attr.get('name') == 'NX_class' and attr.get('values') == nx_class
-            for attr in node.get('attributes', ())
-        )
-    }
+FillDummyData = NewType("FillDummyData", bool)
 
 
 class FakeListener(DaemonInterface):
@@ -150,12 +144,12 @@ class FakeListener(DaemonInterface):
         *,
         logger: BeamlimeLogger,
         speed: DataFeedingSpeed,
-        nexus_template: NexusTemplate,
+        nexus_template: NexusTemplate | None = None,
         nexus_file_path: NexusFilePath,
         num_frames: NumFrames,
         event_rate: EventRate,
         frame_rate: FrameRate,
-        event_data_source_path: EventDataSourcePath | None = None,
+        fill_dummy_data: FillDummyData = False,
     ):
         self.logger = logger
 
@@ -164,10 +158,10 @@ class FakeListener(DaemonInterface):
 
         self.random_event_generators = fake_event_generators(
             nexus_structure=self.nexus_structure,
-            event_data_source_path=event_data_source_path,
+            static_file=nexus_file_path,
             event_rate=event_rate,
             frame_rate=frame_rate,
-            streaming_modules=collect_streaming_modules(self.nexus_structure),
+            event_data_source_path=None if fill_dummy_data else nexus_file_path,
         )
         self.data_feeding_speed = speed
         self.num_frames = num_frames
@@ -175,7 +169,18 @@ class FakeListener(DaemonInterface):
     async def run(self) -> AsyncGenerator[MessageProtocol, None]:
         self.info("Fake data streaming started...")
         # Real listener will wait for the RunStart message to parse the structure
-        streaming_modules = collect_streaming_modules(self.nexus_structure)
+        if self.nexus_structure is None:
+            self.debug(
+                "Collecting streaming modules from the nexus file %s",
+                self.nexus_file_path,
+            )
+            streaming_modules = collect_streaming_modules_from_nexus_file(
+                self.nexus_file_path
+            )
+            self.debug("Streaming modules: %s", streaming_modules)
+        else:
+            streaming_modules = collect_streaming_modules(self.nexus_structure)
+
         self.debug(f"Streaming modules: {streaming_modules}")
 
         yield RunStart(
@@ -207,19 +212,14 @@ class FakeListener(DaemonInterface):
             "--nexus-template-path",
             help="Path to the nexus template file.",
             type=str,
-            required=True,
+            required=False,
+            default=None,
         )
         group.add_argument(
             "--nexus-file-path",
-            help="Path to the nexus file that contains static information.",
+            help="Path to the nexus file with static information and event data.",
             type=str,
             required=True,
-        )
-        group.add_argument(
-            "--event-data-source-path",
-            help="Path to the event data source file.",
-            type=str,
-            default=None,
         )
         group.add_argument(
             "--data-feeding-speed",
@@ -245,20 +245,29 @@ class FakeListener(DaemonInterface):
             help="Frame rate [Hz].",
             type=int,
         )
+        group.add_argument(
+            "--fill-dummy-data",
+            default=False,
+            help="Fill the nexus file with dummy data.",
+            action="store_true",
+        )
 
     @classmethod
     def from_args(
         cls, logger: BeamlimeLogger, args: argparse.Namespace
     ) -> "FakeListener":
-        with open(args.nexus_template_path) as f:
-            nexus_template = json.load(f)
+        if args.nexus_template_path is not None:
+            with open(args.nexus_template_path) as f:
+                nexus_template = json.load(f)
+        else:
+            nexus_template = None
         return cls(
             logger=logger,
             speed=DataFeedingSpeed(args.data_feeding_speed),
             nexus_template=nexus_template,
             nexus_file_path=NexusFilePath(args.nexus_file_path),
-            event_data_source_path=EventDataSourcePath(args.event_data_source_path),
             num_frames=NumFrames(args.num_frames),
             event_rate=EventRate(args.event_rate),
             frame_rate=FrameRate(args.frame_rate),
+            fill_dummy_data=args.fill_dummy_data,
         )
