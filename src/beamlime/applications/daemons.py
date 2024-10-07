@@ -73,7 +73,6 @@ def _try_load_nxevent_data(
     if file_path is None:
         return
     with h5py.File(file_path, 'r') as f:
-        group_path = (*group_path, group_path[-1] + '_events')
         try:
             group = f['/'.join(group_path)]
         except KeyError:
@@ -115,6 +114,7 @@ def fake_event_generators(
             detector_number = None
         else:
             raise ValueError(f"Detector or monitor group not found for {value.path}")
+        # TODO This is bad! Silent fallback to random data generation!
         if (
             event_data := _try_load_nxevent_data(
                 file_path=event_data_source_path, group_path=value.path
