@@ -42,6 +42,12 @@ _ADMIN_SHARED_CONFIG_KEYS = (
 )
 
 
+def _retrieve_topic_partitions(admin: AdminClient, topic: str) -> int:
+    """Retrieve the number of partitions for a given topic."""
+    topic_metadata = admin.list_topics(topic=topic).topics[topic]
+    return len(topic_metadata.partitions)
+
+
 class EventListener(LogMixin):
     def __init__(
         self,
@@ -56,13 +62,19 @@ class EventListener(LogMixin):
         admin_config = {key: kafka_config[key] for key in _ADMIN_SHARED_CONFIG_KEYS}
         self.admin = AdminClient(admin_config)
         try:
-            logger.info(
-                "Connected to Kafka server. %s", self.admin.list_topics(timeout=1)
-            )
+            logger.info("Connecting to Kafka server.")
+            self.admin.list_topics(timeout=1)  # Check if the connection is successful.
         except Exception as e:
             err_msg = "Failed to connect to a Kafka server."
             logger.error(err_msg)
             raise RuntimeError(err_msg) from e
+
+        self.logger.info("Retrieving the number of partitions for each topic.")
+        self.topic_partitions = {
+            key.topic: _retrieve_topic_partitions(self.admin, key.topic)
+            for key in self.streaming_modules.keys()
+        }
+        self.logger.info("Number of partitions: %s", self.topic_partitions)
 
         self.consumer = Consumer(kafka_config)
 
@@ -131,5 +143,6 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
 def main() -> None:
     """Entry point of the ``show-detector`` command."""
     factory = Factory(collect_show_detector_providers())
-    args = build_arg_parser(EventListener).parse_args()
+    arg_parser = build_arg_parser(EventListener)
+    args = arg_parser.parse_args()
     run_show_detector(factory, args)
