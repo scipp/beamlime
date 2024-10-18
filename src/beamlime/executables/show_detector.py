@@ -6,7 +6,7 @@ import pathlib
 from collections.abc import Generator
 from typing import NewType
 
-from confluent_kafka import Consumer
+from confluent_kafka import Consumer, TopicPartition
 from confluent_kafka.admin import AdminClient
 
 from beamlime import Factory, LogMixin, ProviderGroup
@@ -42,10 +42,12 @@ _ADMIN_SHARED_CONFIG_KEYS = (
 )
 
 
-def _retrieve_topic_partitions(admin: AdminClient, topic: str) -> int:
+def _collect_all_topic_partitions(
+    admin: AdminClient, topic: str
+) -> list[TopicPartition]:
     """Retrieve the number of partitions for a given topic."""
     topic_metadata = admin.list_topics(topic=topic).topics[topic]
-    return len(topic_metadata.partitions)
+    return topic_metadata.partitions
 
 
 class EventListener(LogMixin):
@@ -71,10 +73,10 @@ class EventListener(LogMixin):
 
         self.logger.info("Retrieving the number of partitions for each topic.")
         self.topic_partitions = {
-            key.topic: _retrieve_topic_partitions(self.admin, key.topic)
+            key.topic: _collect_all_topic_partitions(self.admin, key.topic)
             for key in self.streaming_modules.keys()
         }
-        self.logger.info("Number of partitions: %s", self.topic_partitions)
+        self.logger.info("Collected partitions: %s", self.topic_partitions)
 
         self.consumer = Consumer(kafka_config)
 
