@@ -97,9 +97,9 @@ class EventListener(DaemonInterface):
             self.consumer.close()
 
     async def run(self) -> AsyncGenerator[MessageProtocol | None, None]:
-        for _ in range(10):
+        for _ in range(100):
             msg = self.consumer.poll(1)
-            if msg.value()[4:8].decode() == "ev44":
+            if msg is not None and msg.value()[4:8].decode() == "ev44":
                 self.info("%s", deserialise_ev44(msg.value()))
             yield None
         yield Application.Stop(content=None)
