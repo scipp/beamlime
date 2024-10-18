@@ -11,7 +11,9 @@ from typing import NewType
 import matplotlib.pyplot as plt
 import plopp as pp
 import scipp as sc
+import scippnexus as snx
 from ess.reduce.nexus.json_nexus import JSONGroup
+from ess.reduce.live import raw
 
 from beamlime.logging import BeamlimeLogger
 
@@ -24,7 +26,7 @@ from ._nexus_helpers import (
     nexus_path_as_string,
 )
 from .base import HandlerInterface
-from .daemons import DataPieceReceived, RunStart
+from .daemons import DataPieceReceived, RunStart, NexusFilePath
 
 ResultRegistry = NewType("ResultRegistry", dict[str, sc.DataArray])
 """Workflow result container."""
@@ -73,6 +75,11 @@ def maxcount_or_maxtime(maxcount: Number, maxtime: Number):
     return run
 
 
+DETECTOR_BANK_SIZES = {
+    'larmor_detector': {'layer': 4, 'tube': 32, 'straw': 7, 'pixel': 512}
+}
+
+
 class RawCountHandler(HandlerInterface):
     """
     Continuously handle raw counts for every ev44 message.
@@ -80,18 +87,60 @@ class RawCountHandler(HandlerInterface):
     This ignores run-start and run-stop messages.
     """
 
-    def __init__(self, *, logger: BeamlimeLogger):
+    def __init__(self, *, logger: BeamlimeLogger, nexus_file: NexusFilePath) -> None:
         self.logger = logger
-        self._detector_number: sc.Variable | None = None
+        self._pulse = -1
+        self._previous: sc.DataArray | None = None
 
-    def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate:
-        content = message.content
-        self.info("Histogramming counts for %s", content.key)
-        event_id = content.deserialized['event_id']
-        self.info("Received %s events", len(event_id))
-        # Dummy for now
-        counts = sc.DataArray(sc.array(dims=['x', 'y'], values=[[1, 2], [3, 4]]))
-        return WorkflowResultUpdate({'detector1': counts})
+        with snx.File(nexus_file) as f:
+            entry = next(iter(f[snx.NXentry].values()))
+            instrument = next(iter(entry[snx.NXinstrument].values()))
+            detectors = instrument[snx.NXdetector]
+            detector_numbers = {
+                key: value['detector_number'][()] for key, value in detectors.items()
+            }
+            for key in list(detector_numbers):
+                if (sizes := DETECTOR_BANK_SIZES.get(key)) is not None:
+                    detector_numbers[key] = detector_numbers[key].fold(
+                        dim='detector_number', sizes=sizes
+                    )
+            params = {
+                det.name: raw.DetectorParams(detector_number=detector_numbers[key])
+                for key, det in detectors.items()
+            }
+            self._detectors = {key: raw.Detector(val) for key, val in params.items()}
+            self.info("Initialized with %s", list(self._detectors))
+
+    def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate | None:
+        name = message.content.deserialized['source_name']
+        event_id = message.content.deserialized['pixel_id']
+        self.info("Received %s events for %s", len(event_id), name)
+        if (det := self._detectors.get(name)) is not None:
+            det.add_counts(event_id)
+            self.info("Total counts for %s: %s", name, det.data.sum().value)
+            self._pulse += 1
+            if self._pulse % 140 == 0:
+                # data = det.data.sum(('layer')).flatten(
+                #    dims=('tube', 'straw'), to='straw'
+                # )
+                data = det.data.sum(('layer', 'straw'))
+                data = data.fold('pixel', sizes={'pixel': -1, 'dummy': 8}).sum('dummy')
+                if self._previous is not None:
+                    delta = data - self._previous
+                else:
+                    delta = data
+                self._previous = data
+                return WorkflowResultUpdate({'cumulative': data, 'delta': delta})
+            else:
+                return None
+        else:
+            self.info("Ignoring data for %s", name)
+
+    @classmethod
+    def from_args(
+        cls, logger: BeamlimeLogger, args: argparse.Namespace
+    ) -> "RawCountHandler":
+        return cls(logger=logger, nexus_file=args.nexus_file_path)
 
 
 class DataAssembler(HandlerInterface):
@@ -279,7 +328,7 @@ class PlotSaver(PlotStreamer):
         fig, axes = plt.subplots(
             ceil(len(message.content) / self.max_column),
             self.max_column,
-            figsize=(8, 8),
+            figsize=(16, 8),
         )
         plt.subplots_adjust(wspace=0.3, hspace=0.3)
         for (name, da), ax in zip(message.content.items(), axes.flat, strict=False):
@@ -290,7 +339,7 @@ class PlotSaver(PlotStreamer):
                 extra = {'norm': 'log', 'vmin': 1e-1, 'vmax': 1e1, 'aspect': 'equal'}
             else:
                 extra = {}
-            da.plot(ax=ax, title=name, **extra)
+            da.plot(ax=ax, title=name, **extra, norm='log')
         fig.savefig(image_file_name, dpi=100)
         plt.close(fig)
 

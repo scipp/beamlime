@@ -284,7 +284,8 @@ def collect_streaming_modules_from_nexus_file(
                 path=det_path,
                 parent=_group_to_dict(det),
             )
-            for det_path, det in {**detectors, **monitors}.items()
+            # for det_path, det in {**detectors, **monitors}.items()
+            for det_path, det in {**detectors}.items()
         }
 
 

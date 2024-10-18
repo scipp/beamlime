@@ -5,7 +5,7 @@ from typing import Protocol, TypeVar
 
 from beamlime import Factory, ProviderGroup, SingletonProvider
 from beamlime.applications.daemons import FakeListener, read_nexus_template_file
-from beamlime.applications.handlers import DataAssembler, PlotSaver
+from beamlime.applications.handlers import DataAssembler, PlotSaver, RawCountHandler
 from beamlime.logging import BeamlimeLogger
 
 T = TypeVar("T", bound="ArgumentInstantiable")
@@ -43,6 +43,12 @@ def data_assembler_from_args(
     return instantiate_from_args(logger, args, DataAssembler)
 
 
+def raw_count_handler_from_args(
+    logger: BeamlimeLogger, args: argparse.Namespace
+) -> RawCountHandler:
+    return instantiate_from_args(logger, args, RawCountHandler)
+
+
 def collect_default_providers() -> ProviderGroup:
     """Helper method to collect all default providers for this prototype."""
     from beamlime.constructors.providers import merge as merge_providers
@@ -75,6 +81,7 @@ def run_standalone_prototype(
         DataAssembler,
         DataReady,
         DataReductionHandler,
+        RawCountHandler,
         WorkflowResultUpdate,
     )
     from ..constructors import multiple_constant_providers
@@ -91,6 +98,7 @@ def run_standalone_prototype(
             fake_listener_from_args,
             plot_saver_from_args,
             data_assembler_from_args,
+            raw_count_handler_from_args,
         ),
     )
 
@@ -101,12 +109,14 @@ def run_standalone_prototype(
         # Handlers
         plot_saver = factory[PlotSaver]
         app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
-        data_assembler = factory[DataAssembler]
-        app.register_handling_method(RunStart, data_assembler.set_run_start)
-        app.register_handling_method(DataPieceReceived, data_assembler.merge_data_piece)
-        data_reduction_handler = factory[DataReductionHandler]
-        app.register_handling_method(RunStart, data_reduction_handler.set_run_start)
-        app.register_handling_method(DataReady, data_reduction_handler.reduce_data)
+        # data_assembler = factory[DataAssembler]
+        # app.register_handling_method(RunStart, data_assembler.set_run_start)
+        # app.register_handling_method(DataPieceReceived, data_assembler.merge_data_piece)
+        # data_reduction_handler = factory[DataReductionHandler]
+        # app.register_handling_method(RunStart, data_reduction_handler.set_run_start)
+        # app.register_handling_method(DataReady, data_reduction_handler.reduce_data)
+        raw_count_handler = factory[RawCountHandler]
+        app.register_handling_method(DataPieceReceived, raw_count_handler.handle)
 
         # Daemons
         app.register_daemon(factory[FakeListener])
