@@ -99,8 +99,8 @@ class EventListener(DaemonInterface):
     async def run(self) -> AsyncGenerator[MessageProtocol | None, None]:
         for _ in range(10):
             msg = self.consumer.poll(1)
-            self.info("Received message: %s", msg.value()[4:8].decode())
-            self.info("%s", deserialise_ev44(msg.value()))
+            if msg.value()[4:8].decode() == "ev44":
+                self.info("%s", deserialise_ev44(msg.value()))
             yield None
         yield Application.Stop(content=None)
 
