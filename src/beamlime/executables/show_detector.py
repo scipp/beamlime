@@ -75,13 +75,16 @@ class EventListener(LogMixin):
             raise RuntimeError(err_msg) from e
 
         self.logger.info("Retrieving the number of partitions for each topic.")
-        self.topic_partitions = {
-            key.topic: _collect_all_topic_partitions(self.admin, key.topic)
-            for key in self.streaming_modules.keys()
-        }
+        self.topic_partitions = []
+        for key in self.streaming_modules.keys():
+            self.topic_partitions += _collect_all_topic_partitions(
+                self.admin, key.topic
+            )
         self.logger.info("Collected partitions: %s", self.topic_partitions)
 
         self.consumer = Consumer(kafka_config)
+        self.consumer.assign(self.topic_partitions)
+        self.consumer.subscribe([key.topic for key in self.streaming_modules.keys()])
 
     def __del__(self) -> None:
         """Clean up the resources."""
