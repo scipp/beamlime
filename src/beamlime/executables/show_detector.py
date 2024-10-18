@@ -6,7 +6,7 @@ import pathlib
 from collections.abc import AsyncGenerator
 from typing import NewType
 
-from confluent_kafka import OFFSET_END, Consumer, TopicPartition
+from confluent_kafka import OFFSET_BEGINNING, Consumer, TopicPartition
 from confluent_kafka.admin import AdminClient
 from streaming_data_types.eventdata_ev44 import deserialise_ev44
 
@@ -55,7 +55,7 @@ def _collect_all_topic_partitions(
     """Retrieve the number of partitions for a given topic."""
     topic_metadata = admin.list_topics(topic=topic).topics[topic]
     return [
-        TopicPartition(topic, partition, OFFSET_END)
+        TopicPartition(topic, partition, OFFSET_BEGINNING)
         for partition in topic_metadata.partitions.keys()
     ]
 
