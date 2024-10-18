@@ -12,8 +12,8 @@ import matplotlib.pyplot as plt
 import plopp as pp
 import scipp as sc
 import scippnexus as snx
-from ess.reduce.nexus.json_nexus import JSONGroup
 from ess.reduce.live import raw
+from ess.reduce.nexus.json_nexus import JSONGroup
 
 from beamlime.logging import BeamlimeLogger
 
@@ -26,7 +26,7 @@ from ._nexus_helpers import (
     nexus_path_as_string,
 )
 from .base import HandlerInterface
-from .daemons import DataPieceReceived, RunStart, NexusFilePath
+from .daemons import DataPieceReceived, NexusFilePath, RunStart
 
 ResultRegistry = NewType("ResultRegistry", dict[str, sc.DataArray])
 """Workflow result container."""
