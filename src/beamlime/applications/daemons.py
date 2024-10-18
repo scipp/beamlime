@@ -94,6 +94,7 @@ def fake_event_generators(
             key: value['detector_number'][()] for key, value in detectors.items()
         }
         monitors = _retrieve_groups_by_nx_class(f, snx.NXmonitor)
+        monitors = {}
 
     if nexus_structure is not None:
         streaming_modules = collect_streaming_modules(nexus_structure)
