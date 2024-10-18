@@ -24,7 +24,7 @@ from beamlime.applications._random_data_providers import (
     nxevent_data_ev44_generator,
     random_ev44_generator,
 )
-from beamlime.applications.daemons import fake_event_generators
+from beamlime.applications.daemons import NexusFilePath, fake_event_generators
 
 
 @pytest.fixture()
@@ -84,12 +84,12 @@ def ev44_generator() -> RandomEV44Generator:
 
 @pytest.fixture()
 def ymir_ev44_generator(
-    ymir_streaming_modules: dict[StreamModuleKey, StreamModuleValue],
     ymir: dict,
+    ymir_static_file: NexusFilePath,
 ) -> Generator[dict, None, None]:
     generators = fake_event_generators(
-        streaming_modules=ymir_streaming_modules,
         nexus_structure=ymir,
+        static_file=ymir_static_file,
         event_rate=EventRate(100),
         frame_rate=FrameRate(14),
     )

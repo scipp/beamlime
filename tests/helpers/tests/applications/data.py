@@ -21,8 +21,9 @@ def _make_pooch():
             # read in a real run start message
             'ymir_detectors.json': 'md5:d9a25d4375ae3d414d91bfe504baa844',
             'ymir.json': 'md5:5e913075094d97c5e9e9aca76fc32554',
+            'ymir_detectors.nxs': 'md5:2e143cd839a84301b7459d5ab6df8454',
             # readme of the dataset
-            'README.md': 'md5:778a0f290894182db5db0170b4f102fa',
+            'README.md': 'md5:7e101b5c38dddc7d530e0594a2058950',
         },
     )
 

@@ -4,9 +4,11 @@ import argparse
 import pathlib
 import time
 from dataclasses import dataclass
+from math import ceil
 from numbers import Number
 from typing import NewType
 
+import matplotlib.pyplot as plt
 import plopp as pp
 import scipp as sc
 from ess.reduce.nexus.json_nexus import JSONGroup
@@ -105,12 +107,12 @@ class DataAssembler(HandlerInterface):
         self.debug("Data piece merged for %s", message.content.key)
         if self._should_send_message():
             nxevent_data = {
-                nexus_path_as_string(module_spec.path): JSONGroup(value)
+                nexus_path_as_string(self.streaming_modules[key].path): value
                 for key, value in self._nexus_store.items()
                 if key.module_type == "ev44"
             }
             nxlog = {
-                nexus_path_as_string(module_spec.path): JSONGroup(value)
+                nexus_path_as_string(module_spec.path): value
                 for key, value in self._nexus_store.items()
                 if key.module_type == "f144"
             }
@@ -250,16 +252,26 @@ class PlotSaver(PlotStreamer):
         self.image_path_prefix = image_path_prefix
 
     def save_histogram(self, message: WorkflowResultUpdate) -> None:
-        from plopp import tiled
-
-        super().update_histogram(message)
         image_file_name = f"{self.image_path_prefix}.png"
         self.info("Received histogram(s), saving into %s...", image_file_name)
-        plot_tile = tiled((len(self.figures) // self.max_column) + 1, self.max_column)
-        for i_fig, figure in enumerate(self.figures.values()):
-            plot_tile[i_fig // self.max_column, i_fig % self.max_column] = figure
 
-        plot_tile.save(image_file_name)
+        fig, axes = plt.subplots(
+            ceil(len(message.content) / self.max_column),
+            self.max_column,
+            figsize=(8, 8),
+        )
+        plt.subplots_adjust(wspace=0.3, hspace=0.3)
+        for (name, da), ax in zip(message.content.items(), axes.flat, strict=False):
+            # TODO We need a way of configuring plot options for each item. The below
+            # works for the SANS 60387-2022-02-28_2215.nxs AgBeh file and is useful for
+            # testing.
+            if da.unit == '':
+                extra = {'norm': 'log', 'vmin': 1e-1, 'vmax': 1e1, 'aspect': 'equal'}
+            else:
+                extra = {}
+            da.plot(ax=ax, title=name, **extra)
+        fig.savefig(image_file_name, dpi=100)
+        plt.close(fig)
 
     @classmethod
     def add_argument_group(cls, parser: argparse.ArgumentParser) -> None:
