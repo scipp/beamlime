@@ -8,15 +8,16 @@ from typing import NewType
 
 from confluent_kafka import OFFSET_END, Consumer, TopicPartition
 from confluent_kafka.admin import AdminClient
+from streaming_data_types.eventdata_ev44 import deserialise_ev44
 
-from beamlime import Factory, LogMixin, ProviderGroup
-from beamlime.constructors.providers import merge as merge_providers
-from beamlime.logging import BeamlimeLogger
-
+from .. import Factory, LogMixin, ProviderGroup
 from ..applications._nexus_helpers import (
     StreamModuleKey,
     StreamModuleValue,
 )
+from ..applications.base import Application
+from ..constructors.providers import merge as merge_providers
+from ..logging import BeamlimeLogger
 from .options import build_arg_parser
 from .prototypes import instantiate_from_args
 
@@ -82,7 +83,6 @@ class EventListener(LogMixin):
 
         self.consumer = Consumer(kafka_config)
         self.consumer.assign(self.topic_partitions)
-        self.logger.info("%s", self.consumer.poll(1))
 
     def __del__(self) -> None:
         """Clean up the resources."""
@@ -90,7 +90,12 @@ class EventListener(LogMixin):
         if hasattr(self, 'consumer') and self.consumer is not None:
             self.consumer.close()
 
-    def run(self) -> Generator: ...
+    def run(self) -> Generator:
+        for _ in range(10):
+            msg = self.consumer.poll(1)
+            self.logger.info("%s", deserialise_ev44(msg))
+            yield None
+        yield Application.Stop(content=None)
 
     @staticmethod
     def add_argument_group(parser: argparse.ArgumentParser) -> None:
