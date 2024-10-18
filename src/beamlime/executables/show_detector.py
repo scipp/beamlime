@@ -47,7 +47,10 @@ def _collect_all_topic_partitions(
 ) -> list[TopicPartition]:
     """Retrieve the number of partitions for a given topic."""
     topic_metadata = admin.list_topics(topic=topic).topics[topic]
-    return topic_metadata.partitions
+    return [
+        TopicPartition(topic, partition)
+        for partition in topic_metadata.partitions.keys()
+    ]
 
 
 class EventListener(LogMixin):
