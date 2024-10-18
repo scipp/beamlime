@@ -3,19 +3,25 @@
 import argparse
 import json
 import pathlib
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 from typing import NewType
 
 from confluent_kafka import OFFSET_END, Consumer, TopicPartition
 from confluent_kafka.admin import AdminClient
 from streaming_data_types.eventdata_ev44 import deserialise_ev44
 
-from .. import Factory, LogMixin, ProviderGroup
+from .. import Factory, ProviderGroup
 from ..applications._nexus_helpers import (
     StreamModuleKey,
     StreamModuleValue,
 )
-from ..applications.base import Application
+from ..applications.base import (
+    Application,
+    DaemonInterface,
+    MessageProtocol,
+    MessageRouter,
+)
+from ..constructors import SingletonProvider
 from ..constructors.providers import merge as merge_providers
 from ..logging import BeamlimeLogger
 from .options import build_arg_parser
@@ -54,7 +60,7 @@ def _collect_all_topic_partitions(
     ]
 
 
-class EventListener(LogMixin):
+class EventListener(DaemonInterface):
     def __init__(
         self,
         *,
@@ -63,7 +69,7 @@ class EventListener(LogMixin):
         kafka_config: KafkaConfig,
     ) -> None:
         self.logger = logger
-        logger.info("Event topics: %s", {key.topic for key in streaming_modules.keys()})
+        self.info("Event topics: %s", {key.topic for key in streaming_modules.keys()})
         self.streaming_modules = streaming_modules
         admin_config = {key: kafka_config[key] for key in _ADMIN_SHARED_CONFIG_KEYS}
         self.admin = AdminClient(admin_config)
@@ -75,25 +81,25 @@ class EventListener(LogMixin):
             logger.error(err_msg)
             raise RuntimeError(err_msg) from e
 
-        self.logger.info("Retrieving the number of partitions for each topic.")
+        self.info("Retrieving the number of partitions for each topic.")
         self.topic_partitions = []
         for topic in {key.topic for key in streaming_modules.keys()}:
             self.topic_partitions += _collect_all_topic_partitions(self.admin, topic)
-        self.logger.info("Collected partitions: %s", self.topic_partitions)
+        self.info("Collected partitions: %s", self.topic_partitions)
 
         self.consumer = Consumer(kafka_config)
         self.consumer.assign(self.topic_partitions)
 
     def __del__(self) -> None:
         """Clean up the resources."""
-        self.logger.info("Closing the Kafka consumer.")
+        self.info("Closing the Kafka consumer.")
         if hasattr(self, 'consumer') and self.consumer is not None:
             self.consumer.close()
 
-    def run(self) -> Generator:
+    async def run(self) -> AsyncGenerator[MessageProtocol | None, None]:
         for _ in range(10):
             msg = self.consumer.poll(1)
-            self.logger.info("%s", deserialise_ev44(msg))
+            self.info("%s", deserialise_ev44(msg))
             yield None
         yield Application.Stop(content=None)
 
@@ -137,9 +143,13 @@ def listener_from_args(
 
 
 def collect_show_detector_providers() -> ProviderGroup:
-    from beamlime.logging.providers import log_providers
+    from ..logging.providers import log_providers
 
-    app_providers = ProviderGroup(listener_from_args)
+    app_providers = ProviderGroup(
+        listener_from_args,
+        SingletonProvider(Application),
+        MessageRouter,
+    )
 
     return merge_providers(log_providers, app_providers)
 
@@ -148,7 +158,10 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
     factory[BeamlimeLogger].setLevel(arg_name_space.log_level.upper())
     factory[BeamlimeLogger].info("Start showing detector hits.")
     with factory.constant_provider(argparse.Namespace, arg_name_space):
-        factory[EventListener]
+        event_listener = factory[EventListener]
+        app = factory[Application]
+        app.register_daemon(event_listener)
+        app.run()
 
 
 def main() -> None:
