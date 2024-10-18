@@ -100,9 +100,10 @@ class EventListener(DaemonInterface):
         for _ in range(100):
             msg = self.consumer.poll(1)
             if msg is not None:
-                self.info("%s", msg.value()[:20].decode())
                 if msg.value()[4:8].decode() == "ev44":
                     self.info("%s", deserialise_ev44(msg.value()))
+                else:
+                    self.error("Unexpected message: %s", msg.value().decode())
             yield None
         yield Application.Stop(content=None)
 
