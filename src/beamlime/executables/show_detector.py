@@ -6,7 +6,7 @@ import pathlib
 from collections.abc import Generator
 from typing import NewType
 
-from confluent_kafka import Consumer, TopicPartition
+from confluent_kafka import OFFSET_END, Consumer, TopicPartition
 from confluent_kafka.admin import AdminClient
 
 from beamlime import Factory, LogMixin, ProviderGroup
@@ -48,7 +48,7 @@ def _collect_all_topic_partitions(
     """Retrieve the number of partitions for a given topic."""
     topic_metadata = admin.list_topics(topic=topic).topics[topic]
     return [
-        TopicPartition(topic, partition)
+        TopicPartition(topic, partition, OFFSET_END)
         for partition in topic_metadata.partitions.keys()
     ]
 
@@ -82,7 +82,7 @@ class EventListener(LogMixin):
 
         self.consumer = Consumer(kafka_config)
         self.consumer.assign(self.topic_partitions)
-        self.consumer.subscribe([key.topic for key in self.streaming_modules.keys()])
+        self.logger.info("%s", self.consumer.poll(1))
 
     def __del__(self) -> None:
         """Clean up the resources."""
