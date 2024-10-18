@@ -73,6 +73,27 @@ def maxcount_or_maxtime(maxcount: Number, maxtime: Number):
     return run
 
 
+class RawCountHandler(HandlerInterface):
+    """
+    Continuously handle raw counts for every ev44 message.
+
+    This ignores run-start and run-stop messages.
+    """
+
+    def __init__(self, *, logger: BeamlimeLogger):
+        self.logger = logger
+        self._detector_number: sc.Variable | None = None
+
+    def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate:
+        content = message.content
+        self.info("Histogramming counts for %s", content.key)
+        event_id = content.deserialized['event_id']
+        self.info("Received %s events", len(event_id))
+        # Dummy for now
+        counts = sc.DataArray(sc.array(dims=['x', 'y'], values=[[1, 2], [3, 4]]))
+        return WorkflowResultUpdate({'detector1': counts})
+
+
 class DataAssembler(HandlerInterface):
     """Receives data and assembles it into a single data structure."""
 
