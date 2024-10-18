@@ -76,10 +76,8 @@ class EventListener(LogMixin):
 
         self.logger.info("Retrieving the number of partitions for each topic.")
         self.topic_partitions = []
-        for key in self.streaming_modules.keys():
-            self.topic_partitions += _collect_all_topic_partitions(
-                self.admin, key.topic
-            )
+        for topic in {key.topic for key in streaming_modules.keys()}:
+            self.topic_partitions += _collect_all_topic_partitions(self.admin, topic)
         self.logger.info("Collected partitions: %s", self.topic_partitions)
 
         self.consumer = Consumer(kafka_config)
