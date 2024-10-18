@@ -120,6 +120,11 @@ def fake_event_generators(
                 file_path=event_data_source_path, group_path=value.path
             )
         ) is not None:
+            print(f"{key} {event_data['event_time_zero'].shape=}")
+            if 'detector' in key.source:
+                # SANS AgBeh monitors have 60x fewer pulses than detectors
+                event_data['event_time_zero'] = event_data['event_time_zero'][::60]
+                event_data['event_index'] = event_data['event_index'][::60]
             generators[key] = nxevent_data_ev44_generator(
                 source_name=DetectorName(key.source), **event_data
             )
