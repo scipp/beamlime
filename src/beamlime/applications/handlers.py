@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from math import ceil
 from numbers import Number
 from typing import NewType
+import numpy as np
 
 import matplotlib.pyplot as plt
 import plopp as pp
@@ -91,24 +92,39 @@ class RawCountHandler(HandlerInterface):
         self.logger = logger
         self._pulse = -1
         self._previous: sc.DataArray | None = None
+        self._detectors: dict[str, raw.RollingDetectorView] = {}
 
         with snx.File(nexus_file) as f:
             entry = next(iter(f[snx.NXentry].values()))
             instrument = next(iter(entry[snx.NXinstrument].values()))
             detectors = instrument[snx.NXdetector]
-            detector_numbers = {
-                key: value['detector_number'][()] for key, value in detectors.items()
-            }
-            for key in list(detector_numbers):
-                if (sizes := DETECTOR_BANK_SIZES.get(key)) is not None:
-                    detector_numbers[key] = detector_numbers[key].fold(
+            for name, detector in detectors.items():
+                detector_number = detector['detector_number'][()]
+                x_pixel_offset = detector['x_pixel_offset'][()]
+                y_pixel_offset = detector['y_pixel_offset'][()]
+                z_pixel_offset = detector['z_pixel_offset'][()]
+                if (sizes := DETECTOR_BANK_SIZES.get(name)) is not None:
+                    detector_number = detector_number.fold(
                         dim='detector_number', sizes=sizes
                     )
-            params = {
-                det.name: raw.DetectorParams(detector_number=detector_numbers[key])
-                for key, det in detectors.items()
-            }
-            self._detectors = {key: raw.Detector(val) for key, val in params.items()}
+                    x_pixel_offset = x_pixel_offset.fold(
+                        dim='detector_number', sizes=sizes
+                    )
+                    y_pixel_offset = y_pixel_offset.fold(
+                        dim='detector_number', sizes=sizes
+                    )
+                    z_pixel_offset = z_pixel_offset.fold(
+                        dim='detector_number', sizes=sizes
+                    )
+                params = raw.DetectorParams(
+                    detector_number=detector_number,
+                    x_pixel_offset=x_pixel_offset,
+                    y_pixel_offset=y_pixel_offset,
+                    z_pixel_offset=z_pixel_offset,
+                )
+                self._detectors[detector.name] = raw.RollingDetectorView(
+                    params, window=1000
+                )
             self.info("Initialized with %s", list(self._detectors))
 
     def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate | None:
@@ -119,18 +135,17 @@ class RawCountHandler(HandlerInterface):
             det.add_counts(event_id)
             self.info("Total counts for %s: %s", name, det.data.sum().value)
             self._pulse += 1
-            if self._pulse % 140 == 0:
-                # data = det.data.sum(('layer')).flatten(
-                #    dims=('tube', 'straw'), to='straw'
-                # )
-                data = det.data.sum(('layer', 'straw'))
-                data = data.fold('pixel', sizes={'pixel': -1, 'dummy': 8}).sum('dummy')
-                if self._previous is not None:
-                    delta = data - self._previous
-                else:
-                    delta = data
-                self._previous = data
-                return WorkflowResultUpdate({'cumulative': data, 'delta': delta})
+            # data = det.data.sum(('layer')).flatten(
+            #    dims=('tube', 'straw'), to='straw'
+            # )
+            if self._pulse % 5 == 0:
+                results = {}
+                for window in (20, None):
+                    data = det.get(window)
+                    # data.sum(('layer', 'straw'))
+                    # data = data.fold('pixel', sizes={'pixel': -1, '_': 8}).sum('_')
+                    results[f'{name.split("/")[-1]} window={window}'] = data
+                return WorkflowResultUpdate(results)
             else:
                 return None
         else:
@@ -262,6 +277,25 @@ MaxPlotColumn = NewType("MaxPlotColumn", int)
 DefaultMaxPlotColumn = MaxPlotColumn(2)
 
 
+def project_xy(
+    x: sc.Variable, y: sc.Variable, z: sc.Variable
+) -> tuple[sc.Variable, sc.Variable, sc.Variable]:
+    # Initialize projected coordinate arrays
+    x_proj = sc.zeros_like(x)
+    y_proj = sc.zeros_like(y)
+    z_proj = sc.ones_like(z)
+
+    # Compute scaling factor t = 1 / z where z != 0
+    t = sc.zeros_like(z)
+    t = 1 / z
+
+    # Compute projected coordinates
+    x_proj = x * t
+    y_proj = y * t
+
+    return x_proj, y_proj, z_proj
+
+
 class PlotStreamer(HandlerInterface):
     def __init__(
         self,
@@ -271,21 +305,76 @@ class PlotStreamer(HandlerInterface):
     ) -> None:
         self.logger = logger
         self.figures = {}
+        self.data_nodes = {}
         self.artists = {}
         self.max_column = max_column
         super().__init__()
 
-    def plot_item(self, name: str, data: sc.DataArray) -> None:
-        figure = self.figures.get(name)
-        if figure is None:
-            plot = pp.plot(data, title=name)
-            # TODO Either improve Plopp's update method, or handle multiple artists
-            if len(plot.artists) > 1:
-                raise NotImplementedError("Data with multiple items not supported.")
-            self.artists[name] = next(iter(plot.artists))
-            self.figures[name] = plot
+    def plot_item(self, name: str, da: sc.DataArray) -> None:
+        # data = data['layer', 0]
+        if False:
+            data = da.fold('pixel', sizes={'pixel': -1, '_': 8})
+            data.coords['x'] = data.coords['x_pixel_offset']
+            data.coords['y'] = data.coords['y_pixel_offset']
+            data.coords['z'] = data.coords['z_pixel_offset']
+            for combine in ('straw', '_'):
+                tmp = data.sum(combine)
+                tmp.coords['x'] = data.coords['x'].mean(combine)
+                tmp.coords['y'] = data.coords['y'].mean(combine)
+                tmp.coords['z'] = data.coords['z'].mean(combine)
+                data = tmp
+            data = data.flatten(to='pix').copy()
         else:
-            figure.update({self.artists[name]: data})
+            data = da.flatten(to='pixel').copy()
+            position = sc.vector([-0.49902349, 0.43555999, 4.09899989], unit='m')
+            beam_center = sc.vector([-0.02864121, -0.01850989, 0.0], unit='m')
+            offset = sc.spatial.as_vectors(
+                x=data.coords['x_pixel_offset'],
+                y=data.coords['y_pixel_offset'],
+                z=data.coords['z_pixel_offset'],
+            )
+            pos = position + offset - beam_center
+            x, y, z = project_xy(pos.fields.x, pos.fields.y, pos.fields.z)
+            tmp = sc.DataArray(data.data, coords={'x': x, 'y': y})
+            data = tmp.hist(x=100, y=100)
+
+        print(data)
+
+        try:
+            figure = self.figures.get(name)
+            if figure is None:
+                data_node = pp.Node(data)
+                self.data_nodes[name] = data_node
+                # self.artists[name] = next(iter(plot.artists))
+                if False and 'x' in data.coords:
+                    self.figures[name] = pp.scatter3dfigure(
+                        data_node,
+                        # title=name,
+                        norm='log',
+                        pixel_size=0.02,
+                        cbar=True,
+                        vmin=sc.scalar(1, unit='counts'),
+                        vmax=sc.scalar(100, unit='counts'),
+                    )
+                else:
+                    self.figures[name] = pp.plot(
+                        data_node,
+                        title=name,
+                        norm='log',
+                        vmin=sc.scalar(1, unit='counts'),
+                        vmax=sc.scalar(100, unit='counts'),
+                        aspect='equal',
+                    )
+                # self.figures[name] = pp.imagefigure(data_node, title=name)
+            else:
+                self.data_nodes[name].input_value.data = data.data
+                self.data_nodes[name].notify_children(message=None)
+                # figure.update({self.artists[name]: data})
+        except Exception as e:
+            import traceback
+
+            traceback.print_exc()
+            raise e
 
     def update_histogram(self, message: WorkflowResultUpdate) -> None:
         content = message.content
