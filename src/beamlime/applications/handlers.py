@@ -7,14 +7,14 @@ from dataclasses import dataclass
 from math import ceil
 from numbers import Number
 from typing import NewType
-import numpy as np
 
 import matplotlib.pyplot as plt
+import numpy as np
 import plopp as pp
 import scipp as sc
 import scippnexus as snx
-from ess.reduce.nexus.json_nexus import JSONGroup
 from ess.reduce.live import raw
+from ess.reduce.nexus.json_nexus import JSONGroup
 
 from beamlime.logging import BeamlimeLogger
 
@@ -27,7 +27,7 @@ from ._nexus_helpers import (
     nexus_path_as_string,
 )
 from .base import HandlerInterface
-from .daemons import DataPieceReceived, RunStart, NexusFilePath
+from .daemons import DataPieceReceived, NexusFilePath, RunStart
 
 ResultRegistry = NewType("ResultRegistry", dict[str, sc.DataArray])
 """Workflow result container."""
@@ -93,56 +93,38 @@ class RawCountHandler(HandlerInterface):
         self._pulse = -1
         self._previous: sc.DataArray | None = None
         self._detectors: dict[str, raw.RollingDetectorView] = {}
+        self._buffer = []
 
         with snx.File(nexus_file) as f:
             entry = next(iter(f[snx.NXentry].values()))
             instrument = next(iter(entry[snx.NXinstrument].values()))
-            detectors = instrument[snx.NXdetector]
-            for name, detector in detectors.items():
-                detector_number = detector['detector_number'][()]
-                x_pixel_offset = detector['x_pixel_offset'][()]
-                y_pixel_offset = detector['y_pixel_offset'][()]
-                z_pixel_offset = detector['z_pixel_offset'][()]
-                if (sizes := DETECTOR_BANK_SIZES.get(name)) is not None:
-                    detector_number = detector_number.fold(
-                        dim='detector_number', sizes=sizes
-                    )
-                    x_pixel_offset = x_pixel_offset.fold(
-                        dim='detector_number', sizes=sizes
-                    )
-                    y_pixel_offset = y_pixel_offset.fold(
-                        dim='detector_number', sizes=sizes
-                    )
-                    z_pixel_offset = z_pixel_offset.fold(
-                        dim='detector_number', sizes=sizes
-                    )
-                params = raw.DetectorParams(
-                    detector_number=detector_number,
-                    x_pixel_offset=x_pixel_offset,
-                    y_pixel_offset=y_pixel_offset,
-                    z_pixel_offset=z_pixel_offset,
-                )
-                self._detectors[detector.name] = raw.RollingDetectorView(
-                    params, window=4000
-                )
-            self.info("Initialized with %s", list(self._detectors))
+            path = instrument.name
+            detectors = list(instrument[snx.NXdetector])
+        for name in detectors:
+            # params = raw.DetectorParams.from_nexus(nexus_file, name)
+            # self._detectors[f'{path}/{name}'] = raw.RollingDetectorView(
+            #    params, window=400, projection=raw.LokiProjection()
+            # )
+            self._detectors[f'{path}/{name}'] = raw.RollingDetectorView.from_nexus(
+                nexus_file, name
+            )
+        self.info("Initialized with %s", list(self._detectors))
 
     def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate | None:
         name = message.content.deserialized['source_name']
         event_id = message.content.deserialized['pixel_id']
-        self.info("Received %s events for %s", len(event_id), name)
+        # self.info("Received %s events for %s", len(event_id), name)
         if (det := self._detectors.get(name)) is not None:
-            det.add_counts(event_id)
+            self._buffer.append(event_id)
+            # det.add_counts(event_id)
             self._pulse += 1
-            # data = det.data.sum(('layer')).flatten(
-            #    dims=('tube', 'straw'), to='straw'
-            # )
-            if self._pulse % 20 == 0:
+            if self._pulse % 10 == 0:
+                det.add_counts(np.concatenate(self._buffer))
+
+                self._buffer = []
                 results = {}
                 for window in (None,):
                     data = det.get(window)
-                    # data.sum(('layer', 'straw'))
-                    # data = data.fold('pixel', sizes={'pixel': -1, '_': 8}).sum('_')
                     results[f'{name.split("/")[-1]} window={window}'] = data
                 return WorkflowResultUpdate(results)
             else:
@@ -438,7 +420,7 @@ class PlotSaver(PlotStreamer):
             (axes,) if len(message.content) == 1 else axes.flat,
             strict=False,
         ):
-            da = project_loki_at_larmor(da)
+            # da = project_loki_at_larmor(da)
             # TODO We need a way of configuring plot options for each item. The below
             # works for the SANS 60387-2022-02-28_2215.nxs AgBeh file and is useful for
             # testing.
