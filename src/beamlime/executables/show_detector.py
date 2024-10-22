@@ -22,6 +22,7 @@ from ..applications.base import (
     MessageRouter,
 )
 from ..applications.daemons import DataPiece, DataPieceReceived, DeserializedMessage
+from ..applications.handlers import WorkflowResultUpdate
 from ..constructors import SingletonProvider
 from ..constructors.providers import merge as merge_providers
 from ..logging import BeamlimeLogger
@@ -187,12 +188,27 @@ class ShowDetectorApp(Application):
             self.message_router.message_pipe.put_nowait(Application.Stop(content=None))
 
 
+def _do_sth(logger: BeamlimeLogger, msg: DataPieceReceived) -> WorkflowResultUpdate:
+    logger.debug("Received data piece: %s", msg.content)
+    return WorkflowResultUpdate(content=[1, 2, 3])
+
+
+def _draw_sth(logger: BeamlimeLogger, msg: WorkflowResultUpdate) -> None:
+    logger.debug("Drawing: %s", msg.content)
+
+
 def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> None:
+    from functools import partial
+
     factory[BeamlimeLogger].setLevel(arg_name_space.log_level.upper())
     factory[BeamlimeLogger].info("Start showing detector hits.")
     with factory.constant_provider(argparse.Namespace, arg_name_space):
         event_listener = factory[EventListener]
         app = factory[ShowDetectorApp]
+        app.register_handling_method(DataPieceReceived, partial(_do_sth, app.logger))
+        app.register_handling_method(
+            WorkflowResultUpdate, partial(_draw_sth, app.logger)
+        )
         app.register_daemon(event_listener)
         app.run()
 
