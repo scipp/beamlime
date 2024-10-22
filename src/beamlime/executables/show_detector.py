@@ -213,11 +213,10 @@ def _do_sth(
         spec = streaming_modules[msg.content.key]
         gr = _initialize_ev44(spec)
         _merge_ev44(gr, msg.content.deserialized)
-        da = snx.Group(JSONGroup(gr))[()]
-
+        dg = snx.Group(JSONGroup(gr))[()]
         logger.debug("Received data piece: %s", msg.content)
-        logger.info("Data piece received for %s", da)
-        return WorkflowResultUpdate(content={'a': da.hist(dim='event')})
+        logger.info("Data piece received for %s", dg['event_id'])
+        return WorkflowResultUpdate(content={'a': dg['event_id'].hist(dim='')})
     except KeyError:
         logger.error("No module spec found for %s", msg.content.key)
 
