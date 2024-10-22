@@ -204,6 +204,7 @@ def _do_sth(
     logger: BeamlimeLogger,
     streaming_modules: StreamingModules,
 ) -> WorkflowResultUpdate:
+    import scipp as sc
     import scippnexus as snx
     from ess.reduce.nexus.json_nexus import JSONGroup
 
@@ -216,9 +217,11 @@ def _do_sth(
         dg = snx.Group(JSONGroup(gr))[()]
         logger.debug("Received data piece: %s", msg.content)
         logger.info("Data piece received for %s", dg['event_id'])
-        return WorkflowResultUpdate(
-            content={'a': dg['event_id'].group('dim_0').sum(dim='dim_0')}
+        da = sc.DataArray(
+            data=sc.ones(sizes=dg['event_id'].sizes),
+            coords={'event_id': dg['event_id']},
         )
+        return WorkflowResultUpdate(content={'a': da.group('event_id').sum()})
     except KeyError:
         logger.error("No module spec found for %s", msg.content.key)
 
