@@ -22,7 +22,7 @@ from ..applications.base import (
     MessageRouter,
 )
 from ..applications.daemons import DataPiece, DataPieceReceived, DeserializedMessage
-from ..applications.handlers import WorkflowResultUpdate
+from ..applications.handlers import PlotSaver, WorkflowResultUpdate
 from ..constructors import SingletonProvider
 from ..constructors.providers import merge as merge_providers
 from ..logging import BeamlimeLogger
@@ -167,11 +167,16 @@ def listener_from_args(
     return instantiate_from_args(logger, args, EventListener)
 
 
+def plot_saver_from_args(logger: BeamlimeLogger, args: argparse.Namespace) -> PlotSaver:
+    return instantiate_from_args(logger, args, PlotSaver)
+
+
 def collect_show_detector_providers() -> ProviderGroup:
     from ..logging.providers import log_providers
 
     app_providers = ProviderGroup(
         listener_from_args,
+        SingletonProvider(plot_saver_from_args),
         SingletonProvider(ShowDetectorApp),
         MessageRouter,
     )
@@ -190,11 +195,7 @@ class ShowDetectorApp(Application):
 
 def _do_sth(logger: BeamlimeLogger, msg: DataPieceReceived) -> WorkflowResultUpdate:
     logger.debug("Received data piece: %s", msg.content)
-    return WorkflowResultUpdate(content=[1, 2, 3])
-
-
-def _draw_sth(logger: BeamlimeLogger, msg: WorkflowResultUpdate) -> None:
-    logger.debug("Drawing: %s", msg.content)
+    return WorkflowResultUpdate(content={})
 
 
 def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> None:
@@ -206,10 +207,9 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
         event_listener = factory[EventListener]
         app = factory[ShowDetectorApp]
         app.register_handling_method(DataPieceReceived, partial(_do_sth, app.logger))
-        app.register_handling_method(
-            WorkflowResultUpdate, partial(_draw_sth, app.logger)
-        )
         app.register_daemon(event_listener)
+        plot_saver = factory[PlotSaver]
+        app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
         app.run()
 
 
