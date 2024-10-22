@@ -119,7 +119,7 @@ class EventListener(DaemonInterface):
         while True:
             msg = self.consumer.poll(0.5)
             if _is_event_msg_valid(msg):
-                deserialized = vars(deserialise_ev44(msg.value()))
+                deserialized = deserialise_ev44(msg.value())._asdict()
                 self.debug("%s", deserialized)
                 yield DataPieceReceived(
                     content=_wrap_event_msg_to_data_piece(msg.topic(), deserialized)
