@@ -216,6 +216,6 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
 def main() -> None:
     """Entry point of the ``show-detector`` command."""
     factory = Factory(collect_show_detector_providers())
-    arg_parser = build_arg_parser(EventListener)
+    arg_parser = build_arg_parser(EventListener, PlotSaver)
     args = arg_parser.parse_args()
     run_show_detector(factory, args)
