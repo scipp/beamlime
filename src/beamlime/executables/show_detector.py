@@ -215,12 +215,15 @@ def _do_sth(
         gr = _initialize_ev44(spec)
         _merge_ev44(gr, msg.content.deserialized)
         dg = snx.Group(JSONGroup(gr))[()]
-        da = sc.DataArray(
-            data=sc.ones(sizes=dg['event_id'].sizes),
-            coords={'event_id': dg['event_id']},
+        da = (
+            sc.DataArray(
+                data=sc.ones(sizes=dg['event_id'].sizes),
+                coords={'event_id': dg['event_id']},
+            )
+            .group('event_id')
+            .hist()
         )
-        logger.info("Data piece received for %s", da.group('event_id').hist())
-        return WorkflowResultUpdate(content={'a': da.group('event_id').hist()})
+        return WorkflowResultUpdate(content={'a': da})
     except KeyError:
         logger.error("No module spec found for %s", msg.content.key)
 
