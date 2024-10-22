@@ -209,14 +209,16 @@ def _do_sth(
 
     from ..applications._nexus_helpers import _initialize_ev44, _merge_ev44
 
-    spec = streaming_modules[msg.content.key]
-    logger.info(msg.content.key)
-    gr = _initialize_ev44(spec)
-    da_json = _merge_ev44(gr, msg.content.deserialized)
-    da = snx.Group(JSONGroup(da_json))[()]
+    try:
+        spec = streaming_modules[msg.content.key]
+        gr = _initialize_ev44(spec)
+        da_json = _merge_ev44(gr, msg.content.deserialized)
+        da = snx.Group(JSONGroup(da_json))[()]
 
-    logger.debug("Received data piece: %s", msg.content)
-    return WorkflowResultUpdate(content={'a': da.hist()})
+        logger.debug("Received data piece: %s", msg.content)
+        return WorkflowResultUpdate(content={'a': da.hist()})
+    except KeyError:
+        logger.info(msg.content.key)
 
 
 def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> None:
