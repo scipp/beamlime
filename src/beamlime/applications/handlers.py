@@ -123,7 +123,7 @@ class RawCountHandler(HandlerInterface):
                     z_pixel_offset=z_pixel_offset,
                 )
                 self._detectors[detector.name] = raw.RollingDetectorView(
-                    params, window=1000
+                    params, window=4000
                 )
             self.info("Initialized with %s", list(self._detectors))
 
@@ -133,14 +133,13 @@ class RawCountHandler(HandlerInterface):
         self.info("Received %s events for %s", len(event_id), name)
         if (det := self._detectors.get(name)) is not None:
             det.add_counts(event_id)
-            self.info("Total counts for %s: %s", name, det.data.sum().value)
             self._pulse += 1
             # data = det.data.sum(('layer')).flatten(
             #    dims=('tube', 'straw'), to='straw'
             # )
-            if self._pulse % 5 == 0:
+            if self._pulse % 20 == 0:
                 results = {}
-                for window in (20, None):
+                for window in (None,):
                     data = det.get(window)
                     # data.sum(('layer', 'straw'))
                     # data = data.fold('pixel', sizes={'pixel': -1, '_': 8}).sum('_')
@@ -274,7 +273,7 @@ def random_image_path() -> ImagePath:
 
 
 MaxPlotColumn = NewType("MaxPlotColumn", int)
-DefaultMaxPlotColumn = MaxPlotColumn(2)
+DefaultMaxPlotColumn = MaxPlotColumn(1)
 
 
 def project_xy(
@@ -294,6 +293,33 @@ def project_xy(
     y_proj = y * t
 
     return x_proj, y_proj, z_proj
+
+
+def project_loki_at_larmor(da: sc.DataArray) -> sc.DataArray:
+    data = da.flatten(to='pixel').copy()
+    replicas = 8
+    data = sc.concat([data] * replicas, 'pixel')
+    position = sc.vector([-0.49902349, 0.43555999, 4.09899989], unit='m')
+    beam_center = sc.vector([-0.02864121, -0.01850989, 0.0], unit='m')
+    offset = sc.spatial.as_vectors(
+        x=data.coords['x_pixel_offset'],
+        y=data.coords['y_pixel_offset'],
+        z=data.coords['z_pixel_offset'],
+    )
+    rng = np.random.default_rng()
+    # 2 mm height, 4 mm radius
+    cyl_height = 0.002
+    dx = cyl_height / 2
+    cyl_radius = 0.004
+    offset.fields.x.values += rng.uniform(-dx, dx, size=offset.shape)
+    angle = rng.uniform(0, 2 * np.pi, size=offset.shape)
+    radius = np.sqrt(rng.uniform(0, cyl_radius**2, size=offset.shape))
+    offset.fields.y.values += radius * np.sin(angle)
+    offset.fields.z.values += radius * np.cos(angle)
+    pos = position + offset - beam_center
+    x, y, z = project_xy(pos.fields.x, pos.fields.y, pos.fields.z)
+    tmp = sc.DataArray(data.data, coords={'x': x, 'y': y})
+    return tmp.hist(y=150, x=150) / replicas
 
 
 class PlotStreamer(HandlerInterface):
@@ -325,20 +351,7 @@ class PlotStreamer(HandlerInterface):
                 data = tmp
             data = data.flatten(to='pix').copy()
         else:
-            data = da.flatten(to='pixel').copy()
-            position = sc.vector([-0.49902349, 0.43555999, 4.09899989], unit='m')
-            beam_center = sc.vector([-0.02864121, -0.01850989, 0.0], unit='m')
-            offset = sc.spatial.as_vectors(
-                x=data.coords['x_pixel_offset'],
-                y=data.coords['y_pixel_offset'],
-                z=data.coords['z_pixel_offset'],
-            )
-            pos = position + offset - beam_center
-            x, y, z = project_xy(pos.fields.x, pos.fields.y, pos.fields.z)
-            tmp = sc.DataArray(data.data, coords={'x': x, 'y': y})
-            data = tmp.hist(x=100, y=100)
-
-        print(data)
+            data = project_loki_at_larmor(da)
 
         try:
             figure = self.figures.get(name)
@@ -417,10 +430,15 @@ class PlotSaver(PlotStreamer):
         fig, axes = plt.subplots(
             ceil(len(message.content) / self.max_column),
             self.max_column,
-            figsize=(16, 8),
+            figsize=(12, 8),
         )
         plt.subplots_adjust(wspace=0.3, hspace=0.3)
-        for (name, da), ax in zip(message.content.items(), axes.flat, strict=False):
+        for (name, da), ax in zip(
+            message.content.items(),
+            (axes,) if len(message.content) == 1 else axes.flat,
+            strict=False,
+        ):
+            da = project_loki_at_larmor(da)
             # TODO We need a way of configuring plot options for each item. The below
             # works for the SANS 60387-2022-02-28_2215.nxs AgBeh file and is useful for
             # testing.
@@ -428,7 +446,7 @@ class PlotSaver(PlotStreamer):
                 extra = {'norm': 'log', 'vmin': 1e-1, 'vmax': 1e1, 'aspect': 'equal'}
             else:
                 extra = {}
-            da.plot(ax=ax, title=name, **extra, norm='log')
+            da.plot(ax=ax, title=name, **extra, norm='log', aspect='equal')
         fig.savefig(image_file_name, dpi=100)
         plt.close(fig)
 
