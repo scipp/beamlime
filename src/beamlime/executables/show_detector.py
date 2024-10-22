@@ -195,7 +195,7 @@ class ShowDetectorApp(Application):
 
 def _do_sth(logger: BeamlimeLogger, msg: DataPieceReceived) -> WorkflowResultUpdate:
     logger.debug("Received data piece: %s", msg.content)
-    return WorkflowResultUpdate(content={})
+    return WorkflowResultUpdate(content={'a': [1, 2, 3]})
 
 
 def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> None:
