@@ -6,7 +6,7 @@ import pathlib
 from collections.abc import AsyncGenerator
 from typing import NewType
 
-from confluent_kafka import OFFSET_BEGINNING, Consumer, TopicPartition
+from confluent_kafka import OFFSET_BEGINNING, Consumer, Message, TopicPartition
 from confluent_kafka.admin import AdminClient
 from streaming_data_types.eventdata_ev44 import deserialise_ev44
 
@@ -21,6 +21,7 @@ from ..applications.base import (
     MessageProtocol,
     MessageRouter,
 )
+from ..applications.daemons import DataPiece, DataPieceReceived, DeserializedMessage
 from ..constructors import SingletonProvider
 from ..constructors.providers import merge as merge_providers
 from ..logging import BeamlimeLogger
@@ -60,6 +61,23 @@ def _collect_all_topic_partitions(
     ]
 
 
+def _wrap_event_msg_to_data_piece(
+    topic: str, deserialized: DeserializedMessage
+) -> DataPiece:
+    key = StreamModuleKey(
+        module_type='ev44', topic=topic, source=deserialized.source_name
+    )
+    return DataPiece(key=key, deserialized=deserialized)
+
+
+def _is_event_msg_valid(msg: Message) -> bool:
+    return (
+        msg is not None
+        and msg.error() is None
+        and (msg.value()[4:8].decode() == "ev44")
+    )
+
+
 class EventListener(DaemonInterface):
     def __init__(
         self,
@@ -97,15 +115,17 @@ class EventListener(DaemonInterface):
             self.consumer.close()
 
     async def run(self) -> AsyncGenerator[MessageProtocol | None, None]:
-        for _ in range(100):
-            msg = self.consumer.poll(1)
-            if msg is not None:
-                if msg.value()[4:8].decode() == "ev44":
-                    self.info("%s", deserialise_ev44(msg.value()))
-                else:
-                    self.error("Unexpected message: %s", msg.value().decode())
+        while True:
+            msg = self.consumer.poll(time_out=0.5)
+            if _is_event_msg_valid(msg):
+                deserialized = deserialise_ev44(msg.value())
+                self.debug("%s", deserialized)
+                yield DataPieceReceived(
+                    content=_wrap_event_msg_to_data_piece(msg.topic(), deserialized)
+                )
+            elif msg is not None:
+                self.error("Unexpected message: %s", msg.value().decode())
             yield None
-        yield Application.Stop(content=None)
 
     @staticmethod
     def add_argument_group(parser: argparse.ArgumentParser) -> None:
