@@ -216,7 +216,8 @@ def _do_sth(
         da = snx.Group(JSONGroup(gr))[()]
 
         logger.debug("Received data piece: %s", msg.content)
-        return WorkflowResultUpdate(content={'a': da.hist()})
+        logger.info("Data piece received for %s", da)
+        return WorkflowResultUpdate(content={'a': da.hist(dim='event')})
     except KeyError:
         logger.error("No module spec found for %s", msg.content.key)
 
