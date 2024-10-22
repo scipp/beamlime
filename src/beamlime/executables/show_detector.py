@@ -171,11 +171,20 @@ def collect_show_detector_providers() -> ProviderGroup:
 
     app_providers = ProviderGroup(
         listener_from_args,
-        SingletonProvider(Application),
+        SingletonProvider(ShowDetectorApp),
         MessageRouter,
     )
 
     return merge_providers(log_providers, app_providers)
+
+
+class ShowDetectorApp(Application):
+    def run(self) -> None:
+        try:
+            super().run()
+        except KeyboardInterrupt:
+            self.info("Received a keyboard interrupt. Exiting...")
+            self.message_router.message_pipe.put_nowait(Application.Stop(content=None))
 
 
 def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> None:
@@ -183,7 +192,7 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
     factory[BeamlimeLogger].info("Start showing detector hits.")
     with factory.constant_provider(argparse.Namespace, arg_name_space):
         event_listener = factory[EventListener]
-        app = factory[Application]
+        app = factory[ShowDetectorApp]
         app.register_daemon(event_listener)
         app.run()
 
