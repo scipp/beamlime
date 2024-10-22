@@ -219,8 +219,8 @@ def _do_sth(
             data=sc.ones(sizes=dg['event_id'].sizes),
             coords={'event_id': dg['event_id']},
         )
-        logger.info("Data piece received for %s", da.group('event_id').sum('event_id'))
-        return WorkflowResultUpdate(content={'a': da.group('event_id').sum('event_id')})
+        logger.info("Data piece received for %s", da.group('event_id').hist())
+        return WorkflowResultUpdate(content={'a': da.group('event_id').hist()})
     except KeyError:
         logger.error("No module spec found for %s", msg.content.key)
 
