@@ -119,7 +119,7 @@ class EventListener(DaemonInterface):
         while True:
             msg = self.consumer.poll(0.5)
             if _is_event_msg_valid(msg):
-                deserialized = deserialise_ev44(msg.value())
+                deserialized = vars(deserialise_ev44(msg.value()))
                 self.debug("%s", deserialized)
                 yield DataPieceReceived(
                     content=_wrap_event_msg_to_data_piece(msg.topic(), deserialized)
@@ -218,7 +218,7 @@ def _do_sth(
         logger.debug("Received data piece: %s", msg.content)
         return WorkflowResultUpdate(content={'a': da.hist()})
     except KeyError:
-        logger.info(msg.content.key)
+        logger.error("No module spec found for %s", msg.content.key)
 
 
 def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> None:
