@@ -144,8 +144,18 @@ class EventListener(DaemonInterface):
     ) -> "EventListener":
         json_file_path = pathlib.Path(args.config)
         config_dict = json.loads(json_file_path.read_text())
-        streaming_modules_list = config_dict["streaming_modules"]
-        streaming_modules = {
+        streaming_modules = streaming_modules_from_config(config_dict)
+        return EventListener(
+            logger=logger,
+            streaming_modules=StreamingModules(streaming_modules),
+            kafka_config=KafkaConfig(config_dict["kafka_config"]),
+        )
+
+
+def streaming_modules_from_config(config_dict: dict) -> StreamingModules:
+    streaming_modules_list = config_dict["streaming_modules"]
+    return StreamingModules(
+        {
             StreamModuleKey(
                 module_type='ev44', topic=item['topic'], source=item['source']
             ): StreamModuleValue(
@@ -153,12 +163,7 @@ class EventListener(DaemonInterface):
             )
             for item in streaming_modules_list
         }
-
-        return EventListener(
-            logger=logger,
-            streaming_modules=StreamingModules(streaming_modules),
-            kafka_config=KafkaConfig(config_dict["kafka_config"]),
-        )
+    )
 
 
 def listener_from_args(
@@ -193,18 +198,24 @@ class ShowDetectorApp(Application):
             self.message_router.message_pipe.put_nowait(Application.Stop(content=None))
 
 
-def _do_sth(logger: BeamlimeLogger, msg: DataPieceReceived) -> WorkflowResultUpdate:
-    import scipp as sc
+def _do_sth(
+    msg: DataPieceReceived,
+    *,
+    logger: BeamlimeLogger,
+    streaming_modules: StreamingModules,
+) -> WorkflowResultUpdate:
+    import scippnexus as snx
+    from ess.reduce.nexus.json_nexus import JSONGroup
+
+    from ..applications._nexus_helpers import _initialize_ev44, _merge_ev44
+
+    spec = streaming_modules[msg.content.key]
+    gr = _initialize_ev44(spec)
+    da_json = _merge_ev44(gr, msg.content.deserialized)
+    da = snx.Group(JSONGroup(da_json))[()]
 
     logger.debug("Received data piece: %s", msg.content)
-    return WorkflowResultUpdate(
-        content={
-            'a': sc.DataArray(
-                data=sc.array(dims=['x'], values=[1, 2, 3]),
-                coords={'x': sc.array(dims=['x'], values=[1, 2, 3])},
-            )
-        }
-    )
+    return WorkflowResultUpdate(content={'a': da.hist()})
 
 
 def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> None:
@@ -215,11 +226,16 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
     with factory.constant_provider(argparse.Namespace, arg_name_space):
         event_listener = factory[EventListener]
         app = factory[ShowDetectorApp]
-        app.register_handling_method(DataPieceReceived, partial(_do_sth, app.logger))
-        app.register_daemon(event_listener)
         plot_saver = factory[PlotSaver]
-        app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
-        app.run()
+
+    streaming_modules = event_listener.streaming_modules
+    app.register_handling_method(
+        DataPieceReceived,
+        partial(_do_sth, logger=app.logger, streaming_modules=streaming_modules),
+    )
+    app.register_daemon(event_listener)
+    app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
+    app.run()
 
 
 def main() -> None:
