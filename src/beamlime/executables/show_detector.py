@@ -116,7 +116,7 @@ class EventListener(DaemonInterface):
 
     async def run(self) -> AsyncGenerator[MessageProtocol | None, None]:
         while True:
-            msg = self.consumer.poll(time_out=0.5)
+            msg = self.consumer.poll(0.5)
             if _is_event_msg_valid(msg):
                 deserialized = deserialise_ev44(msg.value())
                 self.debug("%s", deserialized)
