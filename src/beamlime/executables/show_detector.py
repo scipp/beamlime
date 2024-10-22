@@ -66,7 +66,7 @@ def _wrap_event_msg_to_data_piece(
     topic: str, deserialized: DeserializedMessage
 ) -> DataPiece:
     key = StreamModuleKey(
-        module_type='ev44', topic=topic, source=deserialized.source_name
+        module_type='ev44', topic=topic, source=deserialized['source_name']
     )
     return DataPiece(key=key, deserialized=deserialized)
 
