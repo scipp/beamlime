@@ -212,8 +212,8 @@ def _do_sth(
     try:
         spec = streaming_modules[msg.content.key]
         gr = _initialize_ev44(spec)
-        da_json = _merge_ev44(gr, msg.content.deserialized)
-        da = snx.Group(JSONGroup(da_json))[()]
+        _merge_ev44(gr, msg.content.deserialized)
+        da = snx.Group(JSONGroup(gr))[()]
 
         logger.debug("Received data piece: %s", msg.content)
         return WorkflowResultUpdate(content={'a': da.hist()})
