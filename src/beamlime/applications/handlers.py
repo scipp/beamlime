@@ -329,6 +329,29 @@ def _plot_1d(
     ax.set_title(title)
 
 
+def _plot_2d(
+    da: sc.DataArray,
+    *,
+    ax: plt.Axes,
+    title: str,
+    **kwargs,
+):
+    values = da.values
+    ax.imshow(values, **kwargs)
+    ax.invert_yaxis()
+    cbar = plt.colorbar(ax.images[0], ax=ax)
+    cbar.set_label(f'[{da.unit}]')
+    ax.set_title(title)
+    ax.set_xlabel(f'{da.dims[1]} [{da.coords[da.dims[1]].unit}]')
+    ax.set_ylabel(f'{da.dims[0]} [{da.coords[da.dims[0]].unit}]')
+    x_coords = da.coords[da.dims[1]].values[::20]
+    ax.set_xticks(np.linspace(0, values.shape[1] - 1, len(x_coords)))
+    ax.set_xticklabels([round(x, 2) for x in x_coords])
+    y_coords = da.coords[da.dims[0]].values[::20]
+    ax.set_yticks(np.linspace(0, values.shape[0] - 1, len(y_coords)))
+    ax.set_yticklabels([round(y, 2) for y in y_coords])
+
+
 class PlotSaver(PlotStreamer):
     """Plot handler to save the updated histogram into an image file."""
 
@@ -351,7 +374,7 @@ class PlotSaver(PlotStreamer):
         nplot = len(message.content)
         nrow = ceil(nplot / self.max_column)
         ncol = min(nplot, self.max_column)
-        fig, axes = plt.subplots(nrow, ncol, figsize=(4 * ncol, 4 * nrow))
+        fig, axes = plt.subplots(nrow, ncol, figsize=(6 * ncol, 6 * nrow))
         plt.subplots_adjust(wspace=0.3, hspace=0.3)
         for (name, da), ax in zip(message.content.items(), axes.flat, strict=False):
             # TODO We need a way of configuring plot options for each item. The below
@@ -365,20 +388,7 @@ class PlotSaver(PlotStreamer):
                 extra = {}
             start = time()
             if da.ndim == 2:
-                values = da.values
-                ax.imshow(values, **extra)
-                ax.invert_yaxis()
-                cbar = plt.colorbar(ax.images[0], ax=ax)
-                cbar.set_label(f'[{da.unit}]')
-                ax.set_title(name)
-                ax.set_xlabel(f'{da.dims[1]} [{da.coords[da.dims[1]].unit}]')
-                ax.set_ylabel(f'{da.dims[0]} [{da.coords[da.dims[0]].unit}]')
-                x_coords = da.coords[da.dims[1]].values[::20]
-                ax.set_xticks(np.linspace(0, values.shape[1] - 1, len(x_coords)))
-                ax.set_xticklabels([round(x, 2) for x in x_coords])
-                y_coords = da.coords[da.dims[0]].values[::20]
-                ax.set_yticks(np.linspace(0, values.shape[0] - 1, len(y_coords)))
-                ax.set_yticklabels([round(y, 2) for y in y_coords])
+                _plot_2d(da, ax=ax, title=name, **extra)
             elif isinstance(da, sc.DataArray):
                 _plot_1d(da, ax=ax, title=name, **extra)
             else:
