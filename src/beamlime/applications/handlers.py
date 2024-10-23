@@ -104,7 +104,7 @@ class RawCountHandler(HandlerInterface):
         detectors = {**detectors, **clone}
         for name, nexus_name in detectors.items():
             self._detectors[f'{path}/{name}'] = raw.RollingDetectorView.from_nexus(
-                nexus_file, detector_name=nexus_name, window=400, xres=100, yres=100
+                nexus_file, detector_name=nexus_name, window=400, xres=128, yres=128
             )
         self._chunk = {name: 0 for name in self._detectors}
         self._buffer = {name: [] for name in self._detectors}
@@ -306,6 +306,29 @@ class PlotStreamer(HandlerInterface):
         )
 
 
+def _plot_1d(
+    da: sc.DataArray,
+    *,
+    ax: plt.Axes,
+    title: str,
+    norm: str | None = None,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    aspect: str | None = None,
+    **kwargs,
+):
+    x = sc.midpoints(da.coords[da.dims[0]]).values
+    ax.errorbar(x, da.values, yerr=np.sqrt(da.variances), fmt='o', **kwargs)
+    if norm is not None:
+        ax.set_yscale(norm)
+    y_min = vmin if vmin is not None else 0
+    y_max = vmax if vmax is not None else 1.05 * da.values.max()
+    ax.set_ylim(y_min, y_max)
+    ax.set_xlabel(f'{da.dims[0]} [{da.coords[da.dims[0]].unit}]')
+    ax.set_ylabel(f'[{da.unit}]')
+    ax.set_title(title)
+
+
 class PlotSaver(PlotStreamer):
     """Plot handler to save the updated histogram into an image file."""
 
@@ -320,25 +343,48 @@ class PlotSaver(PlotStreamer):
         self.image_path_prefix = image_path_prefix
 
     def save_histogram(self, message: WorkflowResultUpdate) -> None:
+        from time import time
+
         image_file_name = f"{self.image_path_prefix}.png"
         self.info("Received histogram(s), saving into %s...", image_file_name)
 
-        fig, axes = plt.subplots(
-            ceil(len(message.content) / self.max_column),
-            self.max_column,
-            figsize=(8, 8),
-        )
+        nplot = len(message.content)
+        nrow = ceil(nplot / self.max_column)
+        ncol = min(nplot, self.max_column)
+        fig, axes = plt.subplots(nrow, ncol, figsize=(4 * ncol, 4 * nrow))
         plt.subplots_adjust(wspace=0.3, hspace=0.3)
         for (name, da), ax in zip(message.content.items(), axes.flat, strict=False):
             # TODO We need a way of configuring plot options for each item. The below
             # works for the SANS 60387-2022-02-28_2215.nxs AgBeh file and is useful for
             # testing.
-            if da.unit == '':
+            if 'wavelength' not in da.dims and da.unit == '':
                 extra = {'norm': 'log', 'vmin': 1e-1, 'vmax': 1e1, 'aspect': 'equal'}
+            elif da.ndim == 2:
+                extra = {'norm': 'log'}
             else:
                 extra = {}
-            da.plot(ax=ax, title=name, **extra)
-        fig.savefig(image_file_name, dpi=100)
+            start = time()
+            if da.ndim == 2:
+                values = da.values
+                ax.imshow(values, **extra)
+                ax.invert_yaxis()
+                cbar = plt.colorbar(ax.images[0], ax=ax)
+                cbar.set_label(f'[{da.unit}]')
+                ax.set_title(name)
+                ax.set_xlabel(f'{da.dims[1]} [{da.coords[da.dims[1]].unit}]')
+                ax.set_ylabel(f'{da.dims[0]} [{da.coords[da.dims[0]].unit}]')
+                x_coords = da.coords[da.dims[1]].values[::20]
+                ax.set_xticks(np.linspace(0, values.shape[1] - 1, len(x_coords)))
+                ax.set_xticklabels([round(x, 2) for x in x_coords])
+                y_coords = da.coords[da.dims[0]].values[::20]
+                ax.set_yticks(np.linspace(0, values.shape[0] - 1, len(y_coords)))
+                ax.set_yticklabels([round(y, 2) for y in y_coords])
+            elif isinstance(da, sc.DataArray):
+                _plot_1d(da, ax=ax, title=name, **extra)
+            else:
+                da.plot(ax=ax, title=name, **extra)
+            print(f"Plotting {name} took {time() - start:.2f} s")
+        fig.savefig(image_file_name, dpi=200)
         plt.close(fig)
 
     @classmethod
