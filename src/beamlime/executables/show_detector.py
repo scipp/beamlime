@@ -22,7 +22,7 @@ from ..applications.base import (
     MessageRouter,
 )
 from ..applications.daemons import DataPiece, DataPieceReceived, DeserializedMessage
-from ..applications.handlers import PlotSaver, WorkflowResultUpdate
+from ..applications.handlers import PlotSaver
 from ..constructors import SingletonProvider
 from ..constructors.providers import merge as merge_providers
 from ..logging import BeamlimeLogger
@@ -100,11 +100,11 @@ class EventListener(DaemonInterface):
             logger.error(err_msg)
             raise RuntimeError(err_msg) from e
 
-        self.info("Retrieving the number of partitions for each topic.")
+        self.debug("Retrieving the number of partitions for each topic.")
         self.topic_partitions = []
         for topic in {key.topic for key in streaming_modules.keys()}:
             self.topic_partitions += _collect_all_topic_partitions(self.admin, topic)
-        self.info("Collected partitions: %s", self.topic_partitions)
+        self.debug("Collected partitions: %s", self.topic_partitions)
 
         self.consumer = Consumer(kafka_config)
         self.consumer.assign(self.topic_partitions)
@@ -198,53 +198,16 @@ class ShowDetectorApp(Application):
             self.message_router.message_pipe.put_nowait(Application.Stop(content=None))
 
 
-def _do_sth(
-    msg: DataPieceReceived,
-    *,
-    logger: BeamlimeLogger,
-    streaming_modules: StreamingModules,
-) -> WorkflowResultUpdate:
-    import scipp as sc
-    import scippnexus as snx
-    from ess.reduce.nexus.json_nexus import JSONGroup
-
-    from ..applications._nexus_helpers import _initialize_ev44, _merge_ev44
-
-    try:
-        spec = streaming_modules[msg.content.key]
-        gr = _initialize_ev44(spec)
-        _merge_ev44(gr, msg.content.deserialized)
-        dg = snx.Group(JSONGroup(gr))[()]
-        da = (
-            sc.DataArray(
-                data=sc.ones(sizes=dg['event_id'].sizes),
-                coords={'event_id': dg['event_id']},
-            )
-            .group('event_id')
-            .hist()
-        )
-        return WorkflowResultUpdate(content={'a': da})
-    except KeyError:
-        logger.error("No module spec found for %s", msg.content.key)
-
-
 def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> None:
-    from functools import partial
-
     factory[BeamlimeLogger].setLevel(arg_name_space.log_level.upper())
     factory[BeamlimeLogger].info("Start showing detector hits.")
     with factory.constant_provider(argparse.Namespace, arg_name_space):
         event_listener = factory[EventListener]
         app = factory[ShowDetectorApp]
-        plot_saver = factory[PlotSaver]
 
-    streaming_modules = event_listener.streaming_modules
-    app.register_handling_method(
-        DataPieceReceived,
-        partial(_do_sth, logger=app.logger, streaming_modules=streaming_modules),
-    )
     app.register_daemon(event_listener)
-    app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
+    # TODO: Add ``DataPieceReceived`` handling method to the message router.
+    # TODO: Add ``WorkflowResultUpdate`` handling method to the message router.
     app.run()
 
 
