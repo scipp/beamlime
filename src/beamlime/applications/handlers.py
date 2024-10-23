@@ -200,6 +200,16 @@ class RawCountHandler(HandlerInterface):
         else:
             self.info("Ignoring data for %s", name)
 
+    @staticmethod
+    def add_argument_group(parser: argparse.ArgumentParser) -> None:
+        group = parser.add_argument_group('Raw Detector Counter Configuration')
+        group.add_argument(
+            "--nexus-file-path",
+            help="Path to the nexus file that has the static information.",
+            type=str,
+            required=True,
+        )
+
     @classmethod
     def from_args(
         cls, logger: BeamlimeLogger, args: argparse.Namespace

@@ -22,7 +22,7 @@ from ..applications.base import (
     MessageRouter,
 )
 from ..applications.daemons import DataPiece, DataPieceReceived, DeserializedMessage
-from ..applications.handlers import PlotSaver
+from ..applications.handlers import PlotSaver, RawCountHandler, WorkflowResultUpdate
 from ..constructors import SingletonProvider
 from ..constructors.providers import merge as merge_providers
 from ..logging import BeamlimeLogger
@@ -172,6 +172,12 @@ def listener_from_args(
     return instantiate_from_args(logger, args, EventListener)
 
 
+def raw_detector_counter_from_args(
+    logger: BeamlimeLogger, args: argparse.Namespace
+) -> RawCountHandler:
+    return instantiate_from_args(logger, args, RawCountHandler)
+
+
 def plot_saver_from_args(logger: BeamlimeLogger, args: argparse.Namespace) -> PlotSaver:
     return instantiate_from_args(logger, args, PlotSaver)
 
@@ -181,6 +187,7 @@ def collect_show_detector_providers() -> ProviderGroup:
 
     app_providers = ProviderGroup(
         listener_from_args,
+        raw_detector_counter_from_args,
         SingletonProvider(plot_saver_from_args),
         SingletonProvider(ShowDetectorApp),
         MessageRouter,
@@ -203,17 +210,19 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
     factory[BeamlimeLogger].info("Start showing detector hits.")
     with factory.constant_provider(argparse.Namespace, arg_name_space):
         event_listener = factory[EventListener]
+        raw_detector_counter = factory[RawCountHandler]
+        plot_saver = factory[PlotSaver]
         app = factory[ShowDetectorApp]
 
     app.register_daemon(event_listener)
-    # TODO: Add ``DataPieceReceived`` handling method to the message router.
-    # TODO: Add ``WorkflowResultUpdate`` handling method to the message router.
+    app.register_handling_method(DataPieceReceived, raw_detector_counter.handle)
+    app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
     app.run()
 
 
 def main() -> None:
     """Entry point of the ``show-detector`` command."""
     factory = Factory(collect_show_detector_providers())
-    arg_parser = build_minimum_arg_parser(EventListener, PlotSaver)
+    arg_parser = build_minimum_arg_parser(EventListener, PlotSaver, RawCountHandler)
     args = arg_parser.parse_args()
     run_show_detector(factory, args)
