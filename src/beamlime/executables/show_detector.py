@@ -26,7 +26,7 @@ from ..applications.handlers import PlotSaver
 from ..constructors import SingletonProvider
 from ..constructors.providers import merge as merge_providers
 from ..logging import BeamlimeLogger
-from .options import build_arg_parser
+from .options import build_minimum_arg_parser
 from .prototypes import instantiate_from_args
 
 KafkaConfig = NewType("KafkaConfig", dict)
@@ -214,6 +214,6 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
 def main() -> None:
     """Entry point of the ``show-detector`` command."""
     factory = Factory(collect_show_detector_providers())
-    arg_parser = build_arg_parser(EventListener, PlotSaver)
+    arg_parser = build_minimum_arg_parser(EventListener, PlotSaver)
     args = arg_parser.parse_args()
     run_show_detector(factory, args)
