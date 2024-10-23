@@ -9,8 +9,11 @@ from numbers import Number
 from typing import NewType
 
 import matplotlib.pyplot as plt
+import numpy as np
 import plopp as pp
 import scipp as sc
+import scippnexus as snx
+from ess.reduce.live import raw
 from ess.reduce.nexus.json_nexus import JSONGroup
 
 from beamlime.logging import BeamlimeLogger
@@ -24,7 +27,7 @@ from ._nexus_helpers import (
     nexus_path_as_string,
 )
 from .base import HandlerInterface
-from .daemons import DataPieceReceived, RunStart
+from .daemons import DataPieceReceived, NexusFilePath, RunStart
 
 ResultRegistry = NewType("ResultRegistry", dict[str, sc.DataArray])
 """Workflow result container."""
@@ -148,6 +151,60 @@ class DataAssembler(HandlerInterface):
             merge_every_nth=args.merge_every_nth,
             max_seconds_between_messages=args.max_seconds_between_messages,
         )
+
+
+class RawCountHandler(HandlerInterface):
+    """
+    Continuously handle raw counts for every ev44 message.
+
+    This ignores run-start and run-stop messages.
+    """
+
+    def __init__(self, *, logger: BeamlimeLogger, nexus_file: NexusFilePath) -> None:
+        self.logger = logger
+        self._pulse = -1
+        self._previous: sc.DataArray | None = None
+        self._detectors: dict[str, raw.RollingDetectorView] = {}
+        self._buffer = []
+
+        with snx.File(nexus_file) as f:
+            entry = next(iter(f[snx.NXentry].values()))
+            instrument = next(iter(entry[snx.NXinstrument].values()))
+            path = instrument.name
+            detectors = list(instrument[snx.NXdetector])
+        for name in detectors:
+            self._detectors[f'{path}/{name}'] = raw.RollingDetectorView.from_nexus(
+                nexus_file, detector_name=name, window=400, xres=200, yres=200
+            )
+        self.info("Initialized with %s", list(self._detectors))
+
+    def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate | None:
+        name = message.content.deserialized['source_name']
+        event_id = message.content.deserialized['pixel_id']
+        # TODO This is not working for multiple detectors! Want to re-send old results
+        # for those that did not change?
+        if (det := self._detectors.get(name)) is not None:
+            self._buffer.append(event_id)
+            self._pulse += 1
+            if self._pulse % 100 == 0:
+                det.add_counts(np.concatenate(self._buffer))
+                self._buffer = []
+                results = {}
+                for window in (None, 10):
+                    data = det.get(window)
+                    results[f'{name.split("/")[-1]} window={window}'] = data
+                self.info("Publishing result for detector %s", name)
+                return WorkflowResultUpdate(results)
+            else:
+                return None
+        else:
+            self.info("Ignoring data for %s", name)
+
+    @classmethod
+    def from_args(
+        cls, logger: BeamlimeLogger, args: argparse.Namespace
+    ) -> "RawCountHandler":
+        return cls(logger=logger, nexus_file=args.nexus_file_path)
 
 
 class DataReductionHandler(HandlerInterface):
