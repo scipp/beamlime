@@ -219,7 +219,6 @@ class FakeListener(DaemonInterface):
             "--nexus-file-path",
             help="Path to the nexus file with static information and event data.",
             type=str,
-            required=True,
         )
         group.add_argument(
             "--data-feeding-speed",
@@ -256,6 +255,14 @@ class FakeListener(DaemonInterface):
     def from_args(
         cls, logger: BeamlimeLogger, args: argparse.Namespace
     ) -> "FakeListener":
+        if args.nexus_file_path is None:
+            # This option is not set as a required argument in the `add_argument_group`
+            # method, because it is only required if fake listener is used.
+            raise ValueError(
+                "The path to the nexus file is not provided. "
+                "Use --nexus-file-path option to set it."
+            )
+
         if args.nexus_template_path is not None:
             with open(args.nexus_template_path) as f:
                 nexus_template = json.load(f)

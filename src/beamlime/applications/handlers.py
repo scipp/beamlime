@@ -155,7 +155,7 @@ class RawCountHandler(HandlerInterface):
         group.add_argument(
             "--static-file-path",
             help="Path to the nexus file that has static information.",
-            type=int,
+            type=str,
             required=True,
         )
         group.add_argument(
