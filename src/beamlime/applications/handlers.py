@@ -7,6 +7,7 @@ import tempfile
 from dataclasses import dataclass
 from math import ceil
 from numbers import Number
+from time import time
 from typing import NewType
 
 import matplotlib.pyplot as plt
