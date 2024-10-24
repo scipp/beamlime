@@ -192,12 +192,22 @@ class FakeListener(DaemonInterface):
 
         # Real listener will subscribe to the topics in the ``streaming_modules``
         # and wait for the messages to arrive.
+        exhausted_generators = set()
         for i_frame in range(self.num_frames):
+            # Handle exhausted generators
+            for key in exhausted_generators:
+                self.info("Event generator for %s is exhausted. Removing...", key)
+                self.random_event_generators.pop(key, None)
+            exhausted_generators.clear()
+
             for key, event_generator in self.random_event_generators.items():
                 self.info(f"Frame #{i_frame}: sending neutron events for {key}.")
-                yield DataPieceReceived(
-                    content=DataPiece(key=key, deserialized=next(event_generator))
-                )
+                try:
+                    yield DataPieceReceived(
+                        content=DataPiece(key=key, deserialized=next(event_generator))
+                    )
+                except StopIteration:  # Catch exhausted generators
+                    exhausted_generators.add(key)
 
             self.info(f"Neutron events of frame #{i_frame} were sent.")
             await asyncio.sleep(self.data_feeding_speed)

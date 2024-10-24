@@ -291,6 +291,8 @@ def random_image_path() -> ImagePath:
 
 MaxPlotColumn = NewType("MaxPlotColumn", int)
 DefaultMaxPlotColumn = MaxPlotColumn(3)
+NormalizeHistogramFlag = NewType("NormalizeHistogramFlag", bool)
+DefaultNormalizeHistogramFlag = NormalizeHistogramFlag(False)
 
 
 class PlotStreamer(HandlerInterface):
@@ -455,9 +457,11 @@ class PlotSaver(PlotStreamer):
         logger: BeamlimeLogger,
         image_path_prefix: ImagePath,
         max_column: MaxPlotColumn = DefaultMaxPlotColumn,
+        normalize: NormalizeHistogramFlag = DefaultNormalizeHistogramFlag,
     ) -> None:
         super().__init__(logger=logger, max_column=max_column)
         self.image_path_prefix = image_path_prefix
+        self.extra_drawing_options = {"norm": "log"} if normalize else {}
 
     def save_histogram(self, message: WorkflowResultUpdate) -> None:
         start = time()
@@ -473,20 +477,19 @@ class PlotSaver(PlotStreamer):
             # TODO We need a way of configuring plot options for each item. The below
             # works for the SANS 60387-2022-02-28_2215.nxs AgBeh file and is useful for
             # testing.
-            extra = {'norm': 'log'}
             if da.ndim == 2:
-                _plot_2d(da, ax=ax, title=name, **extra)
+                _plot_2d(da, ax=ax, title=name, **self.extra_drawing_options)
             elif isinstance(da, sc.DataArray):
-                _plot_1d(da, ax=ax, title=name, **extra)
+                _plot_1d(da, ax=ax, title=name, **self.extra_drawing_options)
             else:
-                da.plot(ax=ax, title=name, **extra)
+                da.plot(ax=ax, title=name, **self.extra_drawing_options)
         fig.tight_layout()
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
             # Saving into a tempfile avoids flickering when the image is updated, if
             # the image is displayed in a GUI.
             fig.savefig(tmpfile.name, dpi=100)
             shutil.move(tmpfile.name, image_file_name)
-        self.logger.info("Plotting took %.2f s", time() - start)
+        self.info("Plotting took %.2f s", time() - start)
         plt.close(fig)
 
     @classmethod
@@ -498,10 +501,17 @@ class PlotSaver(PlotStreamer):
             type=str,
             default=None,
         )
+        group.add_argument(
+            "--normalize",
+            action="store_true",
+            help="Normalize the histogram.",
+            default=False,
+        )
 
     @classmethod
     def from_args(cls, logger: BeamlimeLogger, args: argparse.Namespace) -> "PlotSaver":
         return cls(
             logger=logger,
             image_path_prefix=args.image_path_prefix or random_image_path(),
+            normalize=args.normalize,
         )
