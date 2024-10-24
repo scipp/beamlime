@@ -7,6 +7,7 @@ import tempfile
 from dataclasses import dataclass
 from math import ceil
 from numbers import Number
+from time import time
 from typing import NewType
 
 import matplotlib.pyplot as plt
@@ -82,6 +83,9 @@ DETECTOR_BANK_SIZES = {
 }
 
 
+NumPulsesToAccumulate = NewType("NumPulsesToAccumulate", int)
+
+
 class RawCountHandler(HandlerInterface):
     """
     Continuously handle raw counts for every ev44 message.
@@ -89,7 +93,13 @@ class RawCountHandler(HandlerInterface):
     This ignores run-start and run-stop messages.
     """
 
-    def __init__(self, *, logger: BeamlimeLogger, nexus_file: NexusFilePath) -> None:
+    def __init__(
+        self,
+        *,
+        logger: BeamlimeLogger,
+        nexus_file: NexusFilePath,
+        n_pulses: NumPulsesToAccumulate,
+    ) -> None:
         self.logger = logger
         self._pulse = 0
         self._previous: sc.DataArray | None = None
@@ -113,6 +123,7 @@ class RawCountHandler(HandlerInterface):
             )
         self._chunk = {name: 0 for name in self._detectors}
         self._buffer = {name: [] for name in self._detectors}
+        self.n_pulses = n_pulses
         self.info("Initialized with %s", list(self._detectors))
 
     def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate | None:
@@ -125,8 +136,7 @@ class RawCountHandler(HandlerInterface):
         else:
             self.info("Ignoring data for %s", name)
             return
-        npulse = 100
-        if self._pulse % npulse == 0:
+        if self._pulse % self.n_pulses == 0:
             results = {}
             for name, det in self._detectors.items():
                 buffer = self._buffer[name]
@@ -134,16 +144,34 @@ class RawCountHandler(HandlerInterface):
                     det.add_counts(np.concatenate(buffer))
                     buffer.clear()
                 for window in (1,):
-                    key = f'{name.split("/")[-1]} window={window*npulse}'
+                    key = f'{name.split("/")[-1]} window={window*self.n_pulses}'
                     results[key] = det.get(window=window)
             self.info("Publishing result for detectors %s", list(self._detectors))
             return WorkflowResultUpdate(results)
 
     @classmethod
+    def add_argument_group(cls, parser: argparse.ArgumentParser) -> None:
+        group = parser.add_argument_group("Raw Counter Configuration")
+        group.add_argument(
+            "--static-file-path",
+            help="Path to the nexus file that has static information.",
+            type=str,
+            required=True,
+        )
+        group.add_argument(
+            "--n-pulses",
+            help="Number of pulses to accumulate before plotting.",
+            type=int,
+            default=100,
+        )
+
+    @classmethod
     def from_args(
         cls, logger: BeamlimeLogger, args: argparse.Namespace
     ) -> "RawCountHandler":
-        return cls(logger=logger, nexus_file=args.nexus_file_path)
+        return cls(
+            logger=logger, nexus_file=args.static_file_path, n_pulses=args.n_pulses
+        )
 
 
 class DataAssembler(HandlerInterface):
@@ -263,6 +291,8 @@ def random_image_path() -> ImagePath:
 
 MaxPlotColumn = NewType("MaxPlotColumn", int)
 DefaultMaxPlotColumn = MaxPlotColumn(3)
+NormalizeHistogramFlag = NewType("NormalizeHistogramFlag", bool)
+DefaultNormalizeHistogramFlag = NormalizeHistogramFlag(False)
 
 
 class PlotStreamer(HandlerInterface):
@@ -427,9 +457,11 @@ class PlotSaver(PlotStreamer):
         logger: BeamlimeLogger,
         image_path_prefix: ImagePath,
         max_column: MaxPlotColumn = DefaultMaxPlotColumn,
+        normalize: NormalizeHistogramFlag = DefaultNormalizeHistogramFlag,
     ) -> None:
         super().__init__(logger=logger, max_column=max_column)
         self.image_path_prefix = image_path_prefix
+        self.extra_drawing_options = {"norm": "log"} if normalize else {}
 
     def save_histogram(self, message: WorkflowResultUpdate) -> None:
         start = time()
@@ -445,20 +477,19 @@ class PlotSaver(PlotStreamer):
             # TODO We need a way of configuring plot options for each item. The below
             # works for the SANS 60387-2022-02-28_2215.nxs AgBeh file and is useful for
             # testing.
-            extra = {'norm': 'log'}
             if da.ndim == 2:
-                _plot_2d(da, ax=ax, title=name, **extra)
+                _plot_2d(da, ax=ax, title=name, **self.extra_drawing_options)
             elif isinstance(da, sc.DataArray):
-                _plot_1d(da, ax=ax, title=name, **extra)
+                _plot_1d(da, ax=ax, title=name, **self.extra_drawing_options)
             else:
-                da.plot(ax=ax, title=name, **extra)
+                da.plot(ax=ax, title=name, **self.extra_drawing_options)
         fig.tight_layout()
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
             # Saving into a tempfile avoids flickering when the image is updated, if
             # the image is displayed in a GUI.
             fig.savefig(tmpfile.name, dpi=100)
             shutil.move(tmpfile.name, image_file_name)
-        self.logger.info("Plotting took %.2f s", time() - start)
+        self.info("Plotting took %.2f s", time() - start)
         plt.close(fig)
 
     @classmethod
@@ -470,10 +501,17 @@ class PlotSaver(PlotStreamer):
             type=str,
             default=None,
         )
+        group.add_argument(
+            "--normalize",
+            action="store_true",
+            help="Normalize the histogram.",
+            default=False,
+        )
 
     @classmethod
     def from_args(cls, logger: BeamlimeLogger, args: argparse.Namespace) -> "PlotSaver":
         return cls(
             logger=logger,
             image_path_prefix=args.image_path_prefix or random_image_path(),
+            normalize=args.normalize,
         )

@@ -192,12 +192,22 @@ class FakeListener(DaemonInterface):
 
         # Real listener will subscribe to the topics in the ``streaming_modules``
         # and wait for the messages to arrive.
+        exhausted_generators = set()
         for i_frame in range(self.num_frames):
+            # Handle exhausted generators
+            for key in exhausted_generators:
+                self.info("Event generator for %s is exhausted. Removing...", key)
+                self.random_event_generators.pop(key, None)
+            exhausted_generators.clear()
+
             for key, event_generator in self.random_event_generators.items():
                 self.info(f"Frame #{i_frame}: sending neutron events for {key}.")
-                yield DataPieceReceived(
-                    content=DataPiece(key=key, deserialized=next(event_generator))
-                )
+                try:
+                    yield DataPieceReceived(
+                        content=DataPiece(key=key, deserialized=next(event_generator))
+                    )
+                except StopIteration:  # Catch exhausted generators
+                    exhausted_generators.add(key)
 
             self.info(f"Neutron events of frame #{i_frame} were sent.")
             await asyncio.sleep(self.data_feeding_speed)
@@ -219,7 +229,6 @@ class FakeListener(DaemonInterface):
             "--nexus-file-path",
             help="Path to the nexus file with static information and event data.",
             type=str,
-            required=True,
         )
         group.add_argument(
             "--data-feeding-speed",
@@ -256,6 +265,14 @@ class FakeListener(DaemonInterface):
     def from_args(
         cls, logger: BeamlimeLogger, args: argparse.Namespace
     ) -> "FakeListener":
+        if args.nexus_file_path is None:
+            # This option is not set as a required argument in the `add_argument_group`
+            # method, because it is only required if fake listener is used.
+            raise ValueError(
+                "The path to the nexus file is not provided. "
+                "Use --nexus-file-path option to set it."
+            )
+
         if args.nexus_template_path is not None:
             with open(args.nexus_template_path) as f:
                 nexus_template = json.load(f)
