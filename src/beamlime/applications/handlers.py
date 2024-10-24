@@ -2,7 +2,8 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import argparse
 import pathlib
-import time
+import shutil
+import tempfile
 from dataclasses import dataclass
 from math import ceil
 from numbers import Number
@@ -100,11 +101,15 @@ class RawCountHandler(HandlerInterface):
             path = instrument.name
             detectors = list(instrument[snx.NXdetector])
         detectors = {name: name for name in detectors}
-        clone = {f'{name}-clone': name for name in detectors}
-        detectors = {**detectors, **clone}
         for name, nexus_name in detectors.items():
+            if name.split('/')[-1].startswith('loki'):
+                xres = 90 if name[-1] in ('0', '1', '3', '5', '7') else 30
+                yres = 90 if name[-1] in ('0', '2', '4', '6', '8') else 30
+            else:
+                xres = 128
+                yres = 128
             self._detectors[f'{path}/{name}'] = raw.RollingDetectorView.from_nexus(
-                nexus_file, detector_name=nexus_name, window=400, xres=128, yres=128
+                nexus_file, detector_name=nexus_name, window=100, xres=xres, yres=yres
             )
         self._chunk = {name: 0 for name in self._detectors}
         self._buffer = {name: [] for name in self._detectors}
@@ -113,24 +118,24 @@ class RawCountHandler(HandlerInterface):
     def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate | None:
         name = message.content.deserialized['source_name']
         event_id = message.content.deserialized['pixel_id']
-        if self._pulse % 10 == 0:
-            name = f'{name}-clone'
         if (det := self._detectors.get(name)) is not None:
             buffer = self._buffer[name]
             buffer.append(event_id)
             self._pulse += 1
         else:
             self.info("Ignoring data for %s", name)
-        if self._pulse % 100 == 0:
+            return
+        npulse = 100
+        if self._pulse % npulse == 0:
             results = {}
             for name, det in self._detectors.items():
                 buffer = self._buffer[name]
-                det.add_counts(np.concatenate(buffer))
-                buffer.clear()
-                for window in (None, 2):
-                    results[f'{name.split("/")[-1]} window={window}'] = det.get(
-                        window=window
-                    )
+                if len(buffer):
+                    det.add_counts(np.concatenate(buffer))
+                    buffer.clear()
+                for window in (1,):
+                    key = f'{name.split("/")[-1]} window={window*npulse}'
+                    results[key] = det.get(window=window)
             self.info("Publishing result for detectors %s", list(self._detectors))
             return WorkflowResultUpdate(results)
 
@@ -257,7 +262,7 @@ def random_image_path() -> ImagePath:
 
 
 MaxPlotColumn = NewType("MaxPlotColumn", int)
-DefaultMaxPlotColumn = MaxPlotColumn(2)
+DefaultMaxPlotColumn = MaxPlotColumn(3)
 
 
 class PlotStreamer(HandlerInterface):
@@ -329,18 +334,79 @@ def _plot_1d(
     ax.set_title(title)
 
 
+def plot_images_with_offsets(
+    *,
+    ax,
+    image_data_list,
+    x_coords_list,
+    y_coords_list,
+    cmap='viridis',
+    num_ticks=5,
+    **kwargs,
+):
+    import numpy as np
+
+    # Calculate common axis ranges
+    x_min = min(x.min() for x in x_coords_list)
+    x_max = max(x.max() for x in x_coords_list)
+    y_min = min(y.min() for y in y_coords_list)
+    y_max = max(y.max() for y in y_coords_list)
+
+    # Plot each image with correct extent
+    for image_data, x_coords, y_coords in zip(
+        image_data_list, x_coords_list, y_coords_list, strict=True
+    ):
+        extent = [x_coords.min(), x_coords.max(), y_coords.min(), y_coords.max()]
+        ax.imshow(
+            image_data,
+            extent=extent,
+            origin='lower',
+            interpolation='none',
+            cmap=cmap,
+            **kwargs,
+        )
+
+    # Set axis limits and ticks based on common ranges
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.set_xticks(np.linspace(x_min, x_max, num=num_ticks))
+    ax.set_yticks(np.linspace(y_min, y_max, num=num_ticks))
+
+    # Set labels and title
+    ax.set_xlabel('X-axis')
+    ax.set_ylabel('Y-axis')
+    ax.set_title('Images Offset by Coordinate Arrays')
+
+
 def _plot_2d(
-    da: sc.DataArray,
+    da: sc.DataArray | sc.DataGroup,
     *,
     ax: plt.Axes,
     title: str,
     **kwargs,
 ):
+    if isinstance(da, sc.DataGroup):
+        das = list(da.values())
+        xname = das[0].dims[1]
+        yname = das[0].dims[0]
+        return plot_images_with_offsets(
+            ax=ax,
+            image_data_list=[da.values for da in das],
+            x_coords_list=[da.coords[xname].values for da in das],
+            y_coords_list=[da.coords[yname].values for da in das],
+            **kwargs,
+        )
+
+    x = da.coords[da.dims[1]].values
+    y = da.coords[da.dims[0]].values
+    aspect = (x[-1] - x[0]) / (y[-1] - y[0])
+
     values = da.values
-    ax.imshow(values, **kwargs)
+    ax.imshow(values, **kwargs, aspect=aspect)
     ax.invert_yaxis()
-    cbar = plt.colorbar(ax.images[0], ax=ax)
-    cbar.set_label(f'[{da.unit}]')
+    # Note: Drawing the colorbar actually takes a long time!
+    # cbar = plt.colorbar(ax.images[0], ax=ax)
+    # cbar.set_label(f'[{da.unit}]')
     ax.set_title(title)
     ax.set_xlabel(f'{da.dims[1]} [{da.coords[da.dims[1]].unit}]')
     ax.set_ylabel(f'{da.dims[0]} [{da.coords[da.dims[0]].unit}]')
@@ -366,7 +432,7 @@ class PlotSaver(PlotStreamer):
         self.image_path_prefix = image_path_prefix
 
     def save_histogram(self, message: WorkflowResultUpdate) -> None:
-        from time import time
+        start = time()
 
         image_file_name = f"{self.image_path_prefix}.png"
         self.info("Received histogram(s), saving into %s...", image_file_name)
@@ -375,26 +441,24 @@ class PlotSaver(PlotStreamer):
         nrow = ceil(nplot / self.max_column)
         ncol = min(nplot, self.max_column)
         fig, axes = plt.subplots(nrow, ncol, figsize=(6 * ncol, 6 * nrow))
-        plt.subplots_adjust(wspace=0.3, hspace=0.3)
         for (name, da), ax in zip(message.content.items(), axes.flat, strict=False):
             # TODO We need a way of configuring plot options for each item. The below
             # works for the SANS 60387-2022-02-28_2215.nxs AgBeh file and is useful for
             # testing.
-            if 'wavelength' not in da.dims and da.unit == '':
-                extra = {'norm': 'log', 'vmin': 1e-1, 'vmax': 1e1, 'aspect': 'equal'}
-            elif da.ndim == 2:
-                extra = {'norm': 'log'}
-            else:
-                extra = {}
-            start = time()
+            extra = {'norm': 'log'}
             if da.ndim == 2:
                 _plot_2d(da, ax=ax, title=name, **extra)
             elif isinstance(da, sc.DataArray):
                 _plot_1d(da, ax=ax, title=name, **extra)
             else:
                 da.plot(ax=ax, title=name, **extra)
-            print(f"Plotting {name} took {time() - start:.2f} s")
-        fig.savefig(image_file_name, dpi=200)
+        fig.tight_layout()
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            # Saving into a tempfile avoids flickering when the image is updated, if
+            # the image is displayed in a GUI.
+            fig.savefig(tmpfile.name, dpi=100)
+            shutil.move(tmpfile.name, image_file_name)
+        self.logger.info("Plotting took %.2f s", time() - start)
         plt.close(fig)
 
     @classmethod
