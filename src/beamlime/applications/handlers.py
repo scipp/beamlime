@@ -83,6 +83,9 @@ DETECTOR_BANK_SIZES = {
 }
 
 
+NumPulsesToAccumulate = NewType("NumPulsesToAccumulate", int)
+
+
 class RawCountHandler(HandlerInterface):
     """
     Continuously handle raw counts for every ev44 message.
@@ -90,7 +93,13 @@ class RawCountHandler(HandlerInterface):
     This ignores run-start and run-stop messages.
     """
 
-    def __init__(self, *, logger: BeamlimeLogger, nexus_file: NexusFilePath) -> None:
+    def __init__(
+        self,
+        *,
+        logger: BeamlimeLogger,
+        nexus_file: NexusFilePath,
+        n_pulses: NumPulsesToAccumulate,
+    ) -> None:
         self.logger = logger
         self._pulse = 0
         self._previous: sc.DataArray | None = None
@@ -114,6 +123,7 @@ class RawCountHandler(HandlerInterface):
             )
         self._chunk = {name: 0 for name in self._detectors}
         self._buffer = {name: [] for name in self._detectors}
+        self.n_pulses = n_pulses
         self.info("Initialized with %s", list(self._detectors))
 
     def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate | None:
@@ -126,8 +136,7 @@ class RawCountHandler(HandlerInterface):
         else:
             self.info("Ignoring data for %s", name)
             return
-        npulse = 100
-        if self._pulse % npulse == 0:
+        if self._pulse % self.n_pulses == 0:
             results = {}
             for name, det in self._detectors.items():
                 buffer = self._buffer[name]
@@ -135,7 +144,7 @@ class RawCountHandler(HandlerInterface):
                     det.add_counts(np.concatenate(buffer))
                     buffer.clear()
                 for window in (1,):
-                    key = f'{name.split("/")[-1]} window={window*npulse}'
+                    key = f'{name.split("/")[-1]} window={window*self.n_pulses}'
                     results[key] = det.get(window=window)
             self.info("Publishing result for detectors %s", list(self._detectors))
             return WorkflowResultUpdate(results)
@@ -149,12 +158,20 @@ class RawCountHandler(HandlerInterface):
             type=int,
             required=True,
         )
+        group.add_argument(
+            "--n-pulses",
+            help="Number of pulses to accumulate before plotting.",
+            type=int,
+            default=100,
+        )
 
     @classmethod
     def from_args(
         cls, logger: BeamlimeLogger, args: argparse.Namespace
     ) -> "RawCountHandler":
-        return cls(logger=logger, nexus_file=args.static_file_path)
+        return cls(
+            logger=logger, nexus_file=args.static_file_path, n_pulses=args.n_pulses
+        )
 
 
 class DataAssembler(HandlerInterface):
