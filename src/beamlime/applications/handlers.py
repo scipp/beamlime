@@ -141,10 +141,20 @@ class RawCountHandler(HandlerInterface):
             return WorkflowResultUpdate(results)
 
     @classmethod
+    def add_argument_group(cls, parser: argparse.ArgumentParser) -> None:
+        group = parser.add_argument_group("Raw Counter Configuration")
+        group.add_argument(
+            "--static-file-path",
+            help="Path to the nexus file that has static information.",
+            type=int,
+            required=True,
+        )
+
+    @classmethod
     def from_args(
         cls, logger: BeamlimeLogger, args: argparse.Namespace
     ) -> "RawCountHandler":
-        return cls(logger=logger, nexus_file=args.nexus_file_path)
+        return cls(logger=logger, nexus_file=args.static_file_path)
 
 
 class DataAssembler(HandlerInterface):
