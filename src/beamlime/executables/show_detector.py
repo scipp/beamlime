@@ -21,13 +21,18 @@ from ..applications.base import (
     MessageProtocol,
     MessageRouter,
 )
-from ..applications.daemons import DataPiece, DataPieceReceived, DeserializedMessage
+from ..applications.daemons import (
+    DataPiece,
+    DataPieceReceived,
+    DeserializedMessage,
+    FakeListener,
+)
 from ..applications.handlers import PlotSaver, RawCountHandler, WorkflowResultUpdate
 from ..constructors import SingletonProvider
 from ..constructors.providers import merge as merge_providers
 from ..logging import BeamlimeLogger
 from .options import build_minimum_arg_parser
-from .prototypes import instantiate_from_args
+from .prototypes import fake_listener_from_args, instantiate_from_args
 
 KafkaConfig = NewType("KafkaConfig", dict)
 StreamingModules = NewType("StreamingModules", dict[StreamModuleKey, StreamModuleValue])
@@ -135,13 +140,20 @@ class EventListener(DaemonInterface):
             "--config",
             help="Path to the json file that has kafka configuration.",
             type=str,
-            required=True,
         )
 
     @classmethod
     def from_args(
         cls, logger: BeamlimeLogger, args: argparse.Namespace
     ) -> "EventListener":
+        if args.config is None:
+            # This option is not set as a required argument in the `add_argument_group`
+            # method, because it is only required if fake listener is not used.
+            raise ValueError(
+                "The path to the config file is not provided."
+                "Use --config option to set it."
+            )
+
         json_file_path = pathlib.Path(args.config)
         config_dict = json.loads(json_file_path.read_text())
         streaming_modules = streaming_modules_from_config(config_dict)
@@ -188,6 +200,7 @@ def collect_show_detector_providers() -> ProviderGroup:
     app_providers = ProviderGroup(
         listener_from_args,
         raw_detector_counter_from_args,
+        fake_listener_from_args,
         SingletonProvider(plot_saver_from_args),
         SingletonProvider(ShowDetectorApp),
         MessageRouter,
@@ -209,7 +222,11 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
     factory[BeamlimeLogger].setLevel(arg_name_space.log_level.upper())
     factory[BeamlimeLogger].info("Start showing detector hits.")
     with factory.constant_provider(argparse.Namespace, arg_name_space):
-        event_listener = factory[EventListener]
+        if arg_name_space.fake_listener:
+            event_listener = factory[FakeListener]
+        else:
+            event_listener = factory[EventListener]
+
         raw_detector_counter = factory[RawCountHandler]
         plot_saver = factory[PlotSaver]
         app = factory[ShowDetectorApp]
@@ -223,6 +240,14 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
 def main() -> None:
     """Entry point of the ``show-detector`` command."""
     factory = Factory(collect_show_detector_providers())
-    arg_parser = build_minimum_arg_parser(EventListener, PlotSaver, RawCountHandler)
+    arg_parser = build_minimum_arg_parser(
+        EventListener, PlotSaver, RawCountHandler, FakeListener
+    )
+    arg_parser.add_argument(
+        "--fake-listener",
+        action="store_true",
+        help="Use fake listener instead of real listener.",
+        default=False,
+    )
     args = arg_parser.parse_args()
     run_show_detector(factory, args)
