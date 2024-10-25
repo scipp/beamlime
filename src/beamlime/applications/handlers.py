@@ -274,8 +274,6 @@ def random_image_path() -> ImagePath:
 
 MaxPlotColumn = NewType("MaxPlotColumn", int)
 DefaultMaxPlotColumn = MaxPlotColumn(3)
-NormalizeHistogramFlag = NewType("NormalizeHistogramFlag", bool)
-DefaultNormalizeHistogramFlag = NormalizeHistogramFlag(False)
 
 
 class PlotStreamer(HandlerInterface):
