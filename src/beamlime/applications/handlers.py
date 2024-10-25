@@ -104,6 +104,7 @@ _dream = {
         # aspect ratio for the plot if both axes have the same unit.
         'mantle_detector': {
             'resolution': {'arclength': 10 * _res_scale, 'z': 40 * _res_scale},
+            'projection': 'cylinder_mantle_z',
             'gridspec': (1, slice(None, 2)),
         },
     },
@@ -179,6 +180,7 @@ class RawCountHandler(HandlerInterface):
                 nexus_file,
                 detector_name=name,
                 window=100,
+                projection=detector.get('projection', 'xy_plane'),
                 resolution=detector['resolution'],
             )
         self._chunk = {name: 0 for name in self._detectors}
