@@ -93,13 +93,7 @@ class RawCountHandler(HandlerInterface):
     This ignores run-start and run-stop messages.
     """
 
-    def __init__(
-        self,
-        *,
-        logger: BeamlimeLogger,
-        nexus_file: NexusFilePath,
-        n_pulses: NumPulsesToAccumulate,
-    ) -> None:
+    def __init__(self, *, logger: BeamlimeLogger, nexus_file: NexusFilePath) -> None:
         self.logger = logger
         self._pulse = 0
         self._previous: sc.DataArray | None = None
@@ -123,7 +117,6 @@ class RawCountHandler(HandlerInterface):
             )
         self._chunk = {name: 0 for name in self._detectors}
         self._buffer = {name: [] for name in self._detectors}
-        self.n_pulses = n_pulses
         self.info("Initialized with %s", list(self._detectors))
 
     def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate | None:
@@ -136,7 +129,8 @@ class RawCountHandler(HandlerInterface):
         else:
             self.info("Ignoring data for %s", name)
             return
-        if self._pulse % self.n_pulses == 0:
+        npulse = 100
+        if self._pulse % npulse == 0:
             results = {}
             for name, det in self._detectors.items():
                 buffer = self._buffer[name]
@@ -144,7 +138,7 @@ class RawCountHandler(HandlerInterface):
                     det.add_counts(np.concatenate(buffer))
                     buffer.clear()
                 for window in (1,):
-                    key = f'{name.split("/")[-1]} window={window*self.n_pulses}'
+                    key = f'{name.split("/")[-1]} window={window*npulse}'
                     results[key] = det.get(window=window)
             self.info("Publishing result for detectors %s", list(self._detectors))
             return WorkflowResultUpdate(results)
@@ -158,20 +152,12 @@ class RawCountHandler(HandlerInterface):
             type=str,
             required=True,
         )
-        group.add_argument(
-            "--n-pulses",
-            help="Number of pulses to accumulate before plotting.",
-            type=int,
-            default=100,
-        )
 
     @classmethod
     def from_args(
         cls, logger: BeamlimeLogger, args: argparse.Namespace
     ) -> "RawCountHandler":
-        return cls(
-            logger=logger, nexus_file=args.static_file_path, n_pulses=args.n_pulses
-        )
+        return cls(logger=logger, nexus_file=args.static_file_path)
 
 
 class DataAssembler(HandlerInterface):
@@ -457,11 +443,9 @@ class PlotSaver(PlotStreamer):
         logger: BeamlimeLogger,
         image_path_prefix: ImagePath,
         max_column: MaxPlotColumn = DefaultMaxPlotColumn,
-        normalize: NormalizeHistogramFlag = DefaultNormalizeHistogramFlag,
     ) -> None:
         super().__init__(logger=logger, max_column=max_column)
         self.image_path_prefix = image_path_prefix
-        self.extra_drawing_options = {"norm": "log"} if normalize else {}
 
     def save_histogram(self, message: WorkflowResultUpdate) -> None:
         start = time()
@@ -477,19 +461,20 @@ class PlotSaver(PlotStreamer):
             # TODO We need a way of configuring plot options for each item. The below
             # works for the SANS 60387-2022-02-28_2215.nxs AgBeh file and is useful for
             # testing.
+            extra = {'norm': 'log'}
             if da.ndim == 2:
-                _plot_2d(da, ax=ax, title=name, **self.extra_drawing_options)
+                _plot_2d(da, ax=ax, title=name, **extra)
             elif isinstance(da, sc.DataArray):
-                _plot_1d(da, ax=ax, title=name, **self.extra_drawing_options)
+                _plot_1d(da, ax=ax, title=name, **extra)
             else:
-                da.plot(ax=ax, title=name, **self.extra_drawing_options)
+                da.plot(ax=ax, title=name, **extra)
         fig.tight_layout()
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
             # Saving into a tempfile avoids flickering when the image is updated, if
             # the image is displayed in a GUI.
             fig.savefig(tmpfile.name, dpi=100)
             shutil.move(tmpfile.name, image_file_name)
-        self.info("Plotting took %.2f s", time() - start)
+        self.logger.info("Plotting took %.2f s", time() - start)
         plt.close(fig)
 
     @classmethod
