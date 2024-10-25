@@ -487,5 +487,4 @@ class PlotSaver(PlotStreamer):
         return cls(
             logger=logger,
             image_path_prefix=args.image_path_prefix or random_image_path(),
-            normalize=args.normalize,
         )
