@@ -5,7 +5,6 @@ import pathlib
 import shutil
 import tempfile
 from dataclasses import dataclass
-from math import ceil
 from numbers import Number
 from time import time
 from typing import NewType
@@ -17,6 +16,7 @@ import scipp as sc
 import scippnexus as snx
 from ess.reduce.live import raw
 from ess.reduce.nexus.json_nexus import JSONGroup
+from matplotlib.gridspec import GridSpec
 
 from beamlime.logging import BeamlimeLogger
 
@@ -82,6 +82,79 @@ DETECTOR_BANK_SIZES = {
     'larmor_detector': {'layer': 4, 'tube': 32, 'straw': 7, 'pixel': 512}
 }
 
+# NOTE: This config should obviously be moved/managed elsewhere, but this works for
+# for testing and is convenient for now.
+_res_scale = 8
+# Order in 'resolution' matters so plots have X as horizontal axis and Y as vertical.
+detector_registry = {}
+# The other DREAM detectors have non-consecutive detector numbers. This is not
+# supported currently
+_dream = {
+    'dashboard': {'nrow': 2, 'ncol': 2},
+    'detectors': {
+        'endcap_backward_detector': {
+            'resolution': {'y': 30 * _res_scale, 'x': 20 * _res_scale},
+            'gridspec': (0, 0),
+        },
+        'endcap_forward_detector': {
+            'resolution': {'y': 20 * _res_scale, 'x': 20 * _res_scale},
+            'gridspec': (0, 1),
+        },
+        # We use the arc length instead of phi as it makes it easier to get a correct
+        # aspect ratio for the plot if both axes have the same unit.
+        'mantle_detector': {
+            'resolution': {'arclength': 10 * _res_scale, 'z': 40 * _res_scale},
+            'gridspec': (1, slice(None, 2)),
+        },
+    },
+}
+_loki = {
+    'dashboard': {'nrow': 3, 'ncol': 9, 'figsize_scale': 3},
+    'detectors': {
+        # Rear detector
+        'loki_detector_0': {
+            'resolution': {'y': 12 * _res_scale, 'x': 12 * _res_scale},
+            'gridspec': (slice(0, 3), slice(0, 3)),
+        },
+        # First window frame
+        'loki_detector_1': {
+            'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
+            'gridspec': (2, 4),
+        },
+        'loki_detector_2': {
+            'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
+            'gridspec': (1, 3),
+        },
+        'loki_detector_3': {
+            'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
+            'gridspec': (0, 4),
+        },
+        'loki_detector_4': {
+            'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
+            'gridspec': (1, 5),
+        },
+        # Second window frame
+        'loki_detector_5': {
+            'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
+            'gridspec': (2, 7),
+        },
+        'loki_detector_6': {
+            'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
+            'gridspec': (1, 6),
+        },
+        'loki_detector_7': {
+            'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
+            'gridspec': (0, 7),
+        },
+        'loki_detector_8': {
+            'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
+            'gridspec': (1, 8),
+        },
+    },
+}
+detector_registry['DREAM'] = _dream
+detector_registry['LoKI'] = _loki
+
 
 class RawCountHandler(HandlerInterface):
     """
@@ -99,34 +172,30 @@ class RawCountHandler(HandlerInterface):
         with snx.File(nexus_file) as f:
             entry = next(iter(f[snx.NXentry].values()))
             instrument = next(iter(entry[snx.NXinstrument].values()))
-            path = instrument.name
-            detectors = list(instrument[snx.NXdetector])
-        detectors = {name: name for name in detectors}
-        for name, nexus_name in detectors.items():
-            if name.split('/')[-1].startswith('loki'):
-                xres = 90 if name[-1] in ('0', '1', '3', '5', '7') else 30
-                yres = 90 if name[-1] in ('0', '2', '4', '6', '8') else 30
-            else:
-                xres = 128
-                yres = 128
-            self._detectors[f'{path}/{name}'] = raw.RollingDetectorView.from_nexus(
-                nexus_file, detector_name=nexus_name, window=100, xres=xres, yres=yres
+            self._instrument = str(instrument['name'][()])
+
+        for name, detector in detector_registry[self._instrument]['detectors'].items():
+            self._detectors[name] = raw.RollingDetectorView.from_nexus(
+                nexus_file,
+                detector_name=name,
+                window=100,
+                resolution=detector['resolution'],
             )
         self._chunk = {name: 0 for name in self._detectors}
         self._buffer = {name: [] for name in self._detectors}
         self.info("Initialized with %s", list(self._detectors))
 
     def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate | None:
-        name = message.content.deserialized['source_name']
+        detname = message.content.deserialized['source_name'].split('/')[-1]
         event_id = message.content.deserialized['pixel_id']
-        if (det := self._detectors.get(name)) is not None:
-            buffer = self._buffer[name]
+        if (det := self._detectors.get(detname)) is not None:
+            buffer = self._buffer[detname]
             buffer.append(event_id)
             self._pulse += 1
         else:
-            self.info("Ignoring data for %s", name)
+            self.info("Ignoring data for %s", detname)
             return
-        npulse = 100
+        npulse = 10
         if self._pulse % npulse == 0:
             results = {}
             for name, det in self._detectors.items():
@@ -134,8 +203,8 @@ class RawCountHandler(HandlerInterface):
                 if len(buffer):
                     det.add_counts(np.concatenate(buffer))
                     buffer.clear()
-                for window in (1,):
-                    key = f'{name.split("/")[-1]} window={window*npulse}'
+                for window in (50,):
+                    key = (self._instrument, name, f'window={window*npulse}')
                     results[key] = det.get(window=window)
             self.info("Publishing result for detectors %s", list(self._detectors))
             return WorkflowResultUpdate(results)
@@ -408,9 +477,13 @@ def _plot_2d(
             **kwargs,
         )
 
-    x = da.coords[da.dims[1]].values
-    y = da.coords[da.dims[0]].values
-    aspect = (x[-1] - x[0]) / (y[-1] - y[0])
+    x = da.coords[da.dims[1]]
+    y = da.coords[da.dims[0]]
+    if x.unit == y.unit:
+        aspect = float((y[-1] - y[0]) / (x[-1] - x[0]))
+        aspect *= da.shape[1] / da.shape[0]
+    else:
+        aspect = 'equal'
 
     values = da.values
     ax.imshow(values, **kwargs, aspect=aspect)
@@ -448,14 +521,19 @@ class PlotSaver(PlotStreamer):
         image_file_name = f"{self.image_path_prefix}.png"
         self.info("Received histogram(s), saving into %s...", image_file_name)
 
-        nplot = len(message.content)
-        nrow = ceil(nplot / self.max_column)
-        ncol = min(nplot, self.max_column)
-        fig, axes = plt.subplots(nrow, ncol, figsize=(6 * ncol, 6 * nrow))
-        for (name, da), ax in zip(message.content.items(), axes.flat, strict=False):
-            # TODO We need a way of configuring plot options for each item. The below
-            # works for the SANS 60387-2022-02-28_2215.nxs AgBeh file and is useful for
-            # testing.
+        instrument = next(iter(message.content.keys()))[0]
+        dashboard = detector_registry[instrument]['dashboard']
+        ncol = dashboard['ncol']
+        nrow = dashboard['nrow']
+        figsize_scale = dashboard.get('figsize_scale', 6)
+
+        fig = plt.figure(figsize=(figsize_scale * ncol, figsize_scale * nrow))
+        gs = GridSpec(nrow, ncol, figure=fig)
+        for key, da in message.content.items():
+            instrument, detname, params = key
+            name = f"{detname} {params}"
+            grid_loc = detector_registry[instrument]['detectors'][detname]['gridspec']
+            ax = fig.add_subplot(gs[grid_loc])
             extra = {'norm': 'log'}
             if da.ndim == 2:
                 _plot_2d(da, ax=ax, title=name, **extra)
@@ -467,9 +545,9 @@ class PlotSaver(PlotStreamer):
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
             # Saving into a tempfile avoids flickering when the image is updated, if
             # the image is displayed in a GUI.
-            fig.savefig(tmpfile.name, dpi=100)
+            fig.savefig(tmpfile.name, dpi=150)
             shutil.move(tmpfile.name, image_file_name)
-        self.logger.info("Plotting took %.2f s", time() - start)
+        self.info("Plotting took %.2f s", time() - start)
         plt.close(fig)
 
     @classmethod
