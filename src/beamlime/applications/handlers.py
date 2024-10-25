@@ -83,9 +83,6 @@ DETECTOR_BANK_SIZES = {
 }
 
 
-NumPulsesToAccumulate = NewType("NumPulsesToAccumulate", int)
-
-
 class RawCountHandler(HandlerInterface):
     """
     Continuously handle raw counts for every ev44 message.
@@ -485,12 +482,6 @@ class PlotSaver(PlotStreamer):
             help="Path to save the histogram image.",
             type=str,
             default=None,
-        )
-        group.add_argument(
-            "--normalize",
-            action="store_true",
-            help="Normalize the histogram.",
-            default=False,
         )
 
     @classmethod
