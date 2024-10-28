@@ -1,0 +1,1240 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>beamlime.applications.handlers &#8212; Beamlime</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../../_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="../../../_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="../../../_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="../../../_static/documentation_options.js?v=2e6d0414"></script>
+    <script src="../../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/beamlime/applications/handlers';</script>
+    <script src="../../../_static/anaconda-icon.js?v=461bdc62"></script>
+    <link rel="icon" href="../../../_static/favicon.svg"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../../../_static/logo.svg" class="logo__image only-light" alt="Beamlime - Home"/>
+    <script>document.write(`<img src="../../../_static/logo-dark.svg" class="logo__image only-dark" alt="Beamlime - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../user-guide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api-reference/index.html">
+    API Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../developer/index.html">
+    Development
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../about/index.html">
+    About
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://scipp.github.io/essreduce">
+    Essreduce
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://scipp.github.io/plopp">
+    Plopp
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://scipp.github.io/sciline">
+    Sciline
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://scipp.github.io">
+    Scipp
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/scipp/beamlime" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/beamlime/" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://anaconda.org/scipp/beamlime" title="Conda" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-anaconda fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Conda</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../user-guide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api-reference/index.html">
+    API Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../developer/index.html">
+    Development
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../about/index.html">
+    About
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://scipp.github.io/essreduce">
+    Essreduce
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://scipp.github.io/plopp">
+    Plopp
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://scipp.github.io/sciline">
+    Sciline
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://scipp.github.io">
+    Scipp
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/scipp/beamlime" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/beamlime/" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://anaconda.org/scipp/beamlime" title="Conda" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-anaconda fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Conda</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page">beamlime.app...</li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for beamlime.applications.handlers</h1><div class="highlight"><pre>
+<span></span><span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
+<span class="c1"># Copyright (c) 2024 Scipp contributors (https://github.com/scipp)</span>
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
+<span class="kn">import</span> <span class="nn">shutil</span>
+<span class="kn">import</span> <span class="nn">tempfile</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span> <span class="nn">numbers</span> <span class="kn">import</span> <span class="n">Number</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">NewType</span>
+
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">plopp</span> <span class="k">as</span> <span class="nn">pp</span>
+<span class="kn">import</span> <span class="nn">scipp</span> <span class="k">as</span> <span class="nn">sc</span>
+<span class="kn">import</span> <span class="nn">scippnexus</span> <span class="k">as</span> <span class="nn">snx</span>
+<span class="kn">from</span> <span class="nn">ess.reduce.live</span> <span class="kn">import</span> <span class="n">raw</span>
+<span class="kn">from</span> <span class="nn">ess.reduce.nexus.json_nexus</span> <span class="kn">import</span> <span class="n">JSONGroup</span>
+<span class="kn">from</span> <span class="nn">matplotlib.gridspec</span> <span class="kn">import</span> <span class="n">GridSpec</span>
+
+<span class="kn">from</span> <span class="nn">beamlime.logging</span> <span class="kn">import</span> <span class="n">BeamlimeLogger</span>
+
+<span class="kn">from</span> <span class="nn">..workflow_protocols</span> <span class="kn">import</span> <span class="n">LiveWorkflow</span><span class="p">,</span> <span class="n">WorkflowResult</span>
+<span class="kn">from</span> <span class="nn">._nexus_helpers</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">NexusStore</span><span class="p">,</span>
+    <span class="n">StreamModuleKey</span><span class="p">,</span>
+    <span class="n">StreamModuleValue</span><span class="p">,</span>
+    <span class="n">merge_message_into_nexus_store</span><span class="p">,</span>
+    <span class="n">nexus_path_as_string</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span> <span class="nn">.base</span> <span class="kn">import</span> <span class="n">HandlerInterface</span>
+<span class="kn">from</span> <span class="nn">.daemons</span> <span class="kn">import</span> <span class="n">DataPieceReceived</span><span class="p">,</span> <span class="n">NexusFilePath</span><span class="p">,</span> <span class="n">RunStart</span>
+
+<span class="n">ResultRegistry</span> <span class="o">=</span> <span class="n">NewType</span><span class="p">(</span><span class="s2">&quot;ResultRegistry&quot;</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">sc</span><span class="o">.</span><span class="n">DataArray</span><span class="p">])</span>
+<span class="sd">&quot;&quot;&quot;Workflow result container.&quot;&quot;&quot;</span>
+<span class="n">Events</span> <span class="o">=</span> <span class="n">NewType</span><span class="p">(</span><span class="s2">&quot;Events&quot;</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="n">sc</span><span class="o">.</span><span class="n">DataArray</span><span class="p">])</span>
+<span class="n">MergeMessageCountInterval</span> <span class="o">=</span> <span class="n">NewType</span><span class="p">(</span><span class="s2">&quot;MergeMessageCountInterval&quot;</span><span class="p">,</span> <span class="n">Number</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;Every MergeMessageCountInterval-th message the data assembler receives</span>
+<span class="sd">the data reduction is run&quot;&quot;&quot;</span>
+<span class="n">MergeMessageTimeInterval</span> <span class="o">=</span> <span class="n">NewType</span><span class="p">(</span><span class="s2">&quot;MergeMessageTimeInterval&quot;</span><span class="p">,</span> <span class="n">Number</span><span class="p">)</span>
+<span class="sd">&quot;&quot;&quot;The data reduction is run when the DataAssembler receives a message and the time</span>
+<span class="sd">since the last reduction exceeds the length of the interval (in seconds)&quot;&quot;&quot;</span>
+
+
+<div class="viewcode-block" id="WorkflowInput">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.WorkflowInput.html#beamlime.applications.handlers.WorkflowInput">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">WorkflowInput</span><span class="p">:</span>
+    <span class="n">nxevent_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">JSONGroup</span><span class="p">]</span>
+    <span class="n">nxlog</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">JSONGroup</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="DataReady">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.DataReady.html#beamlime.applications.handlers.DataReady">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">DataReady</span><span class="p">:</span>
+    <span class="n">content</span><span class="p">:</span> <span class="n">WorkflowInput</span></div>
+
+
+
+<div class="viewcode-block" id="WorkflowResultUpdate">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.WorkflowResultUpdate.html#beamlime.applications.handlers.WorkflowResultUpdate">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span> <span class="nc">WorkflowResultUpdate</span><span class="p">:</span>
+    <span class="n">content</span><span class="p">:</span> <span class="n">WorkflowResult</span></div>
+
+
+
+<div class="viewcode-block" id="maxcount_or_maxtime">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.maxcount_or_maxtime.html#beamlime.applications.handlers.maxcount_or_maxtime">[docs]</a>
+<span class="k">def</span> <span class="nf">maxcount_or_maxtime</span><span class="p">(</span><span class="n">maxcount</span><span class="p">:</span> <span class="n">Number</span><span class="p">,</span> <span class="n">maxtime</span><span class="p">:</span> <span class="n">Number</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">maxcount</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;maxcount must be positive&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">maxtime</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;maxtime must be positive&quot;</span><span class="p">)</span>
+
+    <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">last</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">run</span><span class="p">():</span>
+        <span class="k">nonlocal</span> <span class="n">count</span><span class="p">,</span> <span class="n">last</span>
+        <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">if</span> <span class="n">count</span> <span class="o">&gt;=</span> <span class="n">maxcount</span> <span class="ow">or</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">last</span> <span class="o">&gt;=</span> <span class="n">maxtime</span><span class="p">:</span>
+            <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">last</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+            <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">return</span> <span class="n">run</span></div>
+
+
+
+<span class="n">DETECTOR_BANK_SIZES</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;larmor_detector&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;layer&#39;</span><span class="p">:</span> <span class="mi">4</span><span class="p">,</span> <span class="s1">&#39;tube&#39;</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span> <span class="s1">&#39;straw&#39;</span><span class="p">:</span> <span class="mi">7</span><span class="p">,</span> <span class="s1">&#39;pixel&#39;</span><span class="p">:</span> <span class="mi">512</span><span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1"># NOTE: This config should obviously be moved/managed elsewhere, but this works for</span>
+<span class="c1"># for testing and is convenient for now.</span>
+<span class="n">_res_scale</span> <span class="o">=</span> <span class="mi">8</span>
+<span class="c1"># Order in &#39;resolution&#39; matters so plots have X as horizontal axis and Y as vertical.</span>
+<span class="n">detector_registry</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="c1"># The other DREAM detectors have non-consecutive detector numbers. This is not</span>
+<span class="c1"># supported currently</span>
+<span class="n">_dream</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;dashboard&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;nrow&#39;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s1">&#39;ncol&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">},</span>
+    <span class="s1">&#39;detectors&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;endcap_backward&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;detector_name&#39;</span><span class="p">:</span> <span class="s1">&#39;endcap_backward_detector&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;resolution&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="mi">30</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="mi">20</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">},</span>
+            <span class="s1">&#39;gridspec&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+        <span class="p">},</span>
+        <span class="s1">&#39;endcap_forward&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;detector_name&#39;</span><span class="p">:</span> <span class="s1">&#39;endcap_forward_detector&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;resolution&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="mi">20</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="mi">20</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">},</span>
+            <span class="s1">&#39;gridspec&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+        <span class="p">},</span>
+        <span class="c1"># We use the arc length instead of phi as it makes it easier to get a correct</span>
+        <span class="c1"># aspect ratio for the plot if both axes have the same unit.</span>
+        <span class="s1">&#39;mantle_projection&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;detector_name&#39;</span><span class="p">:</span> <span class="s1">&#39;mantle_detector&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;resolution&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;arclength&#39;</span><span class="p">:</span> <span class="mi">10</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">:</span> <span class="mi">40</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">},</span>
+            <span class="s1">&#39;projection&#39;</span><span class="p">:</span> <span class="s1">&#39;cylinder_mantle_z&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;gridspec&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span>
+        <span class="p">},</span>
+        <span class="c1"># Different view of the same detector, showing just the front layer instead of</span>
+        <span class="c1"># a projection.</span>
+        <span class="s1">&#39;mantle_front_layer&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;detector_name&#39;</span><span class="p">:</span> <span class="s1">&#39;mantle_detector&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;projection&#39;</span><span class="p">:</span> <span class="n">raw</span><span class="o">.</span><span class="n">LogicalView</span><span class="p">(</span>
+                <span class="n">fold</span><span class="o">=</span><span class="p">{</span>
+                    <span class="s1">&#39;wire&#39;</span><span class="p">:</span> <span class="mi">32</span><span class="p">,</span>
+                    <span class="s1">&#39;module&#39;</span><span class="p">:</span> <span class="mi">5</span><span class="p">,</span>
+                    <span class="s1">&#39;segment&#39;</span><span class="p">:</span> <span class="mi">6</span><span class="p">,</span>
+                    <span class="s1">&#39;strip&#39;</span><span class="p">:</span> <span class="mi">256</span><span class="p">,</span>
+                    <span class="s1">&#39;counter&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span>
+                <span class="p">},</span>
+                <span class="n">transpose</span><span class="o">=</span><span class="p">(</span><span class="s1">&#39;wire&#39;</span><span class="p">,</span> <span class="s1">&#39;module&#39;</span><span class="p">,</span> <span class="s1">&#39;segment&#39;</span><span class="p">,</span> <span class="s1">&#39;counter&#39;</span><span class="p">,</span> <span class="s1">&#39;strip&#39;</span><span class="p">),</span>
+                <span class="n">select</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;wire&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+                <span class="n">flatten</span><span class="o">=</span><span class="p">{</span><span class="s1">&#39;z_id&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;module&#39;</span><span class="p">,</span> <span class="s1">&#39;segment&#39;</span><span class="p">,</span> <span class="s1">&#39;counter&#39;</span><span class="p">)},</span>
+            <span class="p">),</span>
+            <span class="s1">&#39;gridspec&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+<span class="n">_loki</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;dashboard&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;nrow&#39;</span><span class="p">:</span> <span class="mi">3</span><span class="p">,</span> <span class="s1">&#39;ncol&#39;</span><span class="p">:</span> <span class="mi">9</span><span class="p">,</span> <span class="s1">&#39;figsize_scale&#39;</span><span class="p">:</span> <span class="mi">3</span><span class="p">},</span>
+    <span class="s1">&#39;detectors&#39;</span><span class="p">:</span> <span class="p">{</span>
+        <span class="s1">&#39;Rear-detector&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;detector_name&#39;</span><span class="p">:</span> <span class="s1">&#39;loki_detector_0&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;resolution&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="mi">12</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="mi">12</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">},</span>
+            <span class="s1">&#39;gridspec&#39;</span><span class="p">:</span> <span class="p">(</span><span class="nb">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="nb">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span>
+            <span class="s1">&#39;pixel_noise&#39;</span><span class="p">:</span> <span class="s1">&#39;cylindrical&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="c1"># First window frame</span>
+        <span class="s1">&#39;loki_detector_1&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;detector_name&#39;</span><span class="p">:</span> <span class="s1">&#39;loki_detector_1&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;resolution&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="mi">9</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">},</span>
+            <span class="s1">&#39;gridspec&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+            <span class="s1">&#39;pixel_noise&#39;</span><span class="p">:</span> <span class="s1">&#39;cylindrical&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s1">&#39;loki_detector_2&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;detector_name&#39;</span><span class="p">:</span> <span class="s1">&#39;loki_detector_2&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;resolution&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="mi">9</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">},</span>
+            <span class="s1">&#39;gridspec&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+            <span class="s1">&#39;pixel_noise&#39;</span><span class="p">:</span> <span class="s1">&#39;cylindrical&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s1">&#39;loki_detector_3&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;detector_name&#39;</span><span class="p">:</span> <span class="s1">&#39;loki_detector_3&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;resolution&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="mi">9</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">},</span>
+            <span class="s1">&#39;gridspec&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span>
+            <span class="s1">&#39;pixel_noise&#39;</span><span class="p">:</span> <span class="s1">&#39;cylindrical&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s1">&#39;loki_detector_4&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;detector_name&#39;</span><span class="p">:</span> <span class="s1">&#39;loki_detector_4&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;resolution&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="mi">9</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">},</span>
+            <span class="s1">&#39;gridspec&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span>
+            <span class="s1">&#39;pixel_noise&#39;</span><span class="p">:</span> <span class="s1">&#39;cylindrical&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="c1"># Second window frame</span>
+        <span class="s1">&#39;loki_detector_5&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;detector_name&#39;</span><span class="p">:</span> <span class="s1">&#39;loki_detector_5&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;resolution&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="mi">9</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">},</span>
+            <span class="s1">&#39;gridspec&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span>
+            <span class="s1">&#39;pixel_noise&#39;</span><span class="p">:</span> <span class="s1">&#39;cylindrical&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s1">&#39;loki_detector_6&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;detector_name&#39;</span><span class="p">:</span> <span class="s1">&#39;loki_detector_6&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;resolution&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="mi">9</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">},</span>
+            <span class="s1">&#39;gridspec&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span>
+            <span class="s1">&#39;pixel_noise&#39;</span><span class="p">:</span> <span class="s1">&#39;cylindrical&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s1">&#39;loki_detector_7&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;detector_name&#39;</span><span class="p">:</span> <span class="s1">&#39;loki_detector_7&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;resolution&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="mi">9</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">},</span>
+            <span class="s1">&#39;gridspec&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span>
+            <span class="s1">&#39;pixel_noise&#39;</span><span class="p">:</span> <span class="s1">&#39;cylindrical&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+        <span class="s1">&#39;loki_detector_8&#39;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s1">&#39;detector_name&#39;</span><span class="p">:</span> <span class="s1">&#39;loki_detector_8&#39;</span><span class="p">,</span>
+            <span class="s1">&#39;resolution&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="mi">9</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">_res_scale</span><span class="p">},</span>
+            <span class="s1">&#39;gridspec&#39;</span><span class="p">:</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span>
+            <span class="s1">&#39;pixel_noise&#39;</span><span class="p">:</span> <span class="s1">&#39;cylindrical&#39;</span><span class="p">,</span>
+        <span class="p">},</span>
+    <span class="p">},</span>
+<span class="p">}</span>
+<span class="n">detector_registry</span><span class="p">[</span><span class="s1">&#39;DREAM&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_dream</span>
+<span class="n">detector_registry</span><span class="p">[</span><span class="s1">&#39;LoKI&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_loki</span>
+
+
+<div class="viewcode-block" id="RawCountHandler">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.RawCountHandler.html#beamlime.applications.handlers.RawCountHandler">[docs]</a>
+<span class="k">class</span> <span class="nc">RawCountHandler</span><span class="p">(</span><span class="n">HandlerInterface</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Continuously handle raw counts for every ev44 message.</span>
+
+<span class="sd">    This ignores run-start and run-stop messages.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="RawCountHandler.__init__">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.RawCountHandler.html#beamlime.applications.handlers.RawCountHandler.__init__">[docs]</a>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">logger</span><span class="p">:</span> <span class="n">BeamlimeLogger</span><span class="p">,</span> <span class="n">nexus_file</span><span class="p">:</span> <span class="n">NexusFilePath</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pulse</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_previous</span><span class="p">:</span> <span class="n">sc</span><span class="o">.</span><span class="n">DataArray</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_detectors</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_views</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">raw</span><span class="o">.</span><span class="n">RollingDetectorView</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">with</span> <span class="n">snx</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">nexus_file</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">entry</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">snx</span><span class="o">.</span><span class="n">NXentry</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+            <span class="n">instrument</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="n">snx</span><span class="o">.</span><span class="n">NXinstrument</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_instrument</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">instrument</span><span class="p">[</span><span class="s1">&#39;name&#39;</span><span class="p">][()])</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">detector</span> <span class="ow">in</span> <span class="n">detector_registry</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_instrument</span><span class="p">][</span><span class="s1">&#39;detectors&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_detectors</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">detector</span><span class="p">[</span><span class="s1">&#39;detector_name&#39;</span><span class="p">],</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_views</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">RollingDetectorView</span><span class="o">.</span><span class="n">from_nexus</span><span class="p">(</span>
+                <span class="n">nexus_file</span><span class="p">,</span>
+                <span class="n">detector_name</span><span class="o">=</span><span class="n">detector</span><span class="p">[</span><span class="s1">&#39;detector_name&#39;</span><span class="p">],</span>
+                <span class="n">window</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+                <span class="n">projection</span><span class="o">=</span><span class="n">detector</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;projection&#39;</span><span class="p">,</span> <span class="s1">&#39;xy_plane&#39;</span><span class="p">),</span>
+                <span class="n">resolution</span><span class="o">=</span><span class="n">detector</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;resolution&#39;</span><span class="p">),</span>
+                <span class="n">pixel_noise</span><span class="o">=</span><span class="n">detector</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;pixel_noise&#39;</span><span class="p">,</span> <span class="n">sc</span><span class="o">.</span><span class="n">scalar</span><span class="p">(</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">unit</span><span class="o">=</span><span class="s1">&#39;m&#39;</span><span class="p">)),</span>
+            <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_chunk</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_views</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="p">[]</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_views</span><span class="p">}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initialized with </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_views</span><span class="p">))</span></div>
+
+
+    <span class="k">def</span> <span class="nf">handle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">DataPieceReceived</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WorkflowResultUpdate</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">detname</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">deserialized</span><span class="p">[</span><span class="s1">&#39;source_name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">event_id</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">deserialized</span><span class="p">[</span><span class="s1">&#39;pixel_id&#39;</span><span class="p">]</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">det</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_detectors</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">detname</span><span class="p">))</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">det</span><span class="p">:</span>
+                <span class="n">buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+                <span class="n">buffer</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">event_id</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_pulse</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Ignoring data for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">detname</span><span class="p">)</span>
+            <span class="k">return</span>
+        <span class="n">npulse</span> <span class="o">=</span> <span class="mi">10</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pulse</span> <span class="o">%</span> <span class="n">npulse</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">det</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_views</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="n">buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">buffer</span><span class="p">):</span>
+                    <span class="n">det</span><span class="o">.</span><span class="n">add_counts</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="n">buffer</span><span class="p">))</span>
+                    <span class="n">buffer</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+                <span class="k">for</span> <span class="n">window</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">50</span><span class="p">,):</span>
+                    <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_instrument</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;window=</span><span class="si">{</span><span class="n">window</span><span class="o">*</span><span class="n">npulse</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+                    <span class="n">results</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">det</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">window</span><span class="o">=</span><span class="n">window</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Publishing result for detectors </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_views</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">WorkflowResultUpdate</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_argument_group</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">group</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">(</span><span class="s2">&quot;Raw Counter Configuration&quot;</span><span class="p">)</span>
+        <span class="n">group</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--static-file-path&quot;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path to the nexus file that has static information.&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+            <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_args</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">logger</span><span class="p">:</span> <span class="n">BeamlimeLogger</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;RawCountHandler&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">logger</span><span class="o">=</span><span class="n">logger</span><span class="p">,</span> <span class="n">nexus_file</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">static_file_path</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="DataAssembler">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.DataAssembler.html#beamlime.applications.handlers.DataAssembler">[docs]</a>
+<span class="k">class</span> <span class="nc">DataAssembler</span><span class="p">(</span><span class="n">HandlerInterface</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Receives data and assembles it into a single data structure.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="DataAssembler.__init__">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.DataAssembler.html#beamlime.applications.handlers.DataAssembler.__init__">[docs]</a>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">logger</span><span class="p">:</span> <span class="n">BeamlimeLogger</span><span class="p">,</span>
+        <span class="n">merge_every_nth</span><span class="p">:</span> <span class="n">MergeMessageCountInterval</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+        <span class="n">max_seconds_between_messages</span><span class="p">:</span> <span class="n">MergeMessageTimeInterval</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">),</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">static_filename</span><span class="p">:</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">streaming_modules</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="n">StreamModuleKey</span><span class="p">,</span> <span class="n">StreamModuleValue</span><span class="p">]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_nexus_store</span><span class="p">:</span> <span class="n">NexusStore</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_should_send_message</span> <span class="o">=</span> <span class="n">maxcount_or_maxtime</span><span class="p">(</span>
+            <span class="n">merge_every_nth</span><span class="p">,</span> <span class="n">max_seconds_between_messages</span>
+        <span class="p">)</span></div>
+
+
+    <span class="k">def</span> <span class="nf">set_run_start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">RunStart</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">streaming_modules</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">streaming_modules</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Expecting data for modules: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">streaming_modules</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">static_filename</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">merge_data_piece</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">DataPieceReceived</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataReady</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">module_spec</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">streaming_modules</span><span class="p">[</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">key</span><span class="p">]</span>
+        <span class="n">merge_message_into_nexus_store</span><span class="p">(</span>
+            <span class="n">module_key</span><span class="o">=</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">key</span><span class="p">,</span>
+            <span class="n">module_spec</span><span class="o">=</span><span class="n">module_spec</span><span class="p">,</span>
+            <span class="n">nexus_store</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_nexus_store</span><span class="p">,</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">deserialized</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Data piece merged for </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">key</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_should_send_message</span><span class="p">():</span>
+            <span class="n">nxevent_data</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">nexus_path_as_string</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">streaming_modules</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">path</span><span class="p">):</span> <span class="n">value</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nexus_store</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">module_type</span> <span class="o">==</span> <span class="s2">&quot;ev44&quot;</span>
+            <span class="p">}</span>
+            <span class="n">nxlog</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">nexus_path_as_string</span><span class="p">(</span><span class="n">module_spec</span><span class="o">.</span><span class="n">path</span><span class="p">):</span> <span class="n">value</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_nexus_store</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">key</span><span class="o">.</span><span class="n">module_type</span> <span class="o">==</span> <span class="s2">&quot;f144&quot;</span>
+            <span class="p">}</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">DataReady</span><span class="p">(</span>
+                <span class="n">content</span><span class="o">=</span><span class="n">WorkflowInput</span><span class="p">(</span><span class="n">nxevent_data</span><span class="o">=</span><span class="n">nxevent_data</span><span class="p">,</span> <span class="n">nxlog</span><span class="o">=</span><span class="n">nxlog</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_nexus_store</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">return</span> <span class="n">result</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_argument_group</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">group</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">(</span><span class="s2">&quot;Data Assembler Configuration&quot;</span><span class="p">)</span>
+        <span class="n">group</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--merge-every-nth&quot;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Merge data every nth message.&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">group</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--max-seconds-between-messages&quot;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Maximum time between messages in seconds.</span><span class="se">\</span>
+<span class="s2">                  This should be (N: int) times (number of messages per frame).&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">),</span>
+        <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_args</span><span class="p">(</span>
+        <span class="bp">cls</span><span class="p">,</span> <span class="n">logger</span><span class="p">:</span> <span class="n">BeamlimeLogger</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;DataAssembler&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">logger</span><span class="o">=</span><span class="n">logger</span><span class="p">,</span>
+            <span class="n">merge_every_nth</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">merge_every_nth</span><span class="p">,</span>
+            <span class="n">max_seconds_between_messages</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">max_seconds_between_messages</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="DataReductionHandler">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.DataReductionHandler.html#beamlime.applications.handlers.DataReductionHandler">[docs]</a>
+<span class="k">class</span> <span class="nc">DataReductionHandler</span><span class="p">(</span><span class="n">HandlerInterface</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Data reduction handler to process the raw data.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="DataReductionHandler.__init__">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.DataReductionHandler.html#beamlime.applications.handlers.DataReductionHandler.__init__">[docs]</a>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">workflow</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">LiveWorkflow</span><span class="p">],</span>
+        <span class="n">reuslt_registry</span><span class="p">:</span> <span class="n">ResultRegistry</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">workflow_constructor</span> <span class="o">=</span> <span class="n">workflow</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">workflow</span><span class="p">:</span> <span class="n">LiveWorkflow</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">result_registry</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">reuslt_registry</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">reuslt_registry</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span> <span class="nf">set_run_start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">RunStart</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">file_path</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">filename</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Initializing workflow with </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">file_path</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">workflow</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">workflow_constructor</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">reduce_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">DataReady</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WorkflowResultUpdate</span><span class="p">:</span>
+        <span class="n">nxevent_data</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">key</span><span class="p">:</span> <span class="n">JSONGroup</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">nxevent_data</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+        <span class="p">}</span>
+        <span class="n">nxlog</span> <span class="o">=</span> <span class="p">{</span><span class="n">key</span><span class="p">:</span> <span class="n">JSONGroup</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">nxlog</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Running data reduction&quot;</span><span class="p">)</span>
+        <span class="n">results</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">workflow</span><span class="p">(</span><span class="n">nxevent_data</span><span class="o">=</span><span class="n">nxevent_data</span><span class="p">,</span> <span class="n">nxlog</span><span class="o">=</span><span class="n">nxlog</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">result_registry</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">results</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">WorkflowResultUpdate</span><span class="p">(</span><span class="n">content</span><span class="o">=</span><span class="n">results</span><span class="p">)</span></div>
+
+
+
+<span class="n">ImagePath</span> <span class="o">=</span> <span class="n">NewType</span><span class="p">(</span><span class="s2">&quot;ImagePath&quot;</span><span class="p">,</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="random_image_path">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.random_image_path.html#beamlime.applications.handlers.random_image_path">[docs]</a>
+<span class="k">def</span> <span class="nf">random_image_path</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">ImagePath</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">uuid</span>
+
+    <span class="k">return</span> <span class="n">ImagePath</span><span class="p">(</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;beamlime_plot_</span><span class="si">{</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">()</span><span class="o">.</span><span class="n">hex</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span></div>
+
+
+
+<span class="n">MaxPlotColumn</span> <span class="o">=</span> <span class="n">NewType</span><span class="p">(</span><span class="s2">&quot;MaxPlotColumn&quot;</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span>
+<span class="n">DefaultMaxPlotColumn</span> <span class="o">=</span> <span class="n">MaxPlotColumn</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="PlotStreamer">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.PlotStreamer.html#beamlime.applications.handlers.PlotStreamer">[docs]</a>
+<span class="k">class</span> <span class="nc">PlotStreamer</span><span class="p">(</span><span class="n">HandlerInterface</span><span class="p">):</span>
+<div class="viewcode-block" id="PlotStreamer.__init__">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.PlotStreamer.html#beamlime.applications.handlers.PlotStreamer.__init__">[docs]</a>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">logger</span><span class="p">:</span> <span class="n">BeamlimeLogger</span><span class="p">,</span>
+        <span class="n">max_column</span><span class="p">:</span> <span class="n">MaxPlotColumn</span> <span class="o">=</span> <span class="n">DefaultMaxPlotColumn</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">figures</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">artists</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_column</span> <span class="o">=</span> <span class="n">max_column</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span> <span class="nf">plot_item</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">sc</span><span class="o">.</span><span class="n">DataArray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">figure</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">figures</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">figure</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">plot</span> <span class="o">=</span> <span class="n">pp</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
+            <span class="c1"># TODO Either improve Plopp&#39;s update method, or handle multiple artists</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">plot</span><span class="o">.</span><span class="n">artists</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Data with multiple items not supported.&quot;</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">artists</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">plot</span><span class="o">.</span><span class="n">artists</span><span class="p">))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">figures</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">plot</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">figure</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="bp">self</span><span class="o">.</span><span class="n">artists</span><span class="p">[</span><span class="n">name</span><span class="p">]:</span> <span class="n">data</span><span class="p">})</span>
+
+    <span class="k">def</span> <span class="nf">update_histogram</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">WorkflowResultUpdate</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">content</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">content</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">content</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">plot_item</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+
+<div class="viewcode-block" id="PlotStreamer.show">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.PlotStreamer.html#beamlime.applications.handlers.PlotStreamer.show">[docs]</a>
+    <span class="k">def</span> <span class="nf">show</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Show the figures in a grid layout.&quot;&quot;&quot;</span>
+        <span class="kn">from</span> <span class="nn">plopp.widgets</span> <span class="kn">import</span> <span class="n">Box</span>
+
+        <span class="n">figures</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">figures</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="n">n_rows</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">figures</span><span class="p">)</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_column</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="k">return</span> <span class="n">Box</span><span class="p">(</span>
+            <span class="p">[</span>
+                <span class="n">figures</span><span class="p">[</span>
+                    <span class="n">i_row</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_column</span> <span class="p">:</span> <span class="n">i_row</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_column</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_column</span>
+                <span class="p">]</span>
+                <span class="k">for</span> <span class="n">i_row</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_rows</span><span class="p">)</span>
+            <span class="p">],</span>
+        <span class="p">)</span></div>
+</div>
+
+
+
+<span class="k">def</span> <span class="nf">_plot_1d</span><span class="p">(</span>
+    <span class="n">da</span><span class="p">:</span> <span class="n">sc</span><span class="o">.</span><span class="n">DataArray</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">ax</span><span class="p">:</span> <span class="n">plt</span><span class="o">.</span><span class="n">Axes</span><span class="p">,</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">norm</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">vmin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">vmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">aspect</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">sc</span><span class="o">.</span><span class="n">midpoints</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">yerr</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">variances</span><span class="p">),</span> <span class="n">fmt</span><span class="o">=</span><span class="s1">&#39;o&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">norm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_yscale</span><span class="p">(</span><span class="n">norm</span><span class="p">)</span>
+    <span class="n">y_min</span> <span class="o">=</span> <span class="n">vmin</span> <span class="k">if</span> <span class="n">vmin</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
+    <span class="n">y_max</span> <span class="o">=</span> <span class="n">vmax</span> <span class="k">if</span> <span class="n">vmax</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mf">1.05</span> <span class="o">*</span> <span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1"> [</span><span class="si">{</span><span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">unit</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[</span><span class="si">{</span><span class="n">da</span><span class="o">.</span><span class="n">unit</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="plot_images_with_offsets">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.plot_images_with_offsets.html#beamlime.applications.handlers.plot_images_with_offsets">[docs]</a>
+<span class="k">def</span> <span class="nf">plot_images_with_offsets</span><span class="p">(</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">ax</span><span class="p">,</span>
+    <span class="n">image_data_list</span><span class="p">,</span>
+    <span class="n">x_coords_list</span><span class="p">,</span>
+    <span class="n">y_coords_list</span><span class="p">,</span>
+    <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;viridis&#39;</span><span class="p">,</span>
+    <span class="n">num_ticks</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+    <span class="c1"># Calculate common axis ranges</span>
+    <span class="n">x_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">x_coords_list</span><span class="p">)</span>
+    <span class="n">x_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">x_coords_list</span><span class="p">)</span>
+    <span class="n">y_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">y_coords_list</span><span class="p">)</span>
+    <span class="n">y_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">y_coords_list</span><span class="p">)</span>
+
+    <span class="c1"># Plot each image with correct extent</span>
+    <span class="k">for</span> <span class="n">image_data</span><span class="p">,</span> <span class="n">x_coords</span><span class="p">,</span> <span class="n">y_coords</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span>
+        <span class="n">image_data_list</span><span class="p">,</span> <span class="n">x_coords_list</span><span class="p">,</span> <span class="n">y_coords_list</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">):</span>
+        <span class="n">extent</span> <span class="o">=</span> <span class="p">[</span><span class="n">x_coords</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">x_coords</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">y_coords</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">y_coords</span><span class="o">.</span><span class="n">max</span><span class="p">()]</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span>
+            <span class="n">image_data</span><span class="p">,</span>
+            <span class="n">extent</span><span class="o">=</span><span class="n">extent</span><span class="p">,</span>
+            <span class="n">origin</span><span class="o">=</span><span class="s1">&#39;lower&#39;</span><span class="p">,</span>
+            <span class="n">interpolation</span><span class="o">=</span><span class="s1">&#39;none&#39;</span><span class="p">,</span>
+            <span class="n">cmap</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Set axis limits and ticks based on common ranges</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">x_min</span><span class="p">,</span> <span class="n">x_max</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="n">num_ticks</span><span class="p">))</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">y_min</span><span class="p">,</span> <span class="n">y_max</span><span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="n">num_ticks</span><span class="p">))</span>
+
+    <span class="c1"># Set labels and title</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;X-axis&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Y-axis&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Images Offset by Coordinate Arrays&#39;</span><span class="p">)</span></div>
+
+
+
+<span class="k">def</span> <span class="nf">_plot_2d</span><span class="p">(</span>
+    <span class="n">da</span><span class="p">:</span> <span class="n">sc</span><span class="o">.</span><span class="n">DataArray</span> <span class="o">|</span> <span class="n">sc</span><span class="o">.</span><span class="n">DataGroup</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">ax</span><span class="p">:</span> <span class="n">plt</span><span class="o">.</span><span class="n">Axes</span><span class="p">,</span>
+    <span class="n">title</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+<span class="p">):</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">da</span><span class="p">,</span> <span class="n">sc</span><span class="o">.</span><span class="n">DataGroup</span><span class="p">):</span>
+        <span class="n">das</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="n">xname</span> <span class="o">=</span> <span class="n">das</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">yname</span> <span class="o">=</span> <span class="n">das</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">plot_images_with_offsets</span><span class="p">(</span>
+            <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span>
+            <span class="n">image_data_list</span><span class="o">=</span><span class="p">[</span><span class="n">da</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">da</span> <span class="ow">in</span> <span class="n">das</span><span class="p">],</span>
+            <span class="n">x_coords_list</span><span class="o">=</span><span class="p">[</span><span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">xname</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">da</span> <span class="ow">in</span> <span class="n">das</span><span class="p">],</span>
+            <span class="n">y_coords_list</span><span class="o">=</span><span class="p">[</span><span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">yname</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">da</span> <span class="ow">in</span> <span class="n">das</span><span class="p">],</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="n">x</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">sc</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">da</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">unit</span><span class="o">=</span><span class="kc">None</span><span class="p">))</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">coords</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">sc</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">da</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">unit</span><span class="o">=</span><span class="kc">None</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">x</span><span class="o">.</span><span class="n">unit</span> <span class="o">==</span> <span class="n">y</span><span class="o">.</span><span class="n">unit</span><span class="p">:</span>
+        <span class="n">aspect</span> <span class="o">=</span> <span class="nb">float</span><span class="p">((</span><span class="n">y</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">y</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+        <span class="n">aspect</span> <span class="o">*=</span> <span class="n">da</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">da</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">aspect</span> <span class="o">=</span> <span class="s1">&#39;equal&#39;</span>
+
+    <span class="n">values</span> <span class="o">=</span> <span class="n">da</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="n">aspect</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">invert_yaxis</span><span class="p">()</span>
+    <span class="c1"># Note: Drawing the colorbar actually takes a long time!</span>
+    <span class="c1"># cbar = plt.colorbar(ax.images[0], ax=ax)</span>
+    <span class="c1"># cbar.set_label(f&#39;[{da.unit}]&#39;)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="n">title</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s1"> [</span><span class="si">{</span><span class="n">x</span><span class="o">.</span><span class="n">unit</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">da</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1"> [</span><span class="si">{</span><span class="n">y</span><span class="o">.</span><span class="n">unit</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
+    <span class="n">x_coords</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">values</span><span class="p">[::</span><span class="mi">20</span><span class="p">]</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">x_coords</span><span class="p">)))</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_xticklabels</span><span class="p">([</span><span class="nb">round</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">x_coords</span><span class="p">])</span>
+    <span class="n">y_coords</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">values</span><span class="p">[::</span><span class="mi">20</span><span class="p">]</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">values</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">y_coords</span><span class="p">)))</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">set_yticklabels</span><span class="p">([</span><span class="nb">round</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">y</span> <span class="ow">in</span> <span class="n">y_coords</span><span class="p">])</span>
+
+
+<div class="viewcode-block" id="PlotSaver">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.PlotSaver.html#beamlime.applications.handlers.PlotSaver">[docs]</a>
+<span class="k">class</span> <span class="nc">PlotSaver</span><span class="p">(</span><span class="n">PlotStreamer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Plot handler to save the updated histogram into an image file.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="PlotSaver.__init__">
+<a class="viewcode-back" href="../../../generated/modules/beamlime.applications.handlers.PlotSaver.html#beamlime.applications.handlers.PlotSaver.__init__">[docs]</a>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">logger</span><span class="p">:</span> <span class="n">BeamlimeLogger</span><span class="p">,</span>
+        <span class="n">image_path_prefix</span><span class="p">:</span> <span class="n">ImagePath</span><span class="p">,</span>
+        <span class="n">max_column</span><span class="p">:</span> <span class="n">MaxPlotColumn</span> <span class="o">=</span> <span class="n">DefaultMaxPlotColumn</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">logger</span><span class="o">=</span><span class="n">logger</span><span class="p">,</span> <span class="n">max_column</span><span class="o">=</span><span class="n">max_column</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">image_path_prefix</span> <span class="o">=</span> <span class="n">image_path_prefix</span></div>
+
+
+    <span class="k">def</span> <span class="nf">save_histogram</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n">WorkflowResultUpdate</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+
+        <span class="n">image_file_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">image_path_prefix</span><span class="si">}</span><span class="s2">.png&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Received histogram(s), saving into </span><span class="si">%s</span><span class="s2">...&quot;</span><span class="p">,</span> <span class="n">image_file_name</span><span class="p">)</span>
+
+        <span class="n">instrument</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">keys</span><span class="p">()))[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">dashboard</span> <span class="o">=</span> <span class="n">detector_registry</span><span class="p">[</span><span class="n">instrument</span><span class="p">][</span><span class="s1">&#39;dashboard&#39;</span><span class="p">]</span>
+        <span class="n">ncol</span> <span class="o">=</span> <span class="n">dashboard</span><span class="p">[</span><span class="s1">&#39;ncol&#39;</span><span class="p">]</span>
+        <span class="n">nrow</span> <span class="o">=</span> <span class="n">dashboard</span><span class="p">[</span><span class="s1">&#39;nrow&#39;</span><span class="p">]</span>
+        <span class="n">figsize_scale</span> <span class="o">=</span> <span class="n">dashboard</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;figsize_scale&#39;</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="n">figsize_scale</span> <span class="o">*</span> <span class="n">ncol</span><span class="p">,</span> <span class="n">figsize_scale</span> <span class="o">*</span> <span class="n">nrow</span><span class="p">))</span>
+        <span class="n">gs</span> <span class="o">=</span> <span class="n">GridSpec</span><span class="p">(</span><span class="n">nrow</span><span class="p">,</span> <span class="n">ncol</span><span class="p">,</span> <span class="n">figure</span><span class="o">=</span><span class="n">fig</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">da</span> <span class="ow">in</span> <span class="n">message</span><span class="o">.</span><span class="n">content</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="n">instrument</span><span class="p">,</span> <span class="n">detname</span><span class="p">,</span> <span class="n">params</span> <span class="o">=</span> <span class="n">key</span>
+            <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">detname</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">params</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">grid_loc</span> <span class="o">=</span> <span class="n">detector_registry</span><span class="p">[</span><span class="n">instrument</span><span class="p">][</span><span class="s1">&#39;detectors&#39;</span><span class="p">][</span><span class="n">detname</span><span class="p">][</span><span class="s1">&#39;gridspec&#39;</span><span class="p">]</span>
+            <span class="n">ax</span> <span class="o">=</span> <span class="n">fig</span><span class="o">.</span><span class="n">add_subplot</span><span class="p">(</span><span class="n">gs</span><span class="p">[</span><span class="n">grid_loc</span><span class="p">])</span>
+            <span class="n">extra</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;norm&#39;</span><span class="p">:</span> <span class="s1">&#39;log&#39;</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">da</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">_plot_2d</span><span class="p">(</span><span class="n">da</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">extra</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">da</span><span class="p">,</span> <span class="n">sc</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
+                <span class="n">_plot_1d</span><span class="p">(</span><span class="n">da</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">extra</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">da</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="n">name</span><span class="p">,</span> <span class="o">**</span><span class="n">extra</span><span class="p">)</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;.png&quot;</span><span class="p">,</span> <span class="n">delete</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="k">as</span> <span class="n">tmpfile</span><span class="p">:</span>
+            <span class="c1"># Saving into a tempfile avoids flickering when the image is updated, if</span>
+            <span class="c1"># the image is displayed in a GUI.</span>
+            <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">tmpfile</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">)</span>
+            <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">tmpfile</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">image_file_name</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Plotting took </span><span class="si">%.2f</span><span class="s2"> s&quot;</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">add_argument_group</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">parser</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">group</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_argument_group</span><span class="p">(</span><span class="s2">&quot;Plot Saver Configuration&quot;</span><span class="p">)</span>
+        <span class="n">group</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--image-path-prefix&quot;</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path to save the histogram image.&quot;</span><span class="p">,</span>
+            <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">from_args</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">logger</span><span class="p">:</span> <span class="n">BeamlimeLogger</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n">argparse</span><span class="o">.</span><span class="n">Namespace</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;PlotSaver&quot;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span>
+            <span class="n">logger</span><span class="o">=</span><span class="n">logger</span><span class="p">,</span>
+            <span class="n">image_path_prefix</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">image_path_prefix</span> <span class="ow">or</span> <span class="n">random_image_path</span><span class="p">(),</span>
+        <span class="p">)</span></div>
+
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="../../../_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="../../../_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2024 Scipp contributors.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.0.2.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item"><!-- This will display the version of the docs -->
+Current Beamlime version: 24.10.0 (<a href="https://github.com/scipp/beamlime/releases">older versions</a>).</div>
+      
+        <div class="footer-item">
+<p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.15.4.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

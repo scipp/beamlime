@@ -1,0 +1,41 @@
+Results of doctest builder run on 2024-10-28 15:10:16
+=====================================================
+
+Document: generated/modules/beamlime.logging.formatters.LogColumn
+-----------------------------------------------------------------
+1 items passed all tests:
+   7 tests in default
+7 tests in 1 items.
+7 passed and 0 failed.
+Test passed.
+
+Document: generated/modules/beamlime.constructors.providers.ProviderGroup
+-------------------------------------------------------------------------
+1 items passed all tests:
+   5 tests in default
+5 tests in 1 items.
+5 passed and 0 failed.
+Test passed.
+
+Document: generated/modules/beamlime.logging.formatters.LogHeader
+-----------------------------------------------------------------
+1 items passed all tests:
+   6 tests in default
+6 tests in 1 items.
+6 passed and 0 failed.
+Test passed.
+
+Document: generated/classes/beamlime.ProviderGroup
+--------------------------------------------------
+1 items passed all tests:
+   5 tests in default
+5 tests in 1 items.
+5 passed and 0 failed.
+Test passed.
+
+Doctest summary
+===============
+   23 tests
+    0 failures in tests
+    0 failures in setup code
+    0 failures in cleanup code

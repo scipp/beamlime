@@ -1,0 +1,1228 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Index &#8212; Beamlime</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+
+  
+  <link href="_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
+  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
+<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+  
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
+  <script src="_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+    <script src="_static/documentation_options.js?v=2e6d0414"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@jupyter-widgets/html-manager@^1.0.1/dist/embed-amd.js"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'genindex';</script>
+    <script src="_static/anaconda-icon.js?v=461bdc62"></script>
+    <link rel="icon" href="_static/favicon.svg"/>
+    <link rel="index" title="Index" href="#" />
+    <link rel="search" title="Search" href="search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-primary-sidebar-checkbox"/>
+  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
+  
+  <input type="checkbox"
+          class="sidebar-toggle"
+          id="pst-secondary-sidebar-checkbox"/>
+  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
+  
+  <div class="search-button__wrapper">
+    <div class="search-button__overlay"></div>
+    <div class="search-button__search-container">
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         id="search-input"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form></div>
+  </div>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/logo.svg" class="logo__image only-light" alt="Beamlime - Home"/>
+    <script>document.write(`<img src="_static/logo-dark.svg" class="logo__image only-dark" alt="Beamlime - Home"/>`);</script>
+  
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="user-guide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="api-reference/index.html">
+    API Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="developer/index.html">
+    Development
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="about/index.html">
+    About
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://scipp.github.io/essreduce">
+    Essreduce
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://scipp.github.io/plopp">
+    Plopp
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://scipp.github.io/sciline">
+    Sciline
+  </a>
+</li>
+
+
+<li class=" ">
+  <a class="nav-link dropdown-item nav-external" href="https://scipp.github.io">
+    Scipp
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script></div>
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/scipp/beamlime" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/beamlime/" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://anaconda.org/scipp/beamlime" title="Conda" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-anaconda fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Conda</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<script>
+document.write(`
+  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="fa-solid fa-magnifying-glass fa-lg"></i>
+  </button>
+`);
+</script>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <div class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="user-guide/index.html">
+    User Guide
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="api-reference/index.html">
+    API Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="developer/index.html">
+    Development
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="about/index.html">
+    About
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://scipp.github.io/essreduce">
+    Essreduce
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://scipp.github.io/plopp">
+    Plopp
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://scipp.github.io/sciline">
+    Sciline
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-external" href="https://scipp.github.io">
+    Scipp
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<script>
+document.write(`
+  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
+    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
+    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
+    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
+  </button>
+`);
+</script></div>
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/scipp/beamlime" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-github fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://pypi.org/project/beamlime/" title="PyPI" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-python fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">PyPI</span></a>
+        </li>
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://anaconda.org/scipp/beamlime" title="Conda" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-custom fa-anaconda fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">Conda</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+  
+  <div id="rtd-footer-container"></div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none"></div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+
+<h1 id="index">Index</h1>
+
+<div class="genindex-jumpbox">
+ <a href="#_"><strong>_</strong></a>
+ | <a href="#A"><strong>A</strong></a>
+ | <a href="#B"><strong>B</strong></a>
+ | <a href="#C"><strong>C</strong></a>
+ | <a href="#D"><strong>D</strong></a>
+ | <a href="#E"><strong>E</strong></a>
+ | <a href="#F"><strong>F</strong></a>
+ | <a href="#G"><strong>G</strong></a>
+ | <a href="#H"><strong>H</strong></a>
+ | <a href="#I"><strong>I</strong></a>
+ | <a href="#L"><strong>L</strong></a>
+ | <a href="#M"><strong>M</strong></a>
+ | <a href="#P"><strong>P</strong></a>
+ | <a href="#R"><strong>R</strong></a>
+ | <a href="#S"><strong>S</strong></a>
+ | <a href="#T"><strong>T</strong></a>
+ | <a href="#U"><strong>U</strong></a>
+ | <a href="#V"><strong>V</strong></a>
+ | <a href="#W"><strong>W</strong></a>
+ 
+</div>
+<h2 id="_">_</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.constructors.factories.Factory.html#beamlime.constructors.factories.Factory.__getitem__">__getitem__() (beamlime.constructors.factories.Factory method)</a>
+
+      <ul>
+        <li><a href="generated/modules/beamlime.constructors.providers.ProviderGroup.html#beamlime.constructors.providers.ProviderGroup.__getitem__">(beamlime.constructors.providers.ProviderGroup method)</a>
+</li>
+        <li><a href="generated/classes/beamlime.Factory.html#beamlime.Factory.__getitem__">(beamlime.Factory method)</a>
+</li>
+        <li><a href="generated/classes/beamlime.ProviderGroup.html#beamlime.ProviderGroup.__getitem__">(beamlime.ProviderGroup method)</a>
+</li>
+      </ul></li>
+      <li><a href="generated/modules/beamlime.applications.base.Application.html#beamlime.applications.base.Application.__init__">__init__() (beamlime.applications.base.Application method)</a>
+
+      <ul>
+        <li><a href="generated/modules/beamlime.applications.base.DaemonInterface.html#beamlime.applications.base.DaemonInterface.__init__">(beamlime.applications.base.DaemonInterface method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.base.HandlerInterface.html#beamlime.applications.base.HandlerInterface.__init__">(beamlime.applications.base.HandlerInterface method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.base.MessageProtocol.html#beamlime.applications.base.MessageProtocol.__init__">(beamlime.applications.base.MessageProtocol method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.base.MessageRouter.html#beamlime.applications.base.MessageRouter.__init__">(beamlime.applications.base.MessageRouter method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.daemons.DataPiece.html#beamlime.applications.daemons.DataPiece.__init__">(beamlime.applications.daemons.DataPiece method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.daemons.DataPieceReceived.html#beamlime.applications.daemons.DataPieceReceived.__init__">(beamlime.applications.daemons.DataPieceReceived method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.daemons.FakeListener.html#beamlime.applications.daemons.FakeListener.__init__">(beamlime.applications.daemons.FakeListener method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.daemons.RunStart.html#beamlime.applications.daemons.RunStart.__init__">(beamlime.applications.daemons.RunStart method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.handlers.DataAssembler.html#beamlime.applications.handlers.DataAssembler.__init__">(beamlime.applications.handlers.DataAssembler method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.handlers.DataReady.html#beamlime.applications.handlers.DataReady.__init__">(beamlime.applications.handlers.DataReady method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.handlers.DataReductionHandler.html#beamlime.applications.handlers.DataReductionHandler.__init__">(beamlime.applications.handlers.DataReductionHandler method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.handlers.PlotSaver.html#beamlime.applications.handlers.PlotSaver.__init__">(beamlime.applications.handlers.PlotSaver method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.handlers.PlotStreamer.html#beamlime.applications.handlers.PlotStreamer.__init__">(beamlime.applications.handlers.PlotStreamer method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.handlers.RawCountHandler.html#beamlime.applications.handlers.RawCountHandler.__init__">(beamlime.applications.handlers.RawCountHandler method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.handlers.WorkflowInput.html#beamlime.applications.handlers.WorkflowInput.__init__">(beamlime.applications.handlers.WorkflowInput method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.handlers.WorkflowResultUpdate.html#beamlime.applications.handlers.WorkflowResultUpdate.__init__">(beamlime.applications.handlers.WorkflowResultUpdate method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.constructors.factories.Factory.html#beamlime.constructors.factories.Factory.__init__">(beamlime.constructors.factories.Factory method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.constructors.inspectors.DependencySpec.html#beamlime.constructors.inspectors.DependencySpec.__init__">(beamlime.constructors.inspectors.DependencySpec method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.constructors.inspectors.Empty.html#beamlime.constructors.inspectors.Empty.__init__">(beamlime.constructors.inspectors.Empty method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.constructors.inspectors.ProductSpec.html#beamlime.constructors.inspectors.ProductSpec.__init__">(beamlime.constructors.inspectors.ProductSpec method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.constructors.inspectors.UnknownType.html#beamlime.constructors.inspectors.UnknownType.__init__">(beamlime.constructors.inspectors.UnknownType method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.constructors.providers.ArgumentsFilter.html#beamlime.constructors.providers.ArgumentsFilter.__init__">(beamlime.constructors.providers.ArgumentsFilter method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.constructors.providers.Provider.html#beamlime.constructors.providers.Provider.__init__">(beamlime.constructors.providers.Provider method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.constructors.providers.ProviderGroup.html#beamlime.constructors.providers.ProviderGroup.__init__">(beamlime.constructors.providers.ProviderGroup method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.constructors.providers.SingletonProvider.html#beamlime.constructors.providers.SingletonProvider.__init__">(beamlime.constructors.providers.SingletonProvider method)</a>
+</li>
+        <li><a href="generated/classes/beamlime.Factory.html#beamlime.Factory.__init__">(beamlime.Factory method)</a>
+</li>
+        <li><a href="generated/classes/beamlime.LiveWorkflow.html#beamlime.LiveWorkflow.__init__">(beamlime.LiveWorkflow method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.logging.formatters.BeamlimeStreamHighlighter.html#beamlime.logging.formatters.BeamlimeStreamHighlighter.__init__">(beamlime.logging.formatters.BeamlimeStreamHighlighter method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.logging.formatters.LogColumn.html#beamlime.logging.formatters.LogColumn.__init__">(beamlime.logging.formatters.LogColumn method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.logging.formatters.LogHeader.html#beamlime.logging.formatters.LogHeader.__init__">(beamlime.logging.formatters.LogHeader method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.logging.handlers.BeamlimeFileHandler.html#beamlime.logging.handlers.BeamlimeFileHandler.__init__">(beamlime.logging.handlers.BeamlimeFileHandler method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.logging.handlers.BeamlimeStreamHandler.html#beamlime.logging.handlers.BeamlimeStreamHandler.__init__">(beamlime.logging.handlers.BeamlimeStreamHandler method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.logging.mixins.LogMixin.html#beamlime.logging.mixins.LogMixin.__init__">(beamlime.logging.mixins.LogMixin method)</a>
+</li>
+        <li><a href="generated/classes/beamlime.LoggingProtocol.html#beamlime.LoggingProtocol.__init__">(beamlime.LoggingProtocol method)</a>
+</li>
+        <li><a href="generated/classes/beamlime.LogMixin.html#beamlime.LogMixin.__init__">(beamlime.LogMixin method)</a>
+</li>
+        <li><a href="generated/classes/beamlime.Provider.html#beamlime.Provider.__init__">(beamlime.Provider method)</a>
+</li>
+        <li><a href="generated/classes/beamlime.ProviderGroup.html#beamlime.ProviderGroup.__init__">(beamlime.ProviderGroup method)</a>
+</li>
+        <li><a href="generated/classes/beamlime.SingletonProvider.html#beamlime.SingletonProvider.__init__">(beamlime.SingletonProvider method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.workflow_protocols.DummyLiveWorkflow.html#beamlime.workflow_protocols.DummyLiveWorkflow.__init__">(beamlime.workflow_protocols.DummyLiveWorkflow method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.workflow_protocols.LiveWorkflow.html#beamlime.workflow_protocols.LiveWorkflow.__init__">(beamlime.workflow_protocols.LiveWorkflow method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="A">A</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.applications.base.Application.html#beamlime.applications.base.Application">Application (class in beamlime.applications.base)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.base.Application.html#beamlime.applications.base.Application.Stop">Application.Stop (class in beamlime.applications.base)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.constructors.providers.ArgumentsFilter.html#beamlime.constructors.providers.ArgumentsFilter">ArgumentsFilter (class in beamlime.constructors.providers)</a>
+</li>
+      <li><a href="generated/functions/beamlime.async_retry.html#beamlime.async_retry">async_retry() (in module beamlime)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="B">B</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    beamlime.applications
+
+      <ul>
+        <li><a href="generated/modules/beamlime.applications.html#module-beamlime.applications">module</a>
+</li>
+      </ul></li>
+      <li>
+    beamlime.applications.base
+
+      <ul>
+        <li><a href="generated/modules/beamlime.applications.base.html#module-beamlime.applications.base">module</a>
+</li>
+      </ul></li>
+      <li>
+    beamlime.applications.daemons
+
+      <ul>
+        <li><a href="generated/modules/beamlime.applications.daemons.html#module-beamlime.applications.daemons">module</a>
+</li>
+      </ul></li>
+      <li>
+    beamlime.applications.handlers
+
+      <ul>
+        <li><a href="generated/modules/beamlime.applications.handlers.html#module-beamlime.applications.handlers">module</a>
+</li>
+      </ul></li>
+      <li>
+    beamlime.constructors
+
+      <ul>
+        <li><a href="generated/modules/beamlime.constructors.html#module-beamlime.constructors">module</a>
+</li>
+      </ul></li>
+      <li>
+    beamlime.constructors.factories
+
+      <ul>
+        <li><a href="generated/modules/beamlime.constructors.factories.html#module-beamlime.constructors.factories">module</a>
+</li>
+      </ul></li>
+      <li>
+    beamlime.constructors.inspectors
+
+      <ul>
+        <li><a href="generated/modules/beamlime.constructors.inspectors.html#module-beamlime.constructors.inspectors">module</a>
+</li>
+      </ul></li>
+      <li>
+    beamlime.constructors.providers
+
+      <ul>
+        <li><a href="generated/modules/beamlime.constructors.providers.html#module-beamlime.constructors.providers">module</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    beamlime.logging
+
+      <ul>
+        <li><a href="generated/modules/beamlime.logging.html#module-beamlime.logging">module</a>
+</li>
+      </ul></li>
+      <li>
+    beamlime.logging.formatters
+
+      <ul>
+        <li><a href="generated/modules/beamlime.logging.formatters.html#module-beamlime.logging.formatters">module</a>
+</li>
+      </ul></li>
+      <li>
+    beamlime.logging.handlers
+
+      <ul>
+        <li><a href="generated/modules/beamlime.logging.handlers.html#module-beamlime.logging.handlers">module</a>
+</li>
+      </ul></li>
+      <li>
+    beamlime.logging.mixins
+
+      <ul>
+        <li><a href="generated/modules/beamlime.logging.mixins.html#module-beamlime.logging.mixins">module</a>
+</li>
+      </ul></li>
+      <li>
+    beamlime.logging.providers
+
+      <ul>
+        <li><a href="generated/modules/beamlime.logging.providers.html#module-beamlime.logging.providers">module</a>
+</li>
+      </ul></li>
+      <li>
+    beamlime.logging.resources
+
+      <ul>
+        <li><a href="generated/modules/beamlime.logging.resources.html#module-beamlime.logging.resources">module</a>
+</li>
+      </ul></li>
+      <li>
+    beamlime.workflow_protocols
+
+      <ul>
+        <li><a href="generated/modules/beamlime.workflow_protocols.html#module-beamlime.workflow_protocols">module</a>
+</li>
+      </ul></li>
+      <li><a href="generated/modules/beamlime.logging.handlers.BeamlimeFileHandler.html#beamlime.logging.handlers.BeamlimeFileHandler">BeamlimeFileHandler (class in beamlime.logging.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.logging.handlers.BeamlimeStreamHandler.html#beamlime.logging.handlers.BeamlimeStreamHandler">BeamlimeStreamHandler (class in beamlime.logging.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.logging.formatters.BeamlimeStreamHighlighter.html#beamlime.logging.formatters.BeamlimeStreamHighlighter">BeamlimeStreamHighlighter (class in beamlime.logging.formatters)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="C">C</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.constructors.providers.Provider.html#beamlime.constructors.providers.Provider.can_provide">can_provide() (beamlime.constructors.providers.Provider method)</a>
+
+      <ul>
+        <li><a href="generated/classes/beamlime.Provider.html#beamlime.Provider.can_provide">(beamlime.Provider method)</a>
+</li>
+      </ul></li>
+      <li><a href="generated/modules/beamlime.applications.base.Application.html#beamlime.applications.base.Application.cancel_all_tasks">cancel_all_tasks() (beamlime.applications.base.Application method)</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.factories.Factory.html#beamlime.constructors.factories.Factory.catalogue">catalogue (beamlime.constructors.factories.Factory property)</a>
+
+      <ul>
+        <li><a href="generated/classes/beamlime.Factory.html#beamlime.Factory.catalogue">(beamlime.Factory property)</a>
+</li>
+      </ul></li>
+      <li><a href="generated/modules/beamlime.constructors.providers.check_conflicting_providers.html#beamlime.constructors.providers.check_conflicting_providers">check_conflicting_providers() (in module beamlime.constructors.providers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.logging.resources.check_file_handlers.html#beamlime.logging.resources.check_file_handlers">check_file_handlers() (in module beamlime.logging.resources)</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.providers.ProviderGroup.html#beamlime.constructors.providers.ProviderGroup.clear">clear() (beamlime.constructors.providers.ProviderGroup method)</a>
+
+      <ul>
+        <li><a href="generated/classes/beamlime.ProviderGroup.html#beamlime.ProviderGroup.clear">(beamlime.ProviderGroup method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.constructors.inspectors.collect_arg_typehints.html#beamlime.constructors.inspectors.collect_arg_typehints">collect_arg_typehints() (in module beamlime.constructors.inspectors)</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.inspectors.collect_argument_specs.html#beamlime.constructors.inspectors.collect_argument_specs">collect_argument_specs() (in module beamlime.constructors.inspectors)</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.inspectors.collect_attr_specs.html#beamlime.constructors.inspectors.collect_attr_specs">collect_attr_specs() (in module beamlime.constructors.inspectors)</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.providers.ConflictProvidersError.html#beamlime.constructors.providers.ConflictProvidersError">ConflictProvidersError</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.factories.Factory.html#beamlime.constructors.factories.Factory.constant_provider">constant_provider() (beamlime.constructors.factories.Factory method)</a>
+
+      <ul>
+        <li><a href="generated/classes/beamlime.Factory.html#beamlime.Factory.constant_provider">(beamlime.Factory method)</a>
+</li>
+      </ul></li>
+      <li><a href="generated/modules/beamlime.logging.resources.create_log_file_name.html#beamlime.logging.resources.create_log_file_name">create_log_file_name() (in module beamlime.logging.resources)</a>
+</li>
+      <li><a href="generated/modules/beamlime.logging.resources.create_log_file_path.html#beamlime.logging.resources.create_log_file_path">create_log_file_path() (in module beamlime.logging.resources)</a>
+</li>
+      <li><a href="generated/modules/beamlime.logging.resources.create_utc_time_without_microsecond.html#beamlime.logging.resources.create_utc_time_without_microsecond">create_utc_time_without_microsecond() (in module beamlime.logging.resources)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="D">D</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.applications.base.DaemonInterface.html#beamlime.applications.base.DaemonInterface">DaemonInterface (class in beamlime.applications.base)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.handlers.DataAssembler.html#beamlime.applications.handlers.DataAssembler">DataAssembler (class in beamlime.applications.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.daemons.DataPiece.html#beamlime.applications.daemons.DataPiece">DataPiece (class in beamlime.applications.daemons)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.daemons.DataPieceReceived.html#beamlime.applications.daemons.DataPieceReceived">DataPieceReceived (class in beamlime.applications.daemons)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.applications.handlers.DataReady.html#beamlime.applications.handlers.DataReady">DataReady (class in beamlime.applications.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.handlers.DataReductionHandler.html#beamlime.applications.handlers.DataReductionHandler">DataReductionHandler (class in beamlime.applications.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.inspectors.DependencySpec.html#beamlime.constructors.inspectors.DependencySpec">DependencySpec (class in beamlime.constructors.inspectors)</a>
+</li>
+      <li><a href="generated/modules/beamlime.workflow_protocols.DummyLiveWorkflow.html#beamlime.workflow_protocols.DummyLiveWorkflow">DummyLiveWorkflow (class in beamlime.workflow_protocols)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="E">E</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.constructors.inspectors.Empty.html#beamlime.constructors.inspectors.Empty">Empty (class in beamlime.constructors.inspectors)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.constructors.inspectors.extract_underlying_type.html#beamlime.constructors.inspectors.extract_underlying_type">extract_underlying_type() (in module beamlime.constructors.inspectors)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="F">F</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/classes/beamlime.Factory.html#beamlime.Factory">Factory (class in beamlime)</a>
+
+      <ul>
+        <li><a href="generated/modules/beamlime.constructors.factories.Factory.html#beamlime.constructors.factories.Factory">(class in beamlime.constructors.factories)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.applications.daemons.fake_event_generators.html#beamlime.applications.daemons.fake_event_generators">fake_event_generators() (in module beamlime.applications.daemons)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.daemons.FakeListener.html#beamlime.applications.daemons.FakeListener">FakeListener (class in beamlime.applications.daemons)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="G">G</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.logging.formatters.BeamlimeStreamHighlighter.html#beamlime.logging.formatters.BeamlimeStreamHighlighter.get_application_style">get_application_style() (beamlime.logging.formatters.BeamlimeStreamHighlighter method)</a>
+</li>
+      <li><a href="generated/modules/beamlime.logging.providers.get_logger.html#beamlime.logging.providers.get_logger">get_logger() (in module beamlime.logging.providers)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.constructors.inspectors.get_product_spec.html#beamlime.constructors.inspectors.get_product_spec">get_product_spec() (in module beamlime.constructors.inspectors)</a>
+</li>
+      <li><a href="generated/modules/beamlime.logging.providers.get_scipp_logger.html#beamlime.logging.providers.get_scipp_logger">get_scipp_logger() (in module beamlime.logging.providers)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="H">H</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.applications.base.HandlerInterface.html#beamlime.applications.base.HandlerInterface">HandlerInterface (class in beamlime.applications.base)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.logging.formatters.BeamlimeStreamHighlighter.html#beamlime.logging.formatters.BeamlimeStreamHighlighter.highlight">highlight() (beamlime.logging.formatters.BeamlimeStreamHighlighter method)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="I">I</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.logging.providers.initialize_file_handler.html#beamlime.logging.providers.initialize_file_handler">initialize_file_handler() (in module beamlime.logging.providers)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.logging.resources.initialize_log_dir.html#beamlime.logging.resources.initialize_log_dir">initialize_log_dir() (in module beamlime.logging.resources)</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.inspectors.InsufficientAnnotationError.html#beamlime.constructors.inspectors.InsufficientAnnotationError">InsufficientAnnotationError</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="L">L</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/classes/beamlime.LiveWorkflow.html#beamlime.LiveWorkflow">LiveWorkflow (class in beamlime)</a>
+
+      <ul>
+        <li><a href="generated/modules/beamlime.workflow_protocols.LiveWorkflow.html#beamlime.workflow_protocols.LiveWorkflow">(class in beamlime.workflow_protocols)</a>
+</li>
+      </ul></li>
+      <li><a href="generated/modules/beamlime.constructors.factories.Factory.html#beamlime.constructors.factories.Factory.local_factory">local_factory() (beamlime.constructors.factories.Factory method)</a>
+
+      <ul>
+        <li><a href="generated/classes/beamlime.Factory.html#beamlime.Factory.local_factory">(beamlime.Factory method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.logging.formatters.LogColumn.html#beamlime.logging.formatters.LogColumn">LogColumn (class in beamlime.logging.formatters)</a>
+</li>
+      <li><a href="generated/classes/beamlime.LoggingProtocol.html#beamlime.LoggingProtocol">LoggingProtocol (class in beamlime)</a>
+</li>
+      <li><a href="generated/modules/beamlime.logging.formatters.LogHeader.html#beamlime.logging.formatters.LogHeader">LogHeader (class in beamlime.logging.formatters)</a>
+</li>
+      <li><a href="generated/classes/beamlime.LogMixin.html#beamlime.LogMixin">LogMixin (class in beamlime)</a>
+
+      <ul>
+        <li><a href="generated/modules/beamlime.logging.mixins.LogMixin.html#beamlime.logging.mixins.LogMixin">(class in beamlime.logging.mixins)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="M">M</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.applications.handlers.maxcount_or_maxtime.html#beamlime.applications.handlers.maxcount_or_maxtime">maxcount_or_maxtime() (in module beamlime.applications.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.providers.ProviderGroup.html#beamlime.constructors.providers.ProviderGroup.merge">merge() (beamlime.constructors.providers.ProviderGroup method)</a>
+
+      <ul>
+        <li><a href="generated/classes/beamlime.ProviderGroup.html#beamlime.ProviderGroup.merge">(beamlime.ProviderGroup method)</a>
+</li>
+        <li><a href="generated/modules/beamlime.constructors.providers.merge.html#beamlime.constructors.providers.merge">(in module beamlime.constructors.providers)</a>
+</li>
+      </ul></li>
+      <li><a href="generated/modules/beamlime.applications.handlers.MergeMessageCountInterval.html#beamlime.applications.handlers.MergeMessageCountInterval">MergeMessageCountInterval (in module beamlime.applications.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.handlers.MergeMessageTimeInterval.html#beamlime.applications.handlers.MergeMessageTimeInterval">MergeMessageTimeInterval (in module beamlime.applications.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.base.MessageProtocol.html#beamlime.applications.base.MessageProtocol">MessageProtocol (class in beamlime.applications.base)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.base.MessageRouter.html#beamlime.applications.base.MessageRouter">MessageRouter (class in beamlime.applications.base)</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.providers.MismatchingProductTypeError.html#beamlime.constructors.providers.MismatchingProductTypeError">MismatchingProductTypeError</a>
+</li>
+      <li>
+    module
+
+      <ul>
+        <li><a href="generated/modules/beamlime.applications.html#module-beamlime.applications">beamlime.applications</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.base.html#module-beamlime.applications.base">beamlime.applications.base</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.daemons.html#module-beamlime.applications.daemons">beamlime.applications.daemons</a>
+</li>
+        <li><a href="generated/modules/beamlime.applications.handlers.html#module-beamlime.applications.handlers">beamlime.applications.handlers</a>
+</li>
+        <li><a href="generated/modules/beamlime.constructors.html#module-beamlime.constructors">beamlime.constructors</a>
+</li>
+        <li><a href="generated/modules/beamlime.constructors.factories.html#module-beamlime.constructors.factories">beamlime.constructors.factories</a>
+</li>
+        <li><a href="generated/modules/beamlime.constructors.inspectors.html#module-beamlime.constructors.inspectors">beamlime.constructors.inspectors</a>
+</li>
+        <li><a href="generated/modules/beamlime.constructors.providers.html#module-beamlime.constructors.providers">beamlime.constructors.providers</a>
+</li>
+        <li><a href="generated/modules/beamlime.logging.html#module-beamlime.logging">beamlime.logging</a>
+</li>
+        <li><a href="generated/modules/beamlime.logging.formatters.html#module-beamlime.logging.formatters">beamlime.logging.formatters</a>
+</li>
+        <li><a href="generated/modules/beamlime.logging.handlers.html#module-beamlime.logging.handlers">beamlime.logging.handlers</a>
+</li>
+        <li><a href="generated/modules/beamlime.logging.mixins.html#module-beamlime.logging.mixins">beamlime.logging.mixins</a>
+</li>
+        <li><a href="generated/modules/beamlime.logging.providers.html#module-beamlime.logging.providers">beamlime.logging.providers</a>
+</li>
+        <li><a href="generated/modules/beamlime.logging.resources.html#module-beamlime.logging.resources">beamlime.logging.resources</a>
+</li>
+        <li><a href="generated/modules/beamlime.workflow_protocols.html#module-beamlime.workflow_protocols">beamlime.workflow_protocols</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.constructors.factories.multiple_constant_providers.html#beamlime.constructors.factories.multiple_constant_providers">multiple_constant_providers() (in module beamlime.constructors.factories)</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.factories.multiple_temporary_providers.html#beamlime.constructors.factories.multiple_temporary_providers">multiple_temporary_providers() (in module beamlime.constructors.factories)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="P">P</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.constructors.factories.Factory.html#beamlime.constructors.factories.Factory.partial_provider">partial_provider() (beamlime.constructors.factories.Factory method)</a>
+
+      <ul>
+        <li><a href="generated/classes/beamlime.Factory.html#beamlime.Factory.partial_provider">(beamlime.Factory method)</a>
+</li>
+      </ul></li>
+      <li><a href="generated/modules/beamlime.applications.handlers.plot_images_with_offsets.html#beamlime.applications.handlers.plot_images_with_offsets">plot_images_with_offsets() (in module beamlime.applications.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.handlers.PlotSaver.html#beamlime.applications.handlers.PlotSaver">PlotSaver (class in beamlime.applications.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.handlers.PlotStreamer.html#beamlime.applications.handlers.PlotStreamer">PlotStreamer (class in beamlime.applications.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.providers.ProviderGroup.html#beamlime.constructors.providers.ProviderGroup.pop">pop() (beamlime.constructors.providers.ProviderGroup method)</a>
+
+      <ul>
+        <li><a href="generated/classes/beamlime.ProviderGroup.html#beamlime.ProviderGroup.pop">(beamlime.ProviderGroup method)</a>
+</li>
+      </ul></li>
+      <li><a href="generated/modules/beamlime.logging.formatters.BeamlimeStreamHighlighter.html#beamlime.logging.formatters.BeamlimeStreamHighlighter.populate_app_style">populate_app_style() (beamlime.logging.formatters.BeamlimeStreamHighlighter method)</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.inspectors.ProductNotFoundError.html#beamlime.constructors.inspectors.ProductNotFoundError">ProductNotFoundError</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.inspectors.ProductSpec.html#beamlime.constructors.inspectors.ProductSpec">ProductSpec (class in beamlime.constructors.inspectors)</a>
+</li>
+      <li><a href="generated/modules/beamlime.logging.handlers.provide_beamlime_filehandler.html#beamlime.logging.handlers.provide_beamlime_filehandler">provide_beamlime_filehandler() (in module beamlime.logging.handlers)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.logging.handlers.provide_beamlime_streamhandler.html#beamlime.logging.handlers.provide_beamlime_streamhandler">provide_beamlime_streamhandler() (in module beamlime.logging.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.workflow_protocols.provide_beamlime_workflow.html#beamlime.workflow_protocols.provide_beamlime_workflow">provide_beamlime_workflow() (in module beamlime.workflow_protocols)</a>
+</li>
+      <li><a href="generated/modules/beamlime.logging.formatters.provide_default_headers.html#beamlime.logging.formatters.provide_default_headers">provide_default_headers() (in module beamlime.logging.formatters)</a>
+</li>
+      <li><a href="generated/modules/beamlime.logging.formatters.provide_file_formatter.html#beamlime.logging.formatters.provide_file_formatter">provide_file_formatter() (in module beamlime.logging.formatters)</a>
+</li>
+      <li><a href="generated/classes/beamlime.Provider.html#beamlime.Provider">Provider (class in beamlime)</a>
+
+      <ul>
+        <li><a href="generated/modules/beamlime.constructors.providers.Provider.html#beamlime.constructors.providers.Provider">(class in beamlime.constructors.providers)</a>
+</li>
+      </ul></li>
+      <li><a href="generated/modules/beamlime.constructors.providers.ProviderGroup.html#beamlime.constructors.providers.ProviderGroup.provider">provider() (beamlime.constructors.providers.ProviderGroup method)</a>
+
+      <ul>
+        <li><a href="generated/classes/beamlime.ProviderGroup.html#beamlime.ProviderGroup.provider">(beamlime.ProviderGroup method)</a>
+</li>
+      </ul></li>
+      <li><a href="generated/modules/beamlime.constructors.providers.ProviderExistsError.html#beamlime.constructors.providers.ProviderExistsError">ProviderExistsError</a>
+</li>
+      <li><a href="generated/classes/beamlime.ProviderGroup.html#beamlime.ProviderGroup">ProviderGroup (class in beamlime)</a>
+
+      <ul>
+        <li><a href="generated/modules/beamlime.constructors.providers.ProviderGroup.html#beamlime.constructors.providers.ProviderGroup">(class in beamlime.constructors.providers)</a>
+</li>
+      </ul></li>
+      <li><a href="generated/modules/beamlime.constructors.providers.ProviderNotFoundError.html#beamlime.constructors.providers.ProviderNotFoundError">ProviderNotFoundError</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="R">R</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.applications.handlers.random_image_path.html#beamlime.applications.handlers.random_image_path">random_image_path() (in module beamlime.applications.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.handlers.RawCountHandler.html#beamlime.applications.handlers.RawCountHandler">RawCountHandler (class in beamlime.applications.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.daemons.read_nexus_template_file.html#beamlime.applications.daemons.read_nexus_template_file">read_nexus_template_file() (in module beamlime.applications.daemons)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.base.Application.html#beamlime.applications.base.Application.register_daemon">register_daemon() (beamlime.applications.base.Application method)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.base.Application.html#beamlime.applications.base.Application.register_handling_method">register_handling_method() (beamlime.applications.base.Application method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.applications.handlers.ResultRegistry.html#beamlime.applications.handlers.ResultRegistry">ResultRegistry (in module beamlime.applications.handlers)</a>
+</li>
+      <li><a href="generated/functions/beamlime.retry.html#beamlime.retry">retry() (in module beamlime)</a>
+</li>
+      <li><a href="generated/modules/beamlime.applications.base.Application.html#beamlime.applications.base.Application.run">run() (beamlime.applications.base.Application method)</a>
+
+      <ul>
+        <li><a href="generated/modules/beamlime.applications.base.MessageRouter.html#beamlime.applications.base.MessageRouter.run">(beamlime.applications.base.MessageRouter method)</a>
+</li>
+      </ul></li>
+      <li><a href="generated/modules/beamlime.applications.daemons.RunStart.html#beamlime.applications.daemons.RunStart">RunStart (class in beamlime.applications.daemons)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="S">S</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.applications.handlers.PlotStreamer.html#beamlime.applications.handlers.PlotStreamer.show">show() (beamlime.applications.handlers.PlotStreamer method)</a>
+</li>
+      <li><a href="generated/classes/beamlime.SingletonProvider.html#beamlime.SingletonProvider">SingletonProvider (class in beamlime)</a>
+
+      <ul>
+        <li><a href="generated/modules/beamlime.constructors.providers.SingletonProvider.html#beamlime.constructors.providers.SingletonProvider">(class in beamlime.constructors.providers)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.constructors.providers.SingletonProviderCalledWithDifferentArgs.html#beamlime.constructors.providers.SingletonProviderCalledWithDifferentArgs">SingletonProviderCalledWithDifferentArgs</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.providers.split_dict_by_filter.html#beamlime.constructors.providers.split_dict_by_filter">split_dict_by_filter() (in module beamlime.constructors.providers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.providers.split_sequence_by_filter.html#beamlime.constructors.providers.split_sequence_by_filter">split_sequence_by_filter() (in module beamlime.constructors.providers)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="T">T</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.constructors.factories.Factory.html#beamlime.constructors.factories.Factory.temporary_provider">temporary_provider() (beamlime.constructors.factories.Factory method)</a>
+
+      <ul>
+        <li><a href="generated/classes/beamlime.Factory.html#beamlime.Factory.temporary_provider">(beamlime.Factory method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="U">U</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.constructors.providers.unknown_provider_call.html#beamlime.constructors.providers.unknown_provider_call">unknown_provider_call() (in module beamlime.constructors.providers)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.constructors.providers.UnknownProviderCalled.html#beamlime.constructors.providers.UnknownProviderCalled">UnknownProviderCalled</a>
+</li>
+      <li><a href="generated/modules/beamlime.constructors.inspectors.UnknownType.html#beamlime.constructors.inspectors.UnknownType">UnknownType (class in beamlime.constructors.inspectors)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="V">V</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.constructors.inspectors.validate_annotation.html#beamlime.constructors.inspectors.validate_annotation">validate_annotation() (in module beamlime.constructors.inspectors)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.logging.resources.validate_log_file_prefix.html#beamlime.logging.resources.validate_log_file_prefix">validate_log_file_prefix() (in module beamlime.logging.resources)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="W">W</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/modules/beamlime.applications.handlers.WorkflowInput.html#beamlime.applications.handlers.WorkflowInput">WorkflowInput (class in beamlime.applications.handlers)</a>
+</li>
+      <li><a href="generated/modules/beamlime.workflow_protocols.WorkflowName.html#beamlime.workflow_protocols.WorkflowName">WorkflowName (in module beamlime.workflow_protocols)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="generated/classes/beamlime.WorkflowResult.html#beamlime.WorkflowResult">WorkflowResult (in module beamlime)</a>
+
+      <ul>
+        <li><a href="generated/modules/beamlime.workflow_protocols.WorkflowResult.html#beamlime.workflow_protocols.WorkflowResult">(in module beamlime.workflow_protocols)</a>
+</li>
+      </ul></li>
+      <li><a href="generated/modules/beamlime.applications.handlers.WorkflowResultUpdate.html#beamlime.applications.handlers.WorkflowResultUpdate">WorkflowResultUpdate (class in beamlime.applications.handlers)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script src="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
+<script src="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2024 Scipp contributors.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.0.2.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item"><!-- This will display the version of the docs -->
+Current Beamlime version: 24.10.0 (<a href="https://github.com/scipp/beamlime/releases">older versions</a>).</div>
+      
+        <div class="footer-item">
+<p class="theme-version">
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.15.4.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
