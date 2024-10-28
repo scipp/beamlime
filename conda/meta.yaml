@@ -9,7 +9,10 @@ source:
 
 {% set pyproject = load_file_data('pyproject.toml') %}
 {% set dependencies = pyproject.get('project', {}).get('dependencies', {}) %}
-
+{% set conda_package_name_registry = {
+    "graphviz": "python-graphviz",
+    "confluent_kafka": "python-confluent-kafka"
+} %}
 
 requirements:
   build:
@@ -21,7 +24,7 @@ requirements:
     - python>=3.10
 
   {% for package in dependencies %}
-    - {% if package == "graphviz" %}python-graphviz{% else %}{{ package }}{% endif %}
+    - {{conda_package_name_registry.get(package, package)}}
   {% endfor %}
 
 
