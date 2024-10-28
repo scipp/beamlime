@@ -10,16 +10,9 @@ def list_entry_points() -> list[str]:
     return [ep.name for ep in entry_points(group='beamlime.workflow_plugin')]
 
 
-def build_arg_parser(*sub_group_classes: type) -> argparse.ArgumentParser:
-    """Builds the argument parser for the highest-level entry point."""
+def build_minimum_arg_parser(*sub_group_classes: type) -> argparse.ArgumentParser:
+    """Builds the minimum argument parser for the highest-level entry point."""
     parser = argparse.ArgumentParser(description="BEAMLIME configuration.")
-    parser.add_argument(
-        "--workflow",
-        help="Name of the workflow to run",
-        type=str,
-        choices=list_entry_points(),
-        required=True,
-    )
     parser.add_argument(
         "--log-level",
         help="Set logging level. Default is INFO.",
@@ -31,4 +24,17 @@ def build_arg_parser(*sub_group_classes: type) -> argparse.ArgumentParser:
         if callable(add_arg := getattr(sub_group_class, "add_argument_group", None)):
             add_arg(parser)
 
+    return parser
+
+
+def build_arg_parser(*sub_group_classes: type) -> argparse.ArgumentParser:
+    """Builds the default argument parser for the highest-level entry point."""
+    parser = build_minimum_arg_parser(*sub_group_classes)
+    parser.add_argument(
+        "--workflow",
+        help="Name of the workflow to run",
+        type=str,
+        choices=list_entry_points(),
+        required=True,
+    )
     return parser
