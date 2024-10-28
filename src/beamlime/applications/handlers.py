@@ -106,7 +106,7 @@ _dream = {
         # aspect ratio for the plot if both axes have the same unit.
         'mantle_projection': {
             'detector_name': 'mantle_detector',
-            'resolution': {'arclength': 10 * _res_scale, 'z': 40 * _res_scale},
+            'resolution': {'arc_length': 10 * _res_scale, 'z': 40 * _res_scale},
             'projection': 'cylinder_mantle_z',
             'gridspec': (1, slice(None, 2)),
         },
