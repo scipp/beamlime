@@ -90,66 +90,104 @@ detector_registry = {}
 # The other DREAM detectors have non-consecutive detector numbers. This is not
 # supported currently
 _dream = {
-    'dashboard': {'nrow': 2, 'ncol': 2},
+    'dashboard': {'nrow': 3, 'ncol': 2},
     'detectors': {
-        'endcap_backward_detector': {
+        'endcap_backward': {
+            'detector_name': 'endcap_backward_detector',
             'resolution': {'y': 30 * _res_scale, 'x': 20 * _res_scale},
             'gridspec': (0, 0),
         },
-        'endcap_forward_detector': {
+        'endcap_forward': {
+            'detector_name': 'endcap_forward_detector',
             'resolution': {'y': 20 * _res_scale, 'x': 20 * _res_scale},
             'gridspec': (0, 1),
         },
         # We use the arc length instead of phi as it makes it easier to get a correct
         # aspect ratio for the plot if both axes have the same unit.
-        'mantle_detector': {
+        'mantle_projection': {
+            'detector_name': 'mantle_detector',
             'resolution': {'arclength': 10 * _res_scale, 'z': 40 * _res_scale},
             'projection': 'cylinder_mantle_z',
             'gridspec': (1, slice(None, 2)),
+        },
+        # Different view of the same detector, showing just the front layer instead of
+        # a projection.
+        'mantle_front_layer': {
+            'detector_name': 'mantle_detector',
+            'projection': raw.LogicalView(
+                fold={
+                    'wire': 32,
+                    'module': 5,
+                    'segment': 6,
+                    'strip': 256,
+                    'counter': 2,
+                },
+                transpose=('wire', 'module', 'segment', 'counter', 'strip'),
+                select={'wire': 0},
+                flatten={'z_id': ('module', 'segment', 'counter')},
+            ),
+            'gridspec': (2, slice(None, 2)),
         },
     },
 }
 _loki = {
     'dashboard': {'nrow': 3, 'ncol': 9, 'figsize_scale': 3},
     'detectors': {
-        # Rear detector
-        'loki_detector_0': {
+        'Rear-detector': {
+            'detector_name': 'loki_detector_0',
             'resolution': {'y': 12 * _res_scale, 'x': 12 * _res_scale},
             'gridspec': (slice(0, 3), slice(0, 3)),
+            'pixel_noise': 'cylindrical',
         },
         # First window frame
         'loki_detector_1': {
+            'detector_name': 'loki_detector_1',
             'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
             'gridspec': (2, 4),
+            'pixel_noise': 'cylindrical',
         },
         'loki_detector_2': {
+            'detector_name': 'loki_detector_2',
             'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
             'gridspec': (1, 3),
+            'pixel_noise': 'cylindrical',
         },
         'loki_detector_3': {
+            'detector_name': 'loki_detector_3',
             'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
             'gridspec': (0, 4),
+            'pixel_noise': 'cylindrical',
         },
         'loki_detector_4': {
+            'detector_name': 'loki_detector_4',
             'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
             'gridspec': (1, 5),
+            'pixel_noise': 'cylindrical',
         },
         # Second window frame
         'loki_detector_5': {
+            'detector_name': 'loki_detector_5',
             'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
             'gridspec': (2, 7),
+            'pixel_noise': 'cylindrical',
         },
         'loki_detector_6': {
+            'detector_name': 'loki_detector_6',
             'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
             'gridspec': (1, 6),
+            'pixel_noise': 'cylindrical',
         },
         'loki_detector_7': {
+            'detector_name': 'loki_detector_7',
             'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
             'gridspec': (0, 7),
+            'pixel_noise': 'cylindrical',
         },
         'loki_detector_8': {
+            'detector_name': 'loki_detector_8',
             'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
             'gridspec': (1, 8),
+            'pixel_noise': 'cylindrical',
         },
     },
 }
@@ -168,7 +206,8 @@ class RawCountHandler(HandlerInterface):
         self.logger = logger
         self._pulse = 0
         self._previous: sc.DataArray | None = None
-        self._detectors: dict[str, raw.RollingDetectorView] = {}
+        self._detectors: dict[str, list[str]] = {}
+        self._views: dict[str, raw.RollingDetectorView] = {}
 
         with snx.File(nexus_file) as f:
             entry = next(iter(f[snx.NXentry].values()))
@@ -176,31 +215,34 @@ class RawCountHandler(HandlerInterface):
             self._instrument = str(instrument['name'][()])
 
         for name, detector in detector_registry[self._instrument]['detectors'].items():
-            self._detectors[name] = raw.RollingDetectorView.from_nexus(
+            self._detectors.setdefault(detector['detector_name'], []).append(name)
+            self._views[name] = raw.RollingDetectorView.from_nexus(
                 nexus_file,
-                detector_name=name,
+                detector_name=detector['detector_name'],
                 window=100,
                 projection=detector.get('projection', 'xy_plane'),
-                resolution=detector['resolution'],
+                resolution=detector.get('resolution'),
+                pixel_noise=detector.get('pixel_noise', sc.scalar(0.01, unit='m')),
             )
-        self._chunk = {name: 0 for name in self._detectors}
-        self._buffer = {name: [] for name in self._detectors}
-        self.info("Initialized with %s", list(self._detectors))
+        self._chunk = {name: 0 for name in self._views}
+        self._buffer = {name: [] for name in self._views}
+        self.info("Initialized with %s", list(self._views))
 
     def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate | None:
         detname = message.content.deserialized['source_name'].split('/')[-1]
         event_id = message.content.deserialized['pixel_id']
         if (det := self._detectors.get(detname)) is not None:
-            buffer = self._buffer[detname]
-            buffer.append(event_id)
-            self._pulse += 1
+            for name in det:
+                buffer = self._buffer[name]
+                buffer.append(event_id)
+                self._pulse += 1
         else:
             self.info("Ignoring data for %s", detname)
             return
         npulse = 10
         if self._pulse % npulse == 0:
             results = {}
-            for name, det in self._detectors.items():
+            for name, det in self._views.items():
                 buffer = self._buffer[name]
                 if len(buffer):
                     det.add_counts(np.concatenate(buffer))
@@ -208,7 +250,7 @@ class RawCountHandler(HandlerInterface):
                 for window in (50,):
                     key = (self._instrument, name, f'window={window*npulse}')
                     results[key] = det.get(window=window)
-            self.info("Publishing result for detectors %s", list(self._detectors))
+            self.info("Publishing result for detectors %s", list(self._views))
             return WorkflowResultUpdate(results)
 
     @classmethod
@@ -479,8 +521,8 @@ def _plot_2d(
             **kwargs,
         )
 
-    x = da.coords[da.dims[1]]
-    y = da.coords[da.dims[0]]
+    x = da.coords.get(da.dims[1], sc.arange(da.dims[1], da.shape[1], unit=None))
+    y = da.coords.get(da.dims[0], sc.arange(da.dims[0], da.shape[0], unit=None))
     if x.unit == y.unit:
         aspect = float((y[-1] - y[0]) / (x[-1] - x[0]))
         aspect *= da.shape[1] / da.shape[0]
@@ -494,12 +536,12 @@ def _plot_2d(
     # cbar = plt.colorbar(ax.images[0], ax=ax)
     # cbar.set_label(f'[{da.unit}]')
     ax.set_title(title)
-    ax.set_xlabel(f'{da.dims[1]} [{da.coords[da.dims[1]].unit}]')
-    ax.set_ylabel(f'{da.dims[0]} [{da.coords[da.dims[0]].unit}]')
-    x_coords = da.coords[da.dims[1]].values[::20]
+    ax.set_xlabel(f'{da.dims[1]} [{x.unit}]')
+    ax.set_ylabel(f'{da.dims[0]} [{y.unit}]')
+    x_coords = x.values[::20]
     ax.set_xticks(np.linspace(0, values.shape[1] - 1, len(x_coords)))
     ax.set_xticklabels([round(x, 2) for x in x_coords])
-    y_coords = da.coords[da.dims[0]].values[::20]
+    y_coords = y.values[::20]
     ax.set_yticks(np.linspace(0, values.shape[0] - 1, len(y_coords)))
     ax.set_yticklabels([round(y, 2) for y in y_coords])
 
