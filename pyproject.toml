@@ -40,7 +40,7 @@ dynamic = ["version"]
 
 [project.scripts]
 beamlime = "beamlime.__main__:main"
-show-detector = "beamlime.executables.show_detector:main"
+beamlime-raw-detectors = "beamlime.executables.show_detector:main"
 
 [project.urls]
 "Bug Tracker" = "https://github.com/scipp/beamlime/issues"
