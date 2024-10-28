@@ -31,6 +31,7 @@ matplotlib==3.9.2
     # via plopp
 numpy==2.1.2
     # via
+    #   contourpy
     #   matplotlib
     #   pandas
     #   scipp
@@ -40,35 +41,35 @@ packaging==24.1
     #   pooch
     #   pytest
 pandas==2.2.3
-    # via -r requirements/basetest.in
+    # via -r basetest.in
 pillow==11.0.0
     # via matplotlib
 platformdirs==4.3.6
     # via pooch
 plopp==24.9.3
-    # via -r requirements/basetest.in
+    # via -r basetest.in
 pluggy==1.5.0
     # via pytest
 pooch==1.8.2
-    # via -r requirements/basetest.in
+    # via -r basetest.in
 psutil==6.1.0
-    # via -r requirements/basetest.in
+    # via -r basetest.in
 pyarrow==18.0.0
-    # via -r requirements/basetest.in
+    # via -r basetest.in
 pyparsing==3.2.0
     # via matplotlib
 pytest==8.3.3
     # via
-    #   -r requirements/basetest.in
+    #   -r basetest.in
     #   pytest-asyncio
     #   pytest-cov
     #   pytest-xdist
 pytest-asyncio==0.24.0
-    # via -r requirements/basetest.in
+    # via -r basetest.in
 pytest-cov==5.0.0
-    # via -r requirements/basetest.in
+    # via -r basetest.in
 pytest-xdist==3.6.1
-    # via -r requirements/basetest.in
+    # via -r basetest.in
 python-dateutil==2.9.0.post0
     # via
     #   matplotlib
@@ -78,7 +79,7 @@ pytz==2024.2
 requests==2.32.3
     # via pooch
 scipp==24.9.1
-    # via -r requirements/basetest.in
+    # via -r basetest.in
 six==1.16.0
     # via python-dateutil
 tomli==2.0.2
