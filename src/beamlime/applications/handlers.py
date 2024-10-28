@@ -4,9 +4,9 @@ import argparse
 import pathlib
 import shutil
 import tempfile
+import time
 from dataclasses import dataclass
 from numbers import Number
-from time import time
 from typing import NewType
 
 import matplotlib.pyplot as plt
@@ -560,7 +560,7 @@ class PlotSaver(PlotStreamer):
         self.image_path_prefix = image_path_prefix
 
     def save_histogram(self, message: WorkflowResultUpdate) -> None:
-        start = time()
+        start = time.time()
 
         image_file_name = f"{self.image_path_prefix}.png"
         self.info("Received histogram(s), saving into %s...", image_file_name)
@@ -591,7 +591,7 @@ class PlotSaver(PlotStreamer):
             # the image is displayed in a GUI.
             fig.savefig(tmpfile.name, dpi=150)
             shutil.move(tmpfile.name, image_file_name)
-        self.info("Plotting took %.2f s", time() - start)
+        self.info("Plotting took %.2f s", time.time() - start)
         plt.close(fig)
 
     @classmethod
