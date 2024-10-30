@@ -18,6 +18,9 @@ from typing import (
 
 import numpy as np
 import scippnexus as snx
+from streaming_data_types.eventdata_ev44 import EventData
+from streaming_data_types.logdata_f144 import ExtractedLogData
+from streaming_data_types.timestamps_tdct import Timestamps
 
 
 class NexusDataset(TypedDict):
@@ -61,9 +64,6 @@ class NexusStreamedModule(TypedDict):
 
 
 NexusStructure: TypeAlias = 'Nexus | NexusStreamedModule | NexusTemplate'
-
-DeserializedMessage = Mapping
-"""Deserialized message from one of the schemas bound to :attr:`~ModuleNameType`."""
 
 
 class NexusTemplate(TypedDict):
@@ -403,7 +403,7 @@ def _initialize_ev44(module_spec: StreamModuleValue) -> NexusGroup:
     return group
 
 
-def _merge_ev44(group: NexusGroup, data: DeserializedMessage) -> None:
+def _merge_ev44(group: NexusGroup, data: EventData) -> None:
     """Merges new values from a message into the data group.
 
     Params
@@ -427,14 +427,14 @@ def _merge_ev44(group: NexusGroup, data: DeserializedMessage) -> None:
         NexusDataset, find_nexus_structure(group, ("event_time_zero",))
     )
     event_time_zero_dataset["config"]["values"] = np.concatenate(
-        (event_time_zero_dataset["config"]["values"], data["reference_time"])
+        (event_time_zero_dataset["config"]["values"], data.reference_time)
     )
     event_time_offset_dataset = cast(
         NexusDataset, find_nexus_structure(group, ("event_time_offset",))
     )
     original_event_time_offset = event_time_offset_dataset["config"]["values"]
     event_time_offset_dataset["config"]["values"] = np.concatenate(
-        (original_event_time_offset, data["time_of_flight"])
+        (original_event_time_offset, data.time_of_flight)
     )
     # Increase event index according to the ``original_event_time_index``
     event_index_dataset = cast(
@@ -443,15 +443,15 @@ def _merge_ev44(group: NexusGroup, data: DeserializedMessage) -> None:
     event_index_dataset["config"]["values"] = np.concatenate(
         (
             event_index_dataset["config"]["values"],
-            data["reference_time_index"] + len(original_event_time_offset),
+            data.reference_time_index + len(original_event_time_offset),
         )
     )
-    if data.get("pixel_id") is not None:  # Pixel id is optional.
+    if data.pixel_id is not None:  # Pixel id is optional.
         event_id_dataset = cast(
             NexusDataset, find_nexus_structure(group, ("event_id",))
         )
         event_id_dataset["config"]["values"] = np.concatenate(
-            (event_id_dataset["config"]["values"], data["pixel_id"])
+            (event_id_dataset["config"]["values"], data.pixel_id)
         )
     else:
         # TODO See above, monitor check is not working, remove now that we know there is
@@ -484,17 +484,17 @@ def _initialize_f144(module_spec: StreamModuleValue) -> NexusGroup:
     return group
 
 
-def _merge_f144(group: NexusGroup, data: DeserializedMessage) -> None:
+def _merge_f144(group: NexusGroup, data: ExtractedLogData) -> None:
     time = cast(NexusDataset, find_nexus_structure(group, ("time",)))
     time["config"]["values"] = np.concatenate(
-        (time["config"]["values"], [data["timestamp"]])
+        (time["config"]["values"], [data.timestamp_unix_ns])
     )
     value = cast(NexusDataset, find_nexus_structure(group, ("value",)))
     if value["config"]["values"] is None:  # First data
-        value["config"]["values"] = data["value"]
+        value["config"]["values"] = data.value
     else:
         value["config"]["values"] = np.concatenate(
-            (value["config"]["values"], data["value"])
+            (value["config"]["values"], data.value)
         )
 
 
@@ -507,9 +507,9 @@ def _initialize_tdct(_: StreamModuleValue) -> NexusDataset:
     )
 
 
-def _merge_tdct(top_dead_center: NexusDataset, data: DeserializedMessage) -> None:
+def _merge_tdct(top_dead_center: NexusDataset, data: Timestamps) -> None:
     top_dead_center["config"]["values"] = np.concatenate(
-        (top_dead_center["config"]["values"], data["timestamps"])
+        (top_dead_center["config"]["values"], data.timestamps)
     )
 
 
@@ -522,7 +522,11 @@ MODULE_INITIALIZERS: Mapping[ModuleNameType, ModuleInitializer] = MappingProxyTy
     }
 )
 
-ModuleMerger = Callable[[Any, DeserializedMessage], None]
+ModuleMerger = (
+    Callable[[Any, EventData], None]
+    | Callable[[Any, Timestamps], None]
+    | Callable[[Any, ExtractedLogData], None]
+)
 MODULE_MERGERS: Mapping[ModuleNameType, ModuleMerger] = MappingProxyType(
     {
         "ev44": _merge_ev44,
@@ -537,7 +541,7 @@ def merge_message_into_nexus_store(
     module_key: StreamModuleKey,
     module_spec: StreamModuleValue,
     nexus_store: NexusStore,
-    data: DeserializedMessage,
+    data: EventData | Timestamps | ExtractedLogData,
 ) -> None:
     """Merge a deserialized message into the associated nexus group or dataset."""
     if not is_supported_module_type(module_key.module_type):

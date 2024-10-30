@@ -62,14 +62,14 @@ def test_ev44_generator_no_detector_numbers() -> None:
     )
 
     events = next(ev44)
-    assert events["source_name"] == "test"
+    assert events.source_name == "test"
     assert (
         int((10_000 // 14) * 0.99)
-        <= len(events["time_of_flight"])
+        <= len(events.time_of_flight)
         <= int((10000 // 14) * 1.01)  # 1% fluctuation expected
     )
-    assert events["pixel_id"] is None
-    assert len(events["reference_time"]) == len(events["reference_time_index"])
+    assert events.pixel_id is None
+    assert len(events.reference_time) == len(events.reference_time_index)
 
 
 @pytest.fixture()
@@ -142,17 +142,17 @@ def test_ev44_generator_size(ev44_generator: RandomEV44Generator) -> None:
     ef_rate = int(10_000 / 14)  # default event rate / frame rate
     events = next(ev44_generator)
 
-    assert events["source_name"] == "test"
-    assert int(ef_rate * 0.99) <= len(events["time_of_flight"]) <= int(ef_rate * 1.01)
-    assert events["pixel_id"] is not None
-    assert len(events["pixel_id"]) == len(events["time_of_flight"])
-    assert len(events["reference_time"]) == len(events["reference_time_index"])
+    assert events.source_name == "test"
+    assert int(ef_rate * 0.99) <= len(events.time_of_flight) <= int(ef_rate * 1.01)
+    assert events.pixel_id is not None
+    assert len(events.pixel_id) == len(events.time_of_flight)
+    assert len(events.reference_time) == len(events.reference_time_index)
 
 
 def test_ev44_generator_reference_time(ev44_generator: RandomEV44Generator) -> None:
     events = next(ev44_generator)
     next_events = next(ev44_generator)
-    assert events["reference_time"][0] < next_events["reference_time"][0]
+    assert events.reference_time[0] < next_events.reference_time[0]
 
 
 def _is_class(partial_structure: Mapping, cls_name: str) -> bool:
@@ -203,7 +203,7 @@ def test_ev44_module_merging(
         event_time_zero_unit = _find_attributes(event_time_zero, "units")
         assert event_time_zero_unit["values"] == "ns"
         inserted_event_time_zeros = np.concatenate(
-            [d["reference_time"] for d in stored_data[key]]
+            [d.reference_time for d in stored_data[key]]
         )
         assert np.all(event_time_zero_values == inserted_event_time_zeros)
         # Test event time offset
@@ -212,7 +212,7 @@ def test_ev44_module_merging(
         event_time_offset_unit = _find_attributes(event_time_offset, "units")
         assert event_time_offset_unit["values"] == "ns"
         inserted_event_time_offsets = np.concatenate(
-            [d["time_of_flight"] for d in stored_data[key]]
+            [d.time_of_flight for d in stored_data[key]]
         )
         assert np.all(event_time_offset_values == inserted_event_time_offsets)
         # Test event id
@@ -221,11 +221,11 @@ def test_ev44_module_merging(
         with pytest.raises(KeyError, match="units"):
             # Event id should not have units
             _find_attributes(event_id, "units")
-        inserted_event_ids = np.concatenate([d["pixel_id"] for d in stored_data[key]])
+        inserted_event_ids = np.concatenate([d.pixel_id for d in stored_data[key]])
         assert np.all(event_id_values == inserted_event_ids)
         # Test event index
         # event index values are calculated based on the length of the previous events
-        first_event_length = len(stored_data[key][0]["time_of_flight"])
+        first_event_length = len(stored_data[key][0].time_of_flight)
         expected_event_indices = np.array([0, first_event_length])
         event_index = find_nexus_structure(stored_value, ("event_index",))
         event_index_values = _get_values(event_index)
@@ -273,26 +273,26 @@ def test_nxevent_data_ev44_generator_yields_frame_by_frame() -> None:
     )
 
     events = next(ev44)
-    assert events["source_name"] == "test"
-    assert events["reference_time"] == [1]
-    assert events["reference_time_index"] == [0]
-    assert np.all(events["time_of_flight"] == [1, 2, 3])
-    assert np.all(events["pixel_id"] == [1, 1, 2])
+    assert events.source_name == "test"
+    assert events.reference_time == [1]
+    assert events.reference_time_index == [0]
+    assert np.all(events.time_of_flight == [1, 2, 3])
+    assert np.all(events.pixel_id == [1, 1, 2])
 
     events = next(ev44)
-    assert events["source_name"] == "test"
-    assert events["reference_time"] == [2]
-    assert events["reference_time_index"] == [0]  # always 0
-    assert len(events["time_of_flight"]) == 0
-    assert events["pixel_id"] is not None
-    assert len(events["pixel_id"]) == 0
+    assert events.source_name == "test"
+    assert events.reference_time == [2]
+    assert events.reference_time_index == [0]  # always 0
+    assert len(events.time_of_flight) == 0
+    assert events.pixel_id is not None
+    assert len(events.pixel_id) == 0
 
     events = next(ev44)
-    assert events["source_name"] == "test"
-    assert events["reference_time"] == [3]
-    assert events["reference_time_index"] == [0]  # always 0
-    assert np.all(events["time_of_flight"] == [4, 5])
-    assert np.all(events["pixel_id"] == [1, 2])
+    assert events.source_name == "test"
+    assert events.reference_time == [3]
+    assert events.reference_time_index == [0]  # always 0
+    assert np.all(events.time_of_flight == [4, 5])
+    assert np.all(events.pixel_id == [1, 2])
 
     with pytest.raises(StopIteration):
         next(ev44)
@@ -317,6 +317,8 @@ def nexus_template_with_streamed_log(dtype):
 
 
 def f144_event_generator(shape, dtype):
+    from streaming_data_types.logdata_f144 import ExtractedLogData
+
     generator = (
         (lambda n: np.random.randint(-1000, 1000, (n, *shape)).astype(dtype))
         if np.issubdtype(np.dtype(dtype), np.signedinteger)
@@ -328,7 +330,9 @@ def f144_event_generator(shape, dtype):
     while True:
         value = generator(np.random.randint(0, 100))
         timestamp += np.random.randint(0, 1000_000_000)
-        yield dict(value=value, timestamp=timestamp, source_name="the_source_name")  # noqa: C408
+        yield ExtractedLogData(
+            value=value, timestamp_unix_ns=timestamp, source_name="the_source_name"
+        )
 
 
 @pytest.mark.parametrize('shape', [(1,), (2,), (2, 2)])
@@ -376,6 +380,8 @@ def nexus_template_with_streamed_tdct():
 
 
 def tdct_event_generator():
+    from streaming_data_types.timestamps_tdct import Timestamps
+
     max_last_timestamp = 0
     counter = 0
     while True:
@@ -383,7 +389,7 @@ def tdct_event_generator():
             np.random.randint(0, 1000_000, 100, dtype='uint64').cumsum()
             + max_last_timestamp
         )
-        yield dict(  # noqa: C408
+        yield Timestamps(
             timestamps=timestamps,
             sequence_counter=counter,
             name="chopper_3",

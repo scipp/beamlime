@@ -7,7 +7,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from numbers import Number
-from typing import NewType
+from typing import NewType, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,6 +17,7 @@ import scippnexus as snx
 from ess.reduce.live import raw
 from ess.reduce.nexus.json_nexus import JSONGroup
 from matplotlib.gridspec import GridSpec
+from streaming_data_types.eventdata_ev44 import EventData
 
 from beamlime.logging import BeamlimeLogger
 
@@ -229,8 +230,9 @@ class RawCountHandler(HandlerInterface):
         self.info("Initialized with %s", list(self._views))
 
     def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate | None:
-        detname = message.content.deserialized['source_name'].split('/')[-1]
-        event_id = message.content.deserialized['pixel_id']
+        data_piece = cast(EventData, message.content.deserialized)
+        detname = data_piece.source_name.split('/')[-1]
+        event_id = data_piece.pixel_id
         if (det := self._detectors.get(detname)) is not None:
             for name in det:
                 buffer = self._buffer[name]
