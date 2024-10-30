@@ -68,7 +68,7 @@ def _collect_all_topic_partitions(
 
 def _wrap_event_msg_to_data_piece(topic: str, deserialized: EventData) -> DataPiece:
     key = StreamModuleKey(
-        module_type='ev44', topic=topic, source=deserialized['source_name']
+        module_type='ev44', topic=topic, source=deserialized.source_name
     )
     return DataPiece(key=key, deserialized=deserialized)
 
