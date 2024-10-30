@@ -449,7 +449,7 @@ def _plot_1d(
     **kwargs,
 ):
     x = sc.midpoints(da.coords[da.dims[0]]).values
-    ax.errorbar(x, da.values, yerr=np.sqrt(da.variances), fmt='o', **kwargs)
+    image = ax.errorbar(x, da.values, yerr=np.sqrt(da.variances), fmt='o', **kwargs)
     if norm is not None:
         ax.set_yscale(norm)
     y_min = vmin if vmin is not None else 0
@@ -458,6 +458,7 @@ def _plot_1d(
     ax.set_xlabel(f'{da.dims[0]} [{da.coords[da.dims[0]].unit}]')
     ax.set_ylabel(f'[{da.unit}]')
     ax.set_title(title)
+    return image
 
 
 def plot_images_with_offsets(
@@ -532,7 +533,7 @@ def _plot_2d(
         aspect = 'equal'
 
     values = da.values
-    ax.imshow(values, **kwargs, aspect=aspect)
+    image = ax.imshow(values, **kwargs, aspect=aspect)
     ax.invert_yaxis()
     # Note: Drawing the colorbar actually takes a long time!
     # cbar = plt.colorbar(ax.images[0], ax=ax)
@@ -546,6 +547,7 @@ def _plot_2d(
     y_coords = y.values[::20]
     ax.set_yticks(np.linspace(0, values.shape[0] - 1, len(y_coords)))
     ax.set_yticklabels([round(y, 2) for y in y_coords])
+    return image
 
 
 class PlotSaver(PlotStreamer):
@@ -560,6 +562,27 @@ class PlotSaver(PlotStreamer):
     ) -> None:
         super().__init__(logger=logger, max_column=max_column)
         self.image_path_prefix = image_path_prefix
+        self._fig = None
+        self._images = {}
+
+    def _setup_figure(self, message: WorkflowResultUpdate) -> None:
+        instrument = next(iter(message.content.keys()))[0]
+        dashboard = detector_registry[instrument]['dashboard']
+        ncol = dashboard['ncol']
+        nrow = dashboard['nrow']
+        figsize_scale = dashboard.get('figsize_scale', 6)
+        self._fig = plt.figure(figsize=(figsize_scale * ncol, figsize_scale * nrow))
+        gs = GridSpec(nrow, ncol, figure=self._fig)
+        for key, da in message.content.items():
+            instrument, detname, params = key
+            name = f"{detname} {params}"
+            grid_loc = detector_registry[instrument]['detectors'][detname]['gridspec']
+            ax = self._fig.add_subplot(gs[grid_loc])
+            extra = {'norm': 'log', 'vmax': 1e4}
+            self._images[key] = (_plot_2d if da.ndim == 2 else _plot_1d)(
+                da, ax=ax, title=name, **extra
+            )
+        self._fig.tight_layout()
 
     def save_histogram(self, message: WorkflowResultUpdate) -> None:
         start = time.time()
@@ -567,34 +590,17 @@ class PlotSaver(PlotStreamer):
         image_file_name = f"{self.image_path_prefix}.png"
         self.info("Received histogram(s), saving into %s...", image_file_name)
 
-        instrument = next(iter(message.content.keys()))[0]
-        dashboard = detector_registry[instrument]['dashboard']
-        ncol = dashboard['ncol']
-        nrow = dashboard['nrow']
-        figsize_scale = dashboard.get('figsize_scale', 6)
-
-        fig = plt.figure(figsize=(figsize_scale * ncol, figsize_scale * nrow))
-        gs = GridSpec(nrow, ncol, figure=fig)
-        for key, da in message.content.items():
-            instrument, detname, params = key
-            name = f"{detname} {params}"
-            grid_loc = detector_registry[instrument]['detectors'][detname]['gridspec']
-            ax = fig.add_subplot(gs[grid_loc])
-            extra = {'norm': 'log'}
-            if da.ndim == 2:
-                _plot_2d(da, ax=ax, title=name, **extra)
-            elif isinstance(da, sc.DataArray):
-                _plot_1d(da, ax=ax, title=name, **extra)
-            else:
-                da.plot(ax=ax, title=name, **extra)
-        fig.tight_layout()
+        if self._fig is None:
+            self._setup_figure(message)
+        else:
+            for key, da in message.content.items():
+                self._images[key].set_data(da.values)
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
             # Saving into a tempfile avoids flickering when the image is updated, if
             # the image is displayed in a GUI.
-            fig.savefig(tmpfile.name, dpi=150)
+            self._fig.savefig(tmpfile.name, dpi=150)
             shutil.move(tmpfile.name, image_file_name)
         self.info("Plotting took %.2f s", time.time() - start)
-        plt.close(fig)
 
     @classmethod
     def add_argument_group(cls, parser: argparse.ArgumentParser) -> None:
