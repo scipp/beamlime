@@ -11,10 +11,12 @@ from typing import NewType
 import h5py
 import numpy as np
 import scippnexus as snx
+from streaming_data_types.eventdata_ev44 import EventData
+from streaming_data_types.logdata_f144 import ExtractedLogData
+from streaming_data_types.timestamps_tdct import Timestamps
 
 from ..logging import BeamlimeLogger
 from ._nexus_helpers import (
-    DeserializedMessage,
     NexusTemplate,
     RunStartInfo,
     StreamModuleKey,
@@ -23,7 +25,6 @@ from ._nexus_helpers import (
     collect_streaming_modules_from_nexus_file,
 )
 from ._random_data_providers import (
-    EV44,
     DataFeedingSpeed,
     DetectorName,
     EventRate,
@@ -45,7 +46,7 @@ class RunStart:
 @dataclass
 class DataPiece:
     key: StreamModuleKey
-    deserialized: DeserializedMessage
+    deserialized: EventData | Timestamps | ExtractedLogData
 
 
 @dataclass
@@ -87,7 +88,7 @@ def fake_event_generators(
     event_rate: EventRate,
     frame_rate: FrameRate,
     event_data_source_path: NexusFilePath | None = None,
-) -> dict[StreamModuleKey, Generator[dict[str, np.ndarray] | EV44]]:
+) -> dict[StreamModuleKey, Generator[dict[str, np.ndarray] | EventData]]:
     with snx.File(static_file) as f:
         detectors = _retrieve_groups_by_nx_class(f, snx.NXdetector)
         detector_numbers = {
@@ -106,7 +107,7 @@ def fake_event_generators(
         if key.module_type == 'ev44'
     }
 
-    generators: dict[StreamModuleKey, Generator[dict[str, np.ndarray] | EV44]] = {}
+    generators: dict[StreamModuleKey, Generator[dict[str, np.ndarray] | EventData]] = {}
     for key, value in ev44_modules.items():
         if (detector_number := detector_numbers.get(value.path[:-1])) is not None:
             detector_number = detector_number.values

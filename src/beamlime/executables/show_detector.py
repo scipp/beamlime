@@ -8,7 +8,7 @@ from typing import NewType
 
 from confluent_kafka import OFFSET_BEGINNING, Consumer, Message, TopicPartition
 from confluent_kafka.admin import AdminClient
-from streaming_data_types.eventdata_ev44 import deserialise_ev44
+from streaming_data_types.eventdata_ev44 import EventData, deserialise_ev44
 
 from .. import Factory, ProviderGroup
 from ..applications._nexus_helpers import (
@@ -24,7 +24,6 @@ from ..applications.base import (
 from ..applications.daemons import (
     DataPiece,
     DataPieceReceived,
-    DeserializedMessage,
     FakeListener,
 )
 from ..applications.handlers import PlotSaver, RawCountHandler, WorkflowResultUpdate
@@ -67,9 +66,7 @@ def _collect_all_topic_partitions(
     ]
 
 
-def _wrap_event_msg_to_data_piece(
-    topic: str, deserialized: DeserializedMessage
-) -> DataPiece:
+def _wrap_event_msg_to_data_piece(topic: str, deserialized: EventData) -> DataPiece:
     key = StreamModuleKey(
         module_type='ev44', topic=topic, source=deserialized['source_name']
     )
