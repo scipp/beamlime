@@ -94,9 +94,11 @@ def fake_event_generators(
     Parameters
     ----------
     nexus_structure : NexusTemplate | None
-        The nexus structure template.
+        The nexus structure template. If given, the streaming modules will be collected
+        from it.
     static_file : NexusFilePath
         The path to the nexus file with static information.
+        If `nexus_structure` is None, the streaming modules will be collected from it.
     event_rate : EventRate
         The event rate [Hz].
     frame_rate : FrameRate
