@@ -89,6 +89,25 @@ def fake_event_generators(
     frame_rate: FrameRate,
     event_data_source_path: NexusFilePath | None = None,
 ) -> dict[StreamModuleKey, Generator[dict[str, np.ndarray] | EventData]]:
+    """Create fake event generators based on the nexus structure or static file.
+
+    Parameters
+    ----------
+    nexus_structure : NexusTemplate | None
+        The nexus structure template. If given, the streaming modules will be collected
+        from it.
+    static_file : NexusFilePath
+        The path to the nexus file with static information.
+        If `nexus_structure` is None, the streaming modules will be collected from it.
+    event_rate : EventRate
+        The event rate [Hz].
+    frame_rate : FrameRate
+        The frame rate [Hz].
+    event_data_source_path : NexusFilePath | None
+        The path to the nexus file with event data.
+        If None, random data will be generated.
+
+    """
     with snx.File(static_file) as f:
         detectors = _retrieve_groups_by_nx_class(f, snx.NXdetector)
         detector_numbers = {
@@ -115,12 +134,15 @@ def fake_event_generators(
             detector_number = None
         else:
             raise ValueError(f"Detector or monitor group not found for {value.path}")
-        # TODO This is bad! Silent fallback to random data generation!
-        if (
-            event_data := _try_load_nxevent_data(
+        if event_data_source_path is not None:
+            event_data = _try_load_nxevent_data(
                 file_path=event_data_source_path, group_path=value.path
             )
-        ) is not None:
+            if event_data is None:
+                raise ValueError(
+                    f"NXevent_data not found for {'/'.join(value.path)} "
+                    f"in {event_data_source_path}"
+                )
             generators[key] = nxevent_data_ev44_generator(
                 source_name=DetectorName(key.source), **event_data
             )
@@ -258,7 +280,10 @@ class FakeListener(DaemonInterface):
         group.add_argument(
             "--fill-dummy-data",
             default=False,
-            help="Fill the nexus file with dummy data.",
+            help="Fill the nexus file with dummy data. "
+            "If not set, random data will be generated."
+            "If set, the path to the nexus file with event data must be provided"
+            "using --nexus-file-path option.",
             action="store_true",
         )
 

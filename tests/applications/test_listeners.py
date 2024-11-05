@@ -36,6 +36,7 @@ def fake_listener(
     from beamlime.applications.daemons import (
         DataFeedingSpeed,
         EventRate,
+        FillDummyData,
         FrameRate,
         NumFrames,
     )
@@ -48,6 +49,7 @@ def fake_listener(
         num_frames=NumFrames(num_frames),
         event_rate=EventRate(100),
         frame_rate=FrameRate(14),
+        fill_dummy_data=FillDummyData(True),
     )
 
 
