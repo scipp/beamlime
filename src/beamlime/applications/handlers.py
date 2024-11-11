@@ -236,7 +236,7 @@ class RawCountHandler(HandlerInterface):
             Logger instance.
         nexus_file:
             Path to the nexus file that has static information such as detector numbers
-            and pixel positions. This is no necessarily the same as the current run,
+            and pixel positions. This is not necessarily the same as the current run,
             provided that there is no difference in relevant detector information.
         """
         self.logger = logger
