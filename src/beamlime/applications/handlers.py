@@ -19,6 +19,7 @@ from ess.reduce.nexus.json_nexus import JSONGroup
 from matplotlib.gridspec import GridSpec
 from streaming_data_types.eventdata_ev44 import EventData
 
+from beamlime.config.raw_detectors import _dream, _loki, _nmx
 from beamlime.logging import BeamlimeLogger
 
 from ..workflow_protocols import LiveWorkflow, WorkflowResult
@@ -31,6 +32,12 @@ from ._nexus_helpers import (
 )
 from .base import HandlerInterface
 from .daemons import DataPieceReceived, NexusFilePath, RunStart
+
+detector_registry = {
+    'DREAM': _dream,
+    'LoKI': _loki,
+    'NMX': _nmx,
+}
 
 ResultRegistry = NewType("ResultRegistry", dict[str, sc.DataArray])
 """Workflow result container."""
@@ -82,143 +89,6 @@ def maxcount_or_maxtime(maxcount: Number, maxtime: Number):
 DETECTOR_BANK_SIZES = {
     'larmor_detector': {'layer': 4, 'tube': 32, 'straw': 7, 'pixel': 512}
 }
-
-# NOTE: This config should obviously be moved/managed elsewhere, but this works for
-# for testing and is convenient for now.
-_res_scale = 8
-# Order in 'resolution' matters so plots have X as horizontal axis and Y as vertical.
-detector_registry = {}
-# The other DREAM detectors have non-consecutive detector numbers. This is not
-# supported currently
-_dream = {
-    'dashboard': {'nrow': 3, 'ncol': 2},
-    'detectors': {
-        'endcap_backward': {
-            'detector_name': 'endcap_backward_detector',
-            'resolution': {'y': 30 * _res_scale, 'x': 20 * _res_scale},
-            'gridspec': (0, 0),
-        },
-        'endcap_forward': {
-            'detector_name': 'endcap_forward_detector',
-            'resolution': {'y': 20 * _res_scale, 'x': 20 * _res_scale},
-            'gridspec': (0, 1),
-        },
-        # We use the arc length instead of phi as it makes it easier to get a correct
-        # aspect ratio for the plot if both axes have the same unit.
-        'mantle_projection': {
-            'detector_name': 'mantle_detector',
-            'resolution': {'arclength': 10 * _res_scale, 'z': 40 * _res_scale},
-            'projection': 'cylinder_mantle_z',
-            'gridspec': (1, slice(None, 2)),
-        },
-        # Different view of the same detector, showing just the front layer instead of
-        # a projection.
-        'mantle_front_layer': {
-            'detector_name': 'mantle_detector',
-            'projection': raw.LogicalView(
-                fold={
-                    'wire': 32,
-                    'module': 5,
-                    'segment': 6,
-                    'strip': 256,
-                    'counter': 2,
-                },
-                transpose=('wire', 'module', 'segment', 'counter', 'strip'),
-                select={'wire': 0},
-                flatten={'z_id': ('module', 'segment', 'counter')},
-            ),
-            'gridspec': (2, slice(None, 2)),
-        },
-    },
-}
-_loki = {
-    'dashboard': {'nrow': 3, 'ncol': 9, 'figsize_scale': 3},
-    'detectors': {
-        'Rear-detector': {
-            'detector_name': 'loki_detector_0',
-            'resolution': {'y': 12 * _res_scale, 'x': 12 * _res_scale},
-            'gridspec': (slice(0, 3), slice(0, 3)),
-            'pixel_noise': 'cylindrical',
-        },
-        # First window frame
-        'loki_detector_1': {
-            'detector_name': 'loki_detector_1',
-            'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
-            'gridspec': (2, 4),
-            'pixel_noise': 'cylindrical',
-        },
-        'loki_detector_2': {
-            'detector_name': 'loki_detector_2',
-            'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
-            'gridspec': (1, 3),
-            'pixel_noise': 'cylindrical',
-        },
-        'loki_detector_3': {
-            'detector_name': 'loki_detector_3',
-            'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
-            'gridspec': (0, 4),
-            'pixel_noise': 'cylindrical',
-        },
-        'loki_detector_4': {
-            'detector_name': 'loki_detector_4',
-            'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
-            'gridspec': (1, 5),
-            'pixel_noise': 'cylindrical',
-        },
-        # Second window frame
-        'loki_detector_5': {
-            'detector_name': 'loki_detector_5',
-            'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
-            'gridspec': (2, 7),
-            'pixel_noise': 'cylindrical',
-        },
-        'loki_detector_6': {
-            'detector_name': 'loki_detector_6',
-            'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
-            'gridspec': (1, 6),
-            'pixel_noise': 'cylindrical',
-        },
-        'loki_detector_7': {
-            'detector_name': 'loki_detector_7',
-            'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
-            'gridspec': (0, 7),
-            'pixel_noise': 'cylindrical',
-        },
-        'loki_detector_8': {
-            'detector_name': 'loki_detector_8',
-            'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
-            'gridspec': (1, 8),
-            'pixel_noise': 'cylindrical',
-        },
-    },
-}
-_nmx = {
-    'dashboard': {'nrow': 1, 'ncol': 3},
-    'detectors': {
-        'Panel 0': {
-            'detector_name': 'detector_panel_0',
-            'gridspec': (0, 0),
-            'projection': raw.LogicalView(),
-        },
-        'Panel 1': {
-            'detector_name': 'detector_panel_1',
-            'gridspec': (0, 1),
-            'projection': raw.LogicalView(),
-        },
-        'Panel 2': {
-            'detector_name': 'detector_panel_2',
-            'gridspec': (0, 2),
-            'projection': raw.LogicalView(),
-        },
-    },
-}
-# These banks currently have out-of-range event_id values, so we ignore them.
-del _nmx['detectors']['Panel 1']
-del _nmx['detectors']['Panel 2']
-
-detector_registry['DREAM'] = _dream
-detector_registry['LoKI'] = _loki
-detector_registry['NMX'] = _nmx
 
 
 class RawCountHandler(HandlerInterface):
