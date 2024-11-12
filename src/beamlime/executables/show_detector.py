@@ -26,7 +26,11 @@ from ..applications.daemons import (
     DataPieceReceived,
     FakeListener,
 )
-from ..applications.handlers import PlotSaver, RawCountHandler, WorkflowResultUpdate
+from ..applications.raw_count_handlers import (
+    PlotSaver,
+    RawCountHandler,
+    WorkflowResultUpdate,
+)
 from ..constructors import SingletonProvider
 from ..constructors.providers import merge as merge_providers
 from ..logging import BeamlimeLogger
