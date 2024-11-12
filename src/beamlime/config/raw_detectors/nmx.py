@@ -1,6 +1,9 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+
 from ess.reduce.live import raw
 
-_nmx = {
+nmx_detectors_config = {
     'dashboard': {'nrow': 1, 'ncol': 3},
     'detectors': {
         'Panel 0': {
@@ -20,6 +23,3 @@ _nmx = {
         },
     },
 }
-# These banks currently have out-of-range event_id values, so we ignore them.
-del _nmx['detectors']['Panel 1']
-del _nmx['detectors']['Panel 2']

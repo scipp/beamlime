@@ -19,7 +19,11 @@ from ess.reduce.nexus.json_nexus import JSONGroup
 from matplotlib.gridspec import GridSpec
 from streaming_data_types.eventdata_ev44 import EventData
 
-from beamlime.config.raw_detectors import _dream, _loki, _nmx
+from beamlime.config.raw_detectors import (
+    dream_detectors_config,
+    loki_detectors_config,
+    nmx_detectors_config,
+)
 from beamlime.logging import BeamlimeLogger
 
 from ..workflow_protocols import LiveWorkflow, WorkflowResult
@@ -34,9 +38,9 @@ from .base import HandlerInterface
 from .daemons import DataPieceReceived, NexusFilePath, RunStart
 
 detector_registry = {
-    'DREAM': _dream,
-    'LoKI': _loki,
-    'NMX': _nmx,
+    'DREAM': dream_detectors_config,
+    'LoKI': loki_detectors_config,
+    'NMX': nmx_detectors_config,
 }
 
 ResultRegistry = NewType("ResultRegistry", dict[str, sc.DataArray])

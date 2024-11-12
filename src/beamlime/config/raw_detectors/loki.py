@@ -1,6 +1,9 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+
 _res_scale = 8
 
-_loki = {
+loki_detectors_config = {
     'dashboard': {'nrow': 3, 'ncol': 9, 'figsize_scale': 3},
     'detectors': {
         'Rear-detector': {

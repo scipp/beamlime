@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+
 # Order in 'resolution' matters so plots have X as horizontal axis and Y as vertical.
 # The other DREAM detectors have non-consecutive detector numbers. This is not
 # supported currently
@@ -6,7 +9,7 @@ from ess.reduce.live import raw
 
 _res_scale = 8
 
-_dream = {
+dream_detectors_config = {
     'dashboard': {'nrow': 3, 'ncol': 2},
     'detectors': {
         'endcap_backward': {
