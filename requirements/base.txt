@@ -37,7 +37,7 @@ rich==13.9.3
     # via -r base.in
 sciline==24.6.3
     # via essreduce
-scipp==24.11.0
+scipp==24.11.1
     # via
     #   essreduce
     #   scippnexus
