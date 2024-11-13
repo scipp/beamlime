@@ -110,6 +110,8 @@ class RawCountHandler(HandlerInterface):
             self.info("Updating views at %s", reference_time)
             while reference_time >= self._next_update:
                 # If there were no pulses for a while we need to skip several updates.
+                # Note that we do not simply set _next_update based on reference_time
+                # to avoid drifts.
                 self._next_update += self._update_every
             results = {}
             for name, det in self._views.items():
