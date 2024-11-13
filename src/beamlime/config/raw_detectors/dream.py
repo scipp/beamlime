@@ -15,18 +15,20 @@ dream_detectors_config = {
         'endcap_backward': {
             'detector_name': 'endcap_backward_detector',
             'resolution': {'y': 30 * _res_scale, 'x': 20 * _res_scale},
+            'projection': 'xy_plane',
             'gridspec': (0, 0),
         },
         'endcap_forward': {
             'detector_name': 'endcap_forward_detector',
             'resolution': {'y': 20 * _res_scale, 'x': 20 * _res_scale},
+            'projection': 'xy_plane',
             'gridspec': (0, 1),
         },
         # We use the arc length instead of phi as it makes it easier to get a correct
         # aspect ratio for the plot if both axes have the same unit.
         'mantle_projection': {
             'detector_name': 'mantle_detector',
-            'resolution': {'arclength': 10 * _res_scale, 'z': 40 * _res_scale},
+            'resolution': {'arc_length': 10 * _res_scale, 'z': 40 * _res_scale},
             'projection': 'cylinder_mantle_z',
             'gridspec': (1, slice(None, 2)),
         },

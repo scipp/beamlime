@@ -85,9 +85,9 @@ class RawCountHandler(HandlerInterface):
                 nexus_file,
                 detector_name=detector['detector_name'],
                 window=self._window_length,
-                projection=detector.get('projection', 'xy_plane'),
+                projection=detector['projection'],
                 resolution=detector.get('resolution'),
-                pixel_noise=detector.get('pixel_noise', sc.scalar(0.01, unit='m')),
+                pixel_noise=detector.get('pixel_noise'),
             )
         self._chunk = {name: 0 for name in self._views}
         self._buffer = {name: [] for name in self._views}
