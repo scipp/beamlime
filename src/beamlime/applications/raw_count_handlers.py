@@ -47,7 +47,14 @@ class RawCountHandler(HandlerInterface):
     This ignores run-start and run-stop messages.
     """
 
-    def __init__(self, *, logger: BeamlimeLogger, nexus_file: NexusFilePath) -> None:
+    def __init__(
+        self,
+        *,
+        logger: BeamlimeLogger,
+        nexus_file: NexusFilePath,
+        update_every: float,
+        window_length: float,
+    ) -> None:
         """
         Parameters
         ----------
@@ -59,10 +66,13 @@ class RawCountHandler(HandlerInterface):
             provided that there is no difference in relevant detector information.
         """
         self.logger = logger
-        self._pulse = 0
-        self._previous: sc.DataArray | None = None
         self._detectors: dict[str, list[str]] = {}
         self._views: dict[str, raw.RollingDetectorView] = {}
+        self._update_every = sc.scalar(update_every, unit='s').to(
+            unit='ns', dtype='int64'
+        )
+        self._window_length = round(window_length / update_every)
+        self._next_update: int | None = None
 
         with snx.File(nexus_file) as f:
             entry = next(iter(f[snx.NXentry].values()))
@@ -74,7 +84,7 @@ class RawCountHandler(HandlerInterface):
             self._views[name] = raw.RollingDetectorView.from_nexus(
                 nexus_file,
                 detector_name=detector['detector_name'],
-                window=100,
+                window=self._window_length,
                 projection=detector.get('projection', 'xy_plane'),
                 resolution=detector.get('resolution'),
                 pixel_noise=detector.get('pixel_noise', sc.scalar(0.01, unit='m')),
@@ -91,20 +101,28 @@ class RawCountHandler(HandlerInterface):
             for name in det:
                 buffer = self._buffer[name]
                 buffer.append(event_id)
-                self._pulse += 1
         else:
             self.info("Ignoring data for %s", detname)
-            return
-        npulse = 10
-        if self._pulse % npulse == 0:
+        reference_time = sc.datetime(int(data_piece.reference_time), unit='ns')
+        if self._next_update is None:
+            self._next_update = reference_time.copy()
+        if reference_time >= self._next_update:
+            self.info("Updating views at %s", reference_time)
+            while reference_time >= self._next_update:
+                # If there were no pulses for a while we need to skip several updates.
+                self._next_update += self._update_every
             results = {}
             for name, det in self._views.items():
                 buffer = self._buffer[name]
                 if len(buffer):
                     det.add_counts(np.concatenate(buffer))
                     buffer.clear()
-                for window in (50,):
-                    key = (self._instrument, name, f'window={window*npulse}')
+                # The detector view supports multiple windows, but we do not have
+                # configured any instrument that uses this currently, so this is a
+                # length-1 tuple.
+                for window in (self._window_length,):
+                    length = (window * self._update_every).to(dtype='float64', unit='s')
+                    key = (self._instrument, name, f'window={round(length.value, 1)} s')
                     results[key] = det.get(window=window)
             self.info("Publishing result for detectors %s", list(self._views))
             return WorkflowResultUpdate(results)
@@ -118,12 +136,31 @@ class RawCountHandler(HandlerInterface):
             type=str,
             required=True,
         )
+        group.add_argument(
+            "--update-every",
+            help="Update the raw-detector view every UPDATE_EVERY seconds. "
+            "Can be a float.",
+            type=float,
+            default=1.0,
+        )
+        group.add_argument(
+            "--window-length",
+            help="Length of the window in seconds. Must be larger or equal to "
+            "update-every. Can be a float.",
+            type=float,
+            default=10.0,
+        )
 
     @classmethod
     def from_args(
         cls, logger: BeamlimeLogger, args: argparse.Namespace
     ) -> "RawCountHandler":
-        return cls(logger=logger, nexus_file=args.static_file_path)
+        return cls(
+            logger=logger,
+            nexus_file=args.static_file_path,
+            update_every=args.update_every,
+            window_length=args.window_length,
+        )
 
 
 ImagePath = NewType("ImagePath", pathlib.Path)
