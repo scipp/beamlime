@@ -7,6 +7,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from typing import NewType, cast
+import msgpack
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,6 +17,11 @@ import scippnexus as snx
 from ess.reduce.live import raw
 from matplotlib.gridspec import GridSpec
 from streaming_data_types.eventdata_ev44 import EventData
+from bokeh.layouts import column
+from bokeh.plotting import figure, curdoc
+from bokeh.models import ColumnDataSource, LinearColorMapper
+from bokeh.models import Slider
+import requests
 
 from beamlime.config.raw_detectors import (
     dream_detectors_config,
@@ -92,6 +98,9 @@ class RawCountHandler(HandlerInterface):
         self._chunk = {name: 0 for name in self._views}
         self._buffer = {name: [] for name in self._views}
         self.info("Initialized with %s", list(self._views))
+
+    def set_time_range(self, start: float, end: float) -> None:
+        pass
 
     def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate | None:
         data_piece = cast(EventData, message.content.deserialized)
@@ -405,3 +414,52 @@ class PlotSaver(PlotStreamer):
             logger=logger,
             image_path_prefix=args.image_path_prefix or random_image_path(),
         )
+
+
+class PlotPoster(HandlerInterface):
+    def __init__(self, *, logger: BeamlimeLogger, port: int = 5556) -> None:
+        super().__init__()
+        self.logger = logger
+        self.port = port
+        # self._figure = None
+        # self._source = ColumnDataSource(data=dict(image=[np.zeros((10, 10))]))
+        # color_mapper = LinearColorMapper(palette="Viridis256", low=0.0, high=100.0)
+        # self.widgets = []
+        # plot = figure(title="Dynamic 2D Heatmap", x_range=(0, 10), y_range=(0, 10))
+        # plot.image(
+        #    image='image',
+        #    x=0,
+        #    y=0,
+        #    dw=10,
+        #    dh=10,
+        #    color_mapper=color_mapper,
+        #    source=self._source,
+        # )
+        # scale_slider = Slider(title="Scale", value=2.0, start=0.1, end=5.0, step=0.1)
+        # self.widgets.append(scale_slider)
+        # self.widgets.append(plot)
+
+    def refresh_data(self, message: WorkflowResultUpdate) -> None:
+        scale = requests.get(f"http://localhost:{self.port}/get_scale")
+        scale = float(scale.text)
+        # dummy data for testing, handle full message once this works
+        res = int(scale * 100)
+        dummy = np.random.rand(res, res) * 10
+        url = f"http://localhost:{self.port}/update_data"
+        # response = requests.post(url, json=dummy.tolist())
+        headers = {'Content-Type': 'application/x-msgpack'}
+        response = requests.post(
+            url, data=msgpack.packb({'Z': dummy.tolist()}), headers=headers
+        )
+        if response.status_code != 200:
+            self.logger.error("Failed to post data to server: %s", response.text)
+
+    def update(self):
+        pass
+        # self._source.data = dict(image=np.random.rand(10, 10) * 100)
+
+    @classmethod
+    def from_args(
+        cls, logger: BeamlimeLogger, args: argparse.Namespace
+    ) -> "PlotPoster":
+        return cls(logger=logger)

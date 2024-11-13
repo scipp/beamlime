@@ -27,7 +27,7 @@ from ..applications.daemons import (
     FakeListener,
 )
 from ..applications.raw_count_handlers import (
-    PlotSaver,
+    PlotPoster,
     RawCountHandler,
     WorkflowResultUpdate,
 )
@@ -191,8 +191,10 @@ def raw_detector_counter_from_args(
     return instantiate_from_args(logger, args, RawCountHandler)
 
 
-def plot_saver_from_args(logger: BeamlimeLogger, args: argparse.Namespace) -> PlotSaver:
-    return instantiate_from_args(logger, args, PlotSaver)
+def plot_saver_from_args(
+    logger: BeamlimeLogger, args: argparse.Namespace
+) -> PlotPoster:
+    return instantiate_from_args(logger, args, PlotPoster)
 
 
 def collect_show_detector_providers() -> ProviderGroup:
@@ -229,12 +231,12 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
             event_listener = factory[EventListener]
 
         raw_detector_counter = factory[RawCountHandler]
-        plot_saver = factory[PlotSaver]
+        plot_saver = factory[PlotPoster]
         app = factory[ShowDetectorApp]
 
     app.register_daemon(event_listener)
     app.register_handling_method(DataPieceReceived, raw_detector_counter.handle)
-    app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
+    app.register_handling_method(WorkflowResultUpdate, plot_saver.refresh_data)
     app.run()
 
 
@@ -242,7 +244,7 @@ def main() -> None:
     """Entry point of the ``show-detector`` command."""
     factory = Factory(collect_show_detector_providers())
     arg_parser = build_minimum_arg_parser(
-        EventListener, PlotSaver, RawCountHandler, FakeListener
+        EventListener, PlotPoster, RawCountHandler, FakeListener
     )
     arg_parser.add_argument(
         "--fake-listener",
@@ -252,3 +254,5 @@ def main() -> None:
     )
     args = arg_parser.parse_args()
     run_show_detector(factory, args)
+    # curdoc().add_root(column(scale_slider, plot))
+    # curdoc().add_periodic_callback(self.update, 200)
