@@ -30,10 +30,12 @@ requires-python = ">=3.10"
 # Run 'tox -e deps' after making changes here. This will update requirement files.
 # Make sure to list one dependency per line.
 dependencies = [
-  "rich",
-  "essreduce>=24.10.3",
   "confluent_kafka",
-  "ess-streaming-data-types"
+  "essreduce>=24.10.3",
+  "ess-streaming-data-types",
+  "msgpack",
+  "rich",
+  "zmq",
 ]
 
 dynamic = ["version"]
