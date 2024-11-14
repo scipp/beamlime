@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+from typing import Any
+
 import matplotlib.pyplot as plt
 import numpy as np
 import scipp as sc
 from matplotlib.gridspec import GridSpec
-from typing import Any
 
 from beamlime.config.raw_detectors import (
     dream_detectors_config,

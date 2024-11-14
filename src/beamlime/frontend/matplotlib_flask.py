@@ -8,8 +8,9 @@ import msgpack
 from flask import Flask, Response, render_template_string, request
 from matplotlib.figure import Figure
 from zmq_client import ZMQClient, ZMQConfig
-from beamlime.plotting.plot_matplotlib import MatplotlibPlotter
+
 from beamlime.core.serialization import deserialize_data_array
+from beamlime.plotting.plot_matplotlib import MatplotlibPlotter
 
 app = Flask(__name__)
 
@@ -60,7 +61,7 @@ def index():
                     img.src = '/plot.png?scale=' + scaleType + '&_t=' + new Date().getTime();
                 }
 
-                setInterval(updateImage, 1000);
+                setInterval(updateImage, 500);
             </script>
         </head>
         <body>
@@ -90,7 +91,7 @@ def plot_png():
         fig = plotter.fig
 
     buf = BytesIO()
-    fig.savefig(buf, format="png")
+    fig.savefig(buf, format="png", dpi=50)
     buf.seek(0)
     return Response(buf.getvalue(), mimetype="image/png")
 

@@ -162,6 +162,6 @@ if __name__ == "__main__":
                 data = await client.receive_latest()
                 if data:
                     print(f"Received {len(data)} bytes")  # noqa: T201
-                await asyncio.sleep(2.1)
+                await asyncio.sleep(0.1)
 
     asyncio.run(main())

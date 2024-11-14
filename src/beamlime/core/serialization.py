@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+from typing import Any
+
 import numpy as np
 import scipp as sc
-from typing import Any
 
 
 def serialize_variable(var: sc.Variable) -> dict[str, Any]:

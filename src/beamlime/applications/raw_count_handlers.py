@@ -23,9 +23,9 @@ from beamlime.config.raw_detectors import (
     loki_detectors_config,
     nmx_detectors_config,
 )
+from beamlime.core.serialization import serialize_data_array
 from beamlime.logging import BeamlimeLogger
 from beamlime.plotting.plot_matplotlib import MatplotlibPlotter
-from beamlime.core.serialization import serialize_data_array
 
 from ..workflow_protocols import WorkflowResult
 from .base import HandlerInterface
@@ -353,6 +353,7 @@ class PlotPoster(HandlerInterface):
         try:
             packed = msgpack.packb(data)
             self.socket.send(packed)
+            self.logger.warning("Sending update")
         except Exception as e:
             self.logger.error("Failed to send data: %s", e)
 
