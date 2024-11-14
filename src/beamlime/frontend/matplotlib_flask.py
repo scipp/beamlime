@@ -1,3 +1,9 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+"""
+Demo of a simple Flask app that plots live data from a ZMQ server using Matplotlib.
+"""
+
 import asyncio
 import os
 import threading

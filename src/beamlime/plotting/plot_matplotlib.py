@@ -1,5 +1,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+"""
+Crude helper for simple Matplotlib plotting of 1D and 2D data.
+
+This is using Matplotlib directly instead of Plopp to avoid performance issues
+from pcolormesh. It is not intended for production at this point.
+"""
+
 from typing import Any
 
 import matplotlib.pyplot as plt
