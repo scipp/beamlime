@@ -95,9 +95,6 @@ class RawCountHandler(HandlerInterface):
         self._buffer = {name: [] for name in self._views}
         self.info("Initialized with %s", list(self._views))
 
-    def set_time_range(self, start: float, end: float) -> None:
-        pass
-
     def handle(self, message: DataPieceReceived) -> WorkflowResultUpdate | None:
         data_piece = cast(EventData, message.content.deserialized)
         detname = data_piece.source_name.split('/')[-1]
