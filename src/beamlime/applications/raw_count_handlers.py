@@ -7,21 +7,18 @@ import tempfile
 import time
 from dataclasses import dataclass
 from typing import NewType, cast
-import msgpack
 
 import matplotlib.pyplot as plt
+import msgpack
 import numpy as np
 import plopp as pp
+import requests
 import scipp as sc
 import scippnexus as snx
+import zmq
 from ess.reduce.live import raw
 from matplotlib.gridspec import GridSpec
 from streaming_data_types.eventdata_ev44 import EventData
-from bokeh.layouts import column
-from bokeh.plotting import figure, curdoc
-from bokeh.models import ColumnDataSource, LinearColorMapper
-from bokeh.models import Slider
-import requests
 
 from beamlime.config.raw_detectors import (
     dream_detectors_config,
@@ -416,7 +413,7 @@ class PlotSaver(PlotStreamer):
         )
 
 
-class PlotPoster(HandlerInterface):
+class PlotPosterRequest(HandlerInterface):
     def __init__(self, *, logger: BeamlimeLogger, port: int = 5556) -> None:
         super().__init__()
         self.logger = logger
@@ -457,6 +454,60 @@ class PlotPoster(HandlerInterface):
     def update(self):
         pass
         # self._source.data = dict(image=np.random.rand(10, 10) * 100)
+
+    @classmethod
+    def from_args(
+        cls, logger: BeamlimeLogger, args: argparse.Namespace
+    ) -> "PlotPoster":
+        return cls(logger=logger)
+
+
+class PlotPoster(HandlerInterface):
+    def __init__(self, *, logger: BeamlimeLogger, port: int = 5555) -> None:
+        super().__init__()
+        self.logger = logger
+        self.port = port
+        self.context: zmq.Context | None = None
+        self.socket: zmq.Socket | None = None
+
+    async def start(self) -> None:
+        """Initialize ZMQ socket"""
+        self.context = zmq.Context()
+        self.socket = self.context.socket(zmq.PUB)
+        self.socket.bind(f"tcp://*:{self.port}")
+        self.logger.info("ZMQ publisher started on port %d", self.port)
+
+    def refresh_data(self, message: WorkflowResultUpdate) -> None:
+        """Send array data over ZMQ"""
+        if not self.socket:
+            self.logger.error("No socket available for sending data")
+            return
+
+        dummy = next(iter(message.content.values())).values
+
+        try:
+            # Pack data with metadata
+            # TODO Handle scipp.DataArray, and dicts thereof.
+            data = {
+                "timestamp": time.time(),
+                "shape": dummy.shape,
+                "dtype": str(dummy.dtype),
+                "data": dummy.tobytes(),
+            }
+            packed = msgpack.packb(data)
+            self.socket.send(packed)
+            self.warning("Sent array of shape %s", dummy.shape)
+        except Exception as e:
+            self.logger.error("Failed to send data: %s", e)
+
+    async def stop(self) -> None:
+        """Clean shutdown of ZMQ socket"""
+        if self.socket:
+            self.socket.close()
+            self.socket = None
+        if self.context:
+            self.context.term()
+            self.context = None
 
     @classmethod
     def from_args(

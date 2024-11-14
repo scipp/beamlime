@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import argparse
+import asyncio
 import json
 import pathlib
 from collections.abc import AsyncGenerator
@@ -233,6 +234,8 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
         raw_detector_counter = factory[RawCountHandler]
         plot_saver = factory[PlotPoster]
         app = factory[ShowDetectorApp]
+    # Start ZMQ server before registering handlers
+    asyncio.run(plot_saver.start())
 
     app.register_daemon(event_listener)
     app.register_handling_method(DataPieceReceived, raw_detector_counter.handle)
@@ -254,5 +257,3 @@ def main() -> None:
     )
     args = arg_parser.parse_args()
     run_show_detector(factory, args)
-    # curdoc().add_root(column(scale_slider, plot))
-    # curdoc().add_periodic_callback(self.update, 200)

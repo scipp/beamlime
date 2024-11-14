@@ -95,7 +95,7 @@ def plot_png():
             ax.set_xlabel('Index')
             ax.set_ylabel('Value')
         elif data.ndim == 2:
-            im = ax.imshow(data, cmap='viridis', aspect='auto', norm=scale)
+            im = ax.imshow(data, cmap='viridis', aspect='equal', norm=scale)
             fig.colorbar(im)
 
         ax.set_title(f'Array Shape: {data.shape}')
