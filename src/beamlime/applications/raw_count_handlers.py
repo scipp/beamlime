@@ -64,6 +64,10 @@ class RawCountHandler(HandlerInterface):
             Path to the nexus file that has static information such as detector numbers
             and pixel positions. This is not necessarily the same as the current run,
             provided that there is no difference in relevant detector information.
+        update_every:
+            Update the raw-detector view every UPDATE_EVERY seconds.
+        window_length:
+            Length of the window in seconds. Must be larger or equal to update-every.
         """
         self.logger = logger
         self._detectors: dict[str, list[str]] = {}
@@ -108,11 +112,12 @@ class RawCountHandler(HandlerInterface):
             self._next_update = reference_time.copy()
         if reference_time >= self._next_update:
             self.info("Updating views at %s", reference_time)
-            while reference_time >= self._next_update:
-                # If there were no pulses for a while we need to skip several updates.
-                # Note that we do not simply set _next_update based on reference_time
-                # to avoid drifts.
-                self._next_update += self._update_every
+            # If there were no pulses for a while we need to skip several updates.
+            # Note that we do not simply set _next_update based on reference_time
+            # to avoid drifts.
+            self._next_update += (
+                (reference_time - self._next_update) // self._update_every + 1
+            ) * self._update_every
             results = {}
             for name, det in self._views.items():
                 buffer = self._buffer[name]
