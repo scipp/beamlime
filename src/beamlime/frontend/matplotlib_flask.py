@@ -40,7 +40,7 @@ def zmq_worker():
                         }
                         data_buffer.append(arrays)
                     except (msgpack.UnpackException, KeyError) as e:
-                        print(f"Error processing data: {e}")
+                        app.logger.error("Error processing data: %s", e)
                 await asyncio.sleep(0.1)
 
     asyncio.run(run_client())
@@ -102,8 +102,11 @@ def plot_png():
     return Response(buf.getvalue(), mimetype="image/png")
 
 
-if __name__ == "__main__":
-    # Start ZMQ client thread
+def main():
     threading.Thread(target=zmq_worker, daemon=True).start()
     port = int(os.environ.get('FLASK_PORT', 5042))
-    app.run(debug=True, port=port)
+    app.run(port=port)
+
+
+if __name__ == "__main__":
+    main()

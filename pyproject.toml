@@ -41,6 +41,7 @@ dynamic = ["version"]
 [project.scripts]
 beamlime = "beamlime.__main__:main"
 beamlime-raw-detectors = "beamlime.executables.show_detector:main"
+beamlime-frontend-matplotlib = "beamlime.frontend.matplotlib_flask:main"
 
 [project.urls]
 "Bug Tracker" = "https://github.com/scipp/beamlime/issues"
