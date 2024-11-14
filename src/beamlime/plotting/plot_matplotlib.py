@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipp as sc
 from matplotlib.gridspec import GridSpec
+from typing import Any
 
 from beamlime.config.raw_detectors import (
     dream_detectors_config,
@@ -137,12 +138,13 @@ class MatplotlibPlotter:
     def __init__(self) -> None:
         self._fig = None
         self._images = {}
+        self._kwargs = {}
 
     @property
     def fig(self) -> plt.Figure:
         return self._fig
 
-    def _setup_figure(self, das: dict[str, sc.DataArray]) -> None:
+    def _setup_figure(self, das: dict[str, sc.DataArray], **kwargs: Any) -> None:
         instrument = next(iter(das.keys()))[0]
         dashboard = detector_registry[instrument]['dashboard']
         ncol = dashboard['ncol']
@@ -156,14 +158,16 @@ class MatplotlibPlotter:
             grid_loc = detector_registry[instrument]['detectors'][detname]['gridspec']
             ax = self._fig.add_subplot(gs[grid_loc])
             extra = {'norm': 'log', 'vmax': 1e4}
+            extra.update(kwargs)
             self._images[key] = (_plot_2d if da.ndim == 2 else _plot_1d)(
                 da, ax=ax, title=name, **extra
             )
         self._fig.tight_layout()
 
-    def update_data(self, das: dict[str, sc.DataArray]) -> None:
-        if self._fig is None:
-            self._setup_figure(das)
+    def update_data(self, das: dict[str, sc.DataArray], **kwargs: Any) -> None:
+        if self._fig is None or self._kwargs != kwargs:
+            self._setup_figure(das, **kwargs)
+            self._kwargs = kwargs
         else:
             for key, da in das.items():
                 self._images[key].set_data(da.values)

@@ -25,6 +25,7 @@ from beamlime.config.raw_detectors import (
 )
 from beamlime.logging import BeamlimeLogger
 from beamlime.plotting.plot_matplotlib import MatplotlibPlotter
+from beamlime.core.serialization import serialize_data_array
 
 from ..workflow_protocols import WorkflowResult
 from .base import HandlerInterface
@@ -346,20 +347,12 @@ class PlotPoster(HandlerInterface):
             self.logger.error("No socket available for sending data")
             return
 
-        dummy = next(iter(message.content.values())).values
-
+        data = {
+            '||'.join(k): serialize_data_array(v) for k, v in message.content.items()
+        }
         try:
-            # Pack data with metadata
-            # TODO Handle scipp.DataArray, and dicts thereof.
-            data = {
-                "timestamp": time.time(),
-                "shape": dummy.shape,
-                "dtype": str(dummy.dtype),
-                "data": dummy.tobytes(),
-            }
             packed = msgpack.packb(data)
             self.socket.send(packed)
-            self.warning("Sent array of shape %s", dummy.shape)
         except Exception as e:
             self.logger.error("Failed to send data: %s", e)
 

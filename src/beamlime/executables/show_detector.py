@@ -27,7 +27,7 @@ from ..applications.daemons import (
     DataPieceReceived,
     FakeListener,
 )
-from ..applications.raw_count_handlers import PlotSaver as Plotter
+from ..applications.raw_count_handlers import PlotPoster as Plotter
 from ..applications.raw_count_handlers import (
     RawCountHandler,
     WorkflowResultUpdate,

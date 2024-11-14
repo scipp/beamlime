@@ -5,10 +5,11 @@ from collections import deque
 from io import BytesIO
 
 import msgpack
-import numpy as np
 from flask import Flask, Response, render_template_string, request
 from matplotlib.figure import Figure
 from zmq_client import ZMQClient, ZMQConfig
+from beamlime.plotting.plot_matplotlib import MatplotlibPlotter
+from beamlime.core.serialization import deserialize_data_array
 
 app = Flask(__name__)
 
@@ -25,15 +26,12 @@ def zmq_worker():
             while True:
                 data = await client.receive_latest()
                 if data:
-                    # Unpack msgpack data
                     try:
-                        unpacked = msgpack.unpackb(data)
-                        array = np.frombuffer(
-                            unpacked['data'], dtype=np.dtype(unpacked['dtype'])
-                        ).reshape(unpacked['shape'])
-
-                        # Store full array
-                        data_buffer.append(array)
+                        arrays = {
+                            tuple(k.split('||')): deserialize_data_array(v)
+                            for k, v in msgpack.unpackb(data).items()
+                        }
+                        data_buffer.append(arrays)
                     except (msgpack.UnpackException, KeyError) as e:
                         print(f"Error processing data: {e}")
                 await asyncio.sleep(0.1)
@@ -75,6 +73,9 @@ def index():
     """)  # noqa: E501
 
 
+plotter = MatplotlibPlotter()
+
+
 @app.route("/plot.png")
 def plot_png():
     scale = request.args.get('scale', 'linear')
@@ -85,20 +86,8 @@ def plot_png():
         ax = fig.subplots()
         ax.text(0.5, 0.5, 'Waiting for data...', ha='center', va='center')
     else:
-        data = data_buffer[-1]  # Get latest array
-        fig = Figure(figsize=(10, 6))
-        ax = fig.subplots()
-
-        if data.ndim == 1:
-            ax.plot(data)
-            ax.set_yscale(scale)
-            ax.set_xlabel('Index')
-            ax.set_ylabel('Value')
-        elif data.ndim == 2:
-            im = ax.imshow(data, cmap='viridis', aspect='equal', norm=scale)
-            fig.colorbar(im)
-
-        ax.set_title(f'Array Shape: {data.shape}')
+        plotter.update_data(data_buffer[-1], norm=scale)
+        fig = plotter.fig
 
     buf = BytesIO()
     fig.savefig(buf, format="png")
