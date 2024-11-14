@@ -1,88 +1,146 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-import zmq
-import zmq.asyncio
 import asyncio
-from dataclasses import dataclass
-from typing import Final
 import logging
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from enum import Enum, auto
+
+import zmq
+import zmq.asyncio
+
+
+class ConnectionState(Enum):
+    DISCONNECTED = auto()
+    CONNECTING = auto()
+    CONNECTED = auto()
 
 
 @dataclass
 class ZMQConfig:
     server_address: str = "tcp://localhost:5555"
     timeout_ms: int = 1000
-    reconnect_delay_ms: int = 500
-    max_retries: int = 3
-
-
-class ZMQConnectionError(Exception):
-    """Raised when connection issues occur"""
-
-    pass
+    reconnect_interval_ms: int = 1000
+    heartbeat_interval_ms: int = 2000  # New setting
 
 
 class ZMQClient:
-    DEFAULT_BUFFER_SIZE: Final[int] = 1024 * 1024  # 1MB
-
-    def __init__(self, config: ZMQConfig = ZMQConfig()) -> None:
-        self.config = config
+    def __init__(self, config: ZMQConfig | None = None) -> None:
+        self.config = config or ZMQConfig()
         self.context: zmq.asyncio.Context | None = None
         self.socket: zmq.Socket | None = None
+        self.state = ConnectionState.DISCONNECTED
+        self.reconnect_task: asyncio.Task | None = None
+        self.heartbeat_task: asyncio.Task | None = None
         self.logger = logging.getLogger(__name__)
+        self.last_received = 0.0
 
-    async def connect(self) -> None:
-        """Establish async connection to ZMQ server"""
+    async def start(self) -> None:
+        """Start client with automatic reconnection"""
         self.context = zmq.asyncio.Context()
-        self.socket = self.context.socket(zmq.SUB)
-        self.socket.setsockopt_string(zmq.SUBSCRIBE, "")
-        self.socket.setsockopt(zmq.RCVTIMEO, self.config.timeout_ms)
-        self.socket.connect(self.config.server_address)
-        self.logger.info(f"Connected to {self.config.server_address}")
+        self.reconnect_task = asyncio.create_task(self._reconnection_loop())
+        self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
 
-    async def receive_data(self) -> bytes | None:
-        """Receive binary data with timeout and retry handling"""
-        retries = 0
-        while retries < self.config.max_retries:
+    async def _connect(self) -> None:
+        """Attempt to establish connection"""
+        if self.state == ConnectionState.CONNECTING:
+            return
+
+        self.state = ConnectionState.CONNECTING
+        try:
+            if self.socket:
+                self.socket.close()
+
+            self.socket = self.context.socket(zmq.SUB)
+            self.socket.setsockopt(zmq.CONFLATE, 1)
+            self.socket.setsockopt(zmq.RCVHWM, 1)
+            self.socket.setsockopt_string(zmq.SUBSCRIBE, "")
+            self.socket.setsockopt(zmq.RCVTIMEO, self.config.timeout_ms)
+            self.socket.connect(self.config.server_address)
+
+            # Try receive to verify connection
             try:
-                if not self.socket:
-                    raise ZMQConnectionError("Socket not connected")
-                return await self.socket.recv()
-            except zmq.Again:
-                self.logger.debug("Receive timeout")
-                return None
-            except zmq.ZMQError as e:
-                retries += 1
-                self.logger.error(
-                    f"ZMQ error: {e}, attempt {retries}/{self.config.max_retries}"
+                await asyncio.wait_for(
+                    self.socket.recv(), timeout=self.config.timeout_ms / 1000
                 )
-                await self._reconnect()
-        raise ZMQConnectionError(f"Failed after {self.config.max_retries} attempts")
+                self.state = ConnectionState.CONNECTED
+                self.last_received = asyncio.get_event_loop().time()
+                self.logger.info("Connected and receiving data")
+            except (asyncio.TimeoutError, zmq.Again):
+                self.state = ConnectionState.DISCONNECTED
+                self.logger.warning("Connected but no data received")
 
-    async def _reconnect(self) -> None:
-        """Handle reconnection after failure"""
-        await self.close()
-        await asyncio.sleep(self.config.reconnect_delay_ms / 1000)
-        await self.connect()
+        except zmq.ZMQError as e:
+            self.state = ConnectionState.DISCONNECTED
+            self.logger.error("Connection failed: %s", e)
 
-    async def close(self) -> None:
-        """Clean up resources"""
+    async def _reconnection_loop(self) -> None:
+        """Background task handling reconnection"""
+        while True:
+            if self.state != ConnectionState.CONNECTED:
+                await self._connect()
+            await asyncio.sleep(self.config.reconnect_interval_ms / 1000)
+
+    async def _heartbeat_loop(self) -> None:
+        """Monitor connection health"""
+        while True:
+            now = asyncio.get_event_loop().time()
+            if (
+                self.state == ConnectionState.CONNECTED
+                and now - self.last_received > self.config.heartbeat_interval_ms / 1000
+            ):
+                self.logger.warning("Connection timeout - no recent data")
+                self.state = ConnectionState.DISCONNECTED
+            await asyncio.sleep(self.config.heartbeat_interval_ms / 1000)
+
+    async def receive_latest(self) -> bytes | None:
+        """Receive latest message if connected"""
+        if self.state != ConnectionState.CONNECTED:
+            return None
+
+        try:
+            if not self.socket:
+                return None
+            data = await self.socket.recv()
+            self.last_received = asyncio.get_event_loop().time()
+            return data
+        except zmq.Again:
+            return None
+        except zmq.ZMQError:
+            self.logger.warning("ZMQ error during receive")
+            self.state = ConnectionState.DISCONNECTED
+            return None
+
+    async def stop(self) -> None:
+        """Stop client and cleanup"""
+        if self.reconnect_task:
+            self.reconnect_task.cancel()
+            try:
+                await self.reconnect_task
+            except asyncio.CancelledError:
+                pass
+
+        if self.heartbeat_task:
+            self.heartbeat_task.cancel()
+            try:
+                await self.heartbeat_task
+            except asyncio.CancelledError:
+                pass
+
         if self.socket:
             self.socket.close()
-            self.socket = None
         if self.context:
             await self.context.term()
-            self.context = None
+
+        self.state = ConnectionState.DISCONNECTED
 
     @asynccontextmanager
     async def session(self):
-        """Async context manager"""
         try:
-            await self.connect()
+            await self.start()
             yield self
         finally:
-            await self.close()
+            await self.stop()
 
 
 # Usage example:
@@ -90,12 +148,12 @@ if __name__ == "__main__":
 
     async def main():
         logging.basicConfig(level=logging.INFO)
-        config = ZMQConfig(reconnect_delay_ms=1000)
 
-        async with ZMQClient(config).session() as client:
+        async with ZMQClient().session() as client:
             while True:
-                data = await client.receive_data()
+                data = await client.receive_latest()
                 if data:
-                    print(f"Received {len(data)} bytes")
+                    print(f"Received {len(data)} bytes")  # noqa: T201
+                await asyncio.sleep(2.1)
 
     asyncio.run(main())
