@@ -11,7 +11,6 @@ from typing import NewType, cast
 import msgpack
 import numpy as np
 import plopp as pp
-import requests
 import scipp as sc
 import scippnexus as snx
 import zmq
@@ -275,55 +274,6 @@ class PlotSaver(PlotStreamer):
             image_path_prefix=args.image_path_prefix
             or ImagePath(pathlib.Path(f"beamlime_plot_{time.strftime('%Y-%m-%d')}")),
         )
-
-
-class PlotPosterRequest(HandlerInterface):
-    def __init__(self, *, logger: BeamlimeLogger, port: int = 5556) -> None:
-        super().__init__()
-        self.logger = logger
-        self.port = port
-        # self._figure = None
-        # self._source = ColumnDataSource(data=dict(image=[np.zeros((10, 10))]))
-        # color_mapper = LinearColorMapper(palette="Viridis256", low=0.0, high=100.0)
-        # self.widgets = []
-        # plot = figure(title="Dynamic 2D Heatmap", x_range=(0, 10), y_range=(0, 10))
-        # plot.image(
-        #    image='image',
-        #    x=0,
-        #    y=0,
-        #    dw=10,
-        #    dh=10,
-        #    color_mapper=color_mapper,
-        #    source=self._source,
-        # )
-        # scale_slider = Slider(title="Scale", value=2.0, start=0.1, end=5.0, step=0.1)
-        # self.widgets.append(scale_slider)
-        # self.widgets.append(plot)
-
-    def refresh_data(self, message: WorkflowResultUpdate) -> None:
-        scale = requests.get(f"http://localhost:{self.port}/get_scale")
-        scale = float(scale.text)
-        # dummy data for testing, handle full message once this works
-        res = int(scale * 100)
-        dummy = np.random.rand(res, res) * 10
-        url = f"http://localhost:{self.port}/update_data"
-        # response = requests.post(url, json=dummy.tolist())
-        headers = {'Content-Type': 'application/x-msgpack'}
-        response = requests.post(
-            url, data=msgpack.packb({'Z': dummy.tolist()}), headers=headers
-        )
-        if response.status_code != 200:
-            self.logger.error("Failed to post data to server: %s", response.text)
-
-    def update(self):
-        pass
-        # self._source.data = dict(image=np.random.rand(10, 10) * 100)
-
-    @classmethod
-    def from_args(
-        cls, logger: BeamlimeLogger, args: argparse.Namespace
-    ) -> "PlotPoster":
-        return cls(logger=logger)
 
 
 class PlotPoster(HandlerInterface):
