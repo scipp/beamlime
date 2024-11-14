@@ -104,7 +104,7 @@ class ZMQClient:
             data = await self.socket.recv()
             self.last_received = asyncio.get_event_loop().time()
             return data
-        except zmq.Again:
+        except (zmq.Again, asyncio.CancelledError):
             return None
         except zmq.ZMQError:
             self.logger.warning("ZMQ error during receive")
@@ -112,14 +112,7 @@ class ZMQClient:
             return None
 
     async def stop(self) -> None:
-        """Stop client and cleanup"""
-        if self.reconnect_task:
-            self.reconnect_task.cancel()
-            try:
-                await self.reconnect_task
-            except asyncio.CancelledError:
-                pass
-
+        """Stop client and cleanup safely"""
         if self.heartbeat_task:
             self.heartbeat_task.cancel()
             try:
@@ -127,10 +120,25 @@ class ZMQClient:
             except asyncio.CancelledError:
                 pass
 
+        if self.reconnect_task:
+            self.reconnect_task.cancel()
+            try:
+                await self.reconnect_task
+            except asyncio.CancelledError:
+                pass
+
         if self.socket:
             self.socket.close()
+            self.socket = None
+
         if self.context:
-            await self.context.term()
+            try:
+                # Store context reference before nulling
+                context = self.context
+                self.context = None
+                await context.term()
+            except AttributeError:
+                pass
 
         self.state = ConnectionState.DISCONNECTED
 

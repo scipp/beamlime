@@ -15,7 +15,7 @@ import zmq.asyncio
 @dataclass
 class ZMQServerConfig:
     bind_address: str = "tcp://*:5555"
-    array_size: tuple[int, int] = (640, 480)  # Example image size
+    array_size: tuple[int, int] = (100, 10)  # Example image size
     send_interval_ms: int = 100  # 10Hz
 
 
@@ -39,7 +39,9 @@ class ZMQServer:
     async def _send_loop(self) -> None:
         while self.running:
             # Generate random array
-            array = np.random.rand(*self.config.array_size).astype(np.float32)
+            array = (
+                np.random.rand(*self.config.array_size).astype(np.float32) * 100 + 0.1
+            )
             self.config.array_size = (
                 self.config.array_size[0],
                 self.config.array_size[1] + 1,
