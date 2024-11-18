@@ -232,6 +232,10 @@ class FakeListener(DaemonInterface):
                 except StopIteration:  # Catch exhausted generators
                     exhausted_generators.add(key)
 
+            if len(self.random_event_generators) == 0:
+                self.info("All event generators are exhausted.")
+                break
+
             self.info(f"Neutron events of frame #{i_frame} were sent.")
             await asyncio.sleep(self.data_feeding_speed)
 
