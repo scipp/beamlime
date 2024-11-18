@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import argparse
-import asyncio
 import json
 import pathlib
 from collections.abc import AsyncGenerator
@@ -34,6 +33,7 @@ from ..applications.raw_count_handlers import (
 )
 from ..constructors import SingletonProvider
 from ..constructors.providers import merge as merge_providers
+from ..core.websocket_manager import WebSocketManager
 from ..logging import BeamlimeLogger
 from .options import build_minimum_arg_parser
 from .prototypes import fake_listener_from_args, instantiate_from_args
@@ -192,8 +192,10 @@ def raw_detector_counter_from_args(
     return instantiate_from_args(logger, args, RawCountHandler)
 
 
-def plot_saver_from_args(logger: BeamlimeLogger, args: argparse.Namespace) -> Plotter:
-    return instantiate_from_args(logger, args, Plotter)
+def plot_saver_from_args(
+    logger: BeamlimeLogger, socket: WebSocketManager, args: argparse.Namespace
+) -> Plotter:
+    return Plotter.from_args(logger=logger, socket=socket, args=args)
 
 
 def collect_show_detector_providers() -> ProviderGroup:
@@ -204,6 +206,7 @@ def collect_show_detector_providers() -> ProviderGroup:
         raw_detector_counter_from_args,
         fake_listener_from_args,
         SingletonProvider(plot_saver_from_args),
+        SingletonProvider(WebSocketManager),
         SingletonProvider(ShowDetectorApp),
         MessageRouter,
     )
@@ -232,9 +235,6 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
         raw_detector_counter = factory[RawCountHandler]
         plot_saver = factory[Plotter]
         app = factory[ShowDetectorApp]
-    if hasattr(plot_saver, "start"):
-        # Start ZMQ server before registering handlers
-        asyncio.run(plot_saver.start())
 
     app.register_daemon(event_listener)
     app.register_handling_method(DataPieceReceived, raw_detector_counter.handle)
@@ -242,9 +242,11 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
     app.run()
 
 
-def main() -> None:
-    """Entry point of the ``show-detector`` command."""
-    factory = Factory(collect_show_detector_providers())
+def make_factory() -> Factory:
+    return Factory(collect_show_detector_providers())
+
+
+def make_arg_parser() -> argparse.ArgumentParser:
     arg_parser = build_minimum_arg_parser(
         EventListener, Plotter, RawCountHandler, FakeListener
     )
@@ -254,5 +256,10 @@ def main() -> None:
         help="Use fake listener instead of real listener.",
         default=False,
     )
-    args = arg_parser.parse_args()
-    run_show_detector(factory, args)
+    return arg_parser
+
+
+def main() -> None:
+    """Entry point of the ``show-detector`` command."""
+    args = make_arg_parser().parse_args()
+    run_show_detector(make_factory(), args)

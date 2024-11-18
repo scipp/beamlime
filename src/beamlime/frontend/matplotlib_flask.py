@@ -11,11 +11,11 @@ from collections import deque
 from io import BytesIO
 
 import msgpack
+import websockets
 from flask import Flask, Response, render_template_string, request
 from matplotlib.figure import Figure
 
 from beamlime.core.serialization import deserialize_data_array
-from beamlime.frontend.zmq_client import ZMQClient, ZMQConfig
 from beamlime.plotting.plot_matplotlib import MatplotlibPlotter
 
 app = Flask(__name__)
@@ -24,26 +24,41 @@ app = Flask(__name__)
 data_buffer = deque(maxlen=1)  # Only keep most recent array
 
 
-def zmq_worker():
-    """Background thread for ZMQ communication"""
+def websocket_worker():
+    """Background thread for WebSocket communication"""
 
-    async def run_client():
-        config = ZMQConfig(server_address="tcp://localhost:5555", timeout_ms=1000)
-        async with ZMQClient(config).session() as client:
+    async def connect_websocket():
+        uri = "ws://localhost:5555/ws"
+        async with websockets.connect(uri) as websocket:
             while True:
-                data = await client.receive_latest()
-                if data:
-                    try:
-                        arrays = {
-                            tuple(k.split('||')): deserialize_data_array(v)
-                            for k, v in msgpack.unpackb(data).items()
-                        }
-                        data_buffer.append(arrays)
-                    except (msgpack.UnpackException, KeyError) as e:
-                        app.logger.error("Error processing data: %s", e)
-                await asyncio.sleep(0.1)
+                try:
+                    data = await websocket.recv()
+                    if data:
+                        print('new data')
+                        try:
+                            arrays = {
+                                tuple(k.split('||')): deserialize_data_array(v)
+                                for k, v in msgpack.unpackb(data).items()
+                            }
+                            data_buffer.append(arrays)
+                        except (msgpack.UnpackException, KeyError) as e:
+                            app.logger.error("Error processing data: %s", e)
+                except websockets.ConnectionClosed:
+                    app.logger.error(
+                        "WebSocket connection closed, attempting to reconnect..."
+                    )
+                    await asyncio.sleep(1)
+                    break
 
-    asyncio.run(run_client())
+    async def keep_alive():
+        while True:
+            try:
+                await connect_websocket()
+            except Exception as e:
+                app.logger.error(f"WebSocket error: {e}")
+                await asyncio.sleep(1)
+
+    asyncio.run(keep_alive())
 
 
 @app.route("/")
@@ -67,7 +82,7 @@ def index():
                     img.src = '/plot.png?scale=' + scaleType + '&_t=' + new Date().getTime();
                 }
 
-                setInterval(updateImage, 500);
+                setInterval(updateImage, 1000);
             </script>
         </head>
         <body>
@@ -93,6 +108,7 @@ def plot_png():
         ax = fig.subplots()
         ax.text(0.5, 0.5, 'Waiting for data...', ha='center', va='center')
     else:
+        print('plotting')
         plotter.update_data(data_buffer[-1], norm=scale)
         fig = plotter.fig
 
@@ -103,8 +119,8 @@ def plot_png():
 
 
 def main():
-    threading.Thread(target=zmq_worker, daemon=True).start()
-    port = int(os.environ.get('FLASK_PORT', 5042))
+    threading.Thread(target=websocket_worker, daemon=True).start()
+    port = int(os.environ.get('FLASK_PORT', 5044))
     app.run(port=port)
 
 
