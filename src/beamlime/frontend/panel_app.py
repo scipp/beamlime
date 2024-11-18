@@ -2,40 +2,40 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import asyncio
 import threading
-from collections import deque
 
 import holoviews as hv
 import msgpack
 import numpy as np
-import pandas as pd
 import panel as pn
-import param
 import websockets
-from holoviews.streams import Stream
+from holoviews.streams import Pipe
 
 from beamlime.core.serialization import deserialize_data_array
 
-# Thread-safe buffer for latest array
-data_buffer = deque(maxlen=1)  # Only keep most recent array
+data_pipe = Pipe(data=[])
 
 
 def websocket_worker():
     """Background thread for WebSocket communication"""
 
+    cnt = 0
+
     async def connect_websocket():
+        nonlocal cnt
         uri = "ws://localhost:5555/ws"
         async with websockets.connect(uri) as websocket:
             while True:
                 try:
                     data = await websocket.recv()
+                    print(f'new data {cnt}')
+                    cnt += 1
                     if data:
-                        print('new data')
                         try:
                             arrays = {
                                 tuple(k.split('||')): deserialize_data_array(v)
                                 for k, v in msgpack.unpackb(data).items()
                             }
-                            data_buffer.append(arrays)
+                            data_pipe.send(data=arrays)
                         except (msgpack.UnpackException, KeyError) as e:
                             print("Error processing data: %s", e)
                 except websockets.ConnectionClosed:
@@ -57,59 +57,46 @@ def websocket_worker():
 pn.extension(design="material")
 
 
-# Define a custom stream for updating data
-class DataStream(Stream):
-    data_dict = param.Dict(default={})
-
-
-# Create stream instance
-data_stream = DataStream(
-    data_dict={
-        'a': np.zeros((10, 10)),
-        'b': np.zeros((10, 10)),
-        'c': np.zeros((10, 10)),
-        'd': np.zeros((10, 10)),
-    }
-)
-
-
-async def update_data():
-    """Update the plot data through ZMQ streaming"""
-    if data_buffer:
-        try:
-            data_dict = {k: v.values for k, v in data_buffer[-1].items()}
-            data_stream.event(data_dict=data_dict)
-        except (msgpack.UnpackException, KeyError) as e:
-            print(f"Error processing data: {e}")
-
-
-def get_plots(vmin=0.0, vmax=10.0, log_scale=False):
+# This is annoying, as changing these settings resets the view
+def get_plots(vmin=0.0, vmax=10.0, log_scale=False, reset=0):
     """Creates heatmap plots with shared color scale settings"""
 
-    def plot_fn(data_dict):
+    def plot_fn(data):
+        if not data:
+            return hv.Layout([hv.Image([])] * 4).cols(2)
         plots = []
-        for key, data in data_dict.items():
+        for key, da in data.items():
             title = ' || '.join(str(k) for k in key)
-            plot = hv.Image(data, label=title).opts(
+            xdim = da.dims[1]
+            ydim = da.dims[0]
+            if xdim in da.coords:
+                x = da.coords[xdim].values
+            else:
+                x = np.arange(da.shape[1])
+            if ydim in da.coords:
+                y = da.coords[ydim].values
+            else:
+                y = np.arange(da.shape[0])
+            z = da.values
+            plot = hv.Image(
+                (x, y, z), kdims=[xdim, ydim], vdims=[f'[{da.unit}]'], label=title
+            )
+            plot.opts(
                 cmap='viridis',
-                height=400,
-                width=400,
                 clim=(vmin, vmax),
                 colorbar=True,
                 title=title,
+                width=400,
+                height=400,
+                aspect='equal',
             )
             if log_scale:
                 plot = plot.opts(clim=(1, vmax), logz=True)
             plots.append(plot)
-
-        # Arrange plots in a grid layout
         return hv.Layout(plots).cols(2).opts(shared_axes=False)
 
-    return hv.DynamicMap(plot_fn, streams=[data_stream])
+    return hv.DynamicMap(plot_fn, streams=[data_pipe])
 
-
-# Set up periodic callback
-periodic_callback = pn.state.add_periodic_callback(update_data, period=333)
 
 # Single slider for colorbar max value
 vmax_widget = pn.widgets.FloatSlider(
@@ -120,15 +107,21 @@ vmin_widget = pn.widgets.FloatSlider(
 )
 # Button for switching between linear and log scale
 scale_widget = pn.widgets.Toggle(name="Log scale", value=False)
+reset = pn.widgets.Button(name="Reset", button_type="primary")
 
 bound_plot = pn.bind(
-    get_plots, vmin=vmin_widget, vmax=vmax_widget, log_scale=scale_widget
+    get_plots,
+    vmin=vmin_widget,
+    vmax=vmax_widget,
+    log_scale=scale_widget,
+    reset=reset.param.clicks,
 )
+
 
 servable = pn.template.MaterialTemplate(
     site="Panel",
     title="Multiple 2D Heatmaps Demo",
-    sidebar=[vmin_widget, vmax_widget, scale_widget],
+    sidebar=[vmin_widget, vmax_widget, scale_widget, reset],
     main=[bound_plot],
 ).servable()
 
