@@ -1,44 +1,58 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+import asyncio
+import threading
+from collections import deque
+
 import holoviews as hv
 import msgpack
 import numpy as np
 import pandas as pd
 import panel as pn
 import param
+import websockets
 from holoviews.streams import Stream
 
 from beamlime.core.serialization import deserialize_data_array
-from beamlime.frontend.zmq_client import ZMQClient, ZMQConfig
+
+# Thread-safe buffer for latest array
+data_buffer = deque(maxlen=1)  # Only keep most recent array
 
 
-# Global session holder
-class ZMQSessionManager:
-    def __init__(self):
-        self.session = None
-        self.zmq_config = ZMQConfig(
-            server_address="tcp://localhost:5555", timeout_ms=1000
-        )
-        self.client = None
+def websocket_worker():
+    """Background thread for WebSocket communication"""
 
-    async def start(self):
-        if self.client is None:
-            self.client = ZMQClient(self.zmq_config)
-            await self.client.start()
+    async def connect_websocket():
+        uri = "ws://localhost:5555/ws"
+        async with websockets.connect(uri) as websocket:
+            while True:
+                try:
+                    data = await websocket.recv()
+                    if data:
+                        print('new data')
+                        try:
+                            arrays = {
+                                tuple(k.split('||')): deserialize_data_array(v)
+                                for k, v in msgpack.unpackb(data).items()
+                            }
+                            data_buffer.append(arrays)
+                        except (msgpack.UnpackException, KeyError) as e:
+                            print("Error processing data: %s", e)
+                except websockets.ConnectionClosed:
+                    print("WebSocket connection closed, attempting to reconnect...")
+                    await asyncio.sleep(1)
+                    break
 
-    async def stop(self):
-        if self.client is not None:
-            await self.client.stop()
-            self.client = None
+    async def keep_alive():
+        while True:
+            try:
+                await connect_websocket()
+            except Exception as e:
+                print(f"WebSocket error: {e}")
+                await asyncio.sleep(1)
 
-    async def receive_latest(self):
-        if self.client is not None:
-            return await self.client.receive_latest()
-        return None
+    asyncio.run(keep_alive())
 
-
-# Create global instance
-session_manager = ZMQSessionManager()
 
 pn.extension(design="material")
 
@@ -61,18 +75,9 @@ data_stream = DataStream(
 
 async def update_data():
     """Update the plot data through ZMQ streaming"""
-    if session_manager.client is None:
-        await session_manager.start()
-
-    data = await session_manager.receive_latest()
-    if data:
+    if data_buffer:
         try:
-            arrays = {
-                tuple(k.split('||')): deserialize_data_array(v)
-                for k, v in msgpack.unpackb(data).items()
-            }
-            # Store all arrays
-            data_dict = {k: v.values for k, v in arrays.items()}
+            data_dict = {k: v.values for k, v in data_buffer[-1].items()}
             data_stream.event(data_dict=data_dict)
         except (msgpack.UnpackException, KeyError) as e:
             print(f"Error processing data: {e}")
@@ -129,6 +134,7 @@ servable = pn.template.MaterialTemplate(
 
 
 def main():
+    threading.Thread(target=websocket_worker, daemon=True).start()
     return servable
 
 
