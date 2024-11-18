@@ -98,13 +98,13 @@ def get_plots(vmin=0.0, vmax=10.0, log_scale=False):
             plots.append(plot)
 
         # Arrange plots in a grid layout
-        return hv.Layout(plots).cols(2)
+        return hv.Layout(plots).cols(2).opts(shared_axes=False)
 
     return hv.DynamicMap(plot_fn, streams=[data_stream])
 
 
 # Set up periodic callback
-periodic_callback = pn.state.add_periodic_callback(update_data, period=100)
+periodic_callback = pn.state.add_periodic_callback(update_data, period=333)
 
 # Single slider for colorbar max value
 vmax_widget = pn.widgets.FloatSlider(
