@@ -13,7 +13,6 @@ import numpy as np
 import plopp as pp
 import scipp as sc
 import scippnexus as snx
-import zmq
 from ess.reduce.live import raw
 from streaming_data_types.eventdata_ev44 import EventData
 
@@ -23,6 +22,7 @@ from beamlime.config.raw_detectors import (
     nmx_detectors_config,
 )
 from beamlime.core.serialization import serialize_data_array
+from beamlime.core.websocket_manager import WebSocketManager
 from beamlime.logging import BeamlimeLogger
 from beamlime.plotting.plot_matplotlib import MatplotlibPlotter
 
@@ -274,47 +274,21 @@ class PlotSaver(PlotStreamer):
 
 
 class PlotPoster(HandlerInterface):
-    def __init__(self, *, logger: BeamlimeLogger, port: int = 5555) -> None:
+    def __init__(self, *, logger: BeamlimeLogger, socket: WebSocketManager) -> None:
         super().__init__()
         self.logger = logger
-        self.port = port
-        self.context: zmq.Context | None = None
-        self.socket: zmq.Socket | None = None
+        self.socket = socket
 
-    async def start(self) -> None:
-        """Initialize ZMQ socket"""
-        self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.PUB)
-        self.socket.bind(f"tcp://*:{self.port}")
-        self.logger.info("ZMQ publisher started on port %d", self.port)
+    def to_bytes(self, data: dict[str, sc.DataArray]) -> bytes:
+        data = {'||'.join(k): serialize_data_array(v) for k, v in data.items()}
+        return msgpack.packb(data)
 
-    def update_data(self, message: WorkflowResultUpdate) -> None:
-        """Send array data over ZMQ"""
-        if not self.socket:
-            self.logger.error("No socket available for sending data")
-            return
-
-        data = {
-            '||'.join(k): serialize_data_array(v) for k, v in message.content.items()
-        }
-        try:
-            packed = msgpack.packb(data)
-            self.socket.send(packed)
-            self.logger.warning("Sending update")
-        except Exception as e:
-            self.logger.error("Failed to send data: %s", e)
-
-    async def stop(self) -> None:
-        """Clean shutdown of ZMQ socket"""
-        if self.socket:
-            self.socket.close()
-            self.socket = None
-        if self.context:
-            self.context.term()
-            self.context = None
+    async def update_data(self, message: WorkflowResultUpdate) -> None:
+        data = self.to_bytes(message.content)
+        await self.socket.send(data)
 
     @classmethod
     def from_args(
-        cls, logger: BeamlimeLogger, args: argparse.Namespace
+        cls, logger: BeamlimeLogger, socket: WebSocketManager, args: argparse.Namespace
     ) -> "PlotPoster":
-        return cls(logger=logger)
+        return cls(logger=logger, socket=socket)
