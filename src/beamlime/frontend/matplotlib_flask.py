@@ -34,7 +34,6 @@ def websocket_worker():
                 try:
                     data = await websocket.recv()
                     if data:
-                        print('new data')
                         try:
                             arrays = {
                                 tuple(k.split('||')): deserialize_data_array(v)
@@ -43,7 +42,7 @@ def websocket_worker():
                             data_buffer.append(arrays)
                         except (msgpack.UnpackException, KeyError) as e:
                             app.logger.error("Error processing data: %s", e)
-                except websockets.ConnectionClosed:
+                except websockets.ConnectionClosed:  # noqa: PERF203
                     app.logger.error(
                         "WebSocket connection closed, attempting to reconnect..."
                     )
@@ -54,8 +53,8 @@ def websocket_worker():
         while True:
             try:
                 await connect_websocket()
-            except Exception as e:
-                app.logger.error(f"WebSocket error: {e}")
+            except Exception as e:  # noqa: PERF203
+                app.logger.error("WebSocket error: %s", e)
                 await asyncio.sleep(1)
 
     asyncio.run(keep_alive())
@@ -108,7 +107,6 @@ def plot_png():
         ax = fig.subplots()
         ax.text(0.5, 0.5, 'Waiting for data...', ha='center', va='center')
     else:
-        print('plotting')
         plotter.update_data(data_buffer[-1], norm=scale)
         fig = plotter.fig
 
