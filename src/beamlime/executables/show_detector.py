@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import argparse
+import asyncio
 import json
 import pathlib
 from collections.abc import AsyncGenerator
@@ -26,8 +27,8 @@ from ..applications.daemons import (
     DataPieceReceived,
     FakeListener,
 )
+from ..applications.raw_count_handlers import PlotPoster as Plotter
 from ..applications.raw_count_handlers import (
-    PlotSaver,
     RawCountHandler,
     WorkflowResultUpdate,
 )
@@ -191,8 +192,8 @@ def raw_detector_counter_from_args(
     return instantiate_from_args(logger, args, RawCountHandler)
 
 
-def plot_saver_from_args(logger: BeamlimeLogger, args: argparse.Namespace) -> PlotSaver:
-    return instantiate_from_args(logger, args, PlotSaver)
+def plot_saver_from_args(logger: BeamlimeLogger, args: argparse.Namespace) -> Plotter:
+    return instantiate_from_args(logger, args, Plotter)
 
 
 def collect_show_detector_providers() -> ProviderGroup:
@@ -229,12 +230,15 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
             event_listener = factory[EventListener]
 
         raw_detector_counter = factory[RawCountHandler]
-        plot_saver = factory[PlotSaver]
+        plot_saver = factory[Plotter]
         app = factory[ShowDetectorApp]
+    if hasattr(plot_saver, "start"):
+        # Start ZMQ server before registering handlers
+        asyncio.run(plot_saver.start())
 
     app.register_daemon(event_listener)
     app.register_handling_method(DataPieceReceived, raw_detector_counter.handle)
-    app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
+    app.register_handling_method(WorkflowResultUpdate, plot_saver.update_data)
     app.run()
 
 
@@ -242,7 +246,7 @@ def main() -> None:
     """Entry point of the ``show-detector`` command."""
     factory = Factory(collect_show_detector_providers())
     arg_parser = build_minimum_arg_parser(
-        EventListener, PlotSaver, RawCountHandler, FakeListener
+        EventListener, Plotter, RawCountHandler, FakeListener
     )
     arg_parser.add_argument(
         "--fake-listener",
