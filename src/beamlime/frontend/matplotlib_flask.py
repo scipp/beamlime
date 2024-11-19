@@ -10,6 +10,7 @@ import threading
 from collections import deque
 from io import BytesIO
 
+import matplotlib
 import msgpack
 from flask import Flask, Response, render_template_string, request
 from matplotlib.figure import Figure
@@ -17,6 +18,8 @@ from matplotlib.figure import Figure
 from beamlime.core.serialization import deserialize_data_array
 from beamlime.frontend.zmq_client import ZMQClient, ZMQConfig
 from beamlime.plotting.plot_matplotlib import MatplotlibPlotter
+
+matplotlib.use('agg')
 
 app = Flask(__name__)
 
