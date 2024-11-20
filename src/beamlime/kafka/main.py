@@ -10,7 +10,7 @@ def main():
 
     # Configure multiple producers
     configs = [
-        ProducerConfig(topic_name=f"sensor_data_{i}", array_size=(10, 10), interval=1.0)
+        ProducerConfig(topic_name=f"sensor_data_{i}", array_size=(10, 10), interval=1)
         for i in range(4)
     ]
 

@@ -66,28 +66,49 @@ def get_images():
     return jsonify(generate_images())
 
 
+_figures = {}
+_axes = {}
+
+
+def initialize_plot(topic, data):
+    _figures[topic] = plt.figure(figsize=(6, 6))
+    _axes[topic] = _figures[topic].add_subplot(111)
+    img = _axes[topic].imshow(data, cmap='viridis')
+    _figures[topic].colorbar(img)
+    _axes[topic].set_title(topic)
+    _axes[topic].images[0].set_clim(data.min(), data.max())
+
+
 def generate_images():
     with data_lock:
         if not latest_data:
             return {}
-
         data_copy = latest_data.copy()
 
     images = {}
     for topic, data in data_copy.items():
-        plt.figure(figsize=(6, 6))
-        plt.imshow(data, cmap='viridis')
-        plt.colorbar()
-        plt.title(topic)
+        if topic not in _figures:
+            initialize_plot(topic, data)
+        else:
+            _axes[topic].images[0].set_array(data)
+            _axes[topic].images[0].set_clim(data.min(), data.max())
 
+        # Save to buffer
         buf = io.BytesIO()
-        plt.savefig(buf, format='png')
-        plt.close()
-
+        _figures[topic].canvas.draw()
+        _figures[topic].savefig(buf, format='png')
         buf.seek(0)
         images[topic] = base64.b64encode(buf.read()).decode('utf-8')
 
     return images
+
+
+def cleanup_plots():
+    """Clean up matplotlib resources"""
+    for fig in _figures.values():
+        plt.close(fig)
+    _figures.clear()
+    _axes.clear()
 
 
 if __name__ == '__main__':
