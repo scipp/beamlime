@@ -2,32 +2,49 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import json
 import time
+from dataclasses import dataclass
 from threading import Event, Thread
 
 import numpy as np
 from confluent_kafka import Consumer, KafkaError, Producer
 
 
+@dataclass
+class ProducerConfig:
+    topic_name: str
+    array_size: tuple = (10, 10)
+    interval: float = 1.0
+    kafka_host: str = 'localhost:9092'
+
+
 class ArrayProducer:
-    def __init__(self, kafka_host='localhost:9092'):
+    def __init__(self, config: ProducerConfig):
+        self.config = config
+        self.array_size = config.array_size
         self.producer = Producer(
-            {'bootstrap.servers': kafka_host, 'client.id': 'array_producer'}
+            {
+                'bootstrap.servers': config.kafka_host,
+                'client.id': 'array_producer',
+                'acks': 'all',
+                'retries': 5,
+                'retry.backoff.ms': 1000,
+            }
         )
 
         self.consumer = Consumer(
             {
-                'bootstrap.servers': kafka_host,
-                'group.id': 'array_control_group',
+                'bootstrap.servers': config.kafka_host,
+                'group.id': config.topic_name,
                 'auto.offset.reset': 'latest',
             }
         )
-        self.consumer.subscribe(['topic1_control'])
+        self.consumer.subscribe(['beamlime-control'])
 
-        self.array_size = (10, 10)
         self.running = Event()
         self.running.set()
         self.consumer_thread = Thread(target=self._listen_control, daemon=True)
         self.consumer_thread.start()
+        self.last_delivery_successful = False
 
     def delivery_callback(self, err, msg):
         if err:
@@ -59,13 +76,14 @@ class ArrayProducer:
     def generate_array(self):
         return np.random.rand(*self.array_size).tolist()
 
-    def run(self, interval=1.0):
+    def run(self):
         while self.running.is_set():
             data = {'timestamp': time.time(), 'data': self.generate_array()}
             try:
                 self.last_delivery_successful = False
                 self.producer.produce(
-                    'topic1',
+                    self.config.topic_name,
+                    key='latest',  # Use constant key for message compaction
                     value=json.dumps(data).encode('utf-8'),
                     callback=self.delivery_callback,
                 )
@@ -79,7 +97,7 @@ class ArrayProducer:
 
             if not self.running.is_set():
                 break
-            time.sleep(interval)
+            time.sleep(self.config.interval)
 
     def stop(self):
         print("Initiating shutdown...")
