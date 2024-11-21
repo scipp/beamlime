@@ -25,8 +25,12 @@ consumer = Consumer(
         'bootstrap.servers': 'localhost:9092',
         'group.id': f'web_consumer_group_{uuid4()}',
         'auto.offset.reset': 'latest',
+        # Batch processing configs
+        'fetch.min.bytes': 1,
+        'fetch.max.bytes': 1024 * 1024 * 10,
     }
 )
+
 consumer.subscribe([f'sensor_data_{i}' for i in range(4)])
 
 producer = Producer({'bootstrap.servers': 'localhost:9092'})
@@ -34,18 +38,21 @@ producer = Producer({'bootstrap.servers': 'localhost:9092'})
 
 def consume_messages():
     while True:
-        msg = consumer.poll(0.5)
-        if msg is None:
+        messages = consumer.consume(num_messages=2, timeout=1.0)
+        if not messages:
             continue
-        if msg.error():
-            continue
-        try:
-            data = json.loads(msg.value().decode('utf-8'))
-            with data_lock:
-                global latest_data
-                latest_data[msg.topic()] = np.array(data['data'])
-        except Exception as e:
-            print(f"Error processing message: {e}")
+
+        print(f"Received {len(messages)} messages")
+        for msg in messages:
+            if msg.error():
+                continue
+            try:
+                data = json.loads(msg.value().decode('utf-8'))
+                with data_lock:
+                    global latest_data
+                    latest_data[msg.topic()] = np.array(data['data'])
+            except Exception as e:
+                print(f"Error processing message: {e}")
 
 
 @app.route('/')
@@ -114,4 +121,4 @@ def cleanup_plots():
 if __name__ == '__main__':
     consumer_thread = Thread(target=consume_messages, daemon=True)
     consumer_thread.start()
-    app.run(host='127.0.0.1', port=5001)
+    app.run(host='127.0.0.1', port=5002)
