@@ -1,4 +1,6 @@
 import asyncio
+import json
+from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,22 +15,49 @@ npix = 64**2
 MAX_CHUNK_SIZE = 1024 * 1024
 
 
-@broker.subscriber("detector-events", batch=True, max_records=1000, polling_interval=1)
+@dataclass
+class ArrayMessage:
+    shape: tuple[int, ...]
+    dtype: str
+    data: bytes
+
+    @classmethod
+    def from_array(cls, array: np.ndarray):
+        return cls(array.shape, str(array.dtype), array.tobytes())
+
+    def serialize(self) -> bytes:
+        metadata = {'shape': self.shape, 'dtype': str(self.dtype)}
+        header = json.dumps(metadata).encode('utf-8')
+        header_size = len(header).to_bytes(4, 'big')
+        return header_size + header + self.data
+
+    @classmethod
+    def deserialize(cls, msg: bytes) -> np.ndarray:
+        header_size = int.from_bytes(msg[:4], 'big')
+        header = json.loads(msg[4 : 4 + header_size].decode('utf-8'))
+        data = msg[4 + header_size :]
+        array = np.frombuffer(data, dtype=np.dtype(header['dtype']))
+        return array.reshape(header['shape'])
+
+
+@broker.subscriber("detector-events", batch=True, max_records=2, polling_interval=1)
 @broker.publisher("detector-counts")
 async def histogram(msg: list[bytes]) -> bytes:
     chunks = [np.frombuffer(chunk, dtype=np.int32) for chunk in msg]
+    print(len(chunks))
     ids = np.concatenate(chunks)
-    return np.bincount(ids, minlength=npix).tobytes()
+    counts = np.bincount(ids, minlength=npix).reshape(64, 64)
+    return ArrayMessage.from_array(counts).serialize()
 
 
-@broker.subscriber("detector-counts")
-async def plot(msg: bytes):
-    data = np.frombuffer(msg, dtype=np.int64).reshape(64, 64)
-    plt.imshow(data, cmap='viridis')
-    plt.title(f'Total counts: {data.sum()/1e6:.1f} M')
-    plt.colorbar()
-    plt.savefig('plot.png')
-    plt.close()
+# @broker.subscriber("detector-counts")
+# async def plot(msg: bytes):
+#    data = ArrayMessage.deserialize(msg)
+#    plt.imshow(data, cmap='viridis')
+#    plt.title(f'Total counts: {data.sum()/1e6:.1f} M')
+#    plt.colorbar()
+#    plt.savefig('plot.png')
+#    plt.close()
 
 
 class FakeDetector:
@@ -53,7 +82,7 @@ class FakeDetector:
     async def run(self):
         while True:
             await self.publish_data()
-            # await asyncio.sleep(0.01)
+            await asyncio.sleep(0.5)
 
 
 @app.after_startup

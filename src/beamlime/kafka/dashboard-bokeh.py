@@ -1,7 +1,20 @@
+import json
+
 import numpy as np
 from bokeh.layouts import row
 from bokeh.models import Column, Slider
 from bokeh.plotting import curdoc, figure
+from confluent_kafka import Consumer
+from services_faststream import ArrayMessage
+
+kafka_config = {
+    'bootstrap.servers': 'localhost:9092',
+    'group.id': 'dashboard-group',
+    'auto.offset.reset': 'latest',
+}
+
+consumer = Consumer(kafka_config)
+consumer.subscribe(['detector-counts'])
 
 # Create initial data
 points = 100
@@ -32,8 +45,19 @@ def update():
     new_x = np.linspace(0, 10, num_points.value)
     line.data_source.data.update({'x': new_x, 'y': new_y})
 
-    new_2d = np.random.normal(mean_slider.value, std_slider.value, (20, 20))
-    heatmap.data_source.data['image'] = [new_2d]
+    # Get detector data from Kafka
+    msg = consumer.poll(timeout=0.1)
+    print(msg)
+    if msg is not None and not msg.error():
+        # Assuming message payload is JSON with 2D array data
+        try:
+            # detector_data = json.loads(msg.value().decode('utf-8'))
+            # Convert to numpy array and reshape if needed
+            # new_2d = np.array(detector_data).reshape(20, 20)
+            new_2d = ArrayMessage.deserialize(msg.value())
+            heatmap.data_source.data['image'] = [new_2d]
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"Error processing Kafka message: {e}")
 
 
 def update_params(attr, old, new):
