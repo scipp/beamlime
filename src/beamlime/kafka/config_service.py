@@ -4,6 +4,22 @@ from confluent_kafka import Consumer, KafkaError, Producer
 
 
 class ConfigService:
+    """
+    Service for managing configuration updates via Kafka.
+
+    The service listens for updates on the 'beamlime-control' topic and updates
+    the local configuration accordingly. It also provides methods for updating
+    the configuration and retrieving the current configuration.
+
+    The topic for this service should be created as compacted:
+
+    .. code-block:: bash
+        kafka-topics.sh --create --bootstrap-server localhost:9092 \
+        --topic beamlime-control --config cleanup.policy=compact \
+        --config min.cleanable.dirty.ratio=0.01 \
+        --config segment.ms=100
+    """
+
     def __init__(self, bootstrap_servers):
         producer_conf = {
             'bootstrap.servers': bootstrap_servers,

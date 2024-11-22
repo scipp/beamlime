@@ -1,9 +1,11 @@
 import asyncio
 import json
+import threading
 from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 import numpy as np
+from config_subscriber import ConfigSubscriber
 from faststream import FastStream
 from faststream.confluent import KafkaBroker
 
@@ -49,12 +51,16 @@ async def histogram(msg: list[bytes]) -> bytes:
     return ArrayMessage.from_array(counts).serialize()
 
 
+config_subscriber = ConfigSubscriber("localhost:9092")
+
+
 @broker.subscriber("monitor-events", batch=True, max_records=2, polling_interval=1)
 @broker.publisher("monitor-counts")
 async def histogram_monitor(msg: list[bytes]) -> bytes:
+    nbin = config_subscriber.get_config("monitor-bins") or 100
     chunks = [np.frombuffer(chunk, dtype=np.float64) for chunk in msg]
     data = np.concatenate(chunks)
-    bins = np.linspace(0, 71, 100)
+    bins = np.linspace(0, 71, nbin)
     hist, _ = np.histogram(data, bins=bins)
     midpoints = (bins[1:] + bins[:-1]) / 2
     return ArrayMessage.from_array(np.concatenate((hist, midpoints))).serialize()
@@ -118,6 +124,7 @@ class FakeMonitor:
 
 @app.after_startup
 async def test():
+    thread = threading.Thread(target=config_subscriber.start).start()
     detector = FakeDetector(npix=npix, nevent=100)
     monitor = FakeMonitor()
     await asyncio.sleep(1)

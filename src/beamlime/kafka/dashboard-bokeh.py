@@ -1,10 +1,12 @@
 import json
+import threading
 
 import numpy as np
 from bokeh.layouts import row
 from bokeh.models import Column, Slider
 from bokeh.plotting import curdoc, figure
-from confluent_kafka import Consumer
+from config_service import ConfigService
+from confluent_kafka import Consumer, Producer
 from services_faststream import ArrayMessage
 
 kafka_config = {
@@ -17,6 +19,9 @@ detector_consumer = Consumer(kafka_config)
 detector_consumer.subscribe(['detector-counts'])
 monitor_consumer = Consumer(kafka_config)
 monitor_consumer.subscribe(['monitor-counts'])
+
+config_service = ConfigService('localhost:9092')
+config_service_thread = threading.Thread(target=config_service.start).start()
 
 # Create initial data
 points = 100
@@ -38,8 +43,6 @@ update_speed = Slider(
     title="Update Speed (ms)", value=1000, start=100, end=5000, step=100
 )
 num_points = Slider(title="Number of Points", value=points, start=10, end=500, step=10)
-mean_slider = Slider(title="Mean", value=mean, start=-5, end=5, step=0.1)
-std_slider = Slider(title="Standard Deviation", value=std, start=0.1, end=3, step=0.1)
 
 
 def update():
@@ -82,16 +85,19 @@ def update_params(attr, old, new):
     update()
 
 
+def publish_request_num_point(attr, old, new):
+    # control_producer.produce('control', json.dumps({'num_points': new}))
+    config_service.update_config('monitor-bins', new)
+
+
 # Store callback in list to allow modification
 update_callback = [curdoc().add_periodic_callback(update, update_speed.value)]
 
 # Add slider callbacks
 update_speed.on_change('value', update_params)
-mean_slider.on_change('value', lambda attr, old, new: update())
-std_slider.on_change('value', lambda attr, old, new: update())
-num_points.on_change('value', lambda attr, old, new: update())
+num_points.on_change('value', publish_request_num_point)
 
 # Layout
-controls = Column(update_speed, num_points, mean_slider, std_slider)
+controls = Column(update_speed, num_points)
 layout = row(controls, p1, p2)
 curdoc().add_root(layout)
