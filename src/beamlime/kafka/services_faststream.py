@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import numpy as np
 from config_subscriber import ConfigSubscriber
+from confluent_kafka import Producer
 from faststream import FastStream
 from faststream.confluent import KafkaBroker
 
@@ -52,18 +53,33 @@ async def histogram(msg: list[bytes]) -> bytes:
 
 
 config_subscriber = ConfigSubscriber("localhost:9092")
+monitor_counts_producer = Producer({"bootstrap.servers": "localhost:9092"})
 
 
 @broker.subscriber("monitor-events", batch=True, max_records=2, polling_interval=1)
-@broker.publisher("monitor-counts")
-async def histogram_monitor(msg: list[bytes]) -> bytes:
+# @broker.publisher("monitor-counts")
+async def histogram_monitor(msg: list[bytes]):
     nbin = config_subscriber.get_config("monitor-bins") or 100
     chunks = [np.frombuffer(chunk, dtype=np.float64) for chunk in msg]
     data = np.concatenate(chunks)
     bins = np.linspace(0, 71, nbin)
     hist, _ = np.histogram(data, bins=bins)
     midpoints = (bins[1:] + bins[:-1]) / 2
-    return ArrayMessage.from_array(np.concatenate((hist, midpoints))).serialize()
+    buffer = np.concatenate((hist, midpoints))
+    result = ArrayMessage.from_array(buffer).serialize()
+    # broker.publish(result, topic="monitor-counts")
+
+    def delivery_callback(err, msg):
+        if err:
+            print(f'Message delivery failed: {err}')
+
+    monitor_counts_producer.produce(
+        "monitor-counts",
+        key="array1",
+        value=result,
+        callback=delivery_callback,
+    )
+    monitor_counts_producer.flush()
 
 
 # @broker.subscriber("detector-counts")

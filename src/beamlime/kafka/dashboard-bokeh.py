@@ -51,7 +51,12 @@ def update():
 
 
 def check_detector_update():
-    msg = detector_consumer.poll(timeout=0.1)
+    # msg = detector_consumer.poll(timeout=0.05)
+    messages = detector_consumer.consume(num_messages=10, timeout=0.05)
+    print(f'Got {len(messages)} messages')
+    if not messages:
+        return
+    msg = messages[-1]
     print('Detector: ', msg)
     if msg is not None and not msg.error():
         try:
@@ -66,7 +71,12 @@ def check_monitor_update():
     # new_x = np.linspace(0, 10, num_points.value)
     # line.data_source.data.update({'x': new_x, 'y': new_y})
 
-    msg = monitor_consumer.poll(timeout=0.1)
+    # msg = monitor_consumer.poll(timeout=0.1)
+    messages = monitor_consumer.consume(num_messages=10, timeout=0.05)
+    print(f'Got {len(messages)} messages')
+    if not messages:
+        return
+    msg = messages[-1]
     print('Monitor: ', msg)
     if msg is not None and not msg.error():
         try:
