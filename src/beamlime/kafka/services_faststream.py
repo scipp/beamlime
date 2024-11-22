@@ -44,10 +44,20 @@ class ArrayMessage:
 @broker.publisher("detector-counts")
 async def histogram(msg: list[bytes]) -> bytes:
     chunks = [np.frombuffer(chunk, dtype=np.int32) for chunk in msg]
-    print(len(chunks))
     ids = np.concatenate(chunks)
     counts = np.bincount(ids, minlength=npix).reshape(64, 64)
     return ArrayMessage.from_array(counts).serialize()
+
+
+@broker.subscriber("monitor-events", batch=True, max_records=2, polling_interval=1)
+@broker.publisher("monitor-counts")
+async def histogram_monitor(msg: list[bytes]) -> bytes:
+    chunks = [np.frombuffer(chunk, dtype=np.float64) for chunk in msg]
+    data = np.concatenate(chunks)
+    bins = np.linspace(0, 71, 100)
+    hist, _ = np.histogram(data, bins=bins)
+    midpoints = (bins[1:] + bins[:-1]) / 2
+    return ArrayMessage.from_array(np.concatenate((hist, midpoints))).serialize()
 
 
 # @broker.subscriber("detector-counts")
@@ -85,11 +95,33 @@ class FakeDetector:
             await asyncio.sleep(0.5)
 
 
+class FakeMonitor:
+    def __init__(self):
+        self._rng = np.random.default_rng()
+        self._data = self._rng.normal(loc=30, scale=10, size=1_000_000)
+        self._current = 0
+
+    def get_data(self, size: int = 1000) -> np.ndarray:
+        """Return a random sample of data."""
+        self._current = (self._current + size) % len(self._data)
+        return self._data[self._current - size : self._current]
+
+    async def publish_data(self):
+        data = self.get_data()
+        await broker.publish(data.tobytes(), topic="monitor-events")
+
+    async def run(self):
+        while True:
+            await self.publish_data()
+            await asyncio.sleep(0.5)
+
+
 @app.after_startup
 async def test():
     detector = FakeDetector(npix=npix, nevent=100)
+    monitor = FakeMonitor()
     await asyncio.sleep(1)
-    await detector.run()
+    await asyncio.gather(detector.run(), monitor.run())
 
 
 async def main():
