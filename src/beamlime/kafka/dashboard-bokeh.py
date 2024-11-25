@@ -7,7 +7,7 @@ from bokeh.models import Column, Slider
 from bokeh.plotting import curdoc, figure
 from config_service import ConfigService
 from confluent_kafka import Consumer
-from services_faststream import ArrayMessage
+from backend import ArrayMessage
 
 kafka_config = {
     'bootstrap.servers': 'localhost:9092',
