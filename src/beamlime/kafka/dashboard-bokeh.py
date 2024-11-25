@@ -13,6 +13,7 @@ kafka_config = {
     'bootstrap.servers': 'localhost:9092',
     'group.id': 'dashboard-group',
     'auto.offset.reset': 'latest',
+    'enable.auto.commit': True,
 }
 
 detector_consumer = Consumer(kafka_config)
