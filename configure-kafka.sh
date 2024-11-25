@@ -1,7 +1,6 @@
 #!/bin/bash
 
-docker volume rm beamlime-kafka_kafka-data
-
+# Some cleanup to deal with message schema changes during development, etc.
 docker exec kafka-broker kafka-topics --list --bootstrap-server localhost:9092
 docker exec kafka-broker kafka-topics --bootstrap-server localhost:9092 --delete --topic '.*'
 docker exec kafka-broker kafka-leader-election --bootstrap-server localhost:9092 --election-type PREFERRED --all-topic-partitions
