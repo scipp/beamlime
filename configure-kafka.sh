@@ -27,6 +27,17 @@ docker exec kafka-broker kafka-topics --create --bootstrap-server localhost:9092
   --config segment.bytes=10485760 \
   --config segment.ms=60000
 
+# Create beamlime.detector.counts topic - for detector image data
+docker exec kafka-broker kafka-topics --create --bootstrap-server localhost:9092 \
+  --topic beamlime.detector.counts \
+  --config cleanup.policy=delete \
+  --config delete.retention.ms=60000 \
+  --config max.message.bytes=1048576 \
+  --config retention.bytes=10737418240 \
+  --config retention.ms=30000 \
+  --config segment.bytes=104857600 \
+  --config segment.ms=60000
+
 #docker exec kafka-broker kafka-topics --create --bootstrap-server localhost:9092 \
 #  --topic beamlime-control \
 #  --config cleanup.policy=compact \
