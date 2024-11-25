@@ -12,7 +12,6 @@ from faststream import FastStream
 from faststream.confluent import KafkaBroker, KafkaMessage
 
 broker = KafkaBroker("localhost:9092")
-app = FastStream(broker)
 
 npix = {'detector1': (64, 64), 'detector2': (128, 128)}
 
@@ -165,6 +164,8 @@ class FakeMonitor:
 
 config_subscriber_thread = threading.Thread(target=config_subscriber.start)
 
+app = FastStream(broker)
+
 
 @app.after_startup
 async def startup():
@@ -191,7 +192,6 @@ async def shutdown():
 
 
 async def main():
-    app = FastStream(broker)
     await app.run()
 
 
