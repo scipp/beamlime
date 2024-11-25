@@ -17,9 +17,9 @@ kafka_config = {
 }
 
 detector_consumer = Consumer(kafka_config)
-detector_consumer.subscribe(['detector-counts'])
+detector_consumer.subscribe(['beamlime.detector.counts'])
 monitor_consumer = Consumer(kafka_config)
-monitor_consumer.subscribe(['monitor-counts'])
+monitor_consumer.subscribe(['beamlime.monitor.counts'])
 
 config_service = ConfigService('localhost:9092')
 config_service_thread = threading.Thread(target=config_service.start).start()
@@ -68,12 +68,7 @@ def check_detector_update():
 
 
 def check_monitor_update():
-    # new_y = np.random.normal(mean_slider.value, std_slider.value, num_points.value)
-    # new_x = np.linspace(0, 10, num_points.value)
-    # line.data_source.data.update({'x': new_x, 'y': new_y})
-
-    # msg = monitor_consumer.poll(timeout=0.1)
-    messages = monitor_consumer.consume(num_messages=10, timeout=0.05)
+    messages = monitor_consumer.consume(num_messages=100, timeout=0.05)
     print(f'Got {len(messages)} messages')
     if not messages:
         return

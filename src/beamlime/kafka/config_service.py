@@ -7,7 +7,7 @@ class ConfigService:
     """
     Service for managing configuration updates via Kafka.
 
-    The service listens for updates on the 'beamlime-control' topic and updates
+    The service listens for updates on the 'beamlime.control' topic and updates
     the local configuration accordingly. It also provides methods for updating
     the configuration and retrieving the current configuration.
 
@@ -15,7 +15,7 @@ class ConfigService:
 
     .. code-block:: bash
         kafka-topics.sh --create --bootstrap-server localhost:9092 \
-        --topic beamlime-control --config cleanup.policy=compact \
+        --topic beamlime.control --config cleanup.policy=compact \
         --config min.cleanable.dirty.ratio=0.01 \
         --config segment.ms=100
     """
@@ -48,7 +48,7 @@ class ConfigService:
             self._local_updates.add(update_id)
 
             self._producer.produce(
-                'beamlime-control',
+                'beamlime.control',
                 key=str(key).encode('utf-8'),
                 value=json.dumps(value).encode('utf-8'),
                 callback=self.delivery_callback,
@@ -64,7 +64,7 @@ class ConfigService:
 
     def start(self):
         self._running = True
-        self._consumer.subscribe(['beamlime-control'])
+        self._consumer.subscribe(['beamlime.control'])
         try:
             while self._running:
                 msg = self._consumer.poll(1.0)

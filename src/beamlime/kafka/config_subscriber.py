@@ -25,7 +25,7 @@ class ConfigSubscriber:
 
     def start(self):
         self._running = True
-        self._consumer.subscribe(['beamlime-control'])
+        self._consumer.subscribe(['beamlime.control'])
         try:
             while self._running:
                 msg = self._consumer.poll(0.1)

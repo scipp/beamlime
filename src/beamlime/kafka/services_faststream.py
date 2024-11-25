@@ -43,8 +43,10 @@ class ArrayMessage:
         return array.reshape(header['shape'])
 
 
-@broker.subscriber("detector-events", batch=True, max_records=2, polling_interval=1)
-@broker.publisher("detector-counts")
+@broker.subscriber(
+    "beamlime.detector.events", batch=True, max_records=2, polling_interval=1
+)
+@broker.publisher("beamlime.detector.counts")
 async def histogram(msg: list[bytes]) -> bytes:
     chunks = [np.frombuffer(chunk, dtype=np.int32) for chunk in msg]
     ids = np.concatenate(chunks)
@@ -56,7 +58,9 @@ config_subscriber = ConfigSubscriber("localhost:9092")
 monitor_counts_producer = Producer({"bootstrap.servers": "localhost:9092"})
 
 
-@broker.subscriber("monitor-events", batch=True, max_records=2, polling_interval=1)
+@broker.subscriber(
+    "beamlime.monitor.events", batch=True, max_records=2, polling_interval=1
+)
 # @broker.publisher("monitor-counts")
 async def histogram_monitor(msg: list[bytes]):
     nbin = config_subscriber.get_config("monitor-bins") or 100
@@ -74,7 +78,7 @@ async def histogram_monitor(msg: list[bytes]):
             print(f'Message delivery failed: {err}')
 
     monitor_counts_producer.produce(
-        "monitor-counts",
+        "beamlime.monitor.counts",
         key="array1",
         value=result,
         callback=delivery_callback,
@@ -109,7 +113,7 @@ class FakeDetector:
 
     async def publish_data(self):
         data = self.get_data()
-        await broker.publish(data.tobytes(), topic="detector-events")
+        await broker.publish(data.tobytes(), topic="beamlime.detector.events")
 
     async def run(self):
         while True:
@@ -130,7 +134,7 @@ class FakeMonitor:
 
     async def publish_data(self):
         data = self.get_data()
-        await broker.publish(data.tobytes(), topic="monitor-events")
+        await broker.publish(data.tobytes(), topic="beamlime.monitor.events")
 
     async def run(self):
         while True:
