@@ -2,7 +2,7 @@ import json
 import threading
 
 import numpy as np
-from bokeh.layouts import row, column
+from bokeh.layouts import column, row
 from bokeh.models import Column, Slider
 from bokeh.plotting import curdoc, figure
 from config_service import ConfigService
@@ -14,6 +14,7 @@ kafka_config = {
     'group.id': 'dashboard-group',
     'auto.offset.reset': 'latest',
     'enable.auto.commit': True,
+    'fetch.min.bytes': 1,
 }
 
 detector_consumer = Consumer(kafka_config)
@@ -35,6 +36,9 @@ data_2d = np.random.normal(mean, std, (20, 20))
 # Dictionary to store monitor plots
 monitor_plots = {}
 
+# Dictionary to store detector plots
+detector_plots = {}
+
 # Create initial 2D plot only (remove p1 creation)
 p2 = figure(title="2D Random Data", width=400, height=300)
 heatmap = p2.image(image=[data_2d], x=0, y=0, dw=10, dh=10, palette="Viridis256")
@@ -51,32 +55,56 @@ def update():
     check_monitor_update()
 
 
+def create_detector_plot(key: str):
+    """Create a new plot for a detector with given key."""
+    plot = figure(title=f"{key}", width=400, height=300)
+    plot.image(image=[], x=0, y=0, dw=10, dh=10, palette="Viridis256", name='data')
+    return plot
+
+
 def check_detector_update():
-    # msg = detector_consumer.poll(timeout=0.05)
     messages = detector_consumer.consume(num_messages=10, timeout=0.05)
-    print(f'Got {len(messages)} messages')
+    print(f'Got {len(messages)} detector messages')
     if not messages:
         return
-    msg = messages[-1]
-    print('Detector: ', msg)
-    if msg is not None and not msg.error():
-        try:
-            new_2d = ArrayMessage.model_validate_json(msg.value())
-            heatmap.data_source.data['image'] = [new_2d]
-        except (json.JSONDecodeError, ValueError) as e:
-            print(f"Error processing Kafka message: {e}")
+
+    updates = {}
+    # Process all messages to get latest data for each key
+    for msg in messages:
+        if msg is not None and not msg.error():
+            try:
+                key = msg.key().decode('utf-8')
+                data = ArrayMessage.model_validate_json(msg.value()).data
+                updates[key] = data
+            except (json.JSONDecodeError, ValueError) as e:
+                print(f"Error processing Kafka message: {e}")
+
+    layout_modified = False
+    # Update or create plots for each key
+    for key, data in updates.items():
+        if key not in detector_plots:
+            # Create new plot
+            detector_plots[key] = create_detector_plot(key)
+            layout_modified = True
+
+        # Update plot data
+        plot = detector_plots[key]
+        plot.select_one({'name': 'data'}).data_source.data.update({'image': [data]})
+
+    if layout_modified:
+        update_layout()
 
 
 def create_monitor_plot(key: str):
     """Create a new plot for a monitor with given key."""
-    plot = figure(title=f"Monitor {key}", width=400, height=300)
+    plot = figure(title=f"{key}", width=400, height=300)
     plot.line([], [], line_width=2, name='data')
     return plot
 
 
 def check_monitor_update():
     messages = monitor_consumer.consume(num_messages=100, timeout=0.05)
-    print(f'Got {len(messages)} messages')
+    print(f'Got {len(messages)} monitor messages')
     if not messages:
         return
 
@@ -113,17 +141,23 @@ def check_monitor_update():
 
 
 def update_layout():
-    """Update the document layout with all plots."""
-    controls = Column(update_speed, num_points)
-    monitor_columns = [controls, p2]  # Start with controls and 2D plot
+    """Update the document layout with controls sidebar and main plot area."""
+    # Create sidebar with controls
+    sidebar = Column(update_speed, num_points, width=300)
 
-    # Add all monitor plots
-    for plot in monitor_plots.values():
-        monitor_columns.append(plot)
+    # Create monitor row
+    monitor_row = row([plot for plot in monitor_plots.values()])
 
-    layout = row(monitor_columns)
+    # Create detector row
+    detector_row = row([plot for plot in detector_plots.values()])
 
-    # Remove old layout and add new one
+    # Stack plot rows in main content area
+    main_content = Column(monitor_row, detector_row)
+
+    # Combine sidebar and main content
+    layout = row(sidebar, main_content)
+
+    # Update document
     while len(curdoc().roots) > 0:
         curdoc().remove_root(curdoc().roots[0])
     curdoc().add_root(layout)
@@ -150,8 +184,3 @@ num_points.on_change('value', publish_request_num_point)
 
 # Initial layout setup
 update_layout()
-
-# Setup callbacks
-update_callback = [curdoc().add_periodic_callback(update, update_speed.value)]
-update_speed.on_change('value', update_params)
-num_points.on_change('value', publish_request_num_point)
