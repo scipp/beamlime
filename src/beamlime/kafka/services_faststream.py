@@ -1,14 +1,16 @@
 import asyncio
 import json
 import threading
+import base64
 from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
 import numpy as np
 from config_subscriber import ConfigSubscriber
 from confluent_kafka import Producer
-from faststream import FastStream
-from faststream.confluent import KafkaBroker
+from faststream import Context, FastStream
+from faststream.confluent import KafkaBroker, KafkaMessage
+import pydantic
 
 broker = KafkaBroker("localhost:9092")
 app = FastStream(broker)
@@ -18,35 +20,34 @@ npix = 64**2
 MAX_CHUNK_SIZE = 1024 * 1024
 
 
-@dataclass
-class ArrayMessage:
-    shape: tuple[int, ...]
-    dtype: str
-    data: bytes
+class ArrayMessage(pydantic.BaseModel):
+    data: np.ndarray
+    model_config = {"arbitrary_types_allowed": True}
 
-    @classmethod
-    def from_array(cls, array: np.ndarray):
-        return cls(array.shape, str(array.dtype), array.tobytes())
+    @pydantic.field_serializer('data')
+    def serialize_array(self, v: np.ndarray) -> str:
+        metadata = {
+            'shape': v.shape,
+            'dtype': str(v.dtype),
+            'data': base64.b64encode(v.tobytes()).decode(),
+        }
+        return json.dumps(metadata)
 
-    def serialize(self) -> bytes:
-        metadata = {'shape': self.shape, 'dtype': str(self.dtype)}
-        header = json.dumps(metadata).encode('utf-8')
-        header_size = len(header).to_bytes(4, 'big')
-        return header_size + header + self.data
-
-    @classmethod
-    def deserialize(cls, msg: bytes) -> np.ndarray:
-        header_size = int.from_bytes(msg[:4], 'big')
-        header = json.loads(msg[4 : 4 + header_size].decode('utf-8'))
-        data = msg[4 + header_size :]
-        array = np.frombuffer(data, dtype=np.dtype(header['dtype']))
-        return array.reshape(header['shape'])
+    @pydantic.field_validator('data', mode='before')
+    def parse_array(cls, v):
+        if isinstance(v, str):
+            metadata = json.loads(v)
+            data = np.frombuffer(
+                base64.b64decode(metadata['data']), dtype=np.dtype(metadata['dtype'])
+            ).reshape(metadata['shape'])
+            return data
+        return v if isinstance(v, np.ndarray) else np.array(v)
 
 
-@broker.subscriber(
-    "beamlime.detector.events", batch=True, max_records=2, polling_interval=1
-)
-@broker.publisher("beamlime.detector.counts")
+# @broker.subscriber(
+#    "beamlime.detector.events", batch=True, max_records=2, polling_interval=1
+# )
+# @broker.publisher("beamlime.detector.counts")
 async def histogram(msg: list[bytes]) -> bytes:
     chunks = [np.frombuffer(chunk, dtype=np.int32) for chunk in msg]
     ids = np.concatenate(chunks)
@@ -59,30 +60,36 @@ monitor_counts_producer = Producer({"bootstrap.servers": "localhost:9092"})
 
 
 @broker.subscriber(
-    "beamlime.monitor.events", batch=True, max_records=2, polling_interval=1
+    "beamlime.monitor.events", batch=True, max_records=4, polling_interval=1
 )
-# @broker.publisher("monitor-counts")
-async def histogram_monitor(msg: list[bytes]):
+async def histogram_monitor(
+    msg: list[ArrayMessage],
+    message: KafkaMessage,
+):
     nbin = config_subscriber.get_config("monitor-bins") or 100
-    chunks = [np.frombuffer(chunk, dtype=np.float64) for chunk in msg]
-    data = np.concatenate(chunks)
     bins = np.linspace(0, 71, nbin)
-    hist, _ = np.histogram(data, bins=bins)
-    midpoints = (bins[1:] + bins[:-1]) / 2
-    buffer = np.concatenate((hist, midpoints))
-    result = ArrayMessage.from_array(buffer).serialize()
-    # broker.publish(result, topic="monitor-counts")
+    chunks = {}
+    for raw, msg in zip(list(message.raw_message), msg):
+        chunks.setdefault(raw.key(), []).append(msg.data)
 
     def delivery_callback(err, msg):
         if err:
             print(f'Message delivery failed: {err}')
 
-    monitor_counts_producer.produce(
-        "beamlime.monitor.counts",
-        key="array1",
-        value=result,
-        callback=delivery_callback,
-    )
+    for key, counts in chunks.items():
+        counts = np.concatenate(counts)
+        hist, _ = np.histogram(counts, bins=bins)
+        midpoints = (bins[1:] + bins[:-1]) / 2
+        buffer = np.concatenate((hist, midpoints))
+        result = ArrayMessage(name='monitor1', data=buffer).model_dump_json()
+        monitor_counts_producer.produce(
+            "beamlime.monitor.counts",
+            key=key,
+            value=result,
+            callback=delivery_callback,
+        )
+    # Poll to handle delivery reports
+    monitor_counts_producer.poll(0)
     monitor_counts_producer.flush()
 
 
@@ -122,19 +129,24 @@ class FakeDetector:
 
 
 class FakeMonitor:
-    def __init__(self):
+    def __init__(
+        self, *, loc: float = 30, scale: float = 10, nevent: int = 1_000, name: str
+    ):
         self._rng = np.random.default_rng()
-        self._data = self._rng.normal(loc=30, scale=10, size=1_000_000)
+        self._data = self._rng.normal(loc=loc, scale=scale, size=1_000_000)
         self._current = 0
+        self._nevent = nevent
+        self._name = name
 
-    def get_data(self, size: int = 1000) -> np.ndarray:
+    def get_data(self) -> np.ndarray:
         """Return a random sample of data."""
-        self._current = (self._current + size) % len(self._data)
-        return self._data[self._current - size : self._current]
+        self._current = (self._current + self._nevent) % len(self._data)
+        return self._data[self._current - self._nevent : self._current]
 
     async def publish_data(self):
         data = self.get_data()
-        await broker.publish(data.tobytes(), topic="beamlime.monitor.events")
+        message = ArrayMessage(data=data)
+        await broker.publish(message, topic="beamlime.monitor.events", key=self._name)
 
     async def run(self):
         while True:
@@ -146,9 +158,11 @@ class FakeMonitor:
 async def test():
     thread = threading.Thread(target=config_subscriber.start).start()
     detector = FakeDetector(npix=npix, nevent=100)
-    monitor = FakeMonitor()
+    monitor1 = FakeMonitor(name='monitor1')
+    monitor2 = FakeMonitor(name='monitor2', nevent=2000, loc=25)
+    monitor3 = FakeMonitor(name='monitor3', nevent=5000, loc=10)
     await asyncio.sleep(1)
-    await asyncio.gather(detector.run(), monitor.run())
+    await asyncio.gather(detector.run(), monitor1.run(), monitor2.run(), monitor3.run())
 
 
 async def main():
