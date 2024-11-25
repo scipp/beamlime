@@ -15,8 +15,6 @@ broker = KafkaBroker("localhost:9092")
 
 npix = {'detector1': (64, 64), 'detector2': (128, 128)}
 
-MAX_CHUNK_SIZE = 1024 * 1024
-
 
 class ArrayMessage(pydantic.BaseModel):
     data: np.ndarray

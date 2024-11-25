@@ -1,8 +1,8 @@
+import atexit
 import json
 import threading
 
-import numpy as np
-from bokeh.layouts import column, row
+from bokeh.layouts import row
 from bokeh.models import Column, Slider
 from bokeh.plotting import curdoc, figure
 from config_service import ConfigService
@@ -23,31 +23,16 @@ monitor_consumer = Consumer(kafka_config)
 monitor_consumer.subscribe(['beamlime.monitor.counts'])
 
 config_service = ConfigService('localhost:9092')
-config_service_thread = threading.Thread(target=config_service.start).start()
+config_service_thread = threading.Thread(target=config_service.start)
+config_service_thread.start()
 
-# Create initial data
-points = 100
-mean = 0
-std = 1
-x = np.linspace(0, 10, points)
-y = np.random.normal(mean, std, points)
-data_2d = np.random.normal(mean, std, (20, 20))
-
-# Dictionary to store monitor plots
 monitor_plots = {}
-
-# Dictionary to store detector plots
 detector_plots = {}
 
-# Create initial 2D plot only (remove p1 creation)
-p2 = figure(title="2D Random Data", width=400, height=300)
-heatmap = p2.image(image=[data_2d], x=0, y=0, dw=10, dh=10, palette="Viridis256")
-
-# Create sliders
 update_speed = Slider(
     title="Update Speed (ms)", value=1000, start=100, end=5000, step=100
 )
-num_points = Slider(title="Number of Points", value=points, start=10, end=500, step=10)
+num_points = Slider(title="Time-of-arrival bins", value=100, start=10, end=500, step=10)
 
 
 def update():
@@ -136,7 +121,6 @@ def check_monitor_update():
         )
 
     if layout_modified:
-        # Rebuild layout
         update_layout()
 
 
@@ -144,17 +128,11 @@ def update_layout():
     """Update the document layout with controls sidebar and main plot area."""
     # Create sidebar with controls
     sidebar = Column(update_speed, num_points, width=300)
-
-    # Create monitor row
-    monitor_row = row([plot for plot in monitor_plots.values()])
-
-    # Create detector row
-    detector_row = row([plot for plot in detector_plots.values()])
-
-    # Stack plot rows in main content area
+    # Main area with plots
+    monitor_row = row(list(monitor_plots.values()))
+    detector_row = row(list(detector_plots.values()))
     main_content = Column(monitor_row, detector_row)
 
-    # Combine sidebar and main content
     layout = row(sidebar, main_content)
 
     # Update document
@@ -171,7 +149,6 @@ def update_params(attr, old, new):
 
 
 def publish_request_num_point(attr, old, new):
-    # control_producer.produce('control', json.dumps({'num_points': new}))
     config_service.update_config('monitor-bins', new)
 
 
@@ -184,3 +161,16 @@ num_points.on_change('value', publish_request_num_point)
 
 # Initial layout setup
 update_layout()
+
+
+def shutdown():
+    # Note: This is not quite what we want, need to interrupt twice for actual shutdown.
+    # curdoc().add_periodic_callback is not doing what we want either.
+    print('Shutting down...')
+    detector_consumer.close()
+    monitor_consumer.close()
+    config_service.stop()
+    config_service_thread.join()
+
+
+atexit.register(shutdown)
