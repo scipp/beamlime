@@ -2,12 +2,12 @@ import atexit
 import json
 import threading
 
+from backend import ArrayMessage
 from bokeh.layouts import row
 from bokeh.models import Column, Slider
 from bokeh.plotting import curdoc, figure
 from config_service import ConfigService
-from confluent_kafka import Consumer
-from backend import ArrayMessage
+from confluent_kafka import Consumer, TopicPartition
 
 kafka_config = {
     'bootstrap.servers': 'localhost:9092',
@@ -21,6 +21,16 @@ detector_consumer = Consumer(kafka_config)
 detector_consumer.subscribe(['beamlime.detector.counts'])
 monitor_consumer = Consumer(kafka_config)
 monitor_consumer.subscribe(['beamlime.monitor.counts'])
+
+
+def assign_partitions(consumer, topic):
+    """Assign all partitions of a topic to a consumer."""
+    partitions = consumer.list_topics(topic).topics[topic].partitions
+    consumer.assign([TopicPartition(topic, p) for p in partitions])
+
+
+assign_partitions(detector_consumer, 'beamlime.detector.counts')
+assign_partitions(monitor_consumer, 'beamlime.monitor.counts')
 
 config_service = ConfigService('localhost:9092')
 config_service_thread = threading.Thread(target=config_service.start)
@@ -59,7 +69,7 @@ def check_detector_update():
         if msg is not None and not msg.error():
             try:
                 key = msg.key().decode('utf-8')
-                data = ArrayMessage.model_validate_json(msg.value()).data
+                data = ArrayMessage.from_msgpack(msg.value()).data
                 updates[key] = data
             except (json.JSONDecodeError, ValueError) as e:
                 print(f"Error processing Kafka message: {e}")
@@ -99,7 +109,7 @@ def check_monitor_update():
         if msg is not None and not msg.error():
             try:
                 key = msg.key().decode('utf-8')  # Decode bytes to string
-                data = ArrayMessage.model_validate_json(msg.value()).data
+                data = ArrayMessage.from_msgpack(msg.value()).data
                 updates[key] = data
             except (json.JSONDecodeError, ValueError) as e:
                 print(f"Error processing Kafka message: {e}")

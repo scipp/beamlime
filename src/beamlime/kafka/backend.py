@@ -4,6 +4,7 @@ import json
 import threading
 from math import prod
 
+import msgpack
 import numpy as np
 import pydantic
 from config_subscriber import ConfigSubscriber
@@ -14,6 +15,8 @@ from faststream.confluent import KafkaBroker, KafkaMessage
 broker = KafkaBroker("localhost:9092")
 
 npix = {'detector1': (64, 64), 'detector2': (128, 128)}
+npix = {'detector1': (64, 64), 'detector2': (512, 512)}
+npix = {'detector1': (64, 64), 'detector2': (256, 256)}
 
 
 class ArrayMessage(pydantic.BaseModel):
@@ -21,28 +24,48 @@ class ArrayMessage(pydantic.BaseModel):
     model_config = {"arbitrary_types_allowed": True}
 
     @pydantic.field_serializer('data')
-    def serialize_array(self, v: np.ndarray) -> str:
-        metadata = {
-            'shape': v.shape,
-            'dtype': str(v.dtype),
-            'data': base64.b64encode(v.tobytes()).decode(),
-        }
-        return json.dumps(metadata)
+    def serialize_array(self, v: np.ndarray) -> bytes:
+        return msgpack.packb(
+            {
+                'shape': v.shape,
+                'dtype': str(v.dtype),
+                'data': v.tobytes(),
+            }
+        )
+
+    def to_msgpack(self):
+        return msgpack.packb(self.model_dump())
+
+    @classmethod
+    def from_msgpack(cls, data):
+        return cls.model_validate(msgpack.unpackb(data))
 
     @pydantic.field_validator('data', mode='before')
-    def parse_array(cls, v):
-        if isinstance(v, str):
-            metadata = json.loads(v)
-            data = np.frombuffer(
-                base64.b64decode(metadata['data']), dtype=np.dtype(metadata['dtype'])
-            ).reshape(metadata['shape'])
-            return data
-        return v if isinstance(v, np.ndarray) else np.array(v)
+    def parse_array(cls, v) -> np.ndarray:
+        # If already a numpy array, return as is
+        if isinstance(v, np.ndarray):
+            return v
+        # If bytes, try to unpack
+        if isinstance(v, bytes):
+            try:
+                metadata = msgpack.unpackb(v)
+                return np.frombuffer(metadata['data'], dtype=metadata['dtype']).reshape(
+                    metadata['shape']
+                )
+            except BufferError:
+                # If unpacking fails, assume it's raw array data
+                return np.frombuffer(v)
+        raise ValueError(f"Cannot parse data of type {type(v)}")
 
+
+producer_config = {
+    "bootstrap.servers": "localhost:9092",
+    "message.max.bytes": 16777216,  # 16MB
+}
 
 config_subscriber = ConfigSubscriber("localhost:9092")
-monitor_counts_producer = Producer({"bootstrap.servers": "localhost:9092"})
-detector_counts_producer = Producer({"bootstrap.servers": "localhost:9092"})
+monitor_counts_producer = Producer(producer_config)
+detector_counts_producer = Producer(producer_config)
 
 
 def delivery_callback(err, msg):
@@ -53,18 +76,19 @@ def delivery_callback(err, msg):
 @broker.subscriber(
     "beamlime.detector.events", batch=True, max_records=4, polling_interval=0.5
 )
-async def histogram(messages: list[ArrayMessage], message: KafkaMessage):
+async def histogram(messages: list[bytes], message: KafkaMessage):
     chunks = {}
     for raw, msg in zip(list(message.raw_message), messages, strict=True):
-        chunks.setdefault(raw.key(), []).append(msg.data)
+        chunks.setdefault(raw.key(), []).append(ArrayMessage.from_msgpack(msg).data)
 
     for key, ids in chunks.items():
         norm = len(ids)
         ids = np.concatenate(ids)
         shape = npix[key.decode('utf-8')]
         counts = np.bincount(ids, minlength=prod(shape)).reshape(shape) / norm
+        counts = counts.astype(np.float32)
 
-        result = ArrayMessage(name='monitor1', data=counts).model_dump_json()
+        result = ArrayMessage(name='monitor1', data=counts).to_msgpack()
         detector_counts_producer.produce(
             "beamlime.detector.counts",
             key=key,
@@ -79,15 +103,12 @@ async def histogram(messages: list[ArrayMessage], message: KafkaMessage):
 @broker.subscriber(
     "beamlime.monitor.events", batch=True, max_records=4, polling_interval=0.5
 )
-async def histogram_monitor(
-    messages: list[ArrayMessage],
-    message: KafkaMessage,
-):
+async def histogram_monitor(messages: list[bytes], message: KafkaMessage):
     nbin = config_subscriber.get_config("monitor-bins") or 100
     bins = np.linspace(0, 71, nbin)
     chunks = {}
     for raw, msg in zip(list(message.raw_message), messages, strict=True):
-        chunks.setdefault(raw.key(), []).append(msg.data)
+        chunks.setdefault(raw.key(), []).append(ArrayMessage.from_msgpack(msg).data)
 
     for key, counts in chunks.items():
         norm = len(counts)
@@ -95,7 +116,7 @@ async def histogram_monitor(
         hist, _ = np.histogram(counts, bins=bins)
         midpoints = (bins[1:] + bins[:-1]) / 2
         buffer = np.concatenate((hist / norm, midpoints))
-        result = ArrayMessage(name='monitor1', data=buffer).model_dump_json()
+        result = ArrayMessage(name='monitor1', data=buffer).to_msgpack()
         monitor_counts_producer.produce(
             "beamlime.monitor.counts",
             key=key,
@@ -125,7 +146,7 @@ class FakeDetector:
 
     async def publish_data(self):
         data = self.get_data()
-        message = ArrayMessage(data=data)
+        message = ArrayMessage(data=data).to_msgpack()
         await broker.publish(message, topic="beamlime.detector.events", key=self._name)
 
     async def run(self):
@@ -151,7 +172,7 @@ class FakeMonitor:
 
     async def publish_data(self):
         data = self.get_data()
-        message = ArrayMessage(data=data)
+        message = ArrayMessage(data=data).to_msgpack()
         await broker.publish(message, topic="beamlime.monitor.events", key=self._name)
 
     async def run(self):

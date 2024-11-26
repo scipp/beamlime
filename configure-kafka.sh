@@ -32,7 +32,7 @@ docker exec kafka-broker kafka-topics --create --bootstrap-server localhost:9092
   --topic beamlime.detector.counts \
   --config cleanup.policy=delete \
   --config delete.retention.ms=60000 \
-  --config max.message.bytes=1048576 \
+  --config max.message.bytes=104857600 \
   --config retention.bytes=10737418240 \
   --config retention.ms=30000 \
   --config segment.bytes=104857600 \
