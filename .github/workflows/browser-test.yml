@@ -1,0 +1,43 @@
+name: Browser Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      os-variant:
+        default: 'ubuntu-22.04'
+        type: string
+      python-version:
+        type: string
+      checkout_ref:
+        default: ''
+        type: string
+  workflow_call:
+    inputs:
+      os-variant:
+        default: 'ubuntu-22.04'
+        type: string
+      python-version:
+        type: string
+      checkout_ref:
+        default: ''
+        type: string
+  pull_request:
+
+jobs:
+  browser-test:
+    runs-on: ${{ inputs.os-variant }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.checkout_ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r requirements/test.txt
+      - run: pip install -r requirements/docs.txt
+      - run: pip install jupyterlab pytest-playwright
+      - run: pip install -e .
+      - run: playwright install firefox --with-deps  # Install a browser
+      - run: nohup jupyter lab --NotebookApp.token='' --NotebookApp.password='' --no-browser &  # Start a JupyterLab server
+      - run: pytest tests/applications/playwright_testing.py --browser firefox
