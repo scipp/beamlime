@@ -41,7 +41,14 @@ class ValueToStringHandler(Handler[T, str]):
 def test_consumes_and_produces_messages() -> None:
     config = {}
     consumer = FakeConsumer(
-        messages=[[], [Message(timestamp=0, topic='topic', value=42)]]
+        messages=[
+            [],
+            [Message(timestamp=0, topic='topic', value=111)],
+            [
+                Message(timestamp=0, topic='topic', value=222),
+                Message(timestamp=0, topic='topic', value=333),
+            ],
+        ]
     )
     producer = FakeProducer()
     handler_registry = HandlerRegistry(config=config, handler_cls=ValueToStringHandler)
@@ -52,6 +59,10 @@ def test_consumes_and_produces_messages() -> None:
     assert len(producer.messages) == 0
     processor.process()
     assert len(producer.messages) == 1
-    assert producer.messages[0].value == '42'
+    assert producer.messages[0].value == '111'
     processor.process()
-    assert len(producer.messages) == 1
+    assert len(producer.messages) == 3
+    assert producer.messages[1].value == '222'
+    assert producer.messages[2].value == '333'
+    processor.process()
+    assert len(producer.messages) == 3
