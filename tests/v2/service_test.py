@@ -1,31 +1,26 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-from beamlime.v2.core.handler import Handler, HandlerRegistry
+import time
+
 from beamlime.v2.core.service import Service
 
 
-class FakeConsumer:
-    def get_messages(self):
-        return []
+class FakeProcessor:
+    def __init__(self):
+        self.call_count = 0
 
-
-class FakeProducer:
-    def publish_messages(self, messages: dict[str, str]) -> None:
-        pass
+    def process(self) -> None:
+        self.call_count += 1
 
 
 def test_create_start_stop_service() -> None:
     config = {}
-    consumer = FakeConsumer()
-    producer = FakeProducer()
-    handler_registry = HandlerRegistry(config=config, handler_cls=Handler)
-    service = Service(
-        config=config,
-        consumer=consumer,
-        producer=producer,
-        handler_registry=handler_registry,
-    )
+    processor = FakeProcessor()
+    service = Service(config=config, processor=processor)
+    assert processor.call_count == 0
     service.start()
     assert service.is_running
+    time.sleep(0.5)
+    assert processor.call_count > 0
     service.stop()
     assert not service.is_running
