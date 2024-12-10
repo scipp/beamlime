@@ -4,28 +4,7 @@ from typing import TypeVar
 
 from beamlime.v2.core.handler import Handler, HandlerRegistry, Message
 from beamlime.v2.core.processor import StreamProcessor
-
-
-class FakeConsumer:
-    def __init__(self, messages: list[list[Message[int]]]) -> None:
-        self._messages = messages
-        self._index = 0
-
-    def get_messages(self) -> list[Message[int]]:
-        messages = (
-            self._messages[self._index] if self._index < len(self._messages) else []
-        )
-        self._index += 1
-        return messages
-
-
-class FakeProducer:
-    def __init__(self) -> None:
-        self.messages = []
-
-    def publish_messages(self, messages: dict[str, Message[str]]) -> None:
-        self.messages.extend(messages)
-
+from beamlime.v2.fakes import FakeConsumer, FakeProducer
 
 T = TypeVar('T')
 

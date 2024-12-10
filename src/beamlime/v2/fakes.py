@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+from typing import Generic, TypeVar
+
+from beamlime.v2.core.handler import Message
+
+T = TypeVar('T')
+
+
+class FakeConsumer(Generic[T]):
+    """
+    A fake consumer that returns messages from memory for testing purposes.
+    """
+
+    def __init__(self, messages: list[list[Message[T]]]) -> None:
+        self._messages = messages
+        self._index = 0
+
+    def get_messages(self) -> list[Message[T]]:
+        messages = (
+            self._messages[self._index] if self._index < len(self._messages) else []
+        )
+        self._index += 1
+        return messages
+
+
+class FakeProducer(Generic[T]):
+    """
+    A fake producer that stores messages in memory for testing purposes.
+    """
+
+    def __init__(self) -> None:
+        self.messages = []
+
+    def publish_messages(self, messages: list[Message[T]]) -> None:
+        self.messages.extend(messages)
