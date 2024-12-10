@@ -1,8 +1,20 @@
+from __future__ import annotations
+
 import logging
+from dataclasses import dataclass
 from typing import Any, Generic, Protocol, TypeVar
 
 TIn = TypeVar('TIn')
 TOut = TypeVar('TOut')
+
+
+@dataclass(frozen=True, slots=True)
+class Message(Generic[TIn]):
+    timestamp: int
+    value: TIn
+
+    def __lt__(self, other: Message[TIn]) -> bool:
+        return self.timestamp < other.timestamp
 
 
 class Config(Protocol):
@@ -11,13 +23,19 @@ class Config(Protocol):
 
 
 class Consumer(Protocol, Generic[TIn]):
-    def get_messages(self) -> list[TIn]:
+    def get_messages(self) -> list[Message[TIn]]:
         pass
 
 
 class Producer(Protocol, Generic[TOut]):
-    def publish_messages(self, topic: str, messages: list[TOut]) -> None:
-        pass
+    def publish_messages(self, messages: dict[str, TOut]) -> None:
+        """
+        Publish messages to the producer.
+
+        Args:
+            messages: A dictionary of messages to publish, where the key is the
+                topic and the value is the message.
+        """
 
 
 class Handler(Generic[TIn, TOut]):
