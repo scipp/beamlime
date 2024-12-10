@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-from beamlime.v2.core.handler import Handler, HandlerRegistry, MessageHandlerLoop
+from beamlime.v2.core.handler import Handler, HandlerRegistry
 from beamlime.v2.core.service import Service
 
 
@@ -19,14 +19,13 @@ def test_create_start_stop_service() -> None:
     consumer = FakeConsumer()
     producer = FakeProducer()
     handler_registry = HandlerRegistry(config=config, handler_cls=Handler)
-    loop = MessageHandlerLoop(
+    service = Service(
         config=config,
         consumer=consumer,
         producer=producer,
         handler_registry=handler_registry,
     )
-    service = Service(handler_loop=loop)
     service.start()
-    assert loop.is_running
+    assert service.is_running
     service.stop()
-    assert not loop.is_running
+    assert not service.is_running
