@@ -57,6 +57,9 @@ class Handler(Generic[Tin, Tout]):
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
 
+    # TODO It is not clear how to handle output topic naming. Should the handler
+    # take care of this explicitly? Can there be automatic prefixing as with
+    # the config?
     def handle(self, message: Message[Tin]) -> list[Message[Tout]]:
         raise NotImplementedError
 
