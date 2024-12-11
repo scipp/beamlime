@@ -25,12 +25,12 @@ class Config(Protocol):
         pass
 
 
-class Consumer(Protocol, Generic[Tin]):
+class MessageSource(Protocol, Generic[Tin]):
     def get_messages(self) -> list[Message[Tin]]:
         pass
 
 
-class Producer(Protocol, Generic[Tout]):
+class MessageSink(Protocol, Generic[Tout]):
     def publish_messages(self, messages: list[Message[Tout]]) -> None:
         """
         Publish messages to the producer.
@@ -77,9 +77,9 @@ class HandlerRegistry(Generic[Tin, Tout]):
         self._handler_cls = handler_cls
         self._handlers: dict[str, Handler] = {}
 
-    def get(self, topic: str) -> Handler:
-        if topic not in self._handlers:
-            self._handlers[topic] = self._handler_cls(
-                logger=self._logger, config=ConfigProxy(self._config, namespace=topic)
+    def get(self, key: str) -> Handler:
+        if key not in self._handlers:
+            self._handlers[key] = self._handler_cls(
+                logger=self._logger, config=ConfigProxy(self._config, namespace=key)
             )
-        return self._handlers[topic]
+        return self._handlers[key]

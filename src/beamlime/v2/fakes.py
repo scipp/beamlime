@@ -7,9 +7,9 @@ from beamlime.v2.core.handler import Message
 T = TypeVar('T')
 
 
-class FakeConsumer(Generic[T]):
+class FakeMessageSource(Generic[T]):
     """
-    A fake consumer that returns messages from memory for testing purposes.
+    A fake message source that returns messages from memory for testing purposes.
     """
 
     def __init__(self, messages: list[list[Message[T]]]) -> None:
@@ -24,9 +24,9 @@ class FakeConsumer(Generic[T]):
         return messages
 
 
-class FakeProducer(Generic[T]):
+class FakeMessageSink(Generic[T]):
     """
-    A fake producer that stores messages in memory for testing purposes.
+    A fake message sink that stores messages in memory for testing purposes.
     """
 
     def __init__(self) -> None:

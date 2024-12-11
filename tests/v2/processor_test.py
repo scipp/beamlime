@@ -4,7 +4,7 @@ from typing import TypeVar
 
 from beamlime.v2.core.handler import Handler, HandlerRegistry, Message
 from beamlime.v2.core.processor import StreamProcessor
-from beamlime.v2.fakes import FakeConsumer, FakeProducer
+from beamlime.v2.fakes import FakeMessageSink, FakeMessageSource
 
 T = TypeVar('T')
 
@@ -19,7 +19,7 @@ class ValueToStringHandler(Handler[T, str]):
 
 def test_consumes_and_produces_messages() -> None:
     config = {}
-    consumer = FakeConsumer(
+    source = FakeMessageSource(
         messages=[
             [],
             [Message(timestamp=0, topic='topic', value=111)],
@@ -29,19 +29,19 @@ def test_consumes_and_produces_messages() -> None:
             ],
         ]
     )
-    producer = FakeProducer()
+    sink = FakeMessageSink()
     handler_registry = HandlerRegistry(config=config, handler_cls=ValueToStringHandler)
     processor = StreamProcessor(
-        consumer=consumer, producer=producer, handler_registry=handler_registry
+        source=source, sink=sink, handler_registry=handler_registry
     )
     processor.process()
-    assert len(producer.messages) == 0
+    assert len(sink.messages) == 0
     processor.process()
-    assert len(producer.messages) == 1
-    assert producer.messages[0].value == '111'
+    assert len(sink.messages) == 1
+    assert sink.messages[0].value == '111'
     processor.process()
-    assert len(producer.messages) == 3
-    assert producer.messages[1].value == '222'
-    assert producer.messages[2].value == '333'
+    assert len(sink.messages) == 3
+    assert sink.messages[1].value == '222'
+    assert sink.messages[2].value == '333'
     processor.process()
-    assert len(producer.messages) == 3
+    assert len(sink.messages) == 3
