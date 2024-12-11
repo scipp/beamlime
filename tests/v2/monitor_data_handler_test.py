@@ -6,10 +6,13 @@ import numpy as np
 import pytest
 import scipp as sc
 from scipp.testing import assert_identical
-from streaming_data_types import eventdata_ev44
 
 from beamlime.v2.core.handler import Message, MessageKey
-from beamlime.v2.handlers.monitor_data_handler import Histogrammer, MonitorDataHandler
+from beamlime.v2.handlers.monitor_data_handler import (
+    Histogrammer,
+    MonitorDataHandler,
+    MonitorEvents,
+)
 
 
 def test_histogrammer_returns_zeros_if_no_chunks_added() -> None:
@@ -39,18 +42,10 @@ def test_histogrammer_uses_dim_and_unit_of_bins(dim: str, unit: str) -> None:
 
 def test_handler() -> None:
     handler = MonitorDataHandler(config={})
-    event_data = eventdata_ev44.EventData(
-        source_name='source',
-        message_id=0,
-        reference_time=0,
-        reference_time_index=0,
-        time_of_flight=np.array([int(1e6), int(2e6), int(4e7)]),
-        pixel_id=np.array([0, 0, 0]),
-    )
-    msg = Message(
-        timestamp=event_data.reference_time,
-        key=MessageKey(topic='monitors', source_name=event_data.source_name),
-        value=event_data,
+    msg = Message[MonitorEvents](
+        timestamp=0,
+        key=MessageKey(topic='monitors', source_name='monitor1'),
+        value=MonitorEvents(time_of_arrival=np.array([int(1e6), int(2e6), int(4e7)])),
     )
     results = handler.handle(msg)
     assert len(results) == 2
