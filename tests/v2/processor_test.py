@@ -12,7 +12,7 @@ T = TypeVar('T')
 class ValueToStringHandler(Handler[T, str]):
     def handle(self, message: Message[T]) -> list[Message[str]]:
         msg = Message(
-            timestamp=message.timestamp, topic='string', value=str(message.value)
+            timestamp=message.timestamp, key='string', value=str(message.value)
         )
         return [msg]
 
@@ -22,10 +22,10 @@ def test_consumes_and_produces_messages() -> None:
     source = FakeMessageSource(
         messages=[
             [],
-            [Message(timestamp=0, topic='topic', value=111)],
+            [Message(timestamp=0, key='topic', value=111)],
             [
-                Message(timestamp=0, topic='topic', value=222),
-                Message(timestamp=0, topic='topic', value=333),
+                Message(timestamp=0, key='topic', value=222),
+                Message(timestamp=0, key='topic', value=333),
             ],
         ]
     )

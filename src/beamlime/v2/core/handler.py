@@ -10,10 +10,16 @@ Tin = TypeVar('Tin')
 Tout = TypeVar('Tout')
 
 
+@dataclass
+class MessageKey:
+    topic: str
+    source_name: str
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Message(Generic[Tin]):
     timestamp: int
-    topic: str
+    key: MessageKey
     value: Tin
 
     def __lt__(self, other: Message[Tin]) -> bool:
@@ -75,7 +81,7 @@ class HandlerRegistry(Generic[Tin, Tout]):
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
         self._handler_cls = handler_cls
-        self._handlers: dict[str, Handler] = {}
+        self._handlers: dict[MessageKey, Handler] = {}
 
     def get(self, key: str) -> Handler:
         if key not in self._handlers:
