@@ -1,7 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+from __future__ import annotations
+
 import logging
-from dataclasses import replace
+from collections.abc import Sequence
+from dataclasses import dataclass, replace
 
 import numpy as np
 import scipp as sc
@@ -10,7 +13,16 @@ from streaming_data_types import eventdata_ev44
 from beamlime.v2.core.handler import Config, Handler, Message
 
 
-class MonitorDataHandler(Handler[eventdata_ev44.EventData, sc.DataArray]):
+@dataclass
+class MonitorEvents:
+    time_of_arrival: Sequence[int]
+
+    @staticmethod
+    def from_ev44(ev44: eventdata_ev44.EventData) -> MonitorEvents:
+        return MonitorEvents(time_of_arrival=ev44.time_of_flight)
+
+
+class MonitorDataHandler(Handler[MonitorEvents, sc.DataArray]):
     def __init__(self, *, logger: logging.Logger | None = None, config: Config):
         super().__init__(logger=logger, config=config)
         # TODO do this in handle() again!
@@ -27,9 +39,7 @@ class MonitorDataHandler(Handler[eventdata_ev44.EventData, sc.DataArray]):
         window_length = 10.0
         self._sliding_window = SlidingWindow(sc.scalar(window_length, unit='s'))
 
-    def handle(
-        self, message: Message[eventdata_ev44.EventData]
-    ) -> list[Message[sc.DataArray]]:
+    def handle(self, message: Message[MonitorEvents]) -> list[Message[sc.DataArray]]:
         # handle "start" (clear history) <= something should translate run_start message
         #  to this as well
         # publish sum since start as well as sliding window... but only less frequently
@@ -42,7 +52,7 @@ class MonitorDataHandler(Handler[eventdata_ev44.EventData, sc.DataArray]):
         # add abstraction layer so we can later handle da00 as well, i.e., to histogram
         # in first step, all window handling or summation based on histogrammed data
 
-        self._histogrammer.add(message.value.time_of_flight)
+        self._histogrammer.add(message.value.time_of_arrival)
         reference_time = message.timestamp
         if self._next_update is None:
             self._next_update = reference_time
