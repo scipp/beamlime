@@ -10,7 +10,7 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from beamlime.v2.core.handler import Config, Handler, Message
+from ..core.handler import Config, Handler, Message
 
 
 @dataclass
@@ -29,6 +29,10 @@ class MonitorEvents:
         return MonitorEvents(time_of_arrival=ev44.time_of_flight)
 
 
+# TODO a bunch of the timing logic could be moved to a base class
+# can we also make this generic so it works with da00?
+# Is that even specific for monitors?
+# -> yes, if we want to do TOF binning
 class MonitorDataHandler(Handler[MonitorEvents, sc.DataArray]):
     def __init__(self, *, logger: logging.Logger | None = None, config: Config):
         super().__init__(logger=logger, config=config)
