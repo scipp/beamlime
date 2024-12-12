@@ -32,12 +32,14 @@ class MonitorEvents:
 class MonitorDataHandler(Handler[MonitorEvents, sc.DataArray]):
     def __init__(self, *, logger: logging.Logger | None = None, config: Config):
         super().__init__(logger=logger, config=config)
-        self._update_every = self._config.get("update_every_seconds", 1.0) * 1e9  # ns
+        self._update_every = int(
+            self._config.get("update_every_seconds", 1.0) * 1e9
+        )  # ns
         self._next_update: int = 0
         self._histogrammer = Histogrammer()
-        self._edges = sc.linspace('time_of_arrival', 0.0, 1000 / 14, num=5, unit='ms')
+        self._edges = sc.linspace('time_of_arrival', 0.0, 1000 / 14, num=100, unit='ms')
         self._cumulative = Cumulative()
-        self._sliding_window = SlidingWindow(sc.scalar(10.0, unit='s'))
+        self._sliding_window = SlidingWindow(sc.scalar(3.0, unit='s'))
 
     def handle(self, message: Message[MonitorEvents]) -> list[Message[sc.DataArray]]:
         # handle "start" (clear history) <= something should translate run_start message
