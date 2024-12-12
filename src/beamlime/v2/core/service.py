@@ -57,15 +57,18 @@ class Service:
         self.stop()
         sys.exit(0)
 
-    def start(self) -> None:
+    def start(self, blocking: bool = True) -> None:
         """Start the service and block until stopped"""
         self._logger.info("Starting service...")
         self._running = True
         self._thread = threading.Thread(target=self._run_loop)
         self._thread.start()
         self._logger.info("Service started")
+        if blocking:
+            self.run_forever()
 
-        # Block main thread until service is stopped
+    def run_forever(self) -> None:
+        """Block forever, waiting for signals"""
         while self.is_running:
             try:
                 signal.pause()

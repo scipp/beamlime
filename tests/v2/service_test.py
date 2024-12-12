@@ -18,7 +18,7 @@ def test_create_start_stop_service() -> None:
     processor = FakeProcessor()
     service = Service(config=config, processor=processor)
     assert processor.call_count == 0
-    service.start()
+    service.start(blocking=False)
     assert service.is_running
     time.sleep(0.5)
     assert processor.call_count > 0
