@@ -3,48 +3,14 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from typing import Any, Generic, Protocol, TypeVar
+from typing import Any, Generic, Protocol
 
-Tin = TypeVar('Tin')
-Tout = TypeVar('Tout')
-
-
-@dataclass
-class MessageKey:
-    topic: str
-    source_name: str
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Message(Generic[Tin]):
-    timestamp: int
-    key: MessageKey
-    value: Tin
-
-    def __lt__(self, other: Message[Tin]) -> bool:
-        return self.timestamp < other.timestamp
+from .message import Message, MessageKey, Tin, Tout
 
 
 class Config(Protocol):
     def get(self, key: str, default: Any | None = None) -> Any:
         pass
-
-
-class MessageSource(Protocol, Generic[Tin]):
-    def get_messages(self) -> list[Message[Tin]]:
-        pass
-
-
-class MessageSink(Protocol, Generic[Tout]):
-    def publish_messages(self, messages: list[Message[Tout]]) -> None:
-        """
-        Publish messages to the producer.
-
-        Args:
-            messages: A dictionary of messages to publish, where the key is the
-                topic and the value is the message.
-        """
 
 
 class ConfigProxy:
