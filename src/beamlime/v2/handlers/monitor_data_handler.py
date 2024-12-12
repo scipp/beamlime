@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import TypeVar, Protocol, Generic
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 
@@ -27,6 +28,67 @@ class MonitorEvents:
     @staticmethod
     def from_ev44(ev44: eventdata_ev44.EventData) -> MonitorEvents:
         return MonitorEvents(time_of_arrival=ev44.time_of_flight)
+
+
+T = TypeVar('T')
+U = TypeVar('U')
+
+
+class Preprocessor(Protocol, Generic[T, U]):
+    def add(self, message: T) -> None:
+        pass
+
+    def get(self) -> U:
+        pass
+
+
+class Accumulator(Protocol, Generic[T]):
+    """Protocol for classes that accumulate data."""
+
+    def add(self, timestamp: int, data: T) -> None:
+        pass
+
+    def get(self) -> T:
+        pass
+
+
+class GenericHandler(Handler[T, sc.DataArray]):
+    def __init__(
+        self,
+        *,
+        logger: logging.Logger | None = None,
+        config: Config,
+        preprocessor: Preprocessor[T, sc.DataArray],
+        accumulators: dict[str, Accumulator[sc.DataArray]],
+    ):
+        super().__init__(logger=logger, config=config)
+        self._preprocessor = preprocessor
+        self._accumulators = accumulators
+        self._update_every = int(
+            self._config.get("update_every_seconds", 1.0) * 1e9
+        )  # ns
+        self._next_update: int = 0
+
+    def handle(self, message: Message[T]) -> list[Message[sc.DataArray]]:
+        # TODO Config updates!
+        self._preprocessor.add(message.value)
+        if message.timestamp < self._next_update:
+            return []
+        data = self._preprocessor.get()
+        for accumulator in self._accumulators.values():
+            accumulator.add(timestamp=message.timestamp, data=data)
+        self._next_update += (
+            (message.timestamp - self._next_update) // self._update_every + 1
+        ) * self._update_every
+        key = message.key
+        return [
+            Message(
+                timestamp=message.timestamp,
+                key=replace(key, topic=f'{key.topic}_{name}'),
+                value=accumulator.get(),
+            )
+            for name, accumulator in self._accumulators.items()
+        ]
 
 
 # TODO a bunch of the timing logic could be moved to a base class
@@ -61,7 +123,7 @@ class MonitorDataHandler(Handler[MonitorEvents, sc.DataArray]):
         if reference_time < self._next_update:
             return []
         hist = self._histogrammer.histogram(self._edges)
-        self._cumulative.add(hist)
+        self._cumulative.add(timestamp=reference_time, data=hist)
         self._sliding_window.add(timestamp=reference_time, data=hist)
         # If there were no pulses for a while we need to skip several updates.
         # Note that we do not simply set _next_update based on reference_time
@@ -86,11 +148,12 @@ class MonitorDataHandler(Handler[MonitorEvents, sc.DataArray]):
         ]
 
 
-class Cumulative:
+class Cumulative(Accumulator[sc.DataArray]):
     def __init__(self):
         self._cumulative: sc.DataArray | None = None
 
-    def add(self, data: sc.DataArray) -> None:
+    def add(self, timestamp: int, data: sc.DataArray) -> None:
+        _ = timestamp
         if self._cumulative is None:
             self._cumulative = data.copy()
         else:
@@ -100,7 +163,7 @@ class Cumulative:
         return self._cumulative
 
 
-class SlidingWindow:
+class SlidingWindow(Accumulator[sc.DataArray]):
     def __init__(self, max_age: sc.Variable):
         self._max_age = max_age.to(unit='ns', dtype='int64')
         self._chunks: list[sc.DataArray] = []
@@ -127,7 +190,8 @@ class SlidingWindow:
         ]
 
 
-class Histogrammer:
+# TODO update to use MonitorEvents, make edges internally basedon config updates
+class Histogrammer(Preprocessor[MonitorEvents, sc.DataArray]):
     def __init__(self):
         self._chunks: list[np.ndarray] = []
 
