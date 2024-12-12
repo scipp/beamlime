@@ -66,13 +66,13 @@ def main() -> NoReturn:
     handler_registry = HandlerRegistry(
         config=handler_config, handler_cls=MonitorDataHandler
     )
-    source = AdaptingMessageSource(
-        source=KafkaMessageSource(consumer=FakeMonitorEventConsumer()),
-        adapter=KafkaNumPyToMonitorEventsAdapter(),
-    )
-    sink = PlotToPngSink()
     processor = StreamProcessor(
-        source=source, sink=sink, handler_registry=handler_registry
+        source=AdaptingMessageSource(
+            source=KafkaMessageSource(consumer=FakeMonitorEventConsumer()),
+            adapter=KafkaNumPyToMonitorEventsAdapter(),
+        ),
+        sink=PlotToPngSink(),
+        handler_registry=handler_registry,
     )
     service = Service(config=service_config, processor=processor, name="local_demo")
     service.start()
