@@ -1,8 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-import logging
-import signal
-import sys
 import time
 from typing import NoReturn
 
@@ -21,15 +18,6 @@ from beamlime.v2.kafka.message_adapter import (
     MessageAdapter,
 )
 from beamlime.v2.kafka.source import KafkaConsumer, KafkaMessageSource
-
-
-def setup_logging():
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        stream=sys.stdout,
-    )
-    logging.getLogger('beamlime').setLevel(logging.INFO)
 
 
 class FakeMonitorEventConsumer(KafkaConsumer[np.ndarray]):
@@ -72,15 +60,7 @@ class PlotToPngSink(MessageSink[sc.DataArray]):
             msg.value.plot(title=title).save(filename)
 
 
-def handle_shutdown(signum, frame) -> None:
-    print("\nShutdown signal received. Stopping service...")  # noqa: T201
-    if hasattr(handle_shutdown, "service"):
-        handle_shutdown.service.stop()
-    sys.exit(0)
-
-
 def main() -> NoReturn:
-    setup_logging()
     handler_config = {}
     service_config = {}
     handler_registry = HandlerRegistry(
@@ -94,21 +74,8 @@ def main() -> NoReturn:
     processor = StreamProcessor(
         source=source, sink=sink, handler_registry=handler_registry
     )
-    service = Service(config=service_config, processor=processor)
-
-    handle_shutdown.service = service
-
-    signal.signal(signal.SIGINT, handle_shutdown)
-    signal.signal(signal.SIGTERM, handle_shutdown)
-
-    print("Starting service. Press Ctrl+C to stop...")  # noqa: T201
+    service = Service(config=service_config, processor=processor, name="local_demo")
     service.start()
-
-    while True:
-        try:
-            signal.pause()
-        except KeyboardInterrupt:  # noqa: PERF203
-            handle_shutdown(None, None)
 
 
 if __name__ == "__main__":
