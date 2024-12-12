@@ -61,18 +61,17 @@ class PlotToPngSink(MessageSink[sc.DataArray]):
 
 
 def main() -> NoReturn:
-    handler_config = {}
+    handler_config = {'sliding_window_seconds': 5}
     service_config = {}
-    handler_registry = HandlerRegistry(
-        config=handler_config, handler_cls=MonitorDataHandler
-    )
     processor = StreamProcessor(
         source=AdaptingMessageSource(
             source=KafkaMessageSource(consumer=FakeMonitorEventConsumer()),
             adapter=KafkaNumPyToMonitorEventsAdapter(),
         ),
         sink=PlotToPngSink(),
-        handler_registry=handler_registry,
+        handler_registry=HandlerRegistry(
+            config=handler_config, handler_cls=MonitorDataHandler
+        ),
     )
     service = Service(config=service_config, processor=processor, name="local_demo")
     service.start()
