@@ -35,7 +35,7 @@ class FakeMonitorEventConsumer(KafkaConsumer[np.ndarray]):
         return [
             FakeKafkaMessage(
                 value=self._make_normal(mean=30_000_000, std=10_000_000, size=10),
-                topic="monitor1",
+                topic="monitors",
             )
             for _ in range(num_messages)
         ]
