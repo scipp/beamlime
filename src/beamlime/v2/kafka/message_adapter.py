@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-from typing import Generic, Protocol, TypeVar
+from dataclasses import replace
+from typing import Any, Generic, Protocol, TypeVar
 
-from streaming_data_types import eventdata_ev44
+import scipp as sc
+from streaming_data_types import dataarray_da00, eventdata_ev44
 
 from ..core.message import Message, MessageKey, MessageSource
 from ..handlers.monitor_data_handler import MonitorEvents
+from .scipp_da00_compat import da00_to_scipp
 
 T = TypeVar('T')
 U = TypeVar('U')
@@ -15,6 +18,9 @@ V = TypeVar('V')
 class KafkaMessage(Protocol):
     """Simplified Kafka message interface for testing purposes."""
 
+    def error(self) -> Any | None:
+        pass
+
     def value(self) -> bytes:
         pass
 
@@ -22,10 +28,22 @@ class KafkaMessage(Protocol):
         pass
 
 
+def message_schema(msg: KafkaMessage) -> str | None:
+    """
+    Extracts the schema from a Kafka message by the streaming_data_types library.
+    """
+    if msg.error() is not None or len(msg.value()) < 8:
+        return None
+    return msg.value()[4:8].decode()
+
+
 class FakeKafkaMessage(KafkaMessage):
     def __init__(self, value: bytes, topic: str):
         self._value = value
         self._topic = topic
+
+    def error(self) -> Any | None:
+        return None
 
     def value(self) -> bytes:
         return self._value
@@ -54,17 +72,32 @@ class KafkaToEv44Adapter(
         return Message(timestamp=timestamp, key=key, value=ev44)
 
 
+class KafkaToDa00Adapter(
+    MessageAdapter[KafkaMessage, Message[list[dataarray_da00.Variable]]]
+):
+    def adapt(self, message: KafkaMessage) -> Message[list[dataarray_da00.Variable]]:
+        da00 = dataarray_da00.deserialise_da00(message.value())
+        key = MessageKey(topic=message.topic(), source_name=da00.source_name)
+        timestamp = da00.timestamp_ns
+        return Message(timestamp=timestamp, key=key, value=da00.data)
+
+
 class Ev44ToMonitorEventsAdapter(
     MessageAdapter[Message[eventdata_ev44.EventData], Message[MonitorEvents]]
 ):
     def adapt(
         self, message: Message[eventdata_ev44.EventData]
     ) -> Message[MonitorEvents]:
-        return Message(
-            timestamp=message.timestamp,
-            key=message.key,
-            value=MonitorEvents.from_ev44(message.value),
-        )
+        return replace(message, value=MonitorEvents.from_ev44(message.value))
+
+
+class Da00ToScippAdapter(
+    MessageAdapter[Message[list[dataarray_da00.Variable]], Message[sc.DataArray]]
+):
+    def adapt(
+        self, message: Message[list[dataarray_da00.Variable]]
+    ) -> Message[sc.DataArray]:
+        return replace(message, value=da00_to_scipp(message.value))
 
 
 class ChainedAdapter(MessageAdapter[T, V]):
