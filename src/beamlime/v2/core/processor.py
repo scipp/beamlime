@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Generic, Protocol
 
-from .handler import HandlerRegistry, MessageSink, MessageSource, Tin, Tout
+from .handler import HandlerRegistry
+from .message import MessageSink, MessageSource, Tin, Tout
 
 
 class Processor(Protocol):

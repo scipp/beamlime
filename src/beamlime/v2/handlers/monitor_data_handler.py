@@ -18,7 +18,8 @@ class MonitorEvents:
     """
     Dataclass for monitor events.
 
-    Decouples our handlers from upstream schema changes.
+    Decouples our handlers from upstream schema changes. This also simplifies handler
+    testing since tests do not have to construct a full eventdata_ev44.EventData object.
     """
 
     time_of_arrival: Sequence[int]
