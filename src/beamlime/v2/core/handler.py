@@ -21,7 +21,13 @@ class ConfigProxy:
         self._namespace = namespace
 
     def get(self, key: str, default: Any | None = None) -> Any:
-        return self._config.get(f'{self._namespace}.{key}', default)
+        """
+        Look for the key with the namespace prefix, and fall back to the key without
+        the prefix if not found. If neither is found, return the default.
+        """
+        return self._config.get(
+            f'{self._namespace}.{key}', self._config.get(key, default)
+        )
 
 
 class Handler(Generic[Tin, Tout]):
