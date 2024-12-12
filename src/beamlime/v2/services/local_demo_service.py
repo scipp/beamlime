@@ -22,7 +22,7 @@ from beamlime.v2.kafka.message_adapter import (
 from beamlime.v2.kafka.source import KafkaConsumer, KafkaMessageSource
 
 
-class FakeMonitorEventConsumer(KafkaConsumer):
+class FakeMonitorEventKafkaConsumer(KafkaConsumer):
     """Fake Kafka consumer that generates random monitor events."""
 
     def __init__(self):
@@ -60,7 +60,7 @@ def main() -> NoReturn:
     service_config = {}
     processor = StreamProcessor(
         source=AdaptingMessageSource(
-            source=KafkaMessageSource(consumer=FakeMonitorEventConsumer()),
+            source=KafkaMessageSource(consumer=FakeMonitorEventKafkaConsumer()),
             adapter=ChainedAdapter(
                 first=KafkaToEv44Adapter(), second=Ev44ToMonitorEventsAdapter()
             ),
