@@ -39,7 +39,9 @@ class MonitorDataHandler(Handler[MonitorEvents, sc.DataArray]):
         self._histogrammer = Histogrammer()
         self._edges = sc.linspace('time_of_arrival', 0.0, 1000 / 14, num=100, unit='ms')
         self._cumulative = Cumulative()
-        self._sliding_window = SlidingWindow(sc.scalar(3.0, unit='s'))
+        self._sliding_window = SlidingWindow(
+            sc.scalar(self._config.get('sliding_window_seconds', 3.0), unit='s')
+        )
 
     def handle(self, message: Message[MonitorEvents]) -> list[Message[sc.DataArray]]:
         # handle "start" (clear history) <= something should translate run_start message
