@@ -12,22 +12,22 @@ U = TypeVar('U')
 V = TypeVar('V')
 
 
-class KafkaMessage(Protocol, Generic[T]):
+class KafkaMessage(Protocol):
     """Simplified Kafka message interface for testing purposes."""
 
-    def value(self) -> T:
+    def value(self) -> bytes:
         pass
 
     def topic(self) -> str:
         pass
 
 
-class FakeKafkaMessage(KafkaMessage[T]):
-    def __init__(self, value: T, topic: str):
+class FakeKafkaMessage(KafkaMessage):
+    def __init__(self, value: bytes, topic: str):
         self._value = value
         self._topic = topic
 
-    def value(self) -> T:
+    def value(self) -> bytes:
         return self._value
 
     def topic(self) -> str:
