@@ -33,6 +33,11 @@ class FakeKafkaMessage:
     def topic(self) -> str:
         return self._topic
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, FakeKafkaMessage):
+            return False
+        return self._value == other._value and self._topic == other._topic
+
 
 class MessageAdapter(Protocol, Generic[T, U]):
     def adapt(self, message: T) -> U:
