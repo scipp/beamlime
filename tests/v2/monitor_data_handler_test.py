@@ -3,7 +3,6 @@
 from dataclasses import replace
 
 import numpy as np
-import pytest
 import scipp as sc
 from scipp.testing import assert_identical
 
@@ -16,28 +15,17 @@ from beamlime.v2.handlers.monitor_data_handler import (
 
 
 def test_histogrammer_returns_zeros_if_no_chunks_added() -> None:
-    histogrammer = Histogrammer()
-    bins = sc.linspace('x', 0.0, 10.0, num=7, unit='ms')
-    da = histogrammer.histogram(bins)
+    histogrammer = Histogrammer(config={'time_of_arrival_bins': 7})
+    da = histogrammer.histogram()
+    dim = 'time_of_arrival'
+    bins = sc.linspace(dim, 0.0, 1000 / 14, num=7, unit='ms')
     assert_identical(
         da,
         sc.DataArray(
-            sc.zeros(dims=['x'], shape=[6], unit='counts', dtype='int64'),
-            coords={'x': bins},
+            sc.zeros(dims=[dim], shape=[6], unit='counts', dtype='int64'),
+            coords={dim: bins},
         ),
     )
-
-
-@pytest.mark.parametrize('dim', ['x', 'toa'])
-@pytest.mark.parametrize('unit', ['ms', 's'])
-def test_histogrammer_uses_dim_and_unit_of_bins(dim: str, unit: str) -> None:
-    histogrammer = Histogrammer()
-    histogrammer.add(np.array([1.0, 2.0, 3.0]))
-    bins = sc.linspace(dim, 0.0, 10.0, num=7, unit=unit)
-    da = histogrammer.histogram(bins)
-    assert da.coords[dim].unit == unit
-    assert da.dim == dim
-    assert da.unit == 'counts'
 
 
 def test_handler() -> None:
