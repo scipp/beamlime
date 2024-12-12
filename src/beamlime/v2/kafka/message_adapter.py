@@ -2,7 +2,6 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from typing import Generic, Protocol, TypeVar
 
-import confluent_kafka
 from streaming_data_types import eventdata_ev44
 
 from ..core.message import Message, MessageKey, MessageSource
@@ -13,17 +12,25 @@ U = TypeVar('U')
 V = TypeVar('V')
 
 
+class KafkaMessage(Protocol):
+    """Simplified Kafka message interface for testing purposes."""
+
+    def value(self) -> bytes:
+        pass
+
+    def topic(self) -> str:
+        pass
+
+
 class MessageAdapter(Protocol, Generic[T, U]):
     def adapt(self, message: T) -> U:
         pass
 
 
 class KafkaToEv44Adapter(
-    MessageAdapter[confluent_kafka.Message, Message[eventdata_ev44.EventData]]
+    MessageAdapter[KafkaMessage, Message[eventdata_ev44.EventData]]
 ):
-    def adapt(
-        self, message: confluent_kafka.Message
-    ) -> Message[eventdata_ev44.EventData]:
+    def adapt(self, message: KafkaMessage) -> Message[eventdata_ev44.EventData]:
         ev44 = eventdata_ev44.deserialise_ev44(message.value())
         key = MessageKey(topic=message.topic(), source_name=ev44.source_name)
         timestamp = ev44.reference_time[0]
