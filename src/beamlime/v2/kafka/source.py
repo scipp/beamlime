@@ -11,8 +11,14 @@ class KafkaConsumer(Protocol):
 
 
 class KafkaMessageSource:
-    def __init__(self, consumer: KafkaConsumer):
+    def __init__(
+        self, consumer: KafkaConsumer, num_messages: int = 100, timeout: float = 0.05
+    ):
         self._consumer = consumer
+        self._num_messages = num_messages
+        self._timeout = timeout
 
     def get_messages(self) -> list[KafkaMessage]:
-        return self._consumer.consume(num_messages=100, timeout=0.05)
+        return self._consumer.consume(
+            num_messages=self._num_messages, timeout=self._timeout
+        )
