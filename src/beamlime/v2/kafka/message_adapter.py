@@ -22,6 +22,18 @@ class KafkaMessage(Protocol):
         pass
 
 
+class FakeKafkaMessage:
+    def __init__(self, value: bytes, topic: str):
+        self._value = value
+        self._topic = topic
+
+    def value(self) -> bytes:
+        return self._value
+
+    def topic(self) -> str:
+        return self._topic
+
+
 class MessageAdapter(Protocol, Generic[T, U]):
     def adapt(self, message: T) -> U:
         pass
