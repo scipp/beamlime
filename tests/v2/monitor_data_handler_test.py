@@ -41,7 +41,7 @@ def test_histogrammer_uses_dim_and_unit_of_bins(dim: str, unit: str) -> None:
 
 
 def test_handler() -> None:
-    handler = MonitorDataHandler(config={})
+    handler = MonitorDataHandler(config={'sliding_window_seconds': 10})
     msg = Message(
         timestamp=0,
         key=MessageKey(topic='monitors', source_name='monitor1'),
