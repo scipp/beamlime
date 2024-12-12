@@ -42,7 +42,7 @@ def test_histogrammer_uses_dim_and_unit_of_bins(dim: str, unit: str) -> None:
 
 def test_handler() -> None:
     handler = MonitorDataHandler(config={})
-    msg = Message[MonitorEvents](
+    msg = Message(
         timestamp=0,
         key=MessageKey(topic='monitors', source_name='monitor1'),
         value=MonitorEvents(time_of_arrival=np.array([int(1e6), int(2e6), int(4e7)])),

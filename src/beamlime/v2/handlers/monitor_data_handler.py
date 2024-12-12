@@ -15,6 +15,12 @@ from beamlime.v2.core.handler import Config, Handler, Message
 
 @dataclass
 class MonitorEvents:
+    """
+    Dataclass for monitor events.
+
+    Decouples our handlers from upstream schema changes.
+    """
+
     time_of_arrival: Sequence[int]
 
     @staticmethod
@@ -25,38 +31,24 @@ class MonitorEvents:
 class MonitorDataHandler(Handler[MonitorEvents, sc.DataArray]):
     def __init__(self, *, logger: logging.Logger | None = None, config: Config):
         super().__init__(logger=logger, config=config)
-        # TODO do this in handle() again!
         self._update_every = self._config.get("update_every_seconds", 1.0) * 1e9  # ns
-        # window_length = self._config.get("window_length", 10.0)
-        # self._update_every = sc.scalar(update_every, unit='s').to(
-        #    unit='ns', dtype='int64'
-        # )
-        # self._window_length = round(window_length / update_every)
-        self._next_update: int | None = None
+        self._next_update: int = 0
         self._histogrammer = Histogrammer()
         self._edges = sc.linspace('time_of_arrival', 0.0, 1000 / 14, num=5, unit='ms')
         self._cumulative = Cumulative()
-        window_length = 10.0
-        self._sliding_window = SlidingWindow(sc.scalar(window_length, unit='s'))
+        self._sliding_window = SlidingWindow(sc.scalar(10.0, unit='s'))
 
     def handle(self, message: Message[MonitorEvents]) -> list[Message[sc.DataArray]]:
         # handle "start" (clear history) <= something should translate run_start message
         #  to this as well
-        # publish sum since start as well as sliding window... but only less frequently
-        # config: window length, bin count
-        # do not include edges every time to save space. Or send only params?
         # changing bin count cannot not affect the sum since start! Need to hist twice?
         # Should include info such as time interval of the published result
-        # unit should be per counts/second or maybe even counts/second/ms
 
         # add abstraction layer so we can later handle da00 as well, i.e., to histogram
-        # in first step, all window handling or summation based on histogrammed data
-
+        # Replace Histogrammer by a base class, implementations for ev44 and da00
+        # Edges only needed for former, unless we want to support rebinning da00
         self._histogrammer.add(message.value.time_of_arrival)
         reference_time = message.timestamp
-        if self._next_update is None:
-            self._next_update = reference_time
-        key = message.key
         if reference_time < self._next_update:
             return []
         hist = self._histogrammer.histogram(self._edges)
@@ -68,15 +60,18 @@ class MonitorDataHandler(Handler[MonitorEvents, sc.DataArray]):
         self._next_update += (
             (reference_time - self._next_update) // self._update_every + 1
         ) * self._update_every
+        key = message.key
+        # Consider publishing cumulative less frequently?
+        # Or share coord?
         return [
             Message(
                 timestamp=reference_time,
-                key=replace(key, topic=f'{key.topic}.sliding'),
+                key=replace(key, topic=f'{key.topic}_sliding'),
                 value=self._sliding_window.get(),
             ),
             Message(
                 timestamp=reference_time,
-                key=replace(key, topic=f'{key.topic}.cumulative'),
+                key=replace(key, topic=f'{key.topic}_cumulative'),
                 value=self._cumulative.get(),
             ),
         ]
@@ -140,3 +135,13 @@ class Histogrammer:
             data=sc.array(dims=[bins.dim], values=values, unit='counts'),
             coords={bins.dim: bins},
         )
+
+
+class Rebinner:
+    def __init__(self):
+        self._arrays: list[sc.DataArray] = []
+
+    def histogram(self, edges: sc.Variable) -> sc.DataArray:
+        da = sc.reduce(self._arrays).sum()
+        self._arrays.clear()
+        return da.rebin({edges.dim: edges})
