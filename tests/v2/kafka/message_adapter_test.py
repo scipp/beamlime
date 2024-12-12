@@ -1,17 +1,28 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-from dataclasses import dataclass
 
 from streaming_data_types import eventdata_ev44
 
 from beamlime.v2.core.message import MessageSource
-from beamlime.v2.kafka.message_adapter import KafkaMessage
+from beamlime.v2.kafka.message_adapter import (
+    AdaptingMessageSource,
+    ChainedAdapter,
+    Ev44ToMonitorEventsAdapter,
+    KafkaMessage,
+    KafkaToEv44Adapter,
+)
 
 
-@dataclass
 class FakeKafkaMessage:
-    value: bytes
-    topic: str
+    def __init__(self, value: bytes, topic: str):
+        self._value = value
+        self._topic = topic
+
+    def value(self) -> bytes:
+        return self._value
+
+    def topic(self) -> str:
+        return self._topic
 
 
 def make_serialized_ev44() -> bytes:
@@ -35,5 +46,20 @@ def test_fake_kafka_message_source() -> None:
     source = FakeKafkaMessageSource()
     messages = source.get_messages()
     assert len(messages) == 1
-    assert messages[0].topic == "monitors"
-    assert messages[0].value == make_serialized_ev44()
+    assert messages[0].topic() == "monitors"
+    assert messages[0].value() == make_serialized_ev44()
+
+
+def test_adapting_source() -> None:
+    source = AdaptingMessageSource(
+        source=FakeKafkaMessageSource(),
+        adapter=ChainedAdapter(
+            first=KafkaToEv44Adapter(), second=Ev44ToMonitorEventsAdapter()
+        ),
+    )
+    messages = source.get_messages()
+    assert len(messages) == 1
+    assert messages[0].key.topic == "monitors"
+    assert messages[0].key.source_name == "monitor1"
+    assert messages[0].value.time_of_arrival == [123456]
+    assert messages[0].timestamp == 1234

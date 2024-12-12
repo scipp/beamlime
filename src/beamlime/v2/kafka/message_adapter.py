@@ -34,9 +34,7 @@ class KafkaToEv44Adapter(
         ev44 = eventdata_ev44.deserialise_ev44(message.value())
         key = MessageKey(topic=message.topic(), source_name=ev44.source_name)
         timestamp = ev44.reference_time[0]
-        return Message[eventdata_ev44.EventData](
-            timestamp=timestamp, key=key, value=ev44
-        )
+        return Message(timestamp=timestamp, key=key, value=ev44)
 
 
 class Ev44ToMonitorEventsAdapter(
@@ -45,7 +43,7 @@ class Ev44ToMonitorEventsAdapter(
     def adapt(
         self, message: Message[eventdata_ev44.EventData]
     ) -> Message[MonitorEvents]:
-        return Message[MonitorEvents](
+        return Message(
             timestamp=message.timestamp,
             key=message.key,
             value=MonitorEvents.from_ev44(message.value),
