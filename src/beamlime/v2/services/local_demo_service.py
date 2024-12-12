@@ -24,17 +24,17 @@ from beamlime.v2.kafka.source import KafkaConsumer, KafkaMessageSource
 
 
 def setup_logging():
-    # Configure root logger to output to stdout
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         stream=sys.stdout,
     )
-    # Optionally set specific logger levels
     logging.getLogger('beamlime').setLevel(logging.INFO)
 
 
-class FakeKafkaConsumer(KafkaConsumer[np.ndarray]):
+class FakeMonitorEventConsumer(KafkaConsumer[np.ndarray]):
+    """Fake Kafka consumer that generates random monitor events."""
+
     def __init__(self):
         self._rng = np.random.default_rng()
 
@@ -87,7 +87,7 @@ def main() -> NoReturn:
         config=handler_config, handler_cls=MonitorDataHandler
     )
     source = AdaptingMessageSource(
-        source=KafkaMessageSource(consumer=FakeKafkaConsumer()),
+        source=KafkaMessageSource(consumer=FakeMonitorEventConsumer()),
         adapter=KafkaNumPyToMonitorEventsAdapter(),
     )
     sink = PlotToPngSink()
