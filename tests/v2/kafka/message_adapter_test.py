@@ -8,21 +8,10 @@ from beamlime.v2.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
     Ev44ToMonitorEventsAdapter,
+    FakeKafkaMessage,
     KafkaMessage,
     KafkaToEv44Adapter,
 )
-
-
-class FakeKafkaMessage:
-    def __init__(self, value: bytes, topic: str):
-        self._value = value
-        self._topic = topic
-
-    def value(self) -> bytes:
-        return self._value
-
-    def topic(self) -> str:
-        return self._topic
 
 
 def make_serialized_ev44() -> bytes:
