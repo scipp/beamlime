@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Generic, Protocol, TypeVar
@@ -43,17 +42,10 @@ class Preprocessor(Protocol, Generic[T, U]):
         pass
 
 
-class Accumulator(ABC, Generic[T]):
-    """Abstract base class for classes that accumulate data."""
-
-    def __init__(self, config: Config):
-        self._config = config
-
-    @abstractmethod
+class Accumulator(Protocol, Generic[T]):
     def add(self, timestamp: int, data: T) -> None:
         pass
 
-    @abstractmethod
     def get(self) -> T:
         pass
 
@@ -117,7 +109,7 @@ class MonitorDataHandler(GenericHandler[MonitorEvents]):
 
 class Cumulative(Accumulator[sc.DataArray]):
     def __init__(self, config: Config):
-        super().__init__(config=config)
+        self._config = config
         # TODO We will want to support clearing the history, e.g., when a "start"
         # message is received. This is not yet implemented. This could be automatic,
         # based on run_start messages from upstream, or via our own control topic. We
@@ -137,7 +129,7 @@ class Cumulative(Accumulator[sc.DataArray]):
 
 class SlidingWindow(Accumulator[sc.DataArray]):
     def __init__(self, config: Config):
-        super().__init__(config=config)
+        self._config = config
         self._max_age = sc.scalar(
             self._config.get('sliding_window_seconds', 3.0), unit='s'
         ).to(unit='ns', dtype='int64')
