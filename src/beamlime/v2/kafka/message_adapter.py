@@ -68,7 +68,7 @@ class KafkaToEv44Adapter(
     def adapt(self, message: KafkaMessage) -> Message[eventdata_ev44.EventData]:
         ev44 = eventdata_ev44.deserialise_ev44(message.value())
         key = MessageKey(topic=message.topic(), source_name=ev44.source_name)
-        timestamp = ev44.reference_time[0]
+        timestamp = ev44.reference_time[-1]
         return Message(timestamp=timestamp, key=key, value=ev44)
 
 
