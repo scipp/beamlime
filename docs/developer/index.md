@@ -14,5 +14,4 @@ getting-started
 coding-conventions
 dependency-management
 benchmark
-async_programming
 ```
