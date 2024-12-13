@@ -4,11 +4,9 @@ import time
 from typing import NoReturn
 
 import numpy as np
-import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from beamlime.v2.core.handler import HandlerRegistry, Message
-from beamlime.v2.core.message import MessageSink
+from beamlime.v2.core.handler import HandlerRegistry
 from beamlime.v2.core.processor import StreamProcessor
 from beamlime.v2.core.service import Service
 from beamlime.v2.handlers.monitor_data_handler import create_monitor_event_data_handler
@@ -20,6 +18,7 @@ from beamlime.v2.kafka.message_adapter import (
     KafkaToEv44Adapter,
 )
 from beamlime.v2.kafka.source import KafkaConsumer, KafkaMessageSource
+from beamlime.v2.sinks import PlotToPngSink
 
 
 class FakeMonitorEventKafkaConsumer(KafkaConsumer):
@@ -45,14 +44,6 @@ class FakeMonitorEventKafkaConsumer(KafkaConsumer):
             )
             messages.append(FakeKafkaMessage(value=ev44, topic="monitors"))
         return messages
-
-
-class PlotToPngSink(MessageSink[sc.DataArray]):
-    def publish_messages(self, messages: Message[sc.DataArray]) -> None:
-        for msg in messages:
-            title = f"{msg.key.topic} - {msg.key.source_name}"
-            filename = f"{msg.key.topic}_{msg.key.source_name}.png"
-            msg.value.plot(title=title).save(filename)
 
 
 def main() -> NoReturn:
