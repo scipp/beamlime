@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from .. import LoggingProtocol
-
 
 def _compose_msg(application: str, message: str) -> str:
     from .formatters import BEAMLIME_MESSAGE_HEADERS
@@ -16,9 +14,7 @@ def _compose_msg(application: str, message: str) -> str:
 class LogMixin:
     """Logging interfaces."""
 
-    def debug(
-        self: LoggingProtocol, msg: str, *args: Any, stacklevel=2, **kwargs: Any
-    ) -> None:
+    def debug(self, msg: str, *args: Any, stacklevel=2, **kwargs: Any) -> None:
         self.logger.debug(
             _compose_msg(self.__class__.__qualname__, msg),
             *args,
@@ -26,9 +22,7 @@ class LogMixin:
             **kwargs,
         )
 
-    def info(
-        self: LoggingProtocol, msg: str, *args: Any, stacklevel=2, **kwargs: Any
-    ) -> None:
+    def info(self, msg: str, *args: Any, stacklevel=2, **kwargs: Any) -> None:
         self.logger.info(
             _compose_msg(self.__class__.__qualname__, msg),
             *args,
@@ -36,9 +30,7 @@ class LogMixin:
             **kwargs,
         )
 
-    def warning(
-        self: LoggingProtocol, msg: str, *args: Any, stacklevel=2, **kwargs: Any
-    ) -> None:
+    def warning(self, msg: str, *args: Any, stacklevel=2, **kwargs: Any) -> None:
         self.logger.warning(
             _compose_msg(self.__class__.__qualname__, msg),
             *args,
@@ -46,9 +38,7 @@ class LogMixin:
             **kwargs,
         )
 
-    def error(
-        self: LoggingProtocol, msg: str, *args: Any, stacklevel=2, **kwargs: Any
-    ) -> None:
+    def error(self, msg: str, *args: Any, stacklevel=2, **kwargs: Any) -> None:
         self.logger.error(
             _compose_msg(self.__class__.__qualname__, msg),
             *args,

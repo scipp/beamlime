@@ -34,14 +34,6 @@ def test_local_loggers():
         assert get_logger() is not logger
 
 
-def test_logmixin_protocol(local_logger: bool):
-    from beamlime import LoggingProtocol
-    from tests.logging.dummy_app import LogMixinDummy
-
-    assert local_logger
-    assert isinstance(LogMixinDummy(Logger("_")), LoggingProtocol)
-
-
 @pytest.mark.parametrize(
     ("level", "log_method", "msg_suffix"),
     [

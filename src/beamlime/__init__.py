@@ -12,6 +12,4 @@ except importlib.metadata.PackageNotFoundError:
 del importlib
 
 from .constructors import Factory, Provider, ProviderGroup, SingletonProvider
-from .core.protocols import LoggingProtocol
-from .logging.mixins import LogMixin
 from .workflow_protocols import WorkflowResult, LiveWorkflow
