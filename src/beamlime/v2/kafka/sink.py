@@ -8,8 +8,8 @@ import confluent_kafka as kafka
 import scipp as sc
 from streaming_data_types import dataarray_da00
 
-from beamlime.v2.core.message import Message, MessageSink
-from beamlime.v2.kafka.scipp_da00_compat import scipp_to_da00
+from ..core.message import Message, MessageSink
+from .scipp_da00_compat import scipp_to_da00
 
 
 class KafkaSink(MessageSink[sc.DataArray]):

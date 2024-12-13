@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import scipp as sc
 
-from beamlime.v2.core.message import Message, MessageSink
+from .core.message import Message, MessageSink
 
 
 class PlotToPngSink(MessageSink[sc.DataArray]):
