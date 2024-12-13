@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import TypeVar
 
 import numpy as np
 import scipp as sc
@@ -34,10 +35,31 @@ class MonitorEvents:
         return MonitorEvents(time_of_arrival=ev44.time_of_flight)
 
 
-def create_monitor_data_handler(
+def create_monitor_event_data_handler(
     *, logger: logging.Logger | None = None, config: Config
 ) -> PeriodicAccumulatingHandler[MonitorEvents, sc.DataArray]:
-    preprocessor = Histogrammer(config=config)
+    return _create_monitor_handler(
+        logger=logger, config=config, preprocessor=Histogrammer(config=config)
+    )
+
+
+def create_monitor_data_handler(
+    *, logger: logging.Logger | None = None, config: Config
+) -> PeriodicAccumulatingHandler[sc.DataArray, sc.DataArray]:
+    return _create_monitor_handler(
+        logger=logger, config=config, preprocessor=AccumulateSum()
+    )
+
+
+T = TypeVar('T')
+
+
+def _create_monitor_handler(
+    *,
+    logger: logging.Logger | None = None,
+    config: Config,
+    preprocessor: Preprocessor[T, sc.DataArray],
+) -> PeriodicAccumulatingHandler[T, sc.DataArray]:
     accumulators = {
         'cumulative': Cumulative(config=config),
         'sliding': SlidingWindow(config=config),
@@ -98,6 +120,20 @@ class SlidingWindow(Accumulator[sc.DataArray]):
             for chunk in self._chunks
             if latest - chunk.coords['time'] <= self._max_age
         ]
+
+
+class AccumulateSum(Preprocessor[sc.DataArray, sc.DataArray]):
+    def __init__(self):
+        self._sum: sc.DataArray | None = None
+
+    def add(self, data: sc.DataArray) -> None:
+        if self._sum is None:
+            self._sum = data
+        else:
+            self._sum += data
+
+    def get(self) -> sc.DataArray:
+        return self._sum
 
 
 class Histogrammer(Preprocessor[MonitorEvents, sc.DataArray]):
