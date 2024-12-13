@@ -9,14 +9,14 @@ from scipp.testing import assert_identical
 from beamlime.v2.core.handler import Message, MessageKey
 from beamlime.v2.handlers.monitor_data_handler import (
     Histogrammer,
-    MonitorDataHandler,
     MonitorEvents,
+    create_monitor_data_handler,
 )
 
 
 def test_histogrammer_returns_zeros_if_no_chunks_added() -> None:
     histogrammer = Histogrammer(config={'time_of_arrival_bins': 7})
-    da = histogrammer.histogram()
+    da = histogrammer.get()
     dim = 'time_of_arrival'
     bins = sc.linspace(dim, 0.0, 1000 / 14, num=7, unit='ms')
     assert_identical(
@@ -29,7 +29,7 @@ def test_histogrammer_returns_zeros_if_no_chunks_added() -> None:
 
 
 def test_handler() -> None:
-    handler = MonitorDataHandler(config={'sliding_window_seconds': 10})
+    handler = create_monitor_data_handler(config={'sliding_window_seconds': 10})
     msg = Message(
         timestamp=0,
         key=MessageKey(topic='monitors', source_name='monitor1'),

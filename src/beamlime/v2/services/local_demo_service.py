@@ -11,7 +11,7 @@ from beamlime.v2.core.handler import HandlerRegistry, Message
 from beamlime.v2.core.message import MessageSink
 from beamlime.v2.core.processor import StreamProcessor
 from beamlime.v2.core.service import Service
-from beamlime.v2.handlers.monitor_data_handler import MonitorDataHandler
+from beamlime.v2.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.v2.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
@@ -67,7 +67,7 @@ def main() -> NoReturn:
         ),
         sink=PlotToPngSink(),
         handler_registry=HandlerRegistry(
-            config=handler_config, handler_cls=MonitorDataHandler
+            config=handler_config, handler_cls=create_monitor_data_handler
         ),
     )
     service = Service(config=service_config, processor=processor, name="local_demo")

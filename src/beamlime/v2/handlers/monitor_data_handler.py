@@ -29,19 +29,20 @@ class MonitorEvents:
         return MonitorEvents(time_of_arrival=ev44.time_of_flight)
 
 
-class MonitorDataHandler(GenericHandler[MonitorEvents, sc.DataArray]):
-    def __init__(self, *, logger: logging.Logger | None = None, config: Config):
-        preprocessor = Histogrammer(config=config)
-        accumulators = {
-            'cumulative': Cumulative(config=config),
-            'sliding': SlidingWindow(config=config),
-        }
-        super().__init__(
-            logger=logger,
-            config=config,
-            preprocessor=preprocessor,
-            accumulators=accumulators,
-        )
+def create_monitor_data_handler(
+    *, logger: logging.Logger | None = None, config: Config
+) -> GenericHandler[MonitorEvents, sc.DataArray]:
+    preprocessor = Histogrammer(config=config)
+    accumulators = {
+        'cumulative': Cumulative(config=config),
+        'sliding': SlidingWindow(config=config),
+    }
+    return GenericHandler(
+        logger=logger,
+        config=config,
+        preprocessor=preprocessor,
+        accumulators=accumulators,
+    )
 
 
 class Cumulative(Accumulator[sc.DataArray]):
