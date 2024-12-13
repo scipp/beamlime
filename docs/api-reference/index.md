@@ -34,18 +34,6 @@ Application interface protocols and matching mixins.
 
 ```
 
-## Top-level functions
-
-```{eval-rst}
-.. autosummary::
-   :toctree: ../generated/functions
-   :recursive:
-
-   async_retry
-   retry
-
-```
-
 ## Submodules
 
 ```{eval-rst}
