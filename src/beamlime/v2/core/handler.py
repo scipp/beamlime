@@ -84,7 +84,11 @@ class Accumulator(Protocol, Generic[U]):
         pass
 
 
-class GenericHandler(Handler[T, U]):
+class PeriodicAccumulatingHandler(Handler[T, U]):
+    """
+    Handler that accumulates data over time and emits the accumulated data periodically.
+    """
+
     def __init__(
         self,
         *,

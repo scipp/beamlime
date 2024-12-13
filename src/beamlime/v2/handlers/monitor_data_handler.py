@@ -10,7 +10,12 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from ..core.handler import Accumulator, Config, GenericHandler, Preprocessor
+from ..core.handler import (
+    Accumulator,
+    Config,
+    PeriodicAccumulatingHandler,
+    Preprocessor,
+)
 
 
 @dataclass
@@ -31,13 +36,13 @@ class MonitorEvents:
 
 def create_monitor_data_handler(
     *, logger: logging.Logger | None = None, config: Config
-) -> GenericHandler[MonitorEvents, sc.DataArray]:
+) -> PeriodicAccumulatingHandler[MonitorEvents, sc.DataArray]:
     preprocessor = Histogrammer(config=config)
     accumulators = {
         'cumulative': Cumulative(config=config),
         'sliding': SlidingWindow(config=config),
     }
-    return GenericHandler(
+    return PeriodicAccumulatingHandler(
         logger=logger,
         config=config,
         preprocessor=preprocessor,
