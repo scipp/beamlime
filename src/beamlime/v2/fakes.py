@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from typing import Generic, TypeVar
 
-from beamlime.v2.core.message import Message
+from .core import Message
 
 T = TypeVar('T')
 

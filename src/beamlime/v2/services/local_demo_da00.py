@@ -7,9 +7,7 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import dataarray_da00
 
-from beamlime.v2.core.handler import HandlerRegistry
-from beamlime.v2.core.processor import StreamProcessor
-from beamlime.v2.core.service import Service
+from beamlime.v2 import HandlerRegistry, Service, StreamProcessor
 from beamlime.v2.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.v2.kafka.message_adapter import (
     AdaptingMessageSource,

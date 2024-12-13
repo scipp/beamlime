@@ -6,9 +6,7 @@ from typing import NoReturn
 import numpy as np
 from streaming_data_types import eventdata_ev44
 
-from beamlime.v2.core.handler import HandlerRegistry
-from beamlime.v2.core.processor import StreamProcessor
-from beamlime.v2.core.service import Service
+from beamlime.v2 import HandlerRegistry, Service, StreamProcessor
 from beamlime.v2.handlers.monitor_data_handler import create_monitor_event_data_handler
 from beamlime.v2.kafka.message_adapter import (
     AdaptingMessageSource,

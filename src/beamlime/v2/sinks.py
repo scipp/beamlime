@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import scipp as sc
 
-from .core.message import Message, MessageSink, compact_messages
+from .core import Message, MessageSink, compact_messages
 
 
 class PlotToPngSink(MessageSink[sc.DataArray]):
