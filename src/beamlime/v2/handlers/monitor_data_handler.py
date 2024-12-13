@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
-from dataclasses import dataclass, replace
-from typing import Generic, Protocol, TypeVar
+from dataclasses import dataclass
 
 import numpy as np
 import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from ..core.handler import Config, Handler, Message
+from ..core.handler import Accumulator, Config, GenericHandler, Preprocessor
 
 
 @dataclass
@@ -30,69 +29,7 @@ class MonitorEvents:
         return MonitorEvents(time_of_arrival=ev44.time_of_flight)
 
 
-T = TypeVar('T')
-U = TypeVar('U')
-
-
-class Preprocessor(Protocol, Generic[T, U]):
-    def add(self, data: T) -> None:
-        pass
-
-    def get(self) -> U:
-        pass
-
-
-class Accumulator(Protocol, Generic[T]):
-    def add(self, timestamp: int, data: T) -> None:
-        pass
-
-    def get(self) -> T:
-        pass
-
-
-class GenericHandler(Handler[T, sc.DataArray]):
-    def __init__(
-        self,
-        *,
-        logger: logging.Logger | None = None,
-        config: Config,
-        preprocessor: Preprocessor[T, sc.DataArray],
-        accumulators: dict[str, Accumulator[sc.DataArray]],
-    ):
-        super().__init__(logger=logger, config=config)
-        self._preprocessor = preprocessor
-        self._accumulators = accumulators
-        self._update_every = int(
-            self._config.get("update_every_seconds", 1.0) * 1e9
-        )  # ns
-        self._next_update: int = 0
-
-    def handle(self, message: Message[T]) -> list[Message[sc.DataArray]]:
-        # TODO Config updates!
-        self._preprocessor.add(message.value)
-        if message.timestamp < self._next_update:
-            return []
-        data = self._preprocessor.get()
-        for accumulator in self._accumulators.values():
-            accumulator.add(timestamp=message.timestamp, data=data)
-        # If there were no pulses for a while we need to skip several updates.
-        # Note that we do not simply set _next_update based on reference_time
-        # to avoid drifts.
-        self._next_update += (
-            (message.timestamp - self._next_update) // self._update_every + 1
-        ) * self._update_every
-        key = message.key
-        return [
-            Message(
-                timestamp=message.timestamp,
-                key=replace(key, topic=f'{key.topic}_{name}'),
-                value=accumulator.get(),
-            )
-            for name, accumulator in self._accumulators.items()
-        ]
-
-
-class MonitorDataHandler(GenericHandler[MonitorEvents]):
+class MonitorDataHandler(GenericHandler[MonitorEvents, sc.DataArray]):
     def __init__(self, *, logger: logging.Logger | None = None, config: Config):
         preprocessor = Histogrammer(config=config)
         accumulators = {

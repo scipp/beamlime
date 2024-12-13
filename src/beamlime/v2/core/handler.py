@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Generic, Protocol
+from dataclasses import replace
+from typing import Any, Generic, Protocol, TypeVar
 
 from .message import Message, MessageKey, Tin, Tout
 
@@ -61,3 +62,64 @@ class HandlerRegistry(Generic[Tin, Tout]):
                 logger=self._logger, config=ConfigProxy(self._config, namespace=key)
             )
         return self._handlers[key]
+
+
+T = TypeVar('T')
+U = TypeVar('U')
+
+
+class Preprocessor(Protocol, Generic[T, U]):
+    def add(self, data: T) -> None:
+        pass
+
+    def get(self) -> U:
+        pass
+
+
+class Accumulator(Protocol, Generic[U]):
+    def add(self, timestamp: int, data: U) -> None:
+        pass
+
+    def get(self) -> U:
+        pass
+
+
+class GenericHandler(Handler[T, U]):
+    def __init__(
+        self,
+        *,
+        logger: logging.Logger | None = None,
+        config: Config,
+        preprocessor: Preprocessor[T, U],
+        accumulators: dict[str, Accumulator[U]],
+    ):
+        super().__init__(logger=logger, config=config)
+        self._preprocessor = preprocessor
+        self._accumulators = accumulators
+        self._update_every = int(
+            self._config.get("update_every_seconds", 1.0) * 1e9
+        )  # ns
+        self._next_update: int = 0
+
+    def handle(self, message: Message[T]) -> list[Message[U]]:
+        self._preprocessor.add(message.value)
+        if message.timestamp < self._next_update:
+            return []
+        data = self._preprocessor.get()
+        for accumulator in self._accumulators.values():
+            accumulator.add(timestamp=message.timestamp, data=data)
+        # If there were no pulses for a while we need to skip several updates.
+        # Note that we do not simply set _next_update based on reference_time
+        # to avoid drifts.
+        self._next_update += (
+            (message.timestamp - self._next_update) // self._update_every + 1
+        ) * self._update_every
+        key = message.key
+        return [
+            Message(
+                timestamp=message.timestamp,
+                key=replace(key, topic=f'{key.topic}_{name}'),
+                value=accumulator.get(),
+            )
+            for name, accumulator in self._accumulators.items()
+        ]
