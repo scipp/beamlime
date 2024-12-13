@@ -54,4 +54,11 @@ def test_handler() -> None:
     assert len(results) == 2
     # Window contains 3 messages (should be 2, but due to initial update on first
     # message, we have 3), 4 messages since start.
-    assert_identical(4 * results[0].value, 3 * results[1].value)
+    cumulative_value = -1
+    sliding_window_value = -1
+    for msg in results:
+        if 'cumulative' in msg.key.topic:
+            cumulative_value = msg.value
+        else:
+            sliding_window_value = msg.value
+    assert_identical(3 * cumulative_value, 4 * sliding_window_value)
