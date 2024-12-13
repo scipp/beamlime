@@ -68,6 +68,13 @@ T = TypeVar('T')
 U = TypeVar('U')
 
 
+class ForwardingHandler(Handler[T, T]):
+    def handle(self, message: Message[T]) -> list[Message[T]]:
+        # It is important to change the output topic to avoid infinite loops.
+        key = replace(message.key, topic=f'{message.key.topic}_forwarded')
+        return [replace(message, key=key)]
+
+
 class Accumulator(Protocol, Generic[T, U]):
     def add(self, timestamp: int, data: T) -> None:
         pass
