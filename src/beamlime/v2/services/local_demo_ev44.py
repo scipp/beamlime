@@ -61,7 +61,9 @@ def main() -> NoReturn:
             config=handler_config, handler_cls=create_monitor_event_data_handler
         ),
     )
-    service = Service(config=service_config, processor=processor, name="local_demo")
+    service = Service(
+        config=service_config, processor=processor, name="local_demo_ev44"
+    )
     service.start()
 
 

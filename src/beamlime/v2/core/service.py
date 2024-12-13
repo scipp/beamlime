@@ -24,8 +24,8 @@ class Service:
         name: str | None = None,
         log_level: int = logging.INFO,
     ):
-        self._setup_logging(log_level)
         self._logger = logging.getLogger(name or __name__)
+        self._setup_logging(log_level)
         self._config = config
         self._processor = processor
         self._thread: threading.Thread | None = None
@@ -33,13 +33,15 @@ class Service:
         self._setup_signal_handlers()
 
     def _setup_logging(self, log_level: int) -> None:
-        """Configure logging for the entire service"""
-        logging.basicConfig(
-            level=log_level,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            stream=sys.stdout,
-        )
-        logging.getLogger('beamlime').setLevel(log_level)
+        """Configure logging for this service instance if not already configured"""
+        root = logging.getLogger()
+        if not root.handlers:  # Only configure if no handlers exist
+            logging.basicConfig(
+                level=log_level,
+                format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                stream=sys.stdout,
+            )
+        self._logger.setLevel(log_level)
 
     @property
     def is_running(self) -> bool:
