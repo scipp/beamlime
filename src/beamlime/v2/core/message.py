@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Generic, Protocol, TypeVar
 
+T = TypeVar('T')
 Tin = TypeVar('Tin')
 Tout = TypeVar('Tout')
 
@@ -16,12 +17,12 @@ class MessageKey:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class Message(Generic[Tin]):
+class Message(Generic[T]):
     timestamp: int
     key: MessageKey
-    value: Tin
+    value: T
 
-    def __lt__(self, other: Message[Tin]) -> bool:
+    def __lt__(self, other: Message[T]) -> bool:
         return self.timestamp < other.timestamp
 
 
@@ -39,3 +40,14 @@ class MessageSink(Protocol, Generic[Tout]):
             messages: A dictionary of messages to publish, where the key is the
                 topic and the value is the message.
         """
+
+
+def compact_messages(messages: list[Message[T]]) -> list[Message[T]]:
+    """
+    Compact messages by removing outdates ones, keeping only the latest for each key.
+    """
+    latest = {}
+    for msg in sorted(messages, reverse=True):  # Newest first
+        if msg.key not in latest:
+            latest[msg.key] = msg
+    return sorted(latest.values())
