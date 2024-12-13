@@ -68,16 +68,8 @@ T = TypeVar('T')
 U = TypeVar('U')
 
 
-class Preprocessor(Protocol, Generic[T, U]):
-    def add(self, data: T) -> None:
-        pass
-
-    def get(self) -> U:
-        pass
-
-
-class Accumulator(Protocol, Generic[U]):
-    def add(self, timestamp: int, data: U) -> None:
+class Accumulator(Protocol, Generic[T, U]):
+    def add(self, timestamp: int, data: T) -> None:
         pass
 
     def get(self) -> U:
@@ -94,8 +86,8 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         *,
         logger: logging.Logger | None = None,
         config: Config,
-        preprocessor: Preprocessor[T, U],
-        accumulators: dict[str, Accumulator[U]],
+        preprocessor: Accumulator[T, U],
+        accumulators: dict[str, Accumulator[U, U]],
     ):
         super().__init__(logger=logger, config=config)
         self._preprocessor = preprocessor
@@ -106,7 +98,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         self._next_update: int = 0
 
     def handle(self, message: Message[T]) -> list[Message[U]]:
-        self._preprocessor.add(message.value)
+        self._preprocessor.add(message.timestamp, message.value)
         if message.timestamp < self._next_update:
             return []
         data = self._preprocessor.get()

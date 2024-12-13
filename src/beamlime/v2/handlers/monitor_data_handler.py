@@ -15,7 +15,6 @@ from ..core.handler import (
     Accumulator,
     Config,
     PeriodicAccumulatingHandler,
-    Preprocessor,
 )
 
 
@@ -47,7 +46,7 @@ def create_monitor_data_handler(
     *, logger: logging.Logger | None = None, config: Config
 ) -> PeriodicAccumulatingHandler[sc.DataArray, sc.DataArray]:
     return _create_monitor_handler(
-        logger=logger, config=config, preprocessor=AccumulateSum()
+        logger=logger, config=config, preprocessor=Cumulative(config=config)
     )
 
 
@@ -58,7 +57,7 @@ def _create_monitor_handler(
     *,
     logger: logging.Logger | None = None,
     config: Config,
-    preprocessor: Preprocessor[T, sc.DataArray],
+    preprocessor: Accumulator[T, sc.DataArray],
 ) -> PeriodicAccumulatingHandler[T, sc.DataArray]:
     accumulators = {
         'cumulative': Cumulative(config=config),
@@ -72,7 +71,7 @@ def _create_monitor_handler(
     )
 
 
-class Cumulative(Accumulator[sc.DataArray]):
+class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config):
         self._config = config
         # TODO We will want to support clearing the history, e.g., when a "start"
@@ -92,7 +91,7 @@ class Cumulative(Accumulator[sc.DataArray]):
         return self._cumulative
 
 
-class SlidingWindow(Accumulator[sc.DataArray]):
+class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config):
         self._config = config
         self._max_age = sc.scalar(
@@ -122,21 +121,7 @@ class SlidingWindow(Accumulator[sc.DataArray]):
         ]
 
 
-class AccumulateSum(Preprocessor[sc.DataArray, sc.DataArray]):
-    def __init__(self):
-        self._sum: sc.DataArray | None = None
-
-    def add(self, data: sc.DataArray) -> None:
-        if self._sum is None:
-            self._sum = data
-        else:
-            self._sum += data
-
-    def get(self) -> sc.DataArray:
-        return self._sum
-
-
-class Histogrammer(Preprocessor[MonitorEvents, sc.DataArray]):
+class Histogrammer(Accumulator[MonitorEvents, sc.DataArray]):
     def __init__(self, config: Config):
         self._config = config
         self._nbin = -1
@@ -153,7 +138,8 @@ class Histogrammer(Preprocessor[MonitorEvents, sc.DataArray]):
             )
             self._edges_ns = self._edges.to(unit='ns')
 
-    def add(self, data: MonitorEvents) -> None:
+    def add(self, timestamp: int, data: MonitorEvents) -> None:
+        _ = timestamp
         self._chunks.append(data.time_of_arrival)
 
     def get(self) -> sc.DataArray:
