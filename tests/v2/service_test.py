@@ -20,7 +20,7 @@ def test_create_start_stop_service() -> None:
     assert processor.call_count == 0
     service.start(blocking=False)
     assert service.is_running
-    time.sleep(0.5)
+    time.sleep(0.2)
     assert processor.call_count > 0
     service.stop()
     assert not service.is_running
