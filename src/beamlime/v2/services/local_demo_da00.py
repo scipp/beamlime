@@ -36,15 +36,21 @@ class FakeMonitorDa00KafkaConsumer(KafkaConsumer):
     def consume(self, num_messages: int, timeout: float) -> list[FakeKafkaMessage]:
         _ = num_messages
         _ = timeout
-        time_of_flight = self._make_normal(mean=30_000_000, std=10_000_000, size=10)
+        return [
+            self._make_message(name="monitor1", size=30),
+            self._make_message(name="monitor2", size=10),
+        ]
+
+    def _make_message(self, name: str, size: int) -> FakeKafkaMessage:
+        time_of_flight = self._make_normal(mean=30_000_000, std=10_000_000, size=size)
         var = sc.array(dims=['time_of_arrival'], values=time_of_flight, unit='ns')
         da = var.hist(tof=self._tof)
         da00 = dataarray_da00.serialise_da00(
-            source_name="monitor1",
+            source_name=name,
             timestamp_ns=time.time_ns(),
             data=scipp_to_da00(da),
         )
-        return [FakeKafkaMessage(value=da00, topic="monitors")]
+        return FakeKafkaMessage(value=da00, topic="monitors")
 
 
 class PlotToPngSink(MessageSink[sc.DataArray]):
