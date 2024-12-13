@@ -122,6 +122,12 @@ class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
 
 
 class Histogrammer(Accumulator[MonitorEvents, sc.DataArray]):
+    """
+    Accumulator that bins time of arrival data into a histogram.
+
+    Monitor data handlers use this as a preprocessor before actual accumulation.
+    """
+
     def __init__(self, config: Config):
         self._config = config
         self._nbin = -1
