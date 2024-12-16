@@ -3,7 +3,7 @@
 import argparse
 from typing import NoReturn
 
-from beamlime.v2 import HandlerRegistry, Service, StreamProcessor
+from beamlime.v2 import ConfigManager, HandlerRegistry, Service, StreamProcessor
 from beamlime.v2.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.v2.kafka import consumer as kafka_consumer
 from beamlime.v2.kafka.message_adapter import (
@@ -28,14 +28,18 @@ def setup_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def parse_args() -> argparse.Namespace:
-    parser = setup_arg_parser()
-    return parser.parse_args()
+def run_service(*, sink_type: str) -> NoReturn:
+    service_name = 'local_demo_da00'
+    initial_config = {
+        'sliding_window_seconds': 5,
+        'kafka.bootstrap.servers': 'localhost:9092',
+    }
 
-
-def run_service(sink_type: str) -> NoReturn:
-    handler_config = {'sliding_window_seconds': 5}
-    service_config = {}
+    config_manager = ConfigManager(
+        bootstrap_servers='localhost:9092',
+        service_name=service_name,
+        initial_config=initial_config,
+    )
     consumer = kafka_consumer.make_bare_consumer(
         topics=['monitors'], config=kafka_consumer.kafka_config
     )
@@ -55,18 +59,19 @@ def run_service(sink_type: str) -> NoReturn:
         ),
         sink=sink,
         handler_registry=HandlerRegistry(
-            config=handler_config, handler_cls=create_monitor_data_handler
+            config=config_manager, handler_cls=create_monitor_data_handler
         ),
     )
     service = Service(
-        config=service_config, processor=processor, name="local_demo_da00"
+        config_manager=config_manager, processor=processor, name=service_name
     )
     service.start()
 
 
 def main() -> NoReturn:
-    args = parse_args()
-    run_service(args.sink)
+    parser = setup_arg_parser()
+    args = parser.parse_args()
+    run_service(sink_type=args.sink)
 
 
 if __name__ == "__main__":

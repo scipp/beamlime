@@ -29,7 +29,7 @@ class ConfigSubscriber:
         self._config = {}
         self._running = False
 
-    def get_config(self, key: str, default=None):
+    def get(self, key: str, default=None):
         return self._config.get(key, default)
 
     def start(self):

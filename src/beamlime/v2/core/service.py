@@ -9,7 +9,7 @@ import threading
 import time
 from typing import Any
 
-from .handler import Config
+from .config_manager import ConfigManager
 from .processor import Processor
 
 
@@ -19,14 +19,14 @@ class Service:
     def __init__(
         self,
         *,
-        config: Config,
+        config_manager: ConfigManager,
         processor: Processor,
         name: str | None = None,
         log_level: int = logging.INFO,
     ):
         self._logger = logging.getLogger(name or __name__)
         self._setup_logging(log_level)
-        self._config = config
+        self._config_manager = config_manager
         self._processor = processor
         self._thread: threading.Thread | None = None
         self._running = False
@@ -63,6 +63,7 @@ class Service:
         """Start the service and block until stopped"""
         self._logger.info("Starting service...")
         self._running = True
+        self._config_manager.start()
         self._thread = threading.Thread(target=self._run_loop)
         self._thread.start()
         self._logger.info("Service started")
@@ -82,7 +83,7 @@ class Service:
         try:
             while self.is_running:
                 self._processor.process()
-                time.sleep(self._config.get("service.poll_interval", 0.1))
+                time.sleep(self._config_manager.get("service.poll_interval", 0.1))
         except RuntimeError:
             self._logger.exception("Error in service loop")
             self.stop()
@@ -95,4 +96,5 @@ class Service:
         self._running = False
         if self._thread:
             self._thread.join()
+        self._config_manager.stop()
         self._logger.info("Service stopped")

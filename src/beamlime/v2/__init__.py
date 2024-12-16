@@ -12,6 +12,7 @@ except importlib.metadata.PackageNotFoundError:
 del importlib
 
 from .core import (
+    ConfigManager,
     Service,
     Processor,
     Handler,
@@ -27,6 +28,7 @@ from .core import (
 
 __all__ = [
     'compact_messages',
+    'ConfigManager',
     'ForwardingHandler',
     'Handler',
     'HandlerRegistry',

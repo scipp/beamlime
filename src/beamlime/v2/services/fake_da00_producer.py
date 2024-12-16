@@ -7,6 +7,7 @@ import numpy as np
 import scipp as sc
 
 from beamlime.v2 import (
+    ConfigManager,
     Handler,
     HandlerRegistry,
     Message,
@@ -70,18 +71,22 @@ class IdentityHandler(Handler[sc.DataArray, sc.DataArray]):
 
 
 def main() -> NoReturn:
-    handler_config = {}
-    service_config = {}
+    service_name = "fake_da00_producer"
+    config_manager = ConfigManager(
+        bootstrap_servers="localhost:9092",
+        service_name=service_name,
+        initial_config={},
+    )
     producer_config = {"bootstrap.servers": "localhost:9092"}
     processor = StreamProcessor(
         source=FakeMonitorSource(),
         sink=KafkaSink(kafka_config=producer_config),
         handler_registry=HandlerRegistry(
-            config=handler_config, handler_cls=IdentityHandler
+            config=config_manager, handler_cls=IdentityHandler
         ),
     )
     service = Service(
-        config=service_config, processor=processor, name="fake_da00_producer"
+        config_manager=config_manager, processor=processor, name=service_name
     )
     service.start()
 

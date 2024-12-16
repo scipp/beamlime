@@ -63,7 +63,7 @@ class ConfigService:
             self._local_updates.discard(update_id)
             self._logger.error('Failed to update config: %s', e)
 
-    def get_config(self, key: str, default=None):
+    def get(self, key: str, default=None):
         return self._config.get(key, default)
 
     def start(self):
