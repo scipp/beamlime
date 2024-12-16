@@ -18,7 +18,7 @@ from beamlime.v2.sinks import PlotToPngSink
 
 
 def setup_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description='Kafka Demo DA00 Service')
+    parser = argparse.ArgumentParser(description='Kafka Demo da00 Service')
     parser.add_argument(
         '--sink',
         choices=['kafka', 'png'],
