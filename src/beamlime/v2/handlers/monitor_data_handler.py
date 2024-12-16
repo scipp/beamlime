@@ -46,7 +46,9 @@ def create_monitor_data_handler(
     *, logger: logging.Logger | None = None, config: Config
 ) -> PeriodicAccumulatingHandler[sc.DataArray, sc.DataArray]:
     return _create_monitor_handler(
-        logger=logger, config=config, preprocessor=Cumulative(config=config)
+        logger=logger,
+        config=config,
+        preprocessor=Cumulative(config=config, clear_on_get=True),
     )
 
 
@@ -72,12 +74,13 @@ def _create_monitor_handler(
 
 
 class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, clear_on_get: bool = False):
         self._config = config
         # TODO We will want to support clearing the history, e.g., when a "start"
         # message is received. This is not yet implemented. This could be automatic,
         # based on run_start messages from upstream, or via our own control topic. We
         # can consider translating run_start messages to our own control messages.
+        self._clear_on_get = clear_on_get
         self._cumulative: sc.DataArray | None = None
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
@@ -89,7 +92,8 @@ class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
 
     def get(self) -> sc.DataArray:
         value = self._cumulative
-        self._cumulative = None
+        if self._clear_on_get:
+            self._cumulative = None
         return value
 
 
