@@ -15,8 +15,7 @@ from streaming_data_types.eventdata_ev44 import EventData
 from streaming_data_types.logdata_f144 import ExtractedLogData
 from streaming_data_types.timestamps_tdct import Timestamps
 
-from ..logging import BeamlimeLogger
-from ._nexus_helpers import (
+from .._nexus_helpers import (
     NexusTemplate,
     RunStartInfo,
     StreamModuleKey,
@@ -24,7 +23,7 @@ from ._nexus_helpers import (
     collect_streaming_modules,
     collect_streaming_modules_from_nexus_file,
 )
-from ._random_data_providers import (
+from .._random_data_providers import (
     DataFeedingSpeed,
     DetectorName,
     EventRate,
@@ -33,7 +32,16 @@ from ._random_data_providers import (
     nxevent_data_ev44_generator,
     random_ev44_generator,
 )
-from .base import Application, DaemonInterface, MessageProtocol
+
+try:
+    from appstract import logging as applogs
+    from appstract import mixins as appmixins
+    from appstract.event_driven import EventMessageProtocol, StopEventMessage
+except ImportError as e:
+    raise ImportError(
+        "The appstract package is required for the old version of beamlime."
+        "Please install it using `pip install appstract`."
+    ) from e
 
 Path = str | bytes | os.PathLike
 
@@ -159,13 +167,13 @@ def fake_event_generators(
 FillDummyData = NewType("FillDummyData", bool)
 
 
-class FakeListener(DaemonInterface):
+class FakeListener(appmixins.LogMixin):
     """Event generator based on the nexus template."""
 
     def __init__(
         self,
         *,
-        logger: BeamlimeLogger,
+        logger: applogs.AppLogger,
         speed: DataFeedingSpeed,
         nexus_template: NexusTemplate | None = None,
         nexus_file_path: NexusFilePath,
@@ -189,7 +197,7 @@ class FakeListener(DaemonInterface):
         self.data_feeding_speed = speed
         self.num_frames = num_frames
 
-    async def run(self) -> AsyncGenerator[MessageProtocol, None]:
+    async def run(self) -> AsyncGenerator[EventMessageProtocol, None]:
         self.info("Fake data streaming started...")
         # Real listener will wait for the RunStart message to parse the structure
         if self.nexus_structure is None:
@@ -239,7 +247,7 @@ class FakeListener(DaemonInterface):
             self.info(f"Neutron events of frame #{i_frame} were sent.")
             await asyncio.sleep(self.data_feeding_speed)
 
-        yield Application.Stop(content=None)
+        yield StopEventMessage(content=None)
         self.info("Fake data streaming finished...")
 
     @classmethod
@@ -293,7 +301,7 @@ class FakeListener(DaemonInterface):
 
     @classmethod
     def from_args(
-        cls, logger: BeamlimeLogger, args: argparse.Namespace
+        cls, logger: applogs.AppLogger, args: argparse.Namespace
     ) -> "FakeListener":
         if args.nexus_file_path is None:
             # This option is not set as a required argument in the `add_argument_group`

@@ -3,13 +3,59 @@
 # These fixtures cannot be found by pytest,
 # if they are not defined in `conftest.py` under `tests` directory.
 import json
-from collections.abc import Generator
+import pathlib
 from typing import Literal
 
+import pooch
 import pytest
 
-from beamlime import Factory
-from tests.applications.data import get_path
+_version = '0'
+
+
+def _make_pooch():
+    return pooch.create(
+        path=pooch.os_cache('beamlime'),
+        env='BEAMLIME_DATA_DIR',
+        retry_if_failed=3,
+        base_url='https://public.esss.dk/groups/scipp/beamlime/nexus_templates/',
+        version=_version,
+        registry={
+            'loki.json': 'md5:29574acd34eb6479f14bd8d6c04aed64',
+            # A version of ymir.json where we added two fake detectors and
+            # removed a templating string - to make it like something we might
+            # read in a real run start message
+            'ymir_detectors.json': 'md5:d9a25d4375ae3d414d91bfe504baa844',
+            'ymir.json': 'md5:5e913075094d97c5e9e9aca76fc32554',
+            'ymir_detectors.nxs': 'md5:2e143cd839a84301b7459d5ab6df8454',
+            # readme of the dataset
+            'README.md': 'md5:7e101b5c38dddc7d530e0594a2058950',
+        },
+    )
+
+
+_pooch = _make_pooch()
+_pooch.fetch('README.md')
+
+
+def get_path(name: str) -> pathlib.Path:
+    """
+    Return the path to a data file bundled with beamlime test helpers.
+
+    This function only works with example data and cannot handle
+    paths to custom files.
+    """
+
+    return pathlib.Path(_pooch.fetch(name))
+
+
+def get_checksum(name: str) -> str:
+    """
+    Return the checksum of a data file bundled with beamlime test helpers.
+
+    This function only works with example data and cannot handle
+    paths to custom files.
+    """
+    return _pooch.registry[name]
 
 
 def pytest_addoption(parser: pytest.Parser):
@@ -77,28 +123,6 @@ def large_file_test(request: pytest.FixtureRequest) -> Literal[True]:
 
 
 @pytest.fixture()
-def local_logger() -> Generator[Literal[True], None, None]:
-    """
-    Keep a copy of logger names in logging.Logger.manager.loggerDict
-    and remove newly added loggers at the end of the context.
-
-    It will help a test not to interfere other tests.
-    """
-    from tests.logging.contexts import local_logger as _local_logger
-
-    with _local_logger():
-        yield True
-
-
-@pytest.fixture()
-def default_factory() -> Factory:
-    """Returns a Factory that has all default providers of ``beamlime``."""
-    from beamlime.logging.providers import log_providers
-
-    return Factory(log_providers)
-
-
-@pytest.fixture()
 def ymir() -> dict:
     with open(get_path('ymir_detectors.json')) as f:
         data = json.load(f)
@@ -107,7 +131,7 @@ def ymir() -> dict:
 
 @pytest.fixture()
 def ymir_static_file() -> str:
-    return get_path("ymir_detectors.nxs").as_posix()
+    return str(get_path("ymir_detectors.nxs").as_posix())
 
 
 @pytest.fixture()

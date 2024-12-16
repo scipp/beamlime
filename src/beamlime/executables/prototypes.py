@@ -3,11 +3,25 @@
 import argparse
 from typing import Protocol, TypeVar
 
-from beamlime import Factory, ProviderGroup, SingletonProvider
-from beamlime.applications.daemons import FakeListener, read_nexus_template_file
-from beamlime.applications.handlers import DataAssembler, PlotSaver
-from beamlime.logging import BeamlimeLogger
+from ..applications.daemons import FakeListener, read_nexus_template_file
+from ..applications.handlers import DataAssembler, PlotSaver
 
+try:
+    from appstract import logging as applogs
+    from appstract.constructors import (
+        Factory,
+        ProviderGroup,
+        SingletonProvider,
+        multiple_constant_providers,
+    )
+    from appstract.constructors.providers import merge as merge_providers
+    from appstract.event_driven import AsyncApplication, MessageRouter
+    from appstract.logging.providers import log_providers
+except ImportError as e:
+    raise ImportError(
+        "The appstract package is required for the old version of beamlime."
+        "Please install it using `pip install appstract`."
+    ) from e
 T = TypeVar("T", bound="ArgumentInstantiable")
 
 
@@ -17,43 +31,41 @@ class ArgumentInstantiable(Protocol):
 
     @classmethod
     def from_args(
-        cls: type[T], logger: BeamlimeLogger, args: argparse.Namespace
+        cls: type[T], logger: applogs.AppLogger, args: argparse.Namespace
     ) -> T: ...
 
 
 def instantiate_from_args(
-    logger: BeamlimeLogger, args: argparse.Namespace, tp: type[T]
+    logger: applogs.AppLogger, args: argparse.Namespace, tp: type[T]
 ) -> T:
     return tp.from_args(logger=logger, args=args)
 
 
 def fake_listener_from_args(
-    logger: BeamlimeLogger, args: argparse.Namespace
+    logger: applogs.AppLogger, args: argparse.Namespace
 ) -> FakeListener:
     return instantiate_from_args(logger, args, FakeListener)
 
 
-def plot_saver_from_args(logger: BeamlimeLogger, args: argparse.Namespace) -> PlotSaver:
+def plot_saver_from_args(
+    logger: applogs.AppLogger, args: argparse.Namespace
+) -> PlotSaver:
     return instantiate_from_args(logger, args, PlotSaver)
 
 
 def data_assembler_from_args(
-    logger: BeamlimeLogger, args: argparse.Namespace
+    logger: applogs.AppLogger, args: argparse.Namespace
 ) -> DataAssembler:
     return instantiate_from_args(logger, args, DataAssembler)
 
 
 def collect_default_providers() -> ProviderGroup:
     """Helper method to collect all default providers for this prototype."""
-    from beamlime.constructors.providers import merge as merge_providers
-    from beamlime.logging.providers import log_providers
-
-    from ..applications.base import Application, MessageRouter
     from ..applications.handlers import DataReductionHandler
     from ..workflow_protocols import provide_beamlime_workflow
 
     app_providers = ProviderGroup(
-        SingletonProvider(Application),
+        SingletonProvider(AsyncApplication),
         MessageRouter,
     )
 
@@ -69,7 +81,6 @@ def collect_default_providers() -> ProviderGroup:
 def run_standalone_prototype(
     prototype_factory: Factory, arg_name_space: argparse.Namespace
 ):
-    from ..applications.base import Application
     from ..applications.daemons import DataPieceReceived, RunStart
     from ..applications.handlers import (
         DataAssembler,
@@ -77,7 +88,6 @@ def run_standalone_prototype(
         DataReductionHandler,
         WorkflowResultUpdate,
     )
-    from ..constructors import multiple_constant_providers
     from ..workflow_protocols import WorkflowName
 
     parameters = {
@@ -88,26 +98,26 @@ def run_standalone_prototype(
     factory = Factory(
         prototype_factory.providers,
         ProviderGroup(
-            fake_listener_from_args,
+            SingletonProvider(fake_listener_from_args),
             plot_saver_from_args,
             data_assembler_from_args,
         ),
     )
 
     with multiple_constant_providers(factory, parameters):
-        factory[BeamlimeLogger].setLevel(arg_name_space.log_level.upper())
-        app = factory[Application]
+        factory[applogs.AppLogger].setLevel(arg_name_space.log_level.upper())
+        app = factory[AsyncApplication]
 
         # Handlers
         plot_saver = factory[PlotSaver]
-        app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
+        app.register_handler(WorkflowResultUpdate, plot_saver.save_histogram)
         data_assembler = factory[DataAssembler]
-        app.register_handling_method(RunStart, data_assembler.set_run_start)
-        app.register_handling_method(DataPieceReceived, data_assembler.merge_data_piece)
+        app.register_handler(RunStart, data_assembler.set_run_start)
+        app.register_handler(DataPieceReceived, data_assembler.merge_data_piece)
         data_reduction_handler = factory[DataReductionHandler]
-        app.register_handling_method(RunStart, data_reduction_handler.set_run_start)
-        app.register_handling_method(DataReady, data_reduction_handler.reduce_data)
+        app.register_handler(RunStart, data_reduction_handler.set_run_start)
+        app.register_handler(DataReady, data_reduction_handler.reduce_data)
 
         # Daemons
-        app.register_daemon(factory[FakeListener])
+        app.register_daemon(factory[FakeListener].run)
         app.run()

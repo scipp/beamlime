@@ -7,7 +7,7 @@ from collections.abc import Generator, Mapping
 import numpy as np
 import pytest
 
-from beamlime.applications._nexus_helpers import (
+from beamlime._nexus_helpers import (
     StreamModuleKey,
     StreamModuleValue,
     collect_streaming_modules,
@@ -15,7 +15,7 @@ from beamlime.applications._nexus_helpers import (
     iter_nexus_structure,
     merge_message_into_nexus_store,
 )
-from beamlime.applications._random_data_providers import (
+from beamlime._random_data_providers import (
     DetectorName,
     DetectorNumberCandidates,
     EventRate,
@@ -128,7 +128,7 @@ def test_ymir_detector_template_checksum() -> None:
     This test is for making sure to update the same file
     in the public server after modifying the file.
     """
-    from tests.applications.data import get_checksum
+    from conftest import get_checksum
 
     local_ymir_path = pathlib.Path(__file__).parent / "ymir_detectors.json"
     # check md5 sum of the ``local_ymir_path`` file

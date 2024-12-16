@@ -22,11 +22,18 @@ from beamlime.config.raw_detectors import (
     loki_detectors_config,
     nmx_detectors_config,
 )
-from beamlime.logging import BeamlimeLogger
 
 from ..workflow_protocols import WorkflowResult
-from .base import HandlerInterface
 from .daemons import DataPieceReceived, NexusFilePath
+
+try:
+    from appstract import logging as applogs
+    from appstract import mixins as appmixins
+except ImportError as e:
+    raise ImportError(
+        "The appstract package is required for the old version of beamlime."
+        "Please install it using `pip install appstract`."
+    ) from e
 
 detector_registry = {
     'DREAM': dream_detectors_config,
@@ -40,7 +47,7 @@ class WorkflowResultUpdate:
     content: WorkflowResult
 
 
-class RawCountHandler(HandlerInterface):
+class RawCountHandler(appmixins.LogMixin):
     """
     Continuously handle raw counts for every ev44 message.
 
@@ -50,7 +57,7 @@ class RawCountHandler(HandlerInterface):
     def __init__(
         self,
         *,
-        logger: BeamlimeLogger,
+        logger: applogs.AppLogger,
         nexus_file: NexusFilePath,
         update_every: float,
         window_length: float,
@@ -160,7 +167,7 @@ class RawCountHandler(HandlerInterface):
 
     @classmethod
     def from_args(
-        cls, logger: BeamlimeLogger, args: argparse.Namespace
+        cls, logger: applogs.AppLogger, args: argparse.Namespace
     ) -> "RawCountHandler":
         return cls(
             logger=logger,
@@ -183,11 +190,11 @@ MaxPlotColumn = NewType("MaxPlotColumn", int)
 DefaultMaxPlotColumn = MaxPlotColumn(3)
 
 
-class PlotStreamer(HandlerInterface):
+class PlotStreamer(appmixins.LogMixin):
     def __init__(
         self,
         *,
-        logger: BeamlimeLogger,
+        logger: applogs.AppLogger,
         max_column: MaxPlotColumn = DefaultMaxPlotColumn,
     ) -> None:
         self.logger = logger
@@ -348,7 +355,7 @@ class PlotSaver(PlotStreamer):
     def __init__(
         self,
         *,
-        logger: BeamlimeLogger,
+        logger: applogs.AppLogger,
         image_path_prefix: ImagePath,
         max_column: MaxPlotColumn = DefaultMaxPlotColumn,
     ) -> None:
@@ -405,7 +412,9 @@ class PlotSaver(PlotStreamer):
         )
 
     @classmethod
-    def from_args(cls, logger: BeamlimeLogger, args: argparse.Namespace) -> "PlotSaver":
+    def from_args(
+        cls, logger: applogs.AppLogger, args: argparse.Namespace
+    ) -> "PlotSaver":
         return cls(
             logger=logger,
             image_path_prefix=args.image_path_prefix or random_image_path(),

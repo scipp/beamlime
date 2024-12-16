@@ -13,18 +13,24 @@ import plopp as pp
 import scipp as sc
 from ess.reduce.nexus.json_nexus import JSONGroup
 
-from beamlime.logging import BeamlimeLogger
-
-from ..workflow_protocols import LiveWorkflow, WorkflowResult
-from ._nexus_helpers import (
+from .._nexus_helpers import (
     NexusStore,
     StreamModuleKey,
     StreamModuleValue,
     merge_message_into_nexus_store,
     nexus_path_as_string,
 )
-from .base import HandlerInterface
+from ..workflow_protocols import LiveWorkflow, WorkflowResult
 from .daemons import DataPieceReceived, RunStart
+
+try:
+    from appstract import logging as applogs
+    from appstract import mixins as appmixins
+except ImportError as e:
+    raise ImportError(
+        "The appstract package is required for the old version of beamlime."
+        "Please install it using `pip install appstract`."
+    ) from e
 
 ResultRegistry = NewType("ResultRegistry", dict[str, sc.DataArray])
 """Workflow result container."""
@@ -73,13 +79,13 @@ def maxcount_or_maxtime(maxcount: Number, maxtime: Number):
     return run
 
 
-class DataAssembler(HandlerInterface):
+class DataAssembler(appmixins.LogMixin):
     """Receives data and assembles it into a single data structure."""
 
     def __init__(
         self,
         *,
-        logger: BeamlimeLogger,
+        logger: applogs.AppLogger,
         merge_every_nth: MergeMessageCountInterval = 1,
         max_seconds_between_messages: MergeMessageTimeInterval = float("inf"),
     ):
@@ -141,7 +147,7 @@ class DataAssembler(HandlerInterface):
 
     @classmethod
     def from_args(
-        cls, logger: BeamlimeLogger, args: argparse.Namespace
+        cls, logger: applogs.AppLogger, args: argparse.Namespace
     ) -> "DataAssembler":
         return cls(
             logger=logger,
@@ -150,14 +156,16 @@ class DataAssembler(HandlerInterface):
         )
 
 
-class DataReductionHandler(HandlerInterface):
+class DataReductionHandler(appmixins.LogMixin):
     """Data reduction handler to process the raw data."""
 
     def __init__(
         self,
         workflow: type[LiveWorkflow],
+        logger: applogs.AppLogger,
         reuslt_registry: ResultRegistry | None = None,
     ) -> None:
+        self.logger = logger
         self.workflow_constructor = workflow
         self.workflow: LiveWorkflow
         self.result_registry = {} if reuslt_registry is None else reuslt_registry
@@ -192,11 +200,11 @@ MaxPlotColumn = NewType("MaxPlotColumn", int)
 DefaultMaxPlotColumn = MaxPlotColumn(2)
 
 
-class PlotStreamer(HandlerInterface):
+class PlotStreamer(appmixins.LogMixin):
     def __init__(
         self,
         *,
-        logger: BeamlimeLogger,
+        logger: applogs.AppLogger,
         max_column: MaxPlotColumn = DefaultMaxPlotColumn,
     ) -> None:
         self.logger = logger
@@ -244,7 +252,7 @@ class PlotSaver(PlotStreamer):
     def __init__(
         self,
         *,
-        logger: BeamlimeLogger,
+        logger: applogs.AppLogger,
         image_path_prefix: ImagePath,
         max_column: MaxPlotColumn = DefaultMaxPlotColumn,
     ) -> None:
@@ -284,7 +292,9 @@ class PlotSaver(PlotStreamer):
         )
 
     @classmethod
-    def from_args(cls, logger: BeamlimeLogger, args: argparse.Namespace) -> "PlotSaver":
+    def from_args(
+        cls, logger: applogs.AppLogger, args: argparse.Namespace
+    ) -> "PlotSaver":
         return cls(
             logger=logger,
             image_path_prefix=args.image_path_prefix or random_image_path(),

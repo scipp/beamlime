@@ -10,17 +10,25 @@ from confluent_kafka import OFFSET_BEGINNING, Consumer, Message, TopicPartition
 from confluent_kafka.admin import AdminClient
 from streaming_data_types.eventdata_ev44 import EventData, deserialise_ev44
 
-from .. import Factory, ProviderGroup
-from ..applications._nexus_helpers import (
-    StreamModuleKey,
-    StreamModuleValue,
-)
-from ..applications.base import (
-    Application,
-    DaemonInterface,
-    MessageProtocol,
-    MessageRouter,
-)
+try:
+    from appstract import logging as applogs
+    from appstract import mixins as appmixins
+    from appstract.constructors import Factory, ProviderGroup, SingletonProvider
+    from appstract.constructors.providers import merge as merge_providers
+    from appstract.event_driven import (
+        AsyncApplication,
+        EventMessageProtocol,
+        MessageRouter,
+    )
+    from appstract.logging.providers import log_providers
+    from appstract.script import build_arg_parser
+except ImportError as e:
+    raise ImportError(
+        "The appstract package is required for the old version of beamlime."
+        "Please install it using `pip install appstract`."
+    ) from e
+
+from .._nexus_helpers import StreamModuleKey, StreamModuleValue
 from ..applications.daemons import (
     DataPiece,
     DataPieceReceived,
@@ -31,10 +39,6 @@ from ..applications.raw_count_handlers import (
     RawCountHandler,
     WorkflowResultUpdate,
 )
-from ..constructors import SingletonProvider
-from ..constructors.providers import merge as merge_providers
-from ..logging import BeamlimeLogger
-from .options import build_minimum_arg_parser
 from .prototypes import fake_listener_from_args, instantiate_from_args
 
 KafkaConfig = NewType("KafkaConfig", dict)
@@ -85,11 +89,11 @@ def _is_event_msg_valid(msg: Message) -> bool:
     )
 
 
-class EventListener(DaemonInterface):
+class EventListener(appmixins.LogMixin):
     def __init__(
         self,
         *,
-        logger: BeamlimeLogger,
+        logger: applogs.AppLogger,
         streaming_modules: StreamingModules,
         kafka_config: KafkaConfig,
     ) -> None:
@@ -121,7 +125,7 @@ class EventListener(DaemonInterface):
         if hasattr(self, 'consumer') and self.consumer is not None:
             self.consumer.close()
 
-    async def run(self) -> AsyncGenerator[MessageProtocol | None, None]:
+    async def run(self) -> AsyncGenerator[EventMessageProtocol | None, None]:
         while True:
             msg = self.consumer.poll(0.5)
             if _is_event_msg_valid(msg):
@@ -145,7 +149,7 @@ class EventListener(DaemonInterface):
 
     @classmethod
     def from_args(
-        cls, logger: BeamlimeLogger, args: argparse.Namespace
+        cls, logger: applogs.AppLogger, args: argparse.Namespace
     ) -> "EventListener":
         if args.config is None:
             # This option is not set as a required argument in the `add_argument_group`
@@ -180,48 +184,39 @@ def streaming_modules_from_config(config_dict: dict) -> StreamingModules:
 
 
 def listener_from_args(
-    logger: BeamlimeLogger, args: argparse.Namespace
+    logger: applogs.AppLogger, args: argparse.Namespace
 ) -> EventListener:
     return instantiate_from_args(logger, args, EventListener)
 
 
 def raw_detector_counter_from_args(
-    logger: BeamlimeLogger, args: argparse.Namespace
+    logger: applogs.AppLogger, args: argparse.Namespace
 ) -> RawCountHandler:
     return instantiate_from_args(logger, args, RawCountHandler)
 
 
-def plot_saver_from_args(logger: BeamlimeLogger, args: argparse.Namespace) -> PlotSaver:
+def plot_saver_from_args(
+    logger: applogs.AppLogger, args: argparse.Namespace
+) -> PlotSaver:
     return instantiate_from_args(logger, args, PlotSaver)
 
 
 def collect_show_detector_providers() -> ProviderGroup:
-    from ..logging.providers import log_providers
-
     app_providers = ProviderGroup(
         listener_from_args,
         raw_detector_counter_from_args,
         fake_listener_from_args,
         SingletonProvider(plot_saver_from_args),
-        SingletonProvider(ShowDetectorApp),
+        SingletonProvider(AsyncApplication),
         MessageRouter,
     )
 
     return merge_providers(log_providers, app_providers)
 
 
-class ShowDetectorApp(Application):
-    def run(self) -> None:
-        try:
-            super().run()
-        except KeyboardInterrupt:
-            self.info("Received a keyboard interrupt. Exiting...")
-            self.message_router.message_pipe.put_nowait(Application.Stop(content=None))
-
-
 def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> None:
-    factory[BeamlimeLogger].setLevel(arg_name_space.log_level.upper())
-    factory[BeamlimeLogger].info("Start showing detector hits.")
+    factory[applogs.AppLogger].setLevel(arg_name_space.log_level.upper())
+    factory[applogs.AppLogger].info("Start showing detector hits.")
     with factory.constant_provider(argparse.Namespace, arg_name_space):
         if arg_name_space.fake_listener:
             event_listener = factory[FakeListener]
@@ -230,18 +225,18 @@ def run_show_detector(factory: Factory, arg_name_space: argparse.Namespace) -> N
 
         raw_detector_counter = factory[RawCountHandler]
         plot_saver = factory[PlotSaver]
-        app = factory[ShowDetectorApp]
+        app = factory[AsyncApplication]
 
-    app.register_daemon(event_listener)
-    app.register_handling_method(DataPieceReceived, raw_detector_counter.handle)
-    app.register_handling_method(WorkflowResultUpdate, plot_saver.save_histogram)
+    app.register_daemon(event_listener.run)
+    app.register_handler(DataPieceReceived, raw_detector_counter.handle)
+    app.register_handler(WorkflowResultUpdate, plot_saver.save_histogram)
     app.run()
 
 
 def main() -> None:
     """Entry point of the ``show-detector`` command."""
     factory = Factory(collect_show_detector_providers())
-    arg_parser = build_minimum_arg_parser(
+    arg_parser = build_arg_parser(
         EventListener, PlotSaver, RawCountHandler, FakeListener
     )
     arg_parser.add_argument(
