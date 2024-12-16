@@ -24,7 +24,7 @@ kafka_config = {
 
 def make_bare_consumer(topics: list[str], config: dict[str, Any]) -> kafka.Consumer:
     """Create a bare confluent_kafka.Consumer that can be used by KafkaMessageSource."""
-    consumer = kafka.Consumer(config=config)
+    consumer = kafka.Consumer(config)
     consumer.subscribe(topics)
     for topic in topics:
         assign_partitions(consumer, topic)

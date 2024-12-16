@@ -13,7 +13,9 @@ from .scipp_da00_compat import scipp_to_da00
 
 
 class KafkaSink(MessageSink[sc.DataArray]):
-    def __init__(self, *, logger: logging.Logger | None, kafka_config: dict[str, Any]):
+    def __init__(
+        self, *, logger: logging.Logger | None = None, kafka_config: dict[str, Any]
+    ):
         self._logger = logger or logging.getLogger(__name__)
         self._producer = kafka.Producer(kafka_config)
 

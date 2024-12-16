@@ -3,7 +3,7 @@
 from .service import Service
 from .processor import Processor, StreamProcessor
 from .handler import Handler, HandlerRegistry, ForwardingHandler
-from .message import Message, compact_messages, MessageSource, MessageSink
+from .message import Message, compact_messages, MessageKey, MessageSource, MessageSink
 
 __all__ = [
     'compact_messages',
@@ -11,6 +11,7 @@ __all__ = [
     'Handler',
     'HandlerRegistry',
     'Message',
+    'MessageKey',
     'MessageSink',
     'MessageSource',
     'Processor',
