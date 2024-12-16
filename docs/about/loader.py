@@ -1,15 +1,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
-from copy import copy
 from dataclasses import dataclass
 from typing import NewType, TypeVar
 
 import pandas as pd
+from environments import BenchmarkResultFilePath, BenchmarkRootDir
+from runner import BenchmarkReport
 
-from .environments import BenchmarkResultFilePath, BenchmarkRootDir, env_providers
-from .runner import BenchmarkReport
-
-loading_providers = copy(env_providers)
 ResultPath = BenchmarkResultFilePath
 
 T = TypeVar("T")
@@ -53,23 +50,6 @@ def _reconstruct(contents: dict | list | tuple, target_type: type, strict: bool)
 D = TypeVar("D")
 
 
-def _retrieve_underlying_type(attr_type: type) -> type:
-    from typing import get_origin
-
-    from beamlime.constructors.inspectors import extract_underlying_type
-
-    true_type = extract_underlying_type(attr_type)
-    return get_origin(true_type) or true_type
-
-
-def _validate_reconstruction(attr: D, attr_type: type[D]) -> bool:
-    """Validate if the reconstructed attribute is of the right type.
-
-    Only ``None`` is allowed if ``attr`` is not an instance of ``attr_type``.
-    """
-    return isinstance(attr, _retrieve_underlying_type(attr_type)) or attr is None
-
-
 def reconstruct_nested_dataclass(
     contents: dict, root_type: type[D], type_strict: bool = True
 ) -> D:
@@ -99,10 +79,6 @@ def reconstruct_nested_dataclass(
     for attr_name, attr_type in get_type_hints(root_type).items():
         attr = getattr(reconstructed, attr_name)
         reconstructed_attr = _reconstruct(attr, attr_type, type_strict)
-        if type_strict and not _validate_reconstruction(reconstructed_attr, attr_type):
-            raise ValueError(
-                "Failed to reconstruct attribute " f"{attr_name} to a right type."
-            )
 
         setattr(reconstructed, attr_name, reconstructed_attr)
 
@@ -154,7 +130,6 @@ class ReportTemplate(BenchmarkReport):
         )
 
 
-@loading_providers.provider
 def collect_result_paths(root_dir: BenchmarkRootDir) -> list[ResultPath]:
     """Collect all result paths in the benchmark root directory."""
     import os
@@ -166,7 +141,7 @@ def collect_result_paths(root_dir: BenchmarkRootDir) -> list[ResultPath]:
     ]
 
 
-BenchmarkResultDict = NewType('RawReport', dict)
+BenchmarkResultDict = NewType('BenchmarkResultDict', dict)
 
 
 def read_report(path: ResultPath) -> BenchmarkResultDict:
@@ -185,7 +160,6 @@ def reconstruct_report(raw_report: BenchmarkResultDict) -> ReportTemplate:
 ResultMap = dict[ResultPath, BenchmarkResultDict]
 
 
-@loading_providers.provider
 def collect_results(result_paths: list[ResultPath]) -> ResultMap:
     """Collect all results from result_paths."""
     return ResultMap({path: read_report(path) for path in result_paths})
@@ -194,7 +168,6 @@ def collect_results(result_paths: list[ResultPath]) -> ResultMap:
 ReportMap = dict[ResultPath, ReportTemplate]
 
 
-@loading_providers.provider
 def collect_reports(result_map: ResultMap) -> ReportMap:
     """Collect all results from result_paths."""
     return ReportMap(
@@ -205,7 +178,6 @@ def collect_reports(result_map: ResultMap) -> ReportMap:
 MergedMeasurementsDF = NewType('MergedMeasurementsDF', pd.DataFrame)
 
 
-@loading_providers.provider
 def merge_measurements(results: ReportMap) -> MergedMeasurementsDF:
     """Convert all reports to Dataset and merge."""
     dfs = [

@@ -9,7 +9,6 @@ maxdepth: 2
 ---
 
 getting-started
-live_data_reduction
 ```
 
 ```{toctree}

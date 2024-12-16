@@ -6,13 +6,10 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from typing import Generic, NewType, TypeVar
 
-from beamlime.constructors import Factory, ProviderGroup
-
-from .environments import (
+from environments import (
     BenchmarkEnvironment,
     BenchmarkResultFilePath,
     BenchmarkTargetName,
-    env_providers,
 )
 
 
@@ -248,16 +245,3 @@ class BenchmarkSession:
         so that ``BenchmarkFileManager`` can dump the result into a file.
         """
         self.file_manager.save(self.report)
-
-
-def create_benchmark_session_factory(
-    runner_type: type[BenchmarkRunner] = SimpleRunner,
-) -> Factory:
-    """Collect all providers for ``BenchmarkSession`` and create a factory."""
-    session_providers = ProviderGroup()
-    session_providers[BenchmarkSession] = BenchmarkSession
-    session_providers[BenchmarkReport] = BenchmarkReport
-    session_providers[BenchmarkRunner] = runner_type
-    session_providers[BenchmarkFileManager] = SimpleFileManager
-    session_providers[BenchmarkSessionConfiguration] = BenchmarkSessionConfiguration
-    return Factory(env_providers, session_providers)
