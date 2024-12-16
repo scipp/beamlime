@@ -26,6 +26,7 @@ class KafkaSink(MessageSink[sc.DataArray]):
                     "Failed to deliver message to %s: %s", msg.topic(), err
                 )
 
+        self._logger.debug("Publishing %d messages", len(messages))
         for msg in messages:
             topic = msg.key.topic
             try:
