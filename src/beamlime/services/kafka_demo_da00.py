@@ -4,6 +4,7 @@ import argparse
 from typing import NoReturn
 
 from beamlime import ConfigManager, HandlerRegistry, Service, StreamProcessor
+from beamlime.config.config_loader import load_config
 from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
@@ -18,7 +19,7 @@ from beamlime.sinks import PlotToPngSink
 
 
 def setup_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description='Kafka Demo da00 Service')
+    parser = Service.setup_arg_parser(description='Kafka Demo da00 Service')
     parser.add_argument(
         '--sink',
         choices=['kafka', 'png'],
@@ -28,7 +29,7 @@ def setup_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def run_service(*, sink_type: str) -> NoReturn:
+def run_service(*, sink_type: str, instrument: str) -> NoReturn:
     # What config do we have?
     # Note: Only the handler config can be updated via Kafka (ConfigSubscriber)
     # - Service (name, polling behavior/interval)
@@ -45,18 +46,18 @@ def run_service(*, sink_type: str) -> NoReturn:
         'sliding_window_seconds': 5,
     }
 
-    config_manager = ConfigManager(
-        bootstrap_servers='localhost:9092',
-        service_name=service_name,
-        initial_config=initial_config,
-    )
+    control_config = load_config(namespace='monitor_data', kind='control')
+    consumer_config = load_config(namespace='monitor_data', kind='consumer')
+    producer_config = load_config(namespace='monitor_data', kind='producer')
+
+    config_manager = ConfigManager(config=control_config, initial_config=initial_config)
     consumer = kafka_consumer.make_bare_consumer(
-        topics=['monitors'], config=kafka_consumer.monitor_consumer_config
+        topics=[f'{instrument}_{topic}' for topic in consumer_config['topics']],
+        config=consumer_config['kafka'],
     )
-    producer_config = {'bootstrap.servers': 'localhost:9092'}
 
     if sink_type == 'kafka':
-        sink = KafkaSink(kafka_config=producer_config)
+        sink = KafkaSink(kafka_config=producer_config['kafka'])
     else:
         sink = PlotToPngSink()
 
@@ -84,7 +85,7 @@ def run_service(*, sink_type: str) -> NoReturn:
 def main() -> NoReturn:
     parser = setup_arg_parser()
     args = parser.parse_args()
-    run_service(sink_type=args.sink)
+    run_service(sink_type=args.sink, instrument=args.instrument)
 
 
 if __name__ == "__main__":

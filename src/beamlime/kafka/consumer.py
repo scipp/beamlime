@@ -11,17 +11,6 @@ def assign_partitions(consumer, topic):
     consumer.assign([kafka.TopicPartition(topic, p) for p in partitions])
 
 
-monitor_consumer_config = {
-    'bootstrap.servers': 'localhost:9092',
-    'group.id': 'beamlime-monitor-data',
-    'auto.offset.reset': 'latest',
-    'enable.auto.commit': True,
-    'fetch.min.bytes': 1,
-    'session.timeout.ms': 6000,
-    'heartbeat.interval.ms': 2000,
-}
-
-
 def make_bare_consumer(topics: list[str], config: dict[str, Any]) -> kafka.Consumer:
     """Create a bare confluent_kafka.Consumer that can be used by KafkaMessageSource."""
     consumer = kafka.Consumer(config)

@@ -2,6 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+import argparse
 import logging
 import signal
 import sys
@@ -102,3 +103,17 @@ class Service:
         if self._config_manager:
             self._config_manager.stop()
         self._logger.info("Service stopped")
+
+    @staticmethod
+    def setup_arg_parser(description: str) -> argparse.ArgumentParser:
+        parser = argparse.ArgumentParser(
+            description=description,
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        )
+        parser.add_argument(
+            '--instrument',
+            choices=['dummy', 'loki', 'odin', 'nmx', 'dream'],
+            default='dummy',
+            help='Select the instrument',
+        )
+        return parser

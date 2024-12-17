@@ -7,7 +7,6 @@ import numpy as np
 import scipp as sc
 
 from beamlime import (
-    ConfigManager,
     Handler,
     HandlerRegistry,
     Message,
@@ -16,13 +15,16 @@ from beamlime import (
     Service,
     StreamProcessor,
 )
+from beamlime.config.config_loader import load_config
+from beamlime.kafka.helpers import beam_monitor_topic
 from beamlime.kafka.sink import KafkaSink
 
 
 class FakeMonitorSource(MessageSource[sc.DataArray]):
     """Fake message source that generates random monitor events."""
 
-    def __init__(self, interval_ns: int = int(1e9 / 14)):
+    def __init__(self, *, interval_ns: int = int(1e9 / 14), instrument: str):
+        self._topic = beam_monitor_topic(instrument=instrument)
         self._rng = np.random.default_rng()
         self._tof = sc.linspace('tof', 0, 71_000_000, num=50, unit='ns')
         self._interval_ns = interval_ns
@@ -59,7 +61,7 @@ class FakeMonitorSource(MessageSource[sc.DataArray]):
         da = var.hist(tof=self._tof)
         return Message(
             timestamp=timestamp,
-            key=MessageKey(topic="monitors", source_name=name),
+            key=MessageKey(topic=self._topic, source_name=name),
             value=da,
         )
 
@@ -70,25 +72,23 @@ class IdentityHandler(Handler[sc.DataArray, sc.DataArray]):
         return [message]
 
 
-def main() -> NoReturn:
+def run_service(*, instrument: str) -> NoReturn:
     service_name = "fake_da00_producer"
-    config_manager = ConfigManager(
-        bootstrap_servers="localhost:9092",
-        service_name=service_name,
-        initial_config={},
-    )
+    producer_config = load_config(namespace='fake_da00', kind='producer')
     producer_config = {"bootstrap.servers": "localhost:9092"}
     processor = StreamProcessor(
-        source=FakeMonitorSource(),
+        source=FakeMonitorSource(instrument=instrument),
         sink=KafkaSink(kafka_config=producer_config),
-        handler_registry=HandlerRegistry(
-            config=config_manager, handler_cls=IdentityHandler
-        ),
+        handler_registry=HandlerRegistry(config={}, handler_cls=IdentityHandler),
     )
-    service = Service(
-        config_manager=config_manager, processor=processor, name=service_name
-    )
+    service = Service(config={}, processor=processor, name=service_name)
     service.start()
+
+
+def main() -> NoReturn:
+    parser = Service.setup_arg_parser('Fake that publishes random da00 monitor data')
+    args = parser.parse_args()
+    run_service(instrument=args.instrument)
 
 
 if __name__ == "__main__":

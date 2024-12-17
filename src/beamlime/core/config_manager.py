@@ -14,15 +14,11 @@ class ConfigManager:
 
     def __init__(
         self,
-        bootstrap_servers: str,
-        service_name: str | None = None,
+        config: dict[str, Any] | None = None,
         initial_config: dict[str, Any] | None = None,
     ):
         self._config = initial_config or {}
-        self._subscriber = ConfigSubscriber(
-            bootstrap_servers=bootstrap_servers,
-            service_name=service_name,
-        )
+        self._subscriber = ConfigSubscriber(config=config)
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:

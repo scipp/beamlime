@@ -112,3 +112,6 @@ warn_unreachable = true
 
 [project.entry-points."beamlime.workflow_plugin"]
 dummy = "beamlime.workflow_protocols:DummyLiveWorkflow"
+
+[tool.setuptools.package-data]
+"beamlime.config.defaults" = ["*.yaml"]

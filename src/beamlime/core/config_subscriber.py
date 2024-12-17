@@ -3,6 +3,7 @@
 import json
 import logging
 import uuid
+from typing import Any
 
 from confluent_kafka import Consumer
 
@@ -10,23 +11,16 @@ from confluent_kafka import Consumer
 class ConfigSubscriber:
     def __init__(
         self,
-        bootstrap_servers: str,
-        service_name: str | None = None,
+        *,
+        config: dict[str, Any],
         logger: logging.Logger | None = None,
     ):
         # Generate unique group id using service name and random suffix, to ensure all
         # instances of the service get the same messages.
+        self._config = config or {}
         self._logger = logger or logging.getLogger(__name__)
-        group_id = f"{service_name or 'config-subscriber'}-{uuid.uuid4()}"
-        self._consumer = Consumer(
-            {
-                'bootstrap.servers': bootstrap_servers,
-                'group.id': group_id,
-                'auto.offset.reset': 'earliest',
-                'enable.auto.commit': True,
-            }
-        )
-        self._config = {}
+        group_id = f"config-subscriber-{uuid.uuid4()}"
+        self._consumer = Consumer({**config['kafka'], 'group.id': group_id})
         self._running = False
 
     def get(self, key: str, default=None):
@@ -34,7 +28,7 @@ class ConfigSubscriber:
 
     def start(self):
         self._running = True
-        self._consumer.subscribe(['beamlime.control'])
+        self._consumer.subscribe([self._config['topic']])
         try:
             while self._running:
                 msg = self._consumer.poll(0.1)
