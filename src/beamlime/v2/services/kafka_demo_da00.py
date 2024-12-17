@@ -29,6 +29,16 @@ def setup_arg_parser() -> argparse.ArgumentParser:
 
 
 def run_service(*, sink_type: str) -> NoReturn:
+    # What config do we have?
+    # Note: Only the handler config can be updated via Kafka (ConfigSubscriber)
+    # - Service (name, polling behavior/interval)
+    # - JSON files for consumer and producer configs
+    #   - Server could be different for consumer and producer
+    #   - Topics to consume
+    # - Handler config
+    #   - Handler itself (update interval)
+    #   - Preprocessing (TOF range, bin count)
+    #   - Accumulator config (start, sliding window,)
     service_name = 'local_demo_da00'
     initial_config = {
         'sliding_window_seconds': 5,
