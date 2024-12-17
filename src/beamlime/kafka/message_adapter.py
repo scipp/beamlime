@@ -4,6 +4,8 @@ from dataclasses import replace
 from typing import Any, Generic, Protocol, TypeVar
 
 import scipp as sc
+import streaming_data_types
+import streaming_data_types.exceptions
 from streaming_data_types import dataarray_da00, eventdata_ev44
 
 from ..core.message import Message, MessageKey, MessageSource
@@ -117,4 +119,10 @@ class AdaptingMessageSource(MessageSource[U]):
 
     def get_messages(self) -> list[U]:
         raw_messages = self._source.get_messages()
-        return [self._adapter.adapt(msg) for msg in raw_messages]
+        adapted = []
+        for msg in raw_messages:
+            try:
+                adapted.append(self._adapter.adapt(msg))
+            except streaming_data_types.exceptions.WrongSchemaException:  # noqa: PERF203
+                pass
+        return adapted

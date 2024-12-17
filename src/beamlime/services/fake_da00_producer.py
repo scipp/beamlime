@@ -77,7 +77,7 @@ def run_service(*, instrument: str) -> NoReturn:
     producer_config = load_config(namespace='fake_da00', kind='producer')
     processor = StreamProcessor(
         source=FakeMonitorSource(instrument=instrument),
-        sink=KafkaSink(kafka_config=producer_config),
+        sink=KafkaSink(kafka_config=producer_config['kafka']),
         handler_registry=HandlerRegistry(config={}, handler_cls=IdentityHandler),
     )
     service = Service(config={}, processor=processor, name=service_name)

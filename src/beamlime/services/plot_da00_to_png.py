@@ -1,74 +1,58 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-import time
 from typing import NoReturn
 
-import numpy as np
 import scipp as sc
-from streaming_data_types import dataarray_da00
 
-from beamlime import ForwardingHandler, HandlerRegistry, Service, StreamProcessor
+from beamlime import Handler, HandlerRegistry, Message, Service, StreamProcessor
+from beamlime.config.config_loader import load_config
+from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
     Da00ToScippAdapter,
-    FakeKafkaMessage,
     KafkaToDa00Adapter,
 )
-from beamlime.kafka.scipp_da00_compat import scipp_to_da00
-from beamlime.kafka.source import KafkaConsumer, KafkaMessageSource
+from beamlime.kafka.source import KafkaMessageSource
 from beamlime.sinks import PlotToPngSink
 
 
-class FakeMonitorDa00KafkaConsumer(KafkaConsumer):
-    """Fake Kafka consumer that generates random monitor events."""
-
-    def __init__(self):
-        self._rng = np.random.default_rng()
-        self._tof = sc.linspace('tof', 0, 71_000_000, num=50, unit='ns')
-
-    def _make_normal(self, mean: float, std: float, size: int) -> np.ndarray:
-        return self._rng.normal(loc=mean, scale=std, size=size).astype(np.int64)
-
-    def consume(self, num_messages: int, timeout: float) -> list[FakeKafkaMessage]:
-        _ = num_messages
-        _ = timeout
-        return [
-            self._make_message(name="monitor1", size=30),
-            self._make_message(name="monitor2", size=10),
-        ]
-
-    def _make_message(self, name: str, size: int) -> FakeKafkaMessage:
-        time_of_flight = self._make_normal(mean=30_000_000, std=10_000_000, size=size)
-        var = sc.array(dims=['time_of_arrival'], values=time_of_flight, unit='ns')
-        da = var.hist(tof=self._tof)
-        da00 = dataarray_da00.serialise_da00(
-            source_name=name,
-            timestamp_ns=time.time_ns(),
-            data=scipp_to_da00(da),
-        )
-        return FakeKafkaMessage(value=da00, topic="monitors")
+class IdentityHandler(Handler[sc.DataArray, sc.DataArray]):
+    def handle(self, message: Message[sc.DataArray]) -> list[Message[sc.DataArray]]:
+        # We know the message is not put back into Kafka, so we can keep the key
+        return [message]
 
 
-def main() -> NoReturn:
+def run_service(*, instrument: str) -> NoReturn:
     handler_config = {}
     service_config = {}
+    consumer_config = load_config(namespace='visualization', kind='consumer')
+    consumer = kafka_consumer.make_bare_consumer(
+        topics=[f'{instrument}_{topic}' for topic in consumer_config['topics']],
+        config=consumer_config['kafka'],
+    )
     processor = StreamProcessor(
         source=AdaptingMessageSource(
-            source=KafkaMessageSource(consumer=FakeMonitorDa00KafkaConsumer()),
+            source=KafkaMessageSource(consumer=consumer),
             adapter=ChainedAdapter(
                 first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
             ),
         ),
         sink=PlotToPngSink(),
         handler_registry=HandlerRegistry(
-            config=handler_config, handler_cls=ForwardingHandler
+            config=handler_config, handler_cls=IdentityHandler
         ),
     )
     service = Service(
         config=service_config, processor=processor, name="plot_da00_to_png"
     )
     service.start()
+
+
+def main() -> NoReturn:
+    parser = Service.setup_arg_parser('Plot da00 data arrays to PNG')
+    args = parser.parse_args()
+    run_service(instrument=args.instrument)
 
 
 if __name__ == "__main__":
