@@ -5,7 +5,10 @@ from typing import Literal, NoReturn
 
 from beamlime import ConfigManager, HandlerRegistry, Service, StreamProcessor
 from beamlime.config.config_loader import load_config
-from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
+from beamlime.handlers.monitor_data_handler import (
+    create_monitor_data_handler,
+    create_monitor_event_data_handler,
+)
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
@@ -65,10 +68,12 @@ def run_service(
         adapter = ChainedAdapter(
             first=KafkaToEv44Adapter(), second=Ev44ToMonitorEventsAdapter()
         )
+        handler_cls = create_monitor_event_data_handler
     else:
         adapter = ChainedAdapter(
             first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
         )
+        handler_cls = create_monitor_data_handler
 
     processor = StreamProcessor(
         source=AdaptingMessageSource(
@@ -76,7 +81,7 @@ def run_service(
         ),
         sink=sink,
         handler_registry=HandlerRegistry(
-            config=config_manager, handler_cls=create_monitor_data_handler
+            config=config_manager, handler_cls=handler_cls
         ),
     )
     service = Service(
