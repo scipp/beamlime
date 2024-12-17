@@ -19,13 +19,15 @@ class Service:
     def __init__(
         self,
         *,
-        config_manager: ConfigManager,
+        config: dict[str, Any] | None = None,
+        config_manager: ConfigManager | None = None,
         processor: Processor,
         name: str | None = None,
         log_level: int = logging.INFO,
     ):
         self._logger = logging.getLogger(name or __name__)
         self._setup_logging(log_level)
+        self._config = config or {}
         self._config_manager = config_manager
         self._processor = processor
         self._thread: threading.Thread | None = None
@@ -63,7 +65,8 @@ class Service:
         """Start the service and block until stopped"""
         self._logger.info("Starting service...")
         self._running = True
-        self._config_manager.start()
+        if self._config_manager:
+            self._config_manager.start()
         self._thread = threading.Thread(target=self._run_loop)
         self._thread.start()
         self._logger.info("Service started")
@@ -83,7 +86,7 @@ class Service:
         try:
             while self.is_running:
                 self._processor.process()
-                time.sleep(self._config_manager.get("service.poll_interval", 0.1))
+                time.sleep(self._config.get("service.poll_interval", 0.1))
         except RuntimeError:
             self._logger.exception("Error in service loop")
             self.stop()
@@ -96,5 +99,6 @@ class Service:
         self._running = False
         if self._thread:
             self._thread.join()
-        self._config_manager.stop()
+        if self._config_manager:
+            self._config_manager.stop()
         self._logger.info("Service stopped")

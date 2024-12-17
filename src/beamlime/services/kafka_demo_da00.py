@@ -40,6 +40,7 @@ def run_service(*, sink_type: str) -> NoReturn:
     #   - Preprocessing (TOF range, bin count)
     #   - Accumulator config (start, sliding window,)
     service_name = 'local_demo_da00'
+    service_config = {}
     initial_config = {
         'sliding_window_seconds': 5,
         'kafka.bootstrap.servers': 'localhost:9092',
@@ -73,7 +74,10 @@ def run_service(*, sink_type: str) -> NoReturn:
         ),
     )
     service = Service(
-        config_manager=config_manager, processor=processor, name=service_name
+        config=service_config,
+        config_manager=config_manager,
+        processor=processor,
+        name=service_name,
     )
     service.start()
 
