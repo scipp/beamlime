@@ -2,6 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import json
 import logging
+from typing import Any
 
 from confluent_kafka import Consumer, KafkaError, Producer
 
@@ -23,20 +24,17 @@ class ConfigService:
         --config segment.ms=100
     """
 
-    def __init__(self, bootstrap_servers: str, logger: logging.Logger | None = None):
-        producer_conf = {
-            'bootstrap.servers': bootstrap_servers,
-        }
-        consumer_conf = {
-            'bootstrap.servers': bootstrap_servers,
-            'group.id': 'control-service',
-            'auto.offset.reset': 'earliest',
-            'enable.auto.commit': True,
-        }
+    def __init__(
+        self, kafka_config: dict[str, Any], logger: logging.Logger | None = None
+    ):
+        consumer_conf = kafka_config['kafka']
+        consumer_conf['group.id'] = 'config-service'
+        producer_conf = {'bootstrap.servers': consumer_conf['bootstrap.servers']}
 
         self._logger = logger or logging.getLogger(__name__)
         self._producer = Producer(producer_conf)
         self._consumer = Consumer(consumer_conf)
+        self._topic = kafka_config['topic']
         self._config = {}
         self._running = False
         self._local_updates = set()  # Track locally initiated updates
@@ -52,7 +50,7 @@ class ConfigService:
             self._local_updates.add(update_id)
 
             self._producer.produce(
-                'beamlime.control',
+                self._topic,
                 key=str(key).encode('utf-8'),
                 value=json.dumps(value).encode('utf-8'),
                 callback=self.delivery_callback,
@@ -68,7 +66,7 @@ class ConfigService:
 
     def start(self):
         self._running = True
-        self._consumer.subscribe(['beamlime.control'])
+        self._consumer.subscribe([self._topic])
         try:
             while self._running:
                 msg = self._consumer.poll(1.0)

@@ -7,6 +7,7 @@ import scipp as sc
 from beamlime import Handler, HandlerRegistry, Message, Service, StreamProcessor
 from beamlime.config.config_loader import load_config
 from beamlime.kafka import consumer as kafka_consumer
+from beamlime.kafka.helpers import topic_for_instrument
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
@@ -28,7 +29,9 @@ def run_service(*, instrument: str) -> NoReturn:
     service_config = {}
     consumer_config = load_config(namespace='visualization', kind='consumer')
     consumer = kafka_consumer.make_bare_consumer(
-        topics=[f'{instrument}_{topic}' for topic in consumer_config['topics']],
+        topics=topic_for_instrument(
+            topic=consumer_config['topics'], instrument=instrument
+        ),
         config=consumer_config['kafka'],
     )
     processor = StreamProcessor(

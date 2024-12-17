@@ -1,13 +1,23 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-def topic_for_instrument(*, topic: str, instrument: str) -> str:
+from collections.abc import Sequence
+
+
+def topic_for_instrument(*, topic: str | Sequence[str], instrument: str) -> str:
     """
-    Return the topic name for a given instrument.
+    Return the topic name(s) for a given instrument.
 
     This implements the ECDC topic naming convention, prefixing the topic name with the
     instrument name.
+
+    Parameters
+    ----------
+    topic:
+        The topic name(s) to prefix with the instrument name.
     """
-    return f'{instrument}_{topic}'
+    if isinstance(topic, str):
+        return f'{instrument}_{topic}'
+    return [topic_for_instrument(topic=t, instrument=instrument) for t in topic]
 
 
 def beam_monitor_topic(instrument: str) -> str:

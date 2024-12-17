@@ -5,8 +5,10 @@ import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html
 from dash.exceptions import PreventUpdate
 
+from beamlime.config.config_loader import load_config
 from beamlime.core.config_service import ConfigService
 from beamlime.kafka import consumer as kafka_consumer
+from beamlime.kafka.helpers import topic_for_instrument
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
@@ -15,7 +17,8 @@ from beamlime.kafka.message_adapter import (
 )
 from beamlime.kafka.source import KafkaMessageSource
 
-config_service = ConfigService('localhost:9092')
+control_config = load_config(namespace='monitor_data', kind='control')
+config_service = ConfigService(kafka_config=control_config)
 config_service_thread = threading.Thread(target=config_service.start)
 config_service_thread.start()
 
@@ -80,20 +83,14 @@ def create_monitor_plot(key: str) -> go.Figure:
     return fig
 
 
-consumer_config = {
-    'bootstrap.servers': 'localhost:9092',
-    'group.id': 'beamlime-dashboard',
-    'auto.offset.reset': 'latest',
-    'enable.auto.commit': True,
-    'fetch.min.bytes': 1,
-    'session.timeout.ms': 6000,
-    'heartbeat.interval.ms': 2000,
-}
+consumer_config = load_config(namespace='visualization', kind='consumer')
+consumer_kafka_config = consumer_config['kafka']
+consumer_kafka_config['group.id'] = 'monitor_data_dashboard'
 
-
+print(f"Subscribing to topics: {consumer_config['topics']}")  # noqa: T201
 consumer = kafka_consumer.make_bare_consumer(
-    topics=['monitors_sliding', 'monitors_cumulative'],
-    config=consumer_config,
+    topics=topic_for_instrument(topic=consumer_config['topics'], instrument='dummy'),
+    config=consumer_kafka_config,
 )
 source = AdaptingMessageSource(
     source=KafkaMessageSource(consumer=consumer),
