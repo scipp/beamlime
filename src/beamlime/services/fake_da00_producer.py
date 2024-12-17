@@ -6,7 +6,7 @@ from typing import NoReturn
 import numpy as np
 import scipp as sc
 
-from beamlime.v2 import (
+from beamlime import (
     ConfigManager,
     Handler,
     HandlerRegistry,
@@ -16,7 +16,7 @@ from beamlime.v2 import (
     Service,
     StreamProcessor,
 )
-from beamlime.v2.kafka.sink import KafkaSink
+from beamlime.kafka.sink import KafkaSink
 
 
 class FakeMonitorSource(MessageSource[sc.DataArray]):

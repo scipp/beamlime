@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 
-from beamlime.v2.core.message import Message, compact_messages
+from beamlime import Message, compact_messages
 
 
 def test_comparison_compares_timestamps() -> None:

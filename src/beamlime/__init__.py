@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-# ruff: noqa: E402, F401
+# ruff: noqa: E402
 
 import importlib.metadata
 
@@ -11,4 +11,32 @@ except importlib.metadata.PackageNotFoundError:
 
 del importlib
 
-from .workflow_protocols import WorkflowResult, LiveWorkflow
+from .core import (
+    ConfigManager,
+    Service,
+    Processor,
+    Handler,
+    HandlerRegistry,
+    ForwardingHandler,
+    StreamProcessor,
+    MessageKey,
+    MessageSource,
+    MessageSink,
+    Message,
+    compact_messages,
+)
+
+__all__ = [
+    'compact_messages',
+    'ConfigManager',
+    'ForwardingHandler',
+    'Handler',
+    'HandlerRegistry',
+    'Message',
+    'MessageKey',
+    'MessageSink',
+    'MessageSource',
+    'Processor',
+    'Service',
+    'StreamProcessor',
+]

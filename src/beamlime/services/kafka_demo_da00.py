@@ -3,18 +3,18 @@
 import argparse
 from typing import NoReturn
 
-from beamlime.v2 import ConfigManager, HandlerRegistry, Service, StreamProcessor
-from beamlime.v2.handlers.monitor_data_handler import create_monitor_data_handler
-from beamlime.v2.kafka import consumer as kafka_consumer
-from beamlime.v2.kafka.message_adapter import (
+from beamlime import ConfigManager, HandlerRegistry, Service, StreamProcessor
+from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
+from beamlime.kafka import consumer as kafka_consumer
+from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
     Da00ToScippAdapter,
     KafkaToDa00Adapter,
 )
-from beamlime.v2.kafka.sink import KafkaSink
-from beamlime.v2.kafka.source import KafkaMessageSource
-from beamlime.v2.sinks import PlotToPngSink
+from beamlime.kafka.sink import KafkaSink
+from beamlime.kafka.source import KafkaMessageSource
+from beamlime.sinks import PlotToPngSink
 
 
 def setup_arg_parser() -> argparse.ArgumentParser:

@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import time
 
-from beamlime.v2.core.service import Service
+from beamlime import Service
 
 
 class FakeProcessor:

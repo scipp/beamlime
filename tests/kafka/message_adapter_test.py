@@ -3,8 +3,8 @@
 
 from streaming_data_types import eventdata_ev44
 
-from beamlime.v2.core.message import MessageSource
-from beamlime.v2.kafka.message_adapter import (
+from beamlime.core.message import MessageSource
+from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
     Ev44ToMonitorEventsAdapter,

@@ -5,15 +5,15 @@ import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html
 from dash.exceptions import PreventUpdate
 
-from beamlime.v2.core.config_service import ConfigService
-from beamlime.v2.kafka import consumer as kafka_consumer
-from beamlime.v2.kafka.message_adapter import (
+from beamlime.core.config_service import ConfigService
+from beamlime.kafka import consumer as kafka_consumer
+from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
     Da00ToScippAdapter,
     KafkaToDa00Adapter,
 )
-from beamlime.v2.kafka.source import KafkaMessageSource
+from beamlime.kafka.source import KafkaMessageSource
 
 config_service = ConfigService('localhost:9092')
 config_service_thread = threading.Thread(target=config_service.start)

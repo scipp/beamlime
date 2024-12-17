@@ -6,8 +6,8 @@ import numpy as np
 import scipp as sc
 from scipp.testing import assert_identical
 
-from beamlime.v2.core.handler import Message, MessageKey
-from beamlime.v2.handlers.monitor_data_handler import (
+from beamlime.core.handler import Message, MessageKey
+from beamlime.handlers.monitor_data_handler import (
     Histogrammer,
     MonitorEvents,
     create_monitor_event_data_handler,

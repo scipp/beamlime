@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 
-from beamlime.v2.kafka.message_adapter import FakeKafkaMessage
-from beamlime.v2.kafka.source import KafkaMessageSource
+from beamlime.kafka.message_adapter import FakeKafkaMessage
+from beamlime.kafka.source import KafkaMessageSource
 
 
 class FakeKafkaConsumer:

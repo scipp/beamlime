@@ -2,9 +2,9 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from typing import TypeVar
 
-from beamlime.v2.core.handler import Handler, HandlerRegistry, Message
-from beamlime.v2.core.processor import StreamProcessor
-from beamlime.v2.fakes import FakeMessageSink, FakeMessageSource
+from beamlime.core.handler import Handler, HandlerRegistry, Message
+from beamlime.core.processor import StreamProcessor
+from beamlime.fakes import FakeMessageSink, FakeMessageSource
 
 T = TypeVar('T')
 
