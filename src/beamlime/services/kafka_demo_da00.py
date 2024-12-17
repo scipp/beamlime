@@ -43,7 +43,6 @@ def run_service(*, sink_type: str) -> NoReturn:
     service_config = {}
     initial_config = {
         'sliding_window_seconds': 5,
-        'kafka.bootstrap.servers': 'localhost:9092',
     }
 
     config_manager = ConfigManager(
@@ -52,9 +51,9 @@ def run_service(*, sink_type: str) -> NoReturn:
         initial_config=initial_config,
     )
     consumer = kafka_consumer.make_bare_consumer(
-        topics=['monitors'], config=kafka_consumer.kafka_config
+        topics=['monitors'], config=kafka_consumer.monitor_consumer_config
     )
-    producer_config = {"bootstrap.servers": "localhost:9092"}
+    producer_config = {'bootstrap.servers': 'localhost:9092'}
 
     if sink_type == 'kafka':
         sink = KafkaSink(kafka_config=producer_config)

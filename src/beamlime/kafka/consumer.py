@@ -11,7 +11,7 @@ def assign_partitions(consumer, topic):
     consumer.assign([kafka.TopicPartition(topic, p) for p in partitions])
 
 
-kafka_config = {
+monitor_consumer_config = {
     'bootstrap.servers': 'localhost:9092',
     'group.id': 'beamlime-monitor-data',
     'auto.offset.reset': 'latest',
