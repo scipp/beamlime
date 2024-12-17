@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import argparse
-from typing import NoReturn
+from typing import Literal, NoReturn
 
 from beamlime import ConfigManager, HandlerRegistry, Service, StreamProcessor
 from beamlime.config.config_loader import load_config
@@ -11,7 +11,9 @@ from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
     Da00ToScippAdapter,
+    Ev44ToMonitorEventsAdapter,
     KafkaToDa00Adapter,
+    KafkaToEv44Adapter,
 )
 from beamlime.kafka.sink import KafkaSink
 from beamlime.kafka.source import KafkaMessageSource
@@ -19,32 +21,31 @@ from beamlime.sinks import PlotToPngSink
 
 
 def setup_arg_parser() -> argparse.ArgumentParser:
-    parser = Service.setup_arg_parser(description='Kafka Demo da00 Service')
+    parser = Service.setup_arg_parser(description='Kafka Demo da00/ev44 Service')
     parser.add_argument(
         '--sink',
         choices=['kafka', 'png'],
         default='kafka',
         help='Select sink type: kafka or png',
     )
+    parser.add_argument(
+        '--mode',
+        choices=['ev44', 'da00'],
+        required=True,
+        help='Select mode: ev44 or da00',
+    )
     return parser
 
 
-def run_service(*, sink_type: str, instrument: str) -> NoReturn:
-    # What config do we have?
-    # Note: Only the handler config can be updated via Kafka (ConfigSubscriber)
-    # - Service (name, polling behavior/interval)
-    # - JSON files for consumer and producer configs
-    #   - Server could be different for consumer and producer
-    #   - Topics to consume
-    # - Handler config
-    #   - Handler itself (update interval)
-    #   - Preprocessing (TOF range, bin count)
-    #   - Accumulator config (start, sliding window,)
-    service_name = 'local_demo_da00'
+def run_service(
+    *,
+    sink_type: Literal['kafka', 'png'],
+    instrument: str,
+    mode: Literal['ev44', 'da00'],
+) -> NoReturn:
+    service_name = 'monitor_data_demo'
     service_config = {}
-    initial_config = {
-        'sliding_window_seconds': 5,
-    }
+    initial_config = {'sliding_window_seconds': 5}
 
     control_config = load_config(namespace='monitor_data', kind='control')
     consumer_config = load_config(namespace='monitor_data', kind='consumer')
@@ -60,13 +61,18 @@ def run_service(*, sink_type: str, instrument: str) -> NoReturn:
         sink = KafkaSink(kafka_config=producer_config['kafka'])
     else:
         sink = PlotToPngSink()
+    if mode == 'ev44':
+        adapter = ChainedAdapter(
+            first=KafkaToEv44Adapter(), second=Ev44ToMonitorEventsAdapter()
+        )
+    else:
+        adapter = ChainedAdapter(
+            first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
+        )
 
     processor = StreamProcessor(
         source=AdaptingMessageSource(
-            source=KafkaMessageSource(consumer=consumer),
-            adapter=ChainedAdapter(
-                first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
-            ),
+            source=KafkaMessageSource(consumer=consumer), adapter=adapter
         ),
         sink=sink,
         handler_registry=HandlerRegistry(
@@ -85,7 +91,7 @@ def run_service(*, sink_type: str, instrument: str) -> NoReturn:
 def main() -> NoReturn:
     parser = setup_arg_parser()
     args = parser.parse_args()
-    run_service(sink_type=args.sink, instrument=args.instrument)
+    run_service(sink_type=args.sink, instrument=args.instrument, mode=args.mode)
 
 
 if __name__ == "__main__":
