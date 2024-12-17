@@ -87,7 +87,6 @@ consumer_config = load_config(namespace='visualization', kind='consumer')
 consumer_kafka_config = consumer_config['kafka']
 consumer_kafka_config['group.id'] = 'monitor_data_dashboard'
 
-print(f"Subscribing to topics: {consumer_config['topics']}")  # noqa: T201
 consumer = kafka_consumer.make_bare_consumer(
     topics=topic_for_instrument(topic=consumer_config['topics'], instrument='dummy'),
     config=consumer_kafka_config,
