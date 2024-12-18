@@ -47,7 +47,9 @@ def run_service(*, instrument: str) -> NoReturn:
         ),
     )
     service = Service(
-        config=service_config, processor=processor, name="plot_da00_to_png"
+        config=service_config,
+        processor=processor,
+        name=f'{instrument}_plot_da00_to_png',
     )
     service.start()
 

@@ -46,7 +46,7 @@ def run_service(
     instrument: str,
     mode: Literal['ev44', 'da00'],
 ) -> NoReturn:
-    service_name = 'monitor_data_demo'
+    service_name = f'{instrument}_monitor_data_demo'
     service_config = {}
     initial_config = {'sliding_window_seconds': 5}
 

@@ -73,7 +73,7 @@ class IdentityHandler(Handler[sc.DataArray, sc.DataArray]):
 
 
 def run_service(*, instrument: str) -> NoReturn:
-    service_name = "fake_da00_producer"
+    service_name = f'{instrument}_fake_da00_producer'
     producer_config = load_config(namespace='fake_da00', kind='producer')
     processor = StreamProcessor(
         source=FakeMonitorSource(instrument=instrument),
