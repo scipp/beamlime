@@ -19,7 +19,7 @@ def test_scipp_to_da00_basic():
 
     # Check results
     assert len(variables) == 2  # data and x coord
-    data_var = next(var for var in variables if var.name == 'data')
+    data_var = next(var for var in variables if var.name == 'signal')
     x_var = next(var for var in variables if var.name == 'x')
 
     assert data_var.unit == 'counts'
@@ -53,7 +53,7 @@ def test_da00_to_scipp():
     # Create da00 variables
     variables = [
         dataarray_da00.Variable(
-            name='data', data=[1, 2, 3], axes=['x'], shape=[3], unit='counts'
+            name='signal', data=[1, 2, 3], axes=['x'], shape=[3], unit='counts'
         ),
         dataarray_da00.Variable(
             name='x', data=[10, 20, 30], axes=['x'], shape=[3], unit='m'
