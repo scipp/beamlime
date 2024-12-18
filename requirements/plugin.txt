@@ -6,15 +6,15 @@
 #    pip-compile-multi
 #
 -r test.txt
-asttokens==2.4.1
+asttokens==3.0.0
     # via stack-data
 click==8.1.7
     # via dask
-cloudpickle==3.0.0
+cloudpickle==3.1.0
     # via dask
 comm==0.2.2
     # via ipywidgets
-dask==2024.9.1
+dask==2024.12.1
     # via esssans
 decorator==5.1.1
     # via ipython
@@ -22,7 +22,7 @@ esssans @ git+https://github.com/scipp/esssans@main
     # via -r plugin.in
 executing==2.1.0
     # via stack-data
-fsspec==2024.9.0
+fsspec==2024.10.0
     # via dask
 graphviz==0.20.3
     # via esssans
@@ -30,13 +30,13 @@ importlib-metadata==8.5.0
     # via dask
 ipydatawidgets==4.3.5
     # via pythreejs
-ipython==8.28.0
+ipython==8.30.0
     # via ipywidgets
 ipywidgets==8.1.5
     # via
     #   ipydatawidgets
     #   pythreejs
-jedi==0.19.1
+jedi==0.19.2
     # via ipython
 jupyterlab-widgets==3.0.13
     # via ipywidgets
@@ -44,8 +44,6 @@ locket==1.0.0
     # via partd
 matplotlib-inline==0.1.7
     # via ipython
-mpltoolbox==24.5.1
-    # via scippneutron
 parso==0.8.4
     # via jedi
 partd==1.4.2
@@ -58,15 +56,13 @@ ptyprocess==0.7.0
     # via pexpect
 pure-eval==0.2.3
     # via stack-data
+pygments==2.18.0
+    # via ipython
 pythreejs==2.4.2
-    # via esssans
-pyyaml==6.0.2
-    # via dask
-scippneutron==24.9.0
     # via esssans
 stack-data==0.6.3
     # via ipython
-toolz==0.12.1
+toolz==1.0.0
     # via
     #   dask
     #   partd
@@ -80,9 +76,11 @@ traitlets==5.14.3
     #   traittypes
 traittypes==0.2.1
     # via ipydatawidgets
+typing-extensions==4.12.2
+    # via ipython
 wcwidth==0.2.13
     # via prompt-toolkit
 widgetsnbextension==4.0.13
     # via ipywidgets
-zipp==3.20.2
+zipp==3.21.0
     # via importlib-metadata
