@@ -6,6 +6,8 @@ import logging
 from dataclasses import replace
 from typing import Any, Generic, Protocol, TypeVar
 
+import scipp as sc
+
 from .message import Message, MessageKey, Tin, Tout
 
 
@@ -101,12 +103,14 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
     @property
     def update_every(self) -> int:
         """Update interval in nanoseconds, based on dynamic config value."""
-        return int(self._config.get("update_every_seconds", 1.0) * 1e9)
+        raw = self._config.get('update_every', {'value': 1.0, 'unit': 's'})
+        return int(sc.scalar(**raw).to(unit='ns', copy=False).value)
 
     @property
     def start_time(self) -> int:
         """Start time in nanoseconds, based on dynamic config value."""
-        return int(self._config.get("start_time_ns", 0))
+        raw = self._config.get('start_time', {'value': 0, 'unit': 'ns'})
+        return int(sc.scalar(**raw).to(unit='ns', copy=False).value)
 
     def handle(self, message: Message[T]) -> list[Message[U]]:
         if self.start_time > self._last_clear:

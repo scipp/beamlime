@@ -144,7 +144,7 @@ def update_plots(n):
 
 @app.callback(Output('interval-component', 'interval'), Input('update-speed', 'value'))
 def update_interval(value):
-    config_service.update_config('update_every_seconds', 2**value / 1000)
+    config_service.update_config('update_every', {'value': 2**value, 'unit': 'ms'})
     return 2**value
 
 
@@ -158,7 +158,9 @@ def update_num_points(value):
 def clear_data(n_clicks):
     if n_clicks is None or n_clicks == 0:
         raise PreventUpdate
-    config_service.update_config('start_time_ns', int(time.time_ns()))
+    config_service.update_config(
+        'start_time', {'value': int(time.time_ns()), 'unit': 'ns'}
+    )
     return 0
 
 
