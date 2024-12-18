@@ -24,10 +24,13 @@ def get_env_vars(template_content: str) -> dict[str, str]:
 def load_config(*, namespace: str, env: str | None = None) -> dict:
     """Load configuration based on environment.
 
-    Args:
-        namespace: Configuration namespace (e.g. 'monitor_data')
-        env: Environment name ('dev', 'staging', 'prod').
-             Defaults to value of BEAMLIME_ENV environment variable.
+    Parameters
+    ----------
+    namespace:
+        Configuration namespace (e.g. 'monitor_data')
+    env:
+        Environment name ('dev', 'staging', 'prod').
+        Defaults to value of BEAMLIME_ENV environment variable.
     """
     env = env or os.getenv('BEAMLIME_ENV', 'dev')
     config_file = f'{namespace}_{env}.yaml'
@@ -48,13 +51,12 @@ def load_config(*, namespace: str, env: str | None = None) -> dict:
             raise FileNotFoundError(
                 f"Neither {config_file} nor {template_file} found in config defaults"
             ) from None
-        else:
-            template = Template(template_content)
-            env_vars = get_env_vars(template_content)
-            for var, value in env_vars.items():
-                if value is None:
-                    raise ValueError(f"Environment variable {var} not set") from None
+        template = Template(template_content)
+        env_vars = get_env_vars(template_content)
+        for var, value in env_vars.items():
+            if value is None:
+                raise ValueError(f"Environment variable {var} not set") from None
 
-            # Render template and parse YAML
-            rendered = template.render(**env_vars)
-            return yaml.safe_load(rendered)
+        # Render template and parse YAML
+        rendered = template.render(**env_vars)
+        return yaml.safe_load(rendered)
