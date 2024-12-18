@@ -2,14 +2,13 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from .service import Service
 from .processor import Processor, StreamProcessor
-from .handler import Handler, HandlerRegistry, ForwardingHandler
+from .handler import Handler, HandlerRegistry
 from .message import Message, compact_messages, MessageKey, MessageSource, MessageSink
 from .config_manager import ConfigManager
 
 __all__ = [
     'compact_messages',
     'ConfigManager',
-    'ForwardingHandler',
     'Handler',
     'HandlerRegistry',
     'Message',

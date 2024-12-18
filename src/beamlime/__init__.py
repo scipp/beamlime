@@ -17,7 +17,6 @@ from .core import (
     Processor,
     Handler,
     HandlerRegistry,
-    ForwardingHandler,
     StreamProcessor,
     MessageKey,
     MessageSource,
@@ -29,7 +28,6 @@ from .core import (
 __all__ = [
     'compact_messages',
     'ConfigManager',
-    'ForwardingHandler',
     'Handler',
     'HandlerRegistry',
     'Message',
