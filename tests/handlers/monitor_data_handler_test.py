@@ -18,7 +18,9 @@ def test_handler() -> None:
     msg = Message(
         timestamp=0,
         key=MessageKey(topic='monitors', source_name='monitor1'),
-        value=MonitorEvents(time_of_arrival=np.array([int(1e6), int(2e6), int(4e7)])),
+        value=MonitorEvents(
+            time_of_arrival=np.array([int(1e6), int(2e6), int(4e7)]), unit='ns'
+        ),
     )
     results = handler.handle(msg)
     assert len(results) == 2
