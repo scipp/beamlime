@@ -29,6 +29,7 @@ class Service:
         self._logger = logging.getLogger(name or __name__)
         self._setup_logging(log_level)
         self._config = config or {}
+        self._poll_interval = self._config.get("service.poll_interval", 0.1)
         self._config_manager = config_manager
         self._processor = processor
         self._thread: threading.Thread | None = None
@@ -86,8 +87,12 @@ class Service:
         """Main service loop"""
         try:
             while self.is_running:
+                start_time = time.monotonic()
                 self._processor.process()
-                time.sleep(self._config.get("service.poll_interval", 0.1))
+                elapsed = time.monotonic() - start_time
+                remaining = max(0.0, self._poll_interval - elapsed)
+                if remaining > 0:
+                    time.sleep(remaining)
         except RuntimeError:
             self._logger.exception("Error in service loop")
             self.stop()
