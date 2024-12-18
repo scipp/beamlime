@@ -24,12 +24,14 @@ from .core import (
     Message,
     compact_messages,
 )
+from .workflow_protocols import WorkflowResult, LiveWorkflow
 
 __all__ = [
     'compact_messages',
     'ConfigManager',
     'Handler',
     'HandlerRegistry',
+    'LiveWorkflow',
     'Message',
     'MessageKey',
     'MessageSink',
@@ -37,4 +39,5 @@ __all__ = [
     'Processor',
     'Service',
     'StreamProcessor',
+    'WorkflowResult',
 ]
