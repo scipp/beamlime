@@ -90,7 +90,7 @@ class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
         value = self._cumulative
         if self._clear_on_get:
             self._cumulative = None
-        return value
+        return value.assign_coords({value.dim: value.coords[value.dim].to(unit='ms')})
 
     def clear(self) -> None:
         self._cumulative = None
