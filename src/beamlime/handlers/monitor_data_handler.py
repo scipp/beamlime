@@ -96,6 +96,9 @@ class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
             self._cumulative = None
         return value
 
+    def clear(self) -> None:
+        self._cumulative = None
+
 
 class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config):
@@ -117,6 +120,9 @@ class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
         result = sc.reduce(self._chunks).sum()
         result.coords.pop('time', None)
         return result
+
+    def clear(self) -> None:
+        self._chunks.clear()
 
     def _cleanup(self) -> None:
         latest = sc.reduce([chunk.coords['time'] for chunk in self._chunks]).max()
@@ -166,6 +172,9 @@ class Histogrammer(Accumulator[MonitorEvents, sc.DataArray]):
             data=sc.array(dims=[self._edges.dim], values=values, unit='counts'),
             coords={self._edges.dim: self._edges},
         )
+
+    def clear(self) -> None:
+        self._chunks.clear()
 
 
 class Rebinner:

@@ -1,5 +1,6 @@
 import atexit
 import threading
+import time
 
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html
@@ -50,6 +51,7 @@ app.layout = html.Div(
                     value=100,
                     marks={i: str(i) for i in range(0, 501, 100)},
                 ),
+                html.Button('Clear', id='clear-button', n_clicks=0),
             ],
             style={'width': '300px', 'float': 'left', 'padding': '10px'},
         ),
@@ -141,6 +143,14 @@ def update_interval(value):
 def update_num_points(value):
     config_service.update_config('monitor-bins', value)
     return value
+
+
+@app.callback(Output('clear-button', 'n_clicks'), Input('clear-button', 'n_clicks'))
+def clear_data(n_clicks):
+    if n_clicks is None or n_clicks == 0:
+        raise PreventUpdate
+    config_service.update_config('start_time_ns', int(time.time_ns()))
+    return 0
 
 
 def shutdown():

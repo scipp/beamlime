@@ -75,6 +75,9 @@ class Accumulator(Protocol, Generic[T, U]):
     def get(self) -> U:
         pass
 
+    def clear(self) -> None:
+        pass
+
 
 class PeriodicAccumulatingHandler(Handler[T, U]):
     """
@@ -92,14 +95,25 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         super().__init__(logger=logger, config=config)
         self._preprocessor = preprocessor
         self._accumulators = accumulators
-        self._next_update: int = 0
+        self._next_update = 0
+        self._last_clear = 0
 
     @property
     def update_every(self) -> int:
         """Update interval in nanoseconds, based on dynamic config value."""
         return int(self._config.get("update_every_seconds", 1.0) * 1e9)
 
+    @property
+    def start_time(self) -> int:
+        """Start time in nanoseconds, based on dynamic config value."""
+        return int(self._config.get("start_time_ns", 0))
+
     def handle(self, message: Message[T]) -> list[Message[U]]:
+        if self.start_time > self._last_clear:
+            self._preprocessor.clear()
+            for accumulator in self._accumulators.values():
+                accumulator.clear()
+            self._last_clear = self.start_time
         self._preprocessor.add(message.timestamp, message.value)
         if message.timestamp < self._next_update:
             return []
