@@ -3,6 +3,7 @@ import threading
 import time
 
 import plotly.graph_objects as go
+import scipp as sc
 from dash import Dash, Input, Output, dcc, html
 from dash.exceptions import PreventUpdate
 
@@ -75,13 +76,21 @@ def create_detector_plot(key: str) -> go.Figure:
     return fig
 
 
-def create_monitor_plot(key: str) -> go.Figure:
+def create_monitor_plot(key: str, data: sc.DataArray) -> go.Figure:
     """Create a new Plotly figure for a monitor."""
     fig = go.Figure()
     fig.add_scatter(x=[], y=[], mode='lines', line_width=2)
     # Setting uirevision ensures that the figure is not redrawn on every update, keeping
     # the zoom level and position.
-    fig.update_layout(title=key, width=500, height=400, uirevision=key)
+    dim = data.dim
+    fig.update_layout(
+        title=key,
+        width=500,
+        height=400,
+        xaxis_title=f'{dim} [{data.coords[dim].unit}]',
+        yaxis_title=f'[{data.unit}]',
+        uirevision=key,
+    )
     return fig
 
 
@@ -114,7 +123,7 @@ def update_plots(n):
             key = f'{msg.key.topic}_{msg.key.source_name}'
             data = msg.value
             if key not in monitor_plots:
-                monitor_plots[key] = create_monitor_plot(key)
+                monitor_plots[key] = create_monitor_plot(key, data)
             fig = monitor_plots[key]
             fig.data[0].x = data.coords[data.dim].values
             fig.data[0].y = data.values
