@@ -133,6 +133,7 @@ def update_plots(n):
 
 @app.callback(Output('interval-component', 'interval'), Input('update-speed', 'value'))
 def update_interval(value):
+    config_service.update_config('update_every_seconds', value / 1000)
     return value
 
 
@@ -151,4 +152,4 @@ def shutdown():
 atexit.register(shutdown)
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)
