@@ -3,7 +3,7 @@
 import scipp as sc
 from scipp.testing import assert_identical
 
-from beamlime.handlers.accumulators import Histogrammer
+from beamlime.handlers.accumulators import Histogrammer, MonitorEvents
 
 
 def test_histogrammer_returns_zeros_if_no_chunks_added() -> None:
@@ -18,3 +18,21 @@ def test_histogrammer_returns_zeros_if_no_chunks_added() -> None:
             coords={dim: bins},
         ),
     )
+
+
+def test_can_clear_histogrammer() -> None:
+    histogrammer = Histogrammer(config={})
+    histogrammer.add(0, MonitorEvents(time_of_arrival=[1.0, 10.0]))
+    before = histogrammer.get()
+    assert before.sum().value > 0
+    histogrammer.clear()
+    after = histogrammer.get()
+    assert after.sum().value == 0
+
+
+def test_histogrammer_accumulates_consecutive_add_calls() -> None:
+    histogrammer = Histogrammer(config={'time_of_arrival_bins': 7})
+    histogrammer.add(0, MonitorEvents(time_of_arrival=[1.0, 10.0]))
+    histogrammer.add(1, MonitorEvents(time_of_arrival=[2.0, 20.0]))
+    da = histogrammer.get()
+    assert sc.identical(da.sum().data, sc.scalar(4, unit='counts'))
