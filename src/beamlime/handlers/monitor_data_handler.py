@@ -76,10 +76,6 @@ def _create_monitor_handler(
 class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config, clear_on_get: bool = False):
         self._config = config
-        # TODO We will want to support clearing the history, e.g., when a "start"
-        # message is received. This is not yet implemented. This could be automatic,
-        # based on run_start messages from upstream, or via our own control topic. We
-        # can consider translating run_start messages to our own control messages.
         self._clear_on_get = clear_on_get
         self._cumulative: sc.DataArray | None = None
 
