@@ -68,12 +68,6 @@ ipywidgets==8.1.5
     #   pythreejs
 jedi==0.19.2
     # via ipython
-jinja2==3.1.4
-    # via
-    #   myst-parser
-    #   nbconvert
-    #   nbsphinx
-    #   sphinx
 jsonschema==4.23.0
     # via nbformat
 jsonschema-specifications==2024.10.1
@@ -97,10 +91,6 @@ markdown-it-py==3.0.0
     # via
     #   mdit-py-plugins
     #   myst-parser
-markupsafe==3.0.2
-    # via
-    #   jinja2
-    #   nbconvert
 matplotlib-inline==0.1.7
     # via
     #   ipykernel
