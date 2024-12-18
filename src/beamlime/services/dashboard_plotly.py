@@ -35,11 +35,11 @@ app.layout = html.Div(
                 html.Label('Update Speed (ms)'),
                 dcc.Slider(
                     id='update-speed',
-                    min=100,
-                    max=5000,
-                    step=100,
-                    value=1000,
-                    marks={i: str(i) for i in range(0, 5001, 1000)},
+                    min=8,
+                    max=13,
+                    step=0.5,
+                    value=10,
+                    marks={i: {'label': f'{2**i}'} for i in range(8, 14)},
                 ),
                 html.Label('Time-of-arrival bins'),
                 dcc.Slider(
@@ -133,8 +133,8 @@ def update_plots(n):
 
 @app.callback(Output('interval-component', 'interval'), Input('update-speed', 'value'))
 def update_interval(value):
-    config_service.update_config('update_every_seconds', value / 1000)
-    return value
+    config_service.update_config('update_every_seconds', 2**value / 1000)
+    return 2**value
 
 
 @app.callback(Output('num-points', 'value'), Input('num-points', 'value'))
