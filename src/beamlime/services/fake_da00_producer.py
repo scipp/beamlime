@@ -74,7 +74,7 @@ class IdentityHandler(Handler[sc.DataArray, sc.DataArray]):
 
 def run_service(*, instrument: str) -> NoReturn:
     service_name = f'{instrument}_fake_da00_producer'
-    producer_config = load_config(namespace='fake_da00', kind='producer')
+    producer_config = load_config(namespace='fake_da00')['producer']
     processor = StreamProcessor(
         source=FakeMonitorSource(instrument=instrument),
         sink=KafkaSink(kafka_config=producer_config['kafka']),

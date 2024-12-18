@@ -19,7 +19,7 @@ from beamlime.kafka.message_adapter import (
 )
 from beamlime.kafka.source import KafkaMessageSource
 
-control_config = load_config(namespace='monitor_data', kind='control')
+control_config = load_config(namespace='monitor_data')['control']
 config_service = ConfigService(kafka_config=control_config)
 config_service_thread = threading.Thread(target=config_service.start)
 config_service_thread.start()
@@ -94,7 +94,7 @@ def create_monitor_plot(key: str, data: sc.DataArray) -> go.Figure:
     return fig
 
 
-consumer_config = load_config(namespace='visualization', kind='consumer')
+consumer_config = load_config(namespace='visualization')['consumer']
 consumer_kafka_config = consumer_config['kafka']
 consumer_kafka_config['group.id'] = 'monitor_data_dashboard'
 

@@ -27,7 +27,7 @@ class IdentityHandler(Handler[sc.DataArray, sc.DataArray]):
 def run_service(*, instrument: str) -> NoReturn:
     handler_config = {}
     service_config = {}
-    consumer_config = load_config(namespace='visualization', kind='consumer')
+    consumer_config = load_config(namespace='visualization')['consumer']
     consumer = kafka_consumer.make_bare_consumer(
         topics=topic_for_instrument(
             topic=consumer_config['topics'], instrument=instrument

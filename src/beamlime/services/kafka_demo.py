@@ -50,9 +50,10 @@ def run_service(
     service_config = {}
     initial_config = {'sliding_window_seconds': 5}
 
-    control_config = load_config(namespace='monitor_data', kind='control')
-    consumer_config = load_config(namespace='monitor_data', kind='consumer')
-    producer_config = load_config(namespace='monitor_data', kind='producer')
+    config = load_config(namespace='monitor_data')
+    control_config = config['control']
+    consumer_config = config['consumer']
+    producer_config = config['producer']
 
     config_manager = ConfigManager(config=control_config, initial_config=initial_config)
     consumer = kafka_consumer.make_bare_consumer(

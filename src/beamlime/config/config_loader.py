@@ -6,7 +6,7 @@ from importlib import resources
 import yaml
 
 
-def load_config(*, namespace: str, kind: str, env: str | None = None) -> dict:
+def load_config(*, namespace: str, env: str | None = None) -> dict:
     """Load configuration based on environment.
 
     Args:
@@ -15,7 +15,7 @@ def load_config(*, namespace: str, kind: str, env: str | None = None) -> dict:
     """
     env = env or os.getenv('BEAMLIME_ENV', 'dev')
 
-    config_file = f'{namespace}_{kind}_{env}.yaml'
+    config_file = f'{namespace}_{env}.yaml'
     # Use importlib.resources to access packaged config files
     with resources.files('beamlime.config.defaults').joinpath(config_file).open() as f:
         return yaml.safe_load(f)
