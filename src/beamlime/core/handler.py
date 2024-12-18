@@ -114,6 +114,8 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
             for accumulator in self._accumulators.values():
                 accumulator.clear()
             self._last_clear = self.start_time
+            # Set next update to current message to avoid lag in user experience.
+            self._next_update = message.timestamp
         self._preprocessor.add(message.timestamp, message.value)
         if message.timestamp < self._next_update:
             return []
