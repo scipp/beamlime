@@ -117,6 +117,8 @@ class Histogrammer(Accumulator[MonitorEvents, sc.DataArray]):
 
     def add(self, timestamp: int, data: MonitorEvents) -> None:
         _ = timestamp
+        # We could easily support other units, but ev44 is always in ns so this should
+        # never happen.
         if data.unit != 'ns':
             raise ValueError(f"Expected unit 'ns', got '{data.unit}'")
         self._chunks.append(data.time_of_arrival)
