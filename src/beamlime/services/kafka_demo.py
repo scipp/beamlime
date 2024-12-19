@@ -69,8 +69,10 @@ def run_service(
         config=initial_config,
     )
     consumer = kafka_consumer.make_bare_consumer(
-        topics=[f'{instrument}_{topic}' for topic in consumer_config['topics']],
         config=consumer_config['kafka'],
+        topics=topic_for_instrument(
+            topic=consumer_config['topics'], instrument=instrument
+        ),
     )
 
     if sink_type == 'kafka':
