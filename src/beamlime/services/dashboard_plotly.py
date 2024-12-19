@@ -224,6 +224,7 @@ def main() -> None:
     dashboard = DashboardApp(
         instrument=args.instrument,
         debug=args.debug,
+        log_level=args.log_level,
         name=f'{args.instrument}_dashboard',
     )
     dashboard.start()

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+import logging
 import time
 from typing import NoReturn
 
@@ -72,7 +73,7 @@ class IdentityHandler(Handler[sc.DataArray, sc.DataArray]):
         return [message]
 
 
-def run_service(*, instrument: str) -> NoReturn:
+def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
     service_name = f'{instrument}_fake_da00_producer'
     producer_config = load_config(namespace='fake_da00')['producer']
     processor = StreamProcessor(
@@ -80,14 +81,16 @@ def run_service(*, instrument: str) -> NoReturn:
         sink=KafkaSink(kafka_config=producer_config['kafka']),
         handler_registry=HandlerRegistry(config={}, handler_cls=IdentityHandler),
     )
-    service = Service(config={}, processor=processor, name=service_name)
+    service = Service(
+        config={}, processor=processor, name=service_name, log_level=log_level
+    )
     service.start()
 
 
 def main() -> NoReturn:
     parser = Service.setup_arg_parser('Fake that publishes random da00 monitor data')
     args = parser.parse_args()
-    run_service(instrument=args.instrument)
+    run_service(instrument=args.instrument, log_level=args.log_level)
 
 
 if __name__ == "__main__":
