@@ -9,8 +9,9 @@ Usage:
 """
 
 from beamlime.core.service import get_env_defaults
-from beamlime.services.dashboard_plotly import create_app, setup_arg_parser
+from beamlime.services.dashboard_plotly import DashboardApp, setup_arg_parser
 
-parser = setup_arg_parser()
-args = get_env_defaults(parser)
-application = create_app(**args)
+_args = get_env_defaults(setup_arg_parser())
+_app = DashboardApp(**_args)
+_app.start(blocking=False)
+application = _app.server

@@ -234,15 +234,6 @@ class DashboardApp(ServiceBase):
         self._source.close()
 
 
-def create_app(
-    instrument: str = 'dummy', debug: bool = False, log_level: int = logging.INFO
-):
-    """Factory function to create dashboard app with configuration."""
-    app = DashboardApp(instrument=instrument, debug=debug, log_level=log_level)
-    app.start(blocking=False)
-    return app.server
-
-
 def setup_arg_parser() -> argparse.ArgumentParser:
     parser = Service.setup_arg_parser(description='Beamlime Dashboard')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
@@ -251,8 +242,8 @@ def setup_arg_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     parser = setup_arg_parser()
-    dashboard = DashboardApp(**vars(parser.parse_args()))
-    dashboard.start()
+    app = DashboardApp(**vars(parser.parse_args()))
+    app.start(blocking=True)
 
 
 if __name__ == '__main__':
