@@ -85,7 +85,7 @@ class DashboardApp(ServiceBase):
             config=consumer_kafka_config,
         )
         return AdaptingMessageSource(
-            source=KafkaMessageSource(consumer=consumer),
+            source=KafkaMessageSource(consumer=consumer, num_messages=1000),
             adapter=ChainedAdapter(
                 first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
             ),
