@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import signal
 import sys
 import threading
@@ -159,3 +160,24 @@ class Service(ServiceBase):
             help='Set the logging level',
         )
         return parser
+
+
+def get_env_defaults(
+    parser: argparse.ArgumentParser, prefix: str = 'BEAMLIME_'
+) -> dict[str, Any]:
+    """Get defaults from environment variables based on parser arguments."""
+    env_defaults = {}
+    for action in parser._actions:
+        if action.dest == 'help':
+            continue
+        # Convert --arg-name to BEAMLIME_ARG_NAME
+        env_name = prefix + action.dest.upper().replace('-', '_')
+        env_val = os.getenv(env_name)
+        if env_val is not None:
+            if isinstance(action.default, bool):
+                env_defaults[action.dest] = env_val.lower() in ('true', '1', 'yes')
+            elif isinstance(action.default, int):
+                env_defaults[action.dest] = int(env_val)
+            else:
+                env_defaults[action.dest] = env_val
+    return env_defaults

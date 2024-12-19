@@ -8,12 +8,9 @@ Usage:
     BEAMLIME_INSTRUMENT=dream gunicorn beamlime.services.wsgi:application
 """
 
-import os
+from beamlime.core.service import get_env_defaults
+from beamlime.services.dashboard_plotly import create_app, setup_arg_parser
 
-from beamlime.services.dashboard_plotly import create_app
-
-# Get config from environment
-instrument = os.getenv('BEAMLIME_INSTRUMENT', 'dummy')
-log_level = int(os.getenv('BEAMLIME_LOG_LEVEL', '20'))  # 20 is INFO
-
-application = create_app(instrument=instrument, debug=False, log_level=log_level)
+parser = setup_arg_parser()
+args = get_env_defaults(parser)
+application = create_app(**args)

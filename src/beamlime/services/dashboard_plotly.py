@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+import argparse
 import logging
 import threading
 import time
@@ -242,9 +243,14 @@ def create_app(
     return app.server
 
 
-def main() -> None:
+def setup_arg_parser() -> argparse.ArgumentParser:
     parser = Service.setup_arg_parser(description='Beamlime Dashboard')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
+    return parser
+
+
+def main() -> None:
+    parser = setup_arg_parser()
     dashboard = DashboardApp(**vars(parser.parse_args()))
     dashboard.start()
 
