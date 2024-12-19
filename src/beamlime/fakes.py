@@ -23,6 +23,9 @@ class FakeMessageSource(Generic[T]):
         self._index += 1
         return messages
 
+    def close(self) -> None:
+        pass
+
 
 class FakeMessageSink(Generic[T]):
     """

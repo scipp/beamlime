@@ -71,7 +71,6 @@ class DashboardApp(ServiceBase):
             ),
             config=consumer_kafka_config,
         )
-        self._consumer = consumer  # Store reference to consumer
         return AdaptingMessageSource(
             source=KafkaMessageSource(consumer=consumer),
             adapter=ChainedAdapter(
@@ -214,7 +213,7 @@ class DashboardApp(ServiceBase):
         """Clean shutdown of all components."""
         self._config_service.stop()
         self._config_service_thread.join()
-        self._consumer.close()
+        self._source.close()
 
 
 def main() -> None:

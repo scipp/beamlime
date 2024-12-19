@@ -10,6 +10,9 @@ class KafkaConsumer(Protocol):
     def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]:
         pass
 
+    def close(self) -> None:
+        pass
+
 
 class KafkaMessageSource(MessageSource[KafkaMessage]):
     def __init__(
@@ -23,3 +26,6 @@ class KafkaMessageSource(MessageSource[KafkaMessage]):
         return self._consumer.consume(
             num_messages=self._num_messages, timeout=self._timeout
         )
+
+    def close(self) -> None:
+        self._consumer.close()

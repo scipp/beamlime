@@ -126,3 +126,6 @@ class AdaptingMessageSource(MessageSource[U]):
             except streaming_data_types.exceptions.WrongSchemaException:  # noqa: PERF203
                 pass
         return adapted
+
+    def close(self) -> None:
+        self._source.close()
