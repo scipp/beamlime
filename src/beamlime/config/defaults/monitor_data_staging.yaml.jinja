@@ -7,7 +7,6 @@ consumer:
     sasl.mechanism: SCRAM-SHA-256
     sasl.username: {{ KAFKA_USERNAME }}
     sasl.password: {{ KAFKA_PASSWORD }}
-    group.id: beamlime-monitor-data
     auto.offset.reset: latest
     enable.auto.commit: true
     fetch.min.bytes: 1

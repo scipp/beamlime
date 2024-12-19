@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import logging
+import uuid
 from typing import NoReturn
 
 import scipp as sc
@@ -29,6 +30,7 @@ def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
     handler_config = {}
     service_config = {}
     consumer_config = load_config(namespace='visualization')['consumer']
+    consumer_config['kafka']['group.id'] = f'{instrument}_visualization_{uuid.uuid4()}'
     consumer = kafka_consumer.make_bare_consumer(
         topics=topic_for_instrument(
             topic=consumer_config['topics'], instrument=instrument

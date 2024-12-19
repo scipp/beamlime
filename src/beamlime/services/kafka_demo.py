@@ -2,6 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import argparse
 import logging
+import uuid
 from typing import Literal, NoReturn
 
 from beamlime import ConfigManager, HandlerRegistry, Service, StreamProcessor
@@ -56,6 +57,8 @@ def run_service(
     config = load_config(namespace='monitor_data')
     control_config = config['control']
     consumer_config = config['consumer']
+    # Currently there is no support for sharing work.
+    consumer_config['kafka']['group.id'] = f'{instrument}_monitor_data_{uuid.uuid4()}'
     producer_config = config['producer']
 
     config_manager = ConfigManager(

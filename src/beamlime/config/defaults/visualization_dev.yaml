@@ -4,7 +4,6 @@ consumer:
     - beam_monitor_sliding
   kafka:
     bootstrap.servers: localhost:9092
-    group.id: beamlime-visualization
     auto.offset.reset: latest
     enable.auto.commit: true
     fetch.min.bytes: 1

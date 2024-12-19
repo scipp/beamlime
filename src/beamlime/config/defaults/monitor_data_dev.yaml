@@ -3,7 +3,6 @@ consumer:
     - beam_monitor
   kafka:
     bootstrap.servers: localhost:9092
-    group.id: beamlime-monitor-data
     auto.offset.reset: latest
     enable.auto.commit: true
     fetch.min.bytes: 1
