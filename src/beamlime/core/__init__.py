@@ -4,11 +4,11 @@ from .service import Service, ServiceBase
 from .processor import Processor, StreamProcessor
 from .handler import Handler, HandlerRegistry
 from .message import Message, compact_messages, MessageKey, MessageSource, MessageSink
-from .config_manager import ConfigManager
+from .config_subscriber import ConfigSubscriber
 
 __all__ = [
     'compact_messages',
-    'ConfigManager',
+    'ConfigSubscriber',
     'Handler',
     'HandlerRegistry',
     'Message',

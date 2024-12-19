@@ -5,7 +5,7 @@ import logging
 import uuid
 from typing import Literal, NoReturn
 
-from beamlime import ConfigManager, HandlerRegistry, Service, StreamProcessor
+from beamlime import ConfigSubscriber, HandlerRegistry, Service, StreamProcessor
 from beamlime.config.config_loader import load_config
 from beamlime.handlers.monitor_data_handler import (
     create_monitor_data_handler,
@@ -61,12 +61,12 @@ def run_service(
     consumer_config['kafka']['group.id'] = f'{instrument}_monitor_data_{uuid.uuid4()}'
     producer_config = config['producer']
 
-    config_manager = ConfigManager(
-        config=control_config['kafka'],
+    config_subscriber = ConfigSubscriber(
+        kafka_config=control_config['kafka'],
         topic=topic_for_instrument(
             topic=control_config['topic'], instrument=instrument
         ),
-        initial_config=initial_config,
+        config=initial_config,
     )
     consumer = kafka_consumer.make_bare_consumer(
         topics=[f'{instrument}_{topic}' for topic in consumer_config['topics']],
@@ -94,12 +94,12 @@ def run_service(
         ),
         sink=sink,
         handler_registry=HandlerRegistry(
-            config=config_manager, handler_cls=handler_cls
+            config=config_subscriber, handler_cls=handler_cls
         ),
     )
     service = Service(
         config=service_config,
-        config_manager=config_manager,
+        children=[config_subscriber],
         processor=processor,
         name=service_name,
         log_level=log_level,

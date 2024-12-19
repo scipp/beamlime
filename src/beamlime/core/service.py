@@ -10,9 +10,8 @@ import sys
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Protocol
 
-from .config_manager import ConfigManager
 from .processor import Processor
 
 
@@ -84,6 +83,12 @@ class ServiceBase(ABC):
         """Stop the service implementation"""
 
 
+class StartStoppable(Protocol):
+    def start(self) -> None: ...
+
+    def stop(self) -> None: ...
+
+
 class Service(ServiceBase):
     """Complete service with proper lifecycle management"""
 
@@ -91,7 +96,7 @@ class Service(ServiceBase):
         self,
         *,
         config: dict[str, Any] | None = None,
-        config_manager: ConfigManager | None = None,
+        children: list[StartStoppable] | None = None,
         processor: Processor,
         name: str | None = None,
         log_level: int = logging.INFO,
@@ -99,14 +104,14 @@ class Service(ServiceBase):
         super().__init__(name=name, log_level=log_level)
         self._config = config or {}
         self._poll_interval = self._config.get("service.poll_interval", 0.1)
-        self._config_manager = config_manager
+        self._children = children or []
         self._processor = processor
         self._thread: threading.Thread | None = None
 
     def _start_impl(self) -> None:
         """Start the service and block until stopped"""
-        if self._config_manager:
-            self._config_manager.start()
+        for child in self._children:
+            child.start()
         self._thread = threading.Thread(target=self._run_loop)
         self._thread.start()
 
@@ -138,8 +143,8 @@ class Service(ServiceBase):
         """Stop the service gracefully"""
         if self._thread:
             self._thread.join()
-        if self._config_manager:
-            self._config_manager.stop()
+        for child in self._children:
+            child.stop()
 
     @staticmethod
     def setup_arg_parser(description: str) -> argparse.ArgumentParser:
