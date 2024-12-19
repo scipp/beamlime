@@ -11,7 +11,7 @@ Usage:
 from beamlime.core.service import get_env_defaults
 from beamlime.services.dashboard_plotly import DashboardApp, setup_arg_parser
 
-_args = get_env_defaults(setup_arg_parser())
+_args = get_env_defaults(parser=setup_arg_parser(), prefix='BEAMLIME')
 _app = DashboardApp(**_args)
 _app.start(blocking=False)
 application = _app.server

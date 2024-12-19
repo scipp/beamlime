@@ -163,7 +163,7 @@ class Service(ServiceBase):
 
 
 def get_env_defaults(
-    parser: argparse.ArgumentParser, prefix: str = 'BEAMLIME_'
+    *, parser: argparse.ArgumentParser, prefix: str = 'BEAMLIME'
 ) -> dict[str, Any]:
     """Get defaults from environment variables based on parser arguments."""
     env_defaults = {}
@@ -171,7 +171,7 @@ def get_env_defaults(
         if action.dest == 'help':
             continue
         # Convert --arg-name to BEAMLIME_ARG_NAME
-        env_name = prefix + action.dest.upper().replace('-', '_')
+        env_name = f"{prefix}_{action.dest.upper().replace('-', '_')}"
         env_val = os.getenv(env_name)
         if env_val is not None:
             if isinstance(action.default, bool):
