@@ -3,7 +3,6 @@
 import json
 import logging
 import threading
-import uuid
 from typing import Any
 
 from confluent_kafka import Consumer
@@ -13,18 +12,15 @@ class ConfigSubscriber:
     def __init__(
         self,
         *,
-        kafka_config: dict[str, Any],
+        consumer: Consumer,
         config: dict[str, Any] | None = None,
-        topic: str,
         logger: logging.Logger | None = None,
     ):
         # Generate unique group id using service name and random suffix, to ensure all
         # instances of the service get the same messages.
-        self._topic = topic
         self._config = config or {}
         self._logger = logger or logging.getLogger(__name__)
-        group_id = f"config-subscriber-{uuid.uuid4()}"
-        self._consumer = Consumer({**kafka_config, 'group.id': group_id})
+        self._consumer = consumer
         self._running = False
         self._thread: threading.Thread | None = None
 
@@ -33,7 +29,6 @@ class ConfigSubscriber:
 
     def start(self):
         self._running = True
-        self._consumer.subscribe([self._topic])
         self._thread = threading.Thread(target=self._run_loop)
         self._thread.start()
 

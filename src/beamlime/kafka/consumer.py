@@ -54,7 +54,8 @@ def make_consumer_from_config(
     """Create a Kafka consumer from a configuration dictionary."""
     if unique_group_id:
         config['kafka']['group.id'] = f'{instrument}_{group}_{uuid.uuid4()}'
+    topics = config.get('topics', [config.get('topic')])
     return make_bare_consumer(
         config=config['kafka'],
-        topics=topic_for_instrument(topic=config['topics'], instrument=instrument),
+        topics=topic_for_instrument(topic=topics, instrument=instrument),
     )
