@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+import logging
 from typing import NoReturn
 
 import scipp as sc
@@ -24,7 +25,7 @@ class IdentityHandler(Handler[sc.DataArray, sc.DataArray]):
         return [message]
 
 
-def run_service(*, instrument: str) -> NoReturn:
+def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
     handler_config = {}
     service_config = {}
     consumer_config = load_config(namespace='visualization')['consumer']
@@ -50,6 +51,7 @@ def run_service(*, instrument: str) -> NoReturn:
         config=service_config,
         processor=processor,
         name=f'{instrument}_plot_da00_to_png',
+        log_level=log_level,
     )
     service.start()
 
@@ -57,7 +59,7 @@ def run_service(*, instrument: str) -> NoReturn:
 def main() -> NoReturn:
     parser = Service.setup_arg_parser('Plot da00 data arrays to PNG')
     args = parser.parse_args()
-    run_service(instrument=args.instrument)
+    run_service(instrument=args.instrument, log_level=args.log_level)
 
 
 if __name__ == "__main__":
