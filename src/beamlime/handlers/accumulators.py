@@ -46,10 +46,12 @@ class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
             self._cumulative += data
 
     def get(self) -> sc.DataArray:
+        if self._cumulative is None:
+            raise ValueError("No data has been added")
         value = self._cumulative
         if self._clear_on_get:
             self._cumulative = None
-        return value.assign_coords({value.dim: value.coords[value.dim].to(unit='ms')})
+        return value
 
     def clear(self) -> None:
         self._cumulative = None
@@ -69,6 +71,8 @@ class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
         )
 
     def get(self) -> sc.DataArray:
+        if not self._chunks:
+            raise ValueError("No data has been added")
         self._cleanup()
         # sc.reduce returns inconsistent result with/without `time` coord depending on
         # the number of chunks. We remove it to ensure consistent behavior.
