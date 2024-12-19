@@ -103,7 +103,7 @@ class Service(ServiceBase):
     ):
         super().__init__(name=name, log_level=log_level)
         self._config = config or {}
-        self._poll_interval = self._config.get("service.poll_interval", 0.1)
+        self._poll_interval = self._config.get("poll_interval", 0.1)
         self._children = children or []
         self._processor = processor
         self._thread: threading.Thread | None = None

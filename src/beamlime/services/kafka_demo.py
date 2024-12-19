@@ -51,7 +51,6 @@ def run_service(
     log_level: int = logging.INFO,
 ) -> NoReturn:
     service_name = f'{instrument}_monitor_data_demo'
-    service_config = {}
     initial_config = {'sliding_window_seconds': 5}
 
     config = load_config(namespace='monitor_data')
@@ -100,7 +99,7 @@ def run_service(
         ),
     )
     service = Service(
-        config=service_config,
+        config=config['service'],
         children=[config_subscriber],
         processor=processor,
         name=service_name,
