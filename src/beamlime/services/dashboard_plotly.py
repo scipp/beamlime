@@ -13,6 +13,7 @@ from dash.exceptions import PreventUpdate
 from beamlime import Service, ServiceBase
 from beamlime.config.config_loader import load_config
 from beamlime.core.config_service import ConfigService
+from beamlime.core.message import compact_messages
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.helpers import topic_for_instrument
 from beamlime.kafka.message_adapter import (
@@ -50,6 +51,11 @@ class DashboardApp(ServiceBase):
         self._app = Dash(name)
         self._setup_layout()
         self._setup_callbacks()
+
+    @property
+    def server(self):
+        """Return the Flask server for gunicorn"""
+        return self._app.server
 
     def _setup_config_service(self) -> None:
         control_config = load_config(namespace='monitor_data')['control']
@@ -166,7 +172,11 @@ class DashboardApp(ServiceBase):
 
         try:
             monitor_messages = self._source.get_messages()
-            self._logger.info("Got %d monitor messages", len(monitor_messages))
+            num = len(monitor_messages)
+            monitor_messages = compact_messages(monitor_messages)
+            self._logger.info(
+                "Got %d messages, showing most recent %d", num, len(monitor_messages)
+            )
 
             for msg in monitor_messages:
                 key = f'{msg.key.topic}_{msg.key.source_name}'
@@ -213,13 +223,23 @@ class DashboardApp(ServiceBase):
         self._config_service_thread.start()
 
     def run_forever(self) -> None:
-        self._app.run_server(debug=self._debug)
+        """Only for development purposes."""
+        self._app.run(debug=self._debug)
 
     def _stop_impl(self) -> None:
         """Clean shutdown of all components."""
         self._config_service.stop()
         self._config_service_thread.join()
         self._source.close()
+
+
+def create_app(
+    instrument: str = 'dummy', debug: bool = False, log_level: int = logging.INFO
+):
+    """Factory function to create dashboard app with configuration."""
+    app = DashboardApp(instrument=instrument, debug=debug, log_level=log_level)
+    app.start(blocking=False)
+    return app.server
 
 
 def main() -> None:
