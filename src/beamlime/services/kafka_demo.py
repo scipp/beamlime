@@ -2,7 +2,6 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import argparse
 import logging
-import uuid
 from typing import Literal, NoReturn
 
 from beamlime import ConfigSubscriber, HandlerRegistry, Service, StreamProcessor
@@ -55,10 +54,6 @@ def run_service(
 
     config = load_config(namespace='monitor_data')
     control_config = config['control']
-    consumer_config = config['consumer']
-    # Currently there is no support for sharing work.
-    consumer_config['kafka']['group.id'] = f'{instrument}_monitor_data_{uuid.uuid4()}'
-    producer_config = config['producer']
 
     config_subscriber = ConfigSubscriber(
         kafka_config=control_config['kafka'],
@@ -67,15 +62,12 @@ def run_service(
         ),
         config=initial_config,
     )
-    consumer = kafka_consumer.make_bare_consumer(
-        config=consumer_config['kafka'],
-        topics=topic_for_instrument(
-            topic=consumer_config['topics'], instrument=instrument
-        ),
+    consumer = kafka_consumer.make_consumer_from_config(
+        config=config['consumer'], instrument=instrument, group='monitor_data'
     )
 
     if sink_type == 'kafka':
-        sink = KafkaSink(kafka_config=producer_config['kafka'])
+        sink = KafkaSink(kafka_config=config['producer']['kafka'])
     else:
         sink = PlotToPngSink()
     if mode == 'ev44':

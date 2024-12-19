@@ -1,9 +1,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+import uuid
 from typing import Any
 
 import confluent_kafka as kafka
 from confluent_kafka.error import KafkaException
+
+from .helpers import topic_for_instrument
 
 
 def validate_topics_exist(consumer: kafka.Consumer, topics: list[str]) -> None:
@@ -43,3 +46,15 @@ def make_bare_consumer(topics: list[str], config: dict[str, Any]) -> kafka.Consu
         assign_partitions(consumer, topic)
 
     return consumer
+
+
+def make_consumer_from_config(
+    *, config: dict[str, Any], instrument: str, group: str, unique_group_id: bool = True
+) -> kafka.Consumer:
+    """Create a Kafka consumer from a configuration dictionary."""
+    if unique_group_id:
+        config['kafka']['group.id'] = f'{instrument}_{group}_{uuid.uuid4()}'
+    return make_bare_consumer(
+        config=config['kafka'],
+        topics=topic_for_instrument(topic=config['topics'], instrument=instrument),
+    )

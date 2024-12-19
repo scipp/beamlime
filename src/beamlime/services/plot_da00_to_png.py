@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import logging
-import uuid
 from typing import NoReturn
 
 import scipp as sc
@@ -9,7 +8,6 @@ import scipp as sc
 from beamlime import Handler, HandlerRegistry, Message, Service, StreamProcessor
 from beamlime.config.config_loader import load_config
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.helpers import topic_for_instrument
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
@@ -28,14 +26,9 @@ class IdentityHandler(Handler[sc.DataArray, sc.DataArray]):
 
 def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
     handler_config = {}
-    service_config = {}
-    consumer_config = load_config(namespace='visualization')['consumer']
-    consumer_config['kafka']['group.id'] = f'{instrument}_visualization_{uuid.uuid4()}'
-    consumer = kafka_consumer.make_bare_consumer(
-        topics=topic_for_instrument(
-            topic=consumer_config['topics'], instrument=instrument
-        ),
-        config=consumer_config['kafka'],
+    config = load_config(namespace='visualization')
+    consumer = kafka_consumer.make_consumer_from_config(
+        config=config['consumer'], instrument=instrument, group='visualization'
     )
     processor = StreamProcessor(
         source=AdaptingMessageSource(
@@ -50,7 +43,7 @@ def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
         ),
     )
     service = Service(
-        config=service_config,
+        config=config['service'],
         processor=processor,
         name=f'{instrument}_plot_da00_to_png',
         log_level=log_level,

@@ -4,7 +4,6 @@ import argparse
 import logging
 import threading
 import time
-import uuid
 
 import plotly.graph_objects as go
 import scipp as sc
@@ -72,17 +71,9 @@ class DashboardApp(ServiceBase):
         )
 
     def _setup_kafka_consumer(self) -> AdaptingMessageSource:
-        consumer_config = load_config(namespace='visualization')['consumer']
-        consumer_kafka_config = consumer_config['kafka']
-        consumer_kafka_config['group.id'] = (
-            f'{self._instrument}_dashboard_{uuid.uuid4()}'
-        )
-
-        consumer = kafka_consumer.make_bare_consumer(
-            topics=topic_for_instrument(
-                topic=consumer_config['topics'], instrument=self._instrument
-            ),
-            config=consumer_kafka_config,
+        config = load_config(namespace='visualization')['consumer']
+        consumer = kafka_consumer.make_consumer_from_config(
+            config=config, instrument=self._instrument, group='dashboard'
         )
         return AdaptingMessageSource(
             source=KafkaMessageSource(consumer=consumer, num_messages=1000),

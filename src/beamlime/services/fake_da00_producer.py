@@ -75,14 +75,17 @@ class IdentityHandler(Handler[sc.DataArray, sc.DataArray]):
 
 def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
     service_name = f'{instrument}_fake_da00_producer'
-    producer_config = load_config(namespace='fake_da00')['producer']
+    config = load_config(namespace='fake_da00')
     processor = StreamProcessor(
         source=FakeMonitorSource(instrument=instrument),
-        sink=KafkaSink(kafka_config=producer_config['kafka']),
+        sink=KafkaSink(kafka_config=config['producer']['kafka']),
         handler_registry=HandlerRegistry(config={}, handler_cls=IdentityHandler),
     )
     service = Service(
-        config={}, processor=processor, name=service_name, log_level=log_level
+        config=config['service'],
+        processor=processor,
+        name=service_name,
+        log_level=log_level,
     )
     service.start()
 
