@@ -36,8 +36,9 @@ class Service:
         self._running = False
         self._setup_signal_handlers()
 
-    def _setup_logging(self, log_level: int) -> None:
-        """Configure logging for this service instance if not already configured"""
+    @staticmethod
+    def configure_logging(log_level: int) -> None:
+        """Configure logging for the root logger if not already configured"""
         root = logging.getLogger()
         if not root.handlers:  # Only configure if no handlers exist
             logging.basicConfig(
@@ -45,6 +46,10 @@ class Service:
                 format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                 stream=sys.stdout,
             )
+
+    def _setup_logging(self, log_level: int) -> None:
+        """Configure logging for this service instance if not already configured"""
+        self.configure_logging(log_level)
         self._logger.setLevel(log_level)
 
     @property
@@ -120,5 +125,11 @@ class Service:
             choices=['dummy', 'loki', 'odin', 'nmx', 'dream'],
             default='dummy',
             help='Select the instrument',
+        )
+        parser.add_argument(
+            '--log-level',
+            choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
+            default='INFO',
+            help='Set the logging level',
         )
         return parser

@@ -1,4 +1,7 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import atexit
+import logging
 import threading
 import time
 
@@ -7,6 +10,7 @@ import scipp as sc
 from dash import Dash, Input, Output, dcc, html
 from dash.exceptions import PreventUpdate
 
+from beamlime import Service
 from beamlime.config.config_loader import load_config
 from beamlime.core.config_service import ConfigService
 from beamlime.kafka import consumer as kafka_consumer
@@ -19,158 +23,208 @@ from beamlime.kafka.message_adapter import (
 )
 from beamlime.kafka.source import KafkaMessageSource
 
-control_config = load_config(namespace='monitor_data')['control']
-config_service = ConfigService(kafka_config=control_config)
-config_service_thread = threading.Thread(target=config_service.start)
-config_service_thread.start()
 
-app = Dash(__name__)
+class DashboardApp:
+    def __init__(
+        self,
+        *,
+        instrument: str = 'dummy',
+        debug: bool = False,
+        log_level: int = logging.INFO,
+        name: str | None = None,
+    ) -> None:
+        self._logger = logging.getLogger(name or __name__)
+        Service.configure_logging(log_level)
+        self._logger.setLevel(log_level)
+        self._instrument = instrument
+        self._debug = debug
 
-# Initialize empty plot storage
-monitor_plots: dict[str, go.Figure] = {}
-detector_plots: dict[str, go.Figure] = {}
+        # Initialize state
+        self._monitor_plots: dict[str, go.Figure] = {}
+        self._detector_plots: dict[str, go.Figure] = {}
 
-app.layout = html.Div(
-    [
-        html.Div(
+        # Setup services
+        self._setup_config_service()
+        self._source = self._setup_kafka_consumer()
+
+        # Initialize Dash
+        self._app = Dash(name or __name__)
+        self._setup_layout()
+        self._setup_callbacks()
+
+    def _setup_config_service(self) -> None:
+        control_config = load_config(namespace='monitor_data')['control']
+        self._config_service = ConfigService(kafka_config=control_config)
+        self._config_service_thread = threading.Thread(
+            target=self._config_service.start
+        )
+
+    def _setup_kafka_consumer(self) -> AdaptingMessageSource:
+        consumer_config = load_config(namespace='visualization')['consumer']
+        consumer_kafka_config = consumer_config['kafka']
+        consumer_kafka_config['group.id'] = 'monitor_data_dashboard'
+
+        consumer = kafka_consumer.make_bare_consumer(
+            topics=topic_for_instrument(
+                topic=consumer_config['topics'], instrument=self._instrument
+            ),
+            config=consumer_kafka_config,
+        )
+        return AdaptingMessageSource(
+            source=KafkaMessageSource(consumer=consumer),
+            adapter=ChainedAdapter(
+                first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
+            ),
+        )
+
+    def _setup_layout(self) -> None:
+        self._app.layout = html.Div(
             [
-                html.Label('Update Speed (ms)'),
-                dcc.Slider(
-                    id='update-speed',
-                    min=8,
-                    max=13,
-                    step=0.5,
-                    value=10,
-                    marks={i: {'label': f'{2**i}'} for i in range(8, 14)},
+                html.Div(
+                    [
+                        html.Label('Update Speed (ms)'),
+                        dcc.Slider(
+                            id='update-speed',
+                            min=8,
+                            max=13,
+                            step=0.5,
+                            value=10,
+                            marks={i: {'label': f'{2**i}'} for i in range(8, 14)},
+                        ),
+                        html.Label('Time-of-arrival bins'),
+                        dcc.Slider(
+                            id='num-points',
+                            min=10,
+                            max=500,
+                            step=10,
+                            value=100,
+                            marks={i: str(i) for i in range(0, 501, 100)},
+                        ),
+                        html.Button('Clear', id='clear-button', n_clicks=0),
+                    ],
+                    style={'width': '300px', 'float': 'left', 'padding': '10px'},
                 ),
-                html.Label('Time-of-arrival bins'),
-                dcc.Slider(
-                    id='num-points',
-                    min=10,
-                    max=500,
-                    step=10,
-                    value=100,
-                    marks={i: str(i) for i in range(0, 501, 100)},
+                html.Div(id='plots-container', style={'margin-left': '320px'}),
+                dcc.Interval(
+                    id='interval-component',
+                    interval=200,
+                    n_intervals=0,
                 ),
-                html.Button('Clear', id='clear-button', n_clicks=0),
-            ],
-            style={'width': '300px', 'float': 'left', 'padding': '10px'},
-        ),
-        html.Div(id='plots-container', style={'margin-left': '320px'}),
-        dcc.Interval(
-            id='interval-component',
-            interval=200,  # in milliseconds
-            n_intervals=0,
-        ),
-    ]
-)
+            ]
+        )
+
+    def _setup_callbacks(self) -> None:
+        self._app.callback(
+            Output('plots-container', 'children'),
+            Input('interval-component', 'n_intervals'),
+        )(self.update_plots)
+
+        self._app.callback(
+            Output('interval-component', 'interval'), Input('update-speed', 'value')
+        )(self.update_interval)
+
+        self._app.callback(Output('num-points', 'value'), Input('num-points', 'value'))(
+            self.update_num_points
+        )
+
+        self._app.callback(
+            Output('clear-button', 'n_clicks'), Input('clear-button', 'n_clicks')
+        )(self.clear_data)
+
+    @staticmethod
+    def create_detector_plot(key: str) -> go.Figure:
+        fig = go.Figure()
+        fig.add_heatmap(z=[[1, 2], [3, 4]], colorscale='Viridis')
+        fig.update_layout(title=key, width=500, height=400, uirevision=key)
+        return fig
+
+    @staticmethod
+    def create_monitor_plot(key: str, data: sc.DataArray) -> go.Figure:
+        fig = go.Figure()
+        fig.add_scatter(x=[], y=[], mode='lines', line_width=2)
+        dim = data.dim
+        fig.update_layout(
+            title=key,
+            width=500,
+            height=400,
+            xaxis_title=f'{dim} [{data.coords[dim].unit}]',
+            yaxis_title=f'[{data.unit}]',
+            uirevision=key,
+        )
+        return fig
+
+    def update_plots(self, n: int | None):
+        if n is None:
+            raise PreventUpdate
+
+        try:
+            monitor_messages = self._source.get_messages()
+            self._logger.info("Got %d monitor messages", len(monitor_messages))
+
+            for msg in monitor_messages:
+                key = f'{msg.key.topic}_{msg.key.source_name}'
+                data = msg.value
+                if key not in self._monitor_plots:
+                    self._monitor_plots[key] = self.create_monitor_plot(key, data)
+                fig = self._monitor_plots[key]
+                fig.data[0].x = data.coords[data.dim].values
+                fig.data[0].y = data.values
+
+        except Exception as e:
+            self._logger.error("Error in update_plots: %s", e)
+            raise PreventUpdate from None
+
+        monitor_graphs = [dcc.Graph(figure=fig) for fig in self._monitor_plots.values()]
+        detector_graphs = [
+            dcc.Graph(figure=fig) for fig in self._detector_plots.values()
+        ]
+
+        return [
+            html.Div(monitor_graphs, style={'display': 'flex', 'flexWrap': 'wrap'}),
+            html.Div(detector_graphs, style={'display': 'flex', 'flexWrap': 'wrap'}),
+        ]
+
+    def update_interval(self, value: float) -> float:
+        self._config_service.update_config(
+            'update_every', {'value': 2**value, 'unit': 'ms'}
+        )
+        return 2**value
+
+    def update_num_points(self, value: int) -> int:
+        self._config_service.update_config('monitor-bins', value)
+        return value
+
+    def clear_data(self, n_clicks: int | None) -> int:
+        if n_clicks is None or n_clicks == 0:
+            raise PreventUpdate
+        self._config_service.update_config(
+            'start_time', {'value': int(time.time_ns()), 'unit': 'ns'}
+        )
+        return 0
+
+    def start(self) -> None:
+        self._config_service_thread.start()
+        self._app.run_server(debug=self._debug)
+
+    def stop(self) -> None:
+        self._logger.info('Shutting down...')
+        self._config_service.stop()
+        self._config_service_thread.join()
 
 
-def create_detector_plot(key: str) -> go.Figure:
-    """Create a new Plotly figure for a detector."""
-    fig = go.Figure()
-    fig.add_heatmap(z=[[1, 2], [3, 4]], colorscale='Viridis')
-    # Setting uirevision ensures that the figure is not redrawn on every update, keeping
-    # the zoom level and position.
-    fig.update_layout(title=key, width=500, height=400, uirevision=key)
-    return fig
+def main() -> None:
+    parser = Service.setup_arg_parser(description='Beamlime Dashboard')
+    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
+    args = parser.parse_args()
 
-
-def create_monitor_plot(key: str, data: sc.DataArray) -> go.Figure:
-    """Create a new Plotly figure for a monitor."""
-    fig = go.Figure()
-    fig.add_scatter(x=[], y=[], mode='lines', line_width=2)
-    # Setting uirevision ensures that the figure is not redrawn on every update, keeping
-    # the zoom level and position.
-    dim = data.dim
-    fig.update_layout(
-        title=key,
-        width=500,
-        height=400,
-        xaxis_title=f'{dim} [{data.coords[dim].unit}]',
-        yaxis_title=f'[{data.unit}]',
-        uirevision=key,
+    dashboard = DashboardApp(
+        instrument=args.instrument,
+        debug=args.debug,
+        name=f'{args.instrument}_dashboard',
     )
-    return fig
+    atexit.register(dashboard.stop)
+    dashboard.start()
 
-
-consumer_config = load_config(namespace='visualization')['consumer']
-consumer_kafka_config = consumer_config['kafka']
-consumer_kafka_config['group.id'] = 'monitor_data_dashboard'
-
-consumer = kafka_consumer.make_bare_consumer(
-    topics=topic_for_instrument(topic=consumer_config['topics'], instrument='dummy'),
-    config=consumer_kafka_config,
-)
-source = AdaptingMessageSource(
-    source=KafkaMessageSource(consumer=consumer),
-    adapter=ChainedAdapter(first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()),
-)
-
-
-@app.callback(
-    Output('plots-container', 'children'), Input('interval-component', 'n_intervals')
-)
-def update_plots(n):
-    if n is None:
-        raise PreventUpdate
-
-    try:
-        monitor_messages = source.get_messages()
-
-        print(f"Got {len(monitor_messages)} monitor messages")  # noqa: T201
-        for msg in monitor_messages:
-            key = f'{msg.key.topic}_{msg.key.source_name}'
-            data = msg.value
-            if key not in monitor_plots:
-                monitor_plots[key] = create_monitor_plot(key, data)
-            fig = monitor_plots[key]
-            fig.data[0].x = data.coords[data.dim].values
-            fig.data[0].y = data.values
-
-    except Exception as e:
-        print(f"Error in update_plots: {e}")  # noqa: T201
-        raise PreventUpdate from None
-
-    # Create layout
-    monitor_graphs = [dcc.Graph(figure=fig) for fig in monitor_plots.values()]
-    detector_graphs = [dcc.Graph(figure=fig) for fig in detector_plots.values()]
-
-    return [
-        html.Div(monitor_graphs, style={'display': 'flex', 'flexWrap': 'wrap'}),
-        html.Div(detector_graphs, style={'display': 'flex', 'flexWrap': 'wrap'}),
-    ]
-
-
-@app.callback(Output('interval-component', 'interval'), Input('update-speed', 'value'))
-def update_interval(value):
-    config_service.update_config('update_every', {'value': 2**value, 'unit': 'ms'})
-    return 2**value
-
-
-@app.callback(Output('num-points', 'value'), Input('num-points', 'value'))
-def update_num_points(value):
-    config_service.update_config('monitor-bins', value)
-    return value
-
-
-@app.callback(Output('clear-button', 'n_clicks'), Input('clear-button', 'n_clicks'))
-def clear_data(n_clicks):
-    if n_clicks is None or n_clicks == 0:
-        raise PreventUpdate
-    config_service.update_config(
-        'start_time', {'value': int(time.time_ns()), 'unit': 'ns'}
-    )
-    return 0
-
-
-def shutdown():
-    print('Shutting down...')  # noqa: T201
-    config_service.stop()
-    config_service_thread.join()
-
-
-atexit.register(shutdown)
 
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    main()

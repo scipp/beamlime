@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import argparse
+import logging
 from typing import Literal, NoReturn
 
 from beamlime import ConfigManager, HandlerRegistry, Service, StreamProcessor
@@ -45,6 +46,7 @@ def run_service(
     sink_type: Literal['kafka', 'png'],
     instrument: str,
     mode: Literal['ev44', 'da00'],
+    log_level: int = logging.INFO,
 ) -> NoReturn:
     service_name = f'{instrument}_monitor_data_demo'
     service_config = {}
@@ -90,6 +92,7 @@ def run_service(
         config_manager=config_manager,
         processor=processor,
         name=service_name,
+        log_level=log_level,
     )
     service.start()
 
@@ -97,7 +100,12 @@ def run_service(
 def main() -> NoReturn:
     parser = setup_arg_parser()
     args = parser.parse_args()
-    run_service(sink_type=args.sink, instrument=args.instrument, mode=args.mode)
+    run_service(
+        sink_type=args.sink,
+        instrument=args.instrument,
+        mode=args.mode,
+        log_level=args.log_level,
+    )
 
 
 if __name__ == "__main__":
