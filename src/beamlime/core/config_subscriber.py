@@ -12,15 +12,18 @@ class ConfigSubscriber:
     def __init__(
         self,
         *,
-        config: dict[str, Any],
+        kafka_config: dict[str, Any],
+        config: dict[str, Any] | None = None,
+        topic: str,
         logger: logging.Logger | None = None,
     ):
         # Generate unique group id using service name and random suffix, to ensure all
         # instances of the service get the same messages.
+        self._topic = topic
         self._config = config or {}
         self._logger = logger or logging.getLogger(__name__)
         group_id = f"config-subscriber-{uuid.uuid4()}"
-        self._consumer = Consumer({**config['kafka'], 'group.id': group_id})
+        self._consumer = Consumer({**kafka_config, 'group.id': group_id})
         self._running = False
 
     def get(self, key: str, default=None):
@@ -28,7 +31,7 @@ class ConfigSubscriber:
 
     def start(self):
         self._running = True
-        self._consumer.subscribe([self._config['topic']])
+        self._consumer.subscribe([self._topic])
         try:
             while self._running:
                 msg = self._consumer.poll(0.1)

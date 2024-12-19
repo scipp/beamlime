@@ -53,7 +53,13 @@ class DashboardApp(ServiceBase):
 
     def _setup_config_service(self) -> None:
         control_config = load_config(namespace='monitor_data')['control']
-        self._config_service = ConfigService(kafka_config=control_config)
+        self._config_service = ConfigService(
+            kafka_config=control_config['kafka'],
+            topic=topic_for_instrument(
+                topic=control_config['topic'], instrument=self._instrument
+            ),
+            logger=self._logger,
+        )
         self._config_service_thread = threading.Thread(
             target=self._config_service.start
         )

@@ -25,16 +25,19 @@ class ConfigService:
     """
 
     def __init__(
-        self, kafka_config: dict[str, Any], logger: logging.Logger | None = None
+        self,
+        kafka_config: dict[str, Any],
+        topic: str,
+        logger: logging.Logger | None = None,
     ):
-        consumer_conf = kafka_config['kafka']
+        consumer_conf = kafka_config
         consumer_conf['group.id'] = 'config-service'
         producer_conf = {'bootstrap.servers': consumer_conf['bootstrap.servers']}
 
         self._logger = logger or logging.getLogger(__name__)
         self._producer = Producer(producer_conf)
         self._consumer = Consumer(consumer_conf)
-        self._topic = kafka_config['topic']
+        self._topic = topic
         self._config = {}
         self._running = False
         self._local_updates = set()  # Track locally initiated updates

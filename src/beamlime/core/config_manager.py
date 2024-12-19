@@ -14,11 +14,13 @@ class ConfigManager:
 
     def __init__(
         self,
+        *,
         config: dict[str, Any] | None = None,
+        topic: str,
         initial_config: dict[str, Any] | None = None,
     ):
         self._config = initial_config or {}
-        self._subscriber = ConfigSubscriber(config=config)
+        self._subscriber = ConfigSubscriber(kafka_config=config, topic=topic)
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:

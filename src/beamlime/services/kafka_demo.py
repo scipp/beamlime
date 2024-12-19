@@ -11,6 +11,7 @@ from beamlime.handlers.monitor_data_handler import (
     create_monitor_event_data_handler,
 )
 from beamlime.kafka import consumer as kafka_consumer
+from beamlime.kafka.helpers import topic_for_instrument
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
@@ -57,7 +58,13 @@ def run_service(
     consumer_config = config['consumer']
     producer_config = config['producer']
 
-    config_manager = ConfigManager(config=control_config, initial_config=initial_config)
+    config_manager = ConfigManager(
+        config=control_config['kafka'],
+        topic=topic_for_instrument(
+            topic=control_config['topic'], instrument=instrument
+        ),
+        initial_config=initial_config,
+    )
     consumer = kafka_consumer.make_bare_consumer(
         topics=[f'{instrument}_{topic}' for topic in consumer_config['topics']],
         config=consumer_config['kafka'],
