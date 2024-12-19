@@ -14,6 +14,7 @@ del importlib
 from .core import (
     ConfigManager,
     Service,
+    ServiceBase,
     Processor,
     Handler,
     HandlerRegistry,
@@ -38,6 +39,7 @@ __all__ = [
     'MessageSource',
     'Processor',
     'Service',
+    'ServiceBase',
     'StreamProcessor',
     'WorkflowResult',
 ]

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-from .service import Service
+from .service import Service, ServiceBase
 from .processor import Processor, StreamProcessor
 from .handler import Handler, HandlerRegistry
 from .message import Message, compact_messages, MessageKey, MessageSource, MessageSink
@@ -17,5 +17,6 @@ __all__ = [
     'MessageSource',
     'Processor',
     'Service',
+    'ServiceBase',
     'StreamProcessor',
 ]

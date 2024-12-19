@@ -8,31 +8,17 @@ import signal
 import sys
 import threading
 import time
+from abc import ABC, abstractmethod
 from typing import Any
 
 from .config_manager import ConfigManager
 from .processor import Processor
 
 
-class Service:
-    """Complete service with proper lifecycle management"""
-
-    def __init__(
-        self,
-        *,
-        config: dict[str, Any] | None = None,
-        config_manager: ConfigManager | None = None,
-        processor: Processor,
-        name: str | None = None,
-        log_level: int = logging.INFO,
-    ):
+class ServiceBase(ABC):
+    def __init__(self, *, name: str | None = None, log_level: int = logging.INFO):
         self._logger = logging.getLogger(name or __name__)
         self._setup_logging(log_level)
-        self._config = config or {}
-        self._poll_interval = self._config.get("service.poll_interval", 0.1)
-        self._config_manager = config_manager
-        self._processor = processor
-        self._thread: threading.Thread | None = None
         self._running = False
         self._setup_signal_handlers()
 
@@ -72,13 +58,56 @@ class Service:
         """Start the service and block until stopped"""
         self._logger.info("Starting service...")
         self._running = True
+        self._start_impl()
+        self._logger.info("Service started")
+        if blocking:
+            self.run_forever()
+
+    def stop(self) -> None:
+        """Stop the service gracefully"""
+        self._logger.info("Stopping service...")
+        self._running = False
+        self._stop_impl()
+        self._logger.info("Service stopped")
+
+    @abstractmethod
+    def _start_impl(self) -> None:
+        """Start the service implementation"""
+
+    @abstractmethod
+    def run_forever(self) -> None:
+        """Block forever, waiting for signals"""
+
+    @abstractmethod
+    def _stop_impl(self) -> None:
+        """Stop the service implementation"""
+
+
+class Service(ServiceBase):
+    """Complete service with proper lifecycle management"""
+
+    def __init__(
+        self,
+        *,
+        config: dict[str, Any] | None = None,
+        config_manager: ConfigManager | None = None,
+        processor: Processor,
+        name: str | None = None,
+        log_level: int = logging.INFO,
+    ):
+        super().__init__(name=name, log_level=log_level)
+        self._config = config or {}
+        self._poll_interval = self._config.get("service.poll_interval", 0.1)
+        self._config_manager = config_manager
+        self._processor = processor
+        self._thread: threading.Thread | None = None
+
+    def _start_impl(self) -> None:
+        """Start the service and block until stopped"""
         if self._config_manager:
             self._config_manager.start()
         self._thread = threading.Thread(target=self._run_loop)
         self._thread.start()
-        self._logger.info("Service started")
-        if blocking:
-            self.run_forever()
 
     def run_forever(self) -> None:
         """Block forever, waiting for signals"""
@@ -104,15 +133,12 @@ class Service:
         finally:
             self._logger.info("Service loop stopped")
 
-    def stop(self) -> None:
+    def _stop_impl(self) -> None:
         """Stop the service gracefully"""
-        self._logger.info("Stopping service...")
-        self._running = False
         if self._thread:
             self._thread.join()
         if self._config_manager:
             self._config_manager.stop()
-        self._logger.info("Service stopped")
 
     @staticmethod
     def setup_arg_parser(description: str) -> argparse.ArgumentParser:

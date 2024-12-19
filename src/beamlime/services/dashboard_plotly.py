@@ -1,8 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import logging
-import signal
-import sys
 import threading
 import time
 import uuid
@@ -12,7 +10,7 @@ import scipp as sc
 from dash import Dash, Input, Output, dcc, html
 from dash.exceptions import PreventUpdate
 
-from beamlime import Service
+from beamlime import Service, ServiceBase
 from beamlime.config.config_loader import load_config
 from beamlime.core.config_service import ConfigService
 from beamlime.kafka import consumer as kafka_consumer
@@ -26,7 +24,7 @@ from beamlime.kafka.message_adapter import (
 from beamlime.kafka.source import KafkaMessageSource
 
 
-class DashboardApp:
+class DashboardApp(ServiceBase):
     def __init__(
         self,
         *,
@@ -35,9 +33,8 @@ class DashboardApp:
         log_level: int = logging.INFO,
         name: str | None = None,
     ) -> None:
-        self._logger = logging.getLogger(name or __name__)
-        Service.configure_logging(log_level)
-        self._logger.setLevel(log_level)
+        super().__init__(name=name, log_level=log_level)
+
         self._instrument = instrument
         self._debug = debug
 
@@ -53,8 +50,6 @@ class DashboardApp:
         self._app = Dash(name or __name__)
         self._setup_layout()
         self._setup_callbacks()
-
-        self._running = False
 
     def _setup_config_service(self) -> None:
         control_config = load_config(namespace='monitor_data')['control']
@@ -209,34 +204,17 @@ class DashboardApp:
         )
         return 0
 
-    def signal_handler(self, signum, frame):
-        """Handle shutdown signals."""
-        self._logger.info('Received signal %s', signum)
-        self.stop()
-        sys.exit(0)
-
-    def start(self) -> None:
-        # Setup signal handlers
-        signal.signal(signal.SIGINT, self.signal_handler)
-        signal.signal(signal.SIGTERM, self.signal_handler)
-
-        self._running = True
+    def _start_impl(self) -> None:
         self._config_service_thread.start()
-        try:
-            self._app.run_server(debug=self._debug)
-        finally:
-            self.stop()
 
-    def stop(self) -> None:
+    def run_forever(self) -> None:
+        self._app.run_server(debug=self._debug)
+
+    def _stop_impl(self) -> None:
         """Clean shutdown of all components."""
-        if not self._running:
-            return
-        self._logger.info('Initiating shutdown...')
         self._config_service.stop()
         self._config_service_thread.join()
         self._consumer.close()
-        self._running = False
-        self._logger.info('Shutdown complete')
 
 
 def main() -> None:
