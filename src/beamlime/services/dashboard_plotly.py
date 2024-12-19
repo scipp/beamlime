@@ -31,8 +31,8 @@ class DashboardApp(ServiceBase):
         instrument: str = 'dummy',
         debug: bool = False,
         log_level: int = logging.INFO,
-        name: str | None = None,
     ) -> None:
+        name = f'{instrument}_dashboard'
         super().__init__(name=name, log_level=log_level)
 
         self._instrument = instrument
@@ -47,7 +47,7 @@ class DashboardApp(ServiceBase):
         self._source = self._setup_kafka_consumer()
 
         # Initialize Dash
-        self._app = Dash(name or __name__)
+        self._app = Dash(name)
         self._setup_layout()
         self._setup_callbacks()
 
@@ -219,14 +219,7 @@ class DashboardApp(ServiceBase):
 def main() -> None:
     parser = Service.setup_arg_parser(description='Beamlime Dashboard')
     parser.add_argument('--debug', action='store_true', help='Enable debug mode')
-    args = parser.parse_args()
-
-    dashboard = DashboardApp(
-        instrument=args.instrument,
-        debug=args.debug,
-        log_level=args.log_level,
-        name=f'{args.instrument}_dashboard',
-    )
+    dashboard = DashboardApp(**vars(parser.parse_args()))
     dashboard.start()
 
 

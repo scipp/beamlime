@@ -27,7 +27,7 @@ from beamlime.sinks import PlotToPngSink
 def setup_arg_parser() -> argparse.ArgumentParser:
     parser = Service.setup_arg_parser(description='Kafka Demo da00/ev44 Service')
     parser.add_argument(
-        '--sink',
+        '--sink-type',
         choices=['kafka', 'png'],
         default='kafka',
         help='Select sink type: kafka or png',
@@ -99,13 +99,7 @@ def run_service(
 
 def main() -> NoReturn:
     parser = setup_arg_parser()
-    args = parser.parse_args()
-    run_service(
-        sink_type=args.sink,
-        instrument=args.instrument,
-        mode=args.mode,
-        log_level=args.log_level,
-    )
+    run_service(**vars(parser.parse_args()))
 
 
 if __name__ == "__main__":

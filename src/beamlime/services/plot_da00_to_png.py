@@ -58,8 +58,7 @@ def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
 
 def main() -> NoReturn:
     parser = Service.setup_arg_parser('Plot da00 data arrays to PNG')
-    args = parser.parse_args()
-    run_service(instrument=args.instrument, log_level=args.log_level)
+    run_service(**vars(parser.parse_args()))
 
 
 if __name__ == "__main__":
