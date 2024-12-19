@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-import atexit
 import logging
+import signal
+import sys
 import threading
 import time
+import uuid
 
 import plotly.graph_objects as go
 import scipp as sc
@@ -52,6 +54,8 @@ class DashboardApp:
         self._setup_layout()
         self._setup_callbacks()
 
+        self._running = False
+
     def _setup_config_service(self) -> None:
         control_config = load_config(namespace='monitor_data')['control']
         self._config_service = ConfigService(kafka_config=control_config)
@@ -62,7 +66,9 @@ class DashboardApp:
     def _setup_kafka_consumer(self) -> AdaptingMessageSource:
         consumer_config = load_config(namespace='visualization')['consumer']
         consumer_kafka_config = consumer_config['kafka']
-        consumer_kafka_config['group.id'] = 'monitor_data_dashboard'
+        consumer_kafka_config['group.id'] = (
+            f'{self._instrument}_dashboard_{uuid.uuid4()}'
+        )
 
         consumer = kafka_consumer.make_bare_consumer(
             topics=topic_for_instrument(
@@ -70,6 +76,7 @@ class DashboardApp:
             ),
             config=consumer_kafka_config,
         )
+        self._consumer = consumer  # Store reference to consumer
         return AdaptingMessageSource(
             source=KafkaMessageSource(consumer=consumer),
             adapter=ChainedAdapter(
@@ -202,14 +209,34 @@ class DashboardApp:
         )
         return 0
 
+    def signal_handler(self, signum, frame):
+        """Handle shutdown signals."""
+        self._logger.info('Received signal %s', signum)
+        self.stop()
+        sys.exit(0)
+
     def start(self) -> None:
+        # Setup signal handlers
+        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGTERM, self.signal_handler)
+
+        self._running = True
         self._config_service_thread.start()
-        self._app.run_server(debug=self._debug)
+        try:
+            self._app.run_server(debug=self._debug)
+        finally:
+            self.stop()
 
     def stop(self) -> None:
-        self._logger.info('Shutting down...')
+        """Clean shutdown of all components."""
+        if not self._running:
+            return
+        self._logger.info('Initiating shutdown...')
         self._config_service.stop()
         self._config_service_thread.join()
+        self._consumer.close()
+        self._running = False
+        self._logger.info('Shutdown complete')
 
 
 def main() -> None:
@@ -222,7 +249,6 @@ def main() -> None:
         debug=args.debug,
         name=f'{args.instrument}_dashboard',
     )
-    atexit.register(dashboard.stop)
     dashboard.start()
 
 
