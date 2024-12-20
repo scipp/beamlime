@@ -2,7 +2,8 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import logging
 import time
-from typing import NoReturn
+from dataclasses import replace
+from typing import Literal, NoReturn, TypeVar
 
 import numpy as np
 import scipp as sc
@@ -19,7 +20,12 @@ from beamlime import (
 )
 from beamlime.config.config_loader import load_config
 from beamlime.kafka.helpers import beam_monitor_topic
-from beamlime.kafka.sink import KafkaSink, SerializationError
+from beamlime.kafka.message_adapter import AdaptingMessageSource, MessageAdapter
+from beamlime.kafka.sink import (
+    KafkaSink,
+    SerializationError,
+    serialize_dataarray_to_da00,
+)
 
 
 class FakeMonitorSource(MessageSource[sc.Variable]):
@@ -67,8 +73,21 @@ class FakeMonitorSource(MessageSource[sc.Variable]):
         )
 
 
-class IdentityHandler(Handler[sc.Variable, sc.Variable]):
-    def handle(self, message: Message[sc.Variable]) -> list[Message[sc.Variable]]:
+class EventsToHistogramAdapter(
+    MessageAdapter[Message[sc.Variable], Message[sc.DataArray]]
+):
+    def __init__(self, toa: sc.Variable):
+        self._toa = toa
+
+    def adapt(self, message: Message[sc.Variable]) -> Message[sc.DataArray]:
+        return replace(message, value=message.value.hist({self._toa.dim: self._toa}))
+
+
+T = TypeVar('T')
+
+
+class IdentityHandler(Handler[T, T]):
+    def handle(self, message: Message[T]) -> list[Message[T]]:
         # We know the message does not originate from Kafka, so we can keep the key
         return [message]
 
@@ -90,15 +109,25 @@ def serialize_variable_to_monitor_ev44(msg: Message[sc.Variable]) -> bytes:
     return ev44
 
 
-def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
-    service_name = f'{instrument}_fake_ev44_producer'
-    config = load_config(namespace='fake_ev44')
+def run_service(
+    *, instrument: str, mode: Literal['ev44', 'da00'], log_level: int = logging.INFO
+) -> NoReturn:
+    service_name = f'{instrument}_fake_{mode}_producer'
+    config = load_config(namespace='fake_producer')
+    if mode == 'ev44':
+        source = FakeMonitorSource(instrument=instrument)
+        serializer = serialize_variable_to_monitor_ev44
+    else:
+        source = AdaptingMessageSource(
+            source=FakeMonitorSource(instrument=instrument),
+            adapter=EventsToHistogramAdapter(
+                toa=sc.linspace('toa', 0, 71_000_000, num=100, unit='ns')
+            ),
+        )
+        serializer = serialize_dataarray_to_da00
     processor = StreamProcessor(
-        source=FakeMonitorSource(instrument=instrument),
-        sink=KafkaSink(
-            kafka_config=config['producer']['kafka'],
-            serializer=serialize_variable_to_monitor_ev44,
-        ),
+        source=source,
+        sink=KafkaSink(kafka_config=config['producer']['kafka'], serializer=serializer),
         handler_registry=HandlerRegistry(config={}, handler_cls=IdentityHandler),
     )
     service = Service(
@@ -112,6 +141,12 @@ def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
 
 def main() -> NoReturn:
     parser = Service.setup_arg_parser('Fake that publishes random da00 monitor data')
+    parser.add_argument(
+        '--mode',
+        choices=['ev44', 'da00'],
+        required=True,
+        help='Select mode: ev44 or da00',
+    )
     run_service(**vars(parser.parse_args()))
 
 
