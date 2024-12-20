@@ -48,7 +48,7 @@ class FakeMonitorSource(MessageSource[sc.Variable]):
         current_time = time.time_ns()
         messages = []
 
-        for name, size in [("monitor1", 30), ("monitor2", 10)]:
+        for name, size in [("monitor1", 10000), ("monitor2", 1000)]:
             elapsed = current_time - self._last_message_time[name]
             num_intervals = int(elapsed // self._interval_ns)
 

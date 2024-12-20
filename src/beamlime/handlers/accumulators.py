@@ -61,7 +61,7 @@ class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config):
         self._config = config
         self._max_age = sc.scalar(
-            self._config.get('sliding_window_seconds', 3.0), unit='s'
+            self._config.get('sliding_window_seconds', 1.0), unit='s'
         ).to(unit='ns', dtype='int64')
         self._chunks: list[sc.DataArray] = []
 
