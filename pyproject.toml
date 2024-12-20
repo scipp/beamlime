@@ -115,4 +115,4 @@ warn_unreachable = true
 dummy = "beamlime.workflow_protocols:DummyLiveWorkflow"
 
 [tool.setuptools.package-data]
-"beamlime.config.defaults" = ["*.yaml"]
+"beamlime.config.defaults" = ["*.yaml", "*.yaml.jinja"]
