@@ -200,7 +200,7 @@ class DashboardApp(ServiceBase):
         return 2**value
 
     def update_num_points(self, value: int) -> int:
-        self._config_service.update_config('monitor-bins', value)
+        self._config_service.update_config('time_of_arrival_bins', value)
         return value
 
     def clear_data(self, n_clicks: int | None) -> int:

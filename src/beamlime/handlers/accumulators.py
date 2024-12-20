@@ -40,7 +40,7 @@ class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
         _ = timestamp
-        if self._cumulative is None:
+        if self._cumulative is None or data.sizes != self._cumulative.sizes:
             self._cumulative = data.copy()
         else:
             self._cumulative += data
@@ -66,6 +66,8 @@ class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
         self._chunks: list[sc.DataArray] = []
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
+        if self._chunks and data.sizes != self._chunks[0].sizes:
+            self.clear()
         self._chunks.append(
             data.assign_coords({'time': sc.scalar(timestamp, unit='ns')})
         )
