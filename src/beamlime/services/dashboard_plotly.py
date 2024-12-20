@@ -83,42 +83,57 @@ class DashboardApp(ServiceBase):
         )
 
     def _setup_layout(self) -> None:
+        controls = [
+            html.Label('Update Speed (ms)'),
+            dcc.Slider(
+                id='update-speed',
+                min=8,
+                max=13,
+                step=0.5,
+                value=10,
+                marks={i: {'label': f'{2**i}'} for i in range(8, 14)},
+            ),
+            dcc.Checklist(
+                id='bins-checkbox',
+                options=[
+                    {
+                        'label': 'Time-of-arrival bins (WARNING: Clears the history!)',
+                        'value': 'confirmed',
+                    }
+                ],
+                value=[],
+                style={'margin': '10px 0'},
+            ),
+            dcc.Slider(
+                id='num-points',
+                min=10,
+                max=1000,
+                step=10,
+                value=100,
+                marks={i: str(i) for i in range(0, 1001, 100)},
+                disabled=True,
+            ),
+            html.Button('Clear', id='clear-button', n_clicks=0),
+        ]
         self._app.layout = html.Div(
             [
                 html.Div(
-                    [
-                        html.Label('Update Speed (ms)'),
-                        dcc.Slider(
-                            id='update-speed',
-                            min=8,
-                            max=13,
-                            step=0.5,
-                            value=10,
-                            marks={i: {'label': f'{2**i}'} for i in range(8, 14)},
-                        ),
-                        html.Label('Time-of-arrival bins'),
-                        dcc.Slider(
-                            id='num-points',
-                            min=10,
-                            max=500,
-                            step=10,
-                            value=100,
-                            marks={i: str(i) for i in range(0, 501, 100)},
-                        ),
-                        html.Button('Clear', id='clear-button', n_clicks=0),
-                    ],
+                    controls,
                     style={'width': '300px', 'float': 'left', 'padding': '10px'},
                 ),
                 html.Div(id='plots-container', style={'margin-left': '320px'}),
-                dcc.Interval(
-                    id='interval-component',
-                    interval=200,
-                    n_intervals=0,
-                ),
+                dcc.Interval(id='interval-component', interval=200, n_intervals=0),
             ]
         )
 
+    def _toggle_slider(self, checkbox_value):
+        return len(checkbox_value) == 0
+
     def _setup_callbacks(self) -> None:
+        self._app.callback(
+            Output('num-points', 'disabled'), Input('bins-checkbox', 'value')
+        )(self._toggle_slider)
+
         self._app.callback(
             Output('plots-container', 'children'),
             Input('interval-component', 'n_intervals'),
