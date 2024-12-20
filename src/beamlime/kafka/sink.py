@@ -14,6 +14,12 @@ from .scipp_da00_compat import scipp_to_da00
 T = TypeVar("T")
 
 
+class SerializationError(Exception):
+    """Raised when serialization of a message fails."""
+
+    pass
+
+
 class Serializer(Protocol, Generic[T]):
     def __call__(self, value: Message[T]) -> bytes: ...
 
@@ -26,7 +32,7 @@ def serialize_dataarray_to_da00(msg: Message[sc.DataArray]) -> bytes:
             data=scipp_to_da00(msg.value),
         )
     except (ValueError, TypeError) as e:
-        raise RuntimeError(f"Failed to serialize message: {e}") from None
+        raise SerializationError(f"Failed to serialize message: {e}") from None
     return da00
 
 
@@ -54,7 +60,7 @@ class KafkaSink(MessageSink[T]):
             topic = msg.key.topic
             try:
                 value = self._serializer(msg)
-            except (ValueError, TypeError) as e:
+            except SerializationError as e:
                 self._logger.error("Failed to serialize message: %s", e)
             else:
                 try:
