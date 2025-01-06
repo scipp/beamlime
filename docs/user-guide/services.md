@@ -26,3 +26,15 @@ BEAMLIME_INSTRUMENT=dummy gunicorn beamlime.services.wsgi:application
 ```
 
 Navigate to `http://localhost:8000` to see the dashboard.
+
+## Running the services using Docker
+
+You can also run all the services using Docker.
+Use the provided `docker-compose-beamlime.yml` file to start the services:
+
+```sh
+BEAMLIME_INSTRUMENT=dummy docker-compose -f docker-compose-beamlime.yml up
+```
+
+This will start the Zookeeper, Kafka broker, and all the necessary services for the monitor data dashboard.
+Navigate to `http://localhost:8000` to see the dashboard.
