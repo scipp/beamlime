@@ -7,11 +7,7 @@ from typing import TypeVar
 
 import scipp as sc
 
-from ..core.handler import (
-    Accumulator,
-    Config,
-    PeriodicAccumulatingHandler,
-)
+from ..core.handler import Accumulator, Config, PeriodicAccumulatingHandler
 from .accumulators import Cumulative, Histogrammer, MonitorEvents, SlidingWindow
 
 
