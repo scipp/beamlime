@@ -34,6 +34,15 @@ class ConfigProxy:
 
 
 class Handler(Generic[Tin, Tout]):
+    """
+    Base class for message handlers.
+
+    Handlers are used by :py:class:`StreamProcessor` to process messages. Since each
+    stream of messages will typically need multiple handlers (one per topic and message
+    source), handlers are typically created by a :py:class:`HandlerRegistry` and not
+    directly.
+    """
+
     def __init__(self, *, logger: logging.Logger | None, config: Config):
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
@@ -46,6 +55,12 @@ class Handler(Generic[Tin, Tout]):
 
 
 class HandlerRegistry(Generic[Tin, Tout]):
+    """
+    Registry for handlers.
+
+    Handlers are created on demand and cached based on the message key.
+    """
+
     def __init__(
         self,
         *,
@@ -71,6 +86,13 @@ U = TypeVar('U')
 
 
 class Accumulator(Protocol, Generic[T, U]):
+    """
+    Protocol for an accumulator that accumulates data over time.
+
+    Accumulators are used by handlers such as :py:class:`PeriodicAccumulatingHandler` as
+    (1) preprocessors and (2) accumulators for the final data.
+    """
+
     def add(self, timestamp: int, data: T) -> None:
         pass
 

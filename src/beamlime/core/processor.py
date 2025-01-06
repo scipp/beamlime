@@ -10,11 +10,21 @@ from .message import MessageSink, MessageSource, Tin, Tout
 
 
 class Processor(Protocol):
+    """
+    Protocol for a processor that processes messages. Used by :py:class:`Service`.
+    """
+
     def process(self) -> None:
         pass
 
 
 class StreamProcessor(Generic[Tin, Tout]):
+    """
+    Processor messages from a source using a handler and send results to a sink.
+
+    The source, handler registry, and sink are injected at construction time.
+    """
+
     def __init__(
         self,
         *,

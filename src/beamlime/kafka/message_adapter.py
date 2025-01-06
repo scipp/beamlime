@@ -103,6 +103,10 @@ class Da00ToScippAdapter(
 
 
 class ChainedAdapter(MessageAdapter[T, V]):
+    """
+    Chains two adapters together.
+    """
+
     def __init__(self, first: MessageAdapter[T, U], second: MessageAdapter[U, V]):
         self._first = first
         self._second = second
@@ -113,6 +117,10 @@ class ChainedAdapter(MessageAdapter[T, V]):
 
 
 class RoutingAdapter(MessageAdapter[KafkaMessage, T]):
+    """
+    Routes messages to different adapters based on the schema.
+    """
+
     def __init__(self, routes: dict[str, MessageAdapter[KafkaMessage, T]]):
         self._routes = routes
 
@@ -124,6 +132,10 @@ class RoutingAdapter(MessageAdapter[KafkaMessage, T]):
 
 
 class AdaptingMessageSource(MessageSource[U]):
+    """
+    Wraps a source of messages and adapts them to a different type.
+    """
+
     def __init__(self, source: MessageSource[T], adapter: MessageAdapter[T, U]):
         self._source = source
         self._adapter = adapter

@@ -90,7 +90,11 @@ class StartStoppable(Protocol):
 
 
 class Service(ServiceBase):
-    """Complete service with proper lifecycle management"""
+    """
+    Complete service with proper lifecycle management.
+
+    Calls the injected processor in a loop with a configurable poll interval.
+    """
 
     def __init__(
         self,
