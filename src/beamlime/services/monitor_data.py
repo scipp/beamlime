@@ -6,10 +6,7 @@ from typing import Literal, NoReturn
 
 from beamlime import ConfigSubscriber, HandlerRegistry, Service, StreamProcessor
 from beamlime.config.config_loader import load_config
-from beamlime.handlers.monitor_data_handler import (
-    create_monitor_data_handler,
-    create_monitor_event_data_handler,
-)
+from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
@@ -18,6 +15,7 @@ from beamlime.kafka.message_adapter import (
     Ev44ToMonitorEventsAdapter,
     KafkaToDa00Adapter,
     KafkaToEv44Adapter,
+    RoutingAdapter,
 )
 from beamlime.kafka.sink import KafkaSink
 from beamlime.kafka.source import KafkaMessageSource
@@ -66,24 +64,23 @@ def run_service(
         sink = KafkaSink(kafka_config=config['producer']['kafka'])
     else:
         sink = PlotToPngSink()
-    if mode == 'ev44':
-        adapter = ChainedAdapter(
-            first=KafkaToEv44Adapter(), second=Ev44ToMonitorEventsAdapter()
-        )
-        handler_cls = create_monitor_event_data_handler
-    else:
-        adapter = ChainedAdapter(
-            first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
-        )
-        handler_cls = create_monitor_data_handler
-
+    adapter = RoutingAdapter(
+        routes={
+            'ev44': ChainedAdapter(
+                first=KafkaToEv44Adapter(), second=Ev44ToMonitorEventsAdapter()
+            ),
+            'da00': ChainedAdapter(
+                first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
+            ),
+        }
+    )
     processor = StreamProcessor(
         source=AdaptingMessageSource(
             source=KafkaMessageSource(consumer=consumer), adapter=adapter
         ),
         sink=sink,
         handler_registry=HandlerRegistry(
-            config=config_subscriber, handler_cls=handler_cls
+            config=config_subscriber, handler_cls=create_monitor_data_handler
         ),
     )
     service = Service(

@@ -112,6 +112,17 @@ class ChainedAdapter(MessageAdapter[T, V]):
         return self._second.adapt(intermediate)
 
 
+class RoutingAdapter(MessageAdapter[KafkaMessage, T]):
+    def __init__(self, routes: dict[str, MessageAdapter[KafkaMessage, T]]):
+        self._routes = routes
+
+    def adapt(self, message: KafkaMessage) -> Message[T]:
+        schema = message_schema(message)
+        if schema is None:
+            raise streaming_data_types.exceptions.WrongSchemaException()
+        return self._routes[schema].adapt(message)
+
+
 class AdaptingMessageSource(MessageSource[U]):
     def __init__(self, source: MessageSource[T], adapter: MessageAdapter[T, U]):
         self._source = source

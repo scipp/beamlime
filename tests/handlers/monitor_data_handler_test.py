@@ -9,12 +9,12 @@ from scipp.testing import assert_identical
 from beamlime.core.handler import Message, MessageKey
 from beamlime.handlers.monitor_data_handler import (
     MonitorEvents,
-    create_monitor_event_data_handler,
+    create_monitor_data_handler,
 )
 
 
 def test_handler() -> None:
-    handler = create_monitor_event_data_handler(config={'sliding_window_seconds': 10})
+    handler = create_monitor_data_handler(config={'sliding_window_seconds': 10})
     msg = Message(
         timestamp=0,
         key=MessageKey(topic='monitors', source_name='monitor1'),
