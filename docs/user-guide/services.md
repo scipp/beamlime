@@ -37,4 +37,5 @@ BEAMLIME_INSTRUMENT=dummy docker-compose -f docker-compose-beamlime.yml up
 ```
 
 This will start the Zookeeper, Kafka broker, and all the necessary services for the monitor data dashboard.
+It will take a minute or two for the services to start fully.
 Navigate to `http://localhost:8000` to see the dashboard.

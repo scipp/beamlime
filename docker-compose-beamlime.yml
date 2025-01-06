@@ -77,7 +77,9 @@ services:
       - .:/app
     working_dir: /app
     environment:
+      BEAMLIME_ENV: docker
       BEAMLIME_INSTRUMENT: ${BEAMLIME_INSTRUMENT:-dummy}
+      KAFKA_BROKER: kafka:29092
     command: sh -c "python -m pip install -e . && python -m beamlime.services.fake_producer --mode ev44 --instrument $BEAMLIME_INSTRUMENT"
 
   monitor-data:
@@ -92,7 +94,10 @@ services:
       - .:/app
     working_dir: /app
     environment:
+      BEAMLIME_ENV: docker
       BEAMLIME_INSTRUMENT: ${BEAMLIME_INSTRUMENT:-dummy}
+      KAFKA_BROKER: kafka:29092
+      KAFKA_BROKER_BEAMLIME: kafka:29092
     command: sh -c "python -m pip install -e . && python -m beamlime.services.monitor_data --mode ev44 --instrument $BEAMLIME_INSTRUMENT"
 
   dashboard:
@@ -109,5 +114,8 @@ services:
     ports:
       - "8000:8000"
     environment:
+      BEAMLIME_ENV: docker
       BEAMLIME_INSTRUMENT: ${BEAMLIME_INSTRUMENT:-dummy}
+      KAFKA_BROKER: kafka:29092
+      KAFKA_BROKER_BEAMLIME: kafka:29092
     command: sh -c "python -m pip install -e .[dashboard] && gunicorn beamlime.services.wsgi:application -b 0.0.0.0:8000"
