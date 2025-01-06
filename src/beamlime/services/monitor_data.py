@@ -30,12 +30,6 @@ def setup_arg_parser() -> argparse.ArgumentParser:
         default='kafka',
         help='Select sink type: kafka or png',
     )
-    parser.add_argument(
-        '--mode',
-        choices=['ev44', 'da00'],
-        required=True,
-        help='Select mode: ev44 or da00',
-    )
     return parser
 
 
@@ -43,7 +37,6 @@ def run_service(
     *,
     sink_type: Literal['kafka', 'png'],
     instrument: str,
-    mode: Literal['ev44', 'da00'],
     log_level: int = logging.INFO,
 ) -> NoReturn:
     service_name = f'{instrument}_monitor_data_demo'

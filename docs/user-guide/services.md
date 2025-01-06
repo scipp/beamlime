@@ -16,7 +16,7 @@ python -m beamlime.services.fake_producer --mode ev44 --instrument dummy
 Run the monitor data histogramming and accumulation service:
 
 ```sh
-python -m beamlime.services.monitor_data --mode ev44 --instrument dummy
+python -m beamlime.services.monitor_data --instrument dummy
 ```
 
 Run the dashboard service:

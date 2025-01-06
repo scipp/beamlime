@@ -98,7 +98,7 @@ services:
       BEAMLIME_INSTRUMENT: ${BEAMLIME_INSTRUMENT:-dummy}
       KAFKA_BROKER: kafka:29092
       KAFKA_BROKER_BEAMLIME: kafka:29092
-    command: sh -c "python -m pip install -e . && python -m beamlime.services.monitor_data --mode ev44 --instrument $BEAMLIME_INSTRUMENT"
+    command: sh -c "python -m pip install -e . && python -m beamlime.services.monitor_data --instrument $BEAMLIME_INSTRUMENT"
 
   dashboard:
     image: python:3.12
