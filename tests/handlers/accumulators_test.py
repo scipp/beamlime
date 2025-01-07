@@ -69,6 +69,28 @@ def test_cumulative_clear_on_get() -> None:
     )
 
 
+@pytest.mark.parametrize('accumulator_cls', [Cumulative, SlidingWindow])
+def test_accumulator_clears_when_data_sizes_changes(
+    accumulator_cls: type[Accumulator],
+) -> None:
+    cumulative = accumulator_cls(config={})
+    da = sc.DataArray(
+        sc.array(dims=['x'], values=[1.0], unit='counts'),
+        coords={'x': sc.arange('x', 2, unit='s')},
+    )
+    cumulative.add(0, da)
+    cumulative.add(1, da)
+    da2 = sc.DataArray(
+        sc.array(dims=['y'], values=[1.0], unit='counts'),
+        coords={'y': sc.arange('y', 2, unit='s')},
+    )
+    cumulative.add(2, da2)
+    cumulative.add(3, da2)
+    assert sc.identical(
+        cumulative.get().data, sc.array(dims=['y'], values=[2.0], unit='counts')
+    )
+
+
 def test_histogrammer_returns_zeros_if_no_chunks_added() -> None:
     histogrammer = Histogrammer(config={'time_of_arrival_bins': 7})
     da = histogrammer.get()

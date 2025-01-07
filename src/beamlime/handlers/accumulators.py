@@ -126,7 +126,6 @@ class Histogrammer(Accumulator[MonitorEvents, sc.DataArray]):
         self._chunks.append(data.time_of_arrival)
 
     def get(self) -> sc.DataArray:
-        # TODO Changing bin count needs to be handled in accumulators, currently is not.
         self._check_for_config_updates()
         # Using NumPy here as for these specific operations with medium-sized data it is
         # a bit faster than Scipp. Could optimize the concatenate by reusing a buffer.
