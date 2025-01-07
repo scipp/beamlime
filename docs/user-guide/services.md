@@ -39,3 +39,30 @@ BEAMLIME_INSTRUMENT=dummy docker-compose -f docker-compose-beamlime.yml up
 This will start the Zookeeper, Kafka broker, and all the necessary services for the monitor data dashboard.
 It will take a minute or two for the services to start fully.
 Navigate to `http://localhost:8000` to see the dashboard.
+
+### Development Profile
+
+To run the fake monitor data producer for local development, use the `dev` profile:
+
+```sh
+BEAMLIME_INSTRUMENT=dummy docker-compose --profile dev -f docker-compose-beamlime.yml up
+```
+
+### Kafka Configuration
+
+The services can be configured to connect to different Kafka brokers using environment variables. There may be two distinct Kafka brokers: one upstream with raw data and one downstream for processed data and Beamlime control.
+
+- `KAFKA_BOOTSTRAP_SERVERS`: Bootstrap servers for the upstream Kafka broker.
+- `KAFKA_SECURITY_PROTOCOL`: Security protocol for the upstream Kafka broker.
+- `KAFKA_SASL_MECHANISM`: SASL mechanism for the upstream Kafka broker.
+- `KAFKA_SASL_USERNAME`: SASL username for the upstream Kafka broker.
+- `KAFKA_SASL_PASSWORD`: SASL password for the upstream Kafka broker.
+
+- `KAFKA2_BOOTSTRAP_SERVERS`: Bootstrap servers for the downstream Kafka broker.
+- `KAFKA2_SECURITY_PROTOCOL`: Security protocol for the downstream Kafka broker.
+- `KAFKA2_SASL_MECHANISM`: SASL mechanism for the downstream Kafka broker.
+- `KAFKA2_SASL_USERNAME`: SASL username for the downstream Kafka broker.
+- `KAFKA2_SASL_PASSWORD`: SASL password for the downstream Kafka broker.
+
+Note that the security and authentication is not necessary when using the Kafka broker from the Docker container.
+`KAFKA2_BOOTSTRAP_SERVERS` is also configured to default to use the Kafka broker from the Docker container.
