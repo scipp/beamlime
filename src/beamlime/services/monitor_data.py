@@ -2,6 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import argparse
 import logging
+from contextlib import ExitStack
 from typing import Literal, NoReturn
 
 from beamlime import ConfigSubscriber, HandlerRegistry, Service, StreamProcessor
@@ -43,15 +44,6 @@ def run_service(
     initial_config = {'sliding_window_seconds': 5}
 
     config = load_config(namespace='monitor_data')
-    control_consumer = kafka_consumer.make_consumer_from_config(
-        config=config['control'], instrument=instrument, group='beamlime_control'
-    )
-    config_subscriber = ConfigSubscriber(
-        consumer=control_consumer, config=initial_config
-    )
-    consumer = kafka_consumer.make_consumer_from_config(
-        config=config['consumer'], instrument=instrument, group='monitor_data'
-    )
 
     if sink_type == 'kafka':
         sink = KafkaSink(kafka_config=config['producer']['kafka'])
@@ -67,23 +59,41 @@ def run_service(
             ),
         }
     )
-    processor = StreamProcessor(
-        source=AdaptingMessageSource(
-            source=KafkaMessageSource(consumer=consumer), adapter=adapter
-        ),
-        sink=sink,
-        handler_registry=HandlerRegistry(
-            config=config_subscriber, handler_cls=create_monitor_data_handler
-        ),
-    )
-    service = Service(
-        config=config['service'],
-        children=[config_subscriber],
-        processor=processor,
-        name=service_name,
-        log_level=log_level,
-    )
-    service.start()
+
+    with ExitStack() as stack:
+        control_consumer = stack.enter_context(
+            kafka_consumer.make_consumer_from_config(
+                config=config['control'],
+                instrument=instrument,
+                group='beamlime_control',
+            )
+        )
+        config_subscriber = ConfigSubscriber(
+            consumer=control_consumer, config=initial_config
+        )
+        consumer = stack.enter_context(
+            kafka_consumer.make_consumer_from_config(
+                config=config['consumer'], instrument=instrument, group='monitor_data'
+            )
+        )
+
+        processor = StreamProcessor(
+            source=AdaptingMessageSource(
+                source=KafkaMessageSource(consumer=consumer), adapter=adapter
+            ),
+            sink=sink,
+            handler_registry=HandlerRegistry(
+                config=config_subscriber, handler_cls=create_monitor_data_handler
+            ),
+        )
+        service = Service(
+            config=config['service'],
+            children=[config_subscriber],
+            processor=processor,
+            name=service_name,
+            log_level=log_level,
+        )
+        service.start()
 
 
 def main() -> NoReturn:

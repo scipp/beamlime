@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import uuid
+from collections.abc import Generator
+from contextlib import contextmanager
 from typing import Any
 
 import confluent_kafka as kafka
@@ -32,30 +34,32 @@ def assign_partitions(consumer: kafka.Consumer, topic: str) -> None:
         raise ValueError(f"Failed to assign partitions for topic '{topic}': {e}") from e
 
 
-def make_bare_consumer(topics: list[str], config: dict[str, Any]) -> kafka.Consumer:
+@contextmanager
+def make_bare_consumer(
+    topics: list[str], config: dict[str, Any]
+) -> Generator[kafka.Consumer, None, None]:
     """Create a bare confluent_kafka.Consumer that can be used by KafkaMessageSource."""
     consumer = kafka.Consumer(config)
-    validate_topics_exist(consumer, topics)
-
     try:
+        validate_topics_exist(consumer, topics)
         consumer.subscribe(topics)
-    except KafkaException as e:
-        raise ValueError(f"Failed to subscribe to topics: {e}") from e
-
-    for topic in topics:
-        assign_partitions(consumer, topic)
-
-    return consumer
+        for topic in topics:
+            assign_partitions(consumer, topic)
+        yield consumer
+    finally:
+        consumer.close()
 
 
+@contextmanager
 def make_consumer_from_config(
     *, config: dict[str, Any], instrument: str, group: str, unique_group_id: bool = True
-) -> kafka.Consumer:
+) -> Generator[kafka.Consumer, None, None]:
     """Create a Kafka consumer from a configuration dictionary."""
     if unique_group_id:
         config['kafka']['group.id'] = f'{instrument}_{group}_{uuid.uuid4()}'
     topics = config.get('topics', [config.get('topic')])
-    return make_bare_consumer(
+    with make_bare_consumer(
         config=config['kafka'],
         topics=topic_for_instrument(topic=topics, instrument=instrument),
-    )
+    ) as consumer:
+        yield consumer

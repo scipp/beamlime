@@ -72,9 +72,10 @@ class DashboardApp(ServiceBase):
 
     def _setup_kafka_consumer(self) -> AdaptingMessageSource:
         config = load_config(namespace='visualization')['consumer']
-        consumer = kafka_consumer.make_consumer_from_config(
+        self._consumer_cm = kafka_consumer.make_consumer_from_config(
             config=config, instrument=self._instrument, group='dashboard'
         )
+        consumer = self._consumer_cm.__enter__()
         return AdaptingMessageSource(
             source=KafkaMessageSource(consumer=consumer, num_messages=1000),
             adapter=ChainedAdapter(
@@ -238,6 +239,7 @@ class DashboardApp(ServiceBase):
         self._config_service.stop()
         self._config_service_thread.join()
         self._source.close()
+        self._consumer_cm.__exit__(None, None, None)
 
 
 def setup_arg_parser() -> argparse.ArgumentParser:
