@@ -60,9 +60,6 @@ class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
 class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config):
         self._config = config
-        self._max_age = sc.scalar(
-            self._config.get('sliding_window_seconds', 1.0), unit='s'
-        ).to(unit='ns', dtype='int64')
         self._chunks: list[sc.DataArray] = []
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
@@ -85,12 +82,16 @@ class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
     def clear(self) -> None:
         self._chunks.clear()
 
+    def _max_age(self) -> sc.Variable:
+        raw = self._config.get('sliding_window', {'value': 5.0, 'unit': 's'})
+        return sc.scalar(**raw).to(unit='ns', dtype='int64')
+
     def _cleanup(self) -> None:
         latest = sc.reduce([chunk.coords['time'] for chunk in self._chunks]).max()
         self._chunks = [
             chunk
             for chunk in self._chunks
-            if latest - chunk.coords['time'] <= self._max_age
+            if latest - chunk.coords['time'] <= self._max_age()
         ]
 
 

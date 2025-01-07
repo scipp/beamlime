@@ -94,6 +94,15 @@ class DashboardApp(ServiceBase):
                 value=10,
                 marks={i: {'label': f'{2**i}'} for i in range(8, 14)},
             ),
+            html.Label('Sliding Window (ms)'),
+            dcc.Slider(
+                id='sliding-window',
+                min=8,
+                max=13,
+                step=1,
+                value=10,
+                marks={i: {'label': f'{2**i}'} for i in range(8, 14)},
+            ),
             dcc.Checklist(
                 id='bins-checkbox',
                 options=[
@@ -141,8 +150,10 @@ class DashboardApp(ServiceBase):
         )(self.update_plots)
 
         self._app.callback(
-            Output('interval-component', 'interval'), Input('update-speed', 'value')
-        )(self.update_interval)
+            Output('interval-component', 'interval'),
+            Input('update-speed', 'value'),
+            Input('sliding-window', 'value'),
+        )(self.update_timing_settings)
 
         self._app.callback(Output('num-points', 'value'), Input('num-points', 'value'))(
             self.update_num_points
@@ -209,11 +220,14 @@ class DashboardApp(ServiceBase):
             html.Div(detector_graphs, style={'display': 'flex', 'flexWrap': 'wrap'}),
         ]
 
-    def update_interval(self, value: float) -> float:
+    def update_timing_settings(self, update_speed: float, window_size: float) -> float:
         self._config_service.update_config(
-            'update_every', {'value': 2**value, 'unit': 'ms'}
+            'update_every', {'value': 2**update_speed, 'unit': 'ms'}
         )
-        return 2**value
+        self._config_service.update_config(
+            'sliding_window', {'value': 2**window_size, 'unit': 'ms'}
+        )
+        return 2**update_speed
 
     def update_num_points(self, value: int) -> int:
         self._config_service.update_config('time_of_arrival_bins', value)

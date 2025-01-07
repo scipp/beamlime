@@ -41,8 +41,6 @@ def run_service(
     log_level: int = logging.INFO,
 ) -> NoReturn:
     service_name = f'{instrument}_monitor_data_demo'
-    initial_config = {'sliding_window_seconds': 5}
-
     config = load_config(namespace='monitor_data')
 
     if sink_type == 'kafka':
@@ -68,9 +66,7 @@ def run_service(
                 group='beamlime_control',
             )
         )
-        config_subscriber = ConfigSubscriber(
-            consumer=control_consumer, config=initial_config
-        )
+        config_subscriber = ConfigSubscriber(consumer=control_consumer, config={})
         consumer = stack.enter_context(
             kafka_consumer.make_consumer_from_config(
                 config=config['consumer'], instrument=instrument, group='monitor_data'
