@@ -15,6 +15,20 @@ class KafkaConsumer(Protocol):
 
 
 class KafkaMessageSource(MessageSource[KafkaMessage]):
+    """
+    Message source for messages from Kafka.
+
+    Parameters
+    ----------
+    consumer:
+        Kafka consumer instance.
+    num_messages:
+        Number of messages to consume and return in a single call to `get_messages`.
+        Fewer messages may be returned if the timeout is reached.
+    timeout:
+        Timeout in seconds to wait for messages before returning.
+    """
+
     def __init__(
         self, consumer: KafkaConsumer, num_messages: int = 100, timeout: float = 0.05
     ):
