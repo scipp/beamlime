@@ -14,7 +14,9 @@ from beamlime.handlers.monitor_data_handler import (
 
 
 def test_handler() -> None:
-    handler = create_monitor_data_handler(config={'sliding_window_seconds': 10})
+    handler = create_monitor_data_handler(
+        config={'sliding_window': {'value': 10, 'unit': 's'}}
+    )
     msg = Message(
         timestamp=0,
         key=MessageKey(topic='monitors', source_name='monitor1'),
