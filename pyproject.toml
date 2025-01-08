@@ -30,10 +30,11 @@ requires-python = ">=3.10"
 # Run 'tox -e deps' after making changes here. This will update requirement files.
 # Make sure to list one dependency per line.
 dependencies = [
-  "rich",
   "essreduce>=24.10.3",
   "confluent_kafka",
-  "ess-streaming-data-types"
+  "ess-streaming-data-types",
+  "jinja2",
+  "PyYAML",
 ]
 
 dynamic = ["version"]
@@ -42,6 +43,13 @@ dynamic = ["version"]
 "Bug Tracker" = "https://github.com/scipp/beamlime/issues"
 "Documentation" = "https://scipp.github.io/beamlime"
 "Source" = "https://github.com/scipp/beamlime"
+
+[project.optional-dependencies]
+dashboard = [
+  "dash",
+  "gunicorn",
+  "plotly",
+]
 
 [tool.setuptools_scm]
 
@@ -112,3 +120,6 @@ warn_unreachable = true
 
 [project.entry-points."beamlime.workflow_plugin"]
 dummy = "beamlime.workflow_protocols:DummyLiveWorkflow"
+
+[tool.setuptools.package-data]
+"beamlime.config.defaults" = ["*.yaml", "*.yaml.jinja"]

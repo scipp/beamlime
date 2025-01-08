@@ -1,0 +1,28 @@
+service:
+  poll_interval: 0.1
+consumer:
+  topics:
+    - beam_monitor
+  kafka:
+    bootstrap.servers: {{ KAFKA_BROKER }}
+    security.protocol: SASL_SSL
+    sasl.mechanism: SCRAM-SHA-256
+    sasl.username: {{ KAFKA_USERNAME }}
+    sasl.password: {{ KAFKA_PASSWORD }}
+    auto.offset.reset: latest
+    enable.auto.commit: true
+    fetch.min.bytes: 1
+    session.timeout.ms: 6000
+    heartbeat.interval.ms: 2000
+control:
+  topic: beamlime_monitor_data_control
+  kafka:
+    bootstrap.servers: localhost:9092
+    auto.offset.reset: earliest
+    enable.auto.commit: true
+    fetch.min.bytes: 1
+    session.timeout.ms: 6000
+    heartbeat.interval.ms: 2000
+producer:
+  kafka:
+    bootstrap.servers: localhost:9092
