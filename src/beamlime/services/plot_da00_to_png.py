@@ -27,28 +27,28 @@ class IdentityHandler(Handler[sc.DataArray, sc.DataArray]):
 def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
     handler_config = {}
     config = load_config(namespace='visualization')
-    consumer = kafka_consumer.make_consumer_from_config(
+    with kafka_consumer.make_consumer_from_config(
         config=config['consumer'], instrument=instrument, group='visualization'
-    )
-    processor = StreamProcessor(
-        source=AdaptingMessageSource(
-            source=KafkaMessageSource(consumer=consumer),
-            adapter=ChainedAdapter(
-                first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
+    ) as consumer:
+        processor = StreamProcessor(
+            source=AdaptingMessageSource(
+                source=KafkaMessageSource(consumer=consumer),
+                adapter=ChainedAdapter(
+                    first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
+                ),
             ),
-        ),
-        sink=PlotToPngSink(),
-        handler_registry=HandlerRegistry(
-            config=handler_config, handler_cls=IdentityHandler
-        ),
-    )
-    service = Service(
-        config=config['service'],
-        processor=processor,
-        name=f'{instrument}_plot_da00_to_png',
-        log_level=log_level,
-    )
-    service.start()
+            sink=PlotToPngSink(),
+            handler_registry=HandlerRegistry(
+                config=handler_config, handler_cls=IdentityHandler
+            ),
+        )
+        service = Service(
+            config=config['service'],
+            processor=processor,
+            name=f'{instrument}_plot_da00_to_png',
+            log_level=log_level,
+        )
+        service.start()
 
 
 def main() -> NoReturn:

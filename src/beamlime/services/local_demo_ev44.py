@@ -7,7 +7,7 @@ import numpy as np
 from streaming_data_types import eventdata_ev44
 
 from beamlime import HandlerRegistry, Service, StreamProcessor
-from beamlime.handlers.monitor_data_handler import create_monitor_event_data_handler
+from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
@@ -40,13 +40,11 @@ class FakeMonitorEventKafkaConsumer(KafkaConsumer):
                 time_of_flight=time_of_flight,
                 pixel_id=np.ones_like(time_of_flight, dtype=np.int32),
             )
-            messages.append(FakeKafkaMessage(value=ev44, topic="monitors"))
+            messages.append(FakeKafkaMessage(value=ev44, topic="dummy_beam_monitor"))
         return messages
 
 
 def main() -> NoReturn:
-    handler_config = {'sliding_window_seconds': 5}
-    service_config = {}
     processor = StreamProcessor(
         source=AdaptingMessageSource(
             source=KafkaMessageSource(consumer=FakeMonitorEventKafkaConsumer()),
@@ -56,12 +54,10 @@ def main() -> NoReturn:
         ),
         sink=PlotToPngSink(),
         handler_registry=HandlerRegistry(
-            config=handler_config, handler_cls=create_monitor_event_data_handler
+            config={}, handler_cls=create_monitor_data_handler
         ),
     )
-    service = Service(
-        config=service_config, processor=processor, name="local_demo_ev44"
-    )
+    service = Service(config={}, processor=processor, name="local_demo_ev44")
     service.start()
 
 

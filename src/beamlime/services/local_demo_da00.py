@@ -48,12 +48,10 @@ class FakeMonitorDa00KafkaConsumer(KafkaConsumer):
             timestamp_ns=time.time_ns(),
             data=scipp_to_da00(da),
         )
-        return FakeKafkaMessage(value=da00, topic="monitors")
+        return FakeKafkaMessage(value=da00, topic="dummy_beam_monitor")
 
 
 def main() -> NoReturn:
-    handler_config = {'sliding_window_seconds': 5}
-    service_config = {}
     processor = StreamProcessor(
         source=AdaptingMessageSource(
             source=KafkaMessageSource(consumer=FakeMonitorDa00KafkaConsumer()),
@@ -63,12 +61,10 @@ def main() -> NoReturn:
         ),
         sink=PlotToPngSink(),
         handler_registry=HandlerRegistry(
-            config=handler_config, handler_cls=create_monitor_data_handler
+            config={}, handler_cls=create_monitor_data_handler
         ),
     )
-    service = Service(
-        config=service_config, processor=processor, name="local_demo_da00"
-    )
+    service = Service(config={}, processor=processor, name="local_demo_da00")
     service.start()
 
 
