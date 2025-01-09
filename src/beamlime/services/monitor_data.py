@@ -5,13 +5,12 @@ import logging
 from contextlib import ExitStack
 from typing import Literal, NoReturn
 
-from beamlime import ConfigSubscriber, HandlerRegistry, Service, StreamProcessor
+from beamlime import Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
-    AdaptingMessageSource,
     ChainedAdapter,
     Da00ToScippAdapter,
     Ev44ToMonitorEventsAdapter,
@@ -20,7 +19,7 @@ from beamlime.kafka.message_adapter import (
     RoutingAdapter,
 )
 from beamlime.kafka.sink import KafkaSink
-from beamlime.kafka.source import KafkaMessageSource
+from beamlime.service_factory import DataServiceBuilder
 from beamlime.sinks import PlotToPngSink
 
 
@@ -41,7 +40,6 @@ def run_service(
     instrument: str,
     log_level: int = logging.INFO,
 ) -> NoReturn:
-    service_name = f'{instrument}_monitor_data_demo'
     config = load_config(namespace=config_names.monitor_data, env='')
     consumer_config = load_config(namespace=config_names.raw_data_consumer, env='')
     kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
@@ -62,11 +60,18 @@ def run_service(
         }
     )
 
+    builder = DataServiceBuilder(
+        instrument=instrument,
+        name='monitor_data',
+        log_level=log_level,
+        adapter=adapter,
+        handler_cls=create_monitor_data_handler,
+    )
+
     with ExitStack() as stack:
         control_consumer = stack.enter_context(
             kafka_consumer.make_control_consumer(instrument=instrument)
         )
-        config_subscriber = ConfigSubscriber(consumer=control_consumer, config={})
         consumer = stack.enter_context(
             kafka_consumer.make_consumer_from_config(
                 topics=config['topics'],
@@ -75,21 +80,8 @@ def run_service(
                 group='monitor_data',
             )
         )
-
-        processor = StreamProcessor(
-            source=AdaptingMessageSource(
-                source=KafkaMessageSource(consumer=consumer), adapter=adapter
-            ),
-            sink=sink,
-            handler_registry=HandlerRegistry(
-                config=config_subscriber, handler_cls=create_monitor_data_handler
-            ),
-        )
-        service = Service(
-            children=[config_subscriber],
-            processor=processor,
-            name=service_name,
-            log_level=log_level,
+        service = builder.build(
+            control_consumer=control_consumer, consumer=consumer, sink=sink
         )
         service.start()
 
