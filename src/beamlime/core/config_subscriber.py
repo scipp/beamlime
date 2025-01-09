@@ -5,16 +5,15 @@ import logging
 import threading
 from typing import Any
 
-from confluent_kafka import Consumer
-
 from ..kafka.message_adapter import KafkaMessage
+from ..kafka.source import KafkaConsumer
 
 
 class ConfigSubscriber:
     def __init__(
         self,
         *,
-        consumer: Consumer,
+        consumer: KafkaConsumer,
         config: dict[str, Any] | None = None,
         logger: logging.Logger | None = None,
     ):
@@ -50,8 +49,9 @@ class ConfigSubscriber:
     def _run_loop(self):
         try:
             while self._running:
-                msg = self._consumer.poll(0.1)
-                self._process_message(msg)
+                messages = self._consumer.consume(num_messages=100, timeout=0.1)
+                for msg in messages:
+                    self._process_message(msg)
         except RuntimeError as e:
             self._logger.exception("Error ConfigSubscriber loop failed: %s", e)
             self.stop()
