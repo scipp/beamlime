@@ -6,6 +6,7 @@ from typing import NoReturn
 import scipp as sc
 
 from beamlime import Handler, HandlerRegistry, Message, Service, StreamProcessor
+from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
@@ -26,9 +27,9 @@ class IdentityHandler(Handler[sc.DataArray, sc.DataArray]):
 
 def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
     handler_config = {}
-    consumer_config = load_config(namespace='reduced_data_consumer', env='')
-    kafka_downstream_config = load_config(namespace='kafka_downstream')
-    config = load_config(namespace='visualization', env='')
+    consumer_config = load_config(namespace=config_names.reduced_data_consumer, env='')
+    kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
+    config = load_config(namespace=config_names.visualization, env='')
     with kafka_consumer.make_consumer_from_config(
         topics=config['topics'],
         config={**consumer_config, **kafka_downstream_config},

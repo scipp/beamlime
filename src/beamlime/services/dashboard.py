@@ -12,6 +12,7 @@ from dash import Dash, Input, Output, dcc, html
 from dash.exceptions import PreventUpdate
 
 from beamlime import Service, ServiceBase
+from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.core.config_service import ConfigService
 from beamlime.core.message import compact_messages
@@ -62,7 +63,7 @@ class DashboardApp(ServiceBase):
         return self._app.server
 
     def _setup_config_service(self) -> None:
-        kafka_downstream_config = load_config(namespace='kafka_downstream')
+        kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
         self._config_service = ConfigService(
             kafka_config={**kafka_downstream_config},
             consumer=self._exit_stack.enter_context(
@@ -78,9 +79,11 @@ class DashboardApp(ServiceBase):
         )
 
     def _setup_kafka_consumer(self) -> AdaptingMessageSource:
-        consumer_config = load_config(namespace='reduced_data_consumer', env='')
-        kafka_downstream_config = load_config(namespace='kafka_downstream')
-        config = load_config(namespace='visualization', env='')
+        consumer_config = load_config(
+            namespace=config_names.reduced_data_consumer, env=''
+        )
+        kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
+        config = load_config(namespace=config_names.visualization, env='')
         consumer = self._exit_stack.enter_context(
             kafka_consumer.make_consumer_from_config(
                 topics=config['topics'],
