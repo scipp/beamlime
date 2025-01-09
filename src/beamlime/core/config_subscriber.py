@@ -7,6 +7,8 @@ from typing import Any
 
 from confluent_kafka import Consumer
 
+from ..kafka.message_adapter import KafkaMessage
+
 
 class ConfigSubscriber:
     def __init__(
@@ -32,22 +34,24 @@ class ConfigSubscriber:
         self._thread = threading.Thread(target=self._run_loop)
         self._thread.start()
 
+    def _process_message(self, message: KafkaMessage | None) -> None:
+        if message is None:
+            return
+        if message.error():
+            self._logger.error('Consumer error: %s', message.error())
+            return
+        key = message.key().decode('utf-8')
+        value = json.loads(message.value().decode('utf-8'))
+        self._logger.info(
+            'Updating config: %s = %s at %s', key, value, message.timestamp()
+        )
+        self._config[key] = value
+
     def _run_loop(self):
         try:
             while self._running:
                 msg = self._consumer.poll(0.1)
-                if msg is None:
-                    continue
-                if msg.error():
-                    self._logger.error('Consumer error: %s', msg.error())
-                    continue
-
-                key = msg.key().decode('utf-8')
-                value = json.loads(msg.value().decode('utf-8'))
-                self._logger.info(
-                    'Updating config: %s = %s at %s', key, value, msg.timestamp()
-                )
-                self._config[key] = value
+                self._process_message(msg)
         except RuntimeError as e:
             self._logger.exception("Error ConfigSubscriber loop failed: %s", e)
             self.stop()

@@ -23,7 +23,13 @@ class KafkaMessage(Protocol):
     def error(self) -> Any | None:
         pass
 
+    def key(self) -> bytes:
+        pass
+
     def value(self) -> bytes:
+        pass
+
+    def timestamp(self) -> int:
         pass
 
     def topic(self) -> str:
@@ -38,8 +44,14 @@ class FakeKafkaMessage(KafkaMessage):
     def error(self) -> Any | None:
         return None
 
+    def key(self) -> bytes:
+        return b""
+
     def value(self) -> bytes:
         return self._value
+
+    def timestamp(self) -> int:
+        return 0
 
     def topic(self) -> str:
         return self._topic
