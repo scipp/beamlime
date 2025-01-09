@@ -52,14 +52,18 @@ def make_bare_consumer(
 
 @contextmanager
 def make_consumer_from_config(
-    *, config: dict[str, Any], instrument: str, group: str, unique_group_id: bool = True
+    *,
+    topics: list[str],
+    config: dict[str, Any],
+    instrument: str,
+    group: str,
+    unique_group_id: bool = True,
 ) -> Generator[kafka.Consumer, None, None]:
     """Create a Kafka consumer from a configuration dictionary."""
     if unique_group_id:
-        config['kafka']['group.id'] = f'{instrument}_{group}_{uuid.uuid4()}'
-    topics = config.get('topics', [config.get('topic')])
+        config['group.id'] = f'{instrument}_{group}_{uuid.uuid4()}'
     with make_bare_consumer(
-        config=config['kafka'],
+        config=config,
         topics=topic_for_instrument(topic=topics, instrument=instrument),
     ) as consumer:
         yield consumer

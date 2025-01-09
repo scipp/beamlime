@@ -26,9 +26,14 @@ class IdentityHandler(Handler[sc.DataArray, sc.DataArray]):
 
 def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
     handler_config = {}
-    config = load_config(namespace='visualization')
+    consumer_config = load_config(namespace='reduced_data_consumer', env='')
+    kafka_downstream_config = load_config(namespace='kafka_downstream')
+    config = load_config(namespace='visualization', env='')
     with kafka_consumer.make_consumer_from_config(
-        config=config['consumer'], instrument=instrument, group='visualization'
+        topics=config['topics'],
+        config={**consumer_config, **kafka_downstream_config},
+        instrument=instrument,
+        group='visualization',
     ) as consumer:
         processor = StreamProcessor(
             source=AdaptingMessageSource(
@@ -43,7 +48,6 @@ def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
             ),
         )
         service = Service(
-            config=config['service'],
             processor=processor,
             name=f'{instrument}_plot_da00_to_png',
             log_level=log_level,

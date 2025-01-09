@@ -41,10 +41,14 @@ def run_service(
     log_level: int = logging.INFO,
 ) -> NoReturn:
     service_name = f'{instrument}_monitor_data_demo'
-    config = load_config(namespace='monitor_data')
+    config = load_config(namespace='monitor_data', env='')
+    control_config = load_config(namespace='control_consumer', env='')
+    consumer_config = load_config(namespace='raw_data_consumer', env='')
+    kafka_downstream_config = load_config(namespace='kafka_downstream')
+    kafka_upstream_config = load_config(namespace='kafka_upstream')
 
     if sink_type == 'kafka':
-        sink = KafkaSink(kafka_config=config['producer']['kafka'])
+        sink = KafkaSink(kafka_config=kafka_downstream_config)
     else:
         sink = PlotToPngSink()
     adapter = RoutingAdapter(
@@ -61,7 +65,8 @@ def run_service(
     with ExitStack() as stack:
         control_consumer = stack.enter_context(
             kafka_consumer.make_consumer_from_config(
-                config=config['control'],
+                topics=['beamlime_monitor_data_control'],
+                config={**control_config, **kafka_downstream_config},
                 instrument=instrument,
                 group='beamlime_control',
             )
@@ -69,7 +74,10 @@ def run_service(
         config_subscriber = ConfigSubscriber(consumer=control_consumer, config={})
         consumer = stack.enter_context(
             kafka_consumer.make_consumer_from_config(
-                config=config['consumer'], instrument=instrument, group='monitor_data'
+                topics=config['topics'],
+                config={**consumer_config, **kafka_upstream_config},
+                instrument=instrument,
+                group='monitor_data',
             )
         )
 
@@ -83,7 +91,6 @@ def run_service(
             ),
         )
         service = Service(
-            config=config['service'],
             children=[config_subscriber],
             processor=processor,
             name=service_name,

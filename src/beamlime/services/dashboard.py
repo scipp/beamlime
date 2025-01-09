@@ -58,11 +58,12 @@ class DashboardApp(ServiceBase):
         return self._app.server
 
     def _setup_config_service(self) -> None:
-        control_config = load_config(namespace='monitor_data')['control']
+        control_config = load_config(namespace='control_consumer', env='')
+        kafka_downstream_config = load_config(namespace='kafka_downstream')
         self._config_service = ConfigService(
-            kafka_config=control_config['kafka'],
+            kafka_config={**control_config, **kafka_downstream_config},
             topic=topic_for_instrument(
-                topic=control_config['topic'], instrument=self._instrument
+                topic='beamlime_monitor_data_control', instrument=self._instrument
             ),
             logger=self._logger,
         )
@@ -71,9 +72,14 @@ class DashboardApp(ServiceBase):
         )
 
     def _setup_kafka_consumer(self) -> AdaptingMessageSource:
-        config = load_config(namespace='visualization')['consumer']
+        consumer_config = load_config(namespace='reduced_data_consumer', env='')
+        kafka_downstream_config = load_config(namespace='kafka_downstream')
+        config = load_config(namespace='visualization', env='')
         self._consumer_cm = kafka_consumer.make_consumer_from_config(
-            config=config, instrument=self._instrument, group='dashboard'
+            topics=config['topics'],
+            config={**consumer_config, **kafka_downstream_config},
+            instrument=self._instrument,
+            group='dashboard',
         )
         consumer = self._consumer_cm.__enter__()
         return AdaptingMessageSource(
