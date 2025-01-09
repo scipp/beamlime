@@ -4,6 +4,7 @@ import argparse
 import logging
 import threading
 import time
+from contextlib import ExitStack
 
 import plotly.graph_objects as go
 import scipp as sc
@@ -43,6 +44,9 @@ class DashboardApp(ServiceBase):
         self._monitor_plots: dict[str, go.Figure] = {}
         self._detector_plots: dict[str, go.Figure] = {}
 
+        self._exit_stack = ExitStack()
+        self._exit_stack.__enter__()
+
         # Setup services
         self._setup_config_service()
         self._source = self._setup_kafka_consumer()
@@ -58,10 +62,12 @@ class DashboardApp(ServiceBase):
         return self._app.server
 
     def _setup_config_service(self) -> None:
-        control_config = load_config(namespace='control_consumer', env='')
         kafka_downstream_config = load_config(namespace='kafka_downstream')
         self._config_service = ConfigService(
-            kafka_config={**control_config, **kafka_downstream_config},
+            kafka_config={**kafka_downstream_config},
+            consumer=self._exit_stack.enter_context(
+                kafka_consumer.make_control_consumer(instrument=self._instrument)
+            ),
             topic=topic_for_instrument(
                 topic='beamlime_monitor_data_control', instrument=self._instrument
             ),
@@ -75,13 +81,14 @@ class DashboardApp(ServiceBase):
         consumer_config = load_config(namespace='reduced_data_consumer', env='')
         kafka_downstream_config = load_config(namespace='kafka_downstream')
         config = load_config(namespace='visualization', env='')
-        self._consumer_cm = kafka_consumer.make_consumer_from_config(
-            topics=config['topics'],
-            config={**consumer_config, **kafka_downstream_config},
-            instrument=self._instrument,
-            group='dashboard',
+        consumer = self._exit_stack.enter_context(
+            kafka_consumer.make_consumer_from_config(
+                topics=config['topics'],
+                config={**consumer_config, **kafka_downstream_config},
+                instrument=self._instrument,
+                group='dashboard',
+            )
         )
-        consumer = self._consumer_cm.__enter__()
         return AdaptingMessageSource(
             source=KafkaMessageSource(consumer=consumer, num_messages=1000),
             adapter=ChainedAdapter(
@@ -259,7 +266,7 @@ class DashboardApp(ServiceBase):
         self._config_service.stop()
         self._config_service_thread.join()
         self._source.close()
-        self._consumer_cm.__exit__(None, None, None)
+        self._exit_stack.__exit__(None, None, None)
 
 
 def setup_arg_parser() -> argparse.ArgumentParser:

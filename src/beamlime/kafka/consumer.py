@@ -8,6 +8,7 @@ from typing import Any
 import confluent_kafka as kafka
 from confluent_kafka.error import KafkaException
 
+from ..config.config_loader import load_config
 from .helpers import topic_for_instrument
 
 
@@ -65,5 +66,18 @@ def make_consumer_from_config(
     with make_bare_consumer(
         config=config,
         topics=topic_for_instrument(topic=topics, instrument=instrument),
+    ) as consumer:
+        yield consumer
+
+
+@contextmanager
+def make_control_consumer(*, instrument: str) -> Generator[kafka.Consumer, None, None]:
+    control_config = load_config(namespace='control_consumer', env='')
+    kafka_downstream_config = load_config(namespace='kafka_downstream')
+    with make_consumer_from_config(
+        topics=['beamlime_monitor_data_control'],
+        config={**control_config, **kafka_downstream_config},
+        instrument=instrument,
+        group='beamlime_control',
     ) as consumer:
         yield consumer

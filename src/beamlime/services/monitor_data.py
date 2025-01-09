@@ -42,7 +42,6 @@ def run_service(
 ) -> NoReturn:
     service_name = f'{instrument}_monitor_data_demo'
     config = load_config(namespace='monitor_data', env='')
-    control_config = load_config(namespace='control_consumer', env='')
     consumer_config = load_config(namespace='raw_data_consumer', env='')
     kafka_downstream_config = load_config(namespace='kafka_downstream')
     kafka_upstream_config = load_config(namespace='kafka_upstream')
@@ -64,12 +63,7 @@ def run_service(
 
     with ExitStack() as stack:
         control_consumer = stack.enter_context(
-            kafka_consumer.make_consumer_from_config(
-                topics=['beamlime_monitor_data_control'],
-                config={**control_config, **kafka_downstream_config},
-                instrument=instrument,
-                group='beamlime_control',
-            )
+            kafka_consumer.make_control_consumer(instrument=instrument)
         )
         config_subscriber = ConfigSubscriber(consumer=control_consumer, config={})
         consumer = stack.enter_context(
