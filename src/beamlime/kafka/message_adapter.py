@@ -30,15 +30,6 @@ class KafkaMessage(Protocol):
         pass
 
 
-def message_schema(msg: KafkaMessage) -> str | None:
-    """
-    Extracts the schema from a Kafka message by the streaming_data_types library.
-    """
-    if msg.error() is not None or len(msg.value()) < 8:
-        return None
-    return msg.value()[4:8].decode()
-
-
 class FakeKafkaMessage(KafkaMessage):
     def __init__(self, value: bytes, topic: str):
         self._value = value
@@ -125,7 +116,7 @@ class RoutingAdapter(MessageAdapter[KafkaMessage, T]):
         self._routes = routes
 
     def adapt(self, message: KafkaMessage) -> Message[T]:
-        schema = message_schema(message)
+        schema = streaming_data_types.utils.get_schema(message.value())
         if schema is None:
             raise streaming_data_types.exceptions.WrongSchemaException()
         return self._routes[schema].adapt(message)

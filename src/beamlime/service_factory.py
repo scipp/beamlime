@@ -11,7 +11,7 @@ from .core import ConfigSubscriber, HandlerRegistry, MessageSink, StreamProcesso
 from .core.handler import Handler
 from .core.service import Service
 from .kafka.message_adapter import AdaptingMessageSource, MessageAdapter
-from .kafka.source import KafkaMessageSource
+from .kafka.source import KafkaConsumer, KafkaMessageSource
 
 Traw = TypeVar("Traw")
 Tin = TypeVar("Tin")
@@ -36,7 +36,7 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
     def build(
         self,
         control_consumer: confluent_kafka.Consumer,
-        consumer: confluent_kafka.Consumer,
+        consumer: KafkaConsumer,
         sink: MessageSink[Tout],
     ) -> Service:
         config_subscriber = ConfigSubscriber(consumer=control_consumer, config={})
