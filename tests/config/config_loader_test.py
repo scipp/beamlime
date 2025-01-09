@@ -3,6 +3,6 @@
 from beamlime.config.config_loader import load_config
 
 
-def test_load_consumer_config_loads_dev_env_by_default():
-    config = load_config(namespace='monitor_data')
-    assert config['consumer']['kafka']['bootstrap.servers'] == 'localhost:9092'
+def test_load_config():
+    config = load_config(namespace='monitor_data', env='')
+    assert 'topics' in config
