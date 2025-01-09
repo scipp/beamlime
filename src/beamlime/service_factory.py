@@ -5,8 +5,6 @@ from __future__ import annotations
 import logging
 from typing import Generic, TypeVar
 
-import confluent_kafka
-
 from .core import ConfigSubscriber, HandlerRegistry, MessageSink, StreamProcessor
 from .core.handler import Handler
 from .core.service import Service
@@ -35,7 +33,7 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
 
     def build(
         self,
-        control_consumer: confluent_kafka.Consumer,
+        control_consumer: KafkaConsumer,
         consumer: KafkaConsumer,
         sink: MessageSink[Tout],
     ) -> Service:
