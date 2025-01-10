@@ -9,7 +9,7 @@ import streaming_data_types.exceptions
 from streaming_data_types import dataarray_da00, eventdata_ev44
 
 from ..core.message import Message, MessageKey, MessageSource
-from ..handlers.monitor_data_handler import MonitorEvents
+from ..handlers.accumulators import DetectorEvents, MonitorEvents
 from .scipp_da00_compat import da00_to_scipp
 
 T = TypeVar('T')
@@ -94,6 +94,15 @@ class Ev44ToMonitorEventsAdapter(
         self, message: Message[eventdata_ev44.EventData]
     ) -> Message[MonitorEvents]:
         return replace(message, value=MonitorEvents.from_ev44(message.value))
+
+
+class Ev44ToDetectorEventsAdapter(
+    MessageAdapter[Message[eventdata_ev44.EventData], Message[DetectorEvents]]
+):
+    def adapt(
+        self, message: Message[eventdata_ev44.EventData]
+    ) -> Message[DetectorEvents]:
+        return replace(message, value=DetectorEvents.from_ev44(message.value))
 
 
 class Da00ToScippAdapter(

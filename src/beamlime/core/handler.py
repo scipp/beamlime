@@ -73,7 +73,7 @@ class HandlerRegistry(Generic[Tin, Tout]):
         self._handler_cls = handler_cls
         self._handlers: dict[MessageKey, Handler] = {}
 
-    def get(self, key: str) -> Handler:
+    def get(self, key: MessageKey) -> Handler:
         if key not in self._handlers:
             self._handlers[key] = self._handler_cls(
                 logger=self._logger, config=ConfigProxy(self._config, namespace=key)
