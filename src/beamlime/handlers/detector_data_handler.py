@@ -32,15 +32,18 @@ detector_registry = {
 
 class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
     def __init__(
-        self, *, instrument: str, logger: logging.Logger | None = None, config: Config
+        self,
+        *,
+        instrument: str,
+        nexus_file: str,
+        logger: logging.Logger | None = None,
+        config: Config,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
         self._handlers: dict[MessageKey, Handler] = {}
         self._detector_config = detector_registry[instrument]['detectors']
-        self._nexus_file = (
-            '/home/simon/instruments/dream/443503_00033178.hdf'  # New Dream
-        )
+        self._nexus_file = nexus_file
         self._window_length = 10
 
     def _key_to_detector_name(self, key: MessageKey) -> str:

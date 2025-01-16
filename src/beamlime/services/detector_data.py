@@ -3,6 +3,7 @@
 import argparse
 import logging
 from contextlib import ExitStack
+from functools import partial
 from typing import Literal, NoReturn
 
 from beamlime import Service
@@ -21,7 +22,7 @@ from beamlime.sinks import PlotToPngSink
 
 
 def setup_arg_parser() -> argparse.ArgumentParser:
-    parser = Service.setup_arg_parser(description='Kafka Demo da00/ev44 Service')
+    parser = Service.setup_arg_parser(description='Detector Data Service')
     parser.add_argument(
         '--sink-type',
         choices=['kafka', 'png'],
@@ -49,13 +50,18 @@ def run_service(
     adapter = ChainedAdapter(
         first=KafkaToEv44Adapter(), second=Ev44ToDetectorEventsAdapter()
     )
+    handler_factory_cls = partial(
+        DetectorHandlerFactory,
+        nexus_file=config['nexus_file'][instrument],
+        instrument=instrument,
+    )
 
     builder = DataServiceBuilder(
         instrument=instrument,
         name='detector_data',
         log_level=log_level,
         adapter=adapter,
-        handler_factory_cls=DetectorHandlerFactory,
+        handler_factory_cls=handler_factory_cls,
     )
 
     with ExitStack() as stack:

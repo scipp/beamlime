@@ -27,7 +27,6 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         handler_cls: type[Handler[Tin, Tout]] | None = None,
         handler_factory_cls: type[HandlerFactory[Tin, Tout]] = CommonHandlerFactory,
     ):
-        self._instrument = instrument
         self._name = f'{instrument}_{name}'
         self._log_level = log_level
         self._adapter = adapter
@@ -46,9 +45,7 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
                 config=config_subscriber, handler_cls=self._handler_cls
             )
         else:
-            factory = self._handler_factory_cls(
-                config=config_subscriber, instrument=self._instrument
-            )
+            factory = self._handler_factory_cls(config=config_subscriber)
         processor = StreamProcessor(
             source=AdaptingMessageSource(
                 source=KafkaMessageSource(consumer=consumer), adapter=self._adapter
