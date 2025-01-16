@@ -31,7 +31,7 @@ def load_config(*, namespace: str, env: str | None = None) -> dict:
     env:
         Environment name ('dev', 'staging', 'prod').
         Defaults to value of BEAMLIME_ENV environment variable. Set to an empty string
-        if the same config file should be used for all environments.
+        if the config file is independent of an environment.
     """
     env = env if env is not None else os.getenv('BEAMLIME_ENV', 'dev')
     env = f'_{env}' if env else ''
