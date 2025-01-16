@@ -13,9 +13,15 @@ from ..config.raw_detectors import (
     loki_detectors_config,
     nmx_detectors_config,
 )
-from ..core.handler import Accumulator, Config, Handler, PeriodicAccumulatingHandler
+from ..core.handler import (
+    Accumulator,
+    Config,
+    Handler,
+    HandlerFactory,
+    PeriodicAccumulatingHandler,
+)
 from ..core.message import MessageKey
-from .accumulators import PixelIDMerger
+from .accumulators import DetectorEvents, PixelIDMerger
 
 detector_registry = {
     'dream': dream_detectors_config,
@@ -24,7 +30,7 @@ detector_registry = {
 }
 
 
-class DetectorHandlerRegistry:
+class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
     def __init__(
         self, *, instrument: str, logger: logging.Logger | None = None, config: Config
     ) -> None:
@@ -40,7 +46,7 @@ class DetectorHandlerRegistry:
     def _key_to_detector_name(self, key: MessageKey) -> str:
         return key.source_name
 
-    def _make_handler(self, key: MessageKey) -> Handler:
+    def make_handler(self, key: MessageKey) -> Handler[DetectorEvents, sc.DataArray]:
         detector = self._detector_config[self._key_to_detector_name(key)]
         detector_view = raw.RollingDetectorView.from_nexus(
             self._nexus_file,
@@ -60,11 +66,6 @@ class DetectorHandlerRegistry:
             preprocessor=preprocessor,
             accumulators=accumulators,
         )
-
-    def get(self, key: MessageKey) -> Handler:
-        if key not in self._handlers:
-            self._handlers[key] = self._make_handler(key)
-        return self._handlers[key]
 
 
 class DetectorCounts(Accumulator[np.array, sc.DataArray]):

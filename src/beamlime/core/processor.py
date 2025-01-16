@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Generic, Protocol
 
-from .handler import HandlerRegistry
+from .handler import HandlerFactory, HandlerRegistry
 from .message import MessageSink, MessageSource, Tin, Tout
 
 
@@ -31,12 +31,12 @@ class StreamProcessor(Generic[Tin, Tout]):
         logger: logging.Logger | None = None,
         source: MessageSource[Tin],
         sink: MessageSink[Tout],
-        handler_registry: HandlerRegistry[Tin, Tout],
-    ):
+        handler_factory: HandlerFactory[Tin, Tout],
+    ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._source = source
         self._sink = sink
-        self._handler_registry = handler_registry
+        self._handler_registry = HandlerRegistry(factory=handler_factory)
 
     def process(self) -> None:
         messages = self._source.get_messages()

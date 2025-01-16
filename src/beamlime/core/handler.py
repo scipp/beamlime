@@ -54,11 +54,14 @@ class Handler(Generic[Tin, Tout]):
         raise NotImplementedError
 
 
-class HandlerRegistry(Generic[Tin, Tout]):
-    """
-    Registry for handlers.
+class HandlerFactory(Protocol, Generic[Tin, Tout]):
+    def make_handler(self, key: MessageKey) -> Handler[Tin, Tout]:
+        pass
 
-    Handlers are created on demand and cached based on the message key.
+
+class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
+    """
+    Factory for using (multiple instances of) a common handler class.
     """
 
     def __init__(
@@ -71,13 +74,27 @@ class HandlerRegistry(Generic[Tin, Tout]):
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
         self._handler_cls = handler_cls
+
+    def make_handler(self, key: MessageKey) -> Handler[Tin, Tout]:
+        return self._handler_cls(
+            logger=self._logger, config=ConfigProxy(self._config, namespace=key)
+        )
+
+
+class HandlerRegistry(Generic[Tin, Tout]):
+    """
+    Registry for handlers.
+
+    Handlers are created on demand from a factory and cached based on the message key.
+    """
+
+    def __init__(self, *, factory: HandlerFactory[Tin, Tout]):
+        self._factory = factory
         self._handlers: dict[MessageKey, Handler] = {}
 
     def get(self, key: MessageKey) -> Handler:
         if key not in self._handlers:
-            self._handlers[key] = self._handler_cls(
-                logger=self._logger, config=ConfigProxy(self._config, namespace=key)
-            )
+            self._handlers[key] = self._factory.make_handler(key)
         return self._handlers[key]
 
 

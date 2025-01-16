@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Generic, TypeVar
 
-from .core import ConfigSubscriber, HandlerRegistry, MessageSink, StreamProcessor
-from .core.handler import Handler
+from .core import ConfigSubscriber, MessageSink, StreamProcessor
+from .core.handler import CommonHandlerFactory, Handler
 from .core.service import Service
 from .kafka.message_adapter import AdaptingMessageSource, MessageAdapter
 from .kafka.source import KafkaConsumer, KafkaMessageSource
@@ -43,7 +43,7 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
                 source=KafkaMessageSource(consumer=consumer), adapter=self._adapter
             ),
             sink=sink,
-            handler_registry=HandlerRegistry(
+            handler_factory=CommonHandlerFactory(
                 config=config_subscriber, handler_cls=self._handler_cls
             ),
         )
