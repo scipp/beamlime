@@ -48,11 +48,8 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
 
     def make_handler(self, key: MessageKey) -> Handler[DetectorEvents, sc.DataArray]:
         detector_name = self._key_to_detector_name(key)
-        views = {}
-        for view_name, detector in self._detector_config.items():
-            if detector['detector_name'] != detector_name:
-                continue
-            views[view_name] = raw.RollingDetectorView.from_nexus(
+        views = {
+            view_name: raw.RollingDetectorView.from_nexus(
                 self._nexus_file,
                 detector_name=detector['detector_name'],
                 window=self._window_length,
@@ -60,6 +57,9 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
                 resolution=detector.get('resolution'),
                 pixel_noise=detector.get('pixel_noise'),
             )
+            for view_name, detector in self._detector_config.items()
+            if detector['detector_name'] == detector_name
+        }
         if not views:
             self._logger.warning('No views found for %s', detector_name)
         accumulators = {
