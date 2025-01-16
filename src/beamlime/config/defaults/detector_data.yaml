@@ -1,0 +1,6 @@
+topics:
+  - detector
+# For convenience this is a multi-instrument section for now, useful for development.
+# We will likely want to change this to a per-instrument config file with a single value.
+nexus_file:
+  dream: /home/simon/instruments/dream/443503_00033178.hdf
