@@ -47,17 +47,24 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         return key.source_name
 
     def make_handler(self, key: MessageKey) -> Handler[DetectorEvents, sc.DataArray]:
-        detector = self._detector_config[self._key_to_detector_name(key)]
-        detector_view = raw.RollingDetectorView.from_nexus(
-            self._nexus_file,
-            detector_name=detector['detector_name'],
-            window=self._window_length,
-            projection=detector['projection'],
-            resolution=detector.get('resolution'),
-            pixel_noise=detector.get('pixel_noise'),
-        )
+        detector_name = self._key_to_detector_name(key)
+        views = {}
+        for view_name, detector in self._detector_config.items():
+            if detector['detector_name'] != detector_name:
+                continue
+            views[view_name] = raw.RollingDetectorView.from_nexus(
+                self._nexus_file,
+                detector_name=detector['detector_name'],
+                window=self._window_length,
+                projection=detector['projection'],
+                resolution=detector.get('resolution'),
+                pixel_noise=detector.get('pixel_noise'),
+            )
+        if not views:
+            self._logger.warning('No views found for %s', detector_name)
         accumulators = {
-            'sliding': DetectorCounts(config=self._config, detector_view=detector_view)
+            f'sliding_{name}': DetectorCounts(config=self._config, detector_view=view)
+            for name, view in views.items()
         }
         preprocessor = PixelIDMerger(config=self._config)
         return PeriodicAccumulatingHandler(
