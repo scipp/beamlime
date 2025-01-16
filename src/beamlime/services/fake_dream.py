@@ -2,8 +2,8 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import logging
 import time
-from dataclasses import replace
-from typing import Literal, NoReturn, TypeVar
+from collections.abc import Sequence
+from typing import NoReturn, TypeVar
 
 import numpy as np
 import scipp as sc
@@ -20,36 +20,40 @@ from beamlime import (
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.core.handler import CommonHandlerFactory
-from beamlime.kafka.helpers import beam_monitor_topic
-from beamlime.kafka.message_adapter import AdaptingMessageSource, MessageAdapter
-from beamlime.kafka.sink import (
-    KafkaSink,
-    SerializationError,
-    serialize_dataarray_to_da00,
-)
+from beamlime.kafka.helpers import detector_topic
+from beamlime.kafka.sink import KafkaSink, SerializationError
 
 
-class FakeMonitorSource(MessageSource[sc.Variable]):
-    """Fake message source that generates random monitor events."""
+class FakeDetectorSource(MessageSource[sc.Dataset]):
+    """Fake message source that generates random detector events."""
 
-    def __init__(self, *, interval_ns: int = int(1e9 / 14), instrument: str):
-        self._topic = beam_monitor_topic(instrument=instrument)
+    def __init__(
+        self,
+        *,
+        interval_ns: int = int(1e9 / 14),
+        instrument: str,
+        detectors: Sequence[str],
+    ):
+        self._topic = detector_topic(instrument=instrument)
         self._rng = np.random.default_rng()
         self._tof = sc.linspace('tof', 0, 71_000_000, num=50, unit='ns')
         self._interval_ns = interval_ns
-        self._last_message_time = {
-            "monitor1": time.time_ns(),
-            "monitor2": time.time_ns(),
-        }
+        self._last_message_time = {detector: time.time_ns() for detector in detectors}
 
     def _make_normal(self, mean: float, std: float, size: int) -> np.ndarray:
         return self._rng.normal(loc=mean, scale=std, size=size).astype(np.int64)
 
-    def get_messages(self) -> list[Message[sc.Variable]]:
+    def _make_ids(self, name: str, size: int) -> np.ndarray:
+        low = {'mantle_detector': 229377}
+        high = {'mantle_detector': 720897}
+        return self._rng.integers(low=low[name], high=high[name], size=size)
+
+    def get_messages(self) -> list[Message[sc.Dataset]]:
         current_time = time.time_ns()
         messages = []
 
-        for name, size in [("monitor1", 10000), ("monitor2", 1000)]:
+        for name in self._last_message_time:
+            size = 100_000
             elapsed = current_time - self._last_message_time[name]
             num_intervals = int(elapsed // self._interval_ns)
 
@@ -66,22 +70,23 @@ class FakeMonitorSource(MessageSource[sc.Variable]):
         self, name: str, size: int, timestamp: int
     ) -> Message[sc.Variable]:
         time_of_flight = self._make_normal(mean=30_000_000, std=10_000_000, size=size)
-        var = sc.array(dims=['time_of_arrival'], values=time_of_flight, unit='ns')
+        pixel_id = self._make_ids(name=name, size=size)
+        ds = sc.Dataset(
+            {
+                'time_of_arrival': sc.array(
+                    dims=['time_of_arrival'], values=time_of_flight, unit='ns'
+                ),
+                'pixel_id': sc.array(
+                    dims=['time_of_arrival'], values=pixel_id, unit=None
+                ),
+            }
+        )
+
         return Message(
             timestamp=timestamp,
             key=MessageKey(topic=self._topic, source_name=name),
-            value=var,
+            value=ds,
         )
-
-
-class EventsToHistogramAdapter(
-    MessageAdapter[Message[sc.Variable], Message[sc.DataArray]]
-):
-    def __init__(self, toa: sc.Variable):
-        self._toa = toa
-
-    def adapt(self, message: Message[sc.Variable]) -> Message[sc.DataArray]:
-        return replace(message, value=message.value.hist({self._toa.dim: self._toa}))
 
 
 T = TypeVar('T')
@@ -93,8 +98,10 @@ class IdentityHandler(Handler[T, T]):
         return [message]
 
 
-def serialize_variable_to_monitor_ev44(msg: Message[sc.Variable]) -> bytes:
-    if msg.value.unit != 'ns':
+def serialize_detector_events_to_ev44(
+    msg: Message[tuple[sc.Variable, sc.Variable]],
+) -> bytes:
+    if msg.value['time_of_arrival'].unit != 'ns':
         raise SerializationError(f"Expected unit 'ns', got {msg.value.unit}")
     try:
         ev44 = eventdata_ev44.serialise_ev44(
@@ -102,30 +109,25 @@ def serialize_variable_to_monitor_ev44(msg: Message[sc.Variable]) -> bytes:
             message_id=0,
             reference_time=msg.timestamp,
             reference_time_index=0,
-            time_of_flight=msg.value.values,
-            pixel_id=np.ones_like(msg.value.values),
+            time_of_flight=msg.value['time_of_arrival'].values,
+            pixel_id=msg.value['pixel_id'].values,
         )
     except (ValueError, TypeError) as e:
         raise SerializationError(f"Failed to serialize message: {e}") from None
     return ev44
 
 
-def run_service(
-    *, instrument: str, mode: Literal['ev44', 'da00'], log_level: int = logging.INFO
-) -> NoReturn:
-    service_name = f'{instrument}_fake_{mode}_producer'
+def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
+    instrument = 'dream'
+    service_name = f'{instrument}_fake_producer'
     kafka_config = load_config(namespace=config_names.kafka_upstream)
-    if mode == 'ev44':
-        source = FakeMonitorSource(instrument=instrument)
-        serializer = serialize_variable_to_monitor_ev44
-    else:
-        source = AdaptingMessageSource(
-            source=FakeMonitorSource(instrument=instrument),
-            adapter=EventsToHistogramAdapter(
-                toa=sc.linspace('toa', 0, 71_000_000, num=100, unit='ns')
-            ),
-        )
-        serializer = serialize_dataarray_to_da00
+    source = FakeDetectorSource(
+        instrument=instrument,
+        detectors=[
+            'mantle_detector',
+        ],
+    )
+    serializer = serialize_detector_events_to_ev44
     processor = StreamProcessor(
         source=source,
         sink=KafkaSink(kafka_config=kafka_config, serializer=serializer),
@@ -136,13 +138,7 @@ def run_service(
 
 
 def main() -> NoReturn:
-    parser = Service.setup_arg_parser('Fake that publishes random da00 monitor data')
-    parser.add_argument(
-        '--mode',
-        choices=['ev44', 'da00'],
-        required=True,
-        help='Select mode: ev44 or da00',
-    )
+    parser = Service.setup_arg_parser('Fake that publishes random DREAM detector data')
     run_service(**vars(parser.parse_args()))
 
 

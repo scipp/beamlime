@@ -89,6 +89,8 @@ services:
     command: sh -c "python -m pip install -e . && python -m beamlime.services.fake_producer --mode ev44 --instrument $BEAMLIME_INSTRUMENT"
 
   monitor-data:
+    profiles:
+      - monitor
     image: python:3.12
     container_name: monitor-data
     depends_on:
@@ -115,6 +117,8 @@ services:
     command: sh -c "python -m pip install -e . && python -m beamlime.services.monitor_data --instrument $BEAMLIME_INSTRUMENT"
 
   dashboard:
+    profiles:
+      - monitor
     image: python:3.12
     container_name: dashboard
     depends_on:

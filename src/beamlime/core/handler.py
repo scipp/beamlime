@@ -43,7 +43,7 @@ class Handler(Generic[Tin, Tout]):
     directly.
     """
 
-    def __init__(self, *, logger: logging.Logger | None, config: Config):
+    def __init__(self, *, logger: logging.Logger | None = None, config: Config):
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
 

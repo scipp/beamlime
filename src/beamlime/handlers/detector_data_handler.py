@@ -41,7 +41,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         self._nexus_file = (
             '/home/simon/instruments/dream/443503_00033178.hdf'  # New Dream
         )
-        self._window_length = 100
+        self._window_length = 10
 
     def _key_to_detector_name(self, key: MessageKey) -> str:
         return key.source_name
