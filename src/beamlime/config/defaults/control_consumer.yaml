@@ -1,0 +1,7 @@
+# The control topic is compacted, we to set auto.offset.reset to earliest
+# to get config values that were set in the past
+auto.offset.reset: earliest
+enable.auto.commit: true
+fetch.min.bytes: 1
+session.timeout.ms: 6000
+heartbeat.interval.ms: 2000

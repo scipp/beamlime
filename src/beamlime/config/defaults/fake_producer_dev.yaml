@@ -1,5 +1,0 @@
-service:
-  poll_interval: 0.1
-producer:
-  kafka:
-    bootstrap.servers: localhost:9092

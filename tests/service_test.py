@@ -14,9 +14,8 @@ class FakeProcessor:
 
 
 def test_create_start_stop_service() -> None:
-    config = {}
     processor = FakeProcessor()
-    service = Service(config=config, processor=processor)
+    service = Service(processor=processor)
     assert processor.call_count == 0
     service.start(blocking=False)
     assert service.is_running

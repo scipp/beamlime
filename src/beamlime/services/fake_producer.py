@@ -18,6 +18,7 @@ from beamlime import (
     Service,
     StreamProcessor,
 )
+from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.kafka.helpers import beam_monitor_topic
 from beamlime.kafka.message_adapter import AdaptingMessageSource, MessageAdapter
@@ -113,7 +114,7 @@ def run_service(
     *, instrument: str, mode: Literal['ev44', 'da00'], log_level: int = logging.INFO
 ) -> NoReturn:
     service_name = f'{instrument}_fake_{mode}_producer'
-    config = load_config(namespace='fake_producer')
+    kafka_config = load_config(namespace=config_names.kafka_upstream)
     if mode == 'ev44':
         source = FakeMonitorSource(instrument=instrument)
         serializer = serialize_variable_to_monitor_ev44
@@ -127,15 +128,10 @@ def run_service(
         serializer = serialize_dataarray_to_da00
     processor = StreamProcessor(
         source=source,
-        sink=KafkaSink(kafka_config=config['producer']['kafka'], serializer=serializer),
+        sink=KafkaSink(kafka_config=kafka_config, serializer=serializer),
         handler_registry=HandlerRegistry(config={}, handler_cls=IdentityHandler),
     )
-    service = Service(
-        config=config['service'],
-        processor=processor,
-        name=service_name,
-        log_level=log_level,
-    )
+    service = Service(processor=processor, name=service_name, log_level=log_level)
     service.start()
 
 
