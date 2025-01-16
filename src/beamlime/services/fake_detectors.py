@@ -22,12 +22,15 @@ from beamlime.core.handler import CommonHandlerFactory
 from beamlime.kafka.helpers import detector_topic
 from beamlime.kafka.sink import KafkaSink, SerializationError
 
+# Configure detectors to fake for each instrument
 _detector_config = {
     'dream': {
         'mantle_detector': (229377, 720897),
         'endcap_backward_detector': (71618, 229377),
         'endcap_forward_detector': (1, 71681),
     },
+    'nmx': {},
+    'loki': {},
 }
 
 
