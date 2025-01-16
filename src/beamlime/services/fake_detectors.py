@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import logging
 import time
-from collections.abc import Sequence
 from typing import NoReturn, TypeVar
 
 import numpy as np
@@ -23,6 +22,14 @@ from beamlime.core.handler import CommonHandlerFactory
 from beamlime.kafka.helpers import detector_topic
 from beamlime.kafka.sink import KafkaSink, SerializationError
 
+_detector_config = {
+    'dream': {
+        'mantle_detector': (229377, 720897),
+        'endcap_backward_detector': (71618, 229377),
+        'endcap_forward_detector': (1, 71681),
+    },
+}
+
 
 class FakeDetectorSource(MessageSource[sc.Dataset]):
     """Fake message source that generates random detector events."""
@@ -32,21 +39,22 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
         *,
         interval_ns: int = int(1e9 / 14),
         instrument: str,
-        detectors: Sequence[str],
     ):
+        self._instrument = instrument
         self._topic = detector_topic(instrument=instrument)
         self._rng = np.random.default_rng()
         self._tof = sc.linspace('tof', 0, 71_000_000, num=50, unit='ns')
         self._interval_ns = interval_ns
-        self._last_message_time = {detector: time.time_ns() for detector in detectors}
+        self._last_message_time = {
+            detector: time.time_ns() for detector in _detector_config[instrument]
+        }
 
     def _make_normal(self, mean: float, std: float, size: int) -> np.ndarray:
         return self._rng.normal(loc=mean, scale=std, size=size).astype(np.int64)
 
     def _make_ids(self, name: str, size: int) -> np.ndarray:
-        low = {'mantle_detector': 229377}
-        high = {'mantle_detector': 720897}
-        return self._rng.integers(low=low[name], high=high[name], size=size)
+        low, high = _detector_config[self._instrument][name]
+        return self._rng.integers(low=low, high=high, size=size)
 
     def get_messages(self) -> list[Message[sc.Dataset]]:
         current_time = time.time_ns()
@@ -118,15 +126,9 @@ def serialize_detector_events_to_ev44(
 
 
 def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
-    instrument = 'dream'
     service_name = f'{instrument}_fake_producer'
     kafka_config = load_config(namespace=config_names.kafka_upstream)
-    source = FakeDetectorSource(
-        instrument=instrument,
-        detectors=[
-            'mantle_detector',
-        ],
-    )
+    source = FakeDetectorSource(instrument=instrument)
     serializer = serialize_detector_events_to_ev44
     processor = StreamProcessor(
         source=source,
