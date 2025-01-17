@@ -52,7 +52,7 @@ def run_service(
     )
     handler_factory_cls = partial(
         DetectorHandlerFactory,
-        nexus_file=config['nexus_file'][instrument],
+        nexus_file=config.get('nexus_file'),
         instrument=instrument,
     )
 

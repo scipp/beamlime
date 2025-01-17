@@ -24,6 +24,9 @@ from beamlime.kafka.sink import KafkaSink, SerializationError
 
 # Configure detectors to fake for each instrument
 _detector_config = {
+    'dummy': {
+        'panel_0': (0, 128**2),
+    },
     'dream': {
         'mantle_detector': (229377, 720897),
         'endcap_backward_detector': (71618, 229377),
