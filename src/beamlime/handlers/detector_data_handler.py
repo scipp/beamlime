@@ -34,6 +34,14 @@ detector_registry = {
 
 
 class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
+    """
+    Factory for detector data handlers.
+
+    Handlers are created based on the instrument name in the message key which should
+    identify the detector name. Depending on the configured detector views a NeXus file
+    with geometry information may be required to setup the view.
+    """
+
     def __init__(
         self,
         *,
