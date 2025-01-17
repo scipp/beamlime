@@ -5,7 +5,7 @@ import logging
 from contextlib import ExitStack
 from typing import Literal, NoReturn
 
-from beamlime import Service
+from beamlime import CommonHandlerFactory, Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
@@ -65,7 +65,9 @@ def run_service(
         name='monitor_data',
         log_level=log_level,
         adapter=adapter,
-        handler_cls=create_monitor_data_handler,
+        handler_factory_cls=CommonHandlerFactory.from_handler(
+            create_monitor_data_handler
+        ),
     )
 
     with ExitStack() as stack:

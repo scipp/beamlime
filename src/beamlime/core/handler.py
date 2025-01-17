@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import replace
 from typing import Any, Generic, Protocol, TypeVar
 
@@ -79,6 +80,19 @@ class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
         return self._handler_cls(
             logger=self._logger, config=ConfigProxy(self._config, namespace=key)
         )
+
+    @staticmethod
+    def from_handler(
+        handler_cls: type[Handler[Tin, Tout]],
+    ) -> CommonHandlerFactory[Tin, Tout]:
+        def make(
+            *, logger: logging.Logger | None = None, config: Config
+        ) -> Callable[[Config], CommonHandlerFactory[Tin, Tout]]:
+            return CommonHandlerFactory(
+                logger=logger, config=config, handler_cls=handler_cls
+            )
+
+        return make
 
 
 class HandlerRegistry(Generic[Tin, Tout]):

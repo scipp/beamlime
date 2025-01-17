@@ -3,7 +3,7 @@
 
 import time
 
-from beamlime import Handler, Message, MessageKey
+from beamlime import CommonHandlerFactory, Handler, Message, MessageKey
 from beamlime.fakes import FakeMessageSink
 from beamlime.kafka.message_adapter import (
     FakeKafkaMessage,
@@ -67,7 +67,7 @@ def test_basics() -> None:
         instrument='instrument',
         name='name',
         adapter=ForwardingAdapter(),
-        handler_cls=ForwardingHandler,
+        handler_factory_cls=CommonHandlerFactory.from_handler(ForwardingHandler),
     )
     sink = FakeMessageSink()
     consumer = IntConsumer()

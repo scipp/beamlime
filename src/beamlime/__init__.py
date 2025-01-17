@@ -12,6 +12,7 @@ except importlib.metadata.PackageNotFoundError:
 del importlib
 
 from .core import (
+    CommonHandlerFactory,
     ConfigSubscriber,
     Service,
     ServiceBase,
@@ -28,6 +29,7 @@ from .workflow_protocols import WorkflowResult, LiveWorkflow
 
 __all__ = [
     'compact_messages',
+    'CommonHandlerFactory',
     'ConfigSubscriber',
     'Handler',
     'LiveWorkflow',

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Generic, TypeVar
 
 from .core import ConfigSubscriber, MessageSink, StreamProcessor
-from .core.handler import CommonHandlerFactory, Handler, HandlerFactory
+from .core.handler import Config, Handler, HandlerFactory
 from .core.service import Service
 from .kafka.message_adapter import AdaptingMessageSource, MessageAdapter
 from .kafka.source import KafkaConsumer, KafkaMessageSource
@@ -25,7 +26,7 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         log_level: int = logging.INFO,
         adapter: MessageAdapter[Traw, Tin],
         handler_cls: type[Handler[Tin, Tout]] | None = None,
-        handler_factory_cls: type[HandlerFactory[Tin, Tout]] = CommonHandlerFactory,
+        handler_factory_cls: Callable[[Config], HandlerFactory[Tin, Tout]],
     ):
         self._name = f'{instrument}_{name}'
         self._log_level = log_level
@@ -40,18 +41,12 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         sink: MessageSink[Tout],
     ) -> Service:
         config_subscriber = ConfigSubscriber(consumer=control_consumer, config={})
-        if self._handler_factory_cls == CommonHandlerFactory:
-            factory = CommonHandlerFactory(
-                config=config_subscriber, handler_cls=self._handler_cls
-            )
-        else:
-            factory = self._handler_factory_cls(config=config_subscriber)
         processor = StreamProcessor(
             source=AdaptingMessageSource(
                 source=KafkaMessageSource(consumer=consumer), adapter=self._adapter
             ),
             sink=sink,
-            handler_factory=factory,
+            handler_factory=self._handler_factory_cls(config=config_subscriber),
         )
         return Service(
             children=[config_subscriber],
