@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from typing import Any, Generic, Protocol, TypeVar
 
@@ -114,6 +114,7 @@ class HandlerRegistry(Generic[Tin, Tout]):
 
 T = TypeVar('T')
 U = TypeVar('U')
+V = TypeVar('V')
 
 
 class Accumulator(Protocol, Generic[T, U]):
@@ -145,7 +146,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         logger: logging.Logger | None = None,
         config: Config,
         preprocessor: Accumulator[T, U],
-        accumulators: dict[str, Accumulator[U, U]],
+        accumulators: Mapping[str, Accumulator[U, V]],
     ):
         super().__init__(logger=logger, config=config)
         self._preprocessor = preprocessor
@@ -165,7 +166,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         raw = self._config.get('start_time', {'value': 0, 'unit': 'ns'})
         return int(sc.scalar(**raw).to(unit='ns', copy=False).value)
 
-    def handle(self, message: Message[T]) -> list[Message[U]]:
+    def handle(self, message: Message[T]) -> list[Message[V]]:
         if self.start_time > self._last_clear:
             self._preprocessor.clear()
             for accumulator in self._accumulators.values():

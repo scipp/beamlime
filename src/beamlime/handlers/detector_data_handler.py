@@ -52,7 +52,6 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
-        self._handlers: dict[MessageKey, Handler] = {}
         self._detector_config = detector_registry[instrument]['detectors']
         self._nexus_file = nexus_file
         self._window_length = 10
@@ -90,12 +89,12 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
 
     def make_handler(self, key: MessageKey) -> Handler[DetectorEvents, sc.DataArray]:
         detector_name = self._key_to_detector_name(key)
-        views = {
+        candidates = {
             view_name: self._make_view(detector)
             for view_name, detector in self._detector_config.items()
             if detector['detector_name'] == detector_name
         }
-        views = {name: view for name, view in views.items() if view is not None}
+        views = {name: view for name, view in candidates.items() if view is not None}
         if not views:
             self._logger.warning('No views configured for %s', detector_name)
         accumulators = {
@@ -111,7 +110,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         )
 
 
-class DetectorCounts(Accumulator[np.array, sc.DataArray]):
+class DetectorCounts(Accumulator[np.ndarray, sc.DataArray]):
     """Accumulator for detector counts, based on a rolling detector view."""
 
     def __init__(self, config: Config, detector_view: raw.RollingDetectorView):
