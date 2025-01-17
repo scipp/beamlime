@@ -10,7 +10,7 @@ Set `BEAMLIME_ENV` to, e.g., `staging` to use the `staging` configuration.
 For a local demo, run the fake producer:
 
 ```sh
-python -m beamlime.services.fake_producer --mode ev44 --instrument dummy
+python -m beamlime.services.fake_monitors --mode ev44 --instrument dummy
 ```
 
 Run the monitor data histogramming and accumulation service:
@@ -42,10 +42,10 @@ Navigate to `http://localhost:8000` to see the dashboard.
 
 ### Development Profile
 
-To run the fake monitor data producer for local development, use the `dev` profile:
+To run the fake monitor data producer for local development, use the `monitor` profile:
 
 ```sh
-BEAMLIME_INSTRUMENT=dummy docker-compose --profile dev -f docker-compose-beamlime.yml up
+BEAMLIME_INSTRUMENT=dummy docker-compose --profile monitor -f docker-compose-beamlime.yml up
 ```
 
 ### Kafka Configuration

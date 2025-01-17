@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+"""Fake that publishes random detector data"""
+
 import logging
 import time
 from typing import NoReturn, TypeVar

@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+"""Service that processes detector event data into 2-D data for plotting."""
+
 import argparse
 import logging
 from contextlib import ExitStack
