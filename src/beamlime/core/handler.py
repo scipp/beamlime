@@ -84,10 +84,10 @@ class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
     @staticmethod
     def from_handler(
         handler_cls: type[Handler[Tin, Tout]],
-    ) -> CommonHandlerFactory[Tin, Tout]:
+    ) -> Callable[[logging.Logger | None, Config], CommonHandlerFactory[Tin, Tout]]:
         def make(
             *, logger: logging.Logger | None = None, config: Config
-        ) -> Callable[[Config], CommonHandlerFactory[Tin, Tout]]:
+        ) -> CommonHandlerFactory[Tin, Tout]:
             return CommonHandlerFactory(
                 logger=logger, config=config, handler_cls=handler_cls
             )
