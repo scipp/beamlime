@@ -136,7 +136,9 @@ def run_service(
 
 
 def main() -> NoReturn:
-    parser = Service.setup_arg_parser('Fake that publishes random da00 monitor data')
+    parser = Service.setup_arg_parser(
+        'Fake that publishes random da00 or ev44 monitor data'
+    )
     parser.add_argument(
         '--mode',
         choices=['ev44', 'da00'],

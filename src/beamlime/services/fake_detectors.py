@@ -148,7 +148,7 @@ def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
 
 
 def main() -> NoReturn:
-    parser = Service.setup_arg_parser('Fake that publishes random DREAM detector data')
+    parser = Service.setup_arg_parser('Fake that publishes random detector data')
     run_service(**vars(parser.parse_args()))
 
 
