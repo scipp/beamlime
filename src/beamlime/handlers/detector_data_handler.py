@@ -104,6 +104,8 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
 
 
 class DetectorCounts(Accumulator[np.array, sc.DataArray]):
+    """Accumulator for detector counts, based on a rolling detector view."""
+
     def __init__(self, config: Config, detector_view: raw.RollingDetectorView):
         self._config = config
         self._det = detector_view
