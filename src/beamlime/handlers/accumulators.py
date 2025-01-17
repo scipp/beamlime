@@ -138,8 +138,7 @@ class PixelIDMerger(Accumulator[DetectorEvents, np.array]):
         self._chunks.append(ids)
 
     def get(self) -> np.array:
-        # Using NumPy here as for these specific operations with medium-sized data it is
-        # a bit faster than Scipp. Could optimize the concatenate by reusing a buffer.
+        # Could optimize the concatenate by reusing a buffer.
         events = np.concatenate(self._chunks or [[]])
         self._chunks.clear()
         return events
