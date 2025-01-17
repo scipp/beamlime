@@ -1,20 +1,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import numpy as np
-import pytest
 import scipp as sc
 
 from beamlime.core.handler import Message, MessageKey
 from beamlime.handlers.accumulators import DetectorEvents
 from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
-
-
-def test_factory_raises_if_no_nexus_file_and_failed_fallback() -> None:
-    factory = DetectorHandlerFactory(instrument='dream', nexus_file=None, config={})
-    with pytest.raises(ValueError, match='NeXus file is required'):
-        factory.make_handler(
-            MessageKey(topic='detector_data', source_name='mantle_detector')
-        )
 
 
 def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -> None:

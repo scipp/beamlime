@@ -52,7 +52,9 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
     def _key_to_detector_name(self, key: MessageKey) -> str:
         return key.source_name
 
-    def _make_view(self, detector_config: dict[str, Any]) -> raw.RollingDetectorView:
+    def _make_view(
+        self, detector_config: dict[str, Any]
+    ) -> raw.RollingDetectorView | None:
         projection = detector_config['projection']
         if (
             self._nexus_file is None
@@ -65,10 +67,10 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
                 projection=projection,
             )
         if self._nexus_file is None:
-            raise ValueError(
-                'NeXus file is required since not a LogicalView or '
-                'no detector_number configured.'
+            self._logger.error(
+                'NeXus file is required to setup detector view for %s', detector_config
             )
+            return None
         return raw.RollingDetectorView.from_nexus(
             self._nexus_file,
             detector_name=detector_config['detector_name'],
@@ -85,6 +87,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
             for view_name, detector in self._detector_config.items()
             if detector['detector_name'] == detector_name
         }
+        views = {name: view for name, view in views.items() if view is not None}
         if not views:
             self._logger.warning('No views configured for %s', detector_name)
         accumulators = {
