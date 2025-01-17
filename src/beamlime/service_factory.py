@@ -7,7 +7,7 @@ from collections.abc import Callable
 from typing import Generic, TypeVar
 
 from .core import ConfigSubscriber, MessageSink, StreamProcessor
-from .core.handler import Config, Handler, HandlerFactory
+from .core.handler import Config, HandlerFactory
 from .core.service import Service
 from .kafka.message_adapter import AdaptingMessageSource, MessageAdapter
 from .kafka.source import KafkaConsumer, KafkaMessageSource
@@ -25,13 +25,11 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         name: str,
         log_level: int = logging.INFO,
         adapter: MessageAdapter[Traw, Tin],
-        handler_cls: type[Handler[Tin, Tout]] | None = None,
         handler_factory_cls: Callable[[Config], HandlerFactory[Tin, Tout]],
     ):
         self._name = f'{instrument}_{name}'
         self._log_level = log_level
         self._adapter = adapter
-        self._handler_cls = handler_cls
         self._handler_factory_cls = handler_factory_cls
 
     def build(
