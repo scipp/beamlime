@@ -7,7 +7,7 @@ from beamlime.handlers.accumulators import DetectorEvents
 from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
 
 
-def test_factory_or_mantle_detector() -> None:
+def test_factory_for_mantle_detector() -> None:
     factory = DetectorHandlerFactory(instrument='dream', nexus_file='/a/b/c', config={})
     handler = factory.make_handler(
         MessageKey(topic='detector_data', source_name='mantle_detector')
