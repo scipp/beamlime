@@ -214,7 +214,7 @@ class DashboardApp(ServiceBase):
             )
 
             for msg in monitor_messages:
-                key = f'{msg.key.topic}_{msg.key.source_name}'
+                key = msg.key.source_name
                 data = msg.value
                 if key not in self._monitor_plots:
                     self._monitor_plots[key] = self.create_monitor_plot(key, data)
