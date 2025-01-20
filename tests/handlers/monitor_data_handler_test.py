@@ -46,7 +46,7 @@ def test_handler() -> None:
     cumulative_value = -1
     sliding_window_value = -1
     for msg in results:
-        if 'cumulative' in msg.key.topic:
+        if 'cumulative' in msg.key.source_name:
             cumulative_value = msg.value
         else:
             sliding_window_value = msg.value

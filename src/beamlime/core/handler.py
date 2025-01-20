@@ -158,7 +158,11 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         return [
             Message(
                 timestamp=message.timestamp,
-                key=replace(key, topic=f'{key.topic}_{name}'),
+                key=replace(
+                    key,
+                    topic=f'{key.topic}_processed',
+                    source_name=f'{key.source_name}_{name}',
+                ),
                 value=accumulator.get(),
             )
             for name, accumulator in self._accumulators.items()
