@@ -122,6 +122,8 @@ class PixelIDMerger(Accumulator[DetectorEvents, np.array]):
     def __init__(self, config: Config):
         self._config = config
         self._chunks: list[np.ndarray] = []
+        # TODO This will be set via a config option, in other words, the control topic
+        # by the user. This mechanism is currently not implemented.
         self._toa_range: tuple[float, float] | None = None
 
     def _filter_by_toa(self, toa: np.ndarray, pixel_id: np.ndarray) -> np.ndarray:
@@ -133,7 +135,8 @@ class PixelIDMerger(Accumulator[DetectorEvents, np.array]):
             return pixel_id[mask]
 
     def add(self, timestamp: int, data: DetectorEvents) -> None:
-        # timestamp in function signature is required for compliance with Accumulator interface.
+        # timestamp in function signature is required for compliance with Accumulator
+        # interface.
         _ = timestamp
         ids = self._filter_by_toa(data.time_of_arrival, data.pixel_id)
         self._chunks.append(ids)
