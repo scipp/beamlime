@@ -133,6 +133,7 @@ class PixelIDMerger(Accumulator[DetectorEvents, np.array]):
             return pixel_id[mask]
 
     def add(self, timestamp: int, data: DetectorEvents) -> None:
+        # timestamp in function signature is required for compliance with Accumulator interface.
         _ = timestamp
         ids = self._filter_by_toa(data.time_of_arrival, data.pixel_id)
         self._chunks.append(ids)
