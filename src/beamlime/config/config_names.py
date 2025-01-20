@@ -5,6 +5,7 @@ This module contains constants for the configuration namespaces.
 """
 
 control_consumer = 'control_consumer'
+detector_data = 'detector_data'
 kafka_downstream = 'kafka_downstream'
 kafka_upstream = 'kafka_upstream'
 monitor_data = 'monitor_data'

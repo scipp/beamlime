@@ -32,6 +32,29 @@ class MonitorEvents:
         return MonitorEvents(time_of_arrival=ev44.time_of_flight, unit='ns')
 
 
+@dataclass
+class DetectorEvents:
+    """
+    Dataclass for detector events.
+
+    Decouples our handlers from upstream schema changes. This also simplifies handler
+    testing since tests do not have to construct a full eventdata_ev44.EventData object.
+
+    Note that we keep the raw array of time of arrivals, and the unit. This is to avoid
+    unnecessary copies of the data.
+    """
+
+    pixel_id: Sequence[int]
+    time_of_arrival: Sequence[int]
+    unit: str
+
+    @staticmethod
+    def from_ev44(ev44: eventdata_ev44.EventData) -> DetectorEvents:
+        return DetectorEvents(
+            pixel_id=ev44.pixel_id, time_of_arrival=ev44.time_of_flight, unit='ns'
+        )
+
+
 class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config, clear_on_get: bool = False):
         self._config = config
@@ -95,11 +118,45 @@ class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
         ]
 
 
-class Histogrammer(Accumulator[MonitorEvents, sc.DataArray]):
+class PixelIDMerger(Accumulator[DetectorEvents, np.array]):
+    def __init__(self, config: Config):
+        self._config = config
+        self._chunks: list[np.ndarray] = []
+        # TODO This will be set via a config option, in other words, the control topic
+        # by the user. This mechanism is currently not implemented.
+        self._toa_range: tuple[float, float] | None = None
+
+    def _filter_by_toa(self, toa: np.ndarray, pixel_id: np.ndarray) -> np.ndarray:
+        if self._toa_range is None:
+            return pixel_id
+        else:
+            start, end = self._toa_range
+            mask = (toa >= start) & (toa < end)
+            return pixel_id[mask]
+
+    def add(self, timestamp: int, data: DetectorEvents) -> None:
+        # timestamp in function signature is required for compliance with Accumulator
+        # interface.
+        _ = timestamp
+        ids = self._filter_by_toa(data.time_of_arrival, data.pixel_id)
+        self._chunks.append(ids)
+
+    def get(self) -> np.array:
+        # Could optimize the concatenate by reusing a buffer.
+        events = np.concatenate(self._chunks or [[]])
+        self._chunks.clear()
+        return events
+
+    def clear(self) -> None:
+        self._chunks.clear()
+
+
+class TOAHistogrammer(Accumulator[DetectorEvents | MonitorEvents, sc.DataArray]):
     """
     Accumulator that bins time of arrival data into a histogram.
 
-    Monitor data handlers use this as a preprocessor before actual accumulation.
+    Monitor data handlers use this as a preprocessor before actual accumulation. For
+    detector data it could be used to produce a histogram for a selected ROI.
     """
 
     def __init__(self, config: Config):
@@ -118,7 +175,7 @@ class Histogrammer(Accumulator[MonitorEvents, sc.DataArray]):
             )
             self._edges_ns = self._edges.to(unit='ns')
 
-    def add(self, timestamp: int, data: MonitorEvents) -> None:
+    def add(self, timestamp: int, data: DetectorEvents | MonitorEvents) -> None:
         _ = timestamp
         # We could easily support other units, but ev44 is always in ns so this should
         # never happen.

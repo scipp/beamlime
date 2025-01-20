@@ -8,9 +8,9 @@ from streaming_data_types import eventdata_ev44
 from beamlime.core.handler import Accumulator
 from beamlime.handlers.accumulators import (
     Cumulative,
-    Histogrammer,
     MonitorEvents,
     SlidingWindow,
+    TOAHistogrammer,
 )
 
 
@@ -92,7 +92,7 @@ def test_accumulator_clears_when_data_sizes_changes(
 
 
 def test_histogrammer_returns_zeros_if_no_chunks_added() -> None:
-    histogrammer = Histogrammer(config={'time_of_arrival_bins': 7})
+    histogrammer = TOAHistogrammer(config={'time_of_arrival_bins': 7})
     da = histogrammer.get()
     dim = 'time_of_arrival'
     bins = sc.linspace(dim, 0.0, 1000 / 14, num=7, unit='ms')
@@ -106,7 +106,7 @@ def test_histogrammer_returns_zeros_if_no_chunks_added() -> None:
 
 
 def test_can_clear_histogrammer() -> None:
-    histogrammer = Histogrammer(config={})
+    histogrammer = TOAHistogrammer(config={})
     histogrammer.add(0, MonitorEvents(time_of_arrival=[1.0, 10.0], unit='ns'))
     before = histogrammer.get()
     assert before.sum().value > 0
@@ -116,7 +116,7 @@ def test_can_clear_histogrammer() -> None:
 
 
 def test_histogrammer_accumulates_consecutive_add_calls() -> None:
-    histogrammer = Histogrammer(config={'time_of_arrival_bins': 7})
+    histogrammer = TOAHistogrammer(config={'time_of_arrival_bins': 7})
     histogrammer.add(0, MonitorEvents(time_of_arrival=[1.0, 10.0], unit='ns'))
     histogrammer.add(1, MonitorEvents(time_of_arrival=[2.0, 20.0], unit='ns'))
     da = histogrammer.get()
@@ -124,6 +124,6 @@ def test_histogrammer_accumulates_consecutive_add_calls() -> None:
 
 
 def test_histogrammer_raises_if_unit_is_not_ns() -> None:
-    histogrammer = Histogrammer(config={'time_of_arrival_bins': 7})
+    histogrammer = TOAHistogrammer(config={'time_of_arrival_bins': 7})
     with pytest.raises(ValueError, match="Expected unit 'ns'"):
         histogrammer.add(0, MonitorEvents(time_of_arrival=[1.0, 10.0], unit='ms'))

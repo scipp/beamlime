@@ -5,7 +5,7 @@ from typing import NoReturn
 
 import scipp as sc
 
-from beamlime import Handler, HandlerRegistry, Message, Service, StreamProcessor
+from beamlime import CommonHandlerFactory, Handler, Message, Service, StreamProcessor
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.kafka import consumer as kafka_consumer
@@ -44,7 +44,7 @@ def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
                 ),
             ),
             sink=PlotToPngSink(),
-            handler_registry=HandlerRegistry(
+            handler_factory=CommonHandlerFactory(
                 config=handler_config, handler_cls=IdentityHandler
             ),
         )

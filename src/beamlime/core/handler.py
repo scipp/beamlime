@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from typing import Any, Generic, Protocol, TypeVar
 
@@ -43,7 +44,7 @@ class Handler(Generic[Tin, Tout]):
     directly.
     """
 
-    def __init__(self, *, logger: logging.Logger | None, config: Config):
+    def __init__(self, *, logger: logging.Logger | None = None, config: Config):
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
 
@@ -54,11 +55,14 @@ class Handler(Generic[Tin, Tout]):
         raise NotImplementedError
 
 
-class HandlerRegistry(Generic[Tin, Tout]):
-    """
-    Registry for handlers.
+class HandlerFactory(Protocol, Generic[Tin, Tout]):
+    def make_handler(self, key: MessageKey) -> Handler[Tin, Tout]:
+        pass
 
-    Handlers are created on demand and cached based on the message key.
+
+class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
+    """
+    Factory for using (multiple instances of) a common handler class.
     """
 
     def __init__(
@@ -71,18 +75,46 @@ class HandlerRegistry(Generic[Tin, Tout]):
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
         self._handler_cls = handler_cls
+
+    def make_handler(self, key: MessageKey) -> Handler[Tin, Tout]:
+        return self._handler_cls(
+            logger=self._logger, config=ConfigProxy(self._config, namespace=key)
+        )
+
+    @staticmethod
+    def from_handler(
+        handler_cls: type[Handler[Tin, Tout]],
+    ) -> Callable[[logging.Logger | None, Config], CommonHandlerFactory[Tin, Tout]]:
+        def make(
+            *, logger: logging.Logger | None = None, config: Config
+        ) -> CommonHandlerFactory[Tin, Tout]:
+            return CommonHandlerFactory(
+                logger=logger, config=config, handler_cls=handler_cls
+            )
+
+        return make
+
+
+class HandlerRegistry(Generic[Tin, Tout]):
+    """
+    Registry for handlers.
+
+    Handlers are created on demand from a factory and cached based on the message key.
+    """
+
+    def __init__(self, *, factory: HandlerFactory[Tin, Tout]):
+        self._factory = factory
         self._handlers: dict[MessageKey, Handler] = {}
 
-    def get(self, key: str) -> Handler:
+    def get(self, key: MessageKey) -> Handler:
         if key not in self._handlers:
-            self._handlers[key] = self._handler_cls(
-                logger=self._logger, config=ConfigProxy(self._config, namespace=key)
-            )
+            self._handlers[key] = self._factory.make_handler(key)
         return self._handlers[key]
 
 
 T = TypeVar('T')
 U = TypeVar('U')
+V = TypeVar('V')
 
 
 class Accumulator(Protocol, Generic[T, U]):
@@ -114,7 +146,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         logger: logging.Logger | None = None,
         config: Config,
         preprocessor: Accumulator[T, U],
-        accumulators: dict[str, Accumulator[U, U]],
+        accumulators: Mapping[str, Accumulator[U, V]],
     ):
         super().__init__(logger=logger, config=config)
         self._preprocessor = preprocessor
@@ -134,7 +166,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         raw = self._config.get('start_time', {'value': 0, 'unit': 'ns'})
         return int(sc.scalar(**raw).to(unit='ns', copy=False).value)
 
-    def handle(self, message: Message[T]) -> list[Message[U]]:
+    def handle(self, message: Message[T]) -> list[Message[V]]:
         if self.start_time > self._last_clear:
             self._preprocessor.clear()
             for accumulator in self._accumulators.values():

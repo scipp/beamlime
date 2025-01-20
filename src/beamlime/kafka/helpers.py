@@ -25,3 +25,10 @@ def beam_monitor_topic(instrument: str) -> str:
     Return the topic name for the beam monitor data of an instrument.
     """
     return topic_for_instrument(topic='beam_monitor', instrument=instrument)
+
+
+def detector_topic(instrument: str) -> str:
+    """
+    Return the topic name for the detector data of an instrument.
+    """
+    return topic_for_instrument(topic='detector', instrument=instrument)

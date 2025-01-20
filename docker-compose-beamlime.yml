@@ -65,11 +65,11 @@ services:
       - ./scripts:/scripts
     command: ["sh", "/scripts/setup-kafka-topics.sh", "${BEAMLIME_INSTRUMENT:-dummy}"]
 
-  fake-producer:
+  fake-monitors:
     profiles:
-      - dev  # Only run fake producer with `docker compose --profile dev up`
+      - monitor  # Only run fake producer with `docker compose --profile monitor up`
     image: python:3.12
-    container_name: fake-producer
+    container_name: fake-monitors
     depends_on:
       init-kafka:
         condition: service_completed_successfully
@@ -86,9 +86,34 @@ services:
       KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-SCRAM-SHA-256}
       KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME:-DUMMY}
       KAFKA_SASL_PASSWORD: ${KAFKA_SASL_PASSWORD:-DUMMY}
-    command: sh -c "python -m pip install -e . && python -m beamlime.services.fake_producer --mode ev44 --instrument $BEAMLIME_INSTRUMENT"
+    command: sh -c "python -m pip install -e . && python -m beamlime.services.fake_monitors --mode ev44 --instrument $BEAMLIME_INSTRUMENT"
+
+  fake-detectors:
+    profiles:
+      - detector
+    image: python:3.12
+    container_name: fake-detectors
+    depends_on:
+      init-kafka:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      BEAMLIME_ENV: docker
+      BEAMLIME_INSTRUMENT: ${BEAMLIME_INSTRUMENT:-dummy}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
+      KAFKA_SECURITY_PROTOCOL: ${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+      KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-SCRAM-SHA-256}
+      KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME:-DUMMY}
+      KAFKA_SASL_PASSWORD: ${KAFKA_SASL_PASSWORD:-DUMMY}
+    command: sh -c "python -m pip install -e . && python -m beamlime.services.fake_detectors --instrument $BEAMLIME_INSTRUMENT"
 
   monitor-data:
+    profiles:
+      - monitor
     image: python:3.12
     container_name: monitor-data
     depends_on:
@@ -114,7 +139,37 @@ services:
       KAFKA2_SASL_PASSWORD: ${KAFKA_SASL_PASSWORD:-DUMMY}
     command: sh -c "python -m pip install -e . && python -m beamlime.services.monitor_data --instrument $BEAMLIME_INSTRUMENT"
 
+  detector-data:
+    profiles:
+      - detector
+    image: python:3.12
+    container_name: detector-data
+    depends_on:
+      init-kafka:
+        condition: service_completed_successfully
+      kafka:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      BEAMLIME_ENV: docker
+      BEAMLIME_INSTRUMENT: ${BEAMLIME_INSTRUMENT:-dummy}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
+      KAFKA_SECURITY_PROTOCOL: ${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+      KAFKA_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-SCRAM-SHA-256}
+      KAFKA_SASL_USERNAME: ${KAFKA_SASL_USERNAME:-DUMMY}
+      KAFKA_SASL_PASSWORD: ${KAFKA_SASL_PASSWORD:-DUMMY}
+      KAFKA2_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}
+      KAFKA2_SECURITY_PROTOCOL: ${KAFKA_SECURITY_PROTOCOL:-PLAINTEXT}
+      KAFKA2_SASL_MECHANISM: ${KAFKA_SASL_MECHANISM:-SCRAM-SHA-256}
+      KAFKA2_SASL_USERNAME: ${KAFKA_SASL_USERNAME:-DUMMY}
+      KAFKA2_SASL_PASSWORD: ${KAFKA_SASL_PASSWORD:-DUMMY}
+    command: sh -c "python -m pip install -e . && python -m beamlime.services.detector_data --instrument $BEAMLIME_INSTRUMENT"
+
   dashboard:
+    profiles:
+      - monitor
     image: python:3.12
     container_name: dashboard
     depends_on:

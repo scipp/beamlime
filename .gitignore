@@ -41,6 +41,7 @@ docs/generated/
 *.ort
 
 # Test outputs
+*.png
 .coverage
 coverate_html
 .benchmarks/

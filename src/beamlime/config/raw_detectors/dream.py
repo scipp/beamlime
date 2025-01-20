@@ -5,6 +5,7 @@
 # The other DREAM detectors have non-consecutive detector numbers. This is not
 # supported currently
 
+import scipp as sc
 from ess.reduce.live import raw
 
 _res_scale = 8
@@ -36,6 +37,7 @@ dream_detectors_config = {
         # a projection.
         'mantle_front_layer': {
             'detector_name': 'mantle_detector',
+            'detector_number': sc.arange('dummy', 229377, 720897, unit=None),
             'projection': raw.LogicalView(
                 fold={
                     'wire': 32,

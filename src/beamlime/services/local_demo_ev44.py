@@ -6,7 +6,7 @@ from typing import NoReturn
 import numpy as np
 from streaming_data_types import eventdata_ev44
 
-from beamlime import HandlerRegistry, Service, StreamProcessor
+from beamlime import CommonHandlerFactory, Service, StreamProcessor
 from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
@@ -53,11 +53,11 @@ def main() -> NoReturn:
             ),
         ),
         sink=PlotToPngSink(),
-        handler_registry=HandlerRegistry(
+        handler_factory=CommonHandlerFactory(
             config={}, handler_cls=create_monitor_data_handler
         ),
     )
-    service = Service(config={}, processor=processor, name="local_demo_ev44")
+    service = Service(processor=processor, name="local_demo_ev44")
     service.start()
 
 

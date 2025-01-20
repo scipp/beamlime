@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from typing import TypeVar
 
-from beamlime.core.handler import Handler, HandlerRegistry, Message
+from beamlime.core.handler import CommonHandlerFactory, Handler, Message
 from beamlime.core.processor import StreamProcessor
 from beamlime.fakes import FakeMessageSink, FakeMessageSource
 
@@ -30,10 +30,8 @@ def test_consumes_and_produces_messages() -> None:
         ]
     )
     sink = FakeMessageSink()
-    handler_registry = HandlerRegistry(config=config, handler_cls=ValueToStringHandler)
-    processor = StreamProcessor(
-        source=source, sink=sink, handler_registry=handler_registry
-    )
+    factory = CommonHandlerFactory(config=config, handler_cls=ValueToStringHandler)
+    processor = StreamProcessor(source=source, sink=sink, handler_factory=factory)
     processor.process()
     assert len(sink.messages) == 0
     processor.process()
