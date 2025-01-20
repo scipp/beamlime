@@ -27,12 +27,6 @@ BEAMLIME_INSTRUMENT=dummy gunicorn beamlime.services.wsgi:application
 
 Navigate to `http://localhost:8000` to see the dashboard.
 
-## Running the detector data service
-
-Services can be found in `beamlime.services`.
-Configuration is in `beamlime.config.defaults`.
-By default the files with the `dev` suffix are used.
-Set `BEAMLIME_ENV` to, e.g., `staging` to use the `staging` configuration.
 
 For a local demo, run the fake detector data producer:
 
