@@ -129,7 +129,10 @@ class DetectorCounts(Accumulator[np.ndarray, sc.DataArray]):
         self._det.clear_counts()
 
 
-_registry = {'geometry-dream-2025-01-01.nxs': 'md5:91aceb884943c76c0c21400ee74ad9b6'}
+_registry = {
+    'geometry-dream-2025-01-01.nxs': 'md5:91aceb884943c76c0c21400ee74ad9b6',
+    'geometry-loki-2025-01-01.nxs': 'md5:e2e48c30ad02dcfa940b7c26885216f2',
+}
 
 
 def _make_pooch():
@@ -150,6 +153,8 @@ def _parse_filename_lut(instrument: str) -> sc.DataArray:
     Returns a scipp DataArray with datetime index and filename values.
     """
     registry = [name for name in _registry if instrument in name]
+    if not registry:
+        raise ValueError(f'No geometry files found for instrument {instrument}')
     pattern = re.compile(r'(\d{4}-\d{2}-\d{2})')
     dates = [
         pattern.search(entry).group(1) for entry in registry if pattern.search(entry)
@@ -170,7 +175,10 @@ def get_nexus_geometry_filename(
     """
     _pooch = _make_pooch()
     dt = (date if date is not None else sc.datetime('now')).to(unit='s')
-    filename = _parse_filename_lut(instrument)['datetime', dt].value
+    try:
+        filename = _parse_filename_lut(instrument)['datetime', dt].value
+    except IndexError:
+        raise ValueError(f'No geometry file found for given date {date}') from None
     return pathlib.Path(_pooch.fetch(filename))
 
 
@@ -179,5 +187,5 @@ def _try_get_nexus_geometry_filename(
 ) -> pathlib.Path | None:
     try:
         return get_nexus_geometry_filename(instrument, date)
-    except IndexError:
+    except ValueError:
         return None
