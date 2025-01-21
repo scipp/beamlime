@@ -25,6 +25,7 @@ from beamlime.kafka.helpers import detector_topic
 from beamlime.kafka.sink import KafkaSink, SerializationError
 
 # Configure detectors to fake for each instrument
+# Values as of January 2025. These may change if the detector configuration changes.
 _detector_config = {
     'dummy': {
         'panel_0': (0, 128**2),
@@ -34,8 +35,18 @@ _detector_config = {
         'endcap_backward_detector': (71618, 229377),
         'endcap_forward_detector': (1, 71681),
     },
+    'loki': {
+        'loki_detector_0': (1, 802817),
+        'loki_detector_1': (802817, 1032193),
+        'loki_detector_2': (1032193, 1204225),
+        'loki_detector_3': (1204225, 1433601),
+        'loki_detector_4': (1433601, 1605633),
+        'loki_detector_5': (1605633, 2007041),
+        'loki_detector_6': (2007041, 2465793),
+        'loki_detector_7': (2465793, 2752513),
+        'loki_detector_8': (2752513, 3211265),
+    },
     'nmx': {},
-    'loki': {},
 }
 
 
