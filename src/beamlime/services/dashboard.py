@@ -180,13 +180,6 @@ class DashboardApp(ServiceBase):
         )(self.clear_data)
 
     @staticmethod
-    def create_detector_plot(key: str) -> go.Figure:
-        fig = go.Figure()
-        fig.add_heatmap(z=[[1, 2], [3, 4]], colorscale='Viridis')
-        fig.update_layout(title=key, width=500, height=400, uirevision=key)
-        return fig
-
-    @staticmethod
     def create_monitor_plot(key: str, data: sc.DataArray) -> go.Figure:
         fig = go.Figure()
         fig.add_scatter(x=[], y=[], mode='lines', line_width=2)
@@ -201,17 +194,49 @@ class DashboardApp(ServiceBase):
         )
         return fig
 
+    @staticmethod
+    def create_detector_plot(key: str, data: sc.DataArray) -> go.Figure:
+        if len(data.dims) == 1:
+            return DashboardApp.create_monitor_plot(key, data)
+
+        fig = go.Figure()
+        y_dim, x_dim = data.dims
+        fig.add_heatmap(
+            z=[[]],
+            x=[],  # Will be filled with coordinate values
+            y=[],  # Will be filled with coordinate values
+            colorscale='Viridis',
+        )
+
+        def maybe_unit(dim: str) -> str:
+            unit = data.coords[dim].unit
+            return f' [{unit}]' if unit is not None else ''
+
+        fig.update_layout(
+            title=key,
+            width=500,
+            height=400,
+            xaxis_title=f'{x_dim}{maybe_unit(x_dim)}',
+            yaxis_title=f'{y_dim}{maybe_unit(y_dim)}',
+            uirevision=key,
+        )
+        return fig
+
     def update_plots(self, n: int | None):
         if n is None:
             raise PreventUpdate
 
         try:
-            monitor_messages = self._source.get_messages()
-            num = len(monitor_messages)
-            monitor_messages = compact_messages(monitor_messages)
+            messages = self._source.get_messages()
+            num = len(messages)
+            messages = compact_messages(messages)
             self._logger.info(
-                "Got %d messages, showing most recent %d", num, len(monitor_messages)
+                "Got %d messages, showing most recent %d", num, len(messages)
             )
+            monitor_messages = [
+                msg for msg in messages if 'beam_monitor' in msg.key.topic
+            ]
+            detector_messages = [msg for msg in messages if 'detector' in msg.key.topic]
 
             for msg in monitor_messages:
                 key = msg.key.source_name
@@ -221,6 +246,24 @@ class DashboardApp(ServiceBase):
                 fig = self._monitor_plots[key]
                 fig.data[0].x = data.coords[data.dim].values
                 fig.data[0].y = data.values
+
+            for msg in detector_messages:
+                key = msg.key.source_name
+                data = msg.value
+                for dim in data.dims:
+                    if dim not in data.coords:
+                        data.coords[dim] = sc.arange(dim, data.sizes[dim], unit=None)
+                if key not in self._detector_plots:
+                    self._detector_plots[key] = self.create_detector_plot(key, data)
+                fig = self._detector_plots[key]
+                if len(data.dims) == 1:
+                    fig.data[0].x = data.coords[data.dim].values
+                    fig.data[0].y = data.values
+                else:  # 2D
+                    y_dim, x_dim = data.dims
+                    fig.data[0].x = data.coords[x_dim].values
+                    fig.data[0].y = data.coords[y_dim].values
+                    fig.data[0].z = data.values
 
         except Exception as e:
             self._logger.error("Error in update_plots: %s", e)
