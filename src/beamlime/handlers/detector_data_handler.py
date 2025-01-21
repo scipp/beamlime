@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import pathlib
+import re
 from typing import Any
 
 import numpy as np
@@ -126,3 +128,48 @@ class DetectorCounts(Accumulator[np.ndarray, sc.DataArray]):
 
     def clear(self) -> None:
         self._det.clear_counts()
+
+
+_registry = {'geometry-dream-2025-01-01.nxs': 'md5:91aceb884943c76c0c21400ee74ad9b6'}
+
+
+def _make_pooch():
+    import pooch
+
+    return pooch.create(
+        path=pooch.os_cache('beamlime'),
+        env='BEAMLIME_DATA_DIR',
+        retry_if_failed=3,
+        base_url='https://public.esss.dk/groups/scipp/beamlime/geometry/',
+        version='0',
+        registry=_registry,
+    )
+
+
+def _parse_filename_lut(instrument: str) -> sc.DataArray:
+    """
+    Returns a scipp DataArray with datetime index and filename values.
+    """
+    registry = [name for name in _registry if instrument in name]
+    pattern = re.compile(r'(\d{4}-\d{2}-\d{2})')
+    dates = [
+        pattern.search(entry).group(1) for entry in registry if pattern.search(entry)
+    ]
+    datetimes = sc.datetimes(dims=['datetime'], values=[*dates, '9999-12-31'], unit='s')
+    return sc.DataArray(
+        sc.array(dims=['datetime'], values=registry), coords={'datetime': datetimes}
+    )
+
+
+def get_nexus_geometry_filename(
+    instrument: str, date: sc.Variable | None = None
+) -> pathlib.Path:
+    """
+    Get filename for NeXus file based on instrument and date.
+
+    The file is fetched and cached with Pooch.
+    """
+    _pooch = _make_pooch()
+    dt = (date if date is not None else sc.datetime('now')).to(unit='s')
+    filename = _parse_filename_lut(instrument)['datetime', dt].value
+    return pathlib.Path(_pooch.fetch(filename))
