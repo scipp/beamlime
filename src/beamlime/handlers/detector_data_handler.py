@@ -41,7 +41,9 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
 
     Handlers are created based on the instrument name in the message key which should
     identify the detector name. Depending on the configured detector views a NeXus file
-    with geometry information may be required to setup the view.
+    with geometry information may be required to setup the view. Currently the NeXus
+    files are always obtained via Pooch. Note that this may need to be refactored to a
+    more dynamic approach in the future.
     """
 
     def __init__(
