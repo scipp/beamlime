@@ -48,14 +48,13 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         self,
         *,
         instrument: str,
-        nexus_file: str | None,
         logger: logging.Logger | None = None,
         config: Config,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
         self._detector_config = detector_registry[instrument]['detectors']
-        self._nexus_file = nexus_file
+        self._nexus_file = _try_get_nexus_geometry_filename(instrument)
         self._window_length = 10
 
     def _key_to_detector_name(self, key: MessageKey) -> str:
@@ -173,3 +172,12 @@ def get_nexus_geometry_filename(
     dt = (date if date is not None else sc.datetime('now')).to(unit='s')
     filename = _parse_filename_lut(instrument)['datetime', dt].value
     return pathlib.Path(_pooch.fetch(filename))
+
+
+def _try_get_nexus_geometry_filename(
+    instrument: str, date: sc.Variable | None = None
+) -> pathlib.Path | None:
+    try:
+        return get_nexus_geometry_filename(instrument, date)
+    except IndexError:
+        return None

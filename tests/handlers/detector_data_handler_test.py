@@ -13,7 +13,7 @@ from beamlime.handlers.detector_data_handler import (
 
 
 def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -> None:
-    factory = DetectorHandlerFactory(instrument='dummy', nexus_file=None, config={})
+    factory = DetectorHandlerFactory(instrument='dummy', config={})
     handler = factory.make_handler(
         MessageKey(topic='detector_data', source_name='panel_0')
     )
