@@ -28,25 +28,27 @@ from beamlime.kafka.sink import KafkaSink, SerializationError
 # Values as of January 2025. These may change if the detector configuration changes.
 _detector_config = {
     'dummy': {
-        'panel_0': (0, 128**2),
+        'panel_0': (1, 128**2),
     },
     'dream': {
-        'mantle_detector': (229377, 720897),
-        'endcap_backward_detector': (71618, 229377),
-        'endcap_forward_detector': (1, 71681),
+        'mantle_detector': (229377, 720896),
+        'endcap_backward_detector': (71618, 229376),
+        'endcap_forward_detector': (1, 71680),
     },
     'loki': {
-        'loki_detector_0': (1, 802817),
-        'loki_detector_1': (802817, 1032193),
-        'loki_detector_2': (1032193, 1204225),
-        'loki_detector_3': (1204225, 1433601),
-        'loki_detector_4': (1433601, 1605633),
-        'loki_detector_5': (1605633, 2007041),
-        'loki_detector_6': (2007041, 2465793),
-        'loki_detector_7': (2465793, 2752513),
-        'loki_detector_8': (2752513, 3211265),
+        'loki_detector_0': (1, 802816),
+        'loki_detector_1': (802817, 1032192),
+        'loki_detector_2': (1032193, 1204224),
+        'loki_detector_3': (1204225, 1433600),
+        'loki_detector_4': (1433601, 1605632),
+        'loki_detector_5': (1605633, 2007040),
+        'loki_detector_6': (2007041, 2465792),
+        'loki_detector_7': (2465793, 2752512),
+        'loki_detector_8': (2752513, 3211264),
     },
-    'nmx': {},
+    'nmx': {
+        f'detector_panel_{i}': (i * 1280**2 + 1, (i + 1) * 1280**2) for i in range(3)
+    },
 }
 
 
@@ -73,7 +75,7 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
 
     def _make_ids(self, name: str, size: int) -> np.ndarray:
         low, high = _detector_config[self._instrument][name]
-        return self._rng.integers(low=low, high=high, size=size)
+        return self._rng.integers(low=low, high=high + 1, size=size)
 
     def get_messages(self) -> list[Message[sc.Dataset]]:
         current_time = time.time_ns()
