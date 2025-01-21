@@ -200,7 +200,7 @@ class DashboardApp(ServiceBase):
             return DashboardApp.create_monitor_plot(key, data)
 
         fig = go.Figure()
-        x_dim, y_dim = data.dims
+        y_dim, x_dim = data.dims
         fig.add_heatmap(
             z=[[]],
             x=[],  # Will be filled with coordinate values
@@ -260,7 +260,7 @@ class DashboardApp(ServiceBase):
                     fig.data[0].x = data.coords[data.dim].values
                     fig.data[0].y = data.values
                 else:  # 2D
-                    x_dim, y_dim = data.dims
+                    y_dim, x_dim = data.dims
                     fig.data[0].x = data.coords[x_dim].values
                     fig.data[0].y = data.coords[y_dim].values
                     fig.data[0].z = data.values
