@@ -4,6 +4,7 @@
 import time
 
 import numpy as np
+import pytest
 from streaming_data_types import eventdata_ev44
 
 from beamlime import CommonHandlerFactory
@@ -40,24 +41,29 @@ class Ev44Consumer(KafkaConsumer):
         )
         self._reference_time = 0
         self._running = False
+        self._count = 0
 
     def start(self) -> None:
         self._running = True
 
     def reset(self) -> None:
         self._running = False
-        self._reference_time = 0
+        self._count = 0
 
     @property
     def at_end(self) -> bool:
-        return self._reference_time * self._events_per_message >= self._max_events
+        return self._count * self._events_per_message >= self._max_events
+
+    def _make_timestamp(self) -> int:
+        return self._reference_time * 71_000_000 // self._num_sources
 
     def make_serialized_ev44(self, source: int) -> bytes:
         self._reference_time += 1
+        self._count += 1
         return eventdata_ev44.serialise_ev44(
             source_name=f"monitor_{source}",
             message_id=0,
-            reference_time=[self._reference_time],
+            reference_time=[self._make_timestamp()],
             reference_time_index=0,
             time_of_flight=self._time_of_flight,
             pixel_id=self._pixel_id,
@@ -85,7 +91,9 @@ def start_and_wait_for_completion(consumer: Ev44Consumer) -> None:
     consumer.reset()
 
 
-def test_performance(benchmark) -> None:
+@pytest.mark.parametrize('num_sources', [1, 2, 4])
+@pytest.mark.parametrize('events_per_message', [1_000, 10_000, 100_000, 1_000_000])
+def test_performance(benchmark, num_sources: int, events_per_message: int) -> None:
     builder = DataServiceBuilder(
         instrument='dummy',
         name='monitor_data',
@@ -101,8 +109,6 @@ def test_performance(benchmark) -> None:
     )
 
     sink = FakeMessageSink()
-    num_sources = 3
-    events_per_message = 100_000
     consumer = Ev44Consumer(
         num_sources=num_sources,
         events_per_message=events_per_message,

@@ -59,6 +59,7 @@ addopts = """
 --strict-config
 --strict-markers
 --import-mode=importlib
+--benchmark-skip
 -ra
 -v
 """
