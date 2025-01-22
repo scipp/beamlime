@@ -92,8 +92,8 @@ def start_and_wait_for_completion(consumer: Ev44Consumer) -> None:
     consumer.reset()
 
 
-@pytest.mark.parametrize('num_sources', [1, 2, 4])
-@pytest.mark.parametrize('events_per_message', [1_000, 10_000, 100_000, 1_000_000])
+@pytest.mark.parametrize('num_sources', [1, 2, 4, 8])
+@pytest.mark.parametrize('events_per_message', [10_000, 100_000, 1_000_000])
 def test_performance(benchmark, num_sources: int, events_per_message: int) -> None:
     builder = DataServiceBuilder(
         instrument='dummy',
@@ -113,7 +113,7 @@ def test_performance(benchmark, num_sources: int, events_per_message: int) -> No
     consumer = Ev44Consumer(
         num_sources=num_sources,
         events_per_message=events_per_message,
-        max_events=10_000_000,
+        max_events=100_000_000,
     )
     service = builder.build(
         control_consumer=EmptyConsumer(), consumer=consumer, sink=sink
