@@ -43,6 +43,9 @@ class Ev44Consumer(KafkaConsumer):
         self._reference_time = 0
         self._running = False
         self._count = 0
+        self._content = [
+            self.make_serialized_ev44(source) for source in range(self._num_sources)
+        ]
 
     def start(self) -> None:
         self._running = True
@@ -56,15 +59,18 @@ class Ev44Consumer(KafkaConsumer):
         return self._count * self._events_per_message >= self._max_events
 
     def _make_timestamp(self) -> int:
+        self._reference_time += 1
+        self._count += 1
         return self._reference_time * 71_000_000 // self._num_sources
 
     def make_serialized_ev44(self, source: int) -> bytes:
-        self._reference_time += 1
-        self._count += 1
+        # Note empty reference_time. KafkaToEv44Adapter uses message.timestamp(), which
+        # allows use to reuse the serialized content, to avoid seeing the cost in the
+        # benchmarks.
         return eventdata_ev44.serialise_ev44(
             source_name=f"monitor_{source}",
             message_id=0,
-            reference_time=[self._make_timestamp()],
+            reference_time=[],
             reference_time_index=0,
             time_of_flight=self._time_of_flight,
             pixel_id=self._pixel_id,
@@ -75,7 +81,9 @@ class Ev44Consumer(KafkaConsumer):
             return []
         messages = [
             FakeKafkaMessage(
-                value=self.make_serialized_ev44(msg % self._num_sources), topic="dummy"
+                value=self._content[msg % self._num_sources],
+                topic="dummy",
+                timestamp=self._make_timestamp(),
             )
             for msg in range(num_messages)
         ]

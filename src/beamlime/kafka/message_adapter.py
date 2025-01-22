@@ -37,9 +37,10 @@ class KafkaMessage(Protocol):
 
 
 class FakeKafkaMessage(KafkaMessage):
-    def __init__(self, value: bytes, topic: str):
+    def __init__(self, value: bytes, topic: str, timestamp: int = 0):
         self._value = value
         self._topic = topic
+        self._timestamp = timestamp
 
     def error(self) -> Any | None:
         return None
@@ -51,7 +52,7 @@ class FakeKafkaMessage(KafkaMessage):
         return self._value
 
     def timestamp(self) -> int:
-        return 0
+        return self._timestamp
 
     def topic(self) -> str:
         return self._topic
@@ -73,7 +74,11 @@ class KafkaToEv44Adapter(
     def adapt(self, message: KafkaMessage) -> Message[eventdata_ev44.EventData]:
         ev44 = eventdata_ev44.deserialise_ev44(message.value())
         key = MessageKey(topic=message.topic(), source_name=ev44.source_name)
-        timestamp = ev44.reference_time[-1]
+        # A fallback, useful in particular for testing so serialized data can be reused.
+        if ev44.reference_time.size > 0:
+            timestamp = ev44.reference_time[-1]
+        else:
+            timestamp = message.timestamp()
         return Message(timestamp=timestamp, key=key, value=ev44)
 
 
