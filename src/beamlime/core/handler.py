@@ -135,6 +135,40 @@ class Accumulator(Protocol, Generic[T, U]):
         pass
 
 
+class ConfigValueAccessor:
+    """
+    Access a dynamic configuration value and convert it on demand.
+
+    Avoids unnecessary conversions if the value has not changed.
+
+    Parameters
+    ----------
+    config:
+        Configuration object.
+    key:
+        Key in the configuration.
+    default:
+        Default value if the key is not found.
+    convert:
+        Function to convert the raw value to the desired type.
+    """
+
+    def __init__(self, config: Config, key: str, default: T, convert: Callable[[T], U]):
+        self._config = config
+        self._key = key
+        self._default = default
+        self._convert = convert
+        self._raw_value: T | None = None
+        self._value: U | None = None
+
+    def __call__(self) -> U:
+        raw_value = self._config.get(self._key, self._default)
+        if raw_value != self._raw_value:
+            self._raw_value = raw_value
+            self._value = self._convert(raw_value)
+        return self._value
+
+
 class PeriodicAccumulatingHandler(Handler[T, U]):
     """
     Handler that accumulates data over time and emits the accumulated data periodically.
@@ -153,6 +187,12 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         self._accumulators = accumulators
         self._next_update = 0
         self._last_clear = 0
+        self.start_time = ConfigValueAccessor(
+            config=config,
+            key='start_time',
+            default={'value': 0, 'unit': 'ns'},
+            convert=lambda raw: int(sc.scalar(**raw).to(unit='ns', copy=False).value),
+        )
 
     @property
     def update_every(self) -> int:
@@ -160,18 +200,12 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         raw = self._config.get('update_every', {'value': 1.0, 'unit': 's'})
         return int(sc.scalar(**raw).to(unit='ns', copy=False).value)
 
-    @property
-    def start_time(self) -> int:
-        """Start time in nanoseconds, based on dynamic config value."""
-        raw = self._config.get('start_time', {'value': 0, 'unit': 'ns'})
-        return int(sc.scalar(**raw).to(unit='ns', copy=False).value)
-
     def handle(self, message: Message[T]) -> list[Message[V]]:
-        if self.start_time > self._last_clear:
+        if self.start_time() > self._last_clear:
             self._preprocessor.clear()
             for accumulator in self._accumulators.values():
                 accumulator.clear()
-            self._last_clear = self.start_time
+            self._last_clear = self.start_time()
             # Set next update to current message to avoid lag in user experience.
             self._next_update = message.timestamp
         self._preprocessor.add(message.timestamp, message.value)
