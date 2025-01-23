@@ -7,6 +7,7 @@ import scipp as sc
 import streaming_data_types
 import streaming_data_types.exceptions
 from streaming_data_types import dataarray_da00, eventdata_ev44
+from streaming_data_types.fbschemas.eventdata_ev44 import Event44Message
 
 from ..core.message import Message, MessageKey, MessageSource
 from ..handlers.accumulators import DetectorEvents, MonitorEvents
@@ -99,6 +100,37 @@ class Ev44ToMonitorEventsAdapter(
         self, message: Message[eventdata_ev44.EventData]
     ) -> Message[MonitorEvents]:
         return replace(message, value=MonitorEvents.from_ev44(message.value))
+
+
+class KafkaToMonitorEventsAdapter(MessageAdapter[KafkaMessage, Message[MonitorEvents]]):
+    """
+    Directly adapts a Kafka message to MonitorEvents.
+
+    This bypasses an intermediate eventdata_ev44.EventData object, which would require
+    decoding unused fields. If we know the ev44 is for a monitor then avoiding this
+    yields better performance.
+    """
+
+    def adapt(self, message: KafkaMessage) -> Message[MonitorEvents]:
+        buffer = message.value()
+        eventdata_ev44.check_schema_identifier(buffer, eventdata_ev44.FILE_IDENTIFIER)
+        event = Event44Message.Event44Message.GetRootAs(buffer, 0)
+        key = MessageKey(
+            topic=message.topic(), source_name=event.SourceName().decode("utf-8")
+        )
+        reference_time = event.ReferenceTimeAsNumpy()
+        time_of_arrival = event.TimeOfFlightAsNumpy()
+
+        # A fallback, useful in particular for testing so serialized data can be reused.
+        if reference_time.size > 0:
+            timestamp = reference_time[-1]
+        else:
+            timestamp = message.timestamp()
+        return Message(
+            timestamp=timestamp,
+            key=key,
+            value=MonitorEvents(time_of_arrival=time_of_arrival, unit='ns'),
+        )
 
 
 class Ev44ToDetectorEventsAdapter(

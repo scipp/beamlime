@@ -11,6 +11,7 @@ from beamlime.kafka.message_adapter import (
     FakeKafkaMessage,
     KafkaMessage,
     KafkaToEv44Adapter,
+    KafkaToMonitorEventsAdapter,
     RoutingAdapter,
 )
 
@@ -46,6 +47,19 @@ def test_adapting_source() -> None:
         adapter=ChainedAdapter(
             first=KafkaToEv44Adapter(), second=Ev44ToMonitorEventsAdapter()
         ),
+    )
+    messages = source.get_messages()
+    assert len(messages) == 1
+    assert messages[0].key.topic == "monitors"
+    assert messages[0].key.source_name == "monitor1"
+    assert messages[0].value.time_of_arrival == [123456]
+    assert messages[0].timestamp == 1234
+
+
+def test_KafkaToMonitorEventsAdapter() -> None:
+    source = AdaptingMessageSource(
+        source=FakeKafkaMessageSource(),
+        adapter=KafkaToMonitorEventsAdapter(),
     )
     messages = source.get_messages()
     assert len(messages) == 1

@@ -13,9 +13,8 @@ from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
     ChainedAdapter,
     Da00ToScippAdapter,
-    Ev44ToMonitorEventsAdapter,
     KafkaToDa00Adapter,
-    KafkaToEv44Adapter,
+    KafkaToMonitorEventsAdapter,
     RoutingAdapter,
 )
 from beamlime.kafka.sink import KafkaSink
@@ -37,9 +36,7 @@ def setup_arg_parser() -> argparse.ArgumentParser:
 def make_monitor_data_adapter() -> RoutingAdapter:
     return RoutingAdapter(
         routes={
-            'ev44': ChainedAdapter(
-                first=KafkaToEv44Adapter(), second=Ev44ToMonitorEventsAdapter()
-            ),
+            'ev44': KafkaToMonitorEventsAdapter(),
             'da00': ChainedAdapter(
                 first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
             ),
