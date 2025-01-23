@@ -17,23 +17,6 @@ class Config(Protocol):
         pass
 
 
-class ConfigProxy:
-    """Proxy for accessing configuration, prefixed with a namespace."""
-
-    def __init__(self, config: Config, *, namespace: str):
-        self._config = config
-        self._namespace = namespace
-
-    def get(self, key: str, default: Any | None = None) -> Any:
-        """
-        Look for the key with the namespace prefix, and fall back to the key without
-        the prefix if not found. If neither is found, return the default.
-        """
-        return self._config.get(
-            f'{self._namespace}.{key}', self._config.get(key, default)
-        )
-
-
 class Handler(Generic[Tin, Tout]):
     """
     Base class for message handlers.
@@ -77,9 +60,7 @@ class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
         self._handler_cls = handler_cls
 
     def make_handler(self, key: MessageKey) -> Handler[Tin, Tout]:
-        return self._handler_cls(
-            logger=self._logger, config=ConfigProxy(self._config, namespace=key)
-        )
+        return self._handler_cls(logger=self._logger, config=self._config)
 
     @staticmethod
     def from_handler(
