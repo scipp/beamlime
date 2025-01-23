@@ -65,7 +65,7 @@ pyyaml==6.0.2
     # via -r base.in
 sciline==24.10.0
     # via essreduce
-scipp==24.11.2
+scipp==25.1.0
     # via
     #   essreduce
     #   scippneutron
