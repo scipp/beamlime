@@ -190,6 +190,21 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
             accumulator.add(timestamp=message.timestamp, data=data)
         return self._produce_update(message.key, message.timestamp)
 
+    def handle_multiple(self, messages: list[Message[T]]) -> list[Message[V]]:
+        for message in messages:
+            self._preprocess(message)
+        # TODO Have not been too clear about interfaces here. The DetectorView handlers
+        # does expensive compute in `add` while `get` is cheap. But the preprocessors
+        # in Beamlime are cheap in `add` and expensive in `get`. It is therefore not
+        # clear when to accumulate: With every call to this method, or just when
+        # producing updates? Need to come of with a cleaner plan.
+        data = self._preprocessor.get()
+        for accumulator in self._accumulators.values():
+            accumulator.add(timestamp=messages[-1].timestamp, data=data)
+        if messages[-1].timestamp < self._next_update:
+            return []
+        return self._produce_update(messages[-1].key, messages[-1].timestamp)
+
     def _preprocess(self, message: Message[T]) -> None:
         if self.start_time() > self._last_clear:
             self._preprocessor.clear()

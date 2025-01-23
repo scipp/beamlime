@@ -41,11 +41,16 @@ class StreamProcessor(Generic[Tin, Tout]):
     def process(self) -> None:
         messages = self._source.get_messages()
         results = []
-        # TODO There is a problem here. If there is no message we will never send any
-        # updates to the sink. But sliding windows should run "empty" to show this to
-        # the user.
-        # TODO sort messages by timestamp
+        # Group messages by key
+        messages_by_key = {}
         for msg in messages:
-            handler = self._handler_registry.get(msg.key)
-            results.extend(handler.handle(msg))
+            messages_by_key.setdefault(msg.key, []).append(msg)
+
+        for key, msgs in messages_by_key.items():
+            handler = self._handler_registry.get(key)
+            if hasattr(handler, 'handle_multiple'):
+                results.extend(handler.handle_multiple(msgs))
+            else:
+                for msg in msgs:
+                    results.extend(handler.handle(msg))
         self._sink.publish_messages(results)
