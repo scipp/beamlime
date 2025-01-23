@@ -9,7 +9,7 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from ..core.handler import Accumulator, Config
+from ..core.handler import Accumulator, Config, ConfigValueAccessor
 
 
 @dataclass
@@ -80,42 +80,41 @@ class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
         self._cumulative = None
 
 
+@dataclass
+class _Chunk:
+    timestamp: int
+    data: sc.DataArray
+
+
 class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config):
         self._config = config
-        self._chunks: list[sc.DataArray] = []
+        self._chunks: list[_Chunk] = []
+        self._max_age = ConfigValueAccessor(
+            config=config,
+            key='sliding_window',
+            default={'value': 5.0, 'unit': 's'},
+            convert=lambda raw: sc.scalar(**raw).to(unit='ns', dtype='int64').value,
+        )
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
-        if self._chunks and data.sizes != self._chunks[0].sizes:
+        if self._chunks and data.sizes != self._chunks[0].data.sizes:
             self.clear()
-        self._chunks.append(
-            data.assign_coords({'time': sc.scalar(timestamp, unit='ns')})
-        )
+        self._chunks.append(_Chunk(timestamp, data))
 
     def get(self) -> sc.DataArray:
         if not self._chunks:
             raise ValueError("No data has been added")
         self._cleanup()
-        # sc.reduce returns inconsistent result with/without `time` coord depending on
-        # the number of chunks. We remove it to ensure consistent behavior.
-        result = sc.reduce(self._chunks).sum()
-        result.coords.pop('time', None)
-        return result
+        return sc.reduce([chunk.data for chunk in self._chunks]).sum()
 
     def clear(self) -> None:
         self._chunks.clear()
 
-    def _max_age(self) -> sc.Variable:
-        raw = self._config.get('sliding_window', {'value': 5.0, 'unit': 's'})
-        return sc.scalar(**raw).to(unit='ns', dtype='int64')
-
     def _cleanup(self) -> None:
-        latest = sc.reduce([chunk.coords['time'] for chunk in self._chunks]).max()
-        self._chunks = [
-            chunk
-            for chunk in self._chunks
-            if latest - chunk.coords['time'] <= self._max_age()
-        ]
+        latest = max([chunk.timestamp for chunk in self._chunks])
+        max_age = self._max_age()
+        self._chunks = [c for c in self._chunks if latest - c.timestamp <= max_age]
 
 
 class PixelIDMerger(Accumulator[DetectorEvents, np.array]):
