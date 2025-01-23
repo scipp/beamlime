@@ -55,7 +55,10 @@ class Ev44Consumer(KafkaConsumer):
 
     @property
     def at_end(self) -> bool:
-        return self._count * self._events_per_message >= self._max_events
+        return (
+            self._count * self._events_per_message
+            >= self._max_events * self._num_sources
+        )
 
     def _make_timestamp(self) -> int:
         self._reference_time += 1
@@ -120,7 +123,7 @@ def test_performance(benchmark, num_sources: int, events_per_message: int) -> No
     consumer = Ev44Consumer(
         num_sources=num_sources,
         events_per_message=events_per_message,
-        max_events=100_000_000,
+        max_events=50_000_000,
     )
     service = builder.build(
         control_consumer=EmptyConsumer(), consumer=consumer, sink=sink
