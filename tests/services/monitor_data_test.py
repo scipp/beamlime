@@ -18,7 +18,6 @@ from beamlime.services.monitor_data import make_monitor_data_adapter
 
 class EmptyConsumer(KafkaConsumer):
     def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]:
-        time.sleep(timeout)
         return []
 
     def close(self) -> None:
