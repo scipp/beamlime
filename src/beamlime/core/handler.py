@@ -193,12 +193,12 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
             default={'value': 0, 'unit': 'ns'},
             convert=lambda raw: int(sc.scalar(**raw).to(unit='ns', copy=False).value),
         )
-
-    @property
-    def update_every(self) -> int:
-        """Update interval in nanoseconds, based on dynamic config value."""
-        raw = self._config.get('update_every', {'value': 1.0, 'unit': 's'})
-        return int(sc.scalar(**raw).to(unit='ns', copy=False).value)
+        self.update_every = ConfigValueAccessor(
+            config=config,
+            key='update_every',
+            default={'value': 1.0, 'unit': 's'},
+            convert=lambda raw: int(sc.scalar(**raw).to(unit='ns', copy=False).value),
+        )
 
     def handle(self, message: Message[T]) -> list[Message[V]]:
         if self.start_time() > self._last_clear:
@@ -218,8 +218,8 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         # Note that we do not simply set _next_update based on reference_time
         # to avoid drifts.
         self._next_update += (
-            (message.timestamp - self._next_update) // self.update_every + 1
-        ) * self.update_every
+            (message.timestamp - self._next_update) // self.update_every() + 1
+        ) * self.update_every()
         key = message.key
         return [
             Message(
