@@ -180,6 +180,14 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         )
 
     def handle(self, messages: list[Message[T]]) -> list[Message[V]]:
+        # Note an issue here: We preprocess all messages, with a range of timestamps.
+        # If one of the accumulators is a sliding-window accumulator, the cutoff time
+        # will not be precise. I do not expect this to be a problem as long as the
+        # processing time is low since then few messages at a time will be processed.
+        # As event rates go up, however, we will be processing more and more messages
+        # at a time, leading to a larger discrepancy. At this point we may experience
+        # some time-dependent fluctuations in sliding-window results. The mechanism may
+        # need to be revisited if this becomes a problem.
         for message in messages:
             self._preprocess(message)
         # Note that preprocess.get or accumulator.add may be expensive. We may thus ask

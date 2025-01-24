@@ -41,9 +41,7 @@ def test_handler() -> None:
     msg = replace(msg, timestamp=msg.timestamp + int(9e9))
     results = handler.handle([msg])
     assert len(results) == 2
-    # TODO outdated comment
-    # Window contains 3 messages (should be 2, but due to initial update on first
-    # message, we have 3), 4 messages since start.
+    # Window contains 2 messages, 4 messages since start.
     cumulative_value = -1
     sliding_window_value = -1
     for msg in results:
