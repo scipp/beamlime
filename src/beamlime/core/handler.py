@@ -192,8 +192,8 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
             self._preprocess(message)
         # Note that preprocess.get or accumulator.add may be expensive. We may thus ask
         # whether this should only be done when _produce_update is called. This would
-        # however lead to extra latency nad likely even a waste of time in waiting idly
-        # for new messages. Instead, but processing more eagerly the overall mechanism
+        # however lead to extra latency and likely even a waste of time in waiting idly
+        # for new messages. Instead, by processing more eagerly, the overall mechanism
         # is more responsive and will "converge" to a stable state of messages per call.
         # That is, if processing is too expensive for a small number of messages, this
         # delay will lead to more messages to be consumed in the next iteration, driving
