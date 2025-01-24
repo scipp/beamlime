@@ -24,23 +24,24 @@ def test_handler() -> None:
             time_of_arrival=np.array([int(1e6), int(2e6), int(4e7)]), unit='ns'
         ),
     )
-    results = handler.handle(msg)
+    results = handler.handle([msg])
     assert len(results) == 2
     assert sc.identical(results[0].value, results[1].value)
 
-    results = handler.handle(msg)
+    results = handler.handle([msg])
     # No update since we are still in same update interval
     assert len(results) == 0
 
     msg = replace(msg, timestamp=msg.timestamp + int(1.2e9))
-    results = handler.handle(msg)
+    results = handler.handle([msg])
     assert len(results) == 2
     # Everything is still in same window
     assert sc.identical(results[0].value, results[1].value)
 
     msg = replace(msg, timestamp=msg.timestamp + int(9e9))
-    results = handler.handle(msg)
+    results = handler.handle([msg])
     assert len(results) == 2
+    # TODO outdated comment
     # Window contains 3 messages (should be 2, but due to initial update on first
     # message, we have 3), 4 messages since start.
     cumulative_value = -1
@@ -50,4 +51,4 @@ def test_handler() -> None:
             cumulative_value = msg.value
         else:
             sliding_window_value = msg.value
-    assert_identical(3 * cumulative_value, 4 * sliding_window_value)
+    assert_identical(2 * cumulative_value, 4 * sliding_window_value)

@@ -31,10 +31,8 @@ class Handler(Generic[Tin, Tout]):
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
 
-    # TODO It is not clear how to handle output topic naming. Should the handler
-    # take care of this explicitly? Can there be automatic prefixing as with
-    # the config?
-    def handle(self, message: Message[Tin]) -> list[Message[Tout]]:
+    def handle(self, messages: list[Message[Tin]]) -> list[Message[Tout]]:
+        """Handle a list of messages. There is no 1:1 mapping to the output list."""
         raise NotImplementedError
 
 
@@ -181,23 +179,19 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
             convert=lambda raw: int(sc.scalar(**raw).to(unit='ns', copy=False).value),
         )
 
-    def handle(self, message: Message[T]) -> list[Message[V]]:
-        self._preprocess(message)
-        if message.timestamp < self._next_update:
-            return []
-        data = self._preprocessor.get()
-        for accumulator in self._accumulators.values():
-            accumulator.add(timestamp=message.timestamp, data=data)
-        return self._produce_update(message.key, message.timestamp)
-
-    def handle_multiple(self, messages: list[Message[T]]) -> list[Message[V]]:
+    def handle(self, messages: list[Message[T]]) -> list[Message[V]]:
         for message in messages:
             self._preprocess(message)
-        # TODO Have not been too clear about interfaces here. The DetectorView handlers
-        # does expensive compute in `add` while `get` is cheap. But the preprocessors
-        # in Beamlime are cheap in `add` and expensive in `get`. It is therefore not
-        # clear when to accumulate: With every call to this method, or just when
-        # producing updates? Need to come of with a cleaner plan.
+        # Note that preprocess.get or accumulator.add may be expensive. We may thus ask
+        # whether this should only be done when _produce_update is called. This would
+        # however lead to extra latency nad likely even a waste of time in waiting idly
+        # for new messages. Instead, but processing more eagerly the overall mechanism
+        # is more responsive and will "converge" to a stable state of messages per call.
+        # That is, if processing is too expensive for a small number of messages, this
+        # delay will lead to more messages to be consumed in the next iteration, driving
+        # down the number of calls to this method until equilibrium is reached. This can
+        # be demonstrated using a simple model process with an accumulate call that has
+        # a constant + linear-per-message cost.
         data = self._preprocessor.get()
         for accumulator in self._accumulators.values():
             accumulator.add(timestamp=messages[-1].timestamp, data=data)

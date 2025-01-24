@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from typing import Generic, Protocol
 
 from .handler import HandlerFactory, HandlerRegistry
@@ -40,17 +41,12 @@ class StreamProcessor(Generic[Tin, Tout]):
 
     def process(self) -> None:
         messages = self._source.get_messages()
-        results = []
-        # Group messages by key
-        messages_by_key = {}
+        messages_by_key = defaultdict(list)
         for msg in messages:
-            messages_by_key.setdefault(msg.key, []).append(msg)
+            messages_by_key[msg.key].append(msg)
 
+        results = []
         for key, msgs in messages_by_key.items():
             handler = self._handler_registry.get(key)
-            if hasattr(handler, 'handle_multiple'):
-                results.extend(handler.handle_multiple(msgs))
-            else:
-                for msg in msgs:
-                    results.extend(handler.handle(msg))
+            results.extend(handler.handle(msgs))
         self._sink.publish_messages(results)
