@@ -69,7 +69,6 @@ filterwarnings = [
   'ignore:\n.*Sentinel is not a public part of the traitlets API.*:DeprecationWarning',
 ]
 pythonpath = "tests"
-asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 88
