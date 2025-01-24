@@ -26,7 +26,7 @@ from beamlime.kafka.sink import KafkaSink, SerializationError
 
 # Configure detectors to fake for each instrument
 # Values as of January 2025. These may change if the detector configuration changes.
-_detector_config = {
+detector_config = {
     'dummy': {
         'panel_0': (1, 128**2),
     },
@@ -67,14 +67,14 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
         self._tof = sc.linspace('tof', 0, 71_000_000, num=50, unit='ns')
         self._interval_ns = interval_ns
         self._last_message_time = {
-            detector: time.time_ns() for detector in _detector_config[instrument]
+            detector: time.time_ns() for detector in detector_config[instrument]
         }
 
     def _make_normal(self, mean: float, std: float, size: int) -> np.ndarray:
         return self._rng.normal(loc=mean, scale=std, size=size).astype(np.int64)
 
     def _make_ids(self, name: str, size: int) -> np.ndarray:
-        low, high = _detector_config[self._instrument][name]
+        low, high = detector_config[self._instrument][name]
         return self._rng.integers(low=low, high=high + 1, size=size)
 
     def get_messages(self) -> list[Message[sc.Dataset]]:
