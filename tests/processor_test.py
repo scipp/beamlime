@@ -10,11 +10,11 @@ T = TypeVar('T')
 
 
 class ValueToStringHandler(Handler[T, str]):
-    def handle(self, message: Message[T]) -> list[Message[str]]:
-        msg = Message(
-            timestamp=message.timestamp, key='string', value=str(message.value)
-        )
-        return [msg]
+    def handle(self, messages: list[Message[T]]) -> list[Message[str]]:
+        return [
+            Message(timestamp=message.timestamp, key='string', value=str(message.value))
+            for message in messages
+        ]
 
 
 def test_consumes_and_produces_messages() -> None:
