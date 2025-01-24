@@ -112,11 +112,11 @@ def start_and_wait_for_completion(consumer: Ev44Consumer) -> None:
     consumer.reset()
 
 
-@pytest.mark.parametrize('instrument', ['dummy'])
+@pytest.mark.parametrize('instrument', ['dummy', 'nmx', 'loki', 'dream'])
 @pytest.mark.parametrize('events_per_message', [10_000, 100_000, 1_000_000])
 def test_performance(benchmark, instrument: str, events_per_message: int) -> None:
     # There is some caveat in this benchmark: Ev44Consumer has no concept of real time.
-    # It is this always returning messages quickly, which shifts the balance in the
+    # It is thus always returning messages quickly, which shifts the balance in the
     # services to a different place than in reality.
     builder = DataServiceBuilder(
         instrument=instrument,
