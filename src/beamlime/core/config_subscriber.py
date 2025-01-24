@@ -3,6 +3,7 @@
 import json
 import logging
 import threading
+import time
 from typing import Any
 
 from ..kafka.message_adapter import KafkaMessage
@@ -49,7 +50,12 @@ class ConfigSubscriber:
     def _run_loop(self):
         try:
             while self._running:
-                messages = self._consumer.consume(num_messages=100, timeout=0.1)
+                # We previously relied on `consume` blocking unti the timeout, but this
+                # proved problematic in tests where fakes were in use, since it caused
+                # idle spinning consuming CPU. We now use a shorter timeout and sleep,
+                # even though this may never be a problem with a real Kafka consumer.
+                time.sleep(0.01)
+                messages = self._consumer.consume(num_messages=100, timeout=0.05)
                 for msg in messages:
                     self._process_message(msg)
         except RuntimeError as e:

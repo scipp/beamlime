@@ -103,7 +103,7 @@ class Service(ServiceBase):
         processor: Processor,
         name: str | None = None,
         log_level: int = logging.INFO,
-        poll_interval: float = 0.1,
+        poll_interval: float = 0.01,
     ):
         super().__init__(name=name, log_level=log_level)
         self._poll_interval = poll_interval

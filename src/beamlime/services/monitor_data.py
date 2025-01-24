@@ -13,9 +13,8 @@ from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
     ChainedAdapter,
     Da00ToScippAdapter,
-    Ev44ToMonitorEventsAdapter,
     KafkaToDa00Adapter,
-    KafkaToEv44Adapter,
+    KafkaToMonitorEventsAdapter,
     RoutingAdapter,
 )
 from beamlime.kafka.sink import KafkaSink
@@ -34,6 +33,17 @@ def setup_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def make_monitor_data_adapter() -> RoutingAdapter:
+    return RoutingAdapter(
+        routes={
+            'ev44': KafkaToMonitorEventsAdapter(),
+            'da00': ChainedAdapter(
+                first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
+            ),
+        }
+    )
+
+
 def run_service(
     *,
     sink_type: Literal['kafka', 'png'],
@@ -49,22 +59,12 @@ def run_service(
         sink = KafkaSink(kafka_config=kafka_downstream_config)
     else:
         sink = PlotToPngSink()
-    adapter = RoutingAdapter(
-        routes={
-            'ev44': ChainedAdapter(
-                first=KafkaToEv44Adapter(), second=Ev44ToMonitorEventsAdapter()
-            ),
-            'da00': ChainedAdapter(
-                first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
-            ),
-        }
-    )
 
     builder = DataServiceBuilder(
         instrument=instrument,
         name='monitor_data',
         log_level=log_level,
-        adapter=adapter,
+        adapter=make_monitor_data_adapter(),
         handler_factory_cls=CommonHandlerFactory.from_handler(
             create_monitor_data_handler
         ),

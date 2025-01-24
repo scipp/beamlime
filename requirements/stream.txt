@@ -19,7 +19,7 @@ mdurl==0.1.2
     # via markdown-it-py
 platformdirs==4.3.6
     # via textual
-pygments==2.18.0
+pygments==2.19.1
     # via rich
 rich==13.9.4
     # via textual
