@@ -2,9 +2,9 @@
 # Do not make an environment from this file, use test.txt instead!
 
 pytest
+pytest-benchmark
 pytest-cov
 pytest-xdist
-pytest-asyncio
 psutil
 pandas
 pyarrow  # Future hard-dependency of pandas, it can be removed from pandas>3.0

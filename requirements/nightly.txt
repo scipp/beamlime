@@ -6,21 +6,21 @@
 #    pip-compile-multi
 #
 -r basetest.txt
-confluent-kafka==2.6.2
+confluent-kafka==2.8.0
     # via -r nightly.in
 cyclebane==24.10.0
     # via sciline
-ess-streaming-data-types==0.26.1
+ess-streaming-data-types==0.27.0
     # via -r nightly.in
 essreduce @ git+https://github.com/scipp/essreduce@main
     # via -r nightly.in
-flatbuffers==24.3.25
+flatbuffers==25.1.21
     # via ess-streaming-data-types
 h5py==3.12.1
     # via
     #   scippneutron
     #   scippnexus
-jinja2==3.1.4
+jinja2==3.1.5
     # via -r nightly.in
 markupsafe==3.0.2
     # via jinja2
@@ -34,13 +34,13 @@ sciline @ git+https://github.com/scipp/sciline@main
     # via
     #   -r nightly.in
     #   essreduce
-scippneutron==24.12.0
+scippneutron==25.1.0
     # via essreduce
 scippnexus==24.11.1
     # via
     #   essreduce
     #   scippneutron
-scipy==1.14.1
+scipy==1.15.1
     # via
     #   scippneutron
     #   scippnexus
