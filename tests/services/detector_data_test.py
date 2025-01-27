@@ -77,7 +77,7 @@ class Ev44Consumer(KafkaConsumer):
             first, last + 1, self._events_per_message, dtype=np.int32
         )
         # Note empty reference_time. KafkaToEv44Adapter uses message.timestamp(), which
-        # allows use to reuse the serialized content, to avoid seeing the cost in the
+        # allows us to reuse the serialized content, to avoid seeing the cost in the
         # benchmarks.
         return eventdata_ev44.serialise_ev44(
             source_name=name,
