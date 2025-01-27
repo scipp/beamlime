@@ -134,6 +134,8 @@ class DetectorCounts(Accumulator[np.ndarray, sc.DataArray]):
 # Note: Currently no need for a geometry file for NMX since the view is purely logical.
 # DetectorHandlerFactory will fall back to use the detector_number configured in the
 # detector view config.
+# Note: There will be multiple files per instrument, valid for different date ranges.
+# Files should thus not be replaced by making use of the pooch versioning mechanism.
 _registry = {
     'geometry-dream-2025-01-01.nxs': 'md5:91aceb884943c76c0c21400ee74ad9b6',
     'geometry-loki-2025-01-01.nxs': 'md5:e2e48c30ad02dcfa940b7c26885216f2',

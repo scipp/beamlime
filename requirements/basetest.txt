@@ -15,8 +15,6 @@ coverage[toml]==7.6.10
     # via pytest-cov
 cycler==0.12.1
     # via matplotlib
-exceptiongroup==1.2.2
-    # via pytest
 execnet==2.1.1
     # via pytest-xdist
 fonttools==4.55.5
