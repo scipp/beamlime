@@ -52,11 +52,7 @@ def run_service(
     adapter = ChainedAdapter(
         first=KafkaToEv44Adapter(), second=Ev44ToDetectorEventsAdapter()
     )
-    handler_factory_cls = partial(
-        DetectorHandlerFactory,
-        nexus_file=config.get('nexus_file'),
-        instrument=instrument,
-    )
+    handler_factory_cls = partial(DetectorHandlerFactory, instrument=instrument)
 
     builder = DataServiceBuilder(
         instrument=instrument,

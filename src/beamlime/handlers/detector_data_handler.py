@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import pathlib
+import re
 from typing import Any
 
 import numpy as np
@@ -39,21 +41,22 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
 
     Handlers are created based on the instrument name in the message key which should
     identify the detector name. Depending on the configured detector views a NeXus file
-    with geometry information may be required to setup the view.
+    with geometry information may be required to setup the view. Currently the NeXus
+    files are always obtained via Pooch. Note that this may need to be refactored to a
+    more dynamic approach in the future.
     """
 
     def __init__(
         self,
         *,
         instrument: str,
-        nexus_file: str | None,
         logger: logging.Logger | None = None,
         config: Config,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
         self._detector_config = detector_registry[instrument]['detectors']
-        self._nexus_file = nexus_file
+        self._nexus_file = _try_get_nexus_geometry_filename(instrument)
         self._window_length = 10
 
     def _key_to_detector_name(self, key: MessageKey) -> str:
@@ -126,3 +129,70 @@ class DetectorCounts(Accumulator[np.ndarray, sc.DataArray]):
 
     def clear(self) -> None:
         self._det.clear_counts()
+
+
+# Note: Currently no need for a geometry file for NMX since the view is purely logical.
+# DetectorHandlerFactory will fall back to use the detector_number configured in the
+# detector view config.
+# Note: There will be multiple files per instrument, valid for different date ranges.
+# Files should thus not be replaced by making use of the pooch versioning mechanism.
+_registry = {
+    'geometry-dream-2025-01-01.nxs': 'md5:91aceb884943c76c0c21400ee74ad9b6',
+    'geometry-loki-2025-01-01.nxs': 'md5:e2e48c30ad02dcfa940b7c26885216f2',
+}
+
+
+def _make_pooch():
+    import pooch
+
+    return pooch.create(
+        path=pooch.os_cache('beamlime'),
+        env='BEAMLIME_DATA_DIR',
+        retry_if_failed=3,
+        base_url='https://public.esss.dk/groups/scipp/beamlime/geometry/',
+        version='0',
+        registry=_registry,
+    )
+
+
+def _parse_filename_lut(instrument: str) -> sc.DataArray:
+    """
+    Returns a scipp DataArray with datetime index and filename values.
+    """
+    registry = [name for name in _registry if instrument in name]
+    if not registry:
+        raise ValueError(f'No geometry files found for instrument {instrument}')
+    pattern = re.compile(r'(\d{4}-\d{2}-\d{2})')
+    dates = [
+        pattern.search(entry).group(1) for entry in registry if pattern.search(entry)
+    ]
+    datetimes = sc.datetimes(dims=['datetime'], values=[*dates, '9999-12-31'], unit='s')
+    return sc.DataArray(
+        sc.array(dims=['datetime'], values=registry), coords={'datetime': datetimes}
+    )
+
+
+def get_nexus_geometry_filename(
+    instrument: str, date: sc.Variable | None = None
+) -> pathlib.Path:
+    """
+    Get filename for NeXus file based on instrument and date.
+
+    The file is fetched and cached with Pooch.
+    """
+    _pooch = _make_pooch()
+    dt = (date if date is not None else sc.datetime('now')).to(unit='s')
+    try:
+        filename = _parse_filename_lut(instrument)['datetime', dt].value
+    except IndexError:
+        raise ValueError(f'No geometry file found for given date {date}') from None
+    return pathlib.Path(_pooch.fetch(filename))
+
+
+def _try_get_nexus_geometry_filename(
+    instrument: str, date: sc.Variable | None = None
+) -> pathlib.Path | None:
+    try:
+        return get_nexus_geometry_filename(instrument, date)
+    except ValueError:
+        return None
