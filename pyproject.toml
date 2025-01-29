@@ -39,17 +39,20 @@ dependencies = [
 
 dynamic = ["version"]
 
-[project.urls]
-"Bug Tracker" = "https://github.com/scipp/beamlime/issues"
-"Documentation" = "https://scipp.github.io/beamlime"
-"Source" = "https://github.com/scipp/beamlime"
-
 [project.optional-dependencies]
+test = [
+    "pytest",
+]
 dashboard = [
   "dash",
   "gunicorn",
   "plotly",
 ]
+
+[project.urls]
+"Bug Tracker" = "https://github.com/scipp/beamlime/issues"
+"Documentation" = "https://scipp.github.io/beamlime"
+"Source" = "https://github.com/scipp/beamlime"
 
 [tool.setuptools_scm]
 
@@ -85,13 +88,12 @@ ignore = [
     # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
     "COM812", "COM819", "D206", "D300", "E111", "E114", "E117", "ISC001", "ISC002", "Q000", "Q001", "Q002", "Q003", "W191",
 ]
-fixable = ["I001", "B010"]
+fixable = ["B010", "I001", "PT001", "RUF022"]
 isort.known-first-party = ["beamlime"]
 pydocstyle.convention = "numpy"
 
 [tool.ruff.lint.per-file-ignores]
 # those files have an increased risk of relying on import order
-"__init__.py" = ["I"]
 "tests/*" = [
     "S101",  # asserts are fine in tests
     "B018",  # 'useless expressions' are ok because some tests just check for exceptions
@@ -123,3 +125,11 @@ dummy = "beamlime.workflow_protocols:DummyLiveWorkflow"
 
 [tool.setuptools.package-data]
 "beamlime.config.defaults" = ["*.yaml", "*.yaml.jinja"]
+
+[tool.codespell]
+ignore-words-list = [
+    # Codespell wants "socioeconomic" which seems to be the standard spelling.
+    # But we use the word in our code of conduct which is the contributor covenant.
+    # Let's not modify it if we don't have to.
+    "socio-economic",
+]

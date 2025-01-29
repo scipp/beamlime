@@ -4,11 +4,13 @@ dist
 html
 .tox
 *.egg-info
+uv.lock  # we lock dependencies with pip-compile, not uv
 
 *.sw?
 
 # Environments
 venv
+.venv
 
 # Caches
 .clangd/
@@ -45,3 +47,6 @@ docs/generated/
 .coverage
 coverate_html
 .benchmarks/
+*.zip
+*.sqw
+*.nxspe

@@ -9,10 +9,8 @@ source:
 
 {% set pyproject = load_file_data('pyproject.toml') %}
 {% set dependencies = pyproject.get('project', {}).get('dependencies', {}) %}
-{% set conda_package_name_registry = {
-    "graphviz": "python-graphviz",
-    "confluent_kafka": "python-confluent-kafka"
-} %}
+{% set test_dependencies = pyproject.get('project', {}).get('optional-dependencies', {}).get('test', {}) %}
+
 
 requirements:
   build:
@@ -32,6 +30,7 @@ test:
   imports:
     - beamlime
   requires:
+<<<<<<< before updating
     - pytest
     - pytest-asyncio
     - psutil
@@ -43,6 +42,17 @@ test:
     - sciline
     - essreduce
     - pooch
+||||||| last update
+    - pytest
+=======
+
+  {# Conda does not allow spaces between package name and version, so remove them #}
+  {% for package in test_dependencies %}
+    - {% if package == "graphviz" %}python-graphviz{% else %}{{ package|replace(" ", "") }}{% endif %}
+  {% endfor %}
+
+
+>>>>>>> after updating
   source_files:
     - pyproject.toml
     - tests/

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-# ruff: noqa: E402
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+# ruff: noqa: E402, F401, I
 
 import importlib.metadata
 
@@ -14,32 +14,32 @@ del importlib
 from .core import (
     CommonHandlerFactory,
     ConfigSubscriber,
+    Handler,
+    Message,
+    MessageKey,
+    MessageSink,
+    MessageSource,
+    Processor,
     Service,
     ServiceBase,
-    Processor,
-    Handler,
     StreamProcessor,
-    MessageKey,
-    MessageSource,
-    MessageSink,
-    Message,
     compact_messages,
 )
-from .workflow_protocols import WorkflowResult, LiveWorkflow
+from .workflow_protocols import LiveWorkflow, WorkflowResult
 
 __all__ = [
-    'compact_messages',
-    'CommonHandlerFactory',
-    'ConfigSubscriber',
-    'Handler',
-    'LiveWorkflow',
-    'Message',
-    'MessageKey',
-    'MessageSink',
-    'MessageSource',
-    'Processor',
-    'Service',
-    'ServiceBase',
-    'StreamProcessor',
-    'WorkflowResult',
+    "CommonHandlerFactory",
+    "ConfigSubscriber",
+    "Handler",
+    "LiveWorkflow",
+    "Message",
+    "MessageKey",
+    "MessageSink",
+    "MessageSource",
+    "Processor",
+    "Service",
+    "ServiceBase",
+    "StreamProcessor",
+    "WorkflowResult",
+    "compact_messages",
 ]
