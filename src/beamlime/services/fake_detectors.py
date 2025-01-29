@@ -122,9 +122,9 @@ T = TypeVar('T')
 
 
 class IdentityHandler(Handler[T, T]):
-    def handle(self, message: Message[T]) -> list[Message[T]]:
+    def handle(self, messages: list[Message[T]]) -> list[Message[T]]:
         # We know the message does not originate from Kafka, so we can keep the key
-        return [message]
+        return messages
 
 
 def serialize_detector_events_to_ev44(

@@ -88,9 +88,9 @@ T = TypeVar('T')
 
 
 class IdentityHandler(Handler[T, T]):
-    def handle(self, message: Message[T]) -> list[Message[T]]:
+    def handle(self, messages: list[Message[T]]) -> list[Message[T]]:
         # We know the message does not originate from Kafka, so we can keep the key
-        return [message]
+        return messages
 
 
 def serialize_variable_to_monitor_ev44(msg: Message[sc.Variable]) -> bytes:
