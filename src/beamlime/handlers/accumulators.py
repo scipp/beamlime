@@ -130,8 +130,10 @@ class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
 
 
 # TODO
-# - update RollingDetectorView
-# - add ROI accumulator producing a TOA histogram
+# ROI (screen coords) needs to processed by detector view into pixel ids. What if there
+# are multiple views? make it a two-step process?
+# 1. command sent and handled by detector view to produce pixel ids
+# 2. pixel ids sent as a separate message to the accumulator?
 class GroupIntoPixels(Accumulator[DetectorEvents, sc.DataArray]):
     def __init__(self, config: Config, detector_number: sc.Variable):
         self._config = config
@@ -164,6 +166,51 @@ class GroupIntoPixels(Accumulator[DetectorEvents, sc.DataArray]):
         )
         self._chunks.clear()
         return da.group(self._detector_number)
+
+    def clear(self) -> None:
+        self._chunks.clear()
+
+
+class TOAHistogrammerROI(Accumulator[sc.DataArray, sc.DataArray]):
+    def __init__(self, config: Config):
+        self._config = config
+        self._chunks: list[sc.DataArray] = []
+        # TODO Currently this is an index, not a detector_number.
+        # Should we create a boolean mask instead?
+        self._roi = ConfigValueAccessor(
+            config=config,
+            key='roi',
+            default=[100],
+            convert=lambda raw: np.asarray(raw, dtype='int32'),
+        )
+        self._nbin = -1
+        self._edges: sc.Variable | None = None
+        self._edges_ns: sc.Variable | None = None
+
+    def _check_for_config_updates(self) -> None:
+        nbin = self._config.get('time_of_arrival_bins', 100)
+        if self._edges is None or nbin != self._nbin:
+            self._nbin = nbin
+            self._edges = sc.linspace(
+                'time_of_arrival', 0.0, 1000 / 14, num=nbin, unit='ms'
+            )
+            self._edges_ns = self._edges.to(unit='ns')
+            self.clear()
+
+    def add(self, timestamp: int, data: sc.DataArray) -> None:
+        self._check_for_config_updates()
+        # Note that the preprocessor does *not* add weights of 1 (unlike NeXus loaders).
+        # Instead, the data column of the content corresponds to the time of arrival.
+        # TODO Check if it is faster to add weights and histogram the binned data.
+        toa = data[self._roi()].bins.constituents['data'].data
+        chunk = toa.hist(time_of_arrival=self._edges_ns)
+        self._chunks.append(chunk)
+
+    def get(self) -> sc.DataArray:
+        da = sc.reduce(self._chunks).sum()
+        self._chunks.clear()
+        da.coords['time_of_arrival'] = self._edges
+        return da
 
     def clear(self) -> None:
         self._chunks.clear()

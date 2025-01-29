@@ -25,7 +25,12 @@ from ..core.handler import (
     PeriodicAccumulatingHandler,
 )
 from ..core.message import MessageKey
-from .accumulators import DetectorEvents, GroupIntoPixels, NullAccumulator
+from .accumulators import (
+    DetectorEvents,
+    GroupIntoPixels,
+    NullAccumulator,
+    TOAHistogrammerROI,
+)
 
 detector_registry = {
     'dummy': dummy_detectors_config,
@@ -111,6 +116,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
             preprocessor = GroupIntoPixels(
                 config=self._config, detector_number=detector_number
             )
+            accumulators['roi_histogram'] = TOAHistogrammerROI(config=self._config)
         return PeriodicAccumulatingHandler(
             logger=self._logger,
             config=self._config,
