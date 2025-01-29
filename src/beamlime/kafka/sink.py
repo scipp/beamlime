@@ -17,8 +17,6 @@ T = TypeVar("T")
 class SerializationError(Exception):
     """Raised when serialization of a message fails."""
 
-    pass
-
 
 class Serializer(Protocol, Generic[T]):
     def __call__(self, value: Message[T]) -> bytes: ...

@@ -27,7 +27,7 @@ def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -
         key=MessageKey(topic='abcde', source_name='ignored'),
         value=events,
     )
-    results = handler.handle(message)
+    results = handler.handle([message])
     assert len(results) == 1
     counts = results[0].value.sum().data
     assert sc.identical(counts, sc.scalar(3, unit='counts', dtype='int32'))

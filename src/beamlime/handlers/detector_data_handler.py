@@ -138,7 +138,7 @@ class DetectorCounts(Accumulator[np.ndarray, sc.DataArray]):
 # Files should thus not be replaced by making use of the pooch versioning mechanism.
 _registry = {
     'geometry-dream-2025-01-01.nxs': 'md5:91aceb884943c76c0c21400ee74ad9b6',
-    'geometry-loki-2025-01-01.nxs': 'md5:e2e48c30ad02dcfa940b7c26885216f2',
+    'geometry-loki-2025-01-01.nxs': 'md5:8d0e103276934a20ba26bb525e53924a',
 }
 
 

@@ -28,8 +28,8 @@ class ForwardingAdapter(MessageAdapter[KafkaMessage, Message[int]]):
 
 
 class ForwardingHandler(Handler[int, int]):
-    def handle(self, message: Message[int]) -> list[Message[int]]:
-        return [message]
+    def handle(self, messages: list[Message[int]]) -> list[Message[int]]:
+        return messages
 
 
 class EmptyConsumer(KafkaConsumer):
