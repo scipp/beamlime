@@ -25,7 +25,7 @@ from ..core.handler import (
     PeriodicAccumulatingHandler,
 )
 from ..core.message import MessageKey
-from .accumulators import DetectorEvents, PixelIDMerger
+from .accumulators import DetectorEvents, GroupIntoPixels, NullAccumulator
 
 detector_registry = {
     'dummy': dummy_detectors_config,
@@ -104,7 +104,13 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
             f'sliding_{name}': DetectorCounts(config=self._config, detector_view=view)
             for name, view in views.items()
         }
-        preprocessor = PixelIDMerger(config=self._config)
+        if not accumulators:
+            preprocessor = NullAccumulator()
+        else:
+            detector_number = next(iter(views.values()))._flat_detector_number
+            preprocessor = GroupIntoPixels(
+                config=self._config, detector_number=detector_number
+            )
         return PeriodicAccumulatingHandler(
             logger=self._logger,
             config=self._config,

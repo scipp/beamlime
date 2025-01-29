@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import scipp as sc
@@ -53,6 +54,17 @@ class DetectorEvents:
         return DetectorEvents(
             pixel_id=ev44.pixel_id, time_of_arrival=ev44.time_of_flight, unit='ns'
         )
+
+
+class NullAccumulator(Accumulator[Any, None]):
+    def add(self, timestamp: int, data: Any) -> None:
+        pass
+
+    def get(self) -> None:
+        return None
+
+    def clear(self) -> None:
+        pass
 
 
 class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
@@ -117,34 +129,41 @@ class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
         self._chunks = [c for c in self._chunks if latest - c.timestamp <= max_age]
 
 
-class PixelIDMerger(Accumulator[DetectorEvents, np.array]):
-    def __init__(self, config: Config):
+# TODO
+# - update RollingDetectorView
+# - add ROI accumulator producing a TOA histogram
+class GroupIntoPixels(Accumulator[DetectorEvents, sc.DataArray]):
+    def __init__(self, config: Config, detector_number: sc.Variable):
         self._config = config
-        self._chunks: list[np.ndarray] = []
-        # TODO This will be set via a config option, in other words, the control topic
-        # by the user. This mechanism is currently not implemented.
-        self._toa_range: tuple[float, float] | None = None
-
-    def _filter_by_toa(self, toa: np.ndarray, pixel_id: np.ndarray) -> np.ndarray:
-        if self._toa_range is None:
-            return pixel_id
-        else:
-            start, end = self._toa_range
-            mask = (toa >= start) & (toa < end)
-            return pixel_id[mask]
+        self._chunks: list[DetectorEvents] = []
+        self._toa_unit = 'ns'
+        self._detector_number = detector_number.rename_dims(
+            {detector_number.dim: 'detector_number'}
+        )
 
     def add(self, timestamp: int, data: DetectorEvents) -> None:
         # timestamp in function signature is required for compliance with Accumulator
         # interface.
         _ = timestamp
-        ids = self._filter_by_toa(data.time_of_arrival, data.pixel_id)
-        self._chunks.append(ids)
+        # We could easily support other units, but ev44 is always in ns so this should
+        # never happen.
+        if data.unit != self._toa_unit:
+            raise ValueError(f"Expected unit '{self._toa_unit}', got '{data.unit}'")
+        self._chunks.append(data)
 
-    def get(self) -> np.array:
-        # Could optimize the concatenate by reusing a buffer.
-        events = np.concatenate(self._chunks or [[]])
+    def get(self) -> sc.DataArray:
+        # Could optimize the concatenate by reusing a buffer (directly write to it in
+        # self.add).
+        pixel_ids = np.concatenate([c.pixel_id for c in self._chunks])
+        time_of_arrival = np.concatenate([c.time_of_arrival for c in self._chunks])
+        da = sc.DataArray(
+            data=sc.array(dims=['event'], values=time_of_arrival, unit=self._toa_unit),
+            coords={
+                'detector_number': sc.array(dims=['event'], values=pixel_ids, unit=None)
+            },
+        )
         self._chunks.clear()
-        return events
+        return da.group(self._detector_number)
 
     def clear(self) -> None:
         self._chunks.clear()
