@@ -17,23 +17,6 @@ class Config(Protocol):
         pass
 
 
-class ConfigProxy:
-    """Proxy for accessing configuration, prefixed with a namespace."""
-
-    def __init__(self, config: Config, *, namespace: str):
-        self._config = config
-        self._namespace = namespace
-
-    def get(self, key: str, default: Any | None = None) -> Any:
-        """
-        Look for the key with the namespace prefix, and fall back to the key without
-        the prefix if not found. If neither is found, return the default.
-        """
-        return self._config.get(
-            f'{self._namespace}.{key}', self._config.get(key, default)
-        )
-
-
 class Handler(Generic[Tin, Tout]):
     """
     Base class for message handlers.
@@ -48,10 +31,8 @@ class Handler(Generic[Tin, Tout]):
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
 
-    # TODO It is not clear how to handle output topic naming. Should the handler
-    # take care of this explicitly? Can there be automatic prefixing as with
-    # the config?
-    def handle(self, message: Message[Tin]) -> list[Message[Tout]]:
+    def handle(self, messages: list[Message[Tin]]) -> list[Message[Tout]]:
+        """Handle a list of messages. There is no 1:1 mapping to the output list."""
         raise NotImplementedError
 
 
@@ -77,9 +58,7 @@ class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
         self._handler_cls = handler_cls
 
     def make_handler(self, key: MessageKey) -> Handler[Tin, Tout]:
-        return self._handler_cls(
-            logger=self._logger, config=ConfigProxy(self._config, namespace=key)
-        )
+        return self._handler_cls(logger=self._logger, config=self._config)
 
     @staticmethod
     def from_handler(
@@ -135,6 +114,40 @@ class Accumulator(Protocol, Generic[T, U]):
         pass
 
 
+class ConfigValueAccessor:
+    """
+    Access a dynamic configuration value and convert it on demand.
+
+    Avoids unnecessary conversions if the value has not changed.
+
+    Parameters
+    ----------
+    config:
+        Configuration object.
+    key:
+        Key in the configuration.
+    default:
+        Default value if the key is not found.
+    convert:
+        Function to convert the raw value to the desired type.
+    """
+
+    def __init__(self, config: Config, key: str, default: T, convert: Callable[[T], U]):
+        self._config = config
+        self._key = key
+        self._default = default
+        self._convert = convert
+        self._raw_value: T | None = None
+        self._value: U | None = None
+
+    def __call__(self) -> U:
+        raw_value = self._config.get(self._key, self._default)
+        if raw_value != self._raw_value:
+            self._raw_value = raw_value
+            self._value = self._convert(raw_value)
+        return self._value
+
+
 class PeriodicAccumulatingHandler(Handler[T, U]):
     """
     Handler that accumulates data over time and emits the accumulated data periodically.
@@ -153,43 +166,67 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         self._accumulators = accumulators
         self._next_update = 0
         self._last_clear = 0
+        self.start_time = ConfigValueAccessor(
+            config=config,
+            key='start_time',
+            default={'value': 0, 'unit': 'ns'},
+            convert=lambda raw: int(sc.scalar(**raw).to(unit='ns', copy=False).value),
+        )
+        self.update_every = ConfigValueAccessor(
+            config=config,
+            key='update_every',
+            default={'value': 1.0, 'unit': 's'},
+            convert=lambda raw: int(sc.scalar(**raw).to(unit='ns', copy=False).value),
+        )
 
-    @property
-    def update_every(self) -> int:
-        """Update interval in nanoseconds, based on dynamic config value."""
-        raw = self._config.get('update_every', {'value': 1.0, 'unit': 's'})
-        return int(sc.scalar(**raw).to(unit='ns', copy=False).value)
+    def handle(self, messages: list[Message[T]]) -> list[Message[V]]:
+        # Note an issue here: We preprocess all messages, with a range of timestamps.
+        # If one of the accumulators is a sliding-window accumulator, the cutoff time
+        # will not be precise. I do not expect this to be a problem as long as the
+        # processing time is low since then few messages at a time will be processed.
+        # As event rates go up, however, we will be processing more and more messages
+        # at a time, leading to a larger discrepancy. At this point we may experience
+        # some time-dependent fluctuations in sliding-window results. The mechanism may
+        # need to be revisited if this becomes a problem.
+        for message in messages:
+            self._preprocess(message)
+        # Note that preprocess.get or accumulator.add may be expensive. We may thus ask
+        # whether this should only be done when _produce_update is called. This would
+        # however lead to extra latency and likely even a waste of time in waiting idly
+        # for new messages. Instead, by processing more eagerly, the overall mechanism
+        # is more responsive and will "converge" to a stable state of messages per call.
+        # That is, if processing is too expensive for a small number of messages, this
+        # delay will lead to more messages to be consumed in the next iteration, driving
+        # down the number of calls to this method until equilibrium is reached. This can
+        # be demonstrated using a simple model process with an accumulate call that has
+        # a constant + linear-per-message cost.
+        data = self._preprocessor.get()
+        for accumulator in self._accumulators.values():
+            accumulator.add(timestamp=messages[-1].timestamp, data=data)
+        if messages[-1].timestamp < self._next_update:
+            return []
+        return self._produce_update(messages[-1].key, messages[-1].timestamp)
 
-    @property
-    def start_time(self) -> int:
-        """Start time in nanoseconds, based on dynamic config value."""
-        raw = self._config.get('start_time', {'value': 0, 'unit': 'ns'})
-        return int(sc.scalar(**raw).to(unit='ns', copy=False).value)
-
-    def handle(self, message: Message[T]) -> list[Message[V]]:
-        if self.start_time > self._last_clear:
+    def _preprocess(self, message: Message[T]) -> None:
+        if self.start_time() > self._last_clear:
             self._preprocessor.clear()
             for accumulator in self._accumulators.values():
                 accumulator.clear()
-            self._last_clear = self.start_time
+            self._last_clear = self.start_time()
             # Set next update to current message to avoid lag in user experience.
             self._next_update = message.timestamp
         self._preprocessor.add(message.timestamp, message.value)
-        if message.timestamp < self._next_update:
-            return []
-        data = self._preprocessor.get()
-        for accumulator in self._accumulators.values():
-            accumulator.add(timestamp=message.timestamp, data=data)
+
+    def _produce_update(self, key: MessageKey, timestamp: int) -> None:
         # If there were no pulses for a while we need to skip several updates.
         # Note that we do not simply set _next_update based on reference_time
         # to avoid drifts.
         self._next_update += (
-            (message.timestamp - self._next_update) // self.update_every + 1
-        ) * self.update_every
-        key = message.key
+            (timestamp - self._next_update) // self.update_every() + 1
+        ) * self.update_every()
         return [
             Message(
-                timestamp=message.timestamp,
+                timestamp=timestamp,
                 key=replace(
                     key,
                     topic=f'{key.topic}_processed',
