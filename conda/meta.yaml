@@ -30,29 +30,12 @@ test:
   imports:
     - beamlime
   requires:
-<<<<<<< before updating
-    - pytest
-    - pytest-asyncio
-    - psutil
-    - pandas
-    - pyarrow  # Future hard-dependency of pandas, it can be removed from pandas>3.0
-    - numpy
-    - scipp
-    - plopp
-    - sciline
-    - essreduce
-    - pooch
-||||||| last update
-    - pytest
-=======
-
   {# Conda does not allow spaces between package name and version, so remove them #}
   {% for package in test_dependencies %}
     - {% if package == "graphviz" %}python-graphviz{% else %}{{ package|replace(" ", "") }}{% endif %}
   {% endfor %}
 
 
->>>>>>> after updating
   source_files:
     - pyproject.toml
     - tests/
