@@ -55,7 +55,7 @@ def reconstruct_nested_dataclass(
 ) -> D:
     """Reconstructs dataclass object from a dictionary.
 
-    This helper works only if the signiture of ``__init__`` method is not overwritten
+    This helper works only if the signature of ``__init__`` method is not overwritten
     and all dataclass attributes are directly accessible from the object.
 
     For example, it will not reconstruct a dataclass if it is in a list or dictionary.

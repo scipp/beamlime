@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: 86a1e5c
+_commit: 4180f34
 _src_path: gh:scipp/copier_template
 description: Live data reduction visualisation framework for ESS.
 max_python: '3.12'
@@ -9,5 +9,5 @@ nightly_deps: scipp,sciline,plopp,essreduce
 orgname: scipp
 prettyname: Beamlime
 projectname: beamlime
-related_projects: Scipp,Sciline,Plopp,Essreduce
-year: 2024
+related_projects: Scipp,Sciline,Plopp,ESSreduce
+year: 2025

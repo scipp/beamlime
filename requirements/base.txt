@@ -15,11 +15,11 @@ cycler==0.12.1
     # via matplotlib
 ess-streaming-data-types==0.27.0
     # via -r base.in
-essreduce==24.12.0
+essreduce==25.1.0
     # via -r base.in
-flatbuffers==25.1.21
+flatbuffers==25.1.24
     # via ess-streaming-data-types
-fonttools==4.55.5
+fonttools==4.55.7
     # via matplotlib
 h5py==3.12.1
     # via

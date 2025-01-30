@@ -6,7 +6,7 @@ from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 
 
-@pytest.fixture()
+@pytest.fixture
 def _upstream_env_setup(monkeypatch):
     """Setup environment variables needed for tests"""
     env_vars = {
@@ -20,7 +20,7 @@ def _upstream_env_setup(monkeypatch):
         monkeypatch.setenv(key, value)
 
 
-@pytest.fixture()
+@pytest.fixture
 def _downstream_env_setup(monkeypatch):
     """Setup environment variables needed for tests"""
     env_vars = {
