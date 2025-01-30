@@ -171,7 +171,7 @@ class GroupIntoPixels(Accumulator[DetectorEvents, sc.DataArray]):
         self._chunks.clear()
 
 
-class TOAHistogrammerROI(Accumulator[sc.DataArray, sc.DataArray]):
+class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config):
         self._config = config
         self._chunks: list[sc.DataArray] = []

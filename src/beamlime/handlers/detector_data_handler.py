@@ -29,7 +29,7 @@ from .accumulators import (
     DetectorEvents,
     GroupIntoPixels,
     NullAccumulator,
-    TOAHistogrammerROI,
+    ROIBasedTOAHistogram,
 )
 
 detector_registry = {
@@ -116,7 +116,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
             preprocessor = GroupIntoPixels(
                 config=self._config, detector_number=detector_number
             )
-            accumulators['roi_histogram'] = TOAHistogrammerROI(config=self._config)
+            accumulators['roi_histogram'] = ROIBasedTOAHistogram(config=self._config)
         return PeriodicAccumulatingHandler(
             logger=self._logger,
             config=self._config,
