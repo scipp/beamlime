@@ -122,19 +122,19 @@ def large_file_test(request: pytest.FixtureRequest) -> Literal[True]:
     return True
 
 
-@pytest.fixture()
+@pytest.fixture
 def ymir() -> dict:
     with open(get_path('ymir_detectors.json')) as f:
         data = json.load(f)
     return data
 
 
-@pytest.fixture()
+@pytest.fixture
 def ymir_static_file() -> str:
     return str(get_path("ymir_detectors.nxs").as_posix())
 
 
-@pytest.fixture()
+@pytest.fixture
 def loki(large_file_test: bool) -> dict:
     assert large_file_test
     with open(get_path('loki.json')) as f:

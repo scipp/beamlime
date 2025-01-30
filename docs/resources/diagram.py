@@ -9,7 +9,7 @@ from diagrams.onprem.queue import Kafka
 with Diagram(name="Livesteram Data Reduction System Overview", show=False):
     with Cluster("Instrument VM"):
         ps_control = Monitoring("Process Controller \n(backend)")
-        config = Audit("Congfiguration")
+        config = Audit("Configuration")
 
         with Cluster("visualisation"):
             web_browser = ObjectStorage("Web Browser")
