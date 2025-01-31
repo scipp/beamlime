@@ -131,13 +131,16 @@ class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
 
 
 class GroupIntoPixels(Accumulator[DetectorEvents, sc.DataArray]):
-    def __init__(self, config: Config, detector_number: sc.Variable):
+    def __init__(
+        self, config: Config, detector_number: sc.Variable, sizes: dict[str, int]
+    ):
         self._config = config
         self._chunks: list[DetectorEvents] = []
         self._toa_unit = 'ns'
         self._detector_number = detector_number.rename_dims(
             {detector_number.dim: 'detector_number'}
         )
+        self._sizes = sizes
 
     def add(self, timestamp: int, data: DetectorEvents) -> None:
         # timestamp in function signature is required for compliance with Accumulator
@@ -161,7 +164,9 @@ class GroupIntoPixels(Accumulator[DetectorEvents, sc.DataArray]):
             },
         )
         self._chunks.clear()
-        return da.group(self._detector_number)
+        return da.group(self._detector_number).fold(
+            dim='detector_number', sizes=self._sizes
+        )
 
     def clear(self) -> None:
         self._chunks.clear()

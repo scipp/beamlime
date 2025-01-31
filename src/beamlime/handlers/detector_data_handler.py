@@ -111,9 +111,11 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         if not accumulators:
             preprocessor = NullAccumulator()
         else:
-            detector_number = next(iter(views.values()))._flat_detector_number
+            view = next(iter(views.values()))
+            detector_number = view._flat_detector_number
+            sizes = view.data.sizes
             preprocessor = GroupIntoPixels(
-                config=self._config, detector_number=detector_number
+                config=self._config, detector_number=detector_number, sizes=sizes
             )
         for name, view in views.items():
             accumulators[f'{name}_ROI'] = ROIBasedTOAHistogram(
