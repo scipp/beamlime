@@ -134,7 +134,7 @@ class DetectorCounts(Accumulator[np.ndarray, sc.DataArray]):
 
     def add(self, timestamp: int, data: np.ndarray) -> None:
         _ = timestamp
-        self._det.add_counts(data)
+        self._det.add_events(data)
 
     def get(self) -> sc.DataArray:
         return self._det.get()
