@@ -171,22 +171,27 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config, roi_filter: ROIFilter):
         self._config = config
         self._roi_filter = roi_filter
-        dims = self._roi_filter._indices.dims
-        self._roi_filter.set_roi_from_intervals(
-            sc.DataGroup({dim: (50, 60) for dim in dims})
-        )
         self._chunks: list[sc.DataArray] = []
-        # TODO Currently this is an index, not a detector_number.
-        # Should we create a boolean mask instead?
-        self._roi = ConfigValueAccessor(
+
+        # Note: Currently we are using the same ROI config values for all detector
+        # handlers ands views. This is for demo purposes and will be replaced by a more
+        # flexible configuration in the future.
+        self._roi_x = ConfigValueAccessor(
             config=config,
-            key='roi',
-            default=[100],
-            convert=lambda raw: np.asarray(raw, dtype='int32'),
+            key='roi_x',
+            default={'min': 0.0, 'max': 0.0},
+            convert=lambda raw: (raw['min'], raw['max']),
+        )
+        self._roi_y = ConfigValueAccessor(
+            config=config,
+            key='roi_y',
+            default={'min': 0.0, 'max': 0.0},
+            convert=lambda raw: (raw['min'], raw['max']),
         )
         self._nbin = -1
         self._edges: sc.Variable | None = None
         self._edges_ns: sc.Variable | None = None
+        self._current_roi = None
 
     def _check_for_config_updates(self) -> None:
         nbin = self._config.get('time_of_arrival_bins', 100)
@@ -197,6 +202,23 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
             )
             self._edges_ns = self._edges.to(unit='ns')
             self.clear()
+
+        # Access to protected variables should hopefully be avoided by changing the
+        # config values to send indices instead of percentages, once we have per-view
+        # configuration.
+        y, x = self._roi_filter._indices.dims
+        sizes = self._roi_filter._indices.sizes
+        y_min, y_max = self._roi_y()
+        x_min, x_max = self._roi_x()
+        # Convert fraction to indices
+        y_indices = (int(y_min * (sizes[y] - 1)), int(y_max * (sizes[y] - 1)))
+        x_indices = (int(x_min * (sizes[x] - 1)), int(x_max * (sizes[x] - 1)))
+        new_roi = {y: y_indices, x: x_indices}
+
+        if new_roi != self._current_roi:
+            self._current_roi = new_roi
+            self._roi_filter.set_roi_from_intervals(sc.DataGroup(new_roi))
+            self.clear()  # Clear accumulated data when ROI changes
 
     def _add_weights(self, data: sc.DataArray) -> None:
         constituents = data.bins.constituents

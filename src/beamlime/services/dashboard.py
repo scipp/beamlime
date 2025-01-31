@@ -139,6 +139,24 @@ class DashboardApp(ServiceBase):
                 marks={i: str(i) for i in range(0, 1001, 100)},
                 disabled=True,
             ),
+            html.Label('ROI X-axis (%)'),
+            dcc.RangeSlider(
+                id='roi-x',
+                min=0,
+                max=100,
+                step=1,
+                value=[45, 55],
+                marks={i: str(i) for i in range(0, 101, 20)},
+            ),
+            html.Label('ROI Y-axis (%)'),
+            dcc.RangeSlider(
+                id='roi-y',
+                min=0,
+                max=100,
+                step=1,
+                value=[45, 55],
+                marks={i: str(i) for i in range(0, 101, 20)},
+            ),
             html.Button('Clear', id='clear-button', n_clicks=0),
         ]
         self._app.layout = html.Div(
@@ -179,6 +197,45 @@ class DashboardApp(ServiceBase):
             Output('clear-button', 'n_clicks'), Input('clear-button', 'n_clicks')
         )(self.clear_data)
 
+        self._app.callback(
+            Output('roi-x', 'value'),
+            Output('roi-y', 'value'),
+            Input('roi-x', 'value'),
+            Input('roi-y', 'value'),
+        )(self.update_roi)
+
+    def update_roi(self, roi_x, roi_y):
+        if roi_x is not None:
+            self._config_service.update_config(
+                'roi_x', {'min': roi_x[0] / 100, 'max': roi_x[1] / 100}
+            )
+        if roi_y is not None:
+            self._config_service.update_config(
+                'roi_y', {'min': roi_y[0] / 100, 'max': roi_y[1] / 100}
+            )
+
+        # Update ROI rectangles in all 2D detector plots
+        for fig in self._detector_plots.values():
+            if hasattr(fig.data[0], 'z'):  # Check if it's a 2D plot
+                x_range = [fig.data[0].x[0], fig.data[0].x[-1]]
+                y_range = [fig.data[0].y[0], fig.data[0].y[-1]]
+                x_min = x_range[0] + (x_range[1] - x_range[0]) * roi_x[0] / 100
+                x_max = x_range[0] + (x_range[1] - x_range[0]) * roi_x[1] / 100
+                y_min = y_range[0] + (y_range[1] - y_range[0]) * roi_y[0] / 100
+                y_max = y_range[0] + (y_range[1] - y_range[0]) * roi_y[1] / 100
+
+                fig.update_shapes(
+                    {
+                        'x0': x_min,
+                        'x1': x_max,
+                        'y0': y_min,
+                        'y1': y_max,
+                        'visible': True,
+                    }
+                )
+
+        return roi_x, roi_y
+
     @staticmethod
     def create_monitor_plot(key: str, data: sc.DataArray) -> go.Figure:
         fig = go.Figure()
@@ -207,6 +264,19 @@ class DashboardApp(ServiceBase):
             y=[],  # Will be filled with coordinate values
             colorscale='Viridis',
         )
+        # Add ROI rectangle (initially hidden)
+        fig.add_shape(
+            type="rect",
+            x0=0,
+            y0=0,
+            x1=1,
+            y1=1,
+            line={'color': 'red', 'width': 2},
+            fillcolor="red",
+            opacity=0.2,
+            visible=False,
+            name="ROI",
+        )
 
         def maybe_unit(dim: str) -> str:
             unit = data.coords[dim].unit
@@ -219,6 +289,7 @@ class DashboardApp(ServiceBase):
             xaxis_title=f'{x_dim}{maybe_unit(x_dim)}',
             yaxis_title=f'{y_dim}{maybe_unit(y_dim)}',
             uirevision=key,
+            showlegend=False,
         )
         return fig
 
