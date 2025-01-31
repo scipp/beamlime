@@ -178,6 +178,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
             default={'value': 1.0, 'unit': 's'},
             convert=lambda raw: int(sc.scalar(**raw).to(unit='ns', copy=False).value),
         )
+        self._logger.info('Setup handler with %s accumulators', len(accumulators))
 
     def handle(self, messages: list[Message[T]]) -> list[Message[V]]:
         # Note an issue here: We preprocess all messages, with a range of timestamps.

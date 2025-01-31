@@ -28,7 +28,7 @@ def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -
         value=events,
     )
     results = handler.handle([message])
-    assert len(results) == 1
+    assert len(results) == 2  # Detector view and ROI-base TOA histogram
     counts = results[0].value.sum().data
     assert sc.identical(counts, sc.scalar(3, unit='counts', dtype='int32'))
 
