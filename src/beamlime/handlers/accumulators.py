@@ -131,16 +131,13 @@ class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
 
 
 class GroupIntoPixels(Accumulator[DetectorEvents, sc.DataArray]):
-    def __init__(
-        self, config: Config, detector_number: sc.Variable, sizes: dict[str, int]
-    ):
+    def __init__(self, config: Config, detector_number: sc.Variable):
         self._config = config
         self._chunks: list[DetectorEvents] = []
         self._toa_unit = 'ns'
-        self._detector_number = detector_number.rename_dims(
-            {detector_number.dim: 'detector_number'}
-        )
-        self._sizes = sizes
+        self._sizes = detector_number.sizes
+        self._dim = 'detector_number'
+        self._groups = detector_number.flatten(to=self._dim)
 
     def add(self, timestamp: int, data: DetectorEvents) -> None:
         # timestamp in function signature is required for compliance with Accumulator
@@ -159,14 +156,10 @@ class GroupIntoPixels(Accumulator[DetectorEvents, sc.DataArray]):
         time_of_arrival = np.concatenate([c.time_of_arrival for c in self._chunks])
         da = sc.DataArray(
             data=sc.array(dims=['event'], values=time_of_arrival, unit=self._toa_unit),
-            coords={
-                'detector_number': sc.array(dims=['event'], values=pixel_ids, unit=None)
-            },
+            coords={self._dim: sc.array(dims=['event'], values=pixel_ids, unit=None)},
         )
         self._chunks.clear()
-        return da.group(self._detector_number).fold(
-            dim='detector_number', sizes=self._sizes
-        )
+        return da.group(self._groups).fold(dim=self._dim, sizes=self._sizes)
 
     def clear(self) -> None:
         self._chunks.clear()

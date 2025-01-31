@@ -108,19 +108,19 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
             f'sliding_{name}': DetectorCounts(config=self._config, detector_view=view)
             for name, view in views.items()
         }
-        if not accumulators:
-            preprocessor = NullAccumulator()
-        else:
-            view = next(iter(views.values()))
-            detector_number = view._flat_detector_number
-            sizes = view.data.sizes
-            preprocessor = GroupIntoPixels(
-                config=self._config, detector_number=detector_number, sizes=sizes
-            )
+        detector_number: sc.Variable | None = None
         for name, view in views.items():
             accumulators[f'{name}_ROI'] = ROIBasedTOAHistogram(
                 config=self._config, roi_filter=view.make_roi_filter()
             )
+            detector_number = view.detector_number
+        if detector_number is None:
+            preprocessor = NullAccumulator()
+        else:
+            preprocessor = GroupIntoPixels(
+                config=self._config, detector_number=detector_number
+            )
+
         return PeriodicAccumulatingHandler(
             logger=self._logger,
             config=self._config,
