@@ -7,7 +7,6 @@ import pathlib
 import re
 from typing import Any
 
-import numpy as np
 import scipp as sc
 from ess.reduce.live import raw
 
@@ -116,7 +115,10 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
             preprocessor = GroupIntoPixels(
                 config=self._config, detector_number=detector_number
             )
-            accumulators['roi_histogram'] = ROIBasedTOAHistogram(config=self._config)
+        for name, view in views.items():
+            accumulators[f'{name}_ROI'] = ROIBasedTOAHistogram(
+                config=self._config, roi_filter=view.make_roi_filter()
+            )
         return PeriodicAccumulatingHandler(
             logger=self._logger,
             config=self._config,
@@ -125,14 +127,14 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         )
 
 
-class DetectorCounts(Accumulator[np.ndarray, sc.DataArray]):
+class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
     """Accumulator for detector counts, based on a rolling detector view."""
 
     def __init__(self, config: Config, detector_view: raw.RollingDetectorView):
         self._config = config
         self._det = detector_view
 
-    def add(self, timestamp: int, data: np.ndarray) -> None:
+    def add(self, timestamp: int, data: sc.DataArray) -> None:
         _ = timestamp
         self._det.add_events(data)
 
