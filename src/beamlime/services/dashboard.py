@@ -282,15 +282,23 @@ class DashboardApp(ServiceBase):
             unit = data.coords[dim].unit
             return f' [{unit}]' if unit is not None else ''
 
-        fig.update_layout(
-            title=key,
-            width=500,
-            height=400,
-            xaxis_title=f'{x_dim}{maybe_unit(x_dim)}',
-            yaxis_title=f'{y_dim}{maybe_unit(y_dim)}',
-            uirevision=key,
-            showlegend=False,
-        )
+        size = 800
+        opts = {
+            'title': key,
+            'xaxis_title': f'{x_dim}{maybe_unit(x_dim)}',
+            'yaxis_title': f'{y_dim}{maybe_unit(y_dim)}',
+            'uirevision': key,
+            'showlegend': False,
+        }
+        y_size, x_size = data.shape
+        if y_size < x_size:
+            fig.update_layout(width=size, **opts)
+            fig.update_yaxes(scaleanchor="x", scaleratio=1, constrain="domain")
+            fig.update_xaxes(constrain="domain")
+        else:
+            fig.update_layout(height=size, **opts)
+            fig.update_xaxes(scaleanchor="y", scaleratio=1, constrain="domain")
+            fig.update_yaxes(constrain="domain")
         return fig
 
     def update_plots(self, n: int | None):

@@ -8,7 +8,7 @@
 import scipp as sc
 from ess.reduce.live import raw
 
-_res_scale = 8
+_res_scale = 12
 
 dream_detectors_config = {
     'dashboard': {'nrow': 3, 'ncol': 2},
