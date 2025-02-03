@@ -19,6 +19,7 @@ from ..config.raw_detectors import (
 from ..core.handler import (
     Accumulator,
     Config,
+    ConfigValueAccessor,
     Handler,
     HandlerFactory,
     PeriodicAccumulatingHandler,
@@ -129,15 +130,43 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         )
 
 
+def _convert_toa_range(
+    value: dict[str, Any] | None,
+) -> tuple[sc.Variable, sc.Variable] | None:
+    if value is None:
+        return None
+    return (
+        sc.scalar(value['low'], unit=value['unit']).to(unit='ns'),
+        sc.scalar(value['high'], unit=value['unit']).to(unit='ns'),
+    )
+
+
 class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
     """Accumulator for detector counts, based on a rolling detector view."""
 
     def __init__(self, config: Config, detector_view: raw.RollingDetectorView):
         self._config = config
         self._det = detector_view
+        self._toa_range = ConfigValueAccessor(
+            config, 'toa_range', default=None, convert=_convert_toa_range
+        )
+        self._current_toa_range = None
+
+    def set_toa_range(self, toa_range: tuple[sc.Variable, sc.Variable] | None) -> None:
+        if toa_range != self._current_toa_range:
+            self._current_toa_range = toa_range
+            self.clear()
+
+    def apply_toa_range(self, data: sc.DataArray) -> sc.DataArray:
+        if self._current_toa_range is None:
+            return data
+        low, high = self._current_toa_range
+        return data.bins.assign_coords(toa=data.bins.data).bins['toa', low:high]
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
         _ = timestamp
+        self.set_toa_range(self._toa_range())
+        data = self.apply_toa_range(data)
         self._det.add_events(data)
 
     def get(self) -> sc.DataArray:
