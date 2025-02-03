@@ -25,6 +25,11 @@ dream_detectors_config = {
             'projection': 'xy_plane',
             'gridspec': (0, 1),
         },
+        'High-Res': {
+            'detector_name': 'high_resolution_detector',
+            'resolution': {'y': 20 * _res_scale, 'x': 20 * _res_scale},
+            'projection': 'xy_plane',
+        },
         # We use the arc length instead of phi as it makes it easier to get a correct
         # aspect ratio for the plot if both axes have the same unit.
         'mantle_projection': {
