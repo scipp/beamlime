@@ -80,7 +80,7 @@ pytz==2024.2
     # via pandas
 requests==2.32.3
     # via pooch
-scipp==25.1.0
+scipp==25.2.0
     # via -r basetest.in
 six==1.17.0
     # via python-dateutil
