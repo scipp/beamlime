@@ -154,9 +154,23 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
         if (toa_range := self._toa_range()) is None:
             return data
         low, high = toa_range
+        # GroupIntoPixels stores time-of-arrival as the data variable of the bins to
+        # avoid allocating weights that are all ones. For filtering we need to turn this
+        # into a coordinate, since scipp does not support filtering on data variables.
         return data.bins.assign_coords(toa=data.bins.data).bins['toa', low:high]
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
+        """
+        Add data to the accumulator.
+
+        Parameters
+        ----------
+        timestamp:
+            Timestamp of the data.
+        data:
+            Data to be added. It is assumed that this is ev44 data that was passed
+            through :py:class:`GroupIntoPixels`.
+        """
         _ = timestamp
         data = self.apply_toa_range(data)
         self._det.add_events(data)
