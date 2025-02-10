@@ -136,10 +136,14 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config, detector_view: raw.RollingDetectorView):
         self._config = config
         self._det = detector_view
+        self._inv_weights = sc.reciprocal(detector_view.transform_weights())
         self._toa_range = ConfigValueAccessor(
             config, 'toa_range', default=None, convert=self._convert_toa_range
         )
         self._current_toa_range = None
+        self._use_weights = ConfigValueAccessor(
+            config, 'use_weights', default=True, convert=bool
+        )
 
     def _convert_toa_range(self, value: dict[str, Any] | None) -> None:
         self.clear()
@@ -176,7 +180,8 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
         self._det.add_events(data)
 
     def get(self) -> sc.DataArray:
-        return self._det.get()
+        counts = self._det.get()
+        return counts * self._inv_weights if self._use_weights() else counts
 
     def clear(self) -> None:
         self._det.clear_counts()
