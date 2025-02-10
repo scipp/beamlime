@@ -156,7 +156,7 @@ class ConfigModelAccessor(Generic[T]):
         self._value: U | None = None
 
     def __call__(self) -> T:
-        raw_value = self._config.get(self._key, self._model_cls().dict())
+        raw_value = self._config.get(self._key, self._model_cls().model_dump())
         if raw_value != self._raw_value:
             self._raw_value = raw_value
             self._value = self._model_cls.model_validate(raw_value)

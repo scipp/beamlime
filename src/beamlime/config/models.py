@@ -40,7 +40,7 @@ class WeightingMethod(str, Enum):
 
 
 class PixelWeighting(BaseModel):
-    """Settings for pixel weighting."""
+    """Setting for pixel weighting."""
 
     enabled: bool = Field(default=False, description="Enable pixel weighting.")
     method: WeightingMethod = Field(
@@ -48,36 +48,52 @@ class PixelWeighting(BaseModel):
     )
 
 
-class StartTime(BaseModel):
-    """Settings for the start time of the experiment or accumulation period."""
+class TimeModel(BaseModel):
+    """Base model for time values with unit."""
 
-    value: float = Field(default=0, description="Start time.")
-    unit: TimeUnit = Field(default="ns", description="Physical unit for time values.")
+    value: float = Field(default=0, description="Time value.")
+    unit: TimeUnit = Field(
+        default="ns", description="Physical unit for the time value."
+    )
 
     _value_ns: int | None = None
 
     def model_post_init(self, /, __context: Any) -> None:
         """Perform relatively expensive operations after model initialization."""
-        self._value_ns = int(sc.scalar(self.value, unit=self.unit).to(unit='ns').value)
+        self._value_ns = int(
+            sc.scalar(self.value, unit=self.unit).to(unit='ns', dtype='int64').value
+        )
 
     @property
     def value_ns(self) -> int:
-        """Start time in nanoseconds as a scipp scalar."""
+        """Time in nanoseconds."""
         return self._value_ns
 
 
-class UpdateEvery(BaseModel):
-    """Settings for the update frequency of the accumulation period."""
+class StartTime(TimeModel):
+    """Setting for the start time of the accumulation period."""
 
-    value: float = Field(default=1.0, description="Update frequency.")
-    unit: TimeUnit = Field(default="s", description="Physical unit for time values.")
-    _value_ns: int | None = None
 
-    def model_post_init(self, /, __context: Any) -> None:
-        """Perform relatively expensive operations after model initialization."""
-        self._value_ns = int(sc.scalar(self.value, unit=self.unit).to(unit='ns').value)
+class UpdateEvery(TimeModel):
+    """Setting for the update frequency of the accumulation period."""
 
-    @property
-    def value_ns(self) -> int:
-        """Update frequency in nanoseconds."""
-        return self._value_ns
+    value: float = Field(default=1.0, ge=0.1, description="Time value.")
+    unit: TimeUnit = Field(default="s", description="Physical unit for the time value.")
+
+
+class SlidingWindow(TimeModel):
+    """Setting for the sliding window."""
+
+    value: float = Field(default=5.0, ge=0.05, description="Time value.")
+    unit: TimeUnit = Field(default="s", description="Physical unit for the time value.")
+
+
+class ROIAxisPercentage(BaseModel):
+    """Setting for the percentage of an axis to use for the ROI."""
+
+    low: float = Field(
+        ge=0.0, lt=100.0, default=49.0, description="Start of the ROI in percentage."
+    )
+    high: float = Field(
+        ge=0.0, lt=100.0, default=51.0, description="End of the ROI in percentage."
+    )
