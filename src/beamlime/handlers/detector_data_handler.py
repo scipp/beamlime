@@ -10,6 +10,7 @@ from typing import Any
 import scipp as sc
 from ess.reduce.live import raw
 
+from ..config import models
 from ..config.raw_detectors import (
     dream_detectors_config,
     dummy_detectors_config,
@@ -148,14 +149,14 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
             config, 'use_weights', default=True, convert=bool
         )
 
-    def _convert_toa_range(self, value: dict[str, Any] | None) -> None:
+    def _convert_toa_range(
+        self, value: dict[str, Any]
+    ) -> None | tuple[sc.Variable, sc.Variable]:
+        model = models.TOARange.model_validate(value)
         self.clear()
-        if value is None:
+        if not model.enabled:
             return None
-        return (
-            sc.scalar(value['low'], unit=value['unit']).to(unit='ns'),
-            sc.scalar(value['high'], unit=value['unit']).to(unit='ns'),
-        )
+        return (model.low_ns, model.high_ns)
 
     def apply_toa_range(self, data: sc.DataArray) -> sc.DataArray:
         if (toa_range := self._toa_range()) is None:

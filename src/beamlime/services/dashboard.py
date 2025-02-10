@@ -12,7 +12,7 @@ from dash import Dash, Input, Output, dcc, html
 from dash.exceptions import PreventUpdate
 
 from beamlime import Service, ServiceBase
-from beamlime.config import config_names
+from beamlime.config import config_names, models
 from beamlime.config.config_loader import load_config
 from beamlime.core.config_service import ConfigService
 from beamlime.core.message import compact_messages
@@ -313,14 +313,12 @@ class DashboardApp(ServiceBase):
         return x_center, x_delta, y_center, y_delta
 
     def update_toa_range(self, center, delta, toa_enabled):
-        if len(toa_enabled) == 0:
-            self._config_service.update_config('toa_range', None)
-        else:
-            low = max(0, center - delta)
-            high = min(71_000, center + delta)
-            self._config_service.update_config(
-                'toa_range', {'low': low, 'high': high, 'unit': 'us'}
-            )
+        low = max(0, center - delta)
+        high = min(71_000, center + delta)
+        model = models.TOARange(
+            enabled=len(toa_enabled) > 0, low=low, high=high, unit='us'
+        )
+        self._config_service.update_config('toa_range', model.model_dump())
         return center, delta
 
     def update_use_weights(self, value: list[str]) -> list[str]:
