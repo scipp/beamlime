@@ -20,7 +20,7 @@ from ..config.raw_detectors import (
 from ..core.handler import (
     Accumulator,
     Config,
-    ConfigValueAccessor,
+    ConfigModelAccessor,
     Handler,
     HandlerFactory,
     PeriodicAccumulatingHandler,
@@ -141,17 +141,14 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
         # pixels contributing to each screen pixel. In the future more advanced options
         # such as by the signal of a uniform scattered may need to be supported.
         self._inv_weights = sc.reciprocal(detector_view.transform_weights())
-        self._toa_range = ConfigValueAccessor(
-            config,
-            'toa_range',
-            default={'enabled': False},
-            convert=self._convert_toa_range,
+        self._toa_range = ConfigModelAccessor(
+            config, 'toa_range', model=models.TOARange, convert=self._convert_toa_range
         )
         self._current_toa_range = None
-        self._use_weights = ConfigValueAccessor(
+        self._use_weights = ConfigModelAccessor(
             config,
             'pixel_weighting',
-            default={'enabled': True},
+            model=models.PixelWeighting,
             convert=self._convert_pixel_weighting,
         )
 

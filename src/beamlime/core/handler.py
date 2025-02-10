@@ -114,23 +114,6 @@ class Accumulator(Protocol, Generic[T, U]):
 
 
 class ConfigValueAccessor:
-    """
-    Access a dynamic configuration value and convert it on demand.
-
-    Avoids unnecessary conversions if the value has not changed.
-
-    Parameters
-    ----------
-    config:
-        Configuration object.
-    key:
-        Key in the configuration.
-    default:
-        Default value if the key is not found.
-    convert:
-        Function to convert the raw value to the desired type.
-    """
-
     def __init__(self, config: Config, key: str, default: T, convert: Callable[[T], U]):
         self._config = config
         self._key = key
@@ -147,19 +130,44 @@ class ConfigValueAccessor:
         return self._value
 
 
-class ConfigModelAccessor(Generic[T]):
-    def __init__(self, config: Config, key: str, model: type[T]) -> None:
+class ConfigModelAccessor(Generic[T, U]):
+    """
+    Access a dynamic configuration value and convert it on demand.
+
+    Avoids unnecessary conversions if the value has not changed.
+
+    Parameters
+    ----------
+    config:
+        Configuration object.
+    key:
+        Key in the configuration.
+    model:
+        Pydantic model to validate the raw value. Also defines the default value.
+    convert:
+        Optional function to convert the raw value to the desired type or perform other
+        actions on config value updates.
+    """
+
+    def __init__(
+        self,
+        config: Config,
+        key: str,
+        model: type[T],
+        convert: Callable[[T], U] = lambda x: x,
+    ) -> None:
         self._config = config
         self._key = key
         self._model_cls = model
+        self._convert = convert
         self._raw_value: dict[str, Any] | None = None
         self._value: U | None = None
 
-    def __call__(self) -> T:
+    def __call__(self) -> U:
         raw_value = self._config.get(self._key, self._model_cls().model_dump())
         if raw_value != self._raw_value:
             self._raw_value = raw_value
-            self._value = self._model_cls.model_validate(raw_value)
+            self._value = self._convert(self._model_cls.model_validate(raw_value))
         return self._value
 
 
