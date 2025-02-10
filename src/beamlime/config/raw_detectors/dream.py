@@ -2,33 +2,32 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 
 # Order in 'resolution' matters so plots have X as horizontal axis and Y as vertical.
-# The other DREAM detectors have non-consecutive detector numbers. This is not
-# supported currently
 
 import scipp as sc
 from ess.reduce.live import raw
 
-_res_scale = 12
+_res_scale = 8
+pixel_noise = sc.scalar(0.004, unit='m')
 
 dream_detectors_config = {
-    'dashboard': {'nrow': 3, 'ncol': 2},
     'detectors': {
         'endcap_backward': {
             'detector_name': 'endcap_backward_detector',
             'resolution': {'y': 30 * _res_scale, 'x': 20 * _res_scale},
             'projection': 'xy_plane',
-            'gridspec': (0, 0),
+            'pixel_noise': pixel_noise,
         },
         'endcap_forward': {
             'detector_name': 'endcap_forward_detector',
             'resolution': {'y': 20 * _res_scale, 'x': 20 * _res_scale},
             'projection': 'xy_plane',
-            'gridspec': (0, 1),
+            'pixel_noise': pixel_noise,
         },
         'High-Res': {
             'detector_name': 'high_resolution_detector',
             'resolution': {'y': 20 * _res_scale, 'x': 20 * _res_scale},
             'projection': 'xy_plane',
+            'pixel_noise': pixel_noise,
         },
         # We use the arc length instead of phi as it makes it easier to get a correct
         # aspect ratio for the plot if both axes have the same unit.
@@ -36,7 +35,7 @@ dream_detectors_config = {
             'detector_name': 'mantle_detector',
             'resolution': {'arc_length': 10 * _res_scale, 'z': 40 * _res_scale},
             'projection': 'cylinder_mantle_z',
-            'gridspec': (1, slice(None, 2)),
+            'pixel_noise': pixel_noise,
         },
         # Different view of the same detector, showing just the front layer instead of
         # a projection.
@@ -53,9 +52,8 @@ dream_detectors_config = {
                 },
                 transpose=('wire', 'module', 'segment', 'counter', 'strip'),
                 select={'wire': 0},
-                flatten={'z_id': ('module', 'segment', 'counter')},
+                flatten={'mod/seg/cntr': ('module', 'segment', 'counter')},
             ),
-            'gridspec': (2, slice(None, 2)),
         },
     },
 }
