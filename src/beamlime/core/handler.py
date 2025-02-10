@@ -113,23 +113,6 @@ class Accumulator(Protocol, Generic[T, U]):
         pass
 
 
-class ConfigValueAccessor:
-    def __init__(self, config: Config, key: str, default: T, convert: Callable[[T], U]):
-        self._config = config
-        self._key = key
-        self._default = default
-        self._convert = convert
-        self._raw_value: T | None = None
-        self._value: U | None = None
-
-    def __call__(self) -> U:
-        raw_value = self._config.get(self._key, self._default)
-        if raw_value != self._raw_value:
-            self._raw_value = raw_value
-            self._value = self._convert(raw_value)
-        return self._value
-
-
 class ConfigModelAccessor(Generic[T, U]):
     """
     Access a dynamic configuration value and convert it on demand.
