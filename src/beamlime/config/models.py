@@ -94,19 +94,28 @@ class SlidingWindow(TimeModel):
     unit: TimeUnit = Field(default="s", description="Physical unit for the time value.")
 
 
-class ROIAxisPercentage(BaseModel):
-    """Setting for the percentage of an axis to use for the ROI."""
+class ROIAxisRange(BaseModel):
+    """
+    Setting for the range of an axis to use for a rectangular ROI.
+
+    Low and high are given as fractions of the axis length between 0 and 1.
+    """
 
     low: float = Field(
-        ge=0.0, lt=100.0, default=49.0, description="Start of the ROI in percentage."
+        ge=0.0, lt=1.0, default=0.49, description="Start of the ROI as a fraction."
     )
     high: float = Field(
-        ge=0.0, lt=100.0, default=51.0, description="End of the ROI in percentage."
+        ge=0.0, lt=1.0, default=0.51, description="End of the ROI as a fraction."
     )
 
     @model_validator(mode='after')
-    def validate_range(self) -> ROIAxisPercentage:
+    def validate_range(self) -> ROIAxisRange:
         """Validate that low < high."""
         if self.low >= self.high:
             raise ValueError('Low value must be less than high value')
         return self
+
+
+class ROIRectangle(BaseModel):
+    x: ROIAxisRange = Field(default_factory=ROIAxisRange)
+    y: ROIAxisRange = Field(default_factory=ROIAxisRange)

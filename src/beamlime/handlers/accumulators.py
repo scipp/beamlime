@@ -172,11 +172,8 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
         # Note: Currently we are using the same ROI config values for all detector
         # handlers ands views. This is for demo purposes and will be replaced by a more
         # flexible configuration in the future.
-        self._roi_x = ConfigModelAccessor(
-            config=config, key='roi_x', model=models.ROIAxisPercentage
-        )
-        self._roi_y = ConfigModelAccessor(
-            config=config, key='roi_y', model=models.ROIAxisPercentage
+        self._roi = ConfigModelAccessor(
+            config=config, key='roi_rectangle', model=models.ROIRectangle
         )
         self._nbin = -1
         self._edges: sc.Variable | None = None
@@ -198,8 +195,9 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
         # configuration.
         y, x = self._roi_filter._indices.dims
         sizes = self._roi_filter._indices.sizes
-        ry = self._roi_y()
-        rx = self._roi_x()
+        roi = self._roi()
+        ry = roi.x
+        rx = roi.y
         # Convert fraction to indices
         y_indices = (int(ry.low * (sizes[y] - 1)), int(ry.high * (sizes[y] - 1)))
         x_indices = (int(rx.low * (sizes[x] - 1)), int(rx.high * (sizes[x] - 1)))

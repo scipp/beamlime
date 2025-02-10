@@ -69,7 +69,7 @@ def test_sliding_window_defaults():
 
 
 @pytest.mark.parametrize(
-    ("low", "high", "should_raise"),
+    ("value", "unit", "expected_ns"),
     [
         (1, "ns", 1),
         (1, "us", 1000),
@@ -93,27 +93,33 @@ def test_sliding_window_validation():
 
 
 def test_roi_axis_percentage_defaults():
-    roi = models.ROIAxisPercentage()
-    assert roi.low == 49.0
-    assert roi.high == 51.0
+    roi = models.ROIAxisRange()
+    assert roi.low == 0.49
+    assert roi.high == 0.51
 
 
 @pytest.mark.parametrize(
     ("low", "high", "should_raise"),
     [
-        (0.0, 50.0, False),
-        (50.0, 99.9, False),
-        (-1.0, 50.0, True),
-        (50.0, 100.0, True),
-        (60.0, 50.0, True),  # High must be greater than low
-        (50.0, 50.0, True),  # High must be greater than low
+        (0.0, 0.5, False),
+        (0.5, 0.999, False),
+        (-0.01, 0.5, True),
+        (0.5, 1.0, True),
+        (0.6, 0.5, True),  # High must be greater than low
+        (0.5, 0.5, True),  # High must be greater than low
     ],
 )
 def test_roi_axis_percentage_validation(low, high, should_raise):
     if should_raise:
         with pytest.raises(ValidationError):
-            models.ROIAxisPercentage(low=low, high=high)
+            models.ROIAxisRange(low=low, high=high)
     else:
-        roi = models.ROIAxisPercentage(low=low, high=high)
+        roi = models.ROIAxisRange(low=low, high=high)
         assert roi.low == low
         assert roi.high == high
+
+
+def test_roi_rectangle_defaults():
+    roi = models.ROIRectangle()
+    assert roi.x == models.ROIAxisRange()
+    assert roi.y == models.ROIAxisRange()

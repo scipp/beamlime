@@ -282,12 +282,11 @@ class DashboardApp(ServiceBase):
         y_min = max(0, y_center - y_delta)
         y_max = min(100, y_center + y_delta)
 
-        self._config_service.update_config(
-            'roi_x', {'min': x_min / 100, 'max': x_max / 100}
+        roi = models.ROIRectangle(
+            x=models.ROIAxisRange(low=x_min / 100, high=x_max / 100),
+            y=models.ROIAxisRange(low=y_min / 100, high=y_max / 100),
         )
-        self._config_service.update_config(
-            'roi_y', {'min': y_min / 100, 'max': y_max / 100}
-        )
+        self._config_service.update_config('roi_rectangle', roi.model_dump())
 
         # Update ROI rectangles in all 2D detector plots
         for fig in self._detector_plots.values():
@@ -448,12 +447,10 @@ class DashboardApp(ServiceBase):
         ]
 
     def update_timing_settings(self, update_speed: float, window_size: float) -> float:
-        self._config_service.update_config(
-            'update_every', {'value': 2**update_speed, 'unit': 'ms'}
-        )
-        self._config_service.update_config(
-            'sliding_window', {'value': 2**window_size, 'unit': 'ms'}
-        )
+        update_every = models.UpdateEvery(value=2**update_speed, unit='ms')
+        self._config_service.update_config('update_every', update_every.model_dump())
+        sliding = models.SlidingWindow(value=2**window_size, unit='ms')
+        self._config_service.update_config('sliding_window', sliding.model_dump())
         return 2**update_speed
 
     def update_num_points(self, value: int) -> int:
@@ -463,9 +460,8 @@ class DashboardApp(ServiceBase):
     def clear_data(self, n_clicks: int | None) -> int:
         if n_clicks is None or n_clicks == 0:
             raise PreventUpdate
-        self._config_service.update_config(
-            'start_time', {'value': int(time.time_ns()), 'unit': 'ns'}
-        )
+        model = models.StartTime(value=int(time.time_ns()), unit='ns')
+        self._config_service.update_config('start_time', model.model_dump())
         return 0
 
     def _start_impl(self) -> None:
