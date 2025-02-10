@@ -175,16 +175,15 @@ class DashboardApp(ServiceBase):
                 value=5,
                 marks={i: str(i) for i in range(0, 11, 1)},
             ),
-            html.Label('Time-of-arrival (us)'),
             dcc.Checklist(
                 id='toa-checkbox',
                 options=[
-                    {'label': 'Filter by time-of-arrival [μs]', 'value': 'enabled'}
+                    {'label': 'Filter by time-of-arrival (μs)', 'value': 'enabled'}
                 ],
                 value=[],
                 style={'margin': '10px 0'},
             ),
-            html.Label('Time-of-arrival Center (us)'),
+            html.Label('Time-of-arrival center (μs)'),
             dcc.Slider(
                 id='toa-center',
                 min=0,
@@ -193,7 +192,7 @@ class DashboardApp(ServiceBase):
                 value=35_500,
                 marks={i: str(i) for i in range(0, 71_001, 10_000)},
             ),
-            html.Label('Time-of-arrival Width (us)'),
+            html.Label('Time-of-arrival width (μs)'),
             dcc.Slider(
                 id='toa-delta',
                 min=0,
@@ -313,8 +312,8 @@ class DashboardApp(ServiceBase):
         return x_center, x_delta, y_center, y_delta
 
     def update_toa_range(self, center, delta, toa_enabled):
-        low = max(0, center - delta)
-        high = min(71_000, center + delta)
+        low = center - delta / 2
+        high = center + delta / 2
         model = models.TOARange(
             enabled=len(toa_enabled) > 0, low=low, high=high, unit='us'
         )

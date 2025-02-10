@@ -151,12 +151,10 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
 
     def _convert_toa_range(
         self, value: dict[str, Any]
-    ) -> None | tuple[sc.Variable, sc.Variable]:
+    ) -> tuple[sc.Variable, sc.Variable] | None:
         model = models.TOARange.model_validate(value)
         self.clear()
-        if not model.enabled:
-            return None
-        return (model.low_ns, model.high_ns)
+        return model.range_ns
 
     def apply_toa_range(self, data: sc.DataArray) -> sc.DataArray:
         if (toa_range := self._toa_range()) is None:
