@@ -1,10 +1,16 @@
 # SPDX-FileCopyrightText: 2025 Scipp contributors (https://github.com/scipp)
 # SPDX-License-Identifier: BSD-3-Clause
+"""
+Models for configuration values that can be used to control Beamlime services via Kafka.
+"""
+
+from __future__ import annotations
+
 from enum import Enum
 from typing import Any, Literal
 
 import scipp as sc
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 TimeUnit = Literal['ns', 'us', 'ms', 's']
 
@@ -97,3 +103,10 @@ class ROIAxisPercentage(BaseModel):
     high: float = Field(
         ge=0.0, lt=100.0, default=51.0, description="End of the ROI in percentage."
     )
+
+    @model_validator(mode='after')
+    def validate_range(self) -> ROIAxisPercentage:
+        """Validate that low < high."""
+        if self.low >= self.high:
+            raise ValueError('Low value must be less than high value')
+        return self
