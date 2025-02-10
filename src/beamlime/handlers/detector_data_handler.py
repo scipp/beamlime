@@ -135,11 +135,7 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
     """Accumulator for detector counts, based on a rolling detector view."""
 
     def __init__(self, config: Config, detector_view: raw.RollingDetectorView):
-        self._config = config
         self._det = detector_view
-        # Note: Currently we use default weighting based on the number of detector
-        # pixels contributing to each screen pixel. In the future more advanced options
-        # such as by the signal of a uniform scattered may need to be supported.
         self._inv_weights = sc.reciprocal(detector_view.transform_weights())
         self._toa_range = ConfigModelAccessor(
             config, 'toa_range', model=models.TOARange, convert=self._convert_toa_range
@@ -161,6 +157,9 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
 
     def _convert_pixel_weighting(self, value: dict[str, Any]) -> bool:
         model = models.PixelWeighting.model_validate(value)
+        # Note: Currently we use default weighting based on the number of detector
+        # pixels contributing to each screen pixel. In the future more advanced options
+        # such as by the signal of a uniform scattered may need to be supported.
         if model.method != models.WeightingMethod.PIXEL_NUMBER:
             raise ValueError(f'Unsupported pixel weighting method: {model.method}')
         return model.enabled
