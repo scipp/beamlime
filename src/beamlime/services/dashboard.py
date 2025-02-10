@@ -321,7 +321,8 @@ class DashboardApp(ServiceBase):
         return center, delta
 
     def update_use_weights(self, value: list[str]) -> list[str]:
-        self._config_service.update_config('use_weights', len(value) > 0)
+        model = models.PixelWeighting(enabled=len(value) > 0)
+        self._config_service.update_config('pixel_weighting', model.model_dump())
         return value
 
     @staticmethod

@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: 2025 Scipp contributors (https://github.com/scipp)
 # SPDX-License-Identifier: BSD-3-Clause
+from enum import Enum
 from typing import Literal
 
 import scipp as sc
@@ -25,3 +26,23 @@ class TOARange(BaseModel):
             sc.scalar(self.low, unit=self.unit).to(unit='ns'),
             sc.scalar(self.high, unit=self.unit).to(unit='ns'),
         )
+
+
+class WeightingMethod(str, Enum):
+    """
+    Methods for pixel weighting.
+
+    - PIXEL_NUMBER: Weight by the number of detector pixels contributing to each screen
+        pixel.
+    """
+
+    PIXEL_NUMBER = 'pixel_number'
+
+
+class PixelWeighting(BaseModel):
+    """Settings for pixel weighting."""
+
+    enabled: bool = Field(default=False, description="Enable pixel weighting.")
+    method: WeightingMethod = Field(
+        default=WeightingMethod.PIXEL_NUMBER, description="Method for pixel weighting."
+    )

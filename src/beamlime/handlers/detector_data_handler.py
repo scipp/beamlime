@@ -142,11 +142,17 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
         # such as by the signal of a uniform scattered may need to be supported.
         self._inv_weights = sc.reciprocal(detector_view.transform_weights())
         self._toa_range = ConfigValueAccessor(
-            config, 'toa_range', default=None, convert=self._convert_toa_range
+            config,
+            'toa_range',
+            default={'enabled': False},
+            convert=self._convert_toa_range,
         )
         self._current_toa_range = None
         self._use_weights = ConfigValueAccessor(
-            config, 'use_weights', default=True, convert=bool
+            config,
+            'pixel_weighting',
+            default={'enabled': True},
+            convert=self._convert_pixel_weighting,
         )
 
     def _convert_toa_range(
@@ -155,6 +161,12 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
         model = models.TOARange.model_validate(value)
         self.clear()
         return model.range_ns
+
+    def _convert_pixel_weighting(self, value: dict[str, Any]) -> bool:
+        model = models.PixelWeighting.model_validate(value)
+        if model.method != models.WeightingMethod.PIXEL_NUMBER:
+            raise ValueError(f'Unsupported pixel weighting method: {model.method}')
+        return model.enabled
 
     def apply_toa_range(self, data: sc.DataArray) -> sc.DataArray:
         if (toa_range := self._toa_range()) is None:
