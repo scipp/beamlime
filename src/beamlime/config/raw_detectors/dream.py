@@ -7,7 +7,7 @@ import scipp as sc
 from ess.reduce.live import raw
 
 _res_scale = 8
-pixel_noise = sc.scalar(0.004, unit='m')
+pixel_noise = sc.scalar(4.0, unit='mm')
 
 dream_detectors_config = {
     'detectors': {
