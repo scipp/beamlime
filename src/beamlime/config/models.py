@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Scipp contributors (https://github.com/scipp)
 # SPDX-License-Identifier: BSD-3-Clause
 from enum import Enum
-from typing import Literal
+from typing import Any, Literal
 
 import scipp as sc
 from pydantic import BaseModel, Field
@@ -46,3 +46,38 @@ class PixelWeighting(BaseModel):
     method: WeightingMethod = Field(
         default=WeightingMethod.PIXEL_NUMBER, description="Method for pixel weighting."
     )
+
+
+class StartTime(BaseModel):
+    """Settings for the start time of the experiment or accumulation period."""
+
+    value: float = Field(default=0, description="Start time.")
+    unit: TimeUnit = Field(default="ns", description="Physical unit for time values.")
+
+    _value_ns: int | None = None
+
+    def model_post_init(self, /, __context: Any) -> None:
+        """Perform relatively expensive operations after model initialization."""
+        self._value_ns = int(sc.scalar(self.value, unit=self.unit).to(unit='ns').value)
+
+    @property
+    def value_ns(self) -> int:
+        """Start time in nanoseconds as a scipp scalar."""
+        return self._value_ns
+
+
+class UpdateEvery(BaseModel):
+    """Settings for the update frequency of the accumulation period."""
+
+    value: float = Field(default=1.0, description="Update frequency.")
+    unit: TimeUnit = Field(default="s", description="Physical unit for time values.")
+    _value_ns: int | None = None
+
+    def model_post_init(self, /, __context: Any) -> None:
+        """Perform relatively expensive operations after model initialization."""
+        self._value_ns = int(sc.scalar(self.value, unit=self.unit).to(unit='ns').value)
+
+    @property
+    def value_ns(self) -> int:
+        """Update frequency in nanoseconds."""
+        return self._value_ns
