@@ -136,6 +136,9 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config, detector_view: raw.RollingDetectorView):
         self._config = config
         self._det = detector_view
+        # Note: Currently we use default weighting based on the number of detector
+        # pixels contributing to each screen pixel. In the future more advanced options
+        # such as by the signal of a uniform scattered may need to be supported.
         self._inv_weights = sc.reciprocal(detector_view.transform_weights())
         self._toa_range = ConfigValueAccessor(
             config, 'toa_range', default=None, convert=self._convert_toa_range
