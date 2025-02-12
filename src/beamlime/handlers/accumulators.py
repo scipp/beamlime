@@ -12,7 +12,8 @@ from ess.reduce.live.roi import ROIFilter
 from scipp._scipp.core import _bins_no_validate
 from streaming_data_types import eventdata_ev44
 
-from ..core.handler import Accumulator, Config, ConfigValueAccessor
+from ..config import models
+from ..core.handler import Accumulator, Config, ConfigModelAccessor
 
 
 @dataclass
@@ -104,11 +105,8 @@ class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config):
         self._config = config
         self._chunks: list[_Chunk] = []
-        self._max_age = ConfigValueAccessor(
-            config=config,
-            key='sliding_window',
-            default={'value': 5.0, 'unit': 's'},
-            convert=lambda raw: sc.scalar(**raw).to(unit='ns', dtype='int64').value,
+        self._max_age = ConfigModelAccessor(
+            config=config, key='sliding_window', model=models.SlidingWindow
         )
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
@@ -127,7 +125,7 @@ class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
 
     def _cleanup(self) -> None:
         latest = max([chunk.timestamp for chunk in self._chunks])
-        max_age = self._max_age()
+        max_age = self._max_age().value_ns
         self._chunks = [c for c in self._chunks if latest - c.timestamp <= max_age]
 
 
@@ -175,17 +173,8 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
         # Note: Currently we are using the same ROI config values for all detector
         # handlers ands views. This is for demo purposes and will be replaced by a more
         # flexible configuration in the future.
-        self._roi_x = ConfigValueAccessor(
-            config=config,
-            key='roi_x',
-            default={'min': 0.0, 'max': 0.0},
-            convert=lambda raw: (raw['min'], raw['max']),
-        )
-        self._roi_y = ConfigValueAccessor(
-            config=config,
-            key='roi_y',
-            default={'min': 0.0, 'max': 0.0},
-            convert=lambda raw: (raw['min'], raw['max']),
+        self._roi = ConfigModelAccessor(
+            config=config, key='roi_rectangle', model=models.ROIRectangle
         )
         self._nbin = -1
         self._edges: sc.Variable | None = None
@@ -207,11 +196,12 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
         # configuration.
         y, x = self._roi_filter._indices.dims
         sizes = self._roi_filter._indices.sizes
-        y_min, y_max = self._roi_y()
-        x_min, x_max = self._roi_x()
+        roi = self._roi()
+        ry = roi.x
+        rx = roi.y
         # Convert fraction to indices
-        y_indices = (int(y_min * (sizes[y] - 1)), int(y_max * (sizes[y] - 1)))
-        x_indices = (int(x_min * (sizes[x] - 1)), int(x_max * (sizes[x] - 1)))
+        y_indices = (int(ry.low * (sizes[y] - 1)), int(ry.high * (sizes[y] - 1)))
+        x_indices = (int(rx.low * (sizes[x] - 1)), int(rx.high * (sizes[x] - 1)))
         new_roi = {y: y_indices, x: x_indices}
 
         if new_roi != self._current_roi:

@@ -10,6 +10,7 @@ from typing import Any
 import scipp as sc
 from ess.reduce.live import raw
 
+from ..config import models
 from ..config.raw_detectors import (
     dream_detectors_config,
     dummy_detectors_config,
@@ -19,7 +20,7 @@ from ..config.raw_detectors import (
 from ..core.handler import (
     Accumulator,
     Config,
-    ConfigValueAccessor,
+    ConfigModelAccessor,
     Handler,
     HandlerFactory,
     PeriodicAccumulatingHandler,
@@ -134,28 +135,34 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
     """Accumulator for detector counts, based on a rolling detector view."""
 
     def __init__(self, config: Config, detector_view: raw.RollingDetectorView):
-        self._config = config
         self._det = detector_view
+        self._inv_weights = sc.reciprocal(detector_view.transform_weights())
+        self._toa_range = ConfigModelAccessor(
+            config, 'toa_range', model=models.TOARange, convert=self._convert_toa_range
+        )
+        self._current_toa_range = None
+        self._use_weights = ConfigModelAccessor(
+            config,
+            'pixel_weighting',
+            model=models.PixelWeighting,
+            convert=self._convert_pixel_weighting,
+        )
+
+    def _convert_toa_range(
+        self, value: dict[str, Any]
+    ) -> tuple[sc.Variable, sc.Variable] | None:
+        model = models.TOARange.model_validate(value)
+        self.clear()
+        return model.range_ns
+
+    def _convert_pixel_weighting(self, value: dict[str, Any]) -> bool:
+        model = models.PixelWeighting.model_validate(value)
         # Note: Currently we use default weighting based on the number of detector
         # pixels contributing to each screen pixel. In the future more advanced options
         # such as by the signal of a uniform scattered may need to be supported.
-        self._inv_weights = sc.reciprocal(detector_view.transform_weights())
-        self._toa_range = ConfigValueAccessor(
-            config, 'toa_range', default=None, convert=self._convert_toa_range
-        )
-        self._current_toa_range = None
-        self._use_weights = ConfigValueAccessor(
-            config, 'use_weights', default=True, convert=bool
-        )
-
-    def _convert_toa_range(self, value: dict[str, Any] | None) -> None:
-        self.clear()
-        if value is None:
-            return None
-        return (
-            sc.scalar(value['low'], unit=value['unit']).to(unit='ns'),
-            sc.scalar(value['high'], unit=value['unit']).to(unit='ns'),
-        )
+        if model.method != models.WeightingMethod.PIXEL_NUMBER:
+            raise ValueError(f'Unsupported pixel weighting method: {model.method}')
+        return model.enabled
 
     def apply_toa_range(self, data: sc.DataArray) -> sc.DataArray:
         if (toa_range := self._toa_range()) is None:

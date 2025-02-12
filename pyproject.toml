@@ -35,6 +35,7 @@ dependencies = [
   "ess-streaming-data-types",
   "essreduce>=25.02.0",
   "jinja2",
+  "pydantic>=2",
   "scipp>=25.02.0",  # Improved performance of scipp.group
 ]
 

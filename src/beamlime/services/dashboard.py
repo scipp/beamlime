@@ -12,7 +12,7 @@ from dash import Dash, Input, Output, dcc, html
 from dash.exceptions import PreventUpdate
 
 from beamlime import Service, ServiceBase
-from beamlime.config import config_names
+from beamlime.config import config_names, models
 from beamlime.config.config_loader import load_config
 from beamlime.core.config_service import ConfigService
 from beamlime.core.message import compact_messages
@@ -175,16 +175,15 @@ class DashboardApp(ServiceBase):
                 value=5,
                 marks={i: str(i) for i in range(0, 11, 1)},
             ),
-            html.Label('Time-of-arrival (us)'),
             dcc.Checklist(
                 id='toa-checkbox',
                 options=[
-                    {'label': 'Filter by time-of-arrival [μs]', 'value': 'enabled'}
+                    {'label': 'Filter by time-of-arrival (μs)', 'value': 'enabled'}
                 ],
                 value=[],
                 style={'margin': '10px 0'},
             ),
-            html.Label('Time-of-arrival Center (us)'),
+            html.Label('Time-of-arrival center (μs)'),
             dcc.Slider(
                 id='toa-center',
                 min=0,
@@ -193,7 +192,7 @@ class DashboardApp(ServiceBase):
                 value=35_500,
                 marks={i: str(i) for i in range(0, 71_001, 10_000)},
             ),
-            html.Label('Time-of-arrival Width (us)'),
+            html.Label('Time-of-arrival width (μs)'),
             dcc.Slider(
                 id='toa-delta',
                 min=0,
@@ -283,12 +282,11 @@ class DashboardApp(ServiceBase):
         y_min = max(0, y_center - y_delta)
         y_max = min(100, y_center + y_delta)
 
-        self._config_service.update_config(
-            'roi_x', {'min': x_min / 100, 'max': x_max / 100}
+        roi = models.ROIRectangle(
+            x=models.ROIAxisRange(low=x_min / 100, high=x_max / 100),
+            y=models.ROIAxisRange(low=y_min / 100, high=y_max / 100),
         )
-        self._config_service.update_config(
-            'roi_y', {'min': y_min / 100, 'max': y_max / 100}
-        )
+        self._config_service.update_config('roi_rectangle', roi.model_dump())
 
         # Update ROI rectangles in all 2D detector plots
         for fig in self._detector_plots.values():
@@ -313,18 +311,17 @@ class DashboardApp(ServiceBase):
         return x_center, x_delta, y_center, y_delta
 
     def update_toa_range(self, center, delta, toa_enabled):
-        if len(toa_enabled) == 0:
-            self._config_service.update_config('toa_range', None)
-        else:
-            low = max(0, center - delta)
-            high = min(71_000, center + delta)
-            self._config_service.update_config(
-                'toa_range', {'low': low, 'high': high, 'unit': 'us'}
-            )
+        low = center - delta / 2
+        high = center + delta / 2
+        model = models.TOARange(
+            enabled=len(toa_enabled) > 0, low=low, high=high, unit='us'
+        )
+        self._config_service.update_config('toa_range', model.model_dump())
         return center, delta
 
     def update_use_weights(self, value: list[str]) -> list[str]:
-        self._config_service.update_config('use_weights', len(value) > 0)
+        model = models.PixelWeighting(enabled=len(value) > 0)
+        self._config_service.update_config('pixel_weighting', model.model_dump())
         return value
 
     @staticmethod
@@ -450,12 +447,10 @@ class DashboardApp(ServiceBase):
         ]
 
     def update_timing_settings(self, update_speed: float, window_size: float) -> float:
-        self._config_service.update_config(
-            'update_every', {'value': 2**update_speed, 'unit': 'ms'}
-        )
-        self._config_service.update_config(
-            'sliding_window', {'value': 2**window_size, 'unit': 'ms'}
-        )
+        update_every = models.UpdateEvery(value=2**update_speed, unit='ms')
+        self._config_service.update_config('update_every', update_every.model_dump())
+        sliding = models.SlidingWindow(value=2**window_size, unit='ms')
+        self._config_service.update_config('sliding_window', sliding.model_dump())
         return 2**update_speed
 
     def update_num_points(self, value: int) -> int:
@@ -465,9 +460,8 @@ class DashboardApp(ServiceBase):
     def clear_data(self, n_clicks: int | None) -> int:
         if n_clicks is None or n_clicks == 0:
             raise PreventUpdate
-        self._config_service.update_config(
-            'start_time', {'value': int(time.time_ns()), 'unit': 'ns'}
-        )
+        model = models.StartTime(value=int(time.time_ns()), unit='ns')
+        self._config_service.update_config('start_time', model.model_dump())
         return 0
 
     def _start_impl(self) -> None:

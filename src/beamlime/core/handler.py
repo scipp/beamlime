@@ -7,8 +7,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import replace
 from typing import Any, Generic, Protocol, TypeVar
 
-import scipp as sc
-
+from ..config import models
 from .message import Message, MessageKey, Tin, Tout
 
 
@@ -114,7 +113,7 @@ class Accumulator(Protocol, Generic[T, U]):
         pass
 
 
-class ConfigValueAccessor:
+class ConfigModelAccessor(Generic[T, U]):
     """
     Access a dynamic configuration value and convert it on demand.
 
@@ -126,25 +125,34 @@ class ConfigValueAccessor:
         Configuration object.
     key:
         Key in the configuration.
-    default:
-        Default value if the key is not found.
+    model:
+        Pydantic model to validate the raw value. Also defines the default value.
     convert:
-        Function to convert the raw value to the desired type.
+        Optional function to convert the raw value to the desired type or perform other
+        actions on config value updates.
     """
 
-    def __init__(self, config: Config, key: str, default: T, convert: Callable[[T], U]):
+    def __init__(
+        self,
+        config: Config,
+        key: str,
+        model: type[T],
+        convert: Callable[[T], U] = lambda x: x,
+    ) -> None:
         self._config = config
         self._key = key
-        self._default = default
+        self._model_cls = model
         self._convert = convert
-        self._raw_value: T | None = None
+        self._raw_value: dict[str, Any] | None = None
         self._value: U | None = None
 
     def __call__(self) -> U:
-        raw_value = self._config.get(self._key, self._default)
+        raw_value = self._config.get(self._key)
+        if raw_value is None:
+            raw_value = self._model_cls().model_dump()
         if raw_value != self._raw_value:
             self._raw_value = raw_value
-            self._value = self._convert(raw_value)
+            self._value = self._convert(self._model_cls.model_validate(raw_value))
         return self._value
 
 
@@ -166,17 +174,11 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         self._accumulators = accumulators
         self._next_update = 0
         self._last_clear = 0
-        self.start_time = ConfigValueAccessor(
-            config=config,
-            key='start_time',
-            default={'value': 0, 'unit': 'ns'},
-            convert=lambda raw: int(sc.scalar(**raw).to(unit='ns', copy=False).value),
+        self.start_time = ConfigModelAccessor(
+            config=config, key='start_time', model=models.StartTime
         )
-        self.update_every = ConfigValueAccessor(
-            config=config,
-            key='update_every',
-            default={'value': 1.0, 'unit': 's'},
-            convert=lambda raw: int(sc.scalar(**raw).to(unit='ns', copy=False).value),
+        self.update_every = ConfigModelAccessor(
+            config=config, key='update_every', model=models.UpdateEvery
         )
         self._logger.info('Setup handler with %s accumulators', len(accumulators))
 
@@ -209,11 +211,11 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         return self._produce_update(messages[-1].key, messages[-1].timestamp)
 
     def _preprocess(self, message: Message[T]) -> None:
-        if self.start_time() > self._last_clear:
+        if self.start_time().value_ns > self._last_clear:
             self._preprocessor.clear()
             for accumulator in self._accumulators.values():
                 accumulator.clear()
-            self._last_clear = self.start_time()
+            self._last_clear = self.start_time().value_ns
             # Set next update to current message to avoid lag in user experience.
             self._next_update = message.timestamp
         self._preprocessor.add(message.timestamp, message.value)
@@ -223,8 +225,8 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         # Note that we do not simply set _next_update based on reference_time
         # to avoid drifts.
         self._next_update += (
-            (timestamp - self._next_update) // self.update_every() + 1
-        ) * self.update_every()
+            (timestamp - self._next_update) // self.update_every().value_ns + 1
+        ) * self.update_every().value_ns
         return [
             Message(
                 timestamp=timestamp,
