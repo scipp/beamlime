@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 import scipp as sc
 from ess.reduce.live.roi import ROIFilter
+from scipp._scipp.core import _bins_no_validate
 from streaming_data_types import eventdata_ev44
 
 from ..config import models
@@ -215,7 +216,7 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
         content.data = sc.ones(
             dims=content.dims, shape=content.shape, dtype='float32', unit='counts'
         )
-        data.data = sc.bins(**constituents)
+        data.data = _bins_no_validate(**constituents)
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
         self._check_for_config_updates()

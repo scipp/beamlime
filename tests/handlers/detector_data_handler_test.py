@@ -30,7 +30,7 @@ def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -
     results = handler.handle([message])
     assert len(results) == 2  # Detector view and ROI-based TOA histogram
     counts = results[0].value.sum().data
-    assert sc.identical(counts, sc.scalar(3, unit='counts', dtype='int32'))
+    assert sc.identical(counts, sc.scalar(3, unit='counts', dtype='float32'))
 
 
 @pytest.mark.parametrize('instrument', ['dream', 'loki'])
