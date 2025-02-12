@@ -208,13 +208,6 @@ traitlets==5.14.3
     #   traittypes
 traittypes==0.2.1
     # via ipydatawidgets
-typing-extensions==4.12.2
-    # via
-    #   beautifulsoup4
-    #   ipython
-    #   mistune
-    #   pydata-sphinx-theme
-    #   referencing
 wcwidth==0.2.13
     # via prompt-toolkit
 webencodings==0.5.1
