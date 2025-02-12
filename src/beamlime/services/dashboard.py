@@ -202,6 +202,12 @@ class DashboardApp(ServiceBase):
                 value=5_000,
                 marks={i: str(i) for i in range(0, 5_001, 1000)},
             ),
+            dcc.Checklist(
+                id='use-weights-checkbox',
+                options=[{'label': 'Use weights', 'value': 'enabled'}],
+                value=['enabled'],
+                style={'margin': '10px 0'},
+            ),
             html.Button('Clear', id='clear-button', n_clicks=0),
         ]
         self._app.layout = html.Div(
@@ -266,6 +272,11 @@ class DashboardApp(ServiceBase):
             Input('toa-checkbox', 'value'),
         )(self.update_toa_range)
 
+        self._app.callback(
+            Output('use-weights-checkbox', 'value'),
+            Input('use-weights-checkbox', 'value'),
+        )(self.update_use_weights)
+
     def update_roi(self, x_center, x_delta, y_center, y_delta):
         x_min = max(0, x_center - x_delta)
         x_max = min(100, x_center + x_delta)
@@ -311,6 +322,10 @@ class DashboardApp(ServiceBase):
                 'toa_range', {'low': low, 'high': high, 'unit': 'us'}
             )
         return center, delta
+
+    def update_use_weights(self, value: list[str]) -> list[str]:
+        self._config_service.update_config('use_weights', len(value) > 0)
+        return value
 
     @staticmethod
     def create_monitor_plot(key: str, data: sc.DataArray) -> go.Figure:
