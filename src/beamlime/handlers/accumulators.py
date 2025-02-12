@@ -1,12 +1,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import scipp as sc
+from ess.reduce.live.roi import ROIFilter
+from scipp._scipp.core import _bins_no_validate
 from streaming_data_types import eventdata_ev44
 
 from ..core.handler import Accumulator, Config, ConfigValueAccessor
@@ -53,6 +56,17 @@ class DetectorEvents:
         return DetectorEvents(
             pixel_id=ev44.pixel_id, time_of_arrival=ev44.time_of_flight, unit='ns'
         )
+
+
+class NullAccumulator(Accumulator[Any, None]):
+    def add(self, timestamp: int, data: Any) -> None:
+        pass
+
+    def get(self) -> None:
+        return None
+
+    def clear(self) -> None:
+        pass
 
 
 class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
@@ -117,34 +131,118 @@ class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
         self._chunks = [c for c in self._chunks if latest - c.timestamp <= max_age]
 
 
-class PixelIDMerger(Accumulator[DetectorEvents, np.array]):
-    def __init__(self, config: Config):
+class GroupIntoPixels(Accumulator[DetectorEvents, sc.DataArray]):
+    def __init__(self, config: Config, detector_number: sc.Variable):
         self._config = config
-        self._chunks: list[np.ndarray] = []
-        # TODO This will be set via a config option, in other words, the control topic
-        # by the user. This mechanism is currently not implemented.
-        self._toa_range: tuple[float, float] | None = None
-
-    def _filter_by_toa(self, toa: np.ndarray, pixel_id: np.ndarray) -> np.ndarray:
-        if self._toa_range is None:
-            return pixel_id
-        else:
-            start, end = self._toa_range
-            mask = (toa >= start) & (toa < end)
-            return pixel_id[mask]
+        self._chunks: list[DetectorEvents] = []
+        self._toa_unit = 'ns'
+        self._sizes = detector_number.sizes
+        self._dim = 'detector_number'
+        self._groups = detector_number.flatten(to=self._dim)
 
     def add(self, timestamp: int, data: DetectorEvents) -> None:
         # timestamp in function signature is required for compliance with Accumulator
         # interface.
         _ = timestamp
-        ids = self._filter_by_toa(data.time_of_arrival, data.pixel_id)
-        self._chunks.append(ids)
+        # We could easily support other units, but ev44 is always in ns so this should
+        # never happen.
+        if data.unit != self._toa_unit:
+            raise ValueError(f"Expected unit '{self._toa_unit}', got '{data.unit}'")
+        self._chunks.append(data)
 
-    def get(self) -> np.array:
-        # Could optimize the concatenate by reusing a buffer.
-        events = np.concatenate(self._chunks or [[]])
+    def get(self) -> sc.DataArray:
+        # Could optimize the concatenate by reusing a buffer (directly write to it in
+        # self.add).
+        pixel_ids = np.concatenate([c.pixel_id for c in self._chunks])
+        time_of_arrival = np.concatenate([c.time_of_arrival for c in self._chunks])
+        da = sc.DataArray(
+            data=sc.array(dims=['event'], values=time_of_arrival, unit=self._toa_unit),
+            coords={self._dim: sc.array(dims=['event'], values=pixel_ids, unit=None)},
+        )
         self._chunks.clear()
-        return events
+        return da.group(self._groups).fold(dim=self._dim, sizes=self._sizes)
+
+    def clear(self) -> None:
+        self._chunks.clear()
+
+
+class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
+    def __init__(self, config: Config, roi_filter: ROIFilter):
+        self._config = config
+        self._roi_filter = roi_filter
+        self._chunks: list[sc.DataArray] = []
+
+        # Note: Currently we are using the same ROI config values for all detector
+        # handlers ands views. This is for demo purposes and will be replaced by a more
+        # flexible configuration in the future.
+        self._roi_x = ConfigValueAccessor(
+            config=config,
+            key='roi_x',
+            default={'min': 0.0, 'max': 0.0},
+            convert=lambda raw: (raw['min'], raw['max']),
+        )
+        self._roi_y = ConfigValueAccessor(
+            config=config,
+            key='roi_y',
+            default={'min': 0.0, 'max': 0.0},
+            convert=lambda raw: (raw['min'], raw['max']),
+        )
+        self._nbin = -1
+        self._edges: sc.Variable | None = None
+        self._edges_ns: sc.Variable | None = None
+        self._current_roi = None
+
+    def _check_for_config_updates(self) -> None:
+        nbin = self._config.get('time_of_arrival_bins', 100)
+        if self._edges is None or nbin != self._nbin:
+            self._nbin = nbin
+            self._edges = sc.linspace(
+                'time_of_arrival', 0.0, 1000 / 14, num=nbin, unit='ms'
+            )
+            self._edges_ns = self._edges.to(unit='ns')
+            self.clear()
+
+        # Access to protected variables should hopefully be avoided by changing the
+        # config values to send indices instead of percentages, once we have per-view
+        # configuration.
+        y, x = self._roi_filter._indices.dims
+        sizes = self._roi_filter._indices.sizes
+        y_min, y_max = self._roi_y()
+        x_min, x_max = self._roi_x()
+        # Convert fraction to indices
+        y_indices = (int(y_min * (sizes[y] - 1)), int(y_max * (sizes[y] - 1)))
+        x_indices = (int(x_min * (sizes[x] - 1)), int(x_max * (sizes[x] - 1)))
+        new_roi = {y: y_indices, x: x_indices}
+
+        if new_roi != self._current_roi:
+            self._current_roi = new_roi
+            self._roi_filter.set_roi_from_intervals(sc.DataGroup(new_roi))
+            self.clear()  # Clear accumulated data when ROI changes
+
+    def _add_weights(self, data: sc.DataArray) -> None:
+        constituents = data.bins.constituents
+        content = constituents['data']
+        content.coords['time_of_arrival'] = content.data
+        content.data = sc.ones(
+            dims=content.dims, shape=content.shape, dtype='float32', unit='counts'
+        )
+        data.data = _bins_no_validate(**constituents)
+
+    def add(self, timestamp: int, data: sc.DataArray) -> None:
+        self._check_for_config_updates()
+        # Note that the preprocessor does *not* add weights of 1 (unlike NeXus loaders).
+        # Instead, the data column of the content corresponds to the time of arrival.
+        filtered, scale = self._roi_filter.apply(data)
+        self._add_weights(filtered)
+        filtered *= scale
+        chunk = filtered.hist(time_of_arrival=self._edges_ns, dim=filtered.dim)
+        self._chunks.append(chunk)
+
+    def get(self) -> sc.DataArray:
+        da = sc.reduce(self._chunks).sum()
+        self._chunks.clear()
+        da.coords['time_of_arrival'] = self._edges
+        return da
 
     def clear(self) -> None:
         self._chunks.clear()

@@ -7,7 +7,6 @@ import pathlib
 import re
 from typing import Any
 
-import numpy as np
 import scipp as sc
 from ess.reduce.live import raw
 
@@ -25,7 +24,12 @@ from ..core.handler import (
     PeriodicAccumulatingHandler,
 )
 from ..core.message import MessageKey
-from .accumulators import DetectorEvents, PixelIDMerger
+from .accumulators import (
+    DetectorEvents,
+    GroupIntoPixels,
+    NullAccumulator,
+    ROIBasedTOAHistogram,
+)
 
 detector_registry = {
     'dummy': dummy_detectors_config,
@@ -104,7 +108,19 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
             f'sliding_{name}': DetectorCounts(config=self._config, detector_view=view)
             for name, view in views.items()
         }
-        preprocessor = PixelIDMerger(config=self._config)
+        detector_number: sc.Variable | None = None
+        for name, view in views.items():
+            accumulators[f'{name}_ROI'] = ROIBasedTOAHistogram(
+                config=self._config, roi_filter=view.make_roi_filter()
+            )
+            detector_number = view.detector_number
+        if detector_number is None:
+            preprocessor = NullAccumulator()
+        else:
+            preprocessor = GroupIntoPixels(
+                config=self._config, detector_number=detector_number
+            )
+
         return PeriodicAccumulatingHandler(
             logger=self._logger,
             config=self._config,
@@ -113,16 +129,16 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         )
 
 
-class DetectorCounts(Accumulator[np.ndarray, sc.DataArray]):
+class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
     """Accumulator for detector counts, based on a rolling detector view."""
 
     def __init__(self, config: Config, detector_view: raw.RollingDetectorView):
         self._config = config
         self._det = detector_view
 
-    def add(self, timestamp: int, data: np.ndarray) -> None:
+    def add(self, timestamp: int, data: sc.DataArray) -> None:
         _ = timestamp
-        self._det.add_counts(data)
+        self._det.add_events(data)
 
     def get(self) -> sc.DataArray:
         return self._det.get()
