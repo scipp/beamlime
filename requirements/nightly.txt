@@ -19,9 +19,9 @@ essreduce @ git+https://github.com/scipp/essreduce@main
     # via -r nightly.in
 exceptiongroup==1.2.2
     # via pytest
-flatbuffers==25.1.24
+flatbuffers==25.2.10
     # via ess-streaming-data-types
-fonttools==4.55.7
+fonttools==4.56.0
     # via matplotlib
 h5py==3.12.1
     # via
@@ -82,7 +82,7 @@ sciline @ git+https://github.com/scipp/sciline@main
     # via
     #   -r nightly.in
     #   essreduce
-scipp==25.1.1.dev9+g65da84467
+scipp==25.2.1.dev0
     # via
     #   -r nightly.in
     #   essreduce

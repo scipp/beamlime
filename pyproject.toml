@@ -30,11 +30,12 @@ requires-python = ">=3.10"
 # Run 'tox -e deps' after making changes here. This will update requirement files.
 # Make sure to list one dependency per line.
 dependencies = [
-  "essreduce>=24.12.0",
+  "PyYAML",
   "confluent_kafka",
   "ess-streaming-data-types",
+  "essreduce>=25.02.0",
   "jinja2",
-  "PyYAML",
+  "scipp>=25.02.0",  # Improved performance of scipp.group
 ]
 
 dynamic = ["version"]
