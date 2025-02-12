@@ -157,6 +157,23 @@ class DashboardApp(ServiceBase):
                 value=[45, 55],
                 marks={i: str(i) for i in range(0, 101, 20)},
             ),
+            html.Label('Time-of-arrival range (us)'),
+            dcc.Checklist(
+                id='toa-checkbox',
+                options=[
+                    {'label': 'Filter by time-of-arrival [μs]', 'value': 'enabled'}
+                ],
+                value=[],
+                style={'margin': '10px 0'},
+            ),
+            dcc.RangeSlider(
+                id='toa-range',
+                min=0,
+                max=71_000,
+                step=100,
+                value=[0, 71_000],
+                marks={i: str(i) for i in range(0, 71_001, 10_000)},
+            ),
             html.Button('Clear', id='clear-button', n_clicks=0),
         ]
         self._app.layout = html.Div(
@@ -204,6 +221,17 @@ class DashboardApp(ServiceBase):
             Input('roi-y', 'value'),
         )(self.update_roi)
 
+        self._app.callback(
+            Output('toa-range', 'disabled'),
+            Input('toa-checkbox', 'value'),
+        )(lambda value: len(value) == 0)
+
+        self._app.callback(
+            Output('toa-range', 'value'),
+            Input('toa-range', 'value'),
+            Input('toa-checkbox', 'value'),
+        )(self.update_toa_range)
+
     def update_roi(self, roi_x, roi_y):
         if roi_x is not None:
             self._config_service.update_config(
@@ -235,6 +263,15 @@ class DashboardApp(ServiceBase):
                 )
 
         return roi_x, roi_y
+
+    def update_toa_range(self, toa_range, toa_enabled):
+        if len(toa_enabled) == 0:
+            self._config_service.update_config('toa_range', None)
+        else:
+            self._config_service.update_config(
+                'toa_range', {'low': toa_range[0], 'high': toa_range[1], 'unit': 'us'}
+            )
+        return toa_range
 
     @staticmethod
     def create_monitor_plot(key: str, data: sc.DataArray) -> go.Figure:

@@ -19,6 +19,7 @@ from ..config.raw_detectors import (
 from ..core.handler import (
     Accumulator,
     Config,
+    ConfigValueAccessor,
     Handler,
     HandlerFactory,
     PeriodicAccumulatingHandler,
@@ -135,9 +136,43 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config, detector_view: raw.RollingDetectorView):
         self._config = config
         self._det = detector_view
+        self._toa_range = ConfigValueAccessor(
+            config, 'toa_range', default=None, convert=self._convert_toa_range
+        )
+        self._current_toa_range = None
+
+    def _convert_toa_range(self, value: dict[str, Any] | None) -> None:
+        self.clear()
+        if value is None:
+            return None
+        return (
+            sc.scalar(value['low'], unit=value['unit']).to(unit='ns'),
+            sc.scalar(value['high'], unit=value['unit']).to(unit='ns'),
+        )
+
+    def apply_toa_range(self, data: sc.DataArray) -> sc.DataArray:
+        if (toa_range := self._toa_range()) is None:
+            return data
+        low, high = toa_range
+        # GroupIntoPixels stores time-of-arrival as the data variable of the bins to
+        # avoid allocating weights that are all ones. For filtering we need to turn this
+        # into a coordinate, since scipp does not support filtering on data variables.
+        return data.bins.assign_coords(toa=data.bins.data).bins['toa', low:high]
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
+        """
+        Add data to the accumulator.
+
+        Parameters
+        ----------
+        timestamp:
+            Timestamp of the data.
+        data:
+            Data to be added. It is assumed that this is ev44 data that was passed
+            through :py:class:`GroupIntoPixels`.
+        """
         _ = timestamp
+        data = self.apply_toa_range(data)
         self._det.add_events(data)
 
     def get(self) -> sc.DataArray:
