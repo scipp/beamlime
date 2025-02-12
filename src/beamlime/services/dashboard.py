@@ -139,25 +139,43 @@ class DashboardApp(ServiceBase):
                 marks={i: str(i) for i in range(0, 1001, 100)},
                 disabled=True,
             ),
-            html.Label('ROI X-axis (%)'),
-            dcc.RangeSlider(
-                id='roi-x',
+            html.Label('ROI X-axis Center (%)'),
+            dcc.Slider(
+                id='roi-x-center',
                 min=0,
                 max=100,
                 step=1,
-                value=[45, 55],
+                value=50,
                 marks={i: str(i) for i in range(0, 101, 20)},
             ),
-            html.Label('ROI Y-axis (%)'),
-            dcc.RangeSlider(
-                id='roi-y',
+            html.Label('ROI X-axis Width (%)'),
+            dcc.Slider(
+                id='roi-x-delta',
+                min=0,
+                max=10,
+                step=1,
+                value=5,
+                marks={i: str(i) for i in range(0, 11, 1)},
+            ),
+            html.Label('ROI Y-axis Center (%)'),
+            dcc.Slider(
+                id='roi-y-center',
                 min=0,
                 max=100,
                 step=1,
-                value=[45, 55],
+                value=50,
                 marks={i: str(i) for i in range(0, 101, 20)},
             ),
-            html.Label('Time-of-arrival range (us)'),
+            html.Label('ROI Y-axis Width (%)'),
+            dcc.Slider(
+                id='roi-y-delta',
+                min=0,
+                max=10,
+                step=1,
+                value=5,
+                marks={i: str(i) for i in range(0, 11, 1)},
+            ),
+            html.Label('Time-of-arrival (us)'),
             dcc.Checklist(
                 id='toa-checkbox',
                 options=[
@@ -166,13 +184,23 @@ class DashboardApp(ServiceBase):
                 value=[],
                 style={'margin': '10px 0'},
             ),
-            dcc.RangeSlider(
-                id='toa-range',
+            html.Label('Time-of-arrival Center (us)'),
+            dcc.Slider(
+                id='toa-center',
                 min=0,
                 max=71_000,
                 step=100,
-                value=[0, 71_000],
+                value=35_500,
                 marks={i: str(i) for i in range(0, 71_001, 10_000)},
+            ),
+            html.Label('Time-of-arrival Width (us)'),
+            dcc.Slider(
+                id='toa-delta',
+                min=0,
+                max=5_000,
+                step=100,
+                value=5_000,
+                marks={i: str(i) for i in range(0, 5_001, 1000)},
             ),
             html.Button('Clear', id='clear-button', n_clicks=0),
         ]
@@ -215,63 +243,74 @@ class DashboardApp(ServiceBase):
         )(self.clear_data)
 
         self._app.callback(
-            Output('roi-x', 'value'),
-            Output('roi-y', 'value'),
-            Input('roi-x', 'value'),
-            Input('roi-y', 'value'),
+            Output('roi-x-center', 'value'),
+            Output('roi-x-delta', 'value'),
+            Output('roi-y-center', 'value'),
+            Output('roi-y-delta', 'value'),
+            Input('roi-x-center', 'value'),
+            Input('roi-x-delta', 'value'),
+            Input('roi-y-center', 'value'),
+            Input('roi-y-delta', 'value'),
         )(self.update_roi)
 
         self._app.callback(
-            Output('toa-range', 'disabled'),
+            [Output('toa-center', 'disabled'), Output('toa-delta', 'disabled')],
             Input('toa-checkbox', 'value'),
-        )(lambda value: len(value) == 0)
+        )(lambda value: [len(value) == 0, len(value) == 0])
 
         self._app.callback(
-            Output('toa-range', 'value'),
-            Input('toa-range', 'value'),
+            Output('toa-center', 'value'),
+            Output('toa-delta', 'value'),
+            Input('toa-center', 'value'),
+            Input('toa-delta', 'value'),
             Input('toa-checkbox', 'value'),
         )(self.update_toa_range)
 
-    def update_roi(self, roi_x, roi_y):
-        if roi_x is not None:
-            self._config_service.update_config(
-                'roi_x', {'min': roi_x[0] / 100, 'max': roi_x[1] / 100}
-            )
-        if roi_y is not None:
-            self._config_service.update_config(
-                'roi_y', {'min': roi_y[0] / 100, 'max': roi_y[1] / 100}
-            )
+    def update_roi(self, x_center, x_delta, y_center, y_delta):
+        x_min = max(0, x_center - x_delta)
+        x_max = min(100, x_center + x_delta)
+        y_min = max(0, y_center - y_delta)
+        y_max = min(100, y_center + y_delta)
+
+        self._config_service.update_config(
+            'roi_x', {'min': x_min / 100, 'max': x_max / 100}
+        )
+        self._config_service.update_config(
+            'roi_y', {'min': y_min / 100, 'max': y_max / 100}
+        )
 
         # Update ROI rectangles in all 2D detector plots
         for fig in self._detector_plots.values():
             if hasattr(fig.data[0], 'z'):  # Check if it's a 2D plot
                 x_range = [fig.data[0].x[0], fig.data[0].x[-1]]
                 y_range = [fig.data[0].y[0], fig.data[0].y[-1]]
-                x_min = x_range[0] + (x_range[1] - x_range[0]) * roi_x[0] / 100
-                x_max = x_range[0] + (x_range[1] - x_range[0]) * roi_x[1] / 100
-                y_min = y_range[0] + (y_range[1] - y_range[0]) * roi_y[0] / 100
-                y_max = y_range[0] + (y_range[1] - y_range[0]) * roi_y[1] / 100
+                x_min_plot = x_range[0] + (x_range[1] - x_range[0]) * x_min / 100
+                x_max_plot = x_range[0] + (x_range[1] - x_range[0]) * x_max / 100
+                y_min_plot = y_range[0] + (y_range[1] - y_range[0]) * y_min / 100
+                y_max_plot = y_range[0] + (y_range[1] - y_range[0]) * y_max / 100
 
                 fig.update_shapes(
                     {
-                        'x0': x_min,
-                        'x1': x_max,
-                        'y0': y_min,
-                        'y1': y_max,
+                        'x0': x_min_plot,
+                        'x1': x_max_plot,
+                        'y0': y_min_plot,
+                        'y1': y_max_plot,
                         'visible': True,
                     }
                 )
 
-        return roi_x, roi_y
+        return x_center, x_delta, y_center, y_delta
 
-    def update_toa_range(self, toa_range, toa_enabled):
+    def update_toa_range(self, center, delta, toa_enabled):
         if len(toa_enabled) == 0:
             self._config_service.update_config('toa_range', None)
         else:
+            low = max(0, center - delta)
+            high = min(71_000, center + delta)
             self._config_service.update_config(
-                'toa_range', {'low': toa_range[0], 'high': toa_range[1], 'unit': 'us'}
+                'toa_range', {'low': low, 'high': high, 'unit': 'us'}
             )
-        return toa_range
+        return center, delta
 
     @staticmethod
     def create_monitor_plot(key: str, data: sc.DataArray) -> go.Figure:
