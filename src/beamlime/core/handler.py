@@ -145,11 +145,10 @@ class ConfigModelAccessor(Generic[T, U]):
         self._convert = convert
         self._raw_value: dict[str, Any] | None = None
         self._value: U | None = None
+        self._default = self._model_cls().model_dump()
 
     def __call__(self) -> U:
-        raw_value = self._config.get(self._key)
-        if raw_value is None:
-            raw_value = self._model_cls().model_dump()
+        raw_value = self._config.get(self._key, self._default)
         if raw_value != self._raw_value:
             self._raw_value = raw_value
             self._value = self._convert(self._model_cls.model_validate(raw_value))
