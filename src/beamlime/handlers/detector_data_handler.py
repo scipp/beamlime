@@ -63,7 +63,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         self._config = config
         self._detector_config = detector_registry[instrument]['detectors']
         self._nexus_file = _try_get_nexus_geometry_filename(instrument)
-        self._window_length = 10
+        self._window_length = 128
 
     def _key_to_detector_name(self, key: MessageKey) -> str:
         return key.source_name
@@ -113,7 +113,9 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
             roi = ROIBasedTOAHistogram(
                 config=self._config, roi_filter=view.make_roi_filter()
             )
-            sliding = DetectorCounts(config=self._config, detector_view=view)
+            sliding = DetectorCounts(
+                logger=self._logger, config=self._config, detector_view=view
+            )
             cumulative = sliding.make_observing_cumulative_accumulator()
             accumulators[f'sliding_{name}'] = sliding
             accumulators[f'roi_{name}'] = roi
@@ -136,19 +138,29 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
 class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
     """Accumulator for detector counts, based on a rolling detector view."""
 
-    def __init__(self, config: Config, detector_view: raw.RollingDetectorView):
-        self._det = detector_view
+    def __init__(
+        self,
+        logger: logging.Logger,
+        config: Config,
+        detector_view: raw.RollingDetectorView,
+    ):
+        self._logger = logger
+        self._view = detector_view
         self._inv_weights = sc.reciprocal(detector_view.transform_weights())
         self._toa_range = ConfigModelAccessor(
             config, 'toa_range', model=models.TOARange, convert=self._convert_toa_range
         )
-        self._current_toa_range = None
         self._use_weights = ConfigModelAccessor(
             config,
             'pixel_weighting',
             model=models.PixelWeighting,
             convert=self._convert_pixel_weighting,
         )
+        self._max_age = ConfigModelAccessor(
+            config=config, key='sliding_window', model=models.SlidingWindow
+        )
+        self._chunks_timestamps: list[int] = []
+        self._current_window = 0
 
     def _convert_toa_range(
         self, value: dict[str, Any]
@@ -187,19 +199,47 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
             Data to be added. It is assumed that this is ev44 data that was passed
             through :py:class:`GroupIntoPixels`.
         """
-        _ = timestamp
         data = self.apply_toa_range(data)
-        self._det.add_events(data)
+        self._chunks_timestamps.append(timestamp)
+        self._view.add_events(data)
 
     def get(self) -> sc.DataArray:
-        counts = self._det.get()
+        self._cleanup()
+        counts = self._view.get(window=self._current_window)
         return counts * self._inv_weights if self._use_weights() else counts
 
     def clear(self) -> None:
-        self._det.clear_counts()
+        self._view.clear_counts()
+        self._chunks_timestamps.clear()
+        self._current_window = 0
+
+    def _cleanup(self) -> None:
+        if not self._chunks_timestamps:
+            return
+        latest = max(self._chunks_timestamps)
+        max_age = self._max_age().value_ns
+        # Count how many chunks are within the window
+        active_chunks = sum(
+            1 for ts in self._chunks_timestamps if latest - ts <= max_age
+        )
+        # Update the window size for the underlying view
+        max_window = self._view.max_window
+        if active_chunks > max_window:
+            self._logger.warning(
+                'Requested window size %d exceeds maximum %d', active_chunks, max_window
+            )
+            self._current_window = max_window
+        else:
+            self._current_window = active_chunks
+        # Remove timestamps of expired chunks
+        self._chunks_timestamps = [
+            ts for ts in self._chunks_timestamps if latest - ts <= max_age
+        ]
 
     def make_observing_cumulative_accumulator(self) -> CumulativeDetectorCounts:
-        return CumulativeDetectorCounts(self._det, self._inv_weights, self._use_weights)
+        return CumulativeDetectorCounts(
+            self._view, self._inv_weights, self._use_weights
+        )
 
 
 class CumulativeDetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
