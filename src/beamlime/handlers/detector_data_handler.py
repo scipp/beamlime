@@ -106,16 +106,18 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         views = {name: view for name, view in candidates.items() if view is not None}
         if not views:
             self._logger.warning('No views configured for %s', detector_name)
-        accumulators = {
-            f'sliding_{name}': DetectorCounts(config=self._config, detector_view=view)
-            for name, view in views.items()
-        }
         detector_number: sc.Variable | None = None
+        accumulators = {}
         for name, view in views.items():
-            accumulators[f'{name}_ROI'] = ROIBasedTOAHistogram(
+            detector_number = view.detector_number
+            roi = ROIBasedTOAHistogram(
                 config=self._config, roi_filter=view.make_roi_filter()
             )
-            detector_number = view.detector_number
+            sliding = DetectorCounts(config=self._config, detector_view=view)
+            cumulative = sliding.make_observing_cumulative_accumulator()
+            accumulators[f'sliding_{name}'] = sliding
+            accumulators[f'roi_{name}'] = roi
+            accumulators[f'cumulative_{name}'] = cumulative
         if detector_number is None:
             preprocessor = NullAccumulator()
         else:
@@ -195,6 +197,25 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
 
     def clear(self) -> None:
         self._det.clear_counts()
+
+    def make_observing_cumulative_accumulator(self) -> CumulativeDetectorCounts:
+        return CumulativeDetectorCounts(self._det, self._inv_weights, self._use_weights)
+
+
+class CumulativeDetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
+    def __init__(
+        self,
+        det: raw.RollingDetectorView,
+        inv_weights: sc.DataArray,
+        use_weights: ConfigModelAccessor,
+    ):
+        self._det = det
+        self._inv_weights = inv_weights
+        self._use_weights = use_weights
+
+    def get(self) -> sc.DataArray:
+        counts = self._det.cumulative
+        return counts * self._inv_weights if self._use_weights() else counts
 
 
 # Note: Currently no need for a geometry file for NMX since the view is purely logical.
