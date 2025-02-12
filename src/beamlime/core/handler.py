@@ -219,7 +219,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
             self._next_update = message.timestamp
         self._preprocessor.add(message.timestamp, message.value)
 
-    def _produce_update(self, key: MessageKey, timestamp: int) -> None:
+    def _produce_update(self, key: MessageKey, timestamp: int) -> list[Message[V]]:
         # If there were no pulses for a while we need to skip several updates.
         # Note that we do not simply set _next_update based on reference_time
         # to avoid drifts.
@@ -232,7 +232,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
                 key=replace(
                     key,
                     topic=f'{key.topic}_processed',
-                    source_name=f'{key.source_name}_{name}',
+                    source_name=f'{key.source_name}/{name}',
                 ),
                 value=accumulator.get(),
             )

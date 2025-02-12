@@ -110,16 +110,12 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         accumulators: dict[str, Accumulator[sc.DataArray, sc.DataArray]] = {}
         for name, view in views.items():
             detector_number = view.detector_number
-            roi = ROIBasedTOAHistogram(
-                config=self._config, roi_filter=view.make_roi_filter()
-            )
-            sliding = DetectorCounts(
+            accumulators[name] = DetectorCounts(
                 logger=self._logger, config=self._config, detector_view=view
             )
-            cumulative = sliding.make_observing_cumulative_accumulator()
-            accumulators[f'sliding_{name}'] = sliding
-            accumulators[f'roi_{name}'] = roi
-            accumulators[f'cumulative_{name}'] = cumulative
+            accumulators[f'{name}/roi'] = ROIBasedTOAHistogram(
+                config=self._config, roi_filter=view.make_roi_filter()
+            )
         if detector_number is None:
             preprocessor = NullAccumulator()
         else:
@@ -135,8 +131,12 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         )
 
 
-class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
-    """Accumulator for detector counts, based on a rolling detector view."""
+class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
+    """
+    Accumulator for detector counts, based on a rolling detector view.
+
+    Return both a sliding and a cumulative view of the counts.
+    """
 
     def __init__(
         self,
@@ -203,10 +203,13 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
         self._timestamps.append(timestamp)
         self._view.add_events(data)
 
-    def get(self) -> sc.DataArray:
+    def get(self) -> sc.DataGroup[sc.DataArray]:
         self._cleanup()
-        counts = self._view.get(window=self._current_window)
-        return counts * self._inv_weights if self._use_weights() else counts
+        result = sc.DataGroup(
+            sliding=self._view.get(window=self._current_window),
+            cumulative=self._view.cumulative,
+        )
+        return result * self._inv_weights if self._use_weights() else result
 
     def clear(self) -> None:
         self._view.clear_counts()
@@ -231,37 +234,6 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
             self._current_window = active_chunks
         # Remove timestamps of expired chunks
         self._timestamps = [ts for ts in self._timestamps if latest - ts <= max_age]
-
-    def make_observing_cumulative_accumulator(self) -> CumulativeDetectorCounts:
-        return CumulativeDetectorCounts(
-            self._view, self._inv_weights, self._use_weights
-        )
-
-
-class CumulativeDetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
-    """
-    Accumulator for cumulative detector counts.
-
-    This accumulator is a proxy for a :py:class:`DetectorCounts` accumulator and does
-    not perform significant work itself. It does thus not implement `add` and `clear`.
-    The reason for this is the current partitioning of logic into accumulators, where
-    each accumulator produces a single output. We want to avoid performing work in the
-    rolling detector view twice, so we have two accumulators sharing the same view.
-    """
-
-    def __init__(
-        self,
-        det: raw.RollingDetectorView,
-        inv_weights: sc.DataArray,
-        use_weights: ConfigModelAccessor,
-    ):
-        self._det = det
-        self._inv_weights = inv_weights
-        self._use_weights = use_weights
-
-    def get(self) -> sc.DataArray:
-        counts = self._det.cumulative
-        return counts * self._inv_weights if self._use_weights() else counts
 
 
 # Note: Currently no need for a geometry file for NMX since the view is purely logical.
