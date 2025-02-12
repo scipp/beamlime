@@ -107,7 +107,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         if not views:
             self._logger.warning('No views configured for %s', detector_name)
         detector_number: sc.Variable | None = None
-        accumulators = {}
+        accumulators: dict[str, Accumulator[sc.DataArray, sc.DataArray]] = {}
         for name, view in views.items():
             detector_number = view.detector_number
             roi = ROIBasedTOAHistogram(
@@ -159,7 +159,7 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
         self._max_age = ConfigModelAccessor(
             config=config, key='sliding_window', model=models.SlidingWindow
         )
-        self._chunks_timestamps: list[int] = []
+        self._timestamps: list[int] = []
         self._current_window = 0
 
     def _convert_toa_range(
@@ -200,7 +200,7 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
             through :py:class:`GroupIntoPixels`.
         """
         data = self.apply_toa_range(data)
-        self._chunks_timestamps.append(timestamp)
+        self._timestamps.append(timestamp)
         self._view.add_events(data)
 
     def get(self) -> sc.DataArray:
@@ -210,18 +210,16 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
 
     def clear(self) -> None:
         self._view.clear_counts()
-        self._chunks_timestamps.clear()
+        self._timestamps.clear()
         self._current_window = 0
 
     def _cleanup(self) -> None:
-        if not self._chunks_timestamps:
+        if not self._timestamps:
             return
-        latest = max(self._chunks_timestamps)
+        latest = max(self._timestamps)
         max_age = self._max_age().value_ns
         # Count how many chunks are within the window
-        active_chunks = sum(
-            1 for ts in self._chunks_timestamps if latest - ts <= max_age
-        )
+        active_chunks = sum(1 for ts in self._timestamps if latest - ts <= max_age)
         # Update the window size for the underlying view
         max_window = self._view.max_window
         if active_chunks > max_window:
@@ -232,9 +230,7 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
         else:
             self._current_window = active_chunks
         # Remove timestamps of expired chunks
-        self._chunks_timestamps = [
-            ts for ts in self._chunks_timestamps if latest - ts <= max_age
-        ]
+        self._timestamps = [ts for ts in self._timestamps if latest - ts <= max_age]
 
     def make_observing_cumulative_accumulator(self) -> CumulativeDetectorCounts:
         return CumulativeDetectorCounts(
