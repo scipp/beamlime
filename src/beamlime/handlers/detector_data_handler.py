@@ -239,6 +239,16 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
 
 
 class CumulativeDetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
+    """
+    Accumulator for cumulative detector counts.
+
+    This accumulator is a proxy for a :py:class:`DetectorCounts` accumulator and does
+    not perform significant work itself. It does thus not implement `add` and `clear`.
+    The reason for this is the current partitioning of logic into accumulators, where
+    each accumulator produces a single output. We want to avoid performing work in the
+    rolling detector view twice, so we have two accumulators sharing the same view.
+    """
+
     def __init__(
         self,
         det: raw.RollingDetectorView,
