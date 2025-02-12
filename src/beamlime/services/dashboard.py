@@ -415,7 +415,9 @@ class DashboardApp(ServiceBase):
                 fig.data[0].y = data.values
 
             for msg in detector_messages:
-                key = msg.key.source_name
+                # Trim the base of the source name, since it duplicates information
+                # from the view name in the second part of the key.
+                key = msg.key.source_name.split('/', maxsplit=1)[1]
                 data = msg.value
                 for dim in data.dims:
                     if dim not in data.coords:

@@ -2,6 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import logging
 import time
+from dataclasses import replace
 from typing import Any, Generic, Protocol, TypeVar
 
 import confluent_kafka as kafka
@@ -73,3 +74,19 @@ class KafkaSink(MessageSink[T]):
             self._producer.flush(timeout=3)
         except kafka.KafkaException as e:
             self._logger.error("Error flushing producer: %s", e)
+
+
+class UnrollingSinkAdapter(MessageSink[T | sc.DataGroup[T]]):
+    def __init__(self, sink: MessageSink[T]):
+        self._sink = sink
+
+    def publish_messages(self, messages: list[Message[T | sc.DataGroup[T]]]) -> None:
+        unrolled: list[Message[T]] = []
+        for msg in messages:
+            if isinstance(msg.value, sc.DataGroup):
+                for name, value in msg.value.items():
+                    key = replace(msg.key, source_name=f'{msg.key.source_name}/{name}')
+                    unrolled.append(replace(msg, key=key, value=value))
+            else:
+                unrolled.append(msg)
+        self._sink.publish_messages(unrolled)

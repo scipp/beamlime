@@ -18,7 +18,7 @@ from beamlime.kafka.message_adapter import (
     Ev44ToDetectorEventsAdapter,
     KafkaToEv44Adapter,
 )
-from beamlime.kafka.sink import KafkaSink
+from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
 from beamlime.service_factory import DataServiceBuilder
 from beamlime.sinks import PlotToPngSink
 
@@ -49,6 +49,7 @@ def run_service(
         sink = KafkaSink(kafka_config=kafka_downstream_config)
     else:
         sink = PlotToPngSink()
+    sink = UnrollingSinkAdapter(sink)
     adapter = ChainedAdapter(
         first=KafkaToEv44Adapter(), second=Ev44ToDetectorEventsAdapter()
     )
