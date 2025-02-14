@@ -11,12 +11,7 @@ import scipp as sc
 from ess.reduce.live import raw
 
 from ..config import models
-from ..config.raw_detectors import (
-    dream_detectors_config,
-    dummy_detectors_config,
-    loki_detectors_config,
-    nmx_detectors_config,
-)
+from ..config.raw_detectors import get_detector_config
 from ..core.handler import (
     Accumulator,
     Config,
@@ -32,13 +27,6 @@ from .accumulators import (
     NullAccumulator,
     ROIBasedTOAHistogram,
 )
-
-detector_registry = {
-    'dummy': dummy_detectors_config,
-    'dream': dream_detectors_config,
-    'loki': loki_detectors_config,
-    'nmx': nmx_detectors_config,
-}
 
 
 class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
@@ -61,7 +49,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
-        self._detector_config = detector_registry[instrument]['detectors']
+        self._detector_config = get_detector_config(instrument)['detectors']
         self._nexus_file = _try_get_nexus_geometry_filename(instrument)
         self._window_length = 128
 
