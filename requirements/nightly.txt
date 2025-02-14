@@ -15,6 +15,10 @@ cyclebane==24.10.0
     # via sciline
 cycler==0.12.1
     # via matplotlib
+dnspython==2.7.0
+    # via email-validator
+email-validator==2.2.0
+    # via scippneutron
 ess-streaming-data-types==0.27.0
     # via -r nightly.in
 essreduce @ git+https://github.com/scipp/essreduce@main
@@ -29,6 +33,8 @@ h5py==3.12.1
     # via
     #   scippneutron
     #   scippnexus
+idna==3.10
+    # via email-validator
 iniconfig==2.0.0
     # via pytest
 jinja2==3.1.5
@@ -36,7 +42,9 @@ jinja2==3.1.5
 kiwisolver==1.4.8
     # via matplotlib
 lazy-loader==0.4
-    # via plopp
+    # via
+    #   plopp
+    #   scippneutron
 markupsafe==3.0.2
     # via jinja2
 matplotlib==3.10.0
@@ -47,7 +55,7 @@ mpltoolbox==24.5.1
     # via scippneutron
 networkx==3.4.2
     # via cyclebane
-numpy==2.2.2
+numpy==2.2.3
     # via
     #   contourpy
     #   ess-streaming-data-types
@@ -71,7 +79,9 @@ plopp @ git+https://github.com/scipp/plopp@main
 pluggy==1.5.0
     # via pytest
 pydantic==2.11.0a2
-    # via -r nightly.in
+    # via
+    #   -r nightly.in
+    #   scippneutron
 pydantic-core==2.29.0
     # via pydantic
 pyparsing==3.2.1
@@ -81,6 +91,7 @@ pytest==8.3.4
 python-dateutil==2.9.0.post0
     # via
     #   matplotlib
+    #   scippneutron
     #   scippnexus
 pyyaml==6.0.2
     # via -r nightly.in
@@ -88,13 +99,13 @@ sciline @ git+https://github.com/scipp/sciline@main
     # via
     #   -r nightly.in
     #   essreduce
-scipp==25.2.1.dev0
+scipp==100.0.0.dev0
     # via
     #   -r nightly.in
     #   essreduce
     #   scippneutron
     #   scippnexus
-scippneutron==25.1.0
+scippneutron==25.2.0
     # via essreduce
 scippnexus==24.11.1
     # via

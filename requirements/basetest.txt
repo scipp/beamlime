@@ -29,7 +29,7 @@ kiwisolver==1.4.8
     # via matplotlib
 matplotlib==3.10.0
     # via plopp
-numpy==2.2.2
+numpy==2.2.3
     # via
     #   contourpy
     #   matplotlib
@@ -52,7 +52,7 @@ pluggy==1.5.0
     # via pytest
 pooch==1.8.2
     # via -r basetest.in
-psutil==6.1.1
+psutil==7.0.0
     # via -r basetest.in
 py-cpuinfo==9.0.0
     # via pytest-benchmark
