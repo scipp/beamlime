@@ -12,6 +12,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, Protocol
 
+from ..config.raw_detectors import available_instruments
 from .processor import Processor
 
 
@@ -157,7 +158,7 @@ class Service(ServiceBase):
         )
         parser.add_argument(
             '--instrument',
-            choices=['dummy', 'loki', 'odin', 'nmx', 'dream'],
+            choices=available_instruments(),
             default='dummy',
             help='Select the instrument',
         )
