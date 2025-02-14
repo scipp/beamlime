@@ -7,6 +7,7 @@ maxdepth: 2
 ---
 
 services
+adding-new-instruments
 getting-started
 ```
 

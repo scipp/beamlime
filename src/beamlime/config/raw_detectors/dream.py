@@ -9,7 +9,7 @@ from ess.reduce.live import raw
 _res_scale = 8
 pixel_noise = sc.scalar(4.0, unit='mm')
 
-dream_detectors_config = {
+detectors_config = {
     'detectors': {
         'endcap_backward': {
             'detector_name': 'endcap_backward_detector',
