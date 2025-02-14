@@ -86,15 +86,23 @@ class Ev44Consumer(KafkaConsumer):
     def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]:
         if not self._running or self.at_end:
             return []
+        remaining_events = (
+            self._max_events * len(self._detector_config)
+            - self._count * self._events_per_message
+        )
+        remaining_messages = remaining_events // self._events_per_message
+        messages_to_produce = min(num_messages, remaining_messages)
+        if messages_to_produce <= 0:
+            return []
         messages = [
             FakeKafkaMessage(
                 value=self._content[(self._current + msg) % len(self._content)],
                 topic="dummy",
                 timestamp=self._make_timestamp(),
             )
-            for msg in range(num_messages)
+            for msg in range(messages_to_produce)
         ]
-        self._current += num_messages
+        self._current += messages_to_produce
         return messages
 
     def close(self) -> None:
@@ -164,3 +172,23 @@ def test_detector_data_service(instrument: str) -> None:
         assert f'{base_key}/cumulative' in source_names
         assert f'{base_key}/sliding' in source_names
         assert f'{base_key}/roi' in source_names
+
+    # Implicitly yields the latest cumulative message for each detector
+    cumulative = {
+        msg.key.source_name: msg.value
+        for msg in sink.messages
+        if msg.key.source_name.endswith('/cumulative')
+    }
+    for name, msg in cumulative.items():
+        if instrument == 'dream':
+            if 'mantle_front_layer' in name:
+                # fraction of voxels => fracion of counts
+                assert 50 < msg.sum().value < 500
+            elif 'High-Res' in name:
+                # non-contiguous detector_number, but the fake produces random numbers
+                # in the gaps
+                assert 6000 < msg.sum().value < 8000
+            else:
+                assert msg.sum().value == 10000
+        else:
+            assert msg.sum().value == 10000
