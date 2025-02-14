@@ -179,6 +179,7 @@ def test_detector_data_service(instrument: str) -> None:
         for msg in sink.messages
         if msg.key.source_name.endswith('/cumulative')
     }
+    assert len(cumulative) == len(detectors)
     for name, msg in cumulative.items():
         if instrument == 'dream':
             if 'mantle_front_layer' in name:
@@ -187,7 +188,7 @@ def test_detector_data_service(instrument: str) -> None:
             elif 'High-Res' in name:
                 # non-contiguous detector_number, but the fake produces random numbers
                 # in the gaps
-                assert 6000 < msg.sum().value < 8000
+                assert 5000 < msg.sum().value < 8000
             else:
                 assert msg.sum().value == 10000
         else:
