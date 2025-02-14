@@ -7,7 +7,7 @@ Detector configuration for a dummy instrument used for development and testing.
 import scipp as sc
 from ess.reduce.live import raw
 
-dummy_detectors_config = {
+detectors_config = {
     'detectors': {
         'Panel 0': {
             'detector_name': 'panel_0',

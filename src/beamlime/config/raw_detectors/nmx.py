@@ -6,7 +6,7 @@ from ess.reduce.live import raw
 # TODO Unclear if this is transposed or not. Wait for updated files.
 dim = 'detector_number'
 sizes = {'x': 1280, 'y': 1280}
-nmx_detectors_config = {
+detectors_config = {
     'detectors': {
         'Panel 0': {
             'detector_name': 'detector_panel_0',

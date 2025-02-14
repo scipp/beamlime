@@ -3,7 +3,7 @@
 
 _res_scale = 8
 
-loki_detectors_config = {
+detectors_config = {
     'detectors': {
         'Rear-detector': {
             'detector_name': 'loki_detector_0',
