@@ -44,6 +44,20 @@ def make_monitor_data_adapter() -> RoutingAdapter:
     )
 
 
+def make_monitor_service_builder(
+    *, instrument: str, log_level: int = logging.INFO
+) -> DataServiceBuilder:
+    return DataServiceBuilder(
+        instrument=instrument,
+        name='monitor_data',
+        log_level=log_level,
+        adapter=make_monitor_data_adapter(),
+        handler_factory_cls=CommonHandlerFactory.from_handler(
+            create_monitor_data_handler
+        ),
+    )
+
+
 def run_service(
     *,
     sink_type: Literal['kafka', 'png'],
@@ -60,15 +74,7 @@ def run_service(
     else:
         sink = PlotToPngSink()
 
-    builder = DataServiceBuilder(
-        instrument=instrument,
-        name='monitor_data',
-        log_level=log_level,
-        adapter=make_monitor_data_adapter(),
-        handler_factory_cls=CommonHandlerFactory.from_handler(
-            create_monitor_data_handler
-        ),
-    )
+    builder = make_monitor_service_builder(instrument=instrument, log_level=log_level)
 
     with ExitStack() as stack:
         control_consumer = stack.enter_context(

@@ -34,6 +34,22 @@ def setup_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def make_detector_service_builder(
+    *, instrument: str, log_level: int = logging.INFO
+) -> DataServiceBuilder:
+    adapter = ChainedAdapter(
+        first=KafkaToEv44Adapter(), second=Ev44ToDetectorEventsAdapter()
+    )
+    handler_factory_cls = partial(DetectorHandlerFactory, instrument=instrument)
+    return DataServiceBuilder(
+        instrument=instrument,
+        name='detector_data',
+        log_level=log_level,
+        adapter=adapter,
+        handler_factory_cls=handler_factory_cls,
+    )
+
+
 def run_service(
     *,
     sink_type: Literal['kafka', 'png'],
@@ -50,18 +66,8 @@ def run_service(
     else:
         sink = PlotToPngSink()
     sink = UnrollingSinkAdapter(sink)
-    adapter = ChainedAdapter(
-        first=KafkaToEv44Adapter(), second=Ev44ToDetectorEventsAdapter()
-    )
-    handler_factory_cls = partial(DetectorHandlerFactory, instrument=instrument)
 
-    builder = DataServiceBuilder(
-        instrument=instrument,
-        name='detector_data',
-        log_level=log_level,
-        adapter=adapter,
-        handler_factory_cls=handler_factory_cls,
-    )
+    builder = make_detector_service_builder(instrument=instrument, log_level=log_level)
 
     with ExitStack() as stack:
         control_consumer = stack.enter_context(

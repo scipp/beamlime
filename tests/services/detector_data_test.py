@@ -2,23 +2,17 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 
 import time
-from functools import partial
 
 import numpy as np
 import pytest
 from streaming_data_types import eventdata_ev44
 
+from beamlime.config.raw_detectors import available_instruments, get_detector_config
 from beamlime.fakes import FakeMessageSink
-from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
-from beamlime.kafka.message_adapter import (
-    ChainedAdapter,
-    Ev44ToDetectorEventsAdapter,
-    FakeKafkaMessage,
-    KafkaMessage,
-    KafkaToEv44Adapter,
-)
+from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
+from beamlime.kafka.sink import UnrollingSinkAdapter
 from beamlime.kafka.source import KafkaConsumer
-from beamlime.service_factory import DataServiceBuilder
+from beamlime.services.detector_data import make_detector_service_builder
 from beamlime.services.fake_detectors import detector_config
 
 
@@ -49,6 +43,7 @@ class Ev44Consumer(KafkaConsumer):
         self._content = [
             self.make_serialized_ev44(name) for name in self._detector_config
         ]
+        self._current = 0
 
     def start(self) -> None:
         self._running = True
@@ -93,12 +88,13 @@ class Ev44Consumer(KafkaConsumer):
             return []
         messages = [
             FakeKafkaMessage(
-                value=self._content[msg % len(self._content)],
+                value=self._content[(self._current + msg) % len(self._content)],
                 topic="dummy",
                 timestamp=self._make_timestamp(),
             )
             for msg in range(num_messages)
         ]
+        self._current += num_messages
         return messages
 
     def close(self) -> None:
@@ -118,14 +114,7 @@ def test_performance(benchmark, instrument: str, events_per_message: int) -> Non
     # There is some caveat in this benchmark: Ev44Consumer has no concept of real time.
     # It is thus always returning messages quickly, which shifts the balance in the
     # services to a different place than in reality.
-    builder = DataServiceBuilder(
-        instrument=instrument,
-        name='detector_data',
-        adapter=ChainedAdapter(
-            first=KafkaToEv44Adapter(), second=Ev44ToDetectorEventsAdapter()
-        ),
-        handler_factory_cls=partial(DetectorHandlerFactory, instrument=instrument),
-    )
+    builder = make_detector_service_builder(instrument=instrument)
     service = builder.build(
         control_consumer=EmptyConsumer(),
         consumer=EmptyConsumer(),
@@ -145,3 +134,33 @@ def test_performance(benchmark, instrument: str, events_per_message: int) -> Non
     benchmark(start_and_wait_for_completion, consumer=consumer)
     service.stop()
     assert len(sink.messages) > len(detector_config[instrument]) * 10
+
+
+@pytest.mark.parametrize('instrument', available_instruments())
+def test_detector_data_service(instrument: str) -> None:
+    builder = make_detector_service_builder(instrument=instrument)
+    service = builder.build(
+        control_consumer=EmptyConsumer(),
+        consumer=EmptyConsumer(),
+        sink=FakeMessageSink(),
+    )
+    sink = FakeMessageSink()
+    consumer = Ev44Consumer(
+        instrument=instrument, events_per_message=100, max_events=10_000
+    )
+    service = builder.build(
+        control_consumer=EmptyConsumer(),
+        consumer=consumer,
+        sink=UnrollingSinkAdapter(sink),
+    )
+    service.start(blocking=False)
+    start_and_wait_for_completion(consumer=consumer)
+    service.stop()
+    source_names = [msg.key.source_name for msg in sink.messages]
+
+    detectors = get_detector_config(instrument)['detectors']
+    for view_name, view_config in detectors.items():
+        base_key = f"{view_config['detector_name']}/{view_name}"
+        assert f'{base_key}/cumulative' in source_names
+        assert f'{base_key}/sliding' in source_names
+        assert f'{base_key}/roi' in source_names
