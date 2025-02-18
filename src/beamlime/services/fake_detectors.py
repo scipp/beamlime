@@ -4,6 +4,7 @@
 
 import logging
 import time
+from collections.abc import Generator
 from typing import NoReturn, TypeVar
 
 import numpy as np
@@ -24,8 +25,23 @@ from beamlime.core.handler import CommonHandlerFactory
 from beamlime.kafka.helpers import detector_topic
 from beamlime.kafka.sink import KafkaSink, SerializationError
 
+
 # Configure detectors to fake for each instrument
 # Values as of January 2025. These may change if the detector configuration changes.
+def _bifrost_generator() -> Generator[tuple[str, tuple[int, int]]]:
+    start = 123
+    detector_start = 1
+    for i in range(1, 10):
+        for j in range(1, 6):
+            yield (
+                f'{start}_channel_{i}_{j}_triplet',
+                (detector_start, detector_start + 299),
+            )
+            detector_start += 300
+            start += 4
+        start += 1
+
+
 detector_config = {
     'dummy': {
         'panel_0': (1, 128**2),
@@ -50,53 +66,7 @@ detector_config = {
     'nmx': {
         f'detector_panel_{i}': (i * 1280**2 + 1, (i + 1) * 1280**2) for i in range(3)
     },
-    'bifrost': {
-        '123_channel_1_1_triplet': (1, 300),
-        '127_channel_1_2_triplet': (301, 600),
-        '131_channel_1_3_triplet': (601, 900),
-        '135_channel_1_4_triplet': (901, 1200),
-        '139_channel_1_5_triplet': (1201, 1500),
-        '144_channel_2_1_triplet': (1501, 1800),
-        '148_channel_2_2_triplet': (1801, 2100),
-        '152_channel_2_3_triplet': (2101, 2400),
-        '156_channel_2_4_triplet': (2401, 2700),
-        '160_channel_2_5_triplet': (2701, 3000),
-        '165_channel_3_1_triplet': (3001, 3300),
-        '169_channel_3_2_triplet': (3301, 3600),
-        '173_channel_3_3_triplet': (3601, 3900),
-        '177_channel_3_4_triplet': (3901, 4200),
-        '181_channel_3_5_triplet': (4201, 4500),
-        '186_channel_4_1_triplet': (4501, 4800),
-        '190_channel_4_2_triplet': (4801, 5100),
-        '194_channel_4_3_triplet': (5101, 5400),
-        '198_channel_4_4_triplet': (5401, 5700),
-        '202_channel_4_5_triplet': (5701, 6000),
-        '207_channel_5_1_triplet': (6001, 6300),
-        '211_channel_5_2_triplet': (6301, 6600),
-        '215_channel_5_3_triplet': (6601, 6900),
-        '219_channel_5_4_triplet': (6901, 7200),
-        '223_channel_5_5_triplet': (7201, 7500),
-        '228_channel_6_1_triplet': (7501, 7800),
-        '232_channel_6_2_triplet': (8101, 8400),
-        '236_channel_6_3_triplet': (8701, 9000),
-        '240_channel_6_4_triplet': (9001, 9300),
-        '244_channel_6_5_triplet': (8401, 8700),
-        '249_channel_7_1_triplet': (9001, 9300),
-        '253_channel_7_2_triplet': (9301, 9600),
-        '257_channel_7_3_triplet': (9601, 9900),
-        '261_channel_7_4_triplet': (9901, 10200),
-        '265_channel_7_5_triplet': (10201, 10500),
-        '270_channel_8_1_triplet': (10501, 10800),
-        '274_channel_8_2_triplet': (10801, 11100),
-        '278_channel_8_3_triplet': (10801, 11100),
-        '282_channel_8_4_triplet': (11101, 11400),
-        '286_channel_8_5_triplet': (11401, 11700),
-        '291_channel_9_1_triplet': (11701, 12000),
-        '295_channel_9_2_triplet': (12001, 12300),
-        '299_channel_9_3_triplet': (12301, 12600),
-        '303_channel_9_4_triplet': (12601, 12900),
-        '307_channel_9_5_triplet': (12901, 13200),
-    },
+    'bifrost': dict(_bifrost_generator()),
 }
 
 
