@@ -7,14 +7,27 @@ Currently the instrument specific config is stored in python files, but
 they can be moved to a separate file format in the future.
 """
 
-from .dream import dream_detectors_config
-from .dummy import dummy_detectors_config
-from .loki import loki_detectors_config
-from .nmx import nmx_detectors_config
+import importlib
+import pkgutil
+from typing import Any
 
-__all__ = [
-    'dream_detectors_config',
-    'dummy_detectors_config',
-    'loki_detectors_config',
-    'nmx_detectors_config',
-]
+
+def available_instruments() -> list[str]:
+    """Get list of available instruments based on config modules."""
+    return [
+        name
+        for _, name, _ in pkgutil.iter_modules(__path__)
+        if name != '__init__' and not name.startswith('_')
+    ]
+
+
+def get_detector_config(instrument: str) -> dict[str, Any]:
+    """Get detector config for given instrument."""
+    try:
+        module = importlib.import_module(f'.{instrument}', __package__)
+        return module.detectors_config
+    except (ImportError, AttributeError) as e:
+        raise ValueError(f'No detector config found for instrument {instrument}') from e
+
+
+__all__ = ['available_instruments', 'get_detector_config']

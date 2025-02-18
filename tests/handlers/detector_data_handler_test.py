@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import scipp as sc
 
+from beamlime.config.raw_detectors import available_instruments, get_detector_config
 from beamlime.core.handler import Message, MessageKey
 from beamlime.handlers.accumulators import DetectorEvents
 from beamlime.handlers.detector_data_handler import (
@@ -55,3 +56,13 @@ def test_get_nexus_filename_raises_if_instrument_unknown() -> None:
 def test_get_nexus_filename_raises_if_datetime_out_of_range() -> None:
     with pytest.raises(ValueError, match='No geometry file found for given date'):
         get_nexus_geometry_filename('dream', date=sc.datetime('2020-01-01T00:00:00'))
+
+
+@pytest.mark.parametrize('instrument', available_instruments())
+def test_factory_can_create_handler(instrument: str) -> None:
+    config = get_detector_config(instrument)
+    detectors = {view['detector_name'] for view in config['detectors'].values()}
+    assert len(detectors) > 0
+    factory = DetectorHandlerFactory(instrument=instrument, config={})
+    for name in detectors:
+        _ = factory.make_handler(MessageKey(topic='ignored', source_name=name))
