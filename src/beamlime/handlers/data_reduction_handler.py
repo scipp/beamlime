@@ -55,8 +55,9 @@ class ReductionHandlerFactory(
         else:
             # Note the inefficiency here, of processing these sources in multiple
             # workflows. This is typically once per detector. If monitors are large this
-            # can turn into a problem. At the same time, we want to keep flexibile to
+            # can turn into a problem. At the same time, we want to keep flexible to
             # allow for
+            #
             # 1. Different workflows for different detector banks, e.g., for diffraction
             #    and SANS detectors.
             # 2. Simple scaling, by processing different detectors on different nodes.
