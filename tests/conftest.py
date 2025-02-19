@@ -28,7 +28,7 @@ def _make_pooch():
             'ymir.json': 'md5:5e913075094d97c5e9e9aca76fc32554',
             'ymir_detectors.nxs': 'md5:2e143cd839a84301b7459d5ab6df8454',
             # readme of the dataset
-            'README.md': 'md5:7e101b5c38dddc7d530e0594a2058950',
+            'README.md': 'md5:d53ffcf9c1363af7043e5a1a2071d2bd',
         },
     )
 
