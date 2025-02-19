@@ -17,10 +17,13 @@ from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.handlers.data_reduction_handler import ReductionHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
+from beamlime.kafka.helpers import beam_monitor_topic, detector_topic
 from beamlime.kafka.message_adapter import (
     ChainedAdapter,
     Ev44ToDetectorEventsAdapter,
+    Ev44ToMonitorEventsAdapter,
     KafkaToEv44Adapter,
+    RouteByTopicAdapter,
 )
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
 from beamlime.service_factory import DataServiceBuilder
@@ -38,11 +41,30 @@ def setup_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
+RawDetectorData = NewType('RawDetectorData', sc.DataArray)
 DetectorData = NewType('DetectorData', sc.DataArray)
+RawMon1 = NewType('RawMon1', sc.DataArray)
+RawMon2 = NewType('RawMon2', sc.DataArray)
 Mon1 = NewType('Mon1', sc.DataArray)
 Mon2 = NewType('Mon2', sc.DataArray)
 TransmissionFraction = NewType('TransmissionFraction', sc.DataArray)
 IofQ = NewType('IofQ', sc.DataArray)
+
+
+def process_detector_data(raw_detector_data: RawDetectorData) -> DetectorData:
+    return raw_detector_data.bins.concat().hist(
+        event_time_offset=sc.linspace(
+            'event_time_offset', 0, 71_000_000, num=100, unit='ns'
+        )
+    )
+
+
+def process_mon1(raw_mon1: RawMon1) -> Mon1:
+    return raw_mon1.sum()
+
+
+def process_mon2(raw_mon2: RawMon2) -> Mon2:
+    return raw_mon2.sum()
 
 
 def transmission_fraction(mon1: Mon1, mon2: Mon2) -> TransmissionFraction:
@@ -53,15 +75,15 @@ def iofq(data: DetectorData, transmission_fraction: TransmissionFraction) -> Iof
     return data / transmission_fraction
 
 
-wf = sciline.Pipeline((transmission_fraction, iofq))
+wf = sciline.Pipeline(
+    (process_detector_data, process_mon1, process_mon2, transmission_fraction, iofq)
+)
 processor = StreamProcessor(
     wf,
-    dynamic_keys=(Mon1, Mon2, DetectorData),
-    accumulators=(IofQ,),
+    dynamic_keys=(RawMon1, RawMon2, RawDetectorData),
+    accumulators=(Mon1, Mon2, DetectorData),
     target_keys=(IofQ,),
 )
-# TODO using wf key for processors does not work, since several source_names can map
-# to the same workflow key. Use source name here!
 processors = {
     'mantle_detector': processor,
     'endcap_backward_detector': processor,
@@ -70,20 +92,28 @@ processors = {
 }
 
 
-# source_to_key = {'loki_detector_0': NeXusData[NXdetector, SampleRun]}
 source_to_key = {
-    'mantle_detector': DetectorData,
-    'endcap_backward_detector': DetectorData,
-    'endcap_forward_detector': DetectorData,
-    'high_resolution_detector': DetectorData,
+    'mantle_detector': RawDetectorData,
+    'endcap_backward_detector': RawDetectorData,
+    'endcap_forward_detector': RawDetectorData,
+    'high_resolution_detector': RawDetectorData,
+    'monitor1': RawMon1,
+    'monitor2': RawMon2,
 }
 
 
 def make_reduction_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
-    adapter = ChainedAdapter(
-        first=KafkaToEv44Adapter(), second=Ev44ToDetectorEventsAdapter()
+    adapter = RouteByTopicAdapter(
+        routes={
+            beam_monitor_topic(instrument): ChainedAdapter(
+                first=KafkaToEv44Adapter(), second=Ev44ToMonitorEventsAdapter()
+            ),
+            detector_topic(instrument): ChainedAdapter(
+                first=KafkaToEv44Adapter(), second=Ev44ToDetectorEventsAdapter()
+            ),
+        }
     )
     handler_factory_cls = partial(
         ReductionHandlerFactory, processors=processors, source_to_key=source_to_key
@@ -103,7 +133,7 @@ def run_service(
     instrument: str,
     log_level: int = logging.INFO,
 ) -> NoReturn:
-    config = load_config(namespace=config_names.detector_data, env='')
+    config = load_config(namespace=config_names.data_reduction, env='')
     consumer_config = load_config(namespace=config_names.raw_data_consumer, env='')
     kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
     kafka_upstream_config = load_config(namespace=config_names.kafka_upstream)
