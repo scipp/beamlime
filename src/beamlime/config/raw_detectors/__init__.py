@@ -9,7 +9,7 @@ they can be moved to a separate file format in the future.
 
 import importlib
 import pkgutil
-from typing import Any
+from types import ModuleType
 
 
 def available_instruments() -> list[str]:
@@ -21,13 +21,12 @@ def available_instruments() -> list[str]:
     ]
 
 
-def get_detector_config(instrument: str) -> dict[str, Any]:
-    """Get detector config for given instrument."""
+def get_config(instrument: str) -> ModuleType:
+    """Get config module for given instrument."""
     try:
-        module = importlib.import_module(f'.{instrument}', __package__)
-        return module.detectors_config
+        return importlib.import_module(f'.{instrument}', __package__)
     except (ImportError, AttributeError) as e:
         raise ValueError(f'No detector config found for instrument {instrument}') from e
 
 
-__all__ = ['available_instruments', 'get_detector_config']
+__all__ = ['available_instruments', 'get_config']

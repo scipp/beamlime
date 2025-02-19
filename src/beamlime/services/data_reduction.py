@@ -6,11 +6,7 @@ import argparse
 import logging
 from contextlib import ExitStack
 from functools import partial
-from typing import Literal, NewType, NoReturn
-
-import sciline
-import scipp as sc
-from ess.reduce.streaming import StreamProcessor
+from typing import Literal, NoReturn
 
 from beamlime import Service
 from beamlime.config import config_names
@@ -41,72 +37,6 @@ def setup_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-RawDetectorData = NewType('RawDetectorData', sc.DataArray)
-DetectorData = NewType('DetectorData', sc.DataArray)
-RawMon1 = NewType('RawMon1', sc.DataArray)
-RawMon2 = NewType('RawMon2', sc.DataArray)
-Mon1 = NewType('Mon1', sc.DataArray)
-Mon2 = NewType('Mon2', sc.DataArray)
-TransmissionFraction = NewType('TransmissionFraction', sc.DataArray)
-IofQ = NewType('IofQ', sc.DataArray)
-
-
-def process_detector_data(raw_detector_data: RawDetectorData) -> DetectorData:
-    return raw_detector_data.bins.concat().hist(
-        event_time_offset=sc.linspace(
-            'event_time_offset', 0, 71_000_000, num=100, unit='ns'
-        )
-    )
-
-
-def process_mon1(raw_mon1: RawMon1) -> Mon1:
-    return raw_mon1.sum()
-
-
-def process_mon2(raw_mon2: RawMon2) -> Mon2:
-    return raw_mon2.sum()
-
-
-def transmission_fraction(mon1: Mon1, mon2: Mon2) -> TransmissionFraction:
-    return mon1.sum() / mon2.sum()
-
-
-def iofq(data: DetectorData, transmission_fraction: TransmissionFraction) -> IofQ:
-    return data / transmission_fraction
-
-
-wf = sciline.Pipeline(
-    (process_detector_data, process_mon1, process_mon2, transmission_fraction, iofq)
-)
-
-
-def make_processor():
-    return StreamProcessor(
-        wf,
-        dynamic_keys=(RawMon1, RawMon2, RawDetectorData),
-        accumulators=(Mon1, Mon2, DetectorData),
-        target_keys=(IofQ,),
-    )
-
-
-processors = {
-    'mantle_detector': make_processor(),
-    'endcap_backward_detector': make_processor(),
-    'endcap_forward_detector': make_processor(),
-    'high_resolution_detector': make_processor(),
-}
-
-
-source_to_key = {
-    'mantle_detector': RawDetectorData,
-    'endcap_backward_detector': RawDetectorData,
-    'endcap_forward_detector': RawDetectorData,
-    'high_resolution_detector': RawDetectorData,
-    'monitor1': RawMon1,
-    'monitor2': RawMon2,
-}
-
-
 def make_reduction_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
@@ -120,9 +50,7 @@ def make_reduction_service_builder(
             ),
         }
     )
-    handler_factory_cls = partial(
-        ReductionHandlerFactory, processors=processors, source_to_key=source_to_key
-    )
+    handler_factory_cls = partial(ReductionHandlerFactory, instrument=instrument)
     return DataServiceBuilder(
         instrument=instrument,
         name='data_reduction',

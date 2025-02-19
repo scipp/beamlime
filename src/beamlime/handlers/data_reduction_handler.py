@@ -8,6 +8,7 @@ import scipp as sc
 from ess.reduce.streaming import StreamProcessor
 from sciline.typing import Key
 
+from ..config.raw_detectors import get_config
 from ..core.handler import (
     Accumulator,
     Config,
@@ -29,15 +30,15 @@ class ReductionHandlerFactory(
     def __init__(
         self,
         *,
+        instrument: str,
         logger: logging.Logger | None = None,
         config: Config,
-        processors: dict[Key, StreamProcessor],
-        source_to_key: dict[str, Key],
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
-        self._processors = processors
-        self._source_to_key = source_to_key
+        instrument_config = get_config(instrument)
+        self._processors = instrument_config.make_stream_processors()
+        self._source_to_key = instrument_config.source_to_key
 
     def make_handler(
         self, key: MessageKey

@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from streaming_data_types import eventdata_ev44
 
-from beamlime.config.raw_detectors import available_instruments, get_detector_config
+from beamlime.config.raw_detectors import available_instruments, get_config
 from beamlime.fakes import FakeMessageSink
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.sink import UnrollingSinkAdapter
@@ -166,7 +166,7 @@ def test_detector_data_service(instrument: str) -> None:
     service.stop()
     source_names = [msg.key.source_name for msg in sink.messages]
 
-    detectors = get_detector_config(instrument)['detectors']
+    detectors = get_config(instrument).detectors_config['detectors']
     for view_name, view_config in detectors.items():
         base_key = f"{view_config['detector_name']}/{view_name}"
         assert f'{base_key}/cumulative' in source_names
