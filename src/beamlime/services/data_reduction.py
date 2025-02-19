@@ -31,7 +31,7 @@ from beamlime.sinks import PlotToPngSink
 
 
 def setup_arg_parser() -> argparse.ArgumentParser:
-    parser = Service.setup_arg_parser(description='Detector Data Service')
+    parser = Service.setup_arg_parser(description='Data Reduction Service')
     parser.add_argument(
         '--sink-type',
         choices=['kafka', 'png'],
@@ -78,17 +78,22 @@ def iofq(data: DetectorData, transmission_fraction: TransmissionFraction) -> Iof
 wf = sciline.Pipeline(
     (process_detector_data, process_mon1, process_mon2, transmission_fraction, iofq)
 )
-processor = StreamProcessor(
-    wf,
-    dynamic_keys=(RawMon1, RawMon2, RawDetectorData),
-    accumulators=(Mon1, Mon2, DetectorData),
-    target_keys=(IofQ,),
-)
+
+
+def make_processor():
+    return StreamProcessor(
+        wf,
+        dynamic_keys=(RawMon1, RawMon2, RawDetectorData),
+        accumulators=(Mon1, Mon2, DetectorData),
+        target_keys=(IofQ,),
+    )
+
+
 processors = {
-    'mantle_detector': processor,
-    'endcap_backward_detector': processor,
-    'endcap_forward_detector': processor,
-    'high_resolution_detector': processor,
+    'mantle_detector': make_processor(),
+    'endcap_backward_detector': make_processor(),
+    'endcap_forward_detector': make_processor(),
+    'high_resolution_detector': make_processor(),
 }
 
 

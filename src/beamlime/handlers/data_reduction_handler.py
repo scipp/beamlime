@@ -77,7 +77,7 @@ class ReductionHandlerFactory(
             logger=self._logger,
             config=self._config,
             preprocessor=ToNXevent_data(),
-            accumulators={'reduced': accumulator},
+            accumulators={f'reduced/{key.source_name}': accumulator},
         )
 
 
