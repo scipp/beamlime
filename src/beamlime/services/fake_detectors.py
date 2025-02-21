@@ -4,6 +4,7 @@
 
 import logging
 import time
+from collections.abc import Generator
 from typing import NoReturn, TypeVar
 
 import numpy as np
@@ -24,8 +25,24 @@ from beamlime.core.handler import CommonHandlerFactory
 from beamlime.kafka.helpers import detector_topic
 from beamlime.kafka.sink import KafkaSink, SerializationError
 
+
 # Configure detectors to fake for each instrument
 # Values as of January 2025. These may change if the detector configuration changes.
+def _bifrost_generator() -> Generator[tuple[str, tuple[int, int]]]:
+    # This does not match the actual detector configuration
+    start = 123
+    detector_start = 1
+    for i in range(1, 10):
+        for j in range(1, 6):
+            yield (
+                f'{start}_channel_{i}_{j}_triplet',
+                (detector_start, detector_start + 299),
+            )
+            detector_start += 300
+            start += 4
+        start += 1
+
+
 detector_config = {
     'dummy': {
         'panel_0': (1, 128**2),
@@ -50,6 +67,7 @@ detector_config = {
     'nmx': {
         f'detector_panel_{i}': (i * 1280**2 + 1, (i + 1) * 1280**2) for i in range(3)
     },
+    'bifrost': dict(_bifrost_generator()),
 }
 
 

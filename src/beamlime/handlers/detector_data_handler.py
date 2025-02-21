@@ -232,6 +232,7 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
 _registry = {
     'geometry-dream-2025-01-01.nxs': 'md5:91aceb884943c76c0c21400ee74ad9b6',
     'geometry-loki-2025-01-01.nxs': 'md5:8d0e103276934a20ba26bb525e53924a',
+    'geometry-bifrost-2025-02-14.nxs': 'md5:b581f1560aefd4bec56c86395f553516',
 }
 
 
