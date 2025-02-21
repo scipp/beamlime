@@ -191,5 +191,9 @@ def test_detector_data_service(instrument: str) -> None:
                 assert 5000 < msg.sum().value < 8000
             else:
                 assert msg.sum().value == 10000
+        elif instrument == 'bifrost':
+            # non-contiguous detector_number, but the fake produces random numbers, we
+            # should get about 1/9 of the counts
+            assert 500 < msg.sum().value < 3000
         else:
             assert msg.sum().value == 10000
