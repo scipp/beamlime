@@ -11,12 +11,7 @@ import scipp as sc
 from ess.reduce.live import raw
 
 from ..config import models
-from ..config.raw_detectors import (
-    dream_detectors_config,
-    dummy_detectors_config,
-    loki_detectors_config,
-    nmx_detectors_config,
-)
+from ..config.raw_detectors import get_detector_config
 from ..core.handler import (
     Accumulator,
     Config,
@@ -32,13 +27,6 @@ from .accumulators import (
     NullAccumulator,
     ROIBasedTOAHistogram,
 )
-
-detector_registry = {
-    'dummy': dummy_detectors_config,
-    'dream': dream_detectors_config,
-    'loki': loki_detectors_config,
-    'nmx': nmx_detectors_config,
-}
 
 
 class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
@@ -61,9 +49,9 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
-        self._detector_config = detector_registry[instrument]['detectors']
+        self._detector_config = get_detector_config(instrument)['detectors']
         self._nexus_file = _try_get_nexus_geometry_filename(instrument)
-        self._window_length = 10
+        self._window_length = 128
 
     def _key_to_detector_name(self, key: MessageKey) -> str:
         return key.source_name
@@ -106,16 +94,16 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         views = {name: view for name, view in candidates.items() if view is not None}
         if not views:
             self._logger.warning('No views configured for %s', detector_name)
-        accumulators = {
-            f'sliding_{name}': DetectorCounts(config=self._config, detector_view=view)
-            for name, view in views.items()
-        }
         detector_number: sc.Variable | None = None
+        accumulators: dict[str, Accumulator[sc.DataArray, sc.DataArray]] = {}
         for name, view in views.items():
-            accumulators[f'{name}_ROI'] = ROIBasedTOAHistogram(
+            detector_number = view.detector_number
+            accumulators[name] = DetectorCounts(
+                logger=self._logger, config=self._config, detector_view=view
+            )
+            accumulators[f'{name}/roi'] = ROIBasedTOAHistogram(
                 config=self._config, roi_filter=view.make_roi_filter()
             )
-            detector_number = view.detector_number
         if detector_number is None:
             preprocessor = NullAccumulator()
         else:
@@ -131,22 +119,36 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         )
 
 
-class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
-    """Accumulator for detector counts, based on a rolling detector view."""
+class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
+    """
+    Accumulator for detector counts, based on a rolling detector view.
 
-    def __init__(self, config: Config, detector_view: raw.RollingDetectorView):
-        self._det = detector_view
+    Return both a sliding and a cumulative view of the counts.
+    """
+
+    def __init__(
+        self,
+        logger: logging.Logger,
+        config: Config,
+        detector_view: raw.RollingDetectorView,
+    ):
+        self._logger = logger
+        self._view = detector_view
         self._inv_weights = sc.reciprocal(detector_view.transform_weights())
         self._toa_range = ConfigModelAccessor(
             config, 'toa_range', model=models.TOARange, convert=self._convert_toa_range
         )
-        self._current_toa_range = None
         self._use_weights = ConfigModelAccessor(
             config,
             'pixel_weighting',
             model=models.PixelWeighting,
             convert=self._convert_pixel_weighting,
         )
+        self._max_age = ConfigModelAccessor(
+            config=config, key='sliding_window', model=models.SlidingWindow
+        )
+        self._timestamps: list[int] = []
+        self._current_window = 0
 
     def _convert_toa_range(
         self, value: dict[str, Any]
@@ -185,16 +187,41 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataArray]):
             Data to be added. It is assumed that this is ev44 data that was passed
             through :py:class:`GroupIntoPixels`.
         """
-        _ = timestamp
         data = self.apply_toa_range(data)
-        self._det.add_events(data)
+        self._timestamps.append(timestamp)
+        self._view.add_events(data)
 
-    def get(self) -> sc.DataArray:
-        counts = self._det.get()
-        return counts * self._inv_weights if self._use_weights() else counts
+    def get(self) -> sc.DataGroup[sc.DataArray]:
+        self._cleanup()
+        result = sc.DataGroup(
+            sliding=self._view.get(window=self._current_window),
+            cumulative=self._view.cumulative,
+        )
+        return result * self._inv_weights if self._use_weights() else result
 
     def clear(self) -> None:
-        self._det.clear_counts()
+        self._view.clear_counts()
+        self._timestamps.clear()
+        self._current_window = 0
+
+    def _cleanup(self) -> None:
+        if not self._timestamps:
+            return
+        latest = max(self._timestamps)
+        max_age = self._max_age().value_ns
+        # Count how many chunks are within the window
+        active_chunks = sum(1 for ts in self._timestamps if latest - ts <= max_age)
+        # Update the window size for the underlying view
+        max_window = self._view.max_window
+        if active_chunks > max_window:
+            self._logger.warning(
+                'Requested window size %d exceeds maximum %d', active_chunks, max_window
+            )
+            self._current_window = max_window
+        else:
+            self._current_window = active_chunks
+        # Remove timestamps of expired chunks
+        self._timestamps = [ts for ts in self._timestamps if latest - ts <= max_age]
 
 
 # Note: Currently no need for a geometry file for NMX since the view is purely logical.
