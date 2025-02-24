@@ -67,6 +67,7 @@ detector_config = {
         f'detector_panel_{i}': (i * 1280**2 + 1, (i + 1) * 1280**2) for i in range(3)
     },
     'bifrost': dict(_bifrost_generator()),
+    'trifrost': dict(_bifrost_generator()),
 }
 
 
@@ -100,7 +101,7 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
         messages = []
 
         for name in self._last_message_time:
-            size = 100_000
+            size = 1_000
             elapsed = current_time - self._last_message_time[name]
             num_intervals = int(elapsed // self._interval_ns)
 

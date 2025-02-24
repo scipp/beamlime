@@ -435,7 +435,7 @@ class DashboardApp(ServiceBase):
                     fig.data[0].z = data.values
 
         except Exception as e:
-            self._logger.error("Error in update_plots: %s", e)
+            self._logger.exception("Error in update_plots: %s", e)
             raise PreventUpdate from None
 
         monitor_graphs = [dcc.Graph(figure=fig) for fig in self._monitor_plots.values()]

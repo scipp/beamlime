@@ -139,7 +139,10 @@ class Ev44ToDetectorEventsAdapter(
     def adapt(
         self, message: Message[eventdata_ev44.EventData]
     ) -> Message[DetectorEvents]:
-        return replace(message, value=DetectorEvents.from_ev44(message.value))
+        key = message.key
+        if key.topic.endswith('ifrost_detector'):
+            key = replace(key, source_name='unified_detector')
+        return replace(message, key=key, value=DetectorEvents.from_ev44(message.value))
 
 
 class Da00ToScippAdapter(
