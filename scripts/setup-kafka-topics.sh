@@ -55,8 +55,8 @@ kafka-topics --create --bootstrap-server kafka:29092 \
   --topic ${BEAMLIME_INSTRUMENT}_detector_processed \
   --config cleanup.policy=delete \
   --config delete.retention.ms=60000 \
-  --config max.message.bytes=327680 \
+  --config max.message.bytes=104857600 \
   --config retention.bytes=1073741824 \
   --config retention.ms=30000 \
-  --config segment.bytes=10485760 \
+  --config segment.bytes=104857600 \
   --config segment.ms=60000

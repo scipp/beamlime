@@ -5,24 +5,24 @@ Bifrost with all banks merged into a single one.
 from typing import NewType
 
 import scipp as sc
+from ess import bifrost
 from ess.reduce.live import raw
-from ess.reduce.nexus import GenericNeXusWorkflow
 from ess.reduce.nexus.types import (
     CalibratedBeamline,
     DetectorData,
     Filename,
-    NeXusComponent,
     NeXusData,
     NeXusName,
     SampleRun,
 )
 from ess.reduce.streaming import StreamProcessor
-from scippnexus import NXdetector, NXsource, TransformationChain
+from scippnexus import NXdetector
+
+from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 
 detector_number = sc.arange('detector_number', 1, 5 * 3 * 9 * 100 + 1, unit=None).fold(
     dim='detector_number', sizes={'analyzer': 5, 'tube': 3, 'sector': 9, 'pixel': 100}
 )
-start = 123
 detectors_config = {'detectors': {}}
 # Each NXdetetor is a He3 tube triplet with shape=(3, 100). Detector numbers in triplet
 # are *not* consecutive:
@@ -34,18 +34,11 @@ detectors_config['detectors']['unified_detector'] = {
     'detector_number': detector_number,
 }
 
-# Plan (later):
-# Make a fake NeXus file with unified detector banks. Merge ev44 messages
-# from all banks into a single one.
-# But that might not work, due to NeXus limitations?
 
-
-wf = GenericNeXusWorkflow(run_types=[SampleRun], monitor_types=[])
-wf[NeXusComponent[NXsource, SampleRun]] = sc.DataGroup(
-    depends_on=TransformationChain(parent='', value='.')
-)
+# Would like to use a 2-D scipp.Variable, but GenericNeXusWorkflow does not accept
+# detector names as scalar variables.
 detector_names = [
-    f'{123+4*(analyzer-1)+5*4*(sector-1)+sector-1}_channel_{sector}_{analyzer}_triplet'
+    f'{123+4*(analyzer-1)+(5*4+1)*(sector-1)}_channel_{sector}_{analyzer}_triplet'
     for analyzer in range(1, 6)
     for sector in range(1, 10)
 ]
@@ -60,36 +53,36 @@ def combine_banks(*bank: sc.DataArray) -> sc.DataArray:
     )
 
 
-wf[CalibratedBeamline[SampleRun]] = (
-    wf[CalibratedBeamline[SampleRun]]
-    .map({NeXusName[NXdetector]: detector_names})
-    .reduce(func=combine_banks)
-)
-
 SpectrumView = NewType('SpectrumView', sc.DataArray)
 
 
 def make_spectrum_view(data: DetectorData[SampleRun]) -> SpectrumView:
-    # Should be 700, need to increase message size limit.
-    edges = sc.linspace('event_time_offset', 0, 71_000_000, num=101, unit='ns')
+    edges = sc.linspace('event_time_offset', 0, 71_000_000, num=701, unit='ns')
+    # Combine 10 pixels into 1, so we have tubes with 10 pixels each
     return (
-        data.bins.concat('pixel')
-        .flatten(to='analyzer/tube/sector')
+        data.fold('pixel', sizes={'pixel': 10, 'subpixel': -1})
+        .drop_coords(tuple(data.coords))
+        .bins.concat('subpixel')
+        .flatten(to='analyzer/tube/sector/pixel')
         .hist(event_time_offset=edges)
-        .drop_coords(('gravity', 'source_position', 'sample_position'))
         .assign_coords(event_time_offset=edges.to(unit='ms'))
     )
 
 
-filename = '/home/simon/instruments/bifrost/BIFROST_20240905T122604.h5'
-wf[Filename[SampleRun]] = filename
+reduction_workflow = bifrost.io.nexus.LoadNeXusWorkflow()
+reduction_workflow[Filename[SampleRun]] = get_nexus_geometry_filename('bifrost')
+reduction_workflow[CalibratedBeamline[SampleRun]] = (
+    reduction_workflow[CalibratedBeamline[SampleRun]]
+    .map({NeXusName[NXdetector]: detector_names})
+    .reduce(func=combine_banks)
+)
 
-wf.insert(make_spectrum_view)
+reduction_workflow.insert(make_spectrum_view)
 
 
 def _make_processor():
     return StreamProcessor(
-        wf,
+        reduction_workflow,
         dynamic_keys=(NeXusData[NXdetector, SampleRun],),
         accumulators=(SpectrumView,),
         target_keys=(SpectrumView,),
@@ -97,9 +90,7 @@ def _make_processor():
 
 
 def make_stream_processors():
-    return {
-        'unified_detector': _make_processor(),
-    }
+    return {'unified_detector': _make_processor()}
 
 
 source_to_key = {'unified_detector': NeXusData[NXdetector, SampleRun]}

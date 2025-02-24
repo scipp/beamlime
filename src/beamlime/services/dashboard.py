@@ -379,14 +379,18 @@ class DashboardApp(ServiceBase):
             'showlegend': False,
         }
         y_size, x_size = data.shape
-        if y_size < x_size:
-            fig.update_layout(width=size, **opts)
-            fig.update_yaxes(scaleanchor="x", scaleratio=1, constrain="domain")
-            fig.update_xaxes(constrain="domain")
+        if maybe_unit(y_dim) == maybe_unit(x_dim):
+            if y_size < x_size:
+                fig.update_layout(width=size, **opts)
+                fig.update_yaxes(scaleanchor="x", scaleratio=1, constrain="domain")
+                fig.update_xaxes(constrain="domain")
+            else:
+                fig.update_layout(height=size, **opts)
+                fig.update_xaxes(scaleanchor="y", scaleratio=1, constrain="domain")
+                fig.update_yaxes(constrain="domain")
         else:
-            fig.update_layout(height=size, **opts)
-            fig.update_xaxes(scaleanchor="y", scaleratio=1, constrain="domain")
-            fig.update_yaxes(constrain="domain")
+            # Set size based on pixel count
+            fig.update_layout(width=x_size, height=y_size, **opts)
         return fig
 
     def update_plots(self, n: int | None):
