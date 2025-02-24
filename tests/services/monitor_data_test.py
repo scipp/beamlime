@@ -7,13 +7,10 @@ import numpy as np
 import pytest
 from streaming_data_types import eventdata_ev44
 
-from beamlime import CommonHandlerFactory
 from beamlime.fakes import FakeMessageSink
-from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.source import KafkaConsumer
-from beamlime.service_factory import DataServiceBuilder
-from beamlime.services.monitor_data import make_monitor_data_adapter
+from beamlime.services.monitor_data import make_monitor_service_builder
 
 
 class EmptyConsumer(KafkaConsumer):
@@ -108,14 +105,7 @@ def test_performance(benchmark, num_sources: int, events_per_message: int) -> No
     # There is some caveat in this benchmark: Ev44Consumer has no concept of real time.
     # It is this always returning messages quickly, which shifts the balance in the
     # services to a different place than in reality.
-    builder = DataServiceBuilder(
-        instrument='dummy',
-        name='monitor_data',
-        adapter=make_monitor_data_adapter(),
-        handler_factory_cls=CommonHandlerFactory.from_handler(
-            create_monitor_data_handler
-        ),
-    )
+    builder = make_monitor_service_builder(instrument='dummy')
     service = builder.build(
         control_consumer=EmptyConsumer(),
         consumer=EmptyConsumer(),
@@ -133,4 +123,30 @@ def test_performance(benchmark, num_sources: int, events_per_message: int) -> No
     )
     service.start(blocking=False)
     benchmark(start_and_wait_for_completion, consumer=consumer)
+    service.stop()
+
+
+def test_monitor_data_service() -> None:
+    builder = make_monitor_service_builder(instrument='dummy')
+    service = builder.build(
+        control_consumer=EmptyConsumer(),
+        consumer=EmptyConsumer(),
+        sink=FakeMessageSink(),
+    )
+
+    sink = FakeMessageSink()
+    consumer = Ev44Consumer(num_sources=2, events_per_message=100, max_events=10_000)
+    service = builder.build(
+        control_consumer=EmptyConsumer(), consumer=consumer, sink=sink
+    )
+    service.start(blocking=False)
+    start_and_wait_for_completion(consumer=consumer)
+    source_names = [msg.key.source_name for msg in sink.messages]
+    assert 'monitor_0/cumulative' in source_names
+    assert 'monitor_1/cumulative' in source_names
+    assert 'monitor_0/sliding' in source_names
+    assert 'monitor_1/sliding' in source_names
+    size = len(sink.messages)
+    start_and_wait_for_completion(consumer=consumer)
+    assert len(sink.messages) > size
     service.stop()

@@ -2,23 +2,17 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 
 import time
-from functools import partial
 
 import numpy as np
 import pytest
 from streaming_data_types import eventdata_ev44
 
+from beamlime.config.raw_detectors import available_instruments, get_detector_config
 from beamlime.fakes import FakeMessageSink
-from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
-from beamlime.kafka.message_adapter import (
-    ChainedAdapter,
-    Ev44ToDetectorEventsAdapter,
-    FakeKafkaMessage,
-    KafkaMessage,
-    KafkaToEv44Adapter,
-)
+from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
+from beamlime.kafka.sink import UnrollingSinkAdapter
 from beamlime.kafka.source import KafkaConsumer
-from beamlime.service_factory import DataServiceBuilder
+from beamlime.services.detector_data import make_detector_service_builder
 from beamlime.services.fake_detectors import detector_config
 
 
@@ -49,6 +43,7 @@ class Ev44Consumer(KafkaConsumer):
         self._content = [
             self.make_serialized_ev44(name) for name in self._detector_config
         ]
+        self._current = 0
 
     def start(self) -> None:
         self._running = True
@@ -91,14 +86,23 @@ class Ev44Consumer(KafkaConsumer):
     def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]:
         if not self._running or self.at_end:
             return []
+        remaining_events = (
+            self._max_events * len(self._detector_config)
+            - self._count * self._events_per_message
+        )
+        remaining_messages = remaining_events // self._events_per_message
+        messages_to_produce = min(num_messages, remaining_messages)
+        if messages_to_produce <= 0:
+            return []
         messages = [
             FakeKafkaMessage(
-                value=self._content[msg % len(self._content)],
+                value=self._content[(self._current + msg) % len(self._content)],
                 topic="dummy",
                 timestamp=self._make_timestamp(),
             )
-            for msg in range(num_messages)
+            for msg in range(messages_to_produce)
         ]
+        self._current += messages_to_produce
         return messages
 
     def close(self) -> None:
@@ -118,14 +122,7 @@ def test_performance(benchmark, instrument: str, events_per_message: int) -> Non
     # There is some caveat in this benchmark: Ev44Consumer has no concept of real time.
     # It is thus always returning messages quickly, which shifts the balance in the
     # services to a different place than in reality.
-    builder = DataServiceBuilder(
-        instrument=instrument,
-        name='detector_data',
-        adapter=ChainedAdapter(
-            first=KafkaToEv44Adapter(), second=Ev44ToDetectorEventsAdapter()
-        ),
-        handler_factory_cls=partial(DetectorHandlerFactory, instrument=instrument),
-    )
+    builder = make_detector_service_builder(instrument=instrument)
     service = builder.build(
         control_consumer=EmptyConsumer(),
         consumer=EmptyConsumer(),
@@ -145,3 +142,58 @@ def test_performance(benchmark, instrument: str, events_per_message: int) -> Non
     benchmark(start_and_wait_for_completion, consumer=consumer)
     service.stop()
     assert len(sink.messages) > len(detector_config[instrument]) * 10
+
+
+@pytest.mark.parametrize('instrument', available_instruments())
+def test_detector_data_service(instrument: str) -> None:
+    builder = make_detector_service_builder(instrument=instrument)
+    service = builder.build(
+        control_consumer=EmptyConsumer(),
+        consumer=EmptyConsumer(),
+        sink=FakeMessageSink(),
+    )
+    sink = FakeMessageSink()
+    consumer = Ev44Consumer(
+        instrument=instrument, events_per_message=100, max_events=10_000
+    )
+    service = builder.build(
+        control_consumer=EmptyConsumer(),
+        consumer=consumer,
+        sink=UnrollingSinkAdapter(sink),
+    )
+    service.start(blocking=False)
+    start_and_wait_for_completion(consumer=consumer)
+    service.stop()
+    source_names = [msg.key.source_name for msg in sink.messages]
+
+    detectors = get_detector_config(instrument)['detectors']
+    for view_name, view_config in detectors.items():
+        base_key = f"{view_config['detector_name']}/{view_name}"
+        assert f'{base_key}/cumulative' in source_names
+        assert f'{base_key}/sliding' in source_names
+        assert f'{base_key}/roi' in source_names
+
+    # Implicitly yields the latest cumulative message for each detector
+    cumulative = {
+        msg.key.source_name: msg.value
+        for msg in sink.messages
+        if msg.key.source_name.endswith('/cumulative')
+    }
+    assert len(cumulative) == len(detectors)
+    for name, msg in cumulative.items():
+        if instrument == 'dream':
+            if 'mantle_front_layer' in name:
+                # fraction of voxels => fracion of counts
+                assert 50 < msg.sum().value < 500
+            elif 'High-Res' in name:
+                # non-contiguous detector_number, but the fake produces random numbers
+                # in the gaps
+                assert 5000 < msg.sum().value < 8000
+            else:
+                assert msg.sum().value == 10000
+        elif instrument == 'bifrost':
+            # non-contiguous detector_number, but the fake produces random numbers, we
+            # should get about 1/9 of the counts
+            assert 500 < msg.sum().value < 3000
+        else:
+            assert msg.sum().value == 10000

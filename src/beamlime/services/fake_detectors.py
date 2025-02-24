@@ -29,16 +29,15 @@ from beamlime.kafka.sink import KafkaSink, SerializationError
 # Configure detectors to fake for each instrument
 # Values as of January 2025. These may change if the detector configuration changes.
 def _bifrost_generator() -> Generator[tuple[str, tuple[int, int]]]:
-    # This does not match the actual detector configuration
     start = 123
-    detector_start = 1
-    for i in range(1, 10):
-        for j in range(1, 6):
+    ntube = 3
+    for sector in range(1, 10):
+        for analyzer in range(1, 6):
+            base = ntube * 900 * (analyzer - 1) + 100 * (sector - 1)
             yield (
-                f'{start}_channel_{i}_{j}_triplet',
-                (detector_start, detector_start + 299),
+                f'{start}_channel_{sector}_{analyzer}_triplet',
+                (base + 1, base + 100 + 1800),
             )
-            detector_start += 300
             start += 4
         start += 1
 

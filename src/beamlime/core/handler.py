@@ -84,6 +84,9 @@ class HandlerRegistry(Generic[Tin, Tout]):
         self._factory = factory
         self._handlers: dict[MessageKey, Handler] = {}
 
+    def __len__(self) -> int:
+        return len(self._handlers)
+
     def get(self, key: MessageKey) -> Handler:
         if key not in self._handlers:
             self._handlers[key] = self._factory.make_handler(key)

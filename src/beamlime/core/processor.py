@@ -48,5 +48,8 @@ class StreamProcessor(Generic[Tin, Tout]):
         results = []
         for key, msgs in messages_by_key.items():
             handler = self._handler_registry.get(key)
-            results.extend(handler.handle(msgs))
+            try:
+                results.extend(handler.handle(msgs))
+            except Exception:
+                self._logger.exception('Error processing messages for key %s', key)
         self._sink.publish_messages(results)

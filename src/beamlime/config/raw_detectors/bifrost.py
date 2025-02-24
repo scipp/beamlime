@@ -1,35 +1,24 @@
-import numpy as np
 import scipp as sc
 from ess.reduce.live import raw
 
-sizes = {'x': 100, 'y': 3}
-dim = 'detector_number'
+detector_number = sc.arange('detector_number', 1, 5 * 3 * 9 * 100 + 1, unit=None).fold(
+    dim='detector_number', sizes={'analyzer': 5, 'tube': 3, 'sector': 9, 'pixel': 100}
+)
 start = 123
-detector_start = 100
 detectors_config = {}
 detectors_config['detectors'] = {}
-for i in range(1, 10):
-    for j in range(1, 6):
-        detector_number_start = detector_start * i + ((j - 1) * 2700)
-        array = np.concatenate(
-            [
-                np.arange(detector_number_start + 1 - 100, detector_number_start + 1),
-                np.arange(
-                    detector_number_start + 1 - 100 + 900,
-                    detector_number_start + 1 + 900,
-                ),
-                np.arange(
-                    detector_number_start + 1 - 100 + 1800,
-                    detector_number_start + 1 + 1800,
-                ),
-            ]
-        )
-        detectors_config['detectors'][f'Channel ({i}, {j})'] = {
-            'detector_name': f'{start}_channel_{i}_{j}_triplet',
+# Each NXdetetor is a He3 tube triplet with shape=(3, 100). Detector numbers in triplet
+# are *not* consecutive:
+# 1...900 with increasing angle (across all sectors)
+# 901 is back to first sector and detector, second tube
+for sector in range(1, 10):
+    for analyzer in range(1, 6):
+        # The slice is non-contiguous, so we make a copy
+        det_num = detector_number['sector', sector - 1]['analyzer', analyzer - 1].copy()
+        detectors_config['detectors'][f'Channel ({sector}, {analyzer})'] = {
+            'detector_name': f'{start}_channel_{sector}_{analyzer}_triplet',
             'projection': raw.LogicalView(),
-            'detector_number': sc.Variable(dims=[dim], values=array).fold(
-                dim=dim, sizes=sizes
-            ),
+            'detector_number': det_num,
         }
         start += 4
     start += 1
