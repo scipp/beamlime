@@ -38,7 +38,8 @@ def make_detector_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
     adapter = ChainedAdapter(
-        first=KafkaToEv44Adapter(), second=Ev44ToDetectorEventsAdapter()
+        first=KafkaToEv44Adapter(),
+        second=Ev44ToDetectorEventsAdapter(merge_detectors=instrument == 'bifrost'),
     )
     handler_factory_cls = partial(DetectorHandlerFactory, instrument=instrument)
     return DataServiceBuilder(

@@ -194,6 +194,7 @@ def test_detector_data_service(instrument: str) -> None:
         elif instrument == 'bifrost':
             # non-contiguous detector_number, but the fake produces random numbers, we
             # should get about 1/9 of the counts
-            assert 300 < msg.sum().value < 3000
+            ndet = 45
+            assert msg.sum().value == 10000 * ndet
         else:
             assert msg.sum().value == 10000

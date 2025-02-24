@@ -30,7 +30,12 @@ detectors_config = {'detectors': {}}
 # 901 is back to first sector and detector, second tube
 detectors_config['detectors']['unified_detector'] = {
     'detector_name': 'unified_detector',
-    'projection': raw.LogicalView(),
+    'projection': raw.LogicalView(
+        flatten={
+            'analyzer/tube': ('analyzer', 'tube'),
+            'sector/pixel': ('sector', 'pixel'),
+        }
+    ),
     'detector_number': detector_number,
 }
 

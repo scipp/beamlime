@@ -49,6 +49,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
+        self._instrument = instrument
         self._detector_config = get_config(instrument).detectors_config['detectors']
         self._nexus_file = _try_get_nexus_geometry_filename(instrument)
         self._window_length = 128
@@ -61,7 +62,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
     ) -> raw.RollingDetectorView | None:
         projection = detector_config['projection']
         if (
-            self._nexus_file is None
+            (self._nexus_file is None or self._instrument == 'bifrost')
             and isinstance(projection, raw.LogicalView)
             and (detector_number := detector_config.get('detector_number')) is not None
         ):
