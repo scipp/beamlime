@@ -45,6 +45,7 @@ dynamic = ["version"]
 [project.optional-dependencies]
 test = [
     "pytest",
+    "essspectroscopy @ git+https://github.com/scipp/essspectroscopy.git@main",
 ]
 dashboard = [
   "dash",
