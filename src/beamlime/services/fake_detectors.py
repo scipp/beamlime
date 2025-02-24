@@ -108,7 +108,7 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
         messages = []
 
         for name in self._last_message_time:
-            size = 1_000
+            size = 1_000 if self._instrument == 'bifrost' else 100_000
             elapsed = current_time - self._last_message_time[name]
             num_intervals = int(elapsed // self._interval_ns)
 
