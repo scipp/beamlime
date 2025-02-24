@@ -67,7 +67,6 @@ detector_config = {
         f'detector_panel_{i}': (i * 1280**2 + 1, (i + 1) * 1280**2) for i in range(3)
     },
     'bifrost': dict(_bifrost_generator()),
-    'trifrost': dict(_bifrost_generator()),
 }
 
 
