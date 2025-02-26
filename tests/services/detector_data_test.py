@@ -35,7 +35,7 @@ class Ev44Consumer(KafkaConsumer):
         self._events_per_message = events_per_message
         self._max_events = max_events
         self._pixel_id = np.ones(events_per_message, dtype=np.int32)
-        self._rng = np.random.default_rng()
+        self._rng = np.random.default_rng(seed=1234)  # Avoid test flakiness
 
         self._reference_time = 0
         self._running = False
