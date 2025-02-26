@@ -100,6 +100,39 @@ class DashboardApp(ServiceBase):
         )
 
     def _setup_layout(self) -> None:
+        # Add CSS styles using the Dash assets approach
+        self._app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+        <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+                overflow-x: hidden;
+                height: 100%;
+                max-height: 100%;
+            }
+            #react-entry-point {
+                height: 100%;
+            }
+        </style>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
+
         controls = [
             html.Label('Update Speed (ms)'),
             dcc.Slider(
@@ -230,14 +263,23 @@ class DashboardApp(ServiceBase):
                     id='plots-container',
                     style={
                         'marginLeft': '320px',
-                        'padding': '10px',
-                        'height': 'calc(100vh - 20px)',
+                        'padding': '10px 10px 0 10px',  # Remove bottom padding
+                        'height': '100vh',
                         'overflowY': 'auto',
+                        'boxSizing': 'border-box',
                     },
                 ),
                 dcc.Interval(id='interval-component', interval=200, n_intervals=0),
             ],
-            style={'height': '100vh', 'width': '100%', 'margin': '0'},
+            style={
+                'height': '100vh',
+                'width': '100%',
+                'margin': '0',
+                'padding': '0',
+                'overflow': 'hidden',  # Hide both x and y overflow
+                'boxSizing': 'border-box',
+                'display': 'block',  # Ensure block display
+            },
         )
 
     def _toggle_slider(self, checkbox_value):
@@ -488,7 +530,12 @@ class DashboardApp(ServiceBase):
             ),
             html.Div(
                 detector_graphs,
-                style={'display': 'flex', 'flexWrap': 'wrap', 'gap': '10px'},
+                style={
+                    'display': 'flex',
+                    'flexWrap': 'wrap',
+                    'gap': '10px',
+                    'paddingBottom': '20px',
+                },
             ),
         ]
 
