@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeVar
 
 import numpy as np
 import scipp as sc
@@ -59,6 +59,66 @@ class DetectorEvents:
         )
 
 
+Events = TypeVar('Events', DetectorEvents, MonitorEvents)
+
+
+class ToNXevent_data(Accumulator[Events, sc.DataArray]):
+    def __init__(self):
+        self._chunks: list[Events] = []
+        self._timestamps: list[int] = []
+        self._epoch = sc.epoch(unit='ns')
+        self._have_event_id: bool | None = None
+        self._toa_dtype = np.int64
+
+    def add(self, timestamp: int, data: Events) -> None:
+        if data.unit != 'ns':
+            raise ValueError(f"Expected unit 'ns', got '{data.unit}'")
+        if self._have_event_id is None:
+            self._have_event_id = isinstance(data, DetectorEvents)
+            self._toa_dtype = np.asarray(data.time_of_arrival).dtype
+        elif self._have_event_id != isinstance(data, DetectorEvents):
+            # This should never happen, but we check to be safe.
+            raise ValueError("Inconsistent event_id")
+        self._chunks.append(data)
+        self._timestamps.append(timestamp)
+
+    def get(self) -> sc.DataArray:
+        if self._have_event_id is None:
+            raise ValueError("No data has been added")
+        if self._chunks:
+            toa_values = np.concatenate([d.time_of_arrival for d in self._chunks])
+        else:
+            toa_values = np.array([], dtype=self._toa_dtype)
+        event_time_offset = sc.array(dims=['event'], values=toa_values, unit='ns')
+        weights = sc.ones(sizes=event_time_offset.sizes, dtype='float32', unit='counts')
+        events = sc.DataArray(
+            data=weights, coords={'event_time_offset': event_time_offset}
+        )
+        if self._have_event_id:
+            if self._chunks:
+                ids = np.concatenate([d.pixel_id for d in self._chunks])
+            else:
+                ids = np.array([])
+            event_id = sc.array(dims=['event'], values=ids, unit=None, dtype='int32')
+            events.coords['event_id'] = event_id
+
+        lens = [len(d.time_of_arrival) for d in self._chunks]
+        sizes = sc.array(
+            dims=['event_time_zero'], values=lens, unit=None, dtype='int64'
+        )
+        begin = sc.cumsum(sizes, mode='exclusive')
+        binned = sc.DataArray(sc.bins(begin=begin, dim='event', data=events))
+        binned.coords['event_time_zero'] = self._epoch + sc.array(
+            dims=['event_time_zero'], values=self._timestamps, unit='ns', dtype='int64'
+        )
+        self.clear()
+        return binned
+
+    def clear(self) -> None:
+        self._chunks.clear()
+        self._timestamps.clear()
+
+
 class NullAccumulator(Accumulator[Any, None]):
     def add(self, timestamp: int, data: Any) -> None:
         pass
@@ -71,8 +131,8 @@ class NullAccumulator(Accumulator[Any, None]):
 
 
 class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
-    def __init__(self, config: Config, clear_on_get: bool = False):
-        self._config = config
+    def __init__(self, config: Config | None = None, clear_on_get: bool = False):
+        self._config = config or {}
         self._clear_on_get = clear_on_get
         self._cumulative: sc.DataArray | None = None
 
@@ -102,8 +162,8 @@ class _Chunk:
 
 
 class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
-    def __init__(self, config: Config):
-        self._config = config
+    def __init__(self, config: Config | None = None):
+        self._config = config or {}
         self._chunks: list[_Chunk] = []
         self._max_age = ConfigModelAccessor(
             config=config, key='sliding_window', model=models.SlidingWindow

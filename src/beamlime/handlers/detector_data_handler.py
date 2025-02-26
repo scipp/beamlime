@@ -11,7 +11,7 @@ import scipp as sc
 from ess.reduce.live import raw
 
 from ..config import models
-from ..config.raw_detectors import get_detector_config
+from ..config.raw_detectors import get_config
 from ..core.handler import (
     Accumulator,
     Config,
@@ -49,7 +49,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
-        self._detector_config = get_detector_config(instrument)['detectors']
+        self._detector_config = get_config(instrument).detectors_config['detectors']
         self._nexus_file = _try_get_nexus_geometry_filename(instrument)
         self._window_length = 128
 

@@ -1,14 +1,17 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 
-# Order in 'resolution' matters so plots have X as horizontal axis and Y as vertical.
+from typing import NewType
 
+import sciline
 import scipp as sc
 from ess.reduce.live import raw
+from ess.reduce.streaming import StreamProcessor
 
 _res_scale = 8
 pixel_noise = sc.scalar(4.0, unit='mm')
 
+# Order in 'resolution' matters so plots have X as horizontal axis and Y as vertical.
 detectors_config = {
     'detectors': {
         'endcap_backward': {
@@ -56,4 +59,73 @@ detectors_config = {
             ),
         },
     },
+}
+
+
+# Below is a dummy workflow for early dev and testing purposes.
+# This will be replaced by a real workflow provided by the ess.dream package.
+RawDetectorData = NewType('RawDetectorData', sc.DataArray)
+DetectorData = NewType('DetectorData', sc.DataArray)
+RawMon1 = NewType('RawMon1', sc.DataArray)
+RawMon2 = NewType('RawMon2', sc.DataArray)
+Mon1 = NewType('Mon1', sc.DataArray)
+Mon2 = NewType('Mon2', sc.DataArray)
+TransmissionFraction = NewType('TransmissionFraction', sc.DataArray)
+IofQ = NewType('IofQ', sc.DataArray)
+
+
+def process_detector_data(raw_detector_data: RawDetectorData) -> DetectorData:
+    return raw_detector_data.bins.concat().hist(
+        event_time_offset=sc.linspace(
+            'event_time_offset', 0, 71_000_000, num=100, unit='ns'
+        )
+    )
+
+
+def process_mon1(raw_mon1: RawMon1) -> Mon1:
+    return raw_mon1.sum()
+
+
+def process_mon2(raw_mon2: RawMon2) -> Mon2:
+    return raw_mon2.sum()
+
+
+def transmission_fraction(mon1: Mon1, mon2: Mon2) -> TransmissionFraction:
+    return mon2 / mon1
+
+
+def iofq(data: DetectorData, transmission_fraction: TransmissionFraction) -> IofQ:
+    return data / transmission_fraction
+
+
+wf = sciline.Pipeline(
+    (process_detector_data, process_mon1, process_mon2, transmission_fraction, iofq)
+)
+
+
+def _make_processor():
+    return StreamProcessor(
+        wf,
+        dynamic_keys=(RawMon1, RawMon2, RawDetectorData),
+        accumulators=(Mon1, Mon2, DetectorData),
+        target_keys=(IofQ,),
+    )
+
+
+def make_stream_processors():
+    return {
+        'mantle_detector': _make_processor(),
+        'endcap_backward_detector': _make_processor(),
+        'endcap_forward_detector': _make_processor(),
+        'high_resolution_detector': _make_processor(),
+    }
+
+
+source_to_key = {
+    'mantle_detector': RawDetectorData,
+    'endcap_backward_detector': RawDetectorData,
+    'endcap_forward_detector': RawDetectorData,
+    'high_resolution_detector': RawDetectorData,
+    'monitor1': RawMon1,
+    'monitor2': RawMon2,
 }

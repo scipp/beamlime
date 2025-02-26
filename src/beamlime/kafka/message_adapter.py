@@ -180,6 +180,18 @@ class RoutingAdapter(MessageAdapter[KafkaMessage, T]):
         return self._routes[schema].adapt(message)
 
 
+class RouteByTopicAdapter(MessageAdapter[KafkaMessage, T]):
+    """
+    Routes messages to different adapters based on the topic.
+    """
+
+    def __init__(self, routes: dict[str, MessageAdapter[KafkaMessage, T]]):
+        self._routes = routes
+
+    def adapt(self, message: KafkaMessage) -> Message[T]:
+        return self._routes[message.topic()].adapt(message)
+
+
 class AdaptingMessageSource(MessageSource[U]):
     """
     Wraps a source of messages and adapts them to a different type.

@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import scipp as sc
 
-from beamlime.config.raw_detectors import available_instruments, get_detector_config
+from beamlime.config.raw_detectors import available_instruments, get_config
 from beamlime.core.handler import Message, MessageKey
 from beamlime.handlers.accumulators import DetectorEvents
 from beamlime.handlers.detector_data_handler import (
@@ -60,7 +60,7 @@ def test_get_nexus_filename_raises_if_datetime_out_of_range() -> None:
 
 @pytest.mark.parametrize('instrument', available_instruments())
 def test_factory_can_create_handler(instrument: str) -> None:
-    config = get_detector_config(instrument)
+    config = get_config(instrument).detectors_config
     detectors = {view['detector_name'] for view in config['detectors'].values()}
     assert len(detectors) > 0
     factory = DetectorHandlerFactory(instrument=instrument, config={})
