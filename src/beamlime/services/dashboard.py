@@ -42,8 +42,7 @@ class DashboardApp(ServiceBase):
         self._debug = debug
 
         # Initialize state
-        self._monitor_plots: dict[str, go.Figure] = {}
-        self._detector_plots: dict[str, go.Figure] = {}
+        self._plots: dict[str, go.Figure] = {}
 
         self._exit_stack = ExitStack()
         self._exit_stack.__enter__()
@@ -350,8 +349,8 @@ class DashboardApp(ServiceBase):
         )
         self._config_service.update_config('roi_rectangle', roi.model_dump())
 
-        # Update ROI rectangles in all 2D detector plots
-        for fig in self._detector_plots.values():
+        # Update ROI rectangles in all 2D plots
+        for fig in self._plots.values():
             if hasattr(fig.data[0], 'z'):  # Check if it's a 2D plot
                 x_range = [fig.data[0].x[0], fig.data[0].x[-1]]
                 y_range = [fig.data[0].y[0], fig.data[0].y[-1]]
@@ -480,31 +479,16 @@ class DashboardApp(ServiceBase):
             self._logger.info(
                 "Got %d messages, showing most recent %d", num, len(messages)
             )
-            monitor_messages = [
-                msg for msg in messages if 'beam_monitor' in msg.key.topic
-            ]
-            detector_messages = [msg for msg in messages if 'detector' in msg.key.topic]
-
-            for msg in monitor_messages:
-                key = msg.key.source_name
-                data = msg.value
-                if key not in self._monitor_plots:
-                    self._monitor_plots[key] = self.create_monitor_plot(key, data)
-                fig = self._monitor_plots[key]
-                fig.data[0].x = data.coords[data.dim].values
-                fig.data[0].y = data.values
-
-            for msg in detector_messages:
-                # Trim the base of the source name, since it duplicates information
-                # from the view name in the second part of the key.
-                key = msg.key.source_name.split('/', maxsplit=1)[1]
+            for msg in messages:
+                orig_source_name, suffix = msg.key.source_name.split('/', maxsplit=1)
+                key = f'Source name: {orig_source_name}<br>{suffix}'
                 data = msg.value
                 for dim in data.dims:
                     if dim not in data.coords:
                         data.coords[dim] = sc.arange(dim, data.sizes[dim], unit=None)
-                if key not in self._detector_plots:
-                    self._detector_plots[key] = self.create_detector_plot(key, data)
-                fig = self._detector_plots[key]
+                if key not in self._plots:
+                    self._plots[key] = self.create_detector_plot(key, data)
+                fig = self._plots[key]
                 if len(data.dims) == 1:
                     fig.data[0].x = data.coords[data.dim].values
                     fig.data[0].y = data.values
@@ -518,26 +502,8 @@ class DashboardApp(ServiceBase):
             self._logger.exception("Error in update_plots: %s", e)
             raise PreventUpdate from None
 
-        monitor_graphs = [dcc.Graph(figure=fig) for fig in self._monitor_plots.values()]
-        detector_graphs = [
-            dcc.Graph(figure=fig) for fig in self._detector_plots.values()
-        ]
-
-        return [
-            html.Div(
-                monitor_graphs,
-                style={'display': 'flex', 'flexWrap': 'wrap', 'gap': '10px'},
-            ),
-            html.Div(
-                detector_graphs,
-                style={
-                    'display': 'flex',
-                    'flexWrap': 'wrap',
-                    'gap': '10px',
-                    'paddingBottom': '20px',
-                },
-            ),
-        ]
+        graphs = [dcc.Graph(figure=fig) for fig in self._plots.values()]
+        return [html.Div(graphs, style={'display': 'flex', 'flexWrap': 'wrap'})]
 
     def update_timing_settings(self, update_speed: float, window_size: float) -> float:
         update_every = models.UpdateEvery(value=2**update_speed, unit='ms')
