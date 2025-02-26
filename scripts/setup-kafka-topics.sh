@@ -32,7 +32,7 @@ kafka-topics --create --bootstrap-server kafka:29092 \
   --config segment.ms=60000
 
 kafka-topics --create --bootstrap-server kafka:29092 \
-  --topic ${BEAMLIME_INSTRUMENT}_beamlime_control \
+  --topic ${BEAMLIME_INSTRUMENT}_beamlime_commands \
   --config cleanup.policy=compact \
   --config retention.ms=-1 \
   --config min.compaction.lag.ms=86400000 \

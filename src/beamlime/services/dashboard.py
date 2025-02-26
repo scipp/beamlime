@@ -70,7 +70,7 @@ class DashboardApp(ServiceBase):
                 kafka_consumer.make_control_consumer(instrument=self._instrument)
             ),
             topic=topic_for_instrument(
-                topic='beamlime_control', instrument=self._instrument
+                topic='beamlime_commands', instrument=self._instrument
             ),
             logger=self._logger,
         )
