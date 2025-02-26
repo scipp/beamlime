@@ -32,3 +32,15 @@ def detector_topic(instrument: str) -> str:
     Return the topic name for the detector data of an instrument.
     """
     return topic_for_instrument(topic='detector', instrument=instrument)
+
+
+def source_name_separator() -> str:
+    """
+    Return the separator between device name and signal name.
+
+    This is used to construct the source name from the device name and signal name
+    The source_name is used in various Kafka messages.
+
+    ':' is used as the separator in the ECDC naming convention at ESS.
+    """
+    return ':'
