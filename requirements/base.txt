@@ -21,13 +21,13 @@ email-validator==2.2.0
     # via scippneutron
 ess-streaming-data-types==0.27.0
     # via -r base.in
-essreduce==25.2.1
+essreduce==25.2.4
     # via -r base.in
 flatbuffers==25.2.10
     # via ess-streaming-data-types
 fonttools==4.56.0
     # via matplotlib
-h5py==3.12.1
+h5py==3.13.0
     # via
     #   scippneutron
     #   scippnexus
@@ -38,7 +38,9 @@ jinja2==3.1.5
 kiwisolver==1.4.8
     # via matplotlib
 lazy-loader==0.4
-    # via scippneutron
+    # via
+    #   plopp
+    #   scippneutron
 markupsafe==3.0.2
     # via jinja2
 matplotlib==3.10.0
@@ -65,7 +67,7 @@ packaging==24.2
     #   matplotlib
 pillow==11.1.0
     # via matplotlib
-plopp==24.10.0
+plopp==25.2.0
     # via scippneutron
 pydantic==2.10.6
     # via
@@ -90,13 +92,13 @@ scipp==25.2.0
     #   essreduce
     #   scippneutron
     #   scippnexus
-scippneutron==25.2.0
+scippneutron==25.2.1
     # via essreduce
 scippnexus==24.11.1
     # via
     #   essreduce
     #   scippneutron
-scipy==1.15.1
+scipy==1.15.2
     # via
     #   scippneutron
     #   scippnexus

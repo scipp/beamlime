@@ -49,6 +49,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
+        self._instrument = instrument
         self._detector_config = get_config(instrument).detectors_config['detectors']
         self._nexus_file = _try_get_nexus_geometry_filename(instrument)
         self._window_length = 128
@@ -61,7 +62,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
     ) -> raw.RollingDetectorView | None:
         projection = detector_config['projection']
         if (
-            self._nexus_file is None
+            (self._nexus_file is None or self._instrument == 'bifrost')
             and isinstance(projection, raw.LogicalView)
             and (detector_number := detector_config.get('detector_number')) is not None
         ):
@@ -232,7 +233,7 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
 _registry = {
     'geometry-dream-2025-01-01.nxs': 'md5:91aceb884943c76c0c21400ee74ad9b6',
     'geometry-loki-2025-01-01.nxs': 'md5:8d0e103276934a20ba26bb525e53924a',
-    'geometry-bifrost-2025-02-14.nxs': 'md5:b581f1560aefd4bec56c86395f553516',
+    'geometry-bifrost-2025-01-01.nxs': 'md5:ae3caa99dd56de9495b9321eea4e4fef',
 }
 
 

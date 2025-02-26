@@ -136,10 +136,25 @@ class KafkaToMonitorEventsAdapter(MessageAdapter[KafkaMessage, Message[MonitorEv
 class Ev44ToDetectorEventsAdapter(
     MessageAdapter[Message[eventdata_ev44.EventData], Message[DetectorEvents]]
 ):
+    def __init__(self, *, merge_detectors: bool = False):
+        """
+        Parameters
+        ----------
+        merge_detectors
+            If True, all detectors are merged into a single "unified_detector". This is
+            useful for instruments with many detector banks that should be treated as a
+            single bank. Note that event_id/detector_number must be unique across all
+            detectors.
+        """
+        self._merge_detectors = merge_detectors
+
     def adapt(
         self, message: Message[eventdata_ev44.EventData]
     ) -> Message[DetectorEvents]:
-        return replace(message, value=DetectorEvents.from_ev44(message.value))
+        key = message.key
+        if self._merge_detectors:
+            key = replace(key, source_name='unified_detector')
+        return replace(message, key=key, value=DetectorEvents.from_ev44(message.value))
 
 
 class Da00ToScippAdapter(

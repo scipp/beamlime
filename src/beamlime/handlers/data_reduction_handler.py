@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import scipp as sc
 from ess.reduce.streaming import StreamProcessor
@@ -16,8 +17,13 @@ from ..core.handler import (
     HandlerFactory,
     PeriodicAccumulatingHandler,
 )
-from ..core.message import MessageKey
+from ..core.message import Message, MessageKey
 from .accumulators import DetectorEvents, ToNXevent_data
+
+
+class NullHandler(Handler[Any, None]):
+    def handle(self, messages: list[Message[Any]]) -> list[Message[None]]:
+        return []
 
 
 class ReductionHandlerFactory(
@@ -44,7 +50,13 @@ class ReductionHandlerFactory(
         self, key: MessageKey
     ) -> Handler[DetectorEvents, sc.DataGroup[sc.DataArray]]:
         self._logger.info("Creating handler for %s", key)
-        wf_key = self._source_to_key[key.source_name]
+        wf_key = self._source_to_key.get(key.source_name)
+        if wf_key is None:
+            self._logger.warning(
+                "No workflow key found for source name %s, using null handler",
+                key.source_name,
+            )
+            return NullHandler(logger=self._logger, config=self._config)
         if (processor := self._processors.get(key.source_name)) is not None:
             accumulator = StreamProcessorProxy(processor, key=wf_key)
             self._logger.info(

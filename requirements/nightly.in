@@ -7,6 +7,7 @@ ess-streaming-data-types
 jinja2
 pydantic>=2
 pytest
+essspectroscopy @ git+https://github.com/scipp/essspectroscopy.git@main
 scipp
 --index-url=https://pypi.anaconda.org/scipp-nightly-wheels/simple/
 --extra-index-url=https://pypi.org/simple

@@ -46,7 +46,10 @@ def make_reduction_service_builder(
                 first=KafkaToEv44Adapter(), second=Ev44ToMonitorEventsAdapter()
             ),
             detector_topic(instrument): ChainedAdapter(
-                first=KafkaToEv44Adapter(), second=Ev44ToDetectorEventsAdapter()
+                first=KafkaToEv44Adapter(),
+                second=Ev44ToDetectorEventsAdapter(
+                    merge_detectors=instrument == 'bifrost'
+                ),
             ),
         }
     )

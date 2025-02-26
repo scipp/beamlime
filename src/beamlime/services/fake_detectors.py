@@ -25,18 +25,26 @@ from beamlime.core.handler import CommonHandlerFactory
 from beamlime.kafka.helpers import detector_topic
 from beamlime.kafka.sink import KafkaSink, SerializationError
 
-
 # Configure detectors to fake for each instrument
 # Values as of January 2025. These may change if the detector configuration changes.
+
+
 def _bifrost_generator() -> Generator[tuple[str, tuple[int, int]]]:
+    # BEWARE! There are gaps in the detector_number per bank, which would usually get
+    # dropped when mapping to pixels. BUT we merge banks for Bifrost, before mapping to
+    # pixels, so the generated fake events in the wrong bank will end up in the right
+    # bank. As a consequence we do not lose any fake events, but the travel over Kafka
+    # with the wrong source_name.
     start = 123
     ntube = 3
     for sector in range(1, 10):
         for analyzer in range(1, 6):
-            base = ntube * 900 * (analyzer - 1) + 100 * (sector - 1)
+            # Note: Actual start is at base + 100 * (sector - 1), but we start earlier
+            # to get consistent counts across all banks, relating to comment above.
+            base = ntube * 900 * (analyzer - 1)
             yield (
                 f'{start}_channel_{sector}_{analyzer}_triplet',
-                (base + 1, base + 100 + 1800),
+                (base + 1, base + 2700),
             )
             start += 4
         start += 1
@@ -100,7 +108,7 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
         messages = []
 
         for name in self._last_message_time:
-            size = 100_000
+            size = 1_000 if self._instrument == 'bifrost' else 100_000
             elapsed = current_time - self._last_message_time[name]
             num_intervals = int(elapsed // self._interval_ns)
 

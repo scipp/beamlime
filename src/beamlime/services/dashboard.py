@@ -353,18 +353,19 @@ class DashboardApp(ServiceBase):
             colorscale='Viridis',
         )
         # Add ROI rectangle (initially hidden)
-        fig.add_shape(
-            type="rect",
-            x0=0,
-            y0=0,
-            x1=1,
-            y1=1,
-            line={'color': 'red', 'width': 2},
-            fillcolor="red",
-            opacity=0.2,
-            visible=False,
-            name="ROI",
-        )
+        if not key.startswith('reduced'):  # ROI selection only for raw detector plots
+            fig.add_shape(
+                type="rect",
+                x0=0,
+                y0=0,
+                x1=1,
+                y1=1,
+                line={'color': 'red', 'width': 2},
+                fillcolor="red",
+                opacity=0.2,
+                visible=False,
+                name="ROI",
+            )
 
         def maybe_unit(dim: str) -> str:
             unit = data.coords[dim].unit
@@ -379,14 +380,31 @@ class DashboardApp(ServiceBase):
             'showlegend': False,
         }
         y_size, x_size = data.shape
-        if y_size < x_size:
-            fig.update_layout(width=size, **opts)
-            fig.update_yaxes(scaleanchor="x", scaleratio=1, constrain="domain")
-            fig.update_xaxes(constrain="domain")
+        if data.coords[x_dim].unit is not None and (
+            maybe_unit(y_dim) == maybe_unit(x_dim)
+        ):
+            if y_size < x_size:
+                fig.update_layout(width=size, **opts)
+                fig.update_yaxes(scaleanchor="x", scaleratio=1, constrain="domain")
+                fig.update_xaxes(constrain="domain")
+            else:
+                fig.update_layout(height=size, **opts)
+                fig.update_xaxes(scaleanchor="y", scaleratio=1, constrain="domain")
+                fig.update_yaxes(constrain="domain")
         else:
-            fig.update_layout(height=size, **opts)
-            fig.update_xaxes(scaleanchor="y", scaleratio=1, constrain="domain")
-            fig.update_yaxes(constrain="domain")
+            # Set size based on pixel count
+            long = max(y_size, x_size)
+            short = min(y_size, x_size)
+            ratio = long / short
+            max_size = 900
+            if ratio > 3:
+                if y_size < x_size:
+                    fig.update_layout(width=max_size, height=max_size // 3, **opts)
+                else:
+                    fig.update_layout(width=max_size // 3, height=max_size, **opts)
+            else:
+                scale = max_size / long
+                fig.update_layout(width=x_size * scale, height=y_size * scale, **opts)
         return fig
 
     def update_plots(self, n: int | None):
@@ -435,7 +453,7 @@ class DashboardApp(ServiceBase):
                     fig.data[0].z = data.values
 
         except Exception as e:
-            self._logger.error("Error in update_plots: %s", e)
+            self._logger.exception("Error in update_plots: %s", e)
             raise PreventUpdate from None
 
         monitor_graphs = [dcc.Graph(figure=fig) for fig in self._monitor_plots.values()]
