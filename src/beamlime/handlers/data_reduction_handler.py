@@ -106,6 +106,11 @@ class MultiplexingProxy(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
     def get(self) -> sc.DataGroup[sc.DataArray]:
         return sc.DataGroup()
 
+    def clear(self) -> None:
+        # Clearing would be ok, but should be redundant since the stream processors are
+        # cleared for each detector in the non-multiplexing proxies.
+        pass
+
 
 class StreamProcessorProxy(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
     def __init__(self, processor: StreamProcessor, *, key: type) -> None:
@@ -119,3 +124,6 @@ class StreamProcessorProxy(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]
         return sc.DataGroup(
             {str(key): val for key, val in self._processor.finalize().items()}
         )
+
+    def clear(self) -> None:
+        self._processor.clear()
