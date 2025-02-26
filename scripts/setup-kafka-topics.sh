@@ -32,7 +32,7 @@ kafka-topics --create --bootstrap-server kafka:29092 \
   --config segment.ms=60000
 
 kafka-topics --create --bootstrap-server kafka:29092 \
-  --topic ${BEAMLIME_INSTRUMENT}_beamlime_control \
+  --topic ${BEAMLIME_INSTRUMENT}_beamlime_commands \
   --config cleanup.policy=compact \
   --config retention.ms=-1 \
   --config min.compaction.lag.ms=86400000 \
@@ -42,17 +42,7 @@ kafka-topics --create --bootstrap-server kafka:29092 \
   --config retention.bytes=-1
 
 kafka-topics --create --bootstrap-server kafka:29092 \
-  --topic ${BEAMLIME_INSTRUMENT}_beam_monitor_processed \
-  --config cleanup.policy=delete \
-  --config delete.retention.ms=60000 \
-  --config max.message.bytes=327680 \
-  --config retention.bytes=1073741824 \
-  --config retention.ms=30000 \
-  --config segment.bytes=10485760 \
-  --config segment.ms=60000
-
-kafka-topics --create --bootstrap-server kafka:29092 \
-  --topic ${BEAMLIME_INSTRUMENT}_detector_processed \
+  --topic ${BEAMLIME_INSTRUMENT}_beamlime_data \
   --config cleanup.policy=delete \
   --config delete.retention.ms=60000 \
   --config max.message.bytes=104857600 \

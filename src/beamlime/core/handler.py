@@ -234,7 +234,8 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
                 timestamp=timestamp,
                 key=replace(
                     key,
-                    topic=f'{key.topic}_processed',
+                    # Extract the instrument name from the topic name.
+                    topic=f'{key.topic.split("_")[0]}_beamlime_data',
                     source_name=f'{key.source_name}/{name}',
                 ),
                 value=accumulator.get(),
