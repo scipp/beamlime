@@ -213,11 +213,31 @@ class DashboardApp(ServiceBase):
             [
                 html.Div(
                     controls,
-                    style={'width': '300px', 'float': 'left', 'padding': '10px'},
+                    style={
+                        'width': '300px',
+                        'position': 'fixed',
+                        'top': '0',
+                        'left': '0',
+                        'bottom': '0',
+                        'padding': '10px',
+                        'overflowY': 'auto',
+                        'backgroundColor': '#f8f9fa',
+                        'borderRight': '1px solid #dee2e6',
+                        'zIndex': '1000',
+                    },
                 ),
-                html.Div(id='plots-container', style={'margin-left': '320px'}),
+                html.Div(
+                    id='plots-container',
+                    style={
+                        'marginLeft': '320px',
+                        'padding': '10px',
+                        'height': 'calc(100vh - 20px)',
+                        'overflowY': 'auto',
+                    },
+                ),
                 dcc.Interval(id='interval-component', interval=200, n_intervals=0),
-            ]
+            ],
+            style={'height': '100vh', 'width': '100%', 'margin': '0'},
         )
 
     def _toggle_slider(self, checkbox_value):
@@ -462,8 +482,14 @@ class DashboardApp(ServiceBase):
         ]
 
         return [
-            html.Div(monitor_graphs, style={'display': 'flex', 'flexWrap': 'wrap'}),
-            html.Div(detector_graphs, style={'display': 'flex', 'flexWrap': 'wrap'}),
+            html.Div(
+                monitor_graphs,
+                style={'display': 'flex', 'flexWrap': 'wrap', 'gap': '10px'},
+            ),
+            html.Div(
+                detector_graphs,
+                style={'display': 'flex', 'flexWrap': 'wrap', 'gap': '10px'},
+            ),
         ]
 
     def update_timing_settings(self, update_speed: float, window_size: float) -> float:
