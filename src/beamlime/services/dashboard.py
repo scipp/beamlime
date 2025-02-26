@@ -99,6 +99,39 @@ class DashboardApp(ServiceBase):
         )
 
     def _setup_layout(self) -> None:
+        # Add CSS styles using the Dash assets approach
+        self._app.index_string = '''
+<!DOCTYPE html>
+<html>
+    <head>
+        {%metas%}
+        <title>{%title%}</title>
+        {%favicon%}
+        {%css%}
+        <style>
+            html, body {
+                margin: 0;
+                padding: 0;
+                overflow-x: hidden;
+                height: 100%;
+                max-height: 100%;
+            }
+            #react-entry-point {
+                height: 100%;
+            }
+        </style>
+    </head>
+    <body>
+        {%app_entry%}
+        <footer>
+            {%config%}
+            {%scripts%}
+            {%renderer%}
+        </footer>
+    </body>
+</html>
+'''
+
         controls = [
             html.Label('Update Speed (ms)'),
             dcc.Slider(
@@ -212,11 +245,40 @@ class DashboardApp(ServiceBase):
             [
                 html.Div(
                     controls,
-                    style={'width': '300px', 'float': 'left', 'padding': '10px'},
+                    style={
+                        'width': '300px',
+                        'position': 'fixed',
+                        'top': '0',
+                        'left': '0',
+                        'bottom': '0',
+                        'padding': '10px',
+                        'overflowY': 'auto',
+                        'backgroundColor': '#f8f9fa',
+                        'borderRight': '1px solid #dee2e6',
+                        'zIndex': '1000',
+                    },
                 ),
-                html.Div(id='plots-container', style={'margin-left': '320px'}),
+                html.Div(
+                    id='plots-container',
+                    style={
+                        'marginLeft': '320px',
+                        'padding': '10px 10px 0 10px',  # Remove bottom padding
+                        'height': '100vh',
+                        'overflowY': 'auto',
+                        'boxSizing': 'border-box',
+                    },
+                ),
                 dcc.Interval(id='interval-component', interval=200, n_intervals=0),
-            ]
+            ],
+            style={
+                'height': '100vh',
+                'width': '100%',
+                'margin': '0',
+                'padding': '0',
+                'overflow': 'hidden',  # Hide both x and y overflow
+                'boxSizing': 'border-box',
+                'display': 'block',  # Ensure block display
+            },
         )
 
     def _toggle_slider(self, checkbox_value):
