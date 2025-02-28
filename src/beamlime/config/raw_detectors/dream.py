@@ -5,8 +5,19 @@ from typing import NewType
 
 import sciline
 import scipp as sc
-from ess.reduce.live import raw
 from ess.reduce.streaming import StreamProcessor
+
+
+def _get_mantle_front_layer(da: sc.DataArray) -> sc.DataArray:
+    return (
+        da.fold(
+            dim=da.dim,
+            sizes={'wire': 32, 'module': 5, 'segment': 6, 'strip': 256, 'counter': 2},
+        )
+        .transpose(('wire', 'module', 'segment', 'counter', 'strip'))['wire', 0]
+        .flatten(('module', 'segment', 'counter'), to='mod/seg/cntr')
+    )
+
 
 _res_scale = 8
 pixel_noise = sc.scalar(4.0, unit='mm')
@@ -45,18 +56,7 @@ detectors_config = {
         'mantle_front_layer': {
             'detector_name': 'mantle_detector',
             'detector_number': sc.arange('dummy', 229377, 720897, unit=None),
-            'projection': raw.LogicalView(
-                fold={
-                    'wire': 32,
-                    'module': 5,
-                    'segment': 6,
-                    'strip': 256,
-                    'counter': 2,
-                },
-                transpose=('wire', 'module', 'segment', 'counter', 'strip'),
-                select={'wire': 0},
-                flatten={'mod/seg/cntr': ('module', 'segment', 'counter')},
-            ),
+            'projection': _get_mantle_front_layer,
         },
     },
 }

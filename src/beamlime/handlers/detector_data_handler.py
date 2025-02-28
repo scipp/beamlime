@@ -60,10 +60,10 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
     def _make_view(
         self, detector_config: dict[str, Any]
     ) -> raw.RollingDetectorView | None:
-        projection = detector_config['projection']
+        projection = detector_config.get('projection')
         if (
             (self._nexus_file is None or self._instrument == 'bifrost')
-            and isinstance(projection, raw.LogicalView)
+            and (projection is None or not isinstance(projection, str))
             and (detector_number := detector_config.get('detector_number')) is not None
         ):
             return raw.RollingDetectorView(
