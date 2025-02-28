@@ -6,6 +6,7 @@ confluent_kafka
 ess-streaming-data-types
 jinja2
 pydantic>=2
+pooch
 pytest
 essspectroscopy @ git+https://github.com/scipp/essspectroscopy.git@main
 scipp
