@@ -8,7 +8,7 @@ from dataclasses import replace
 from typing import Any, Generic, Protocol, TypeVar
 
 from ..config import models
-from ..kafka.helpers import source_name_separator
+from ..kafka.helpers import source_name
 from .message import Message, MessageKey, Tin, Tout
 
 
@@ -237,7 +237,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
                     key,
                     # Extract the instrument name from the topic name.
                     topic=f'{key.topic.split("_")[0]}_beamlime_data',
-                    source_name=f'{key.source_name}{source_name_separator()}{name}',
+                    source_name=source_name(key.source_name, name),
                 ),
                 value=accumulator.get(),
             )

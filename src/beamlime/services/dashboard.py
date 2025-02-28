@@ -17,7 +17,7 @@ from beamlime.config.config_loader import load_config
 from beamlime.core.config_service import ConfigService
 from beamlime.core.message import compact_messages
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.helpers import source_name_separator, topic_for_instrument
+from beamlime.kafka.helpers import topic_for_instrument
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
@@ -418,9 +418,7 @@ class DashboardApp(ServiceBase):
                 "Got %d messages, showing most recent %d", num, len(messages)
             )
             for msg in messages:
-                orig_source_name, suffix = msg.key.source_name.split(
-                    source_name_separator(), maxsplit=1
-                )
+                orig_source_name, suffix = msg.key.source_name.split(':', maxsplit=1)
                 key = f'Source name: {orig_source_name}<br>{suffix}'
                 data = msg.value
                 for dim in data.dims:
