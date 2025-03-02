@@ -64,6 +64,7 @@ def create_monitor_data_handler(
     accumulators = {
         'cumulative': Cumulative(config=config),
         'sliding': SlidingWindow(config=config),
+        'current': Cumulative(config=config, clear_on_get=True),
     }
     preprocessor = MonitorDataPreprocessor(config=config)
     return PeriodicAccumulatingHandler(

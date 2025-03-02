@@ -150,6 +150,7 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
         )
         self._timestamps: list[int] = []
         self._current_window = 0
+        self._previous: sc.DataArray | None = None
 
     def _convert_toa_range(
         self, value: dict[str, Any]
@@ -194,16 +195,19 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
 
     def get(self) -> sc.DataGroup[sc.DataArray]:
         self._cleanup()
-        result = sc.DataGroup(
-            sliding=self._view.get(window=self._current_window),
-            cumulative=self._view.cumulative,
-        )
+        cumulative = self._view.cumulative.copy()
+        current = cumulative
+        if self._previous is not None:
+            current = current - self._previous
+        self._previous = cumulative
+        result = sc.DataGroup(cumulative=cumulative, current=current)
         return result * self._inv_weights if self._use_weights() else result
 
     def clear(self) -> None:
         self._view.clear_counts()
         self._timestamps.clear()
         self._current_window = 0
+        self._previous = None
 
     def _cleanup(self) -> None:
         if not self._timestamps:
