@@ -8,6 +8,7 @@ import pytest
 from streaming_data_types import eventdata_ev44
 
 from beamlime.fakes import FakeMessageSink
+from beamlime.kafka.helpers import source_name
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.source import KafkaConsumer
 from beamlime.services.monitor_data import make_monitor_service_builder
@@ -142,10 +143,10 @@ def test_monitor_data_service() -> None:
     service.start(blocking=False)
     start_and_wait_for_completion(consumer=consumer)
     source_names = [msg.key.source_name for msg in sink.messages]
-    assert 'monitor_0/cumulative' in source_names
-    assert 'monitor_1/cumulative' in source_names
-    assert 'monitor_0/sliding' in source_names
-    assert 'monitor_1/sliding' in source_names
+    assert source_name('monitor_0', 'cumulative') in source_names
+    assert source_name('monitor_1', 'cumulative') in source_names
+    assert source_name('monitor_0', 'sliding') in source_names
+    assert source_name('monitor_1', 'sliding') in source_names
     size = len(sink.messages)
     start_and_wait_for_completion(consumer=consumer)
     assert len(sink.messages) > size
