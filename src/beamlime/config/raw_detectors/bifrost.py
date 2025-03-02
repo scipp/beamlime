@@ -6,7 +6,6 @@ from typing import NewType
 
 import scipp as sc
 from ess import bifrost
-from ess.reduce.live import raw
 from ess.reduce.nexus.types import (
     CalibratedBeamline,
     DetectorData,
@@ -20,6 +19,13 @@ from scippnexus import NXdetector
 
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 
+
+def _to_flat_detector_view(da: sc.DataArray) -> sc.DataArray:
+    return da.flatten(dims=('analyzer', 'tube'), to='analyzer/tube').flatten(
+        dims=('sector', 'pixel'), to='sector/pixel'
+    )
+
+
 detector_number = sc.arange('detector_number', 1, 5 * 3 * 9 * 100 + 1, unit=None).fold(
     dim='detector_number', sizes={'analyzer': 5, 'tube': 3, 'sector': 9, 'pixel': 100}
 )
@@ -30,12 +36,7 @@ detectors_config = {'detectors': {}}
 # 901 is back to first sector and detector, second tube
 detectors_config['detectors']['unified_detector'] = {
     'detector_name': 'unified_detector',
-    'projection': raw.LogicalView(
-        flatten={
-            'analyzer/tube': ('analyzer', 'tube'),
-            'sector/pixel': ('sector', 'pixel'),
-        }
-    ),
+    'projection': _to_flat_detector_view,
     'detector_number': detector_number,
 }
 

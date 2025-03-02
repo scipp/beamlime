@@ -5,7 +5,6 @@ Detector configuration for a dummy instrument used for development and testing.
 """
 
 import scipp as sc
-from ess.reduce.live import raw
 
 detectors_config = {
     'detectors': {
@@ -14,7 +13,6 @@ detectors_config = {
             'detector_number': sc.arange('yx', 0, 128**2, unit=None).fold(
                 dim='yx', sizes={'y': -1, 'x': 128}
             ),
-            'projection': raw.LogicalView(),
         },
     },
 }
