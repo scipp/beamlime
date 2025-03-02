@@ -124,7 +124,7 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
     """
     Accumulator for detector counts, based on a rolling detector view.
 
-    Return both a sliding and a cumulative view of the counts.
+    Return both a current (since last update) and a cumulative view of the counts.
     """
 
     def __init__(
@@ -145,11 +145,6 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
             model=models.PixelWeighting,
             convert=self._convert_pixel_weighting,
         )
-        self._max_age = ConfigModelAccessor(
-            config=config, key='sliding_window', model=models.SlidingWindow
-        )
-        self._timestamps: list[int] = []
-        self._current_window = 0
         self._previous: sc.DataArray | None = None
 
     def _convert_toa_range(
@@ -190,11 +185,9 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
             through :py:class:`GroupIntoPixels`.
         """
         data = self.apply_toa_range(data)
-        self._timestamps.append(timestamp)
         self._view.add_events(data)
 
     def get(self) -> sc.DataGroup[sc.DataArray]:
-        self._cleanup()
         cumulative = self._view.cumulative.copy()
         current = cumulative
         if self._previous is not None:
@@ -205,28 +198,7 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
 
     def clear(self) -> None:
         self._view.clear_counts()
-        self._timestamps.clear()
-        self._current_window = 0
         self._previous = None
-
-    def _cleanup(self) -> None:
-        if not self._timestamps:
-            return
-        latest = max(self._timestamps)
-        max_age = self._max_age().value_ns
-        # Count how many chunks are within the window
-        active_chunks = sum(1 for ts in self._timestamps if latest - ts <= max_age)
-        # Update the window size for the underlying view
-        max_window = self._view.max_window
-        if active_chunks > max_window:
-            self._logger.warning(
-                'Requested window size %d exceeds maximum %d', active_chunks, max_window
-            )
-            self._current_window = max_window
-        else:
-            self._current_window = active_chunks
-        # Remove timestamps of expired chunks
-        self._timestamps = [ts for ts in self._timestamps if latest - ts <= max_age]
 
 
 # Note: Currently no need for a geometry file for NMX since the view is purely logical.
