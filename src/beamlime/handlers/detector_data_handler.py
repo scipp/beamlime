@@ -52,7 +52,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         self._instrument = instrument
         self._detector_config = get_config(instrument).detectors_config['detectors']
         self._nexus_file = _try_get_nexus_geometry_filename(instrument)
-        self._window_length = 128
+        self._window_length = 1
 
     def _key_to_detector_name(self, key: MessageKey) -> str:
         return key.source_name
