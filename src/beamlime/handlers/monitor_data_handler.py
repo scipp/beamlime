@@ -8,7 +8,7 @@ from typing import TypeVar
 import scipp as sc
 
 from ..core.handler import Accumulator, Config, PeriodicAccumulatingHandler
-from .accumulators import Cumulative, MonitorEvents, SlidingWindow, TOAHistogrammer
+from .accumulators import Cumulative, MonitorEvents, TOAHistogrammer
 
 
 class MonitorDataPreprocessor(Accumulator[MonitorEvents | sc.DataArray, sc.DataArray]):
@@ -63,7 +63,7 @@ def create_monitor_data_handler(
     """Create a handler for monitor data."""
     accumulators = {
         'cumulative': Cumulative(config=config),
-        'sliding': SlidingWindow(config=config),
+        'current': Cumulative(config=config, clear_on_get=True),
     }
     preprocessor = MonitorDataPreprocessor(config=config)
     return PeriodicAccumulatingHandler(

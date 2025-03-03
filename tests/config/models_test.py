@@ -62,12 +62,6 @@ def test_update_every_defaults():
     assert model.unit == "s"
 
 
-def test_sliding_window_defaults():
-    model = models.SlidingWindow()
-    assert model.value == 5.0
-    assert model.unit == "s"
-
-
 @pytest.mark.parametrize(
     ("value", "unit", "expected_ns"),
     [
@@ -85,11 +79,6 @@ def test_time_model_conversions(value, unit, expected_ns):
 def test_update_every_validation():
     with pytest.raises(ValidationError):
         models.UpdateEvery(value=0.05)  # Below minimum of 0.1
-
-
-def test_sliding_window_validation():
-    with pytest.raises(ValidationError):
-        models.SlidingWindow(value=0.04)  # Below minimum of 0.05
 
 
 def test_roi_axis_percentage_defaults():
