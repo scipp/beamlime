@@ -171,7 +171,7 @@ def test_detector_data_service(instrument: str) -> None:
     for view_name, view_config in detectors.items():
         base_key = source_name(device=view_config['detector_name'], signal=view_name)
         assert f'{base_key}/cumulative' in source_names
-        assert f'{base_key}/sliding' in source_names
+        assert f'{base_key}/current' in source_names
         assert f'{base_key}/roi' in source_names
 
     # Implicitly yields the latest cumulative message for each detector

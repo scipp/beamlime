@@ -3,7 +3,6 @@
 from dataclasses import replace
 
 import numpy as np
-import scipp as sc
 from scipp.testing import assert_identical
 
 from beamlime.core.handler import Message, MessageKey
@@ -14,9 +13,7 @@ from beamlime.handlers.monitor_data_handler import (
 
 
 def test_handler() -> None:
-    handler = create_monitor_data_handler(
-        config={'sliding_window': {'value': 10, 'unit': 's'}}
-    )
+    handler = create_monitor_data_handler(config={})
     msg = Message(
         timestamp=0,
         key=MessageKey(topic='monitors', source_name='monitor1'),
@@ -26,7 +23,7 @@ def test_handler() -> None:
     )
     results = handler.handle([msg])
     assert len(results) == 2
-    assert sc.identical(results[0].value, results[1].value)
+    assert_identical(results[0].value, results[1].value)
 
     results = handler.handle([msg])
     # No update since we are still in same update interval
@@ -35,13 +32,13 @@ def test_handler() -> None:
     msg = replace(msg, timestamp=msg.timestamp + int(1.2e9))
     results = handler.handle([msg])
     assert len(results) == 2
-    # Everything is still in same window
-    assert sc.identical(results[0].value, results[1].value)
+    # Cumulative is 3 messages, current is 2
+    assert_identical(2 * results[0].value, 3 * results[1].value)
 
     msg = replace(msg, timestamp=msg.timestamp + int(9e9))
     results = handler.handle([msg])
     assert len(results) == 2
-    # Window contains 2 messages, 4 messages since start.
+    # Current is 1 message, 4 messages since start.
     cumulative_value = -1
     sliding_window_value = -1
     for msg in results:
@@ -49,4 +46,4 @@ def test_handler() -> None:
             cumulative_value = msg.value
         else:
             sliding_window_value = msg.value
-    assert_identical(2 * cumulative_value, 4 * sliding_window_value)
+    assert_identical(cumulative_value, 4 * sliding_window_value)
