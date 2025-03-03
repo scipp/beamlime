@@ -189,6 +189,8 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
 
     def get(self) -> sc.DataGroup[sc.DataArray]:
         cumulative = self._view.cumulative.copy()
+        # This is a hack to get the current counts. Should be updated once
+        # ess.reduce.live.raw.RollingDetectorView has been modified to support this.
         current = cumulative
         if self._previous is not None:
             current = current - self._previous
