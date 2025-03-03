@@ -47,6 +47,7 @@ dynamic = ["version"]
 test = [
     "pytest",
     "essspectroscopy @ git+https://github.com/scipp/essspectroscopy.git@main",
+    "pytest-benchmark",
 ]
 bifrost = [
     "essspectroscopy @ git+https://github.com/scipp/essspectroscopy.git@main",
