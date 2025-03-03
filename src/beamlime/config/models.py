@@ -87,13 +87,6 @@ class UpdateEvery(TimeModel):
     unit: TimeUnit = Field(default="s", description="Physical unit for the time value.")
 
 
-class SlidingWindow(TimeModel):
-    """Setting for the sliding window."""
-
-    value: float = Field(default=5.0, ge=0.05, description="Time value.")
-    unit: TimeUnit = Field(default="s", description="Physical unit for the time value.")
-
-
 class ROIAxisRange(BaseModel):
     """
     Setting for the range of an axis to use for a rectangular ROI.
