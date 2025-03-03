@@ -155,40 +155,6 @@ class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
         self._cumulative = None
 
 
-@dataclass
-class _Chunk:
-    timestamp: int
-    data: sc.DataArray
-
-
-class SlidingWindow(Accumulator[sc.DataArray, sc.DataArray]):
-    def __init__(self, config: Config | None = None):
-        self._config = config or {}
-        self._chunks: list[_Chunk] = []
-        self._max_age = ConfigModelAccessor(
-            config=config, key='sliding_window', model=models.SlidingWindow
-        )
-
-    def add(self, timestamp: int, data: sc.DataArray) -> None:
-        if self._chunks and data.sizes != self._chunks[0].data.sizes:
-            self.clear()
-        self._chunks.append(_Chunk(timestamp, data))
-
-    def get(self) -> sc.DataArray:
-        if not self._chunks:
-            raise ValueError("No data has been added")
-        self._cleanup()
-        return sc.reduce([chunk.data for chunk in self._chunks]).sum()
-
-    def clear(self) -> None:
-        self._chunks.clear()
-
-    def _cleanup(self) -> None:
-        latest = max([chunk.timestamp for chunk in self._chunks])
-        max_age = self._max_age().value_ns
-        self._chunks = [c for c in self._chunks if latest - c.timestamp <= max_age]
-
-
 class GroupIntoPixels(Accumulator[DetectorEvents, sc.DataArray]):
     def __init__(self, config: Config, detector_number: sc.Variable):
         self._config = config

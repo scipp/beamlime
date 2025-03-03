@@ -10,7 +10,6 @@ from beamlime.handlers.accumulators import (
     Cumulative,
     DetectorEvents,
     MonitorEvents,
-    SlidingWindow,
     TOAHistogrammer,
     ToNXevent_data,
 )
@@ -30,7 +29,7 @@ def test_MonitorEvents_from_ev44() -> None:
     assert monitor_events.unit == 'ns'
 
 
-@pytest.mark.parametrize('accumulator_cls', [Cumulative, SlidingWindow, ToNXevent_data])
+@pytest.mark.parametrize('accumulator_cls', [Cumulative, ToNXevent_data])
 def test_accumulator_raises_if_get_before_add(
     accumulator_cls: type[Accumulator],
 ) -> None:
@@ -71,7 +70,7 @@ def test_cumulative_clear_on_get() -> None:
     )
 
 
-@pytest.mark.parametrize('accumulator_cls', [Cumulative, SlidingWindow])
+@pytest.mark.parametrize('accumulator_cls', [Cumulative])
 def test_accumulator_clears_when_data_sizes_changes(
     accumulator_cls: type[Accumulator],
 ) -> None:
