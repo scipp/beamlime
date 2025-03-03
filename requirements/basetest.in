@@ -3,16 +3,8 @@
 # Add more dependencies in the ``test`` list
 # under ``[project.optional-dependencies]`` section, in ``pyproject.toml``
 
-pytest
-pytest-benchmark
 pytest-cov
 pytest-xdist
-psutil
-pandas
-pyarrow  # Future hard-dependency of pandas, it can be removed from pandas>3.0
-scipp
-plopp
-pooch
 # Anything above "--- END OF CUSTOM SECTION ---"
 # will not be touched by ``make_base.py``
 # --- END OF CUSTOM SECTION ---
