@@ -21,8 +21,9 @@ requirements:
     - essreduce
     - python>=3.10
 
+  {# Conda does not allow spaces between package name and version, so remove them #}
   {% for package in dependencies %}
-    - {{conda_package_name_registry.get(package, package)}}
+    - {% if package == "graphviz" %}python-graphviz{% else %}{{ package|replace(" ", "") }}{% endif %}
   {% endfor %}
 
 
