@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  pull_request:
   release:
     types: [published]
   workflow_dispatch:
@@ -58,56 +59,56 @@ jobs:
           name: dist
           path: dist
 
-  upload_pypi:
-    name: Deploy PyPI
-    needs: [build_wheels, build_conda]
-    runs-on: 'ubuntu-24.04'
-    environment: release
-    permissions:
-      id-token: write
-    if: github.event_name == 'release' && github.event.action == 'published'
-    steps:
-      - uses: actions/download-artifact@v4
-      - uses: pypa/gh-action-pypi-publish@v1.8.14
+  # upload_pypi:
+  #   name: Deploy PyPI
+  #   needs: [build_wheels, build_conda]
+  #   runs-on: 'ubuntu-24.04'
+  #   environment: release
+  #   permissions:
+  #     id-token: write
+  #   if: github.event_name == 'release' && github.event.action == 'published'
+  #   steps:
+  #     - uses: actions/download-artifact@v4
+  #     - uses: pypa/gh-action-pypi-publish@v1.8.14
 
-  upload_conda:
-    name: Deploy Conda
-    needs: [build_wheels, build_conda]
-    runs-on: 'ubuntu-24.04'
-    if: github.event_name == 'release' && github.event.action == 'published'
+  # upload_conda:
+  #   name: Deploy Conda
+  #   needs: [build_wheels, build_conda]
+  #   runs-on: 'ubuntu-24.04'
+  #   if: github.event_name == 'release' && github.event.action == 'published'
 
-    steps:
-      - uses: actions/download-artifact@v4
-      - uses: mamba-org/setup-micromamba@v1
-        with:
-          environment-name: upload-env
-          # frozen python due to breaking removal of 'imp' in 3.12
-          create-args: >-
-            anaconda-client
-            python=3.11
-      - run: anaconda --token ${{ secrets.ANACONDATOKEN }} upload --user scipp --label main $(ls conda-package-noarch/*.tar.bz2)
+  #   steps:
+  #     - uses: actions/download-artifact@v4
+  #     - uses: mamba-org/setup-micromamba@v1
+  #       with:
+  #         environment-name: upload-env
+  #         # frozen python due to breaking removal of 'imp' in 3.12
+  #         create-args: >-
+  #           anaconda-client
+  #           python=3.11
+  #     - run: anaconda --token ${{ secrets.ANACONDATOKEN }} upload --user scipp --label main $(ls conda-package-noarch/*.tar.bz2)
 
-  docs:
-    needs: [upload_conda, upload_pypi]
-    uses: ./.github/workflows/docs.yml
-    with:
-      publish: ${{ github.event_name == 'release' && github.event.action == 'published' }}
-    secrets: inherit
+  # docs:
+  #   needs: [upload_conda, upload_pypi]
+  #   uses: ./.github/workflows/docs.yml
+  #   with:
+  #     publish: ${{ github.event_name == 'release' && github.event.action == 'published' }}
+  #   secrets: inherit
 
-  assets:
-    name: Upload docs
-    needs: docs
-    runs-on: 'ubuntu-24.04'
-    permissions:
-      contents: write  # This is needed so that the action can upload the asset
-    steps:
-    - uses: actions/download-artifact@v4
-    - name: Zip documentation
-      run: |
-        mv docs_html documentation-${{ github.ref_name }}
-        zip -r documentation-${{ github.ref_name }}.zip documentation-${{ github.ref_name }}
-    - name: Upload release assets
-      uses: svenstaro/upload-release-action@v2
-      with:
-        file: ./documentation-${{ github.ref_name }}.zip
-        overwrite: false
+  # assets:
+  #   name: Upload docs
+  #   needs: docs
+  #   runs-on: 'ubuntu-24.04'
+  #   permissions:
+  #     contents: write  # This is needed so that the action can upload the asset
+  #   steps:
+  #   - uses: actions/download-artifact@v4
+  #   - name: Zip documentation
+  #     run: |
+  #       mv docs_html documentation-${{ github.ref_name }}
+  #       zip -r documentation-${{ github.ref_name }}.zip documentation-${{ github.ref_name }}
+  #   - name: Upload release assets
+  #     uses: svenstaro/upload-release-action@v2
+  #     with:
+  #       file: ./documentation-${{ github.ref_name }}.zip
+  #       overwrite: false
