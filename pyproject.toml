@@ -49,7 +49,7 @@ test = [
     "pytest-benchmark",
 ]
 bifrost = [
-    "essspectroscopy @ git+https://github.com/scipp/essspectroscopy.git@main",
+    "essspectroscopy",
 ]
 dashboard = [
   "dash",
