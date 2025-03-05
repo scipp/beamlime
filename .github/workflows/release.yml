@@ -1,7 +1,6 @@
 name: Release
 
 on:
-  pull_request:
   release:
     types: [published]
   workflow_dispatch:
@@ -11,28 +10,28 @@ defaults:
     shell: bash -l {0}  # required for conda env
 
 jobs:
-  build_conda:
-    name: Conda build
-    runs-on: 'ubuntu-24.04'
+  # build_conda:
+  #   name: Conda build
+  #   runs-on: 'ubuntu-24.04'
 
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-          fetch-depth: 0  # history required so setuptools_scm can determine version
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         submodules: true
+  #         fetch-depth: 0  # history required so setuptools_scm can determine version
 
-      - uses: mamba-org/setup-micromamba@v1
-        with:
-          environment-name: build-env
-          create-args: >-
-            conda-build
-            boa
-      - run: conda mambabuild --channel conda-forge --channel scipp --channel ess-dmsc --no-anaconda-upload --override-channels --output-folder conda/package conda
+  #     - uses: mamba-org/setup-micromamba@v1
+  #       with:
+  #         environment-name: build-env
+  #         create-args: >-
+  #           conda-build
+  #           boa
+  #     - run: conda mambabuild --channel conda-forge --channel scipp --channel ess-dmsc --no-anaconda-upload --override-channels --output-folder conda/package conda
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: conda-package-noarch
-          path: conda/package/noarch/*.tar.bz2
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         name: conda-package-noarch
+  #         path: conda/package/noarch/*.tar.bz2
 
   build_wheels:
     name: Wheels
@@ -59,17 +58,17 @@ jobs:
           name: dist
           path: dist
 
-  # upload_pypi:
-  #   name: Deploy PyPI
-  #   needs: [build_wheels, build_conda]
-  #   runs-on: 'ubuntu-24.04'
-  #   environment: release
-  #   permissions:
-  #     id-token: write
-  #   if: github.event_name == 'release' && github.event.action == 'published'
-  #   steps:
-  #     - uses: actions/download-artifact@v4
-  #     - uses: pypa/gh-action-pypi-publish@v1.8.14
+  upload_pypi:
+    name: Deploy PyPI
+    needs: [build_wheels]
+    runs-on: 'ubuntu-24.04'
+    environment: release
+    permissions:
+      id-token: write
+    if: github.event_name == 'release' && github.event.action == 'published'
+    steps:
+      - uses: actions/download-artifact@v4
+      - uses: pypa/gh-action-pypi-publish@v1.8.14
 
   # upload_conda:
   #   name: Deploy Conda
@@ -88,27 +87,27 @@ jobs:
   #           python=3.11
   #     - run: anaconda --token ${{ secrets.ANACONDATOKEN }} upload --user scipp --label main $(ls conda-package-noarch/*.tar.bz2)
 
-  # docs:
-  #   needs: [upload_conda, upload_pypi]
-  #   uses: ./.github/workflows/docs.yml
-  #   with:
-  #     publish: ${{ github.event_name == 'release' && github.event.action == 'published' }}
-  #   secrets: inherit
+  docs:
+    needs: [upload_pypi]
+    uses: ./.github/workflows/docs.yml
+    with:
+      publish: ${{ github.event_name == 'release' && github.event.action == 'published' }}
+    secrets: inherit
 
-  # assets:
-  #   name: Upload docs
-  #   needs: docs
-  #   runs-on: 'ubuntu-24.04'
-  #   permissions:
-  #     contents: write  # This is needed so that the action can upload the asset
-  #   steps:
-  #   - uses: actions/download-artifact@v4
-  #   - name: Zip documentation
-  #     run: |
-  #       mv docs_html documentation-${{ github.ref_name }}
-  #       zip -r documentation-${{ github.ref_name }}.zip documentation-${{ github.ref_name }}
-  #   - name: Upload release assets
-  #     uses: svenstaro/upload-release-action@v2
-  #     with:
-  #       file: ./documentation-${{ github.ref_name }}.zip
-  #       overwrite: false
+  assets:
+    name: Upload docs
+    needs: docs
+    runs-on: 'ubuntu-24.04'
+    permissions:
+      contents: write  # This is needed so that the action can upload the asset
+    steps:
+    - uses: actions/download-artifact@v4
+    - name: Zip documentation
+      run: |
+        mv docs_html documentation-${{ github.ref_name }}
+        zip -r documentation-${{ github.ref_name }}.zip documentation-${{ github.ref_name }}
+    - name: Upload release assets
+      uses: svenstaro/upload-release-action@v2
+      with:
+        file: ./documentation-${{ github.ref_name }}.zip
+        overwrite: false
