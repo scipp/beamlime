@@ -10,7 +10,7 @@ import numpy as np
 import scipp as sc
 from ess.reduce.live.roi import ROIFilter
 from scipp._scipp.core import _bins_no_validate
-from streaming_data_types import eventdata_ev44
+from streaming_data_types import eventdata_ev44, logdata_f144
 
 from ..config import models
 from ..core.handler import Accumulator, Config, ConfigModelAccessor
@@ -57,6 +57,23 @@ class DetectorEvents:
         return DetectorEvents(
             pixel_id=ev44.pixel_id, time_of_arrival=ev44.time_of_flight, unit='ns'
         )
+
+
+class LogData:
+    """
+    Dataclass for log data.
+
+    Decouples our handlers from upstream schema changes. This also simplifies handler
+    testing since tests do not have to construct a full logdata_f144.LogData object.
+    """
+
+    time: int
+    value: Any
+    unit: str | None
+
+    @staticmethod
+    def from_f144(f144: logdata_f144.LogData, unit: str | None) -> LogData:
+        return LogData(time=f144.timestamp_unix_ns, value=f144.value, unit=unit)
 
 
 Events = TypeVar('Events', DetectorEvents, MonitorEvents)

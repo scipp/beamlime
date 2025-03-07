@@ -6,11 +6,11 @@ from typing import Any, Generic, Protocol, TypeVar
 import scipp as sc
 import streaming_data_types
 import streaming_data_types.exceptions
-from streaming_data_types import dataarray_da00, eventdata_ev44
+from streaming_data_types import dataarray_da00, eventdata_ev44, logdata_f144
 from streaming_data_types.fbschemas.eventdata_ev44 import Event44Message
 
 from ..core.message import Message, MessageKey, MessageSource
-from ..handlers.accumulators import DetectorEvents, MonitorEvents
+from ..handlers.accumulators import DetectorEvents, LogData, MonitorEvents
 from .scipp_da00_compat import da00_to_scipp
 
 T = TypeVar('T')
@@ -91,6 +91,37 @@ class KafkaToDa00Adapter(
         key = MessageKey(topic=message.topic(), source_name=da00.source_name)
         timestamp = da00.timestamp_ns
         return Message(timestamp=timestamp, key=key, value=da00.data)
+
+
+class KafkaToF144Adapter(
+    MessageAdapter[KafkaMessage, Message[logdata_f144.ExtractedLogData]]
+):
+    def adapt(self, message: KafkaMessage) -> Message[logdata_f144.ExtractedLogData]:
+        log_data = logdata_f144.deserialise_f144(message.value())
+        key = MessageKey(topic=message.topic(), source_name=log_data.source_name)
+        timestamp = log_data.timestamp_unix_ns
+        return Message(timestamp=timestamp, key=key, value=log_data)
+
+
+class F144ToLogDataAdapter(
+    MessageAdapter[Message[logdata_f144.ExtractedLogData], Message[LogData]]
+):
+    def __init__(self, unit: str | None):
+        """
+        Parameters
+        ----------
+        unit
+            The unit to use for the log data.
+        """
+        self._unit = unit
+
+    def adapt(
+        self, message: Message[logdata_f144.ExtractedLogData]
+    ) -> Message[LogData]:
+        return replace(
+            message,
+            value=LogData.from_f144(message.value, unit=self._unit),
+        )
 
 
 class Ev44ToMonitorEventsAdapter(
