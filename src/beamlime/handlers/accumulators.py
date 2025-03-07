@@ -70,11 +70,10 @@ class LogData:
 
     time: int
     value: Any
-    unit: str | None
 
     @staticmethod
-    def from_f144(f144: logdata_f144.LogData, unit: str | None) -> LogData:
-        return LogData(time=f144.timestamp_unix_ns, value=f144.value, unit=unit)
+    def from_f144(f144: logdata_f144.LogData) -> LogData:
+        return LogData(time=f144.timestamp_unix_ns, value=f144.value)
 
 
 Events = TypeVar('Events', DetectorEvents, MonitorEvents)

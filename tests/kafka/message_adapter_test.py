@@ -96,11 +96,11 @@ def test_KafkaToF144Adapter() -> None:
     assert messages[0].timestamp == 9876543210
 
 
-def test_F144ToLogDataAdapter_with_no_unit() -> None:
+def test_F144ToLogDataAdapter() -> None:
     source = AdaptingMessageSource(
         source=FakeF144KafkaMessageSource(),
         adapter=ChainedAdapter(
-            first=KafkaToF144Adapter(), second=F144ToLogDataAdapter(unit=None)
+            first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
         ),
     )
     messages = source.get_messages()
@@ -108,22 +108,8 @@ def test_F144ToLogDataAdapter_with_no_unit() -> None:
     assert messages[0].key.topic == "sensors"
     assert messages[0].key.source_name == "temperature1"
     assert messages[0].value.value == 123.45
-    assert messages[0].value.unit is None
     assert messages[0].value.time == 9876543210
     assert messages[0].timestamp == 9876543210
-
-
-def test_F144ToLogDataAdapter_with_unit() -> None:
-    source = AdaptingMessageSource(
-        source=FakeF144KafkaMessageSource(),
-        adapter=ChainedAdapter(
-            first=KafkaToF144Adapter(), second=F144ToLogDataAdapter(unit="K")
-        ),
-    )
-    messages = source.get_messages()
-    assert len(messages) == 1
-    assert messages[0].value.value == 123.45
-    assert messages[0].value.unit == "K"
 
 
 def message_with_schema(schema: str) -> KafkaMessage:

@@ -32,31 +32,12 @@ def test_MonitorEvents_from_ev44() -> None:
 
 def test_LogData_from_f144() -> None:
     f144_data = logdata_f144.ExtractedLogData(
-        source_name='chopper1',
-        value=42.0,
-        timestamp_unix_ns=12345,
+        source_name='abc', value=42.0, timestamp_unix_ns=12345
     )
 
-    # Test with unit
-    log_data = LogData.from_f144(f144_data, unit='Hz')
+    log_data = LogData.from_f144(f144_data)
     assert log_data.time == 12345
     assert log_data.value == 42.0
-    assert log_data.unit == 'Hz'
-
-    # Test without unit
-    log_data = LogData.from_f144(f144_data, unit=None)
-    assert log_data.time == 12345
-    assert log_data.value == 42.0
-    assert log_data.unit is None
-
-    # Test with string value
-    str_f144_data = logdata_f144.ExtractedLogData(
-        source_name='status', value="RUNNING", timestamp_unix_ns=54321
-    )
-    log_data = LogData.from_f144(str_f144_data, unit=None)
-    assert log_data.time == 54321
-    assert log_data.value == "RUNNING"
-    assert log_data.unit is None
 
 
 @pytest.mark.parametrize('accumulator_cls', [Cumulative, ToNXevent_data])

@@ -106,27 +106,10 @@ class KafkaToF144Adapter(
 class F144ToLogDataAdapter(
     MessageAdapter[Message[logdata_f144.ExtractedLogData], Message[LogData]]
 ):
-    def __init__(self, unit: str | None):
-        """
-        Adapter for converting log data from F144 format to LogData.
-
-        The unit has to be passed explicitly, as the F144 format does not contain
-        unit information. The unit is used to create the LogData object.
-
-        Parameters
-        ----------
-        unit
-            The unit to use for the log data. Can be None if no unit is needed.
-        """
-        self._unit = unit
-
     def adapt(
         self, message: Message[logdata_f144.ExtractedLogData]
     ) -> Message[LogData]:
-        return replace(
-            message,
-            value=LogData.from_f144(message.value, unit=self._unit),
-        )
+        return replace(message, value=LogData.from_f144(message.value))
 
 
 class Ev44ToMonitorEventsAdapter(
