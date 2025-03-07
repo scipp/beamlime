@@ -108,10 +108,15 @@ class F144ToLogDataAdapter(
 ):
     def __init__(self, unit: str | None):
         """
+        Adapter for converting log data from F144 format to LogData.
+
+        The unit has to be passed explicitly, as the F144 format does not contain
+        unit information. The unit is used to create the LogData object.
+
         Parameters
         ----------
         unit
-            The unit to use for the log data.
+            The unit to use for the log data. Can be None if no unit is needed.
         """
         self._unit = unit
 
