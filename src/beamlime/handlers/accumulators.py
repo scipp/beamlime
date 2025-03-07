@@ -59,6 +59,7 @@ class DetectorEvents:
         )
 
 
+@dataclass
 class LogData:
     """
     Dataclass for log data.

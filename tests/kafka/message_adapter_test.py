@@ -1,16 +1,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import pytest
-from streaming_data_types import eventdata_ev44
+from streaming_data_types import eventdata_ev44, logdata_f144
 
 from beamlime.core.message import Message, MessageKey, MessageSource
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
     Ev44ToMonitorEventsAdapter,
+    F144ToLogDataAdapter,
     FakeKafkaMessage,
     KafkaMessage,
     KafkaToEv44Adapter,
+    KafkaToF144Adapter,
     KafkaToMonitorEventsAdapter,
     RoutingAdapter,
 )
@@ -31,6 +33,18 @@ class FakeKafkaMessageSource(MessageSource[KafkaMessage]):
     def get_messages(self) -> list[KafkaMessage]:
         ev44 = make_serialized_ev44()
         return [FakeKafkaMessage(value=ev44, topic="monitors")]
+
+
+def make_serialized_f144() -> bytes:
+    return logdata_f144.serialise_f144(
+        source_name="temperature1", value=123.45, timestamp_unix_ns=9876543210
+    )
+
+
+class FakeF144KafkaMessageSource(MessageSource[KafkaMessage]):
+    def get_messages(self) -> list[KafkaMessage]:
+        f144 = make_serialized_f144()
+        return [FakeKafkaMessage(value=f144, topic="sensors")]
 
 
 def test_fake_kafka_message_source() -> None:
@@ -67,6 +81,49 @@ def test_KafkaToMonitorEventsAdapter() -> None:
     assert messages[0].key.source_name == "monitor1"
     assert messages[0].value.time_of_arrival == [123456]
     assert messages[0].timestamp == 1234
+
+
+def test_KafkaToF144Adapter() -> None:
+    source = AdaptingMessageSource(
+        source=FakeF144KafkaMessageSource(),
+        adapter=KafkaToF144Adapter(),
+    )
+    messages = source.get_messages()
+    assert len(messages) == 1
+    assert messages[0].key.topic == "sensors"
+    assert messages[0].key.source_name == "temperature1"
+    assert messages[0].value.value == 123.45
+    assert messages[0].timestamp == 9876543210
+
+
+def test_F144ToLogDataAdapter_with_no_unit() -> None:
+    source = AdaptingMessageSource(
+        source=FakeF144KafkaMessageSource(),
+        adapter=ChainedAdapter(
+            first=KafkaToF144Adapter(), second=F144ToLogDataAdapter(unit=None)
+        ),
+    )
+    messages = source.get_messages()
+    assert len(messages) == 1
+    assert messages[0].key.topic == "sensors"
+    assert messages[0].key.source_name == "temperature1"
+    assert messages[0].value.value == 123.45
+    assert messages[0].value.unit is None
+    assert messages[0].value.time == 9876543210
+    assert messages[0].timestamp == 9876543210
+
+
+def test_F144ToLogDataAdapter_with_unit() -> None:
+    source = AdaptingMessageSource(
+        source=FakeF144KafkaMessageSource(),
+        adapter=ChainedAdapter(
+            first=KafkaToF144Adapter(), second=F144ToLogDataAdapter(unit="K")
+        ),
+    )
+    messages = source.get_messages()
+    assert len(messages) == 1
+    assert messages[0].value.value == 123.45
+    assert messages[0].value.unit == "K"
 
 
 def message_with_schema(schema: str) -> KafkaMessage:
