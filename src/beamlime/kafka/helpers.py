@@ -34,6 +34,13 @@ def detector_topic(instrument: str) -> str:
     return topic_for_instrument(topic='detector', instrument=instrument)
 
 
+def motion_topic(instrument: str) -> str:
+    """
+    Return the topic name for the motion data of an instrument.
+    """
+    return topic_for_instrument(topic='motion', instrument=instrument)
+
+
 def source_name(device: str, signal: str) -> str:
     """
     Return the source name for a given device and signal.
