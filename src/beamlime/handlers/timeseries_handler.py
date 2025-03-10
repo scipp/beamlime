@@ -22,6 +22,10 @@ from .accumulators import LogData
 class Timeseries(Accumulator[sc.DataArray, sc.DataArray]):
     """
     Accumulate by appending to a timeseries.
+
+    The input is a DataArray with a time dimension. The output is a DataArray with the
+    same time dimension. The data variable may have additional dimensions, with time
+    being the first dimension.
     """
 
     def __init__(self) -> None:
@@ -36,18 +40,19 @@ class Timeseries(Accumulator[sc.DataArray, sc.DataArray]):
         # capacity, similar to std::vector in C++.
         if self._timeseries is None:
             self._timeseries = sc.concat([data] * 2, dim='time')
-        elif self._at_capacity(data.sizes['time']):
-            self._timeseries = sc.concat([self._timeseries, data] * 2, dim='time')
-        else:
-            sel = slice(self._end, self._end + data.sizes['time'])
-            self._timeseries.coords['time'][sel] = data.coords['time']
-            self._timeseries.data['time', sel] = data.data
+        while self._at_capacity(data.sizes['time']):
+            self._timeseries = sc.concat(
+                [self._timeseries, self._timeseries], dim='time'
+            )
+        sel = slice(self._end, self._end + data.sizes['time'])
+        self._timeseries.coords['time'][sel] = data.coords['time']
+        self._timeseries.data['time', sel] = data.data
         self._end += data.sizes['time']
 
     def get(self) -> sc.DataArray:
         if self._timeseries is None:
             raise ValueError("No data has been added")
-        return self._timeseries[: self._end]
+        return self._timeseries['time', : self._end]
 
     def clear(self) -> None:
         self._end = 0
