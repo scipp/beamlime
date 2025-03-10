@@ -6,7 +6,7 @@ import logging
 
 import scipp as sc
 
-from beamlime.handlers.ToNXlog import ToNXlog
+from beamlime.handlers.to_nx_log import ToNXlog
 
 from ..core.handler import (
     Accumulator,
@@ -47,7 +47,7 @@ class Timeseries(Accumulator[sc.DataArray, sc.DataArray]):
     def get(self) -> sc.DataArray:
         if self._timeseries is None:
             raise ValueError("No data has been added")
-        return self._timeseries
+        return self._timeseries[: self._end]
 
     def clear(self) -> None:
         self._end = 0
