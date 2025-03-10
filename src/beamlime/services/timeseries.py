@@ -34,6 +34,27 @@ def setup_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
+class FallbackAttributeRegistry:
+    """
+    Fallback attribute registry that returns a default value for any attribute.
+
+    This is used as a fallback until reading attributes from a template file or from
+    Kafka messages is implemented. This is a temporary solution.
+    """
+
+    def __getitem__(self, item):
+        return {
+            'time': {'start': '1970-01-01T00:00:00.000000', 'units': 'ns'},
+            'value': {'units': ''},
+        }
+
+    def __contains__(self, item):
+        return True
+
+    def get(self, item, default=None):
+        return self[item]
+
+
 def make_timeseries_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
@@ -41,14 +62,7 @@ def make_timeseries_service_builder(
     handler_factory_cls = partial(
         LogdataHandlerFactory,
         instrument=instrument,
-        # This is hard-coded for now. In practice this needs to be read from a template
-        # file.
-        attribute_registry={
-            'detector_rotation': {
-                'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-                'value': {'units': 'deg'},
-            }
-        },
+        attribute_registry=FallbackAttributeRegistry(),
     )
     return DataServiceBuilder(
         instrument=instrument,
