@@ -74,6 +74,26 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
         config: Config,
         attribute_registry: dict[str, dict[str, any]],
     ) -> None:
+        """
+        Initialize the LogdataHandlerFactory.
+
+        Parameters
+        ----------
+        instrument:
+            The name of the instrument.
+        logger:
+            The logger to use for logging messages.
+        config:
+            Configuration for the handler.
+        attribute_registry:
+            A dictionary mapping source names to attributes. This provides essential
+            attributes for the values and timestamps in the log data. Log messages do
+            not contain this information, so it must be provided externally.
+            The keys of the dictionary are source names, and the values are dictionaries
+            containing the attributes as they would be found in the fields of an NXlog
+            class in a NeXus file.
+        """
+
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
         self._instrument = instrument

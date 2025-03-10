@@ -41,6 +41,8 @@ def make_timeseries_service_builder(
     handler_factory_cls = partial(
         LogdataHandlerFactory,
         instrument=instrument,
+        # This is hard-coded for now. In practice this needs to be read from a template
+        # file.
         attribute_registry={
             'detector_rotation': {
                 'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
