@@ -104,11 +104,21 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
         attrs = self._attribute_registry.get(source_name)
         if attrs is None:
             self._logger.warning(
-                "No attributes found for source name %s. Messages will be dropped.",
+                "No attributes found for source name '%s'. Messages will be dropped.",
                 source_name,
             )
             return None
-        preprocessor = ToNXlog(attrs=attrs)
+
+        try:
+            preprocessor = ToNXlog(attrs=attrs)
+        except Exception:
+            self._logger.exception(
+                "Failed to create NXlog for source name '%s'. "
+                "Messages will be dropped.",
+                source_name,
+            )
+            return None
+
         accumulators = {'timeseries': Timeseries()}
         return PeriodicAccumulatingHandler(
             logger=self._logger,

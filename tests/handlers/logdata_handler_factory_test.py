@@ -117,7 +117,36 @@ def test_make_handler_with_missing_source(
     assert handler is None
     # Check that a warning was logged
     assert any(
-        "No attributes found for source name" in message
+        "No attributes found for source name 'nonexistent_sensor'" in message
+        for message in log_capture.messages
+    )
+
+
+def test_make_handler_with_invalid_attributes(
+    default_config, attribute_registry, log_capture: LogCapture
+):
+    """Test creating a handler with invalid attributes for a source"""
+    # Create a copy of the attribute registry with invalid attributes
+    invalid_registry = attribute_registry.copy()
+    invalid_registry["invalid_sensor"] = {
+        "time": {"start": "not-a-date"},  # Invalid date format
+        "value": {"units": "K"},
+    }
+
+    factory = LogdataHandlerFactory(
+        instrument="test_instrument",
+        logger=log_capture.logger,
+        config=default_config,
+        attribute_registry=invalid_registry,
+    )
+
+    key = MessageKey(topic="logs", source_name="invalid_sensor")
+    handler = factory.make_handler(key)
+
+    assert handler is None
+    # Check that a warning was logged about invalid attributes
+    assert any(
+        "Failed to create NXlog for source name 'invalid_sensor'" in message
         for message in log_capture.messages
     )
 
