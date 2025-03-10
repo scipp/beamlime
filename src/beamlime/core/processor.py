@@ -48,6 +48,9 @@ class StreamProcessor(Generic[Tin, Tout]):
         results = []
         for key, msgs in messages_by_key.items():
             handler = self._handler_registry.get(key)
+            if handler is None:
+                self._logger.debug('No handler for key %s, skipping messages', key)
+                continue
             try:
                 results.extend(handler.handle(msgs))
             except Exception:

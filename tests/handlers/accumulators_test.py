@@ -3,12 +3,13 @@
 import pytest
 import scipp as sc
 from scipp.testing import assert_identical
-from streaming_data_types import eventdata_ev44
+from streaming_data_types import eventdata_ev44, logdata_f144
 
 from beamlime.core.handler import Accumulator
 from beamlime.handlers.accumulators import (
     Cumulative,
     DetectorEvents,
+    LogData,
     MonitorEvents,
     TOAHistogrammer,
     ToNXevent_data,
@@ -27,6 +28,16 @@ def test_MonitorEvents_from_ev44() -> None:
     monitor_events = MonitorEvents.from_ev44(ev44)
     assert monitor_events.time_of_arrival == [1, 2, 3]
     assert monitor_events.unit == 'ns'
+
+
+def test_LogData_from_f144() -> None:
+    f144_data = logdata_f144.ExtractedLogData(
+        source_name='abc', value=42.0, timestamp_unix_ns=12345
+    )
+
+    log_data = LogData.from_f144(f144_data)
+    assert log_data.time == 12345
+    assert log_data.value == 42.0
 
 
 @pytest.mark.parametrize('accumulator_cls', [Cumulative, ToNXevent_data])

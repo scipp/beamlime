@@ -7,7 +7,7 @@ from typing import Any, Generic, Protocol, TypeVar
 
 import confluent_kafka as kafka
 import scipp as sc
-from streaming_data_types import dataarray_da00
+from streaming_data_types import dataarray_da00, logdata_f144
 
 from ..core.message import Message, MessageSink
 from .scipp_da00_compat import scipp_to_da00
@@ -33,6 +33,19 @@ def serialize_dataarray_to_da00(msg: Message[sc.DataArray]) -> bytes:
     except (ValueError, TypeError) as e:
         raise SerializationError(f"Failed to serialize message: {e}") from None
     return da00
+
+
+def serialize_dataarray_to_f144(msg: Message[sc.DataArray]) -> bytes:
+    try:
+        da = msg.value
+        f144 = logdata_f144.serialise_f144(
+            source_name=msg.key.source_name,
+            value=da.value,
+            timestamp_unix_ns=da.coords['time'].to(unit='ns', copy=False).value,
+        )
+    except (ValueError, TypeError) as e:
+        raise SerializationError(f"Failed to serialize message: {e}") from None
+    return f144
 
 
 class KafkaSink(MessageSink[T]):
