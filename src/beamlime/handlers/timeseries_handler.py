@@ -108,7 +108,6 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
         self._attribute_registry = attribute_registry
 
     def make_handler(self, key: MessageKey) -> Handler[LogData, sc.DataArray] | None:
-        # TODO Need to support not handling all messages. Return None?
         source_name = key.source_name
         attrs = self._attribute_registry.get(source_name)
         if attrs is None:

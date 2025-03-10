@@ -37,7 +37,7 @@ class Handler(Generic[Tin, Tout]):
 
 
 class HandlerFactory(Protocol, Generic[Tin, Tout]):
-    def make_handler(self, key: MessageKey) -> Handler[Tin, Tout]:
+    def make_handler(self, key: MessageKey) -> Handler[Tin, Tout] | None:
         pass
 
 
@@ -79,16 +79,17 @@ class HandlerRegistry(Generic[Tin, Tout]):
     Registry for handlers.
 
     Handlers are created on demand from a factory and cached based on the message key.
+    If the factory returns None for a key, messages with that key will be skipped.
     """
 
     def __init__(self, *, factory: HandlerFactory[Tin, Tout]):
         self._factory = factory
-        self._handlers: dict[MessageKey, Handler] = {}
+        self._handlers: dict[MessageKey, Handler[Tin, Tout] | None] = {}
 
     def __len__(self) -> int:
-        return len(self._handlers)
+        return sum(1 for handler in self._handlers.values() if handler is not None)
 
-    def get(self, key: MessageKey) -> Handler:
+    def get(self, key: MessageKey) -> Handler[Tin, Tout] | None:
         if key not in self._handlers:
             self._handlers[key] = self._factory.make_handler(key)
         return self._handlers[key]
