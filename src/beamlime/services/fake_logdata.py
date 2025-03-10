@@ -3,6 +3,7 @@
 import logging
 from typing import NoReturn, TypeVar
 
+import numpy as np
 import scipp as sc
 
 from beamlime import (
@@ -21,25 +22,43 @@ from beamlime.kafka.sink import KafkaSink, serialize_dataarray_to_f144
 
 
 def _make_ramp(size: int) -> sc.DataArray:
+    """Create a ramp pattern that can be used for continuous data generation.
+
+    Returns a DataArray with values that ramp up and down between 0 and 90 degrees.
+    """
+    # Create values that go from 0 to 90 and back to 0
+    values = np.concatenate(
+        [
+            np.linspace(0.0, 90.0, size // 2 + 1),
+            np.linspace(90.0, 0.0, size // 2 + 1)[1:],
+        ]
+    )
+
+    # Time offsets, one second between each point
+    time_offsets = sc.linspace(
+        'time', 0.0, float(len(values) - 1), num=len(values), unit='s'
+    )
+
     return sc.DataArray(
-        sc.linspace('time', 0.0, 90.0, num=size + 1, unit='deg'),
-        coords={
-            'time': sc.datetime('now', unit='ns')
-            - sc.epoch(unit='ns')
-            + sc.linspace('time', 0.0, 180.0, num=size + 1, unit='s').to(
-                unit='ns', dtype='int64'
-            )
-        },
+        sc.array(dims=['time'], values=values, unit='deg'),
+        coords={'time': time_offsets.to(unit='ns', dtype='int64')},
     )
 
 
 class FakeLogdataSource(MessageSource[sc.DataArray]):
-    """Fake message source that generates random monitor events."""
+    """Fake message source that generates continuous monitor events in a loop."""
 
     def __init__(self, *, instrument: str):
         self._topic = motion_topic(instrument=instrument)
-        self._logdata = {'detector_rotation': _make_ramp(size=100)}
-        self._last_message_time = {name: self._time_ns() for name in self._logdata}
+        # Create the base ramp patterns
+        self._ramp_patterns = {'detector_rotation': _make_ramp(size=100)}
+        # Track the current time and cycle count for each log data
+        self._current_time = {name: self._time_ns() for name in self._ramp_patterns}
+        # Track the last index we produced for each log
+        self._current_index = {name: 0 for name in self._ramp_patterns}
+        # How often to produce new data points (in seconds)
+        self._interval_ns = int(1e9)  # 1 second in nanoseconds
+        self._last_produce_time = self._time_ns()
 
     def _time_ns(self) -> sc.Variable:
         """Return the current time in nanoseconds."""
@@ -47,16 +66,49 @@ class FakeLogdataSource(MessageSource[sc.DataArray]):
 
     def get_messages(self) -> list[Message[sc.DataArray]]:
         messages = []
+        current_time = self._time_ns()
 
-        for name, logdata in self._logdata.items():
-            start = self._last_message_time[name]
-            end = self._time_ns()
-            data = logdata['time', start:end]
-            self._last_message_time[name] = end
-            messages.extend(
-                self._make_message(name=name, data=data['time', i])
-                for i in range(data.sizes['time'])
+        # Only produce new messages if enough time has passed
+        elapsed_ns = current_time.value - self._last_produce_time.value
+        if elapsed_ns < self._interval_ns:
+            return messages
+
+        self._last_produce_time = current_time
+
+        for name, pattern in self._ramp_patterns.items():
+            # Get the next point in the pattern
+            idx = self._current_index[name]
+            pattern_size = pattern.sizes['time']
+
+            # Get position in the pattern cycle
+            cycle_idx = idx % pattern_size
+
+            # Calculate how many complete cycles we've done
+            cycles = idx // pattern_size
+
+            # Calculate the new time, ensuring it always increases
+            # Base time + cycle duration + current offset within the pattern
+            cycle_duration_ns = pattern.coords['time'][-1].value
+            new_time = (
+                self._current_time[name].value
+                + cycle_duration_ns * cycles
+                + pattern.coords['time'][cycle_idx].value
             )
+
+            # Get the scalar value from the pattern
+            value = pattern.values[cycle_idx]
+
+            # Create the data point with the updated timestamp - using scalar values
+            data_point = sc.DataArray(
+                data=sc.scalar(value, unit=pattern.unit),
+                coords={'time': sc.scalar(new_time, unit='ns')},
+            )
+
+            # Create and add the message
+            messages.append(self._make_message(name=name, data=data_point))
+
+            # Move to the next index
+            self._current_index[name] = idx + 1
 
         return messages
 

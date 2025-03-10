@@ -5,12 +5,13 @@
 import argparse
 import logging
 from contextlib import ExitStack
+from functools import partial
 from typing import Literal, NoReturn
 
-from beamlime import CommonHandlerFactory, Service
+from beamlime import Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
-from beamlime.handlers.timeseries_handler import create_logdata_handler
+from beamlime.handlers.timeseries_handler import LogdataHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
     ChainedAdapter,
@@ -36,15 +37,23 @@ def setup_arg_parser() -> argparse.ArgumentParser:
 def make_timeseries_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
-    adapter = ChainedAdapter(
-        first=KafkaToF144Adapter(), second=F144ToLogDataAdapter(unit='deg')
+    adapter = ChainedAdapter(first=KafkaToF144Adapter(), second=F144ToLogDataAdapter())
+    handler_factory_cls = partial(
+        LogdataHandlerFactory,
+        instrument=instrument,
+        attribute_registry={
+            'detector_rotation': {
+                'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
+                'value': {'units': 'deg'},
+            }
+        },
     )
     return DataServiceBuilder(
         instrument=instrument,
         name='timeseries',
         log_level=log_level,
         adapter=adapter,
-        handler_factory_cls=CommonHandlerFactory.from_handler(create_logdata_handler),
+        handler_factory_cls=handler_factory_cls,
     )
 
 
