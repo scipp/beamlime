@@ -105,7 +105,7 @@ def test_to_nxlog_clear():
     assert_identical(result.data, sc.array(dims=['time'], values=[44.0], unit='counts'))
 
 
-def test_to_nxlog_get_clears_data():
+def test_to_nxlog_get_does_not_clear_data():
     attrs = {
         'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
         'value': {'units': 'counts'},
@@ -117,13 +117,13 @@ def test_to_nxlog_get_clears_data():
     accumulator.add(timestamp=0, data=log_data)
     _ = accumulator.get()
 
-    # After get(), adding new values should start from an empty state
+    # After get(), adding new values should keep the previous data
     log_data2 = LogData(time=7000000, value=100.0)
     accumulator.add(timestamp=0, data=log_data2)
 
     result = accumulator.get()
     assert_identical(
-        result.data, sc.array(dims=['time'], values=[100.0], unit='counts')
+        result.data, sc.array(dims=['time'], values=[42.0, 100.0], unit='counts')
     )
 
 
