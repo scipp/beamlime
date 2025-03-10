@@ -212,9 +212,7 @@ def test_large_capacity_jumps(make_dataarray: callable):
     assert_identical(ts.get(), expected)
 
 
-def test_capacity_against_small_additions(
-    simple_dataarray: sc.DataArray, make_dataarray: callable
-):
+def test_capacity_against_small_additions(make_dataarray: callable):
     """Test capacity behavior with many small additions."""
     ts = Timeseries()
 
