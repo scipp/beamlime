@@ -4,9 +4,10 @@
 
 import argparse
 import logging
+from collections.abc import Mapping
 from contextlib import ExitStack
 from functools import partial
-from typing import Literal, NoReturn
+from typing import Any, Literal, NoReturn
 
 from beamlime import Service
 from beamlime.config import config_names
@@ -56,13 +57,16 @@ class FallbackAttributeRegistry:
 
 
 def make_timeseries_service_builder(
-    *, instrument: str, log_level: int = logging.INFO
+    *,
+    instrument: str,
+    log_level: int = logging.INFO,
+    attribute_registry: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> DataServiceBuilder:
     adapter = ChainedAdapter(first=KafkaToF144Adapter(), second=F144ToLogDataAdapter())
     handler_factory_cls = partial(
         LogdataHandlerFactory,
         instrument=instrument,
-        attribute_registry=FallbackAttributeRegistry(),
+        attribute_registry=attribute_registry or FallbackAttributeRegistry(),
     )
     return DataServiceBuilder(
         instrument=instrument,
