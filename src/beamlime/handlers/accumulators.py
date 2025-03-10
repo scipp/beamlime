@@ -147,6 +147,33 @@ class NullAccumulator(Accumulator[Any, None]):
         pass
 
 
+T = TypeVar('T')
+
+
+class ForwardingAccumulator(Accumulator[T, T]):
+    """
+    Accumulator that forwards the data to the next stage.
+
+    This is useful for testing and debugging, as it allows to see the data as it is
+    passed through the pipeline.
+    """
+
+    def __init__(self):
+        self._value: T | None = None
+
+    def add(self, timestamp: int, data: T) -> None:
+        _ = timestamp
+        self._value = data
+
+    def get(self) -> T:
+        if self._value is None:
+            raise ValueError("No data has been added")
+        return self._value
+
+    def clear(self) -> None:
+        pass
+
+
 class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
     def __init__(self, config: Config | None = None, clear_on_get: bool = False):
         self._config = config or {}
