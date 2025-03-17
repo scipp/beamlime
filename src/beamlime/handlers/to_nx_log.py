@@ -2,7 +2,6 @@ from typing import Any
 
 import numpy as np
 import scipp as sc
-from scippnexus.field import _as_datetime as snx_as_datetime
 
 from beamlime.core.handler import Accumulator
 from beamlime.handlers.accumulators import LogData
@@ -20,16 +19,14 @@ class ToNXlog(Accumulator[LogData, sc.DataArray]):
     def __init__(self, attrs: dict[str, Any]) -> None:
         self._attrs = attrs
         # Values with no unit are ok
-        self._unit = self._attrs.get('value', {}).get('units')
-        # Time must always have a unit
-        self._time_unit = self._attrs['time']['units']
-        start = snx_as_datetime(self._attrs['time']['start'])
-        if start is None:
-            raise ValueError(
-                f'Failed to parse start time {self._attrs["time"]["start"]}'
-            )
-        self._start = start.to(unit=self._time_unit)
-        self._start_value = self._start.value
+        maybe_unit = self._attrs.get('units')
+        if maybe_unit is None:
+            self._unit = None
+        else:
+            self._unit = sc.Unit(maybe_unit)
+        # Hard-coded time unit and start in the ESS NeXus filewriter
+        self._time_unit = 'ns'
+        self._start = sc.epoch(unit='ns')
 
         # Initialize with None, will be created on first add
         self._timeseries: sc.DataArray | None = None
@@ -63,9 +60,7 @@ class ToNXlog(Accumulator[LogData, sc.DataArray]):
 
     def add(self, timestamp: int, data: LogData) -> None:
         self._ensure_capacity(data.value)
-        self._timeseries.coords['time'].values[self._end] = (
-            self._start_value + data.time
-        )
+        self._timeseries.coords['time'].values[self._end] = data.time
         self._timeseries.data.values[self._end] = data.value
         self._end += 1
 

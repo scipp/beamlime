@@ -44,10 +44,7 @@ class FallbackAttributeRegistry:
     """
 
     def __getitem__(self, item):
-        return {
-            'time': {'start': '1970-01-01T00:00:00.000000', 'units': 'ns'},
-            'value': {'units': ''},
-        }
+        return {'units': ''}
 
     def __contains__(self, item):
         return True
