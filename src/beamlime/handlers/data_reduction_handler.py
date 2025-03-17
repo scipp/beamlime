@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
 from typing import Any
 
 import scipp as sc
@@ -39,17 +38,16 @@ class ReductionHandlerFactory(
         self,
         *,
         instrument: str,
-        attrs_registry: Mapping[str, Mapping[str, Any]],
         logger: logging.Logger | None = None,
         config: Config,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
         self._instrument = instrument
-        self._attrs_registry = attrs_registry
-        instrument_config = get_config(instrument)
-        self._processors = instrument_config.make_stream_processors()
-        self._source_to_key = instrument_config.source_to_key
+        self._instrument_config = get_config(instrument)
+        self._processors = self._instrument_config.make_stream_processors()
+        self._source_to_key = self._instrument_config.source_to_key
+        self._attrs_registry = self._instrument_config.f144_attribute_registry
 
     def _is_nxlog(self, key: MessageKey) -> bool:
         return key.topic in (f'{self._instrument}_motion',)

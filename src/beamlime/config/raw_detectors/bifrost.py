@@ -80,7 +80,7 @@ def make_spectrum_view(data: DetectorData[SampleRun]) -> SpectrumView:
 def make_counts_per_angle(
     data: DetectorData[SampleRun], rotation: DetectorRotation
 ) -> CountsPerAngle:
-    edges = sc.linspace('angle', 0, 91, num=46, unit='')
+    edges = sc.linspace('angle', 0, 91, num=46, unit='deg')
     da = sc.DataArray(
         sc.zeros(dims=['angle'], shape=[45], unit='counts'), coords={'angle': edges}
     )
@@ -118,4 +118,8 @@ def make_stream_processors():
 source_to_key = {
     'unified_detector': NeXusData[NXdetector, SampleRun],
     'detector_rotation': DetectorRotation,
+}
+
+f144_attribute_registry = {
+    'detector_rotation': {'units': 'deg'},
 }
