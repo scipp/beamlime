@@ -7,6 +7,7 @@ ess-streaming-data-types
 jinja2
 pydantic>=2
 pooch
+essspectroscopy
 pytest
 pytest-benchmark
 scipp
