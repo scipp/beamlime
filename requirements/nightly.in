@@ -8,7 +8,6 @@ jinja2
 pydantic>=2
 pooch
 pytest
-essspectroscopy @ git+https://github.com/scipp/essspectroscopy.git@main
 pytest-benchmark
 scipp
 --index-url=https://pypi.anaconda.org/scipp-nightly-wheels/simple/

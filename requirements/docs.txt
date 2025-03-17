@@ -11,11 +11,9 @@ accessible-pygments==0.0.5
     # via pydata-sphinx-theme
 alabaster==1.0.0
     # via sphinx
-appnope==0.1.4
-    # via ipykernel
 asttokens==3.0.0
     # via stack-data
-attrs==25.1.0
+attrs==25.3.0
     # via
     #   jsonschema
     #   referencing
@@ -33,7 +31,7 @@ comm==0.2.2
     # via
     #   ipykernel
     #   ipywidgets
-debugpy==1.8.12
+debugpy==1.8.13
     # via ipykernel
 decorator==5.2.1
     # via ipython
@@ -55,9 +53,9 @@ ipydatawidgets==4.3.5
     # via pythreejs
 ipykernel==6.29.5
     # via -r docs.in
-ipympl==0.9.6
+ipympl==0.9.7
     # via -r docs.in
-ipython==8.33.0
+ipython==8.34.0
     # via
     #   -r docs.in
     #   ipykernel
@@ -114,7 +112,7 @@ nbformat==5.10.4
     #   nbclient
     #   nbconvert
     #   nbsphinx
-nbsphinx==0.9.6
+nbsphinx==0.9.7
     # via -r docs.in
 nest-asyncio==1.6.0
     # via ipykernel
@@ -151,7 +149,7 @@ pythreejs==2.4.2
     # via -r docs.in
 pytz==2025.1
     # via pandas
-pyzmq==26.2.1
+pyzmq==26.3.0
     # via
     #   ipykernel
     #   jupyter-client
