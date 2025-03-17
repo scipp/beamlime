@@ -60,6 +60,8 @@ def combine_banks(*bank: sc.DataArray) -> sc.DataArray:
 
 
 SpectrumView = NewType('SpectrumView', sc.DataArray)
+DetectorRotation = NewType('DetectorRotation', sc.DataArray)
+CountsPerAngle = NewType('CountsPerAngle', sc.DataArray)
 
 
 def make_spectrum_view(data: DetectorData[SampleRun]) -> SpectrumView:
@@ -75,6 +77,18 @@ def make_spectrum_view(data: DetectorData[SampleRun]) -> SpectrumView:
     )
 
 
+def make_counts_per_angle(
+    data: DetectorData[SampleRun], rotation: DetectorRotation
+) -> CountsPerAngle:
+    edges = sc.linspace('angle', 0, 91, num=46, unit='')
+    da = sc.DataArray(
+        sc.zeros(dims=['angle'], shape=[45], unit='counts'), coords={'angle': edges}
+    )
+    counts = sc.values(data.sum().data)
+    da['angle', rotation.data[-1]] += counts
+    return da
+
+
 reduction_workflow = bifrost.io.nexus.LoadNeXusWorkflow()
 reduction_workflow[Filename[SampleRun]] = get_nexus_geometry_filename('bifrost')
 reduction_workflow[CalibratedBeamline[SampleRun]] = (
@@ -84,14 +98,16 @@ reduction_workflow[CalibratedBeamline[SampleRun]] = (
 )
 
 reduction_workflow.insert(make_spectrum_view)
+reduction_workflow.insert(make_counts_per_angle)
 
 
 def _make_processor():
     return StreamProcessor(
         reduction_workflow,
         dynamic_keys=(NeXusData[NXdetector, SampleRun],),
-        accumulators=(SpectrumView,),
-        target_keys=(SpectrumView,),
+        accumulators=(SpectrumView, CountsPerAngle),
+        context_keys=(DetectorRotation,),
+        target_keys=(SpectrumView, CountsPerAngle),
     )
 
 
@@ -99,4 +115,7 @@ def make_stream_processors():
     return {'unified_detector': _make_processor()}
 
 
-source_to_key = {'unified_detector': NeXusData[NXdetector, SampleRun]}
+source_to_key = {
+    'unified_detector': NeXusData[NXdetector, SampleRun],
+    'detector_rotation': DetectorRotation,
+}

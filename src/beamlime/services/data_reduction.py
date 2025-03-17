@@ -13,17 +13,21 @@ from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.handlers.data_reduction_handler import ReductionHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.helpers import beam_monitor_topic, detector_topic
+from beamlime.kafka.helpers import beam_monitor_topic, detector_topic, motion_topic
 from beamlime.kafka.message_adapter import (
     ChainedAdapter,
     Ev44ToDetectorEventsAdapter,
     Ev44ToMonitorEventsAdapter,
+    F144ToLogDataAdapter,
     KafkaToEv44Adapter,
+    KafkaToF144Adapter,
     RouteByTopicAdapter,
 )
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
 from beamlime.service_factory import DataServiceBuilder
 from beamlime.sinks import PlotToPngSink
+
+from .timeseries import FallbackAttributeRegistry
 
 
 def setup_arg_parser() -> argparse.ArgumentParser:
@@ -51,9 +55,16 @@ def make_reduction_service_builder(
                     merge_detectors=instrument == 'bifrost'
                 ),
             ),
+            motion_topic(instrument): ChainedAdapter(
+                first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
+            ),
         }
     )
-    handler_factory_cls = partial(ReductionHandlerFactory, instrument=instrument)
+    handler_factory_cls = partial(
+        ReductionHandlerFactory,
+        instrument=instrument,
+        attrs_registry=FallbackAttributeRegistry(),
+    )
     return DataServiceBuilder(
         instrument=instrument,
         name='data_reduction',
