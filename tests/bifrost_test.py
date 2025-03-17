@@ -9,7 +9,7 @@ from beamlime.config.raw_detectors import bifrost
 
 
 def test_workflow_produces_detector_with_consecutive_detector_number():
-    wf = bifrost.reduction_workflow
+    wf = bifrost._reduction_workflow
     da = wf.compute(CalibratedBeamline[SampleRun])
     assert_identical(
         da.coords['detector_number'].transpose(da.dims),
