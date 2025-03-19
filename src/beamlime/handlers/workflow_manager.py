@@ -2,7 +2,6 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-import logging
 from types import ModuleType
 from typing import Any
 
@@ -14,13 +13,7 @@ from ..core.handler import Accumulator
 
 
 class WorkflowManager:
-    def __init__(
-        self,
-        *,
-        instrument_config: ModuleType,
-        logger: logging.Logger | None = None,
-    ) -> None:
-        self._logger = logger or logging.getLogger(__name__)
+    def __init__(self, *, instrument_config: ModuleType) -> None:
         self._instrument_config = instrument_config
         self._source_to_key = instrument_config.source_to_key
         self._processors = instrument_config.make_stream_processors()
@@ -50,12 +43,6 @@ class WorkflowManager:
             return None
         is_context = wf_key in self._context_keys
         if (processor := self._processors.get(source_name)) is not None:
-            self._logger.info(
-                "Source name %s is mapped to input %s of stream processor %s",
-                source_name,
-                wf_key,
-                source_name,
-            )
             return StreamProcessorProxy(processor, key=wf_key)
         else:
             # Note the inefficiency here, of processing these sources in multiple
@@ -72,11 +59,6 @@ class WorkflowManager:
             # an alternative would be to move some cost into the preprocessor, which
             # could, e.g., histogram large monitors to reduce the duplicate cost in the
             # stream processors.
-            self._logger.info(
-                "Source name %s is mapped to input %s in all stream processors",
-                source_name,
-                wf_key,
-            )
             return MultiplexingProxy(
                 list(self._processors.values()), key=wf_key, is_context=is_context
             )
@@ -89,6 +71,9 @@ class MultiplexingProxy(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
         self._stream_processors = stream_processors
         self._key = key
         self._is_context = is_context
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._key})"
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
         if self._is_context:
@@ -111,6 +96,9 @@ class StreamProcessorProxy(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]
     def __init__(self, processor: StreamProcessor, *, key: type) -> None:
         self._processor = processor
         self._key = key
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._key})"
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
         self._processor.accumulate({self._key: data})

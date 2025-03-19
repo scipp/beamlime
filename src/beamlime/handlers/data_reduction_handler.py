@@ -63,6 +63,9 @@ class ReductionHandlerFactory(
             preprocessor.__class__.__name__,
             key.source_name,
         )
+        self._logger.info(
+            "Accumulator %s is used for source name %s", accumulator, key.source_name
+        )
 
         return PeriodicAccumulatingHandler(
             logger=self._logger,
