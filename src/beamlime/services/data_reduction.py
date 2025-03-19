@@ -12,6 +12,7 @@ from beamlime import Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.handlers.data_reduction_handler import ReductionHandlerFactory
+from beamlime.handlers.workflow_manager import WorkflowManager
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.helpers import beam_monitor_topic, detector_topic, motion_topic
 from beamlime.kafka.message_adapter import (
@@ -60,8 +61,9 @@ def make_reduction_service_builder(
             ),
         }
     )
+    workflow_manager = WorkflowManager(instrument_config=get_config(instrument))
     handler_factory_cls = partial(
-        ReductionHandlerFactory, instrument_config=get_config(instrument)
+        ReductionHandlerFactory, workflow_manager=workflow_manager
     )
     return DataServiceBuilder(
         instrument=instrument,

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from types import ModuleType
 from typing import Any
 
 import scipp as sc
@@ -30,13 +29,13 @@ class ReductionHandlerFactory(
     def __init__(
         self,
         *,
-        instrument_config: ModuleType,
+        workflow_manager: WorkflowManager,
         logger: logging.Logger | None = None,
         config: Config,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
-        self._workflow_manager = WorkflowManager(instrument_config=instrument_config)
+        self._workflow_manager = workflow_manager
 
     def _is_nxlog(self, key: MessageKey) -> bool:
         return key.topic.split('_', maxsplit=1)[1] in ('motion',)
@@ -59,13 +58,9 @@ class ReductionHandlerFactory(
         else:
             preprocessor = ToNXevent_data()
         self._logger.info(
-            "Preprocessor %s is used for source name %s",
-            preprocessor.__class__.__name__,
-            key.source_name,
+            "%s using preprocessor %s", key.source_name, preprocessor.__class__.__name__
         )
-        self._logger.info(
-            "Accumulator %s is used for source name %s", accumulator, key.source_name
-        )
+        self._logger.info("%s using accumulator %s", key.source_name, accumulator)
 
         return PeriodicAccumulatingHandler(
             logger=self._logger,
