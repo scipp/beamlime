@@ -13,6 +13,7 @@ from beamlime.config.config_loader import load_config
 from beamlime.config.raw_detectors import get_config
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.data_reduction_handler import ReductionHandlerFactory
+from beamlime.handlers.workflow_manager import WorkflowManager
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.helpers import (
     beam_monitor_topic,
