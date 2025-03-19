@@ -45,7 +45,7 @@ class ReductionHandlerFactory(
         self, key: MessageKey
     ) -> Handler[DetectorEvents, sc.DataGroup[sc.DataArray]]:
         self._logger.info("Creating handler for %s", key)
-        accumulator = self._workflow_manager.get_proxy_for_key(key.source_name)
+        accumulator = self._workflow_manager.get_accumulator(key.source_name)
         if accumulator is None:
             self._logger.warning(
                 "No workflow key found for source name %s, using null handler",

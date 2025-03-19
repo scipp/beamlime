@@ -42,7 +42,7 @@ class WorkflowManager:
         """
         return self._attrs_registry.get(source_name)
 
-    def get_proxy_for_key(
+    def get_accumulator(
         self, source_name: str
     ) -> MultiplexingProxy | StreamProcessorProxy | None:
         wf_key = self._source_to_key.get(source_name)
