@@ -100,13 +100,15 @@ _reduction_workflow[CalibratedBeamline[SampleRun]] = (
 _reduction_workflow.insert(_make_spectrum_view)
 _reduction_workflow.insert(_make_counts_per_angle)
 
+context_keys = (DetectorRotation,)
+
 
 def _make_processor():
     return StreamProcessor(
         _reduction_workflow,
         dynamic_keys=(NeXusData[NXdetector, SampleRun],),
         accumulators=(SpectrumView, CountsPerAngle),
-        context_keys=(DetectorRotation,),
+        context_keys=context_keys,
         target_keys=(SpectrumView, CountsPerAngle),
     )
 
