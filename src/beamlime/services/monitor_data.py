@@ -23,6 +23,7 @@ from beamlime.kafka.message_adapter import (
     RoutingAdapter,
 )
 from beamlime.kafka.sink import KafkaSink
+from beamlime.kafka.source import MultiConsumer
 from beamlime.service_factory import DataServiceBuilder
 from beamlime.sinks import PlotToPngSink
 
@@ -96,7 +97,10 @@ def run_service(
     builder = make_monitor_service_builder(instrument=instrument, log_level=log_level)
 
     with ExitStack() as stack:
-        consumer = stack.enter_context(
+        control_consumer = stack.enter_context(
+            kafka_consumer.make_control_consumer(instrument=instrument)
+        )
+        data_consumer = stack.enter_context(
             kafka_consumer.make_consumer_from_config(
                 topics=config['topics'],
                 config={**consumer_config, **kafka_upstream_config},
@@ -104,6 +108,7 @@ def run_service(
                 group='monitor_data',
             )
         )
+        consumer = MultiConsumer([control_consumer, data_consumer])
         service = builder.build(consumer=consumer, sink=sink)
         service.start()
 
