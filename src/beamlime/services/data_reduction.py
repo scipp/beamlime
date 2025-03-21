@@ -68,10 +68,17 @@ def make_reduction_service_builder(
             beamlime_command_topic(instrument): BeamlimeCommandsAdapter(),
         }
     )
-    config = {}
-    config_handler = ConfigHandler(config=config)
-    handler_factory = ReductionHandlerFactory(
-        instrument_config=get_config(instrument), config=config
+    instrument_config = get_config(instrument)
+    workflow_manager = WorkflowManager(
+        source_to_key=instrument_config.source_to_key,
+        workflow_names=list(instrument_config.make_stream_processors()),
+    )
+    for name, workflow in instrument_config.dynamic_workflows().items():
+        workflow_manager.set_worklow(name, workflow)
+    handler_factory_cls = partial(
+        ReductionHandlerFactory,
+        workflow_manager=workflow_manager,
+        f144_attribute_registry=instrument_config.f144_attribute_registry,
     )
     builder = DataServiceBuilder(
         instrument=instrument,

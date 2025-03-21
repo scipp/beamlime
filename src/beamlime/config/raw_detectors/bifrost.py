@@ -18,6 +18,7 @@ from ess.reduce.streaming import StreamProcessor
 from scippnexus import NXdetector
 
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
+from beamlime.handlers.workflow_manager import DynamicWorkflow
 
 
 def _to_flat_detector_view(da: sc.DataArray) -> sc.DataArray:
@@ -100,21 +101,31 @@ _reduction_workflow[CalibratedBeamline[SampleRun]] = (
 _reduction_workflow.insert(_make_spectrum_view)
 _reduction_workflow.insert(_make_counts_per_angle)
 
-context_keys = (DetectorRotation,)
-
 
 def _make_processor():
     return StreamProcessor(
         _reduction_workflow,
         dynamic_keys=(NeXusData[NXdetector, SampleRun],),
         accumulators=(SpectrumView, CountsPerAngle),
-        context_keys=context_keys,
+        context_keys=(DetectorRotation,),
         target_keys=(SpectrumView, CountsPerAngle),
     )
 
 
 def make_stream_processors():
     return {'unified_detector': _make_processor()}
+
+
+def dynamic_workflows() -> dict[str, DynamicWorkflow]:
+    return {
+        'unified_detector': DynamicWorkflow(
+            workflow=_reduction_workflow,
+            dynamic_keys=(NeXusData[NXdetector, SampleRun],),
+            context_keys=(DetectorRotation,),
+            target_keys=(SpectrumView, CountsPerAngle),
+            accumulators=(SpectrumView, CountsPerAngle),
+        )
+    }
 
 
 source_to_key = {

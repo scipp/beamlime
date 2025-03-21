@@ -30,12 +30,14 @@ class ReductionHandlerFactory(
         self,
         *,
         workflow_manager: WorkflowManager,
+        f144_attribute_registry: dict[str, dict[str, Any]],
         logger: logging.Logger | None = None,
         config: Config,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
         self._workflow_manager = workflow_manager
+        self._f144_attribute_registry = f144_attribute_registry
 
     def _is_nxlog(self, key: MessageKey) -> bool:
         return key.topic.split('_', maxsplit=1)[1] in ('motion',)
@@ -53,7 +55,7 @@ class ReductionHandlerFactory(
             return NullHandler(logger=self._logger, config=self._config)
 
         if self._is_nxlog(key):
-            attrs = self._workflow_manager.attrs_for_f144(key.source_name)
+            attrs = self._f144_attribute_registry[key.source_name]
             preprocessor = ToNXlog(attrs=attrs)
         else:
             preprocessor = ToNXevent_data()
