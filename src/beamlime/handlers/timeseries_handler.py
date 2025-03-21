@@ -6,6 +6,7 @@ import logging
 
 import scipp as sc
 
+from ..config.raw_detectors import get_config
 from ..core.handler import (
     Config,
     Handler,
@@ -31,7 +32,7 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
         instrument: str,
         logger: logging.Logger | None = None,
         config: Config,
-        attribute_registry: dict[str, dict[str, any]],
+        attribute_registry: dict[str, dict[str, any]] | None = None,
     ) -> None:
         """
         Initialize the LogdataHandlerFactory.
@@ -56,7 +57,10 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
         self._instrument = instrument
-        self._attribute_registry = attribute_registry
+        if attribute_registry is None:
+            self._attribute_registry = get_config(instrument).f144_attribute_registry
+        else:
+            self._attribute_registry = attribute_registry
 
     def make_handler(self, key: MessageKey) -> Handler[LogData, sc.DataArray] | None:
         source_name = key.source_name

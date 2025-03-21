@@ -27,7 +27,7 @@ from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
 from beamlime.service_factory import DataServiceBuilder
 from beamlime.sinks import PlotToPngSink
 
-from .timeseries import FallbackAttributeRegistry
+from ..config.raw_detectors import get_config
 
 
 def setup_arg_parser() -> argparse.ArgumentParser:
@@ -61,9 +61,7 @@ def make_reduction_service_builder(
         }
     )
     handler_factory_cls = partial(
-        ReductionHandlerFactory,
-        instrument=instrument,
-        attrs_registry=FallbackAttributeRegistry(),
+        ReductionHandlerFactory, instrument_config=get_config(instrument)
     )
     return DataServiceBuilder(
         instrument=instrument,
