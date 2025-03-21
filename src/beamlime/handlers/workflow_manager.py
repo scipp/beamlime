@@ -2,6 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Iterator, MutableMapping, Sequence
 from dataclasses import dataclass
 
@@ -10,7 +11,9 @@ import scipp as sc
 from ess.reduce.streaming import StreamProcessor
 from sciline.typing import Key
 
-from ..core.handler import Accumulator
+from ..config.models import WorkflowControl
+from ..core.handler import Accumulator, Config, Handler
+from ..core.message import Message
 
 
 # ... so we can recreate the StreamProcessor if workflow parameters change.
@@ -72,11 +75,16 @@ class ProcessorRegistry(MutableMapping[str, StreamProcessor]):
 
 class WorkflowManager:
     def __init__(
-        self, *, workflow_names: Sequence[str], source_to_key: dict[str, Key]
+        self,
+        *,
+        workflow_names: Sequence[str],
+        source_to_key: dict[str, Key],
+        dynamic_workflows: dict[str, DynamicWorkflow],
     ) -> None:
         # Why this init? We want the service to keep running, but be able to configure
         # workflows after startup.
         self._source_to_key = source_to_key
+        self._dynamic_workflows = dynamic_workflows
         self._workflows: dict[str, DynamicWorkflow | None] = {
             name: None for name in workflow_names
         }
@@ -133,6 +141,45 @@ class WorkflowManager:
             # could, e.g., histogram large monitors to reduce the duplicate cost in the
             # stream processors.
             return MultiplexingProxy(self._processors, key=wf_key)
+
+    def make_control_handler(
+        self, *, logger: logging.Logger | None = None, config: Config
+    ) -> WorkflowControlHandler:
+        """
+        Create a handler for workflow control messages.
+
+        This handler is used to set the workflow manager's workflow parameters.
+        """
+        return WorkflowControlHandler(
+            logger=logger, config=config, workflow_manager=self
+        )
+
+
+class WorkflowControlHandler(Handler[WorkflowControl, None]):
+    """
+    Handler for workflow manager.
+
+    This handler is used to set the workflow manager's workflow parameters.
+    """
+
+    def __init__(
+        self,
+        *,
+        logger: logging.Logger | None = None,
+        config: Config,
+        workflow_manager: WorkflowManager,
+    ) -> None:
+        super().__init__(logger=logger, config=config)
+        self._workflow_manager = workflow_manager
+
+    def handle(self, messages: list[Message[WorkflowControl]]) -> list[Message[None]]:
+        for message in messages:
+            decoded = WorkflowControl.model_validate(message.value)
+            self._workflow_manager.set_worklow(
+                decoded.source_name,
+                self._workflow_manager._dynamic_workflows.get(decoded.workflow_name),
+            )
+        return []
 
 
 class MultiplexingProxy(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):

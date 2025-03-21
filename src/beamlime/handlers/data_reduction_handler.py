@@ -46,6 +46,11 @@ class ReductionHandlerFactory(
         self, key: MessageKey
     ) -> Handler[DetectorEvents, sc.DataGroup[sc.DataArray]]:
         self._logger.info("Creating handler for %s", key)
+        if key.topic.endswith('beamlime_commands'):
+            if key.source_name == 'workflow_control':
+                return self._workflow_manager.make_control_handler(
+                    logger=self._logger, config=self._config
+                )
         accumulator = self._workflow_manager.get_accumulator(key.source_name)
         if accumulator is None:
             self._logger.warning(

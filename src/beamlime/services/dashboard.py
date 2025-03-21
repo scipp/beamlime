@@ -231,6 +231,29 @@ class DashboardApp(ServiceBase):
                 style={'margin': '10px 0'},
             ),
             html.Button('Clear', id='clear-button', n_clicks=0),
+            # Add workflow control section
+            html.Hr(style={'margin': '20px 0'}),
+            html.H3('Workflow Control', style={'marginTop': '10px'}),
+            html.Label('Source Name'),
+            dcc.Input(
+                id='workflow-source-name',
+                type='text',
+                placeholder='Enter source name',
+                style={'width': '100%', 'marginBottom': '10px'},
+            ),
+            html.Label('Workflow Name'),
+            dcc.Input(
+                id='workflow-name',
+                type='text',
+                placeholder='Enter workflow name',
+                style={'width': '100%', 'marginBottom': '10px'},
+            ),
+            html.Button(
+                'Send Workflow Control',
+                id='workflow-control-button',
+                n_clicks=0,
+                style={'width': '100%', 'marginTop': '10px'},
+            ),
         ]
         self._app.layout = html.Div(
             [
@@ -325,6 +348,14 @@ class DashboardApp(ServiceBase):
             Output('use-weights-checkbox', 'value'),
             Input('use-weights-checkbox', 'value'),
         )(self.update_use_weights)
+
+        # Add callback for workflow control button
+        self._app.callback(
+            Output('workflow-control-button', 'n_clicks'),
+            Input('workflow-control-button', 'n_clicks'),
+            Input('workflow-source-name', 'value'),
+            Input('workflow-name', 'value'),
+        )(self.send_workflow_control)
 
     def update_roi(self, x_center, x_delta, y_center, y_delta):
         x_min = max(0, x_center - x_delta)
@@ -508,6 +539,30 @@ class DashboardApp(ServiceBase):
             raise PreventUpdate
         model = models.StartTime(value=int(time.time_ns()), unit='ns')
         self._config_service.update_config('start_time', model.model_dump())
+        return 0
+
+    def send_workflow_control(
+        self, n_clicks: int | None, source_name: str | None, workflow_name: str | None
+    ) -> int:
+        """Send a workflow control message."""
+        if n_clicks is None or n_clicks == 0 or not source_name or not workflow_name:
+            raise PreventUpdate
+
+        self._logger.info(
+            "Sending workflow control message: source=%s, workflow=%s",
+            source_name,
+            workflow_name,
+        )
+
+        workflow_control = models.WorkflowControl(
+            source_name=source_name,
+            workflow_name=workflow_name,
+        )
+
+        self._config_service.update_config(
+            'workflow_control', workflow_control.model_dump()
+        )
+
         return 0
 
     def _start_impl(self) -> None:

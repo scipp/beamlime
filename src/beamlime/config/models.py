@@ -112,3 +112,14 @@ class ROIAxisRange(BaseModel):
 class ROIRectangle(BaseModel):
     x: ROIAxisRange = Field(default_factory=ROIAxisRange)
     y: ROIAxisRange = Field(default_factory=ROIAxisRange)
+
+
+class WorkflowControl(BaseModel):
+    source_name: str = Field(
+        default='',
+        description="Name of the source to control.",
+    )
+    workflow_name: str = Field(
+        default='',
+        description="Name of the workflow to control.",
+    )
