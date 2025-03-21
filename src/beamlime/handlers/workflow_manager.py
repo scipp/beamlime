@@ -72,10 +72,7 @@ class ProcessorRegistry(MutableMapping[str, StreamProcessor]):
 
 class WorkflowManager:
     def __init__(
-        self,
-        *,
-        workflow_names: Sequence[str],
-        source_to_key: dict[str, Key],
+        self, *, workflow_names: Sequence[str], source_to_key: dict[str, Key]
     ) -> None:
         # Why this init? We want the service to keep running, but be able to configure
         # workflows after startup.
