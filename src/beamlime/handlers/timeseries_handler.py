@@ -6,8 +6,6 @@ import logging
 
 import scipp as sc
 
-from beamlime.handlers.to_nx_log import ToNXlog
-
 from ..core.handler import (
     Config,
     Handler,
@@ -16,6 +14,7 @@ from ..core.handler import (
 )
 from ..core.message import MessageKey
 from .accumulators import ForwardingAccumulator, LogData
+from .to_nx_log import ToNXlog
 
 
 class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):

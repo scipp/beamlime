@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from typing import Any
 
 import scipp as sc
@@ -19,6 +20,7 @@ from ..core.handler import (
 )
 from ..core.message import Message, MessageKey
 from .accumulators import DetectorEvents, ToNXevent_data
+from .to_nx_log import ToNXlog
 
 
 class NullHandler(Handler[Any, None]):
@@ -37,14 +39,20 @@ class ReductionHandlerFactory(
         self,
         *,
         instrument: str,
+        attrs_registry: Mapping[str, Mapping[str, Any]],
         logger: logging.Logger | None = None,
         config: Config,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._config = config
+        self._instrument = instrument
+        self._attrs_registry = attrs_registry
         instrument_config = get_config(instrument)
         self._processors = instrument_config.make_stream_processors()
         self._source_to_key = instrument_config.source_to_key
+
+    def _is_nxlog(self, key: MessageKey) -> bool:
+        return key.topic in (f'{self._instrument}_motion',)
 
     def make_handler(
         self, key: MessageKey
@@ -57,6 +65,17 @@ class ReductionHandlerFactory(
                 key.source_name,
             )
             return NullHandler(logger=self._logger, config=self._config)
+
+        if is_context := self._is_nxlog(key):
+            preprocessor = ToNXlog(attrs=self._attrs_registry[key.source_name])
+        else:
+            preprocessor = ToNXevent_data()
+        self._logger.info(
+            "Preprocessor %s is used for source name %s",
+            preprocessor.__class__.__name__,
+            key.source_name,
+        )
+
         if (processor := self._processors.get(key.source_name)) is not None:
             accumulator = StreamProcessorProxy(processor, key=wf_key)
             self._logger.info(
@@ -80,7 +99,9 @@ class ReductionHandlerFactory(
             # an alternative would be to move some cost into the preprocessor, which
             # could, e.g., histogram large monitors to reduce the duplicate cost in the
             # stream processors.
-            accumulator = MultiplexingProxy(list(self._processors.values()), key=wf_key)
+            accumulator = MultiplexingProxy(
+                list(self._processors.values()), key=wf_key, is_context=is_context
+            )
             self._logger.info(
                 "Source name %s is mapped to input %s in all stream processors",
                 key.source_name,
@@ -89,19 +110,26 @@ class ReductionHandlerFactory(
         return PeriodicAccumulatingHandler(
             logger=self._logger,
             config=self._config,
-            preprocessor=ToNXevent_data(),
+            preprocessor=preprocessor,
             accumulators={f'reduced/{key.source_name}': accumulator},
         )
 
 
 class MultiplexingProxy(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
-    def __init__(self, stream_processors: list[StreamProcessor], key: Key) -> None:
+    def __init__(
+        self, stream_processors: list[StreamProcessor], key: Key, is_context: bool
+    ) -> None:
         self._stream_processors = stream_processors
         self._key = key
+        self._is_context = is_context
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
-        for stream_processor in self._stream_processors:
-            stream_processor.accumulate({self._key: data})
+        if self._is_context:
+            for stream_processor in self._stream_processors:
+                stream_processor.set_context({self._key: data})
+        else:
+            for stream_processor in self._stream_processors:
+                stream_processor.accumulate({self._key: data})
 
     def get(self) -> sc.DataGroup[sc.DataArray]:
         return sc.DataGroup()
