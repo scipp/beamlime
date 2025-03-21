@@ -19,7 +19,7 @@ from beamlime import (
 )
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
-from beamlime.core.handler import CommonHandlerFactory
+from beamlime.core.handler import CommonHandlerFactory, HandlerRegistry
 from beamlime.kafka.helpers import beam_monitor_topic
 from beamlime.kafka.message_adapter import AdaptingMessageSource, MessageAdapter
 from beamlime.kafka.sink import (
@@ -129,7 +129,9 @@ def run_service(
     processor = StreamProcessor(
         source=source,
         sink=KafkaSink(kafka_config=kafka_config, serializer=serializer),
-        handler_factory=CommonHandlerFactory(config={}, handler_cls=IdentityHandler),
+        handler_registry=HandlerRegistry(
+            factory=CommonHandlerFactory(config={}, handler_cls=IdentityHandler)
+        ),
     )
     service = Service(processor=processor, name=service_name, log_level=log_level)
     service.start()

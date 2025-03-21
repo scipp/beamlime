@@ -185,6 +185,18 @@ class Da00ToScippAdapter(
         return replace(message, value=da00_to_scipp(message.value))
 
 
+class BeamlimeCommandsAdapter(MessageAdapter[KafkaMessage, Message[Any]]):
+    """
+    Adapts a Kafka message to a Beamlime command message.
+    """
+
+    def adapt(self, message: KafkaMessage) -> Message[Any]:
+        key = MessageKey(topic=message.topic(), source_name='')
+        legacy_key = message.key().decode('utf-8')  # See 286
+        value = message.value()
+        return Message(key=key, timestamp=0, value={'key': legacy_key, 'value': value})
+
+
 class ChainedAdapter(MessageAdapter[T, V]):
     """
     Chains two adapters together.

@@ -8,13 +8,18 @@ from typing import Literal, NoReturn
 from beamlime import CommonHandlerFactory, Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
+from beamlime.core.handler import HandlerRegistry
+from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.kafka import consumer as kafka_consumer
+from beamlime.kafka.helpers import beam_monitor_topic, beamlime_command_topic
 from beamlime.kafka.message_adapter import (
+    BeamlimeCommandsAdapter,
     ChainedAdapter,
     Da00ToScippAdapter,
     KafkaToDa00Adapter,
     KafkaToMonitorEventsAdapter,
+    RouteByTopicAdapter,
     RoutingAdapter,
 )
 from beamlime.kafka.sink import KafkaSink
@@ -33,28 +38,42 @@ def setup_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def make_monitor_data_adapter() -> RoutingAdapter:
-    return RoutingAdapter(
+def make_monitor_data_adapter(instrument: str) -> RoutingAdapter:
+    monitors = RoutingAdapter(
         routes={
             'ev44': KafkaToMonitorEventsAdapter(),
             'da00': ChainedAdapter(
                 first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
             ),
+            # TODO adapter for control messages
         }
+    )
+    return RouteByTopicAdapter(
+        routes={
+            beam_monitor_topic(instrument): monitors,
+            beamlime_command_topic(instrument): BeamlimeCommandsAdapter(),
+        },
     )
 
 
 def make_monitor_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
+    config = {}
+    config_handler = ConfigHandler(config=config)
+    handler_factory = CommonHandlerFactory(
+        handler_cls=create_monitor_data_handler, config=config
+    )
+    handler_registry = HandlerRegistry(factory=handler_factory)
+    handler_registry.register_handler(
+        ConfigHandler.message_key(instrument), config_handler
+    )
     return DataServiceBuilder(
         instrument=instrument,
         name='monitor_data',
         log_level=log_level,
-        adapter=make_monitor_data_adapter(),
-        handler_factory_cls=CommonHandlerFactory.from_handler(
-            create_monitor_data_handler
-        ),
+        adapter=make_monitor_data_adapter(instrument=instrument),
+        handler_registry=handler_registry,
     )
 
 
@@ -77,9 +96,6 @@ def run_service(
     builder = make_monitor_service_builder(instrument=instrument, log_level=log_level)
 
     with ExitStack() as stack:
-        control_consumer = stack.enter_context(
-            kafka_consumer.make_control_consumer(instrument=instrument)
-        )
         consumer = stack.enter_context(
             kafka_consumer.make_consumer_from_config(
                 topics=config['topics'],
@@ -88,9 +104,7 @@ def run_service(
                 group='monitor_data',
             )
         )
-        service = builder.build(
-            control_consumer=control_consumer, consumer=consumer, sink=sink
-        )
+        service = builder.build(consumer=consumer, sink=sink)
         service.start()
 
 

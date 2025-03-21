@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
 import logging
 from collections import defaultdict
 from typing import Generic, Protocol
 
-from .handler import HandlerFactory, HandlerRegistry
+from .handler import HandlerRegistry
 from .message import MessageSink, MessageSource, Tin, Tout
 
 
@@ -32,12 +32,12 @@ class StreamProcessor(Generic[Tin, Tout]):
         logger: logging.Logger | None = None,
         source: MessageSource[Tin],
         sink: MessageSink[Tout],
-        handler_factory: HandlerFactory[Tin, Tout],
+        handler_registry: HandlerRegistry[Tin, Tout],
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._source = source
         self._sink = sink
-        self._handler_registry = HandlerRegistry(factory=handler_factory)
+        self._handler_registry = handler_registry
 
     def process(self) -> None:
         messages = self._source.get_messages()

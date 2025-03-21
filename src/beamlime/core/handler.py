@@ -89,6 +89,9 @@ class HandlerRegistry(Generic[Tin, Tout]):
     def __len__(self) -> int:
         return sum(1 for handler in self._handlers.values() if handler is not None)
 
+    def register_handler(self, key: MessageKey, handler: Handler[Tin, Tout]) -> None:
+        self._handlers[key] = handler
+
     def get(self, key: MessageKey) -> Handler[Tin, Tout] | None:
         if key not in self._handlers:
             self._handlers[key] = self._factory.make_handler(key)
