@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-import pytest
 import scipp as sc
 from scipp.testing import assert_identical
 
@@ -9,19 +8,13 @@ from beamlime.handlers.to_nx_log import ToNXlog
 
 
 def test_to_nxlog_initialization():
-    attrs = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-        'value': {'units': 'counts'},
-    }
+    attrs = {'units': 'counts'}
     accumulator = ToNXlog(attrs=attrs)
     assert accumulator is not None
 
 
 def test_to_nxlog_add_single_value():
-    attrs = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-        'value': {'units': 'counts'},
-    }
+    attrs = {'units': 'counts'}
     accumulator = ToNXlog(attrs=attrs)
 
     log_data = LogData(time=5000000, value=42.0)
@@ -33,8 +26,7 @@ def test_to_nxlog_add_single_value():
 
 
 def test_to_nxlog_get_single_value():
-    start_str = '2023-01-01T00:00:00.000000'
-    attrs = {'time': {'start': start_str, 'units': 'ns'}, 'value': {'units': 'counts'}}
+    attrs = {'units': 'counts'}
     accumulator = ToNXlog(attrs=attrs)
 
     log_data = LogData(time=1_000_000_000, value=42.0)
@@ -44,16 +36,12 @@ def test_to_nxlog_get_single_value():
 
     assert_identical(result.data, sc.array(dims=['time'], values=[42.0], unit='counts'))
     assert_identical(
-        result.coords['time'][0], sc.datetime('2023-01-01T00:00:01', unit='ns')
+        result.coords['time'][0], sc.datetime('1970-01-01T00:00:01', unit='ns')
     )
 
 
 def test_to_nxlog_get_multiple_values():
-    start_str = '2023-06-15T12:30:45.000000'
-    attrs = {
-        'time': {'start': start_str, 'units': 'ns'},
-        'value': {'units': 'K'},
-    }
+    attrs = {'units': 'K'}
     accumulator = ToNXlog(attrs=attrs)
 
     log_data1 = LogData(time=1000000, value=273.15)
@@ -71,17 +59,14 @@ def test_to_nxlog_get_multiple_values():
     )
 
     # Test timestamps are correct relative to start time
-    start_time = sc.datetime(start_str, unit='ns')
+    start_time = sc.epoch(unit='ns')
     expected_times = [start_time.value + t for t in [1000000, 2000000, 3000000]]
     expected_time_coord = sc.array(dims=['time'], values=expected_times, unit='ns')
     assert_identical(result.coords['time'], expected_time_coord)
 
 
 def test_to_nxlog_clear():
-    attrs = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-        'value': {'units': 'counts'},
-    }
+    attrs = {'units': 'counts'}
     accumulator = ToNXlog(attrs=attrs)
 
     # Add data and verify it's there by getting it
@@ -106,10 +91,7 @@ def test_to_nxlog_clear():
 
 
 def test_to_nxlog_get_does_not_clear_data():
-    attrs = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-        'value': {'units': 'counts'},
-    }
+    attrs = {'units': 'counts'}
     accumulator = ToNXlog(attrs=attrs)
 
     # Add data and get it
@@ -128,10 +110,7 @@ def test_to_nxlog_get_does_not_clear_data():
 
 
 def test_to_nxlog_empty_get():
-    attrs = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-        'value': {'units': 'counts'},
-    }
+    attrs = {'units': 'counts'}
     accumulator = ToNXlog(attrs=attrs)
 
     # Getting data from an empty accumulator should return an empty DataArray
@@ -140,50 +119,13 @@ def test_to_nxlog_empty_get():
 
 
 def test_to_nxlog_missing_attributes():
-    # Missing start time
-    attrs1 = {
-        'time': {'units': 'ns'},
-        'value': {'units': 'counts'},
-    }
-    with pytest.raises(KeyError, match="'start'"):
-        ToNXlog(attrs=attrs1)
-
     # Missing units => unit is None
-    attrs2 = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-        'value': {},
-    }
-    assert ToNXlog(attrs=attrs2).unit is None
-
-    # Missing time dictionary
-    attrs3 = {
-        'value': {'units': 'counts'},
-    }
-    with pytest.raises(KeyError, match="'time'"):
-        ToNXlog(attrs=attrs3)
-
-    # Missing value dictionary => unit is None
-    attrs4 = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-    }
-    assert ToNXlog(attrs=attrs4).unit is None
-
-
-def test_to_nxlog_invalid_time_format():
-    # Invalid time string format
-    attrs = {
-        'time': {'start': 'invalid_time_string', 'units': 'ns'},
-        'value': {'units': 'counts'},
-    }
-    with pytest.raises(ValueError, match="Failed to parse start time"):
-        ToNXlog(attrs=attrs)
+    attrs = {}
+    assert ToNXlog(attrs=attrs).unit is None
 
 
 def test_to_nxlog_add_values_with_different_timestamps():
-    attrs = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-        'value': {'units': 'counts'},
-    }
+    attrs = {'units': 'counts'}
     accumulator = ToNXlog(attrs=attrs)
 
     # Add values with increasing timestamps to verify correct ordering
@@ -203,56 +145,15 @@ def test_to_nxlog_add_values_with_different_timestamps():
     )
 
     # Verify times are also ordered
-    start_time = sc.datetime('2023-01-01T00:00:00.000000', unit='ns')
+    start_time = sc.epoch(unit='ns')
     expected_times = [start_time.value + t for t in [1000000, 2000000, 3000000]]
     expected_time_coord = sc.array(dims=['time'], values=expected_times, unit='ns')
     assert_identical(result.coords['time'], expected_time_coord)
 
 
-def test_to_nxlog_with_different_time_units():
-    attrs = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'us'},
-        'value': {'units': 'counts'},
-    }
-    accumulator = ToNXlog(attrs=attrs)
-
-    # Add microsecond time values
-    log_data1 = LogData(time=1000, value=10.0)
-    log_data2 = LogData(time=2000, value=20.0)
-
-    accumulator.add(timestamp=0, data=log_data1)
-    accumulator.add(timestamp=0, data=log_data2)
-
-    result = accumulator.get()
-
-    # Verify values
-    assert_identical(
-        result.data, sc.array(dims=['time'], values=[10.0, 20.0], unit='counts')
-    )
-
-    # Verify times use the correct unit
-    start_time = sc.datetime('2023-01-01T00:00:00.000000', unit='us')
-    expected_time_coord = start_time + sc.array(
-        dims=['time'], values=[1000, 2000], unit='us'
-    )
-    assert_identical(result.coords['time'], expected_time_coord)
-
-
-def test_to_nxlog_raises_if_not_time_units():
-    attrs = {
-        'time': {'start': '2023-01-01T00:00:00.000000'},  # No units specified
-        'value': {'units': 'counts'},
-    }
-    with pytest.raises(KeyError, match="units"):
-        ToNXlog(attrs=attrs)
-
-
 def test_capacity_expansion_with_many_adds():
     """Test that capacity expands automatically as needed with many additions."""
-    attrs = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-        'value': {'units': 'K'},
-    }
+    attrs = {'units': 'K'}
     accumulator = ToNXlog(attrs=attrs)
 
     # Add initial data with 3 items
@@ -282,7 +183,7 @@ def test_capacity_expansion_with_many_adds():
     assert result.sizes["time"] == 19
     expected_times = [10, 20, 30, 40, 50, 60, 70] + [i * 10 for i in range(8, 20)]
     expected_time_values = [
-        sc.datetime('2023-01-01T00:00:00.000000', unit='ns').value + t
+        sc.datetime('1970-01-01T00:00:00.000000', unit='ns').value + t
         for t in expected_times
     ]
     assert_identical(
@@ -293,10 +194,7 @@ def test_capacity_expansion_with_many_adds():
 
 def test_large_capacity_jumps():
     """Test adding data that forces large capacity increases."""
-    attrs = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-        'value': {'units': 'K'},
-    }
+    attrs = {'units': 'K'}
     accumulator = ToNXlog(attrs=attrs)
 
     # First add a small item to initialize
@@ -312,17 +210,14 @@ def test_large_capacity_jumps():
     assert result.sizes["time"] == len(many_items) + 1
 
     # Check first and last values for boundary cases
-    start_time = sc.datetime('2023-01-01T00:00:00.000000', unit='ns')
+    start_time = sc.epoch(unit='ns')
     assert_identical(result.coords['time'][0], start_time + sc.scalar(10, unit='ns'))
     assert_identical(result.coords['time'][-1], start_time + sc.scalar(599, unit='ns'))
 
 
 def test_capacity_against_small_additions():
     """Test capacity behavior with many small additions."""
-    attrs = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-        'value': {'units': 'K'},
-    }
+    attrs = {'units': 'K'}
     accumulator = ToNXlog(attrs=attrs)
 
     # Add many items one by one, which should trigger capacity expansion multiple times
@@ -338,17 +233,14 @@ def test_capacity_against_small_additions():
     result = accumulator.get()
     assert result.sizes["time"] == 50
     # Check first and last values
-    start_time = sc.datetime('2023-01-01T00:00:00.000000', unit='ns')
+    start_time = sc.epoch(unit='ns')
     assert_identical(result.coords['time'][0], start_time + sc.scalar(0, unit='ns'))
     assert_identical(result.coords['time'][-1], start_time + sc.scalar(490, unit='ns'))
 
 
 def test_repeated_expand_and_clear_cycles():
     """Test repeated cycles of adding many items and clearing."""
-    attrs = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-        'value': {'units': 'K'},
-    }
+    attrs = {'units': 'K'}
     accumulator = ToNXlog(attrs=attrs)
 
     for cycle in range(3):
@@ -362,7 +254,7 @@ def test_repeated_expand_and_clear_cycles():
         assert result.sizes["time"] == len(times)
 
         # Sample check for cycle 0, 1, 2
-        start_time = sc.datetime('2023-01-01T00:00:00.000000', unit='ns')
+        start_time = sc.epoch(unit='ns')
         expected_first_time = start_time + sc.scalar(cycle * 1000, unit='ns')
         expected_last_time = start_time + sc.scalar((cycle * 1000) + 190, unit='ns')
         assert_identical(result.coords['time'][0], expected_first_time)
@@ -376,10 +268,7 @@ def test_repeated_expand_and_clear_cycles():
 
 def test_preservation_of_addition_order():
     """Test that sorting occurs when getting data with multiple adds out of order."""
-    attrs = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-        'value': {'units': 'K'},
-    }
+    attrs = {'units': 'K'}
     accumulator = ToNXlog(attrs=attrs)
 
     # Add data with time 30
@@ -393,7 +282,7 @@ def test_preservation_of_addition_order():
 
     # The data should be sorted by time, not in the order it was added
     result = accumulator.get()
-    start_time = sc.datetime('2023-01-01T00:00:00.000000', unit='ns')
+    start_time = sc.epoch(unit='ns')
 
     # Check values are sorted by time
     assert_identical(
@@ -408,10 +297,7 @@ def test_preservation_of_addition_order():
 
 def test_empty_initialization_get():
     """Test that a newly created ToNXlog returns an empty DataArray."""
-    attrs = {
-        'time': {'start': '2023-01-01T00:00:00.000000', 'units': 'ns'},
-        'value': {'units': 'K'},
-    }
+    attrs = {'units': 'K'}
     accumulator = ToNXlog(attrs=attrs)
 
     result = accumulator.get()

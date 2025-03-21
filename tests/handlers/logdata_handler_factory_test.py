@@ -21,14 +21,8 @@ def default_config():
 @pytest.fixture
 def attribute_registry():
     return {
-        "temperature_sensor": {
-            "time": {"start": "2023-01-01T00:00:00.000000", "units": "ns"},
-            "value": {"units": "K"},
-        },
-        "pressure_sensor": {
-            "time": {"start": "2023-01-01T00:00:00.000000", "units": "ns"},
-            "value": {"units": "Pa"},
-        },
+        "temperature_sensor": {"units": "K"},
+        "pressure_sensor": {"units": "Pa"},
     }
 
 
@@ -128,10 +122,7 @@ def test_make_handler_with_invalid_attributes(
     """Test creating a handler with invalid attributes for a source"""
     # Create a copy of the attribute registry with invalid attributes
     invalid_registry = attribute_registry.copy()
-    invalid_registry["invalid_sensor"] = {
-        "time": {"start": "not-a-date"},  # Invalid date format
-        "value": {"units": "K"},
-    }
+    invalid_registry["invalid_sensor"] = {"units": "abcde"}  # invalid unit string
 
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
@@ -181,7 +172,7 @@ def test_full_handler_lifecycle(default_config, attribute_registry):
     assert_identical(result.data, sc.array(dims=["time"], values=[273.15], unit="K"))
 
     # Check the time coordinate
-    expected_time = sc.datetime("2023-01-01T00:00:01.000000", unit="ns")
+    expected_time = sc.datetime("1970-01-01T00:00:01.000000", unit="ns")
     assert_identical(result.coords["time"][0], expected_time)
 
 
@@ -221,7 +212,7 @@ def test_handler_with_multiple_messages(default_config, attribute_registry):
     )
 
     # Check the time coordinates are sorted
-    expected_times = ["2023-01-01T00:00:01.000000", "2023-01-01T00:00:02.000000"]
+    expected_times = ["1970-01-01T00:00:01.000000", "1970-01-01T00:00:02.000000"]
     assert_identical(
         result.coords["time"],
         sc.datetimes(dims=["time"], values=expected_times, unit="ns"),
