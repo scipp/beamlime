@@ -180,8 +180,11 @@ class MultiplexingProxy(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
         for stream_processor in self._stream_processors.values():
             if self._key in stream_processor._context_keys:
                 stream_processor.set_context({self._key: data})
-            else:
+            elif self._key in stream_processor._dynamic_keys:
                 stream_processor.accumulate({self._key: data})
+            else:
+                # Might be unused by this particular workflow
+                pass
 
     def get(self) -> sc.DataGroup[sc.DataArray]:
         return sc.DataGroup()

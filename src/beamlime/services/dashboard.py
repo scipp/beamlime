@@ -249,6 +249,7 @@ class DashboardApp(ServiceBase):
                     {'label': name, 'value': name}
                     for name in self._instrument_config.source_names
                 ],
+                value=self._instrument_config.source_names[0],
                 style={'width': '100%', 'marginBottom': '10px'},
             ),
             html.Div(
@@ -266,6 +267,7 @@ class DashboardApp(ServiceBase):
                             {'label': name, 'value': name}
                             for name in processor_factory.get_available()
                         ],
+                        value=processor_factory.get_available()[0],
                         style={'width': '100%', 'marginBottom': '10px'},
                     ),
                 ],

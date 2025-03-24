@@ -103,14 +103,35 @@ _reduction_workflow.insert(_make_spectrum_view)
 _reduction_workflow.insert(_make_counts_per_angle)
 
 
-@processor_factory.register(name='testing')
-def _testing_processor() -> StreamProcessor:
+@processor_factory.register(name='spectrum-view')
+def _spectrum_view() -> StreamProcessor:
+    return StreamProcessor(
+        _reduction_workflow.copy(),
+        dynamic_keys=(NeXusData[NXdetector, SampleRun],),
+        target_keys=(SpectrumView,),
+        accumulators=(SpectrumView,),
+    )
+
+
+@processor_factory.register(name='counts-per-angle')
+def _counts_per_angle() -> StreamProcessor:
     return StreamProcessor(
         _reduction_workflow.copy(),
         dynamic_keys=(NeXusData[NXdetector, SampleRun],),
         context_keys=(DetectorRotation,),
-        target_keys=(SpectrumView, CountsPerAngle),
-        accumulators=(SpectrumView, CountsPerAngle),
+        target_keys=(CountsPerAngle,),
+        accumulators=(CountsPerAngle,),
+    )
+
+
+@processor_factory.register(name='all')
+def _all() -> StreamProcessor:
+    return StreamProcessor(
+        _reduction_workflow.copy(),
+        dynamic_keys=(NeXusData[NXdetector, SampleRun],),
+        context_keys=(DetectorRotation,),
+        target_keys=(CountsPerAngle, SpectrumView),
+        accumulators=(CountsPerAngle, SpectrumView),
     )
 
 
