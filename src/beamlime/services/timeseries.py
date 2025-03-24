@@ -6,7 +6,6 @@ import argparse
 import logging
 from collections.abc import Mapping
 from contextlib import ExitStack
-from functools import partial
 from typing import Any, Literal, NoReturn
 
 from beamlime import Service
@@ -14,12 +13,16 @@ from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.handlers.timeseries_handler import LogdataHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
+from beamlime.kafka.helpers import beamlime_command_topic, motion_topic
 from beamlime.kafka.message_adapter import (
+    BeamlimeCommandsAdapter,
     ChainedAdapter,
     F144ToLogDataAdapter,
     KafkaToF144Adapter,
+    RouteByTopicAdapter,
 )
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
+from beamlime.kafka.source import MultiConsumer
 from beamlime.service_factory import DataServiceBuilder
 from beamlime.sinks import PlotToPngSink
 
@@ -35,24 +38,32 @@ def setup_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def make_timeseries_adapter(instrument: str) -> RouteByTopicAdapter:
+    return RouteByTopicAdapter(
+        routes={
+            motion_topic(instrument): ChainedAdapter(
+                first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
+            ),
+            beamlime_command_topic(instrument): BeamlimeCommandsAdapter(),
+        },
+    )
+
+
 def make_timeseries_service_builder(
     *,
     instrument: str,
     log_level: int = logging.INFO,
     attribute_registry: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> DataServiceBuilder:
-    adapter = ChainedAdapter(first=KafkaToF144Adapter(), second=F144ToLogDataAdapter())
-    handler_factory_cls = partial(
-        LogdataHandlerFactory,
-        instrument=instrument,
-        attribute_registry=attribute_registry,
+    handler_factory = LogdataHandlerFactory(
+        instrument=instrument, attribute_registry=attribute_registry, config={}
     )
     return DataServiceBuilder(
         instrument=instrument,
         name='timeseries',
         log_level=log_level,
-        adapter=adapter,
-        handler_factory_cls=handler_factory_cls,
+        adapter=make_timeseries_adapter(instrument=instrument),
+        handler_factory=handler_factory,
     )
 
 
@@ -80,7 +91,7 @@ def run_service(
         control_consumer = stack.enter_context(
             kafka_consumer.make_control_consumer(instrument=instrument)
         )
-        consumer = stack.enter_context(
+        data_consumer = stack.enter_context(
             kafka_consumer.make_consumer_from_config(
                 topics=('motion',),
                 config={**consumer_config, **kafka_upstream_config},
@@ -88,9 +99,8 @@ def run_service(
                 group='timeseries',
             )
         )
-        service = builder.from_consumer(
-            control_consumer=control_consumer, consumer=consumer, sink=sink
-        )
+        consumer = MultiConsumer([control_consumer, data_consumer])
+        service = builder.from_consumer(consumer=consumer, sink=sink)
         service.start()
 
 

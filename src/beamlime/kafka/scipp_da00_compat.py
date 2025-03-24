@@ -29,6 +29,15 @@ def da00_to_scipp(
 
 
 def _to_da00_variable(name: str, var: sc.Variable) -> dataarray_da00.Variable:
+    if var.dtype == sc.DType.datetime64:
+        timedelta = var - sc.epoch(unit=var.unit)
+        return dataarray_da00.Variable(
+            name=name,
+            data=timedelta.values,
+            axes=list(var.dims),
+            shape=var.shape,
+            unit=f'datetime64[{var.unit}]',
+        )
     return dataarray_da00.Variable(
         name=name,
         data=var.values,
@@ -39,4 +48,7 @@ def _to_da00_variable(name: str, var: sc.Variable) -> dataarray_da00.Variable:
 
 
 def _to_scipp_variable(var: dataarray_da00.Variable) -> sc.Variable:
+    if var.unit.startswith('datetime64'):
+        unit = var.unit.split('[')[1].rstrip(']')
+        return sc.epoch(unit=unit) + sc.array(dims=var.axes, values=var.data, unit=unit)
     return sc.array(dims=var.axes, values=var.data, unit=var.unit)
