@@ -14,8 +14,10 @@ from dash.exceptions import PreventUpdate
 from beamlime import Service, ServiceBase
 from beamlime.config import config_names, models
 from beamlime.config.config_loader import load_config
+from beamlime.config.raw_detectors import get_config
 from beamlime.core.config_service import ConfigService
 from beamlime.core.message import compact_messages
+from beamlime.handlers.workflow_manager import processor_factory
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.helpers import topic_for_instrument
 from beamlime.kafka.message_adapter import (
@@ -34,6 +36,7 @@ class DashboardApp(ServiceBase):
         instrument: str = 'dummy',
         debug: bool = False,
         log_level: int = logging.INFO,
+        auto_remove_plots_after_seconds: float = 10.0,
     ) -> None:
         name = f'{instrument}_dashboard'
         super().__init__(name=name, log_level=log_level)
@@ -43,9 +46,14 @@ class DashboardApp(ServiceBase):
 
         # Initialize state
         self._plots: dict[str, go.Figure] = {}
+        self._auto_remove_plots_after_seconds = auto_remove_plots_after_seconds
+        self._last_plot_update: dict[str, float] = {}
 
         self._exit_stack = ExitStack()
         self._exit_stack.__enter__()
+
+        # Load instrument configuration for source names
+        self._instrument_config = get_config(instrument)
 
         # Setup services
         self._setup_config_service()
@@ -231,25 +239,40 @@ class DashboardApp(ServiceBase):
                 style={'margin': '10px 0'},
             ),
             html.Button('Clear', id='clear-button', n_clicks=0),
-            # Add workflow control section
+            # Add workflow control section with dropdowns
             html.Hr(style={'margin': '20px 0'}),
             html.H3('Workflow Control', style={'marginTop': '10px'}),
             html.Label('Source Name'),
-            dcc.Input(
+            dcc.Dropdown(
                 id='workflow-source-name',
-                type='text',
-                placeholder='Enter source name',
+                options=[
+                    {'label': name, 'value': name}
+                    for name in self._instrument_config.source_names
+                ],
                 style={'width': '100%', 'marginBottom': '10px'},
             ),
-            html.Label('Workflow Name'),
-            dcc.Input(
-                id='workflow-name',
-                type='text',
-                placeholder='Enter workflow name',
-                style={'width': '100%', 'marginBottom': '10px'},
+            html.Div(
+                [
+                    dcc.Checklist(
+                        id='workflow-enable',
+                        options=[{'label': 'Enable workflow', 'value': 'enabled'}],
+                        value=['enabled'],
+                        style={'margin': '10px 0'},
+                    ),
+                    html.Label('Workflow Name'),
+                    dcc.Dropdown(
+                        id='workflow-name',
+                        options=[
+                            {'label': name, 'value': name}
+                            for name in processor_factory.get_available()
+                        ],
+                        style={'width': '100%', 'marginBottom': '10px'},
+                    ),
+                ],
+                id='workflow-selector-container',
             ),
             html.Button(
-                'Send Workflow Control',
+                'Go!',
                 id='workflow-control-button',
                 n_clicks=0,
                 style={'width': '100%', 'marginTop': '10px'},
@@ -349,12 +372,19 @@ class DashboardApp(ServiceBase):
             Input('use-weights-checkbox', 'value'),
         )(self.update_use_weights)
 
-        # Add callback for workflow control button
+        # Add callback to enable/disable workflow dropdown
+        self._app.callback(
+            Output('workflow-name', 'disabled'),
+            Input('workflow-enable', 'value'),
+        )(lambda value: len(value) == 0)
+
+        # Update workflow control button callback
         self._app.callback(
             Output('workflow-control-button', 'n_clicks'),
             Input('workflow-control-button', 'n_clicks'),
             Input('workflow-source-name', 'value'),
             Input('workflow-name', 'value'),
+            Input('workflow-enable', 'value'),
         )(self.send_workflow_control)
 
     def update_roi(self, x_center, x_delta, y_center, y_delta):
@@ -492,6 +522,7 @@ class DashboardApp(ServiceBase):
         if n is None:
             raise PreventUpdate
 
+        now = time.time()
         try:
             messages = self._source.get_messages()
             num = len(messages)
@@ -517,10 +548,18 @@ class DashboardApp(ServiceBase):
                     fig.data[0].x = data.coords[x_dim].values
                     fig.data[0].y = data.coords[y_dim].values
                     fig.data[0].z = data.values
+                self._last_plot_update[key] = now
 
         except Exception as e:
             self._logger.exception("Error in update_plots: %s", e)
             raise PreventUpdate from None
+
+        # Remove plots if no recent update. This happens, e.g., when the reduction
+        # workflow is removed or changed.
+        for key, last_update in self._last_plot_update.items():
+            if now - last_update > self._auto_remove_plots_after_seconds:
+                self._plots.pop(key, None)
+                self._logger.info("Removed plot for %s", key)
 
         graphs = [dcc.Graph(figure=fig) for fig in self._plots.values()]
         return [html.Div(graphs, style={'display': 'flex', 'flexWrap': 'wrap'})]
@@ -542,21 +581,27 @@ class DashboardApp(ServiceBase):
         return 0
 
     def send_workflow_control(
-        self, n_clicks: int | None, source_name: str | None, workflow_name: str | None
+        self,
+        n_clicks: int | None,
+        source_name: str | None,
+        workflow_name: str,
+        enable_workflow: list[str],
     ) -> int:
         """Send a workflow control message."""
-        if n_clicks is None or n_clicks == 0 or not source_name or not workflow_name:
+        if n_clicks is None or n_clicks == 0 or not source_name:
             raise PreventUpdate
+
+        actual_workflow_name = workflow_name if enable_workflow else None
 
         self._logger.info(
             "Sending workflow control message: source=%s, workflow=%s",
             source_name,
-            workflow_name,
+            actual_workflow_name,
         )
 
         workflow_control = models.WorkflowControl(
             source_name=source_name,
-            workflow_name=workflow_name,
+            workflow_name=actual_workflow_name,
         )
 
         self._config_service.update_config(

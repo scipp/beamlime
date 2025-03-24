@@ -18,6 +18,10 @@ class StreamProcessorFactory:
     def __init__(self) -> None:
         self._factories: dict[str, Callable[[], StreamProcessor]] = {}
 
+    def get_available(self) -> tuple[str, ...]:
+        """Return a tuple of available factory names."""
+        return tuple(self._factories.keys())
+
     def register(
         self, name: str
     ) -> Callable[[Callable[[], StreamProcessor]], Callable[[], StreamProcessor]]:
@@ -129,9 +133,11 @@ class WorkflowManager:
 
     def set_workflow_from_command(self, command: Any) -> None:
         decoded = WorkflowControl.model_validate(command)
-        self.set_worklow(
-            decoded.source_name, processor_factory.create(decoded.workflow_name)
-        )
+        if decoded.workflow_name is None:
+            processor = None
+        else:
+            processor = processor_factory.create(decoded.workflow_name)
+        self.set_worklow(decoded.source_name, processor)
 
     def get_accumulator(
         self, source_name: str
