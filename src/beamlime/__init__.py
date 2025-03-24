@@ -13,7 +13,6 @@ del importlib
 
 from .core import (
     CommonHandlerFactory,
-    ConfigSubscriber,
     Handler,
     Message,
     MessageKey,
@@ -29,7 +28,6 @@ from .workflow_protocols import LiveWorkflow, WorkflowResult
 
 __all__ = [
     "CommonHandlerFactory",
-    "ConfigSubscriber",
     "Handler",
     "LiveWorkflow",
     "Message",
