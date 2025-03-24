@@ -14,10 +14,11 @@ from ess.reduce.nexus.types import (
     NeXusName,
     SampleRun,
 )
+from ess.reduce.streaming import StreamProcessor
 from scippnexus import NXdetector
 
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
-from beamlime.handlers.workflow_manager import DynamicWorkflow
+from beamlime.handlers.workflow_manager import processor_factory
 
 
 def _to_flat_detector_view(da: sc.DataArray) -> sc.DataArray:
@@ -102,16 +103,15 @@ _reduction_workflow.insert(_make_spectrum_view)
 _reduction_workflow.insert(_make_counts_per_angle)
 
 
-def dynamic_workflows() -> dict[str, DynamicWorkflow]:
-    return {
-        'testing': DynamicWorkflow(
-            workflow=_reduction_workflow.copy(),
-            dynamic_keys=(NeXusData[NXdetector, SampleRun],),
-            context_keys=(DetectorRotation,),
-            target_keys=(SpectrumView, CountsPerAngle),
-            accumulators=(SpectrumView, CountsPerAngle),
-        )
-    }
+@processor_factory.register(name='testing')
+def _testing_processor() -> StreamProcessor:
+    return StreamProcessor(
+        _reduction_workflow.copy(),
+        dynamic_keys=(NeXusData[NXdetector, SampleRun],),
+        context_keys=(DetectorRotation,),
+        target_keys=(SpectrumView, CountsPerAngle),
+        accumulators=(SpectrumView, CountsPerAngle),
+    )
 
 
 source_names = ('unified_detector',)

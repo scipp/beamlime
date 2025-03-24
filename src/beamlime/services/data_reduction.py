@@ -72,7 +72,6 @@ def make_reduction_service_builder(
     workflow_manager = WorkflowManager(
         source_names=instrument_config.source_names,
         source_to_key=instrument_config.source_to_key,
-        dynamic_workflows=instrument_config.dynamic_workflows(),
     )
     config = {}
     handler_factory = ReductionHandlerFactory(
