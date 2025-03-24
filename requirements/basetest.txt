@@ -109,7 +109,7 @@ sciline==24.10.0
     # via
     #   essreduce
     #   essspectroscopy
-scipp==25.2.0
+scipp==25.3.0
     # via
     #   choppera
     #   essreduce
