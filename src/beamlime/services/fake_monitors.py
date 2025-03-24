@@ -20,7 +20,7 @@ from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.core.handler import CommonHandlerFactory
 from beamlime.kafka.helpers import beam_monitor_topic
-from beamlime.kafka.message_adapter import IdentityAdapter, MessageAdapter
+from beamlime.kafka.message_adapter import MessageAdapter
 from beamlime.kafka.sink import (
     KafkaSink,
     SerializationError,
@@ -114,9 +114,8 @@ def run_service(
     *, instrument: str, mode: Literal['ev44', 'da00'], log_level: int = logging.INFO
 ) -> NoReturn:
     kafka_config = load_config(namespace=config_names.kafka_upstream)
-    source = FakeMonitorSource(instrument=instrument)
     if mode == 'ev44':
-        adapter = IdentityAdapter()
+        adapter = None
         serializer = serialize_variable_to_monitor_ev44
     else:
         adapter = EventsToHistogramAdapter(
@@ -130,8 +129,10 @@ def run_service(
         adapter=adapter,
         handler_factory=CommonHandlerFactory(config={}, handler_cls=IdentityHandler),
     )
-    sink = KafkaSink(kafka_config=kafka_config, serializer=serializer)
-    service = builder.from_source(source=source, sink=sink)
+    service = builder.from_source(
+        source=FakeMonitorSource(instrument=instrument),
+        sink=KafkaSink(kafka_config=kafka_config, serializer=serializer),
+    )
     service.start()
 
 

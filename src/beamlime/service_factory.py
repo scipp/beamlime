@@ -9,7 +9,11 @@ from .core import MessageSink, StreamProcessor
 from .core.handler import HandlerFactory, HandlerRegistry
 from .core.message import MessageKey, MessageSource
 from .core.service import Service
-from .kafka.message_adapter import AdaptingMessageSource, MessageAdapter
+from .kafka.message_adapter import (
+    AdaptingMessageSource,
+    IdentityAdapter,
+    MessageAdapter,
+)
 from .kafka.source import KafkaConsumer, KafkaMessageSource
 
 Traw = TypeVar("Traw")
@@ -24,12 +28,12 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         instrument: str,
         name: str,
         log_level: int = logging.INFO,
-        adapter: MessageAdapter[Traw, Tin],
+        adapter: MessageAdapter[Traw, Tin] | None = None,
         handler_factory: HandlerFactory[Tin, Tout],
     ):
         self._name = f'{instrument}_{name}'
         self._log_level = log_level
-        self._adapter = adapter
+        self._adapter = adapter or IdentityAdapter()
         self._handler_registry = HandlerRegistry(factory=handler_factory)
 
     def add_handler(self, key: MessageKey, handler: HandlerFactory[Tin, Tout]) -> None:
