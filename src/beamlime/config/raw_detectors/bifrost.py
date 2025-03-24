@@ -105,7 +105,7 @@ _reduction_workflow.insert(_make_counts_per_angle)
 def dynamic_workflows() -> dict[str, DynamicWorkflow]:
     return {
         'testing': DynamicWorkflow(
-            workflow=_reduction_workflow,
+            workflow=_reduction_workflow.copy(),
             dynamic_keys=(NeXusData[NXdetector, SampleRun],),
             context_keys=(DetectorRotation,),
             target_keys=(SpectrumView, CountsPerAngle),
