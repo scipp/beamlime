@@ -239,7 +239,6 @@ class DashboardApp(ServiceBase):
                 style={'margin': '10px 0'},
             ),
             html.Button('Clear', id='clear-button', n_clicks=0),
-            # Add workflow control section with dropdowns
             html.Hr(style={'margin': '20px 0'}),
             html.H3('Workflow Control', style={'marginTop': '10px'}),
             html.Label('Source Name'),
@@ -279,6 +278,7 @@ class DashboardApp(ServiceBase):
                 n_clicks=0,
                 style={'width': '100%', 'marginTop': '10px'},
             ),
+            html.Label('Note that workflow changes may take a few seconds to apply.'),
         ]
         self._app.layout = html.Div(
             [
