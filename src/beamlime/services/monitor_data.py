@@ -8,7 +8,6 @@ from typing import Literal, NoReturn
 from beamlime import CommonHandlerFactory, Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
-from beamlime.core.handler import HandlerRegistry
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.kafka import consumer as kafka_consumer
@@ -65,17 +64,15 @@ def make_monitor_service_builder(
     handler_factory = CommonHandlerFactory(
         handler_cls=create_monitor_data_handler, config=config
     )
-    handler_registry = HandlerRegistry(factory=handler_factory)
-    handler_registry.register_handler(
-        ConfigHandler.message_key(instrument), config_handler
-    )
-    return DataServiceBuilder(
+    builder = DataServiceBuilder(
         instrument=instrument,
         name='monitor_data',
         log_level=log_level,
         adapter=make_monitor_data_adapter(instrument=instrument),
-        handler_registry=handler_registry,
+        handler_factory=handler_factory,
     )
+    builder.add_handler(ConfigHandler.message_key(instrument), config_handler)
+    return builder
 
 
 def run_service(
@@ -109,7 +106,7 @@ def run_service(
             )
         )
         consumer = MultiConsumer([control_consumer, data_consumer])
-        service = builder.build(consumer=consumer, sink=sink)
+        service = builder.from_consumer(consumer=consumer, sink=sink)
         service.start()
 
 

@@ -164,7 +164,7 @@ def test_timeseries_service(instrument: str) -> None:
         source_names=source_names,
     )
 
-    service = builder.build(
+    service = builder.from_consumer(
         control_consumer=EmptyConsumer(),
         consumer=consumer,
         sink=UnrollingSinkAdapter(sink),
@@ -219,7 +219,7 @@ def test_timeseries_accumulation() -> None:
         source_names=['detector_rotation'],  # Use just one source for simplicity
     )
 
-    service = builder.build(
+    service = builder.from_consumer(
         control_consumer=EmptyConsumer(),
         consumer=consumer,
         sink=UnrollingSinkAdapter(sink),

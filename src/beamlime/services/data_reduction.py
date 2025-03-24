@@ -103,7 +103,7 @@ def run_service(
                 group='data_reduction',
             )
         )
-        service = builder.build(
+        service = builder.from_consumer(
             control_consumer=control_consumer, consumer=consumer, sink=sink
         )
         service.start()

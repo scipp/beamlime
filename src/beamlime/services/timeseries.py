@@ -88,7 +88,7 @@ def run_service(
                 group='timeseries',
             )
         )
-        service = builder.build(
+        service = builder.from_consumer(
             control_consumer=control_consumer, consumer=consumer, sink=sink
         )
         service.start()

@@ -107,7 +107,7 @@ def test_performance(benchmark, num_sources: int, events_per_message: int) -> No
     # It is this always returning messages quickly, which shifts the balance in the
     # services to a different place than in reality.
     builder = make_monitor_service_builder(instrument='dummy')
-    service = builder.build(
+    service = builder.from_consumer(
         control_consumer=EmptyConsumer(),
         consumer=EmptyConsumer(),
         sink=FakeMessageSink(),
@@ -119,7 +119,7 @@ def test_performance(benchmark, num_sources: int, events_per_message: int) -> No
         events_per_message=events_per_message,
         max_events=50_000_000,
     )
-    service = builder.build(
+    service = builder.from_consumer(
         control_consumer=EmptyConsumer(), consumer=consumer, sink=sink
     )
     service.start(blocking=False)
@@ -129,7 +129,7 @@ def test_performance(benchmark, num_sources: int, events_per_message: int) -> No
 
 def test_monitor_data_service() -> None:
     builder = make_monitor_service_builder(instrument='dummy')
-    service = builder.build(
+    service = builder.from_consumer(
         control_consumer=EmptyConsumer(),
         consumer=EmptyConsumer(),
         sink=FakeMessageSink(),
@@ -137,7 +137,7 @@ def test_monitor_data_service() -> None:
 
     sink = FakeMessageSink()
     consumer = Ev44Consumer(num_sources=2, events_per_message=100, max_events=10_000)
-    service = builder.build(
+    service = builder.from_consumer(
         control_consumer=EmptyConsumer(), consumer=consumer, sink=sink
     )
     service.start(blocking=False)

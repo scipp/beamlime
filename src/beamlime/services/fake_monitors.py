@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import logging
 import time
 from dataclasses import replace
@@ -15,18 +15,18 @@ from beamlime import (
     MessageKey,
     MessageSource,
     Service,
-    StreamProcessor,
 )
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
-from beamlime.core.handler import CommonHandlerFactory, HandlerRegistry
+from beamlime.core.handler import CommonHandlerFactory
 from beamlime.kafka.helpers import beam_monitor_topic
-from beamlime.kafka.message_adapter import AdaptingMessageSource, MessageAdapter
+from beamlime.kafka.message_adapter import IdentityAdapter, MessageAdapter
 from beamlime.kafka.sink import (
     KafkaSink,
     SerializationError,
     serialize_dataarray_to_da00,
 )
+from beamlime.service_factory import DataServiceBuilder
 
 
 class FakeMonitorSource(MessageSource[sc.Variable]):
@@ -113,27 +113,25 @@ def serialize_variable_to_monitor_ev44(msg: Message[sc.Variable]) -> bytes:
 def run_service(
     *, instrument: str, mode: Literal['ev44', 'da00'], log_level: int = logging.INFO
 ) -> NoReturn:
-    service_name = f'{instrument}_fake_{mode}_producer'
     kafka_config = load_config(namespace=config_names.kafka_upstream)
+    source = FakeMonitorSource(instrument=instrument)
     if mode == 'ev44':
-        source = FakeMonitorSource(instrument=instrument)
+        adapter = IdentityAdapter()
         serializer = serialize_variable_to_monitor_ev44
     else:
-        source = AdaptingMessageSource(
-            source=FakeMonitorSource(instrument=instrument),
-            adapter=EventsToHistogramAdapter(
-                toa=sc.linspace('toa', 0, 71_000_000, num=100, unit='ns')
-            ),
+        adapter = EventsToHistogramAdapter(
+            toa=sc.linspace('toa', 0, 71_000_000, num=100, unit='ns')
         )
         serializer = serialize_dataarray_to_da00
-    processor = StreamProcessor(
-        source=source,
-        sink=KafkaSink(kafka_config=kafka_config, serializer=serializer),
-        handler_registry=HandlerRegistry(
-            factory=CommonHandlerFactory(config={}, handler_cls=IdentityHandler)
-        ),
+    builder = DataServiceBuilder(
+        instrument=instrument,
+        name=f'fake_{mode}_producer',
+        log_level=log_level,
+        adapter=adapter,
+        handler_factory=CommonHandlerFactory(config={}, handler_cls=IdentityHandler),
     )
-    service = Service(processor=processor, name=service_name, log_level=log_level)
+    sink = KafkaSink(kafka_config=kafka_config, serializer=serializer)
+    service = builder.from_source(source=source, sink=sink)
     service.start()
 
 

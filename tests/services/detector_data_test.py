@@ -124,7 +124,7 @@ def test_performance(benchmark, instrument: str, events_per_message: int) -> Non
     # It is thus always returning messages quickly, which shifts the balance in the
     # services to a different place than in reality.
     builder = make_detector_service_builder(instrument=instrument)
-    service = builder.build(
+    service = builder.from_consumer(
         control_consumer=EmptyConsumer(),
         consumer=EmptyConsumer(),
         sink=FakeMessageSink(),
@@ -136,7 +136,7 @@ def test_performance(benchmark, instrument: str, events_per_message: int) -> Non
         events_per_message=events_per_message,
         max_events=50_000_000,
     )
-    service = builder.build(
+    service = builder.from_consumer(
         control_consumer=EmptyConsumer(), consumer=consumer, sink=sink
     )
     service.start(blocking=False)
@@ -148,7 +148,7 @@ def test_performance(benchmark, instrument: str, events_per_message: int) -> Non
 @pytest.mark.parametrize('instrument', available_instruments())
 def test_detector_data_service(instrument: str) -> None:
     builder = make_detector_service_builder(instrument=instrument)
-    service = builder.build(
+    service = builder.from_consumer(
         control_consumer=EmptyConsumer(),
         consumer=EmptyConsumer(),
         sink=FakeMessageSink(),
@@ -157,7 +157,7 @@ def test_detector_data_service(instrument: str) -> None:
     consumer = Ev44Consumer(
         instrument=instrument, events_per_message=100, max_events=10_000
     )
-    service = builder.build(
+    service = builder.from_consumer(
         control_consumer=EmptyConsumer(),
         consumer=consumer,
         sink=UnrollingSinkAdapter(sink),

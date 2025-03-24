@@ -69,6 +69,15 @@ class MessageAdapter(Protocol, Generic[T, U]):
         pass
 
 
+class IdentityAdapter(MessageAdapter[T, T]):
+    """
+    An adapter that does not change the message.
+    """
+
+    def adapt(self, message: T) -> T:
+        return message
+
+
 class KafkaToEv44Adapter(
     MessageAdapter[KafkaMessage, Message[eventdata_ev44.EventData]]
 ):
