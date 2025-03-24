@@ -116,10 +116,8 @@ class ROIRectangle(BaseModel):
 
 class WorkflowControl(BaseModel):
     source_name: str = Field(
-        default='',
         description="Name of the source to control.",
     )
-    workflow_name: str = Field(
-        default='',
+    workflow_name: str | None = Field(
         description="Name of the workflow to control.",
     )

@@ -2,9 +2,9 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable, Iterator, MutableMapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import sciline
 import scipp as sc
@@ -12,11 +12,9 @@ from ess.reduce.streaming import StreamProcessor
 from sciline.typing import Key
 
 from ..config.models import WorkflowControl
-from ..core.handler import Accumulator, Config, Handler
-from ..core.message import Message
+from ..core.handler import Accumulator
 
 
-# ... so we can recreate the StreamProcessor if workflow parameters change.
 @dataclass
 class DynamicWorkflow:
     workflow: sciline.Pipeline
@@ -35,18 +33,6 @@ class DynamicWorkflow:
             target_keys=self.target_keys,
             accumulators=self.accumulators,
         )
-
-
-# Should have list of possible workflows, config which to use while running, for given
-# bank?
-
-# 1. message -> create handler with proxy -> proxy without processor
-# 2. set workflow parameters -> create new processor -> update proxy
-# 2.b If we do this via Kafka, it can auto-recover after restart?
-
-# Logic problems if some keys are context in some but dynamic in others.
-# Disallow that?
-# make sets of dynamic keys and context keys, and check that they are disjoint.
 
 
 class ProcessorRegistry(MutableMapping[str, StreamProcessor]):
@@ -77,42 +63,59 @@ class WorkflowManager:
     def __init__(
         self,
         *,
-        workflow_names: Sequence[str],
+        source_names: Sequence[str],
         source_to_key: dict[str, Key],
         dynamic_workflows: dict[str, DynamicWorkflow],
     ) -> None:
-        # Why this init? We want the service to keep running, but be able to configure
-        # workflows after startup.
+        """
+        Parameters
+        ----------
+        source_names:
+            List of source names to attach workflows to. These need to be passed
+            explicitly, so we can distinguish source names that should not be handled
+            (to proxy and handler will be created) from source names that may later be
+            configured to use a workflow.
+        source_to_key:
+            Dictionary mapping source names to workflow input keys.
+        dynamic_workflows:
+            Dictionary mapping source names to dynamic workflows.
+        """
         self._source_to_key = source_to_key
         self._dynamic_workflows = dynamic_workflows
         self._workflows: dict[str, DynamicWorkflow | None] = {
-            name: None for name in workflow_names
+            name: None for name in source_names
         }
         self._processors = ProcessorRegistry()
         self._proxies: dict[str, StreamProcessorProxy] = {}
-        for name in workflow_names:
+        for name in source_names:
             self.set_worklow(name, None)
 
-    def set_worklow(self, name: str, workflow: DynamicWorkflow | None) -> None:
+    def set_worklow(self, source_name: str, workflow: DynamicWorkflow | None) -> None:
         """
         Add a workflow to the manager.
 
         Parameters
         ----------
-        name:
-            The name to identify the workflow.
+        source_name:
+            Source name to attach the workflow to.
         workflow:
-            The workflow to add.
+            The workflow to attach to the source name. If None, the workflow is removed.
         """
-        if name not in self._workflows:
-            raise ValueError(f"Workflow {name} was not defined in the manager.")
-        self._workflows[name] = workflow
+        if source_name not in self._workflows:
+            raise ValueError(f"Workflow {source_name} was not defined in the manager.")
+        self._workflows[source_name] = workflow
         if workflow is None:
-            self._processors.pop(name, None)
+            self._processors.pop(source_name, None)
         else:
-            self._processors[name] = workflow.make_stream_processor()
-        if (proxy := self._proxies.get(name)) is not None:
-            proxy.set_processor(self._processors.get(name))
+            self._processors[source_name] = workflow.make_stream_processor()
+        if (proxy := self._proxies.get(source_name)) is not None:
+            proxy.set_processor(self._processors.get(source_name))
+
+    def set_workflow_from_command(self, command: Any) -> None:
+        decoded = WorkflowControl.model_validate(command)
+        self.set_worklow(
+            decoded.source_name, self._dynamic_workflows[decoded.workflow_name]
+        )
 
     def get_accumulator(
         self, source_name: str
@@ -141,45 +144,6 @@ class WorkflowManager:
             # could, e.g., histogram large monitors to reduce the duplicate cost in the
             # stream processors.
             return MultiplexingProxy(self._processors, key=wf_key)
-
-    def make_control_handler(
-        self, *, logger: logging.Logger | None = None, config: Config
-    ) -> WorkflowControlHandler:
-        """
-        Create a handler for workflow control messages.
-
-        This handler is used to set the workflow manager's workflow parameters.
-        """
-        return WorkflowControlHandler(
-            logger=logger, config=config, workflow_manager=self
-        )
-
-
-class WorkflowControlHandler(Handler[WorkflowControl, None]):
-    """
-    Handler for workflow manager.
-
-    This handler is used to set the workflow manager's workflow parameters.
-    """
-
-    def __init__(
-        self,
-        *,
-        logger: logging.Logger | None = None,
-        config: Config,
-        workflow_manager: WorkflowManager,
-    ) -> None:
-        super().__init__(logger=logger, config=config)
-        self._workflow_manager = workflow_manager
-
-    def handle(self, messages: list[Message[WorkflowControl]]) -> list[Message[None]]:
-        for message in messages:
-            decoded = WorkflowControl.model_validate(message.value)
-            self._workflow_manager.set_worklow(
-                decoded.source_name,
-                self._workflow_manager._dynamic_workflows.get(decoded.workflow_name),
-            )
-        return []
 
 
 class MultiplexingProxy(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):

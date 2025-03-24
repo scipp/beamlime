@@ -51,9 +51,6 @@ def setup_arg_parser() -> argparse.ArgumentParser:
 def make_reduction_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
-    f144_adapter = ChainedAdapter(
-        first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
-    )
     adapter = RouteByTopicAdapter(
         routes={
             beam_monitor_topic(instrument): ChainedAdapter(
@@ -73,12 +70,13 @@ def make_reduction_service_builder(
     )
     instrument_config = get_config(instrument)
     workflow_manager = WorkflowManager(
+        source_names=instrument_config.source_names,
         source_to_key=instrument_config.source_to_key,
-        workflow_names=list(instrument_config.make_stream_processors()),
         dynamic_workflows=instrument_config.dynamic_workflows(),
     )
-    handler_factory_cls = partial(
-        ReductionHandlerFactory,
+    config = {}
+    handler_factory = ReductionHandlerFactory(
+        config=config,
         workflow_manager=workflow_manager,
         f144_attribute_registry=instrument_config.f144_attribute_registry,
     )
@@ -88,6 +86,11 @@ def make_reduction_service_builder(
         log_level=log_level,
         adapter=adapter,
         handler_factory=handler_factory,
+    )
+    config_handler = ConfigHandler(config=config)
+    config_handler.register_action(
+        key='workflow_control',
+        callback=workflow_manager.set_workflow_from_command,
     )
     builder.add_handler(ConfigHandler.message_key(instrument), config_handler)
     return builder
