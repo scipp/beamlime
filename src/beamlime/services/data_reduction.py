@@ -5,16 +5,23 @@
 import argparse
 import logging
 from contextlib import ExitStack
-from functools import partial
 from typing import Literal, NoReturn
 
 from beamlime import Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
+from beamlime.config.raw_detectors import get_config
+from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.data_reduction_handler import ReductionHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.helpers import beam_monitor_topic, detector_topic, motion_topic
+from beamlime.kafka.helpers import (
+    beam_monitor_topic,
+    beamlime_command_topic,
+    detector_topic,
+    motion_topic,
+)
 from beamlime.kafka.message_adapter import (
+    BeamlimeCommandsAdapter,
     ChainedAdapter,
     Ev44ToDetectorEventsAdapter,
     Ev44ToMonitorEventsAdapter,
@@ -24,10 +31,9 @@ from beamlime.kafka.message_adapter import (
     RouteByTopicAdapter,
 )
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
+from beamlime.kafka.source import MultiConsumer
 from beamlime.service_factory import DataServiceBuilder
 from beamlime.sinks import PlotToPngSink
-
-from ..config.raw_detectors import get_config
 
 
 def setup_arg_parser() -> argparse.ArgumentParser:
@@ -58,18 +64,23 @@ def make_reduction_service_builder(
             motion_topic(instrument): ChainedAdapter(
                 first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
             ),
+            beamlime_command_topic(instrument): BeamlimeCommandsAdapter(),
         }
     )
-    handler_factory_cls = partial(
-        ReductionHandlerFactory, instrument_config=get_config(instrument)
+    config = {}
+    config_handler = ConfigHandler(config=config)
+    handler_factory = ReductionHandlerFactory(
+        instrument_config=get_config(instrument), config=config
     )
-    return DataServiceBuilder(
+    builder = DataServiceBuilder(
         instrument=instrument,
         name='data_reduction',
         log_level=log_level,
         adapter=adapter,
-        handler_factory_cls=handler_factory_cls,
+        handler_factory=handler_factory,
     )
+    builder.add_handler(ConfigHandler.message_key(instrument), config_handler)
+    return builder
 
 
 def run_service(
@@ -95,7 +106,7 @@ def run_service(
         control_consumer = stack.enter_context(
             kafka_consumer.make_control_consumer(instrument=instrument)
         )
-        consumer = stack.enter_context(
+        data_consumer = stack.enter_context(
             kafka_consumer.make_consumer_from_config(
                 topics=config['topics'],
                 config={**consumer_config, **kafka_upstream_config},
@@ -103,9 +114,8 @@ def run_service(
                 group='data_reduction',
             )
         )
-        service = builder.from_consumer(
-            control_consumer=control_consumer, consumer=consumer, sink=sink
-        )
+        consumer = MultiConsumer([control_consumer, data_consumer])
+        service = builder.from_consumer(consumer=consumer, sink=sink)
         service.start()
 
 
