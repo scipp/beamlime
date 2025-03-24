@@ -8,7 +8,7 @@ import pytest
 from streaming_data_types import eventdata_ev44
 
 from beamlime.fakes import FakeMessageSink
-from beamlime.kafka.helpers import source_name
+from beamlime.kafka.helpers import beam_monitor_topic, source_name
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.source import KafkaConsumer
 from beamlime.services.monitor_data import make_monitor_service_builder
@@ -82,7 +82,7 @@ class Ev44Consumer(KafkaConsumer):
         messages = [
             FakeKafkaMessage(
                 value=self._content[msg % self._num_sources],
-                topic="dummy",
+                topic=beam_monitor_topic("dummy"),
                 timestamp=self._make_timestamp(),
             )
             for msg in range(num_messages)
@@ -107,11 +107,7 @@ def test_performance(benchmark, num_sources: int, events_per_message: int) -> No
     # It is this always returning messages quickly, which shifts the balance in the
     # services to a different place than in reality.
     builder = make_monitor_service_builder(instrument='dummy')
-    service = builder.from_consumer(
-        control_consumer=EmptyConsumer(),
-        consumer=EmptyConsumer(),
-        sink=FakeMessageSink(),
-    )
+    service = builder.from_consumer(consumer=EmptyConsumer(), sink=FakeMessageSink())
 
     sink = FakeMessageSink()
     consumer = Ev44Consumer(
@@ -119,9 +115,7 @@ def test_performance(benchmark, num_sources: int, events_per_message: int) -> No
         events_per_message=events_per_message,
         max_events=50_000_000,
     )
-    service = builder.from_consumer(
-        control_consumer=EmptyConsumer(), consumer=consumer, sink=sink
-    )
+    service = builder.from_consumer(consumer=consumer, sink=sink)
     service.start(blocking=False)
     benchmark(start_and_wait_for_completion, consumer=consumer)
     service.stop()
@@ -129,17 +123,11 @@ def test_performance(benchmark, num_sources: int, events_per_message: int) -> No
 
 def test_monitor_data_service() -> None:
     builder = make_monitor_service_builder(instrument='dummy')
-    service = builder.from_consumer(
-        control_consumer=EmptyConsumer(),
-        consumer=EmptyConsumer(),
-        sink=FakeMessageSink(),
-    )
+    service = builder.from_consumer(consumer=EmptyConsumer(), sink=FakeMessageSink())
 
     sink = FakeMessageSink()
     consumer = Ev44Consumer(num_sources=2, events_per_message=100, max_events=10_000)
-    service = builder.from_consumer(
-        control_consumer=EmptyConsumer(), consumer=consumer, sink=sink
-    )
+    service = builder.from_consumer(consumer=consumer, sink=sink)
     service.start(blocking=False)
     start_and_wait_for_completion(consumer=consumer)
     source_names = [msg.key.source_name for msg in sink.messages]
