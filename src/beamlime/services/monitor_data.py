@@ -45,7 +45,6 @@ def make_monitor_data_adapter(instrument: str) -> RoutingAdapter:
             'da00': ChainedAdapter(
                 first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
             ),
-            # TODO adapter for control messages
         }
     )
     return RouteByTopicAdapter(
