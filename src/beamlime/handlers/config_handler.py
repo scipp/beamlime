@@ -78,16 +78,16 @@ class ConfigHandler(Handler[bytes, None]):
                 )
                 self._store[key] = value
                 updated[key] = value
-            except Exception as e:  # noqa: PERF203
-                self._logger.error('Error processing config message: %s', e)
+            except Exception:  # noqa: PERF203
+                self._logger.exception('Error processing config message:')
         # Delay action calls until all messages are processed to reduce triggering
         # multiple calls for the same key in case of multiple messages with same key.
         for key, value in updated.items():
             for action in self._actions.get(key, []):
                 try:
                     action(value)
-                except KeyError as e:  # noqa: PERF203
-                    self._logger.error(
-                        'Error processing config action for %s: %s', key, e
+                except KeyError:  # noqa: PERF203
+                    self._logger.exception(
+                        'Error processing config action for %s:', key
                     )
         return []

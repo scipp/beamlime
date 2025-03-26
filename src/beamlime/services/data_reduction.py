@@ -24,12 +24,15 @@ from beamlime.kafka.helpers import (
 from beamlime.kafka.message_adapter import (
     BeamlimeCommandsAdapter,
     ChainedAdapter,
+    Da00ToScippAdapter,
     Ev44ToDetectorEventsAdapter,
-    Ev44ToMonitorEventsAdapter,
     F144ToLogDataAdapter,
+    KafkaToDa00Adapter,
     KafkaToEv44Adapter,
     KafkaToF144Adapter,
+    KafkaToMonitorEventsAdapter,
     RouteByTopicAdapter,
+    RoutingAdapter,
 )
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
 from beamlime.kafka.source import MultiConsumer
@@ -51,11 +54,17 @@ def setup_arg_parser() -> argparse.ArgumentParser:
 def make_reduction_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
+    monitors = RoutingAdapter(
+        routes={
+            'ev44': KafkaToMonitorEventsAdapter(),
+            'da00': ChainedAdapter(
+                first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
+            ),
+        }
+    )
     adapter = RouteByTopicAdapter(
         routes={
-            beam_monitor_topic(instrument): ChainedAdapter(
-                first=KafkaToEv44Adapter(), second=Ev44ToMonitorEventsAdapter()
-            ),
+            beam_monitor_topic(instrument): monitors,
             detector_topic(instrument): ChainedAdapter(
                 first=KafkaToEv44Adapter(),
                 second=Ev44ToDetectorEventsAdapter(
