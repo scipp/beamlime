@@ -10,6 +10,7 @@ import scipp as sc
 from ..core.handler import Config, Handler, HandlerFactory, PeriodicAccumulatingHandler
 from ..core.message import Message, MessageKey
 from .accumulators import DetectorEvents, ToNXevent_data
+from .monitor_data_handler import MonitorDataPreprocessor
 from .to_nx_log import ToNXlog
 from .workflow_manager import WorkflowManager
 
@@ -42,6 +43,9 @@ class ReductionHandlerFactory(
     def _is_nxlog(self, key: MessageKey) -> bool:
         return key.topic.split('_', maxsplit=1)[1] in ('motion',)
 
+    def _is_monitor(self, key: MessageKey) -> bool:
+        return key.topic.split('_', maxsplit=1)[1] in ('beam_monitor',)
+
     def make_handler(
         self, key: MessageKey
     ) -> Handler[DetectorEvents, sc.DataGroup[sc.DataArray]]:
@@ -57,6 +61,8 @@ class ReductionHandlerFactory(
         if self._is_nxlog(key):
             attrs = self._f144_attribute_registry[key.source_name]
             preprocessor = ToNXlog(attrs=attrs)
+        elif self._is_monitor(key):
+            preprocessor = MonitorDataPreprocessor(config=self._config)
         else:
             preprocessor = ToNXevent_data()
         self._logger.info(

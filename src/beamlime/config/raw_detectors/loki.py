@@ -1,8 +1,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-import sciline
+from ess.loki.live import _configured_Larmor_AgBeh_workflow
 from ess.reduce.nexus.types import NeXusData, SampleRun
 from ess.reduce.streaming import StreamProcessor
+from ess.sans.types import (
+    Denominator,
+    Incident,
+    IofQ,
+    Numerator,
+    ReducedQ,
+    Transmission,
+)
 from scippnexus import NXdetector
 
 from beamlime.handlers.workflow_manager import processor_factory
@@ -70,14 +78,20 @@ detectors_config = {
     },
 }
 
+_workflow = _configured_Larmor_AgBeh_workflow()
+
 
 @processor_factory.register(name='I(Q)')
 def _i_of_q() -> StreamProcessor:
     return StreamProcessor(
-        sciline.Pipeline,
-        dynamic_keys=(NeXusData[NXdetector, SampleRun],),
-        target_keys=(),
-        accumulators=(),
+        _workflow.copy(),
+        dynamic_keys=(
+            NeXusData[NXdetector, SampleRun],
+            NeXusData[Incident, SampleRun],
+            NeXusData[Transmission, SampleRun],
+        ),
+        target_keys=(IofQ[SampleRun],),
+        accumulators=(ReducedQ[SampleRun, Numerator], ReducedQ[SampleRun, Denominator]),
     )
 
 
@@ -102,5 +116,7 @@ source_to_key = {
     'loki_detector_6': NeXusData[NXdetector, SampleRun],
     'loki_detector_7': NeXusData[NXdetector, SampleRun],
     'loki_detector_8': NeXusData[NXdetector, SampleRun],
+    'monitor1': NeXusData[Incident, SampleRun],
+    'monitor2': NeXusData[Transmission, SampleRun],
 }
 f144_attribute_registry = {}
