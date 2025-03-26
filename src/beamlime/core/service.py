@@ -100,7 +100,6 @@ class Service(ServiceBase):
     def __init__(
         self,
         *,
-        children: list[StartStoppable] | None = None,
         processor: Processor,
         name: str | None = None,
         log_level: int = logging.INFO,
@@ -108,14 +107,11 @@ class Service(ServiceBase):
     ):
         super().__init__(name=name, log_level=log_level)
         self._poll_interval = poll_interval
-        self._children = children or []
         self._processor = processor
         self._thread: threading.Thread | None = None
 
     def _start_impl(self) -> None:
         """Start the service and block until stopped"""
-        for child in self._children:
-            child.start()
         self._thread = threading.Thread(target=self._run_loop)
         self._thread.start()
 
@@ -147,8 +143,6 @@ class Service(ServiceBase):
         """Stop the service gracefully"""
         if self._thread:
             self._thread.join()
-        for child in self._children:
-            child.stop()
 
     @staticmethod
     def setup_arg_parser(description: str) -> argparse.ArgumentParser:

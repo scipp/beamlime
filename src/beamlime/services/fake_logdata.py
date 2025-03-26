@@ -6,19 +6,13 @@ from typing import NoReturn, TypeVar
 import numpy as np
 import scipp as sc
 
-from beamlime import (
-    Handler,
-    Message,
-    MessageKey,
-    MessageSource,
-    Service,
-    StreamProcessor,
-)
+from beamlime import Handler, Message, MessageKey, MessageSource, Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.core.handler import CommonHandlerFactory
 from beamlime.kafka.helpers import motion_topic
 from beamlime.kafka.sink import KafkaSink, serialize_dataarray_to_f144
+from beamlime.service_factory import DataServiceBuilder
 
 
 def _make_ramp(size: int) -> sc.DataArray:
@@ -131,16 +125,18 @@ class IdentityHandler(Handler[T, T]):
 
 
 def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
-    service_name = f'{instrument}_fake_f144_producer'
     kafka_config = load_config(namespace=config_names.kafka_upstream)
-    source = FakeLogdataSource(instrument=instrument)
     serializer = serialize_dataarray_to_f144
-    processor = StreamProcessor(
-        source=source,
-        sink=KafkaSink(kafka_config=kafka_config, serializer=serializer),
+    builder = DataServiceBuilder(
+        instrument=instrument,
+        name='fake_f144_producer',
+        log_level=log_level,
         handler_factory=CommonHandlerFactory(config={}, handler_cls=IdentityHandler),
     )
-    service = Service(processor=processor, name=service_name, log_level=log_level)
+    service = builder.from_source(
+        source=FakeLogdataSource(instrument=instrument),
+        sink=KafkaSink(kafka_config=kafka_config, serializer=serializer),
+    )
     service.start()
 
 

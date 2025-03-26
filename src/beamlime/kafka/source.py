@@ -14,6 +14,29 @@ class KafkaConsumer(Protocol):
         pass
 
 
+class MultiConsumer:
+    """
+    Message source for multiple Kafka consumers.
+
+    This class allows for consuming messages from multiple Kafka consumers with
+    different configuration. In particular, we need to use different topic offsets for
+    data topics vs. config/command topics.
+    """
+
+    def __init__(self, consumers):
+        self._consumers = consumers
+
+    def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]:
+        messages = []
+        for consumer in self._consumers:
+            messages.extend(consumer.consume(num_messages, timeout))
+        return messages
+
+    def close(self) -> None:
+        for consumer in self._consumers:
+            consumer.close()
+
+
 class KafkaMessageSource(MessageSource[KafkaMessage]):
     """
     Message source for messages from Kafka.

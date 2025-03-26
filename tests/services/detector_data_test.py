@@ -9,7 +9,7 @@ from streaming_data_types import eventdata_ev44
 
 from beamlime.config.raw_detectors import available_instruments, get_config
 from beamlime.fakes import FakeMessageSink
-from beamlime.kafka.helpers import source_name
+from beamlime.kafka.helpers import detector_topic, source_name
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.sink import UnrollingSinkAdapter
 from beamlime.kafka.source import KafkaConsumer
@@ -32,6 +32,7 @@ class Ev44Consumer(KafkaConsumer):
         events_per_message: int = 1_000,
         max_events: int = 1_000_000,
     ) -> None:
+        self._topic = detector_topic(instrument=instrument)
         self._detector_config = detector_config[instrument]
         self._events_per_message = events_per_message
         self._max_events = max_events
@@ -98,7 +99,7 @@ class Ev44Consumer(KafkaConsumer):
         messages = [
             FakeKafkaMessage(
                 value=self._content[(self._current + msg) % len(self._content)],
-                topic="dummy",
+                topic=self._topic,
                 timestamp=self._make_timestamp(),
             )
             for msg in range(messages_to_produce)
@@ -124,11 +125,7 @@ def test_performance(benchmark, instrument: str, events_per_message: int) -> Non
     # It is thus always returning messages quickly, which shifts the balance in the
     # services to a different place than in reality.
     builder = make_detector_service_builder(instrument=instrument)
-    service = builder.build(
-        control_consumer=EmptyConsumer(),
-        consumer=EmptyConsumer(),
-        sink=FakeMessageSink(),
-    )
+    service = builder.from_consumer(consumer=EmptyConsumer(), sink=FakeMessageSink())
 
     sink = FakeMessageSink()
     consumer = Ev44Consumer(
@@ -136,9 +133,7 @@ def test_performance(benchmark, instrument: str, events_per_message: int) -> Non
         events_per_message=events_per_message,
         max_events=50_000_000,
     )
-    service = builder.build(
-        control_consumer=EmptyConsumer(), consumer=consumer, sink=sink
-    )
+    service = builder.from_consumer(consumer=consumer, sink=sink)
     service.start(blocking=False)
     benchmark(start_and_wait_for_completion, consumer=consumer)
     service.stop()
@@ -148,20 +143,12 @@ def test_performance(benchmark, instrument: str, events_per_message: int) -> Non
 @pytest.mark.parametrize('instrument', available_instruments())
 def test_detector_data_service(instrument: str) -> None:
     builder = make_detector_service_builder(instrument=instrument)
-    service = builder.build(
-        control_consumer=EmptyConsumer(),
-        consumer=EmptyConsumer(),
-        sink=FakeMessageSink(),
-    )
+    service = builder.from_consumer(consumer=EmptyConsumer(), sink=FakeMessageSink())
     sink = FakeMessageSink()
     consumer = Ev44Consumer(
         instrument=instrument, events_per_message=100, max_events=10_000
     )
-    service = builder.build(
-        control_consumer=EmptyConsumer(),
-        consumer=consumer,
-        sink=UnrollingSinkAdapter(sink),
-    )
+    service = builder.from_consumer(consumer=consumer, sink=UnrollingSinkAdapter(sink))
     service.start(blocking=False)
     start_and_wait_for_completion(consumer=consumer)
     service.stop()

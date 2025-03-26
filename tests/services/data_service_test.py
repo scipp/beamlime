@@ -32,14 +32,6 @@ class ForwardingHandler(Handler[int, int]):
         return messages
 
 
-class EmptyConsumer(KafkaConsumer):
-    def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]:
-        return []
-
-    def close(self) -> None:
-        pass
-
-
 class IntConsumer(KafkaConsumer):
     def __init__(self) -> None:
         self._values = [11, 22, 33, 44]
@@ -67,13 +59,11 @@ def test_basics() -> None:
         instrument='instrument',
         name='name',
         adapter=ForwardingAdapter(),
-        handler_factory_cls=CommonHandlerFactory.from_handler(ForwardingHandler),
+        handler_factory=CommonHandlerFactory(handler_cls=ForwardingHandler, config={}),
     )
     sink = FakeMessageSink()
     consumer = IntConsumer()
-    service = builder.build(
-        control_consumer=EmptyConsumer(), consumer=consumer, sink=sink
-    )
+    service = builder.from_consumer(consumer=consumer, sink=sink)
     service.start(blocking=False)
     while not consumer.at_end:
         time.sleep(0.1)

@@ -11,19 +11,13 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from beamlime import (
-    Handler,
-    Message,
-    MessageKey,
-    MessageSource,
-    Service,
-    StreamProcessor,
-)
+from beamlime import Handler, Message, MessageKey, MessageSource, Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.core.handler import CommonHandlerFactory
 from beamlime.kafka.helpers import detector_topic
 from beamlime.kafka.sink import KafkaSink, SerializationError
+from beamlime.service_factory import DataServiceBuilder
 
 # Configure detectors to fake for each instrument
 # Values as of January 2025. These may change if the detector configuration changes.
@@ -173,16 +167,18 @@ def serialize_detector_events_to_ev44(
 
 
 def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
-    service_name = f'{instrument}_fake_producer'
     kafka_config = load_config(namespace=config_names.kafka_upstream)
-    source = FakeDetectorSource(instrument=instrument)
     serializer = serialize_detector_events_to_ev44
-    processor = StreamProcessor(
-        source=source,
-        sink=KafkaSink(kafka_config=kafka_config, serializer=serializer),
+    builder = DataServiceBuilder(
+        instrument=instrument,
+        name='fake_producer',
+        log_level=log_level,
         handler_factory=CommonHandlerFactory(config={}, handler_cls=IdentityHandler),
     )
-    service = Service(processor=processor, name=service_name, log_level=log_level)
+    service = builder.from_source(
+        source=FakeDetectorSource(instrument=instrument),
+        sink=KafkaSink(kafka_config=kafka_config, serializer=serializer),
+    )
     service.start()
 
 

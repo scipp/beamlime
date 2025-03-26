@@ -5,20 +5,24 @@
 import argparse
 import logging
 from contextlib import ExitStack
-from functools import partial
 from typing import Literal, NoReturn
 
 from beamlime import Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
+from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
+from beamlime.kafka.helpers import beamlime_command_topic, detector_topic
 from beamlime.kafka.message_adapter import (
+    BeamlimeCommandsAdapter,
     ChainedAdapter,
     Ev44ToDetectorEventsAdapter,
     KafkaToEv44Adapter,
+    RouteByTopicAdapter,
 )
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
+from beamlime.kafka.source import MultiConsumer
 from beamlime.service_factory import DataServiceBuilder
 from beamlime.sinks import PlotToPngSink
 
@@ -34,21 +38,34 @@ def setup_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def make_detector_service_builder(
-    *, instrument: str, log_level: int = logging.INFO
-) -> DataServiceBuilder:
-    adapter = ChainedAdapter(
+def make_detector_data_adapter(instrument: str) -> RouteByTopicAdapter:
+    detectors = ChainedAdapter(
         first=KafkaToEv44Adapter(),
         second=Ev44ToDetectorEventsAdapter(merge_detectors=instrument == 'bifrost'),
     )
-    handler_factory_cls = partial(DetectorHandlerFactory, instrument=instrument)
-    return DataServiceBuilder(
+    return RouteByTopicAdapter(
+        routes={
+            detector_topic(instrument): detectors,
+            beamlime_command_topic(instrument): BeamlimeCommandsAdapter(),
+        },
+    )
+
+
+def make_detector_service_builder(
+    *, instrument: str, log_level: int = logging.INFO
+) -> DataServiceBuilder:
+    config = {}
+    config_handler = ConfigHandler(config=config)
+    handler_factory = DetectorHandlerFactory(instrument=instrument, config=config)
+    builder = DataServiceBuilder(
         instrument=instrument,
         name='detector_data',
         log_level=log_level,
-        adapter=adapter,
-        handler_factory_cls=handler_factory_cls,
+        adapter=make_detector_data_adapter(instrument=instrument),
+        handler_factory=handler_factory,
     )
+    builder.add_handler(ConfigHandler.message_key(instrument), config_handler)
+    return builder
 
 
 def run_service(
@@ -74,7 +91,7 @@ def run_service(
         control_consumer = stack.enter_context(
             kafka_consumer.make_control_consumer(instrument=instrument)
         )
-        consumer = stack.enter_context(
+        data_consumer = stack.enter_context(
             kafka_consumer.make_consumer_from_config(
                 topics=config['topics'],
                 config={**consumer_config, **kafka_upstream_config},
@@ -82,9 +99,8 @@ def run_service(
                 group='detector_data',
             )
         )
-        service = builder.build(
-            control_consumer=control_consumer, consumer=consumer, sink=sink
-        )
+        consumer = MultiConsumer([control_consumer, data_consumer])
+        service = builder.from_consumer(consumer=consumer, sink=sink)
         service.start()
 
 

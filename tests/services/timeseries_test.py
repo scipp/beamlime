@@ -18,14 +18,6 @@ from beamlime.kafka.source import KafkaConsumer
 from beamlime.services.timeseries import make_timeseries_service_builder
 
 
-class EmptyConsumer(KafkaConsumer):
-    def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]:
-        return []
-
-    def close(self) -> None:
-        pass
-
-
 class F144Consumer(KafkaConsumer):
     def __init__(
         self,
@@ -164,11 +156,7 @@ def test_timeseries_service(instrument: str) -> None:
         source_names=source_names,
     )
 
-    service = builder.build(
-        control_consumer=EmptyConsumer(),
-        consumer=consumer,
-        sink=UnrollingSinkAdapter(sink),
-    )
+    service = builder.from_consumer(consumer=consumer, sink=UnrollingSinkAdapter(sink))
 
     service.start(blocking=False)
     start_and_wait_for_completion(consumer=consumer)
@@ -219,11 +207,7 @@ def test_timeseries_accumulation() -> None:
         source_names=['detector_rotation'],  # Use just one source for simplicity
     )
 
-    service = builder.build(
-        control_consumer=EmptyConsumer(),
-        consumer=consumer,
-        sink=UnrollingSinkAdapter(sink),
-    )
+    service = builder.from_consumer(consumer=consumer, sink=UnrollingSinkAdapter(sink))
 
     service.start(blocking=False)
     start_and_wait_for_completion(consumer=consumer)

@@ -40,7 +40,8 @@ def test_consumes_and_produces_messages() -> None:
     )
     sink = FakeMessageSink()
     factory = CommonHandlerFactory(config=config, handler_cls=ValueToStringHandler)
-    processor = StreamProcessor(source=source, sink=sink, handler_factory=factory)
+    registry = HandlerRegistry(factory=factory)
+    processor = StreamProcessor(source=source, sink=sink, handler_registry=registry)
     processor.process()
     assert len(sink.messages) == 0
     processor.process()
@@ -107,7 +108,8 @@ def test_processor_skips_keys_without_handlers():
     factory = SelectiveHandlerFactory(
         config=config, handler_cls=ValueToStringHandler, allowed_keys=['allowed']
     )
-    processor = StreamProcessor(source=source, sink=sink, handler_factory=factory)
+    registry = HandlerRegistry(factory=factory)
+    processor = StreamProcessor(source=source, sink=sink, handler_registry=registry)
 
     processor.process()
 
@@ -135,7 +137,8 @@ def test_processor_with_mixed_handlers():
     factory = SelectiveHandlerFactory(
         config=config, handler_cls=ValueToStringHandler, allowed_keys=['allowed']
     )
-    processor = StreamProcessor(source=source, sink=sink, handler_factory=factory)
+    registry = HandlerRegistry(factory=factory)
+    processor = StreamProcessor(source=source, sink=sink, handler_registry=registry)
 
     # First batch: one allowed message
     processor.process()
