@@ -45,12 +45,16 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 test = [
+    "esssans",
     "essspectroscopy",
     "pytest",
     "pytest-benchmark",
 ]
 bifrost = [
     "essspectroscopy",
+]
+loki = [
+    "esssans",
 ]
 dashboard = [
   "dash",

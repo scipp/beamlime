@@ -18,6 +18,7 @@ from ess.reduce.streaming import StreamProcessor
 from scippnexus import NXdetector
 
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
+from beamlime.handlers.workflow_manager import processor_factory
 
 
 def _to_flat_detector_view(da: sc.DataArray) -> sc.DataArray:
@@ -85,7 +86,8 @@ def _make_counts_per_angle(
         sc.zeros(dims=['angle'], shape=[45], unit='counts'), coords={'angle': edges}
     )
     counts = sc.values(data.sum().data)
-    da['angle', rotation.data[-1]] += counts
+    if rotation is not None:
+        da['angle', rotation.data[-1]] += counts
     return da
 
 
@@ -101,20 +103,39 @@ _reduction_workflow.insert(_make_spectrum_view)
 _reduction_workflow.insert(_make_counts_per_angle)
 
 
-def _make_processor():
+@processor_factory.register(name='spectrum-view')
+def _spectrum_view() -> StreamProcessor:
     return StreamProcessor(
-        _reduction_workflow,
+        _reduction_workflow.copy(),
         dynamic_keys=(NeXusData[NXdetector, SampleRun],),
-        accumulators=(SpectrumView, CountsPerAngle),
-        context_keys=(DetectorRotation,),
-        target_keys=(SpectrumView, CountsPerAngle),
+        target_keys=(SpectrumView,),
+        accumulators=(SpectrumView,),
     )
 
 
-def make_stream_processors():
-    return {'unified_detector': _make_processor()}
+@processor_factory.register(name='counts-per-angle')
+def _counts_per_angle() -> StreamProcessor:
+    return StreamProcessor(
+        _reduction_workflow.copy(),
+        dynamic_keys=(NeXusData[NXdetector, SampleRun],),
+        context_keys=(DetectorRotation,),
+        target_keys=(CountsPerAngle,),
+        accumulators=(CountsPerAngle,),
+    )
 
 
+@processor_factory.register(name='all')
+def _all() -> StreamProcessor:
+    return StreamProcessor(
+        _reduction_workflow.copy(),
+        dynamic_keys=(NeXusData[NXdetector, SampleRun],),
+        context_keys=(DetectorRotation,),
+        target_keys=(CountsPerAngle, SpectrumView),
+        accumulators=(CountsPerAngle, SpectrumView),
+    )
+
+
+source_names = ('unified_detector',)
 source_to_key = {
     'unified_detector': NeXusData[NXdetector, SampleRun],
     'detector_rotation': DetectorRotation,

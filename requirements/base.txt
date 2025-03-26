@@ -74,7 +74,7 @@ packaging==24.2
     #   pooch
 pillow==11.1.0
     # via matplotlib
-platformdirs==4.3.6
+platformdirs==4.3.7
     # via pooch
 plopp==25.3.0
     # via scippneutron
@@ -86,7 +86,7 @@ pydantic==2.10.6
     #   scippneutron
 pydantic-core==2.27.2
     # via pydantic
-pyparsing==3.2.1
+pyparsing==3.2.3
     # via matplotlib
 python-dateutil==2.9.0.post0
     # via
@@ -117,7 +117,7 @@ scipy==1.15.2
     #   scippnexus
 six==1.17.0
     # via python-dateutil
-typing-extensions==4.12.2
+typing-extensions==4.13.0
     # via
     #   pydantic
     #   pydantic-core
