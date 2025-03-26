@@ -201,9 +201,12 @@ class BeamlimeCommandsAdapter(MessageAdapter[KafkaMessage, Message[Any]]):
 
     def adapt(self, message: KafkaMessage) -> Message[Any]:
         key = MessageKey(topic=message.topic(), source_name='')
+        timestamp = message.timestamp()[1]
         legacy_key = message.key().decode('utf-8')  # See 286
         value = message.value()
-        return Message(key=key, timestamp=0, value={'key': legacy_key, 'value': value})
+        return Message(
+            key=key, timestamp=timestamp, value={'key': legacy_key, 'value': value}
+        )
 
 
 class ChainedAdapter(MessageAdapter[T, V]):
