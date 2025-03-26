@@ -2,6 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+import inspect
 from collections.abc import Callable, Iterator, MutableMapping, Sequence
 from functools import wraps
 from typing import Any
@@ -52,9 +53,14 @@ class StreamProcessorFactory:
 
         return decorator
 
-    def create(self, name: str) -> StreamProcessor:
+    def create(self, *, workflow_name: str, source_name: str) -> StreamProcessor:
         """Create a StreamProcessor using the registered factory."""
-        return self._factories[name]()
+        factory = self._factories[workflow_name]
+        sig = inspect.signature(factory)
+        if 'source_name' in sig.parameters:
+            return factory(source_name=source_name)
+        else:
+            return factory()
 
 
 processor_factory = StreamProcessorFactory()
@@ -136,7 +142,9 @@ class WorkflowManager:
         if decoded.workflow_name is None:
             processor = None
         else:
-            processor = processor_factory.create(decoded.workflow_name)
+            processor = processor_factory.create(
+                workflow_name=decoded.workflow_name, source_name=decoded.source_name
+            )
         self.set_worklow(decoded.source_name, processor)
 
     def get_accumulator(

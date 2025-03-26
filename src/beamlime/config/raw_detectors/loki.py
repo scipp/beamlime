@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from ess.loki.live import _configured_Larmor_AgBeh_workflow
-from ess.reduce.nexus.types import NeXusData, SampleRun
+from ess.reduce.nexus.types import NeXusData, NeXusDetectorName, SampleRun
 from ess.reduce.streaming import StreamProcessor
 from ess.sans.types import (
     Denominator,
+    Filename,
     Incident,
     IofQ,
     Numerator,
@@ -13,6 +14,7 @@ from ess.sans.types import (
 )
 from scippnexus import NXdetector
 
+from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.handlers.workflow_manager import processor_factory
 
 _res_scale = 12
@@ -82,9 +84,13 @@ _workflow = _configured_Larmor_AgBeh_workflow()
 
 
 @processor_factory.register(name='I(Q)')
-def _i_of_q() -> StreamProcessor:
+def _i_of_q(source_name: str) -> StreamProcessor:
+    wf = _workflow.copy()
+    wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
+    wf[Filename[SampleRun]] = '/home/simon/instruments/loki/977695_00057856.hdf'
+    wf[NeXusDetectorName] = source_name
     return StreamProcessor(
-        _workflow.copy(),
+        wf,
         dynamic_keys=(
             NeXusData[NXdetector, SampleRun],
             NeXusData[Incident, SampleRun],

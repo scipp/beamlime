@@ -33,6 +33,10 @@ class ServiceBase(ABC):
                 format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                 stream=sys.stdout,
             )
+        # scipp.transform_coords logs info messages that are not useful and would show
+        # with every workflow call
+        scipp_logger = logging.getLogger('scipp')
+        scipp_logger.setLevel(logging.WARNING)
 
     def _setup_logging(self, log_level: int) -> None:
         """Configure logging for this service instance if not already configured"""
