@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
-import json
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from dataclasses import replace
 from typing import Any, Generic, Protocol, TypeVar
 
