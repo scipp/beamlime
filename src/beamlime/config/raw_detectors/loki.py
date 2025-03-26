@@ -87,7 +87,6 @@ _workflow = _configured_Larmor_AgBeh_workflow()
 def _i_of_q(source_name: str) -> StreamProcessor:
     wf = _workflow.copy()
     wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
-    wf[Filename[SampleRun]] = '/home/simon/instruments/loki/977695_00057856.hdf'
     wf[NeXusDetectorName] = source_name
     return StreamProcessor(
         wf,

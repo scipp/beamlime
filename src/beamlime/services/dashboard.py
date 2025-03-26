@@ -607,7 +607,7 @@ class DashboardApp(ServiceBase):
         )
 
         self._config_service.update_config(
-            'workflow_control', workflow_control.model_dump()
+            f'{source_name}:workflow_control', workflow_control.model_dump()
         )
 
         return 0

@@ -96,10 +96,11 @@ def make_reduction_service_builder(
         handler_factory=handler_factory,
     )
     config_handler = ConfigHandler(config=config)
-    config_handler.register_action(
-        key='workflow_control',
-        callback=workflow_manager.set_workflow_from_command,
-    )
+    for source_name in instrument_config.source_names:
+        config_handler.register_action(
+            key=f'{source_name}:workflow_control',
+            callback=workflow_manager.set_workflow_from_command,
+        )
     builder.add_handler(ConfigHandler.message_key(instrument), config_handler)
     return builder
 
