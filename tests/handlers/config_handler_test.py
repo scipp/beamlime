@@ -6,6 +6,7 @@ import pytest
 
 from beamlime.config.models import ConfigKey
 from beamlime.handlers.config_handler import ConfigUpdate
+from beamlime.kafka.message_adapter import RawConfigItem
 
 
 class TestConfigUpdate:
@@ -25,13 +26,12 @@ class TestConfigUpdate:
         assert update.key == "test_key"
 
     def test_from_raw(self):
-        # Create a mock message
-        raw_message = {
-            'key': 'source1/service1/test_key',
-            'value': json.dumps({'param': 42}).encode('utf-8'),
-        }
+        item = RawConfigItem(
+            key=b'source1/service1/test_key',
+            value=json.dumps({'param': 42}).encode('utf-8'),
+        )
 
-        update = ConfigUpdate.from_raw(raw_message)
+        update = ConfigUpdate.from_raw(item)
 
         assert update.source_name == "source1"
         assert update.service_name == "service1"
@@ -39,13 +39,12 @@ class TestConfigUpdate:
         assert update.value == {'param': 42}
 
     def test_from_raw_with_wildcards(self):
-        # Create a mock message with wildcards
-        raw_message = {
-            'key': '*/*/test_key',
-            'value': json.dumps({'param': 42}).encode('utf-8'),
-        }
+        item = RawConfigItem(
+            key=b'*/*/test_key',
+            value=json.dumps({'param': 42}).encode('utf-8'),
+        )
 
-        update = ConfigUpdate.from_raw(raw_message)
+        update = ConfigUpdate.from_raw(item)
 
         assert update.source_name is None
         assert update.service_name is None
@@ -53,16 +52,16 @@ class TestConfigUpdate:
         assert update.value == {'param': 42}
 
     def test_from_raw_invalid_key(self):
-        raw_message = {
-            'key': 'invalid_key_format',
-            'value': json.dumps({'param': 42}).encode('utf-8'),
-        }
+        item = RawConfigItem(
+            key=b'invalid_key_format',
+            value=json.dumps({'param': 42}).encode('utf-8'),
+        )
 
         with pytest.raises(ValueError, match="Invalid key format"):
-            ConfigUpdate.from_raw(raw_message)
+            ConfigUpdate.from_raw(item)
 
     def test_from_raw_invalid_json(self):
-        raw_message = {'key': 'source1/service1/test_key', 'value': b'not valid json'}
+        item = RawConfigItem(key=b'source1/service1/test_key', value=b'not valid json')
 
         with pytest.raises(json.JSONDecodeError):
-            ConfigUpdate.from_raw(raw_message)
+            ConfigUpdate.from_raw(item)

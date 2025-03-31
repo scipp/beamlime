@@ -13,7 +13,7 @@ from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.helpers import beam_monitor_topic, beamlime_command_topic
 from beamlime.kafka.message_adapter import (
-    BeamlimeCommandsAdapter,
+    BeamlimeConfigMessageAdapter,
     ChainedAdapter,
     Da00ToScippAdapter,
     KafkaToDa00Adapter,
@@ -50,7 +50,7 @@ def make_monitor_data_adapter(instrument: str) -> RoutingAdapter:
     return RouteByTopicAdapter(
         routes={
             beam_monitor_topic(instrument): monitors,
-            beamlime_command_topic(instrument): BeamlimeCommandsAdapter(),
+            beamlime_command_topic(instrument): BeamlimeConfigMessageAdapter(),
         },
     )
 

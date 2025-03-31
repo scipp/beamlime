@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Any, Generic, Protocol, TypeVar
 
 import scipp as sc
@@ -197,19 +197,26 @@ class Da00ToScippAdapter(
         return replace(message, value=da00_to_scipp(message.value))
 
 
-class BeamlimeCommandsAdapter(MessageAdapter[KafkaMessage, Message[Any]]):
-    """
-    Adapts a Kafka message to a Beamlime command message.
-    """
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RawConfigItem:
+    key: bytes
+    value: bytes
 
-    def adapt(self, message: KafkaMessage) -> Message[Any]:
+
+class BeamlimeConfigMessageAdapter(
+    MessageAdapter[KafkaMessage, Message[RawConfigItem]]
+):
+    """Adapts a Kafka message to a Beamlime config message."""
+
+    def adapt(self, message: KafkaMessage) -> Message[RawConfigItem]:
         timestamp = message.timestamp()[1]
-        key = message.key().decode('utf-8')
-        return Message(
-            key=MessageKey(topic=message.topic(), source_name='config'),
-            timestamp=timestamp,
-            value={'key': key, 'value': message.value()},
-        )
+        # The source name is set to 'config' to ensure these messages can be routed to
+        # the :py:class:`ConfigHandler` in the service.
+        key = MessageKey(topic=message.topic(), source_name='config')
+        # Beamlime configuration uses a compacted Kafka topic. The Kafka message key
+        # is the encoded string representation of a :py:class:`ConfigKey` object.
+        item = RawConfigItem(key=message.key(), value=message.value())
+        return Message(key=key, timestamp=timestamp, value=item)
 
 
 class ChainedAdapter(MessageAdapter[T, V]):

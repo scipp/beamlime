@@ -15,7 +15,7 @@ from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.helpers import beamlime_command_topic, detector_topic
 from beamlime.kafka.message_adapter import (
-    BeamlimeCommandsAdapter,
+    BeamlimeConfigMessageAdapter,
     ChainedAdapter,
     Ev44ToDetectorEventsAdapter,
     KafkaToEv44Adapter,
@@ -46,7 +46,7 @@ def make_detector_data_adapter(instrument: str) -> RouteByTopicAdapter:
     return RouteByTopicAdapter(
         routes={
             detector_topic(instrument): detectors,
-            beamlime_command_topic(instrument): BeamlimeCommandsAdapter(),
+            beamlime_command_topic(instrument): BeamlimeConfigMessageAdapter(),
         },
     )
 

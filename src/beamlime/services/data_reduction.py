@@ -22,7 +22,7 @@ from beamlime.kafka.helpers import (
     motion_topic,
 )
 from beamlime.kafka.message_adapter import (
-    BeamlimeCommandsAdapter,
+    BeamlimeConfigMessageAdapter,
     ChainedAdapter,
     Da00ToScippAdapter,
     Ev44ToDetectorEventsAdapter,
@@ -74,7 +74,7 @@ def make_reduction_service_builder(
             motion_topic(instrument): ChainedAdapter(
                 first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
             ),
-            beamlime_command_topic(instrument): BeamlimeCommandsAdapter(),
+            beamlime_command_topic(instrument): BeamlimeConfigMessageAdapter(),
         }
     )
     instrument_config = get_config(instrument)

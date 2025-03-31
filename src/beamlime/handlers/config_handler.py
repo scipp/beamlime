@@ -11,6 +11,7 @@ from ..config.models import ConfigKey
 from ..core.handler import Config, Handler
 from ..core.message import Message, MessageKey
 from ..kafka.helpers import beamlime_command_topic
+from ..kafka.message_adapter import RawConfigItem
 
 
 @dataclass
@@ -31,9 +32,9 @@ class ConfigUpdate:
         return self.config_key.key
 
     @staticmethod
-    def from_raw(message: dict[str, str | bytes]) -> ConfigUpdate:
-        config_key = ConfigKey.from_string(message['key'])
-        value = json.loads(message['value'].decode('utf-8'))
+    def from_raw(item: RawConfigItem) -> ConfigUpdate:
+        config_key = ConfigKey.from_string(item.key.decode('utf-8'))
+        value = json.loads(item.value.decode('utf-8'))
         return ConfigUpdate(config_key=config_key, value=value)
 
 
@@ -90,7 +91,7 @@ class ConfigHandler(Handler[bytes, None]):
         """
         self._actions.setdefault(key, []).append(callback)
 
-    def handle(self, messages: list[Message[bytes]]) -> list[Message[None]]:
+    def handle(self, messages: list[Message[RawConfigItem]]) -> list[Message[None]]:
         """
         Process configuration messages and update the configuration.
 
