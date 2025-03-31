@@ -14,7 +14,13 @@ def scipp_to_da00(
             _to_da00_variable(signal_name, sc.values(da.data)),
             _to_da00_variable('errors', sc.stddevs(da.data)),
         ]
-    variables.extend([_to_da00_variable(name, var) for name, var in da.coords.items()])
+    variables.extend(
+        [
+            _to_da00_variable(name, var)
+            for name, var in da.coords.items()
+            if var.shape == var.values.shape  # vector3 etc. not supported currently
+        ]
+    )
     return variables
 
 

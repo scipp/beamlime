@@ -13,6 +13,7 @@ from beamlime.config.config_loader import load_config
 from beamlime.config.raw_detectors import get_config
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.data_reduction_handler import ReductionHandlerFactory
+from beamlime.handlers.workflow_manager import WorkflowManager
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.helpers import (
     beam_monitor_topic,
@@ -23,12 +24,15 @@ from beamlime.kafka.helpers import (
 from beamlime.kafka.message_adapter import (
     BeamlimeCommandsAdapter,
     ChainedAdapter,
+    Da00ToScippAdapter,
     Ev44ToDetectorEventsAdapter,
-    Ev44ToMonitorEventsAdapter,
     F144ToLogDataAdapter,
+    KafkaToDa00Adapter,
     KafkaToEv44Adapter,
     KafkaToF144Adapter,
+    KafkaToMonitorEventsAdapter,
     RouteByTopicAdapter,
+    RoutingAdapter,
 )
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
 from beamlime.kafka.source import MultiConsumer
@@ -50,11 +54,17 @@ def setup_arg_parser() -> argparse.ArgumentParser:
 def make_reduction_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
+    monitors = RoutingAdapter(
+        routes={
+            'ev44': KafkaToMonitorEventsAdapter(),
+            'da00': ChainedAdapter(
+                first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
+            ),
+        }
+    )
     adapter = RouteByTopicAdapter(
         routes={
-            beam_monitor_topic(instrument): ChainedAdapter(
-                first=KafkaToEv44Adapter(), second=Ev44ToMonitorEventsAdapter()
-            ),
+            beam_monitor_topic(instrument): monitors,
             detector_topic(instrument): ChainedAdapter(
                 first=KafkaToEv44Adapter(),
                 second=Ev44ToDetectorEventsAdapter(
@@ -67,10 +77,16 @@ def make_reduction_service_builder(
             beamlime_command_topic(instrument): BeamlimeCommandsAdapter(),
         }
     )
+    instrument_config = get_config(instrument)
+    workflow_manager = WorkflowManager(
+        source_names=instrument_config.source_names,
+        source_to_key=instrument_config.source_to_key,
+    )
     config = {}
-    config_handler = ConfigHandler(config=config)
     handler_factory = ReductionHandlerFactory(
-        instrument_config=get_config(instrument), config=config
+        config=config,
+        workflow_manager=workflow_manager,
+        f144_attribute_registry=instrument_config.f144_attribute_registry,
     )
     builder = DataServiceBuilder(
         instrument=instrument,
@@ -79,6 +95,12 @@ def make_reduction_service_builder(
         adapter=adapter,
         handler_factory=handler_factory,
     )
+    config_handler = ConfigHandler(config=config)
+    for source_name in instrument_config.source_names:
+        config_handler.register_action(
+            key=f'{source_name}:workflow_control',
+            callback=workflow_manager.set_workflow_from_command,
+        )
     builder.add_handler(ConfigHandler.message_key(instrument), config_handler)
     return builder
 
