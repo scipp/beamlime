@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -61,19 +60,14 @@ class ConfigHandler(Handler[bytes, None]):
             topic=beamlime_command_topic(instrument), source_name='config'
         )
 
-    def __init__(
-        self,
-        *,
-        logger: logging.Logger | None = None,
-        source_names: Sequence[str],
-        service_name: str,
-    ):
+    def __init__(self, *, logger: logging.Logger | None = None, service_name: str):
         super().__init__(logger=logger, config={})
         self._service_name = service_name
-        self._stores = {name: {} for name in source_names}
+        self._global_store: dict[str, Any] = {}
+        self._stores: dict[str, dict[str, Any]] = {}
         self._actions: dict[str, list[callable]] = {}
 
-    def get_config(self, source_name: str) -> Config | None:
+    def get_config(self, source_name: str) -> Config:
         """
         Get the configuration store for a specific source name.
 
@@ -82,7 +76,7 @@ class ConfigHandler(Handler[bytes, None]):
         source_name:
             Name of the source to get the configuration for
         """
-        return self._stores.get(source_name)
+        return self._stores.setdefault(source_name, dict(self._global_store))
 
     def register_action(self, *, key: str, callback: callable):
         """
@@ -130,10 +124,11 @@ class ConfigHandler(Handler[bytes, None]):
                 )
                 updated[key] = update
                 if source_name is None:
+                    self._global_store[key] = value
                     for store in self._stores.values():
                         store[key] = value
                 else:
-                    self._stores[source_name][key] = value
+                    self.get_config(source_name)[key] = value
             except Exception:
                 self._logger.exception('Error processing config message:')
         # Delay action calls until all messages are processed to reduce triggering

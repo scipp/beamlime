@@ -17,6 +17,25 @@ class Config(Protocol):
         pass
 
 
+class ConfigRegistry(Protocol):
+    def get_config(self, source_name: str) -> Config:
+        pass
+
+
+class FakeConfigRegistry(ConfigRegistry):
+    """
+    Fake config registry that returns empty configs for any requested source_name.
+
+    This is used for testing purposes and is not meant to be used in production.
+    """
+
+    def __init__(self):
+        self._configs: dict[str, Config] = {}
+
+    def get_config(self, source_name: str) -> Config:
+        return self._configs.setdefault(source_name, {})
+
+
 class Handler(Generic[Tin, Tout]):
     """
     Base class for message handlers.
@@ -50,15 +69,18 @@ class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
         self,
         *,
         logger: logging.Logger | None = None,
-        config: Config,
+        config_registry: ConfigRegistry | None = None,
         handler_cls: type[Handler[Tin, Tout]],
     ):
         self._logger = logger or logging.getLogger(__name__)
-        self._config = config
+        self._config_registry = config_registry or FakeConfigRegistry()
         self._handler_cls = handler_cls
 
     def make_handler(self, key: MessageKey) -> Handler[Tin, Tout]:
-        return self._handler_cls(logger=self._logger, config=self._config)
+        return self._handler_cls(
+            logger=self._logger,
+            config=self._config_registry.get_config(key.source_name),
+        )
 
     @staticmethod
     def from_handler(
@@ -68,7 +90,7 @@ class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
             *, logger: logging.Logger | None = None, config: Config
         ) -> CommonHandlerFactory[Tin, Tout]:
             return CommonHandlerFactory(
-                logger=logger, config=config, handler_cls=handler_cls
+                logger=logger, config_handler=config, handler_cls=handler_cls
             )
 
         return make

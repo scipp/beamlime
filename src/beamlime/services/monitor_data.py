@@ -58,14 +58,14 @@ def make_monitor_data_adapter(instrument: str) -> RoutingAdapter:
 def make_monitor_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
-    config = {}
-    config_handler = ConfigHandler(config=config)
+    service_name = 'monitor_data'
+    config_handler = ConfigHandler(service_name=service_name)
     handler_factory = CommonHandlerFactory(
-        handler_cls=create_monitor_data_handler, config=config
+        handler_cls=create_monitor_data_handler, config_registry=config_handler
     )
     builder = DataServiceBuilder(
         instrument=instrument,
-        name='monitor_data',
+        name=service_name,
         log_level=log_level,
         adapter=make_monitor_data_adapter(instrument=instrument),
         handler_factory=handler_factory,

@@ -30,7 +30,7 @@ class KafkaMessage(Protocol):
     def value(self) -> bytes:
         pass
 
-    def timestamp(self) -> int:
+    def timestamp(self) -> tuple[int, int]:
         pass
 
     def topic(self) -> str:
@@ -91,7 +91,7 @@ class KafkaToEv44Adapter(
         if ev44.reference_time.size > 0:
             timestamp = ev44.reference_time[-1]
         else:
-            timestamp = message.timestamp()
+            timestamp = message.timestamp()[1]
         return Message(timestamp=timestamp, key=key, value=ev44)
 
 
@@ -156,7 +156,7 @@ class KafkaToMonitorEventsAdapter(MessageAdapter[KafkaMessage, Message[MonitorEv
         if reference_time.size > 0:
             timestamp = reference_time[-1]
         else:
-            timestamp = message.timestamp()
+            timestamp = message.timestamp()[1]
         return Message(
             timestamp=timestamp,
             key=key,

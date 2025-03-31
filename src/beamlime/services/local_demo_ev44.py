@@ -54,7 +54,7 @@ def main() -> NoReturn:
         ),
         sink=PlotToPngSink(),
         handler_factory=CommonHandlerFactory(
-            config={}, handler_cls=create_monitor_data_handler
+            config_handler={}, handler_cls=create_monitor_data_handler
         ),
     )
     service = Service(processor=processor, name="local_demo_ev44")

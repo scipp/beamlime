@@ -59,7 +59,7 @@ def test_basics() -> None:
         instrument='instrument',
         name='name',
         adapter=ForwardingAdapter(),
-        handler_factory=CommonHandlerFactory(handler_cls=ForwardingHandler, config={}),
+        handler_factory=CommonHandlerFactory(handler_cls=ForwardingHandler),
     )
     sink = FakeMessageSink()
     consumer = IntConsumer()

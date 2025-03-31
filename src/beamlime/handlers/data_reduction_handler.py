@@ -7,10 +7,14 @@ from typing import Any
 
 import scipp as sc
 
-from ..core.handler import Handler, HandlerFactory, PeriodicAccumulatingHandler
+from ..core.handler import (
+    ConfigRegistry,
+    Handler,
+    HandlerFactory,
+    PeriodicAccumulatingHandler,
+)
 from ..core.message import Message, MessageKey
 from .accumulators import DetectorEvents, ToNXevent_data
-from .config_handler import ConfigHandler
 from .monitor_data_handler import MonitorDataPreprocessor
 from .to_nx_log import ToNXlog
 from .workflow_manager import WorkflowManager
@@ -34,10 +38,10 @@ class ReductionHandlerFactory(
         workflow_manager: WorkflowManager,
         f144_attribute_registry: dict[str, dict[str, Any]],
         logger: logging.Logger | None = None,
-        config_handler: ConfigHandler,
+        config_registry: ConfigRegistry,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
-        self._config_handler = config_handler
+        self._config_registry = config_registry
         self._workflow_manager = workflow_manager
         self._f144_attribute_registry = f144_attribute_registry
 
@@ -62,10 +66,13 @@ class ReductionHandlerFactory(
         if self._is_nxlog(key):
             attrs = self._f144_attribute_registry[key.source_name]
             preprocessor = ToNXlog(attrs=attrs)
+            config = {}
         elif self._is_monitor(key):
             preprocessor = MonitorDataPreprocessor(config={})
+            config = {}
         else:
             preprocessor = ToNXevent_data()
+            config = self._config_registry.get_config(key.source_name)
         self._logger.info(
             "%s using preprocessor %s", key.source_name, preprocessor.__class__.__name__
         )
@@ -73,7 +80,7 @@ class ReductionHandlerFactory(
 
         return PeriodicAccumulatingHandler(
             logger=self._logger,
-            config=self._config_handler.get_config(key.source_name) or {},
+            config=config,
             preprocessor=preprocessor,
             accumulators={f'reduced/{key.source_name}': accumulator},
         )

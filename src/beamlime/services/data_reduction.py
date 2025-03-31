@@ -83,14 +83,12 @@ def make_reduction_service_builder(
         source_to_key=instrument_config.source_to_key,
     )
     service_name = 'data_reduction'
-    config_handler = ConfigHandler(
-        service_name=service_name, source_names=instrument_config.source_names
-    )
+    config_handler = ConfigHandler(service_name=service_name)
     config_handler.register_action(
         key='workflow_name', callback=workflow_manager.set_workflow_from_name
     )
     handler_factory = ReductionHandlerFactory(
-        config_handler=config_handler,
+        config_registry=config_handler,
         workflow_manager=workflow_manager,
         f144_attribute_registry=instrument_config.f144_attribute_registry,
     )
