@@ -14,6 +14,7 @@ from dash.exceptions import PreventUpdate
 from beamlime import Service, ServiceBase
 from beamlime.config import config_names, models
 from beamlime.config.config_loader import load_config
+from beamlime.config.models import ConfigKey
 from beamlime.config.raw_detectors import get_config
 from beamlime.core.config_service import ConfigService
 from beamlime.core.message import compact_messages
@@ -399,9 +400,8 @@ class DashboardApp(ServiceBase):
             x=models.ROIAxisRange(low=x_min / 100, high=x_max / 100),
             y=models.ROIAxisRange(low=y_min / 100, high=y_max / 100),
         )
-        self._config_service.update_config(
-            '*/detector_data/roi_rectangle', roi.model_dump()
-        )
+        config_key = ConfigKey(service_name="detector_data", key="roi_rectangle")
+        self._config_service.update_config(config_key, roi.model_dump())
 
         # Update ROI rectangles in all 2D plots
         for fig in self._plots.values():
@@ -431,16 +431,14 @@ class DashboardApp(ServiceBase):
         model = models.TOARange(
             enabled=len(toa_enabled) > 0, low=low, high=high, unit='us'
         )
-        self._config_service.update_config(
-            '*/detector_data/toa_range', model.model_dump()
-        )
+        config_key = ConfigKey(service_name="detector_data", key="toa_range")
+        self._config_service.update_config(config_key, model.model_dump())
         return center, delta
 
     def update_use_weights(self, value: list[str]) -> list[str]:
         model = models.PixelWeighting(enabled=len(value) > 0)
-        self._config_service.update_config(
-            '*/detector_data/pixel_weighting', model.model_dump()
-        )
+        config_key = ConfigKey(service_name="detector_data", key="pixel_weighting")
+        self._config_service.update_config(config_key, model.model_dump())
         return value
 
     @staticmethod
@@ -574,20 +572,21 @@ class DashboardApp(ServiceBase):
 
     def update_timing_settings(self, update_speed: float) -> float:
         update_every = models.UpdateEvery(value=2**update_speed, unit='ms')
-        self._config_service.update_config(
-            '*/*/update_every', update_every.model_dump()
-        )
+        config_key = ConfigKey(key="update_every")
+        self._config_service.update_config(config_key, update_every.model_dump())
         return 2**update_speed
 
     def update_num_points(self, value: int) -> int:
-        self._config_service.update_config('*/*/time_of_arrival_bins', value)
+        config_key = ConfigKey(key="time_of_arrival_bins")
+        self._config_service.update_config(config_key, value)
         return value
 
     def clear_data(self, n_clicks: int | None) -> int:
         if n_clicks is None or n_clicks == 0:
             raise PreventUpdate
         model = models.StartTime(value=int(time.time_ns()), unit='ns')
-        self._config_service.update_config('*/*/start_time', model.model_dump())
+        config_key = ConfigKey(key="start_time")
+        self._config_service.update_config(config_key, model.model_dump())
         return 0
 
     def send_workflow_control(
@@ -602,9 +601,10 @@ class DashboardApp(ServiceBase):
             raise PreventUpdate
 
         actual_workflow_name = workflow_name if enable_workflow else None
-        self._config_service.update_config(
-            f'{source_name}/data_reduction/workflow_name', actual_workflow_name
+        config_key = ConfigKey(
+            source_name=source_name, service_name="data_reduction", key="workflow_name"
         )
+        self._config_service.update_config(config_key, actual_workflow_name)
 
         return 0
 

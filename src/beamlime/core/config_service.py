@@ -6,6 +6,8 @@ from typing import Any
 
 from confluent_kafka import Consumer, KafkaError, Producer
 
+from beamlime.config.models import ConfigKey
+
 
 class ConfigService:
     """
@@ -44,26 +46,54 @@ class ConfigService:
         if err:
             self._logger.error('Message delivery failed: %s', err)
 
-    def update_config(self, key: str, value):
+    def update_config(self, key: ConfigKey, value):
+        """
+        Update configuration value for the specified key.
+
+        Parameters
+        ----------
+        key:
+            ConfigKey specifying the configuration target
+        value:
+            Value to store for the configuration key
+        """
         try:
+            str_key = str(key)
+
             # Mark this as a local update
-            update_id = f"{key}:{hash(str(value))}"
+            update_id = f"{str_key}:{hash(str(value))}"
             self._local_updates.add(update_id)
 
             self._producer.produce(
                 self._topic,
-                key=str(key).encode('utf-8'),
+                key=str_key.encode('utf-8'),
                 value=json.dumps(value).encode('utf-8'),
                 callback=self.delivery_callback,
             )
             self._producer.flush()
-            self._config[key] = value
+            self._config[str_key] = value
         except Exception as e:
-            self._local_updates.discard(update_id)
+            if 'update_id' in locals():
+                self._local_updates.discard(update_id)
             self._logger.error('Failed to update config: %s', e)
 
-    def get(self, key: str, default=None):
-        return self._config.get(key, default)
+    def get(self, key: ConfigKey, default=None):
+        """
+        Get configuration value for the specified key.
+
+        Parameters
+        ----------
+        key:
+            ConfigKey to retrieve
+        default:
+            Value to return if key is not found
+
+        Returns
+        -------
+        :
+            The configuration value or default if not found
+        """
+        return self._config.get(str(key), default)
 
     def start(self):
         self._running = True
@@ -81,13 +111,13 @@ class ConfigService:
                         break
 
                 try:
-                    key = msg.key().decode('utf-8')
+                    key_str = msg.key().decode('utf-8')
                     value = json.loads(msg.value().decode('utf-8'))
 
                     # Only update if not from our own producer
-                    update_id = f"{key}:{hash(str(value))}"
+                    update_id = f"{key_str}:{hash(str(value))}"
                     if update_id not in self._local_updates:
-                        self._config[key] = value
+                        self._config[key_str] = value
                     else:
                         self._local_updates.discard(update_id)
                 except Exception as e:
