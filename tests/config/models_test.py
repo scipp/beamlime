@@ -112,3 +112,89 @@ def test_roi_rectangle_defaults():
     roi = models.ROIRectangle()
     assert roi.x == models.ROIAxisRange()
     assert roi.y == models.ROIAxisRange()
+
+
+class TestConfigKey:
+    def test_defaults(self):
+        key = models.ConfigKey(key="test_key")
+        assert key.source_name is None
+        assert key.service_name is None
+        assert key.key == "test_key"
+
+    def test_custom_values(self):
+        key = models.ConfigKey(
+            source_name="source1", service_name="service1", key="test_key"
+        )
+        assert key.source_name == "source1"
+        assert key.service_name == "service1"
+        assert key.key == "test_key"
+
+    def test_str_all_values(self):
+        key = models.ConfigKey(
+            source_name="source1", service_name="service1", key="test_key"
+        )
+        assert str(key) == "source1/service1/test_key"
+
+    def test_str_with_wildcards(self):
+        key1 = models.ConfigKey(
+            source_name=None, service_name="service1", key="test_key"
+        )
+        assert str(key1) == "*/service1/test_key"
+
+        key2 = models.ConfigKey(
+            source_name="source1", service_name=None, key="test_key"
+        )
+        assert str(key2) == "source1/*/test_key"
+
+        key3 = models.ConfigKey(source_name=None, service_name=None, key="test_key")
+        assert str(key3) == "*/*/test_key"
+
+    def test_from_string_all_values(self):
+        key = models.ConfigKey.from_string("source1/service1/test_key")
+        assert key.source_name == "source1"
+        assert key.service_name == "service1"
+        assert key.key == "test_key"
+
+    def test_from_string_with_wildcards(self):
+        key1 = models.ConfigKey.from_string("*/service1/test_key")
+        assert key1.source_name is None
+        assert key1.service_name == "service1"
+        assert key1.key == "test_key"
+
+        key2 = models.ConfigKey.from_string("source1/*/test_key")
+        assert key2.source_name == "source1"
+        assert key2.service_name is None
+        assert key2.key == "test_key"
+
+        key3 = models.ConfigKey.from_string("*/*/test_key")
+        assert key3.source_name is None
+        assert key3.service_name is None
+        assert key3.key == "test_key"
+
+    def test_from_string_invalid_format(self):
+        with pytest.raises(ValueError, match="Invalid key format"):
+            models.ConfigKey.from_string("invalid_key")
+
+        with pytest.raises(ValueError, match="Invalid key format"):
+            models.ConfigKey.from_string("source1/service1")
+
+        with pytest.raises(ValueError, match="Invalid key format"):
+            models.ConfigKey.from_string("source1/service1/key1/extra")
+
+    def test_roundtrip_conversion(self):
+        original = models.ConfigKey(
+            source_name="source1", service_name="service1", key="test_key"
+        )
+        string_repr = str(original)
+        parsed = models.ConfigKey.from_string(string_repr)
+        assert parsed.source_name == original.source_name
+        assert parsed.service_name == original.service_name
+        assert parsed.key == original.key
+
+        # With wildcards
+        original = models.ConfigKey(source_name=None, service_name=None, key="test_key")
+        string_repr = str(original)
+        parsed = models.ConfigKey.from_string(string_repr)
+        assert parsed.source_name is None
+        assert parsed.service_name is None
+        assert parsed.key == original.key

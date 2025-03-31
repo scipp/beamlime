@@ -7,6 +7,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+from ..config.models import ConfigKey
 from ..core.handler import Config, Handler
 from ..core.message import Message, MessageKey
 from ..kafka.helpers import beamlime_command_topic
@@ -14,28 +15,26 @@ from ..kafka.helpers import beamlime_command_topic
 
 @dataclass
 class ConfigUpdate:
-    source_name: str | None
-    service_name: str | None  # Used for filtering
-    key: str
+    config_key: ConfigKey
     value: Any
+
+    @property
+    def source_name(self) -> str | None:
+        return self.config_key.source_name
+
+    @property
+    def service_name(self) -> str | None:
+        return self.config_key.service_name
+
+    @property
+    def key(self) -> str:
+        return self.config_key.key
 
     @staticmethod
     def from_raw(message: dict[str, str | bytes]) -> ConfigUpdate:
-        key_parts = message['key'].split('/')
-        if len(key_parts) != 3:
-            raise ValueError(
-                "Invalid key format, expected 'source_name/service_name/key', "
-                f"got {message['key']}"
-            )
-        source_name, service_name, key = key_parts
-        if source_name == '*':
-            source_name = None
-        if service_name == '*':
-            service_name = None
+        config_key = ConfigKey.from_string(message['key'])
         value = json.loads(message['value'].decode('utf-8'))
-        return ConfigUpdate(
-            source_name=source_name, service_name=service_name, key=key, value=value
-        )
+        return ConfigUpdate(config_key=config_key, value=value)
 
 
 class ConfigHandler(Handler[bytes, None]):
