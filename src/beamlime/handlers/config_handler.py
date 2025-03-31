@@ -72,6 +72,10 @@ class ConfigHandler(Handler[bytes, None]):
         """
         Get the configuration store for a specific source name.
 
+        If not configured, a new store is created and returned, based on the current
+        global store. This method always returns a store for the given source name,
+        i.e., there is not mechanism to check if the source name is valid.
+
         Parameters
         ----------
         source_name:
