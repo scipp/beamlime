@@ -137,6 +137,14 @@ class WorkflowManager:
         if (proxy := self._proxies.get(source_name)) is not None:
             proxy.set_processor(self._processors.get(source_name))
 
+    def set_workflow_from_name(self, source_name: str, value: str | None) -> None:
+        self.set_worklow(
+            source_name,
+            processor=None
+            if value is None
+            else processor_factory.create(workflow_name=value, source_name=source_name),
+        )
+
     def set_workflow_from_command(self, command: Any) -> None:
         decoded = WorkflowControl.model_validate(command)
         if decoded.workflow_name is None:

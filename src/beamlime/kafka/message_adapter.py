@@ -38,7 +38,10 @@ class KafkaMessage(Protocol):
 
 
 class FakeKafkaMessage(KafkaMessage):
-    def __init__(self, value: bytes, topic: str, timestamp: int = 0):
+    def __init__(
+        self, *, key: bytes = b'', value: bytes, topic: str, timestamp: int = 0
+    ):
+        self._key = key
         self._value = value
         self._topic = topic
         self._timestamp = timestamp
@@ -47,13 +50,13 @@ class FakeKafkaMessage(KafkaMessage):
         return None
 
     def key(self) -> bytes:
-        return b""
+        return self._key
 
     def value(self) -> bytes:
         return self._value
 
-    def timestamp(self) -> int:
-        return self._timestamp
+    def timestamp(self) -> tuple[int, int]:
+        return (0, self._timestamp)
 
     def topic(self) -> str:
         return self._topic
@@ -200,12 +203,12 @@ class BeamlimeCommandsAdapter(MessageAdapter[KafkaMessage, Message[Any]]):
     """
 
     def adapt(self, message: KafkaMessage) -> Message[Any]:
-        key = MessageKey(topic=message.topic(), source_name='')
         timestamp = message.timestamp()[1]
-        legacy_key = message.key().decode('utf-8')  # See 286
-        value = message.value()
+        key = message.key().decode('utf-8')
         return Message(
-            key=key, timestamp=timestamp, value={'key': legacy_key, 'value': value}
+            key=MessageKey(topic=message.topic(), source_name='config'),
+            timestamp=timestamp,
+            value={'key': key, 'value': message.value()},
         )
 
 

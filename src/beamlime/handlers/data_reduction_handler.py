@@ -7,9 +7,10 @@ from typing import Any
 
 import scipp as sc
 
-from ..core.handler import Config, Handler, HandlerFactory, PeriodicAccumulatingHandler
+from ..core.handler import Handler, HandlerFactory, PeriodicAccumulatingHandler
 from ..core.message import Message, MessageKey
 from .accumulators import DetectorEvents, ToNXevent_data
+from .config_handler import ConfigHandler
 from .monitor_data_handler import MonitorDataPreprocessor
 from .to_nx_log import ToNXlog
 from .workflow_manager import WorkflowManager
@@ -33,10 +34,10 @@ class ReductionHandlerFactory(
         workflow_manager: WorkflowManager,
         f144_attribute_registry: dict[str, dict[str, Any]],
         logger: logging.Logger | None = None,
-        config: Config,
+        config_handler: ConfigHandler,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
-        self._config = config
+        self._config_handler = config_handler
         self._workflow_manager = workflow_manager
         self._f144_attribute_registry = f144_attribute_registry
 
@@ -56,13 +57,13 @@ class ReductionHandlerFactory(
                 "No workflow key found for source name %s, using null handler",
                 key.source_name,
             )
-            return NullHandler(logger=self._logger, config=self._config)
+            return NullHandler(logger=self._logger, config={})
 
         if self._is_nxlog(key):
             attrs = self._f144_attribute_registry[key.source_name]
             preprocessor = ToNXlog(attrs=attrs)
         elif self._is_monitor(key):
-            preprocessor = MonitorDataPreprocessor(config=self._config)
+            preprocessor = MonitorDataPreprocessor(config={})
         else:
             preprocessor = ToNXevent_data()
         self._logger.info(
@@ -72,7 +73,7 @@ class ReductionHandlerFactory(
 
         return PeriodicAccumulatingHandler(
             logger=self._logger,
-            config=self._config,
+            config=self._config_handler.get_config(key.source_name) or {},
             preprocessor=preprocessor,
             accumulators={f'reduced/{key.source_name}': accumulator},
         )
