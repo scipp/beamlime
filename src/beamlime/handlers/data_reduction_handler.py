@@ -63,6 +63,12 @@ class ReductionHandlerFactory(
             )
             return NullHandler(logger=self._logger, config={})
 
+        # Note we are setting config = {} unless we are processing detector data. The
+        # config is used, e.g., to implement a "clear" mechanism. For data reduction,
+        # clearing is however handled by "clearing" the entire data reduction workflow
+        # for a detector, i.e., auxiliary data such as logs and monitors are cleared
+        # when the workflow is cleared. This is done via the proxy the workflow manager
+        # returns for the detector data accumulator.
         if self._is_nxlog(key):
             attrs = self._f144_attribute_registry[key.source_name]
             preprocessor = ToNXlog(attrs=attrs)

@@ -18,6 +18,16 @@ class Config(Protocol):
 
 
 class ConfigRegistry(Protocol):
+    """
+    Registry for configuration for different sources.
+
+    This is used by handlers to obtain configuration specific to a source. This protocol
+    is first and foremostly implemented by :py:class:`ConfigHandler`, which is used to
+    handle configuration messages, providing a mechanism to update the configuration
+    dynamically. The configuration is then used by the handlers to configure themselves
+    based on the source name of the messages they are processing.
+    """
+
     def get_config(self, source_name: str) -> Config:
         pass
 
@@ -81,19 +91,6 @@ class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
             logger=self._logger,
             config=self._config_registry.get_config(key.source_name),
         )
-
-    @staticmethod
-    def from_handler(
-        handler_cls: type[Handler[Tin, Tout]],
-    ) -> Callable[[logging.Logger | None, Config], CommonHandlerFactory[Tin, Tout]]:
-        def make(
-            *, logger: logging.Logger | None = None, config: Config
-        ) -> CommonHandlerFactory[Tin, Tout]:
-            return CommonHandlerFactory(
-                logger=logger, config_handler=config, handler_cls=handler_cls
-            )
-
-        return make
 
 
 class HandlerRegistry(Generic[Tin, Tout]):

@@ -5,13 +5,11 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable, Iterator, MutableMapping, Sequence
 from functools import wraps
-from typing import Any
 
 import scipp as sc
 from ess.reduce.streaming import StreamProcessor
 from sciline.typing import Key
 
-from ..config.models import WorkflowControl
 from ..core.handler import Accumulator
 
 
@@ -144,16 +142,6 @@ class WorkflowManager:
             if value is None
             else processor_factory.create(workflow_name=value, source_name=source_name),
         )
-
-    def set_workflow_from_command(self, command: Any) -> None:
-        decoded = WorkflowControl.model_validate(command)
-        if decoded.workflow_name is None:
-            processor = None
-        else:
-            processor = processor_factory.create(
-                workflow_name=decoded.workflow_name, source_name=decoded.source_name
-            )
-        self.set_worklow(decoded.source_name, processor)
 
     def get_accumulator(
         self, source_name: str
