@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -65,7 +66,7 @@ class ConfigHandler(Handler[bytes, None]):
         self._service_name = service_name
         self._global_store: dict[str, Any] = {}
         self._stores: dict[str, dict[str, Any]] = {}
-        self._actions: dict[str, list[callable]] = {}
+        self._actions: dict[str, list[Callable[[str, Any], None]]] = {}
 
     def get_config(self, source_name: str) -> Config:
         """
@@ -78,7 +79,7 @@ class ConfigHandler(Handler[bytes, None]):
         """
         return self._stores.setdefault(source_name, dict(self._global_store))
 
-    def register_action(self, *, key: str, callback: callable):
+    def register_action(self, *, key: str, action: Callable[[str, Any], None]) -> None:
         """
         Register an action to be called when a specific key is updated.
 
@@ -86,10 +87,12 @@ class ConfigHandler(Handler[bytes, None]):
         ----------
         key:
             Key to watch for changes
-        callback:
-            Callback function to call when the key is updated
+        action:
+            Function to call when the key is updated. The function will be invoked
+            with the source_name and the new value as keyword arguments, e.g.,
+            ``action(source_name=source_name, value=value)``.
         """
-        self._actions.setdefault(key, []).append(callback)
+        self._actions.setdefault(key, []).append(action)
 
     def handle(self, messages: list[Message[RawConfigItem]]) -> list[Message[None]]:
         """
