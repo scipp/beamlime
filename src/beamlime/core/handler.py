@@ -254,8 +254,10 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         return [
             Message(
                 timestamp=timestamp,
-                key=source_name(key, name),
-                kind=StreamKind.BEAMLIME_DATA,
+                key=MessageKey(
+                    kind=StreamKind.BEAMLIME_DATA,
+                    source_name=source_name(key.source_name, name),
+                ),
                 value=accumulator.get(),
             )
             for name, accumulator in self._accumulators.items()

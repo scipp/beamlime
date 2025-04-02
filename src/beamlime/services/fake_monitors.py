@@ -9,7 +9,7 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from beamlime import Handler, Message, MessageSource, Service
+from beamlime import Handler, Message, MessageKey, MessageSource, Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.core.handler import CommonHandlerFactory
@@ -61,7 +61,9 @@ class FakeMonitorSource(MessageSource[sc.Variable]):
         time_of_flight = self._make_normal(mean=30_000_000, std=10_000_000, size=size)
         var = sc.array(dims=['time_of_arrival'], values=time_of_flight, unit='ns')
         return Message(
-            timestamp=timestamp, key=name, kind=StreamKind.MONITOR_EVENTS, value=var
+            timestamp=timestamp,
+            key=MessageKey(kind=StreamKind.MONITOR_EVENTS, source_name=name),
+            value=var,
         )
 
 
@@ -74,7 +76,7 @@ class EventsToHistogramAdapter(
     def adapt(self, message: Message[sc.Variable]) -> Message[sc.DataArray]:
         return replace(
             message,
-            kind=StreamKind.MONITOR_COUNTS,
+            key=replace(message.key, kind=StreamKind.MONITOR_COUNTS),
             value=message.value.hist({self._toa.dim: self._toa}),
         )
 
@@ -93,7 +95,7 @@ def serialize_variable_to_monitor_ev44(msg: Message[sc.Variable]) -> bytes:
         raise SerializationError(f"Expected unit 'ns', got {msg.value.unit}")
     try:
         ev44 = eventdata_ev44.serialise_ev44(
-            source_name=msg.key,
+            source_name=msg.key.source_name,
             message_id=0,
             reference_time=msg.timestamp,
             reference_time_index=0,

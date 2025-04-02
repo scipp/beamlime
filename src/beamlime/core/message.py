@@ -11,12 +11,6 @@ Tin = TypeVar('Tin')
 Tout = TypeVar('Tout')
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class MessageKey:
-    topic: str
-    source_name: str
-
-
 class StreamKind(str, Enum):
     __slots__ = ()
     UNKNOWN = "unknown"
@@ -25,14 +19,23 @@ class StreamKind(str, Enum):
     MONITOR_EVENTS = "monitor_events"
     DETECTOR = "detector"
     LOG = "log"
+    BEAMLIME_CONFIG = "beamlime_config"
     BEAMLIME_DATA = "beamlime_data"
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class MessageKey:
+    kind: StreamKind = StreamKind.UNKNOWN
+    source_name: str
+
+
+CONFIG_MESSAGE_KEY = MessageKey(kind=StreamKind.BEAMLIME_CONFIG, source_name='')
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Message(Generic[T]):
     timestamp: int
     key: MessageKey
-    kind: StreamKind = StreamKind.UNKNOWN
     value: T
 
     def __lt__(self, other: Message[T]) -> bool:
