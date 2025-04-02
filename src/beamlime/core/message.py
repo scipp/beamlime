@@ -34,6 +34,20 @@ CONFIG_MESSAGE_KEY = StreamKey(kind=StreamKind.BEAMLIME_CONFIG, name='')
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Message(Generic[T]):
+    """
+    A message with a timestamp and a stream key.
+
+    Parameters
+    ----------
+    timestamp:
+        The timestamp of the message in nanoseconds since the epoch.
+    stream:
+        The stream key of the message. Identifies which stream the message belongs to.
+        This can be used to distinguish messages from different sources or types.
+    value:
+        The value of the message.
+    """
+
     timestamp: int
     stream: StreamKey
     value: T
