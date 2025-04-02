@@ -62,7 +62,7 @@ class FakeMonitorSource(MessageSource[sc.Variable]):
         var = sc.array(dims=['time_of_arrival'], values=time_of_flight, unit='ns')
         return Message(
             timestamp=timestamp,
-            key=StreamKey(kind=StreamKind.MONITOR_EVENTS, source_name=name),
+            key=StreamKey(kind=StreamKind.MONITOR_EVENTS, name=name),
             value=var,
         )
 
@@ -95,7 +95,7 @@ def serialize_variable_to_monitor_ev44(msg: Message[sc.Variable]) -> bytes:
         raise SerializationError(f"Expected unit 'ns', got {msg.value.unit}")
     try:
         ev44 = eventdata_ev44.serialise_ev44(
-            source_name=msg.key.source_name,
+            source_name=msg.key.name,
             message_id=0,
             reference_time=msg.timestamp,
             reference_time_index=0,

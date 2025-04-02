@@ -152,7 +152,7 @@ def test_detector_data_service(instrument: str) -> None:
     service.start(blocking=False)
     start_and_wait_for_completion(consumer=consumer)
     service.stop()
-    source_names = [msg.key.source_name for msg in sink.messages]
+    source_names = [msg.key.name for msg in sink.messages]
 
     detectors = get_config(instrument).detectors_config['detectors']
     for view_name, view_config in detectors.items():
@@ -163,9 +163,9 @@ def test_detector_data_service(instrument: str) -> None:
 
     # Implicitly yields the latest cumulative message for each detector
     cumulative = {
-        msg.key.source_name: msg.value
+        msg.key.name: msg.value
         for msg in sink.messages
-        if msg.key.source_name.endswith('/cumulative')
+        if msg.key.name.endswith('/cumulative')
     }
     assert len(cumulative) == len(detectors)
     for name, msg in cumulative.items():

@@ -15,7 +15,7 @@ from beamlime.service_factory import DataServiceBuilder
 
 
 def fake_message_with_value(message: KafkaMessage, value: str) -> Message[str]:
-    return Message(timestamp=1234, key=StreamKey(source_name="dummy"), value=value)
+    return Message(timestamp=1234, key=StreamKey(name="dummy"), value=value)
 
 
 class ForwardingAdapter(MessageAdapter[KafkaMessage, Message[int]]):

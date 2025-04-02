@@ -168,7 +168,7 @@ def test_timeseries_service(instrument: str) -> None:
     # Group messages by source name
     messages_by_source = {}
     for msg in sink.messages:
-        source_name = msg.key.source_name.split(':')[0]
+        source_name = msg.key.name.split(':')[0]
         if source_name not in messages_by_source:
             messages_by_source[source_name] = []
         messages_by_source[source_name].append(msg)
@@ -215,9 +215,7 @@ def test_timeseries_accumulation() -> None:
 
     # Get the messages for detector_rotation
     messages = [
-        msg
-        for msg in sink.messages
-        if msg.key.source_name == 'detector_rotation:timeseries'
+        msg for msg in sink.messages if msg.key.name == 'detector_rotation:timeseries'
     ]
     assert len(messages) > 1
 

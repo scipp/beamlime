@@ -48,7 +48,7 @@ class MonitorHandlerFactory(HandlerFactory[MonitorEvents | sc.DataArray, sc.Data
         PeriodicAccumulatingHandler[MonitorEvents, sc.DataArray]
         | PeriodicAccumulatingHandler[sc.DataArray, sc.DataArray]
     ):
-        config = self._config_registry.get_config(key.source_name)
+        config = self._config_registry.get_config(key.name)
         accumulators = {
             'cumulative': Cumulative(config=config),
             'current': Cumulative(config=config, clear_on_get=True),

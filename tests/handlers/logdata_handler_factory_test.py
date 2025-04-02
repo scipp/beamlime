@@ -87,7 +87,7 @@ def test_make_handler_with_valid_source(default_config, attribute_registry):
         attribute_registry=attribute_registry,
     )
 
-    key = StreamKey(kind=StreamKind.LOG, source_name="temperature_sensor")
+    key = StreamKey(kind=StreamKind.LOG, name="temperature_sensor")
     handler = factory.make_handler(key)
 
     # Just verify the handler is created
@@ -105,7 +105,7 @@ def test_make_handler_with_missing_source(
         attribute_registry=attribute_registry,
     )
 
-    key = StreamKey(kind=StreamKind.LOG, source_name="nonexistent_sensor")
+    key = StreamKey(kind=StreamKind.LOG, name="nonexistent_sensor")
     handler = factory.make_handler(key)
 
     assert handler is None
@@ -131,7 +131,7 @@ def test_make_handler_with_invalid_attributes(
         attribute_registry=invalid_registry,
     )
 
-    key = StreamKey(kind=StreamKind.LOG, source_name="invalid_sensor")
+    key = StreamKey(kind=StreamKind.LOG, name="invalid_sensor")
     handler = factory.make_handler(key)
 
     assert handler is None
@@ -150,7 +150,7 @@ def test_full_handler_lifecycle(default_config, attribute_registry):
         attribute_registry=attribute_registry,
     )
 
-    key = StreamKey(kind=StreamKind.LOG, source_name="temperature_sensor")
+    key = StreamKey(kind=StreamKind.LOG, name="temperature_sensor")
     handler = factory.make_handler(key)
     assert handler is not None
 
@@ -184,7 +184,7 @@ def test_handler_with_multiple_messages(default_config, attribute_registry):
         attribute_registry=attribute_registry,
     )
 
-    key = StreamKey(kind=StreamKind.LOG, source_name="temperature_sensor")
+    key = StreamKey(kind=StreamKind.LOG, name="temperature_sensor")
     handler = factory.make_handler(key)
 
     base_timestamp = int(time.time() * 1e9)
@@ -227,7 +227,7 @@ def test_handler_across_update_intervals(attribute_registry):
         attribute_registry=attribute_registry,
     )
 
-    key = StreamKey(kind=StreamKind.LOG, source_name="temperature_sensor")
+    key = StreamKey(kind=StreamKind.LOG, name="temperature_sensor")
     handler = factory.make_handler(key)
 
     base_timestamp = int(time.time() * 1e9)
@@ -268,7 +268,7 @@ def test_logdata_handler_preserves_source_name(default_config, attribute_registr
     )
 
     source_name = "temperature_sensor"
-    key = StreamKey(kind=StreamKind.LOG, source_name=source_name)
+    key = StreamKey(kind=StreamKind.LOG, name=source_name)
     handler = factory.make_handler(key)
 
     message = Message(
@@ -279,4 +279,4 @@ def test_logdata_handler_preserves_source_name(default_config, attribute_registr
 
     results = handler.handle([message])
     assert len(results) == 1
-    assert results[0].key.source_name == f'{source_name}:timeseries'
+    assert results[0].key.name == f'{source_name}:timeseries'

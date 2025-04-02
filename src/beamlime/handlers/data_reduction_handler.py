@@ -49,11 +49,11 @@ class ReductionHandlerFactory(
         self, key: StreamKey
     ) -> Handler[DetectorEvents, sc.DataGroup[sc.DataArray]]:
         self._logger.info("Creating handler for %s", key)
-        accumulator = self._workflow_manager.get_accumulator(key.source_name)
+        accumulator = self._workflow_manager.get_accumulator(key.name)
         if accumulator is None:
             self._logger.warning(
                 "No workflow key found for source name %s, using null handler",
-                key.source_name,
+                key.name,
             )
             return NullHandler(logger=self._logger, config={})
 
@@ -72,22 +72,22 @@ class ReductionHandlerFactory(
                 preprocessor = make_monitor_data_preprocessor(key, config={})
                 config = {}
             case StreamKind.LOG:
-                attrs = self._f144_attribute_registry[key.source_name]
+                attrs = self._f144_attribute_registry[key.name]
                 preprocessor = ToNXlog(attrs=attrs)
                 config = {}
             case StreamKind.DETECTOR_EVENTS:
                 preprocessor = ToNXevent_data()
-                config = self._config_registry.get_config(key.source_name)
+                config = self._config_registry.get_config(key.name)
             case _:
                 raise ValueError(f"Invalid stream kind: {key.kind}")
         self._logger.info(
-            "%s using preprocessor %s", key.source_name, preprocessor.__class__.__name__
+            "%s using preprocessor %s", key.name, preprocessor.__class__.__name__
         )
-        self._logger.info("%s using accumulator %s", key.source_name, accumulator)
+        self._logger.info("%s using accumulator %s", key.name, accumulator)
 
         return PeriodicAccumulatingHandler(
             logger=self._logger,
             config=config,
             preprocessor=preprocessor,
-            accumulators={f'reduced/{key.source_name}': accumulator},
+            accumulators={f'reduced/{key.name}': accumulator},
         )

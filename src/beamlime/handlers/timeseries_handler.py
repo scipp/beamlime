@@ -63,7 +63,7 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
             self._attribute_registry = attribute_registry
 
     def make_handler(self, key: StreamKey) -> Handler[LogData, sc.DataArray] | None:
-        source_name = key.source_name
+        source_name = key.name
         attrs = self._attribute_registry.get(source_name)
         if attrs is None:
             self._logger.warning(

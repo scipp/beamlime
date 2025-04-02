@@ -15,11 +15,11 @@ from beamlime.handlers.monitor_data_handler import (
 def test_handler() -> None:
     factory = MonitorHandlerFactory(config_registry=FakeConfigRegistry())
     handler = factory.make_handler(
-        key=StreamKey(source_name='monitor1', kind=StreamKind.MONITOR_EVENTS)
+        key=StreamKey(name='monitor1', kind=StreamKind.MONITOR_EVENTS)
     )
     msg = Message(
         timestamp=0,
-        key=StreamKey(kind=StreamKind.MONITOR_EVENTS, source_name='monitor1'),
+        key=StreamKey(kind=StreamKind.MONITOR_EVENTS, name='monitor1'),
         value=MonitorEvents(
             time_of_arrival=np.array([int(1e6), int(2e6), int(4e7)]), unit='ns'
         ),
@@ -45,7 +45,7 @@ def test_handler() -> None:
     cumulative_value = -1
     sliding_window_value = -1
     for msg in results:
-        if 'cumulative' in msg.key.source_name:
+        if 'cumulative' in msg.key.name:
             cumulative_value = msg.value
         else:
             sliding_window_value = msg.value
