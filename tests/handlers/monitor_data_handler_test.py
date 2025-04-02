@@ -5,18 +5,21 @@ from dataclasses import replace
 import numpy as np
 from scipp.testing import assert_identical
 
-from beamlime.core.handler import Message, MessageKey
+from beamlime.core.handler import FakeConfigRegistry, Message, MessageKey, StreamKind
 from beamlime.handlers.monitor_data_handler import (
     MonitorEvents,
-    create_monitor_data_handler,
+    MonitorHandlerFactory,
 )
 
 
 def test_handler() -> None:
-    handler = create_monitor_data_handler(config={})
+    factory = MonitorHandlerFactory(config_registry=FakeConfigRegistry())
+    handler = factory.make_handler(
+        key=MessageKey(source_name='monitor1', kind=StreamKind.MONITOR_EVENTS)
+    )
     msg = Message(
         timestamp=0,
-        key=MessageKey(topic='monitors', source_name='monitor1'),
+        key=MessageKey(kind=StreamKind.MONITOR_EVENTS, source_name='monitor1'),
         value=MonitorEvents(
             time_of_arrival=np.array([int(1e6), int(2e6), int(4e7)]), unit='ns'
         ),
