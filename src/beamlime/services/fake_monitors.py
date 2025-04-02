@@ -127,7 +127,7 @@ def run_service(
         name=f'fake_{mode}_producer',
         log_level=log_level,
         adapter=adapter,
-        handler_factory=CommonHandlerFactory(config={}, handler_cls=IdentityHandler),
+        handler_factory=CommonHandlerFactory(handler_cls=IdentityHandler),
     )
     service = builder.from_source(
         source=FakeMonitorSource(instrument=instrument),

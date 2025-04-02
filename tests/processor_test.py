@@ -27,19 +27,19 @@ class ValueToStringHandler(Handler[T, str]):
 
 
 def test_consumes_and_produces_messages() -> None:
-    config = {}
+    key = MessageKey(topic='topic', source_name='source')
     source = FakeMessageSource(
         messages=[
             [],
-            [Message(timestamp=0, key='topic', value=111)],
+            [Message(timestamp=0, key=key, value=111)],
             [
-                Message(timestamp=0, key='topic', value=222),
-                Message(timestamp=0, key='topic', value=333),
+                Message(timestamp=0, key=key, value=222),
+                Message(timestamp=0, key=key, value=333),
             ],
         ]
     )
     sink = FakeMessageSink()
-    factory = CommonHandlerFactory(config=config, handler_cls=ValueToStringHandler)
+    factory = CommonHandlerFactory(handler_cls=ValueToStringHandler)
     registry = HandlerRegistry(factory=factory)
     processor = StreamProcessor(source=source, sink=sink, handler_registry=registry)
     processor.process()

@@ -15,7 +15,7 @@ from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.helpers import beamlime_command_topic, detector_topic
 from beamlime.kafka.message_adapter import (
-    BeamlimeCommandsAdapter,
+    BeamlimeConfigMessageAdapter,
     ChainedAdapter,
     Ev44ToDetectorEventsAdapter,
     KafkaToEv44Adapter,
@@ -46,7 +46,7 @@ def make_detector_data_adapter(instrument: str) -> RouteByTopicAdapter:
     return RouteByTopicAdapter(
         routes={
             detector_topic(instrument): detectors,
-            beamlime_command_topic(instrument): BeamlimeCommandsAdapter(),
+            beamlime_command_topic(instrument): BeamlimeConfigMessageAdapter(),
         },
     )
 
@@ -54,12 +54,14 @@ def make_detector_data_adapter(instrument: str) -> RouteByTopicAdapter:
 def make_detector_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
-    config = {}
-    config_handler = ConfigHandler(config=config)
-    handler_factory = DetectorHandlerFactory(instrument=instrument, config=config)
+    service_name = 'detector_data'
+    config_handler = ConfigHandler(service_name=service_name)
+    handler_factory = DetectorHandlerFactory(
+        instrument=instrument, config_registry=config_handler
+    )
     builder = DataServiceBuilder(
         instrument=instrument,
-        name='detector_data',
+        name=service_name,
         log_level=log_level,
         adapter=make_detector_data_adapter(instrument=instrument),
         handler_factory=handler_factory,

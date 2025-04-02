@@ -17,6 +17,35 @@ class Config(Protocol):
         pass
 
 
+class ConfigRegistry(Protocol):
+    """
+    Registry for configuration for different sources.
+
+    This is used by handlers to obtain configuration specific to a source. This protocol
+    is first and foremostly implemented by :py:class:`ConfigHandler`, which is used to
+    handle configuration messages, providing a mechanism to update the configuration
+    dynamically. The configuration is then used by the handlers to configure themselves
+    based on the source name of the messages they are processing.
+    """
+
+    def get_config(self, source_name: str) -> Config:
+        pass
+
+
+class FakeConfigRegistry(ConfigRegistry):
+    """
+    Fake config registry that returns empty configs for any requested source_name.
+
+    This is used for testing purposes and is not meant to be used in production.
+    """
+
+    def __init__(self):
+        self._configs: dict[str, Config] = {}
+
+    def get_config(self, source_name: str) -> Config:
+        return self._configs.setdefault(source_name, {})
+
+
 class Handler(Generic[Tin, Tout]):
     """
     Base class for message handlers.
@@ -50,28 +79,18 @@ class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
         self,
         *,
         logger: logging.Logger | None = None,
-        config: Config,
+        config_registry: ConfigRegistry | None = None,
         handler_cls: type[Handler[Tin, Tout]],
     ):
         self._logger = logger or logging.getLogger(__name__)
-        self._config = config
+        self._config_registry = config_registry or FakeConfigRegistry()
         self._handler_cls = handler_cls
 
     def make_handler(self, key: MessageKey) -> Handler[Tin, Tout]:
-        return self._handler_cls(logger=self._logger, config=self._config)
-
-    @staticmethod
-    def from_handler(
-        handler_cls: type[Handler[Tin, Tout]],
-    ) -> Callable[[logging.Logger | None, Config], CommonHandlerFactory[Tin, Tout]]:
-        def make(
-            *, logger: logging.Logger | None = None, config: Config
-        ) -> CommonHandlerFactory[Tin, Tout]:
-            return CommonHandlerFactory(
-                logger=logger, config=config, handler_cls=handler_cls
-            )
-
-        return make
+        return self._handler_cls(
+            logger=self._logger,
+            config=self._config_registry.get_config(key.source_name),
+        )
 
 
 class HandlerRegistry(Generic[Tin, Tout]):

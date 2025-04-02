@@ -15,7 +15,7 @@ from beamlime.handlers.timeseries_handler import LogdataHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.helpers import beamlime_command_topic, motion_topic
 from beamlime.kafka.message_adapter import (
-    BeamlimeCommandsAdapter,
+    BeamlimeConfigMessageAdapter,
     ChainedAdapter,
     F144ToLogDataAdapter,
     KafkaToF144Adapter,
@@ -44,7 +44,7 @@ def make_timeseries_adapter(instrument: str) -> RouteByTopicAdapter:
             motion_topic(instrument): ChainedAdapter(
                 first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
             ),
-            beamlime_command_topic(instrument): BeamlimeCommandsAdapter(),
+            beamlime_command_topic(instrument): BeamlimeConfigMessageAdapter(),
         },
     )
 

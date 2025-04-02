@@ -173,7 +173,7 @@ def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
         instrument=instrument,
         name='fake_producer',
         log_level=log_level,
-        handler_factory=CommonHandlerFactory(config={}, handler_cls=IdentityHandler),
+        handler_factory=CommonHandlerFactory(handler_cls=IdentityHandler),
     )
     service = builder.from_source(
         source=FakeDetectorSource(instrument=instrument),

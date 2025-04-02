@@ -5,7 +5,7 @@ import pytest
 import scipp as sc
 
 from beamlime.config.raw_detectors import available_instruments, get_config
-from beamlime.core.handler import Message, MessageKey
+from beamlime.core.handler import FakeConfigRegistry, Message, MessageKey
 from beamlime.handlers.accumulators import DetectorEvents
 from beamlime.handlers.detector_data_handler import (
     DetectorHandlerFactory,
@@ -14,7 +14,9 @@ from beamlime.handlers.detector_data_handler import (
 
 
 def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -> None:
-    factory = DetectorHandlerFactory(instrument='dummy', config={})
+    factory = DetectorHandlerFactory(
+        instrument='dummy', config_registry=FakeConfigRegistry()
+    )
     handler = factory.make_handler(
         MessageKey(topic='detector_data', source_name='panel_0')
     )
@@ -63,6 +65,8 @@ def test_factory_can_create_handler(instrument: str) -> None:
     config = get_config(instrument).detectors_config
     detectors = {view['detector_name'] for view in config['detectors'].values()}
     assert len(detectors) > 0
-    factory = DetectorHandlerFactory(instrument=instrument, config={})
+    factory = DetectorHandlerFactory(
+        instrument=instrument, config_registry=FakeConfigRegistry()
+    )
     for name in detectors:
         _ = factory.make_handler(MessageKey(topic='ignored', source_name=name))

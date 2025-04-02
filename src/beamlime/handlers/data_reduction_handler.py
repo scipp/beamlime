@@ -7,7 +7,12 @@ from typing import Any
 
 import scipp as sc
 
-from ..core.handler import Config, Handler, HandlerFactory, PeriodicAccumulatingHandler
+from ..core.handler import (
+    ConfigRegistry,
+    Handler,
+    HandlerFactory,
+    PeriodicAccumulatingHandler,
+)
 from ..core.message import Message, MessageKey
 from .accumulators import DetectorEvents, ToNXevent_data
 from .monitor_data_handler import MonitorDataPreprocessor
@@ -33,10 +38,10 @@ class ReductionHandlerFactory(
         workflow_manager: WorkflowManager,
         f144_attribute_registry: dict[str, dict[str, Any]],
         logger: logging.Logger | None = None,
-        config: Config,
+        config_registry: ConfigRegistry,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
-        self._config = config
+        self._config_registry = config_registry
         self._workflow_manager = workflow_manager
         self._f144_attribute_registry = f144_attribute_registry
 
@@ -56,15 +61,24 @@ class ReductionHandlerFactory(
                 "No workflow key found for source name %s, using null handler",
                 key.source_name,
             )
-            return NullHandler(logger=self._logger, config=self._config)
+            return NullHandler(logger=self._logger, config={})
 
+        # Note we are setting config = {} unless we are processing detector data. The
+        # config is used, e.g., to implement a "clear" mechanism. For data reduction,
+        # clearing is however handled by "clearing" the entire data reduction workflow
+        # for a detector, i.e., auxiliary data such as logs and monitors are cleared
+        # when the workflow is cleared. This is done via the proxy the workflow manager
+        # returns for the detector data accumulator.
         if self._is_nxlog(key):
             attrs = self._f144_attribute_registry[key.source_name]
             preprocessor = ToNXlog(attrs=attrs)
+            config = {}
         elif self._is_monitor(key):
-            preprocessor = MonitorDataPreprocessor(config=self._config)
+            preprocessor = MonitorDataPreprocessor(config={})
+            config = {}
         else:
             preprocessor = ToNXevent_data()
+            config = self._config_registry.get_config(key.source_name)
         self._logger.info(
             "%s using preprocessor %s", key.source_name, preprocessor.__class__.__name__
         )
@@ -72,7 +86,7 @@ class ReductionHandlerFactory(
 
         return PeriodicAccumulatingHandler(
             logger=self._logger,
-            config=self._config,
+            config=config,
             preprocessor=preprocessor,
             accumulators={f'reduced/{key.source_name}': accumulator},
         )

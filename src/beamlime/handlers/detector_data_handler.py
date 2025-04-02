@@ -16,6 +16,7 @@ from ..core.handler import (
     Accumulator,
     Config,
     ConfigModelAccessor,
+    ConfigRegistry,
     Handler,
     HandlerFactory,
     PeriodicAccumulatingHandler,
@@ -45,10 +46,10 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         *,
         instrument: str,
         logger: logging.Logger | None = None,
-        config: Config,
+        config_registry: ConfigRegistry,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
-        self._config = config
+        self._config_registry = config_registry
         self._instrument = instrument
         self._detector_config = get_config(instrument).detectors_config['detectors']
         self._nexus_file = _try_get_nexus_geometry_filename(instrument)
@@ -97,24 +98,25 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
             self._logger.warning('No views configured for %s', detector_name)
         detector_number: sc.Variable | None = None
         accumulators: dict[str, Accumulator[sc.DataArray, sc.DataArray]] = {}
+        config = self._config_registry.get_config(detector_name)
         for name, view in views.items():
             detector_number = view.detector_number
             accumulators[name] = DetectorCounts(
-                logger=self._logger, config=self._config, detector_view=view
+                logger=self._logger, config=config, detector_view=view
             )
             accumulators[f'{name}/roi'] = ROIBasedTOAHistogram(
-                config=self._config, roi_filter=view.make_roi_filter()
+                config=config, roi_filter=view.make_roi_filter()
             )
         if detector_number is None:
             preprocessor = NullAccumulator()
         else:
             preprocessor = GroupIntoPixels(
-                config=self._config, detector_number=detector_number
+                config=config, detector_number=detector_number
             )
 
         return PeriodicAccumulatingHandler(
             logger=self._logger,
-            config=self._config,
+            config=config,
             preprocessor=preprocessor,
             accumulators=accumulators,
         )

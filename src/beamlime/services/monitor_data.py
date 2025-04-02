@@ -13,7 +13,7 @@ from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.helpers import beam_monitor_topic, beamlime_command_topic
 from beamlime.kafka.message_adapter import (
-    BeamlimeCommandsAdapter,
+    BeamlimeConfigMessageAdapter,
     ChainedAdapter,
     Da00ToScippAdapter,
     KafkaToDa00Adapter,
@@ -50,7 +50,7 @@ def make_monitor_data_adapter(instrument: str) -> RoutingAdapter:
     return RouteByTopicAdapter(
         routes={
             beam_monitor_topic(instrument): monitors,
-            beamlime_command_topic(instrument): BeamlimeCommandsAdapter(),
+            beamlime_command_topic(instrument): BeamlimeConfigMessageAdapter(),
         },
     )
 
@@ -58,14 +58,14 @@ def make_monitor_data_adapter(instrument: str) -> RoutingAdapter:
 def make_monitor_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
-    config = {}
-    config_handler = ConfigHandler(config=config)
+    service_name = 'monitor_data'
+    config_handler = ConfigHandler(service_name=service_name)
     handler_factory = CommonHandlerFactory(
-        handler_cls=create_monitor_data_handler, config=config
+        handler_cls=create_monitor_data_handler, config_registry=config_handler
     )
     builder = DataServiceBuilder(
         instrument=instrument,
-        name='monitor_data',
+        name=service_name,
         log_level=log_level,
         adapter=make_monitor_data_adapter(instrument=instrument),
         handler_factory=handler_factory,

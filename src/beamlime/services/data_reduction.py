@@ -22,7 +22,7 @@ from beamlime.kafka.helpers import (
     motion_topic,
 )
 from beamlime.kafka.message_adapter import (
-    BeamlimeCommandsAdapter,
+    BeamlimeConfigMessageAdapter,
     ChainedAdapter,
     Da00ToScippAdapter,
     Ev44ToDetectorEventsAdapter,
@@ -74,7 +74,7 @@ def make_reduction_service_builder(
             motion_topic(instrument): ChainedAdapter(
                 first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
             ),
-            beamlime_command_topic(instrument): BeamlimeCommandsAdapter(),
+            beamlime_command_topic(instrument): BeamlimeConfigMessageAdapter(),
         }
     )
     instrument_config = get_config(instrument)
@@ -82,25 +82,23 @@ def make_reduction_service_builder(
         source_names=instrument_config.source_names,
         source_to_key=instrument_config.source_to_key,
     )
-    config = {}
+    service_name = 'data_reduction'
+    config_handler = ConfigHandler(service_name=service_name)
+    config_handler.register_action(
+        key='workflow_name', action=workflow_manager.set_workflow_from_name
+    )
     handler_factory = ReductionHandlerFactory(
-        config=config,
+        config_registry=config_handler,
         workflow_manager=workflow_manager,
         f144_attribute_registry=instrument_config.f144_attribute_registry,
     )
     builder = DataServiceBuilder(
         instrument=instrument,
-        name='data_reduction',
+        name=service_name,
         log_level=log_level,
         adapter=adapter,
         handler_factory=handler_factory,
     )
-    config_handler = ConfigHandler(config=config)
-    for source_name in instrument_config.source_names:
-        config_handler.register_action(
-            key=f'{source_name}:workflow_control',
-            callback=workflow_manager.set_workflow_from_command,
-        )
     builder.add_handler(ConfigHandler.message_key(instrument), config_handler)
     return builder
 

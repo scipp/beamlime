@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Any, Generic, Protocol, TypeVar
 
 import scipp as sc
@@ -30,7 +30,7 @@ class KafkaMessage(Protocol):
     def value(self) -> bytes:
         pass
 
-    def timestamp(self) -> int:
+    def timestamp(self) -> tuple[int, int]:
         pass
 
     def topic(self) -> str:
@@ -38,7 +38,10 @@ class KafkaMessage(Protocol):
 
 
 class FakeKafkaMessage(KafkaMessage):
-    def __init__(self, value: bytes, topic: str, timestamp: int = 0):
+    def __init__(
+        self, *, key: bytes = b'', value: bytes, topic: str, timestamp: int = 0
+    ):
+        self._key = key
         self._value = value
         self._topic = topic
         self._timestamp = timestamp
@@ -47,13 +50,13 @@ class FakeKafkaMessage(KafkaMessage):
         return None
 
     def key(self) -> bytes:
-        return b""
+        return self._key
 
     def value(self) -> bytes:
         return self._value
 
-    def timestamp(self) -> int:
-        return self._timestamp
+    def timestamp(self) -> tuple[int, int]:
+        return (0, self._timestamp)
 
     def topic(self) -> str:
         return self._topic
@@ -88,7 +91,7 @@ class KafkaToEv44Adapter(
         if ev44.reference_time.size > 0:
             timestamp = ev44.reference_time[-1]
         else:
-            timestamp = message.timestamp()
+            timestamp = message.timestamp()[1]
         return Message(timestamp=timestamp, key=key, value=ev44)
 
 
@@ -153,7 +156,7 @@ class KafkaToMonitorEventsAdapter(MessageAdapter[KafkaMessage, Message[MonitorEv
         if reference_time.size > 0:
             timestamp = reference_time[-1]
         else:
-            timestamp = message.timestamp()
+            timestamp = message.timestamp()[1]
         return Message(
             timestamp=timestamp,
             key=key,
@@ -194,19 +197,26 @@ class Da00ToScippAdapter(
         return replace(message, value=da00_to_scipp(message.value))
 
 
-class BeamlimeCommandsAdapter(MessageAdapter[KafkaMessage, Message[Any]]):
-    """
-    Adapts a Kafka message to a Beamlime command message.
-    """
+@dataclass(frozen=True, slots=True, kw_only=True)
+class RawConfigItem:
+    key: bytes
+    value: bytes
 
-    def adapt(self, message: KafkaMessage) -> Message[Any]:
-        key = MessageKey(topic=message.topic(), source_name='')
+
+class BeamlimeConfigMessageAdapter(
+    MessageAdapter[KafkaMessage, Message[RawConfigItem]]
+):
+    """Adapts a Kafka message to a Beamlime config message."""
+
+    def adapt(self, message: KafkaMessage) -> Message[RawConfigItem]:
         timestamp = message.timestamp()[1]
-        legacy_key = message.key().decode('utf-8')  # See 286
-        value = message.value()
-        return Message(
-            key=key, timestamp=timestamp, value={'key': legacy_key, 'value': value}
-        )
+        # The source name is set to 'config' to ensure these messages can be routed to
+        # the :py:class:`ConfigHandler` in the service.
+        key = MessageKey(topic=message.topic(), source_name='config')
+        # Beamlime configuration uses a compacted Kafka topic. The Kafka message key
+        # is the encoded string representation of a :py:class:`ConfigKey` object.
+        item = RawConfigItem(key=message.key(), value=message.value())
+        return Message(key=key, timestamp=timestamp, value=item)
 
 
 class ChainedAdapter(MessageAdapter[T, V]):

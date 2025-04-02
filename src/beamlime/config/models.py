@@ -114,10 +114,68 @@ class ROIRectangle(BaseModel):
     y: ROIAxisRange = Field(default_factory=ROIAxisRange)
 
 
-class WorkflowControl(BaseModel):
-    source_name: str = Field(
-        description="Name of the source to control.",
+class ConfigKey(BaseModel):
+    """
+    Model for configuration key structure.
+
+    Configuration keys follow the format 'source_name/service_name/key', where:
+    - source_name can be a specific source name or '*' for all sources
+    - service_name can be a specific service name or '*' for all services
+    - key is the specific configuration parameter name
+    """
+
+    source_name: str | None = Field(
+        default=None,
+        description="Source name, or None for wildcard (*) matching all sources",
     )
-    workflow_name: str | None = Field(
-        description="Name of the workflow to control.",
+    service_name: str | None = Field(
+        default=None,
+        description="Service name, or None for wildcard (*) matching all services",
     )
+    key: str = Field(description="Configuration parameter name/key")
+
+    def __str__(self) -> str:
+        """
+        Convert the configuration key to its string representation.
+
+        Returns
+        -------
+        :
+            String in the format source_name/service_name/key with '*' for None values
+        """
+        source = '*' if self.source_name is None else self.source_name
+        service = '*' if self.service_name is None else self.service_name
+        return f"{source}/{service}/{self.key}"
+
+    @classmethod
+    def from_string(cls, key_str: str) -> ConfigKey:
+        """
+        Create a ConfigKey from its string representation.
+
+        Parameters
+        ----------
+        key_str:
+            String in the format 'source_name/service_name/key'
+
+        Returns
+        -------
+        :
+            A ConfigKey instance parsed from the string
+
+        Raises
+        ------
+        ValueError:
+            If the key format is invalid
+        """
+        parts = key_str.split('/')
+        if len(parts) != 3:
+            raise ValueError(
+                "Invalid key format, expected 'source_name/service_name/key', "
+                f"got {key_str}"
+            )
+        source_name, service_name, key = parts
+        if source_name == '*':
+            source_name = None
+        if service_name == '*':
+            service_name = None
+        return cls(source_name=source_name, service_name=service_name, key=key)

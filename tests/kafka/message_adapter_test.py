@@ -1,11 +1,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+import json
+
 import pytest
 from streaming_data_types import eventdata_ev44, logdata_f144
 
 from beamlime.core.message import Message, MessageKey, MessageSource
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
+    BeamlimeConfigMessageAdapter,
     ChainedAdapter,
     Ev44ToMonitorEventsAdapter,
     F144ToLogDataAdapter,
@@ -14,6 +17,7 @@ from beamlime.kafka.message_adapter import (
     KafkaToEv44Adapter,
     KafkaToF144Adapter,
     KafkaToMonitorEventsAdapter,
+    RawConfigItem,
     RoutingAdapter,
 )
 
@@ -148,3 +152,15 @@ def test_routing_adapter_calls_adapter_based_on_route() -> None:
     )
     assert adapter.adapt(message_with_schema('ev44')).value == "adapter1"
     assert adapter.adapt(message_with_schema('da00')).value == "adapter2"
+
+
+def test_BeamlimeCommandsAdapter() -> None:
+    key = b'my_source/my_service/my_key'
+    encoded = json.dumps('my_value').encode('utf-8')
+    message = FakeKafkaMessage(key=key, value=encoded, topic="dummy_beamlime_commands")
+    adapter = BeamlimeConfigMessageAdapter()
+    adapted_message = adapter.adapt(message)
+    assert adapted_message.key.topic == 'dummy_beamlime_commands'
+    # So it gets routed to config handler
+    assert adapted_message.key.source_name == 'config'
+    assert adapted_message.value == RawConfigItem(key=key, value=encoded)

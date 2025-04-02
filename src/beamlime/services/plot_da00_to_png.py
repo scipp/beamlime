@@ -45,7 +45,7 @@ def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
             ),
             sink=PlotToPngSink(),
             handler_factory=CommonHandlerFactory(
-                config=handler_config, handler_cls=IdentityHandler
+                config_handler=handler_config, handler_cls=IdentityHandler
             ),
         )
         service = Service(
