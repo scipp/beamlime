@@ -102,7 +102,7 @@ class KafkaToEv44Adapter(
 
     def adapt(self, message: KafkaMessage) -> Message[eventdata_ev44.EventData]:
         ev44 = eventdata_ev44.deserialise_ev44(message.value())
-        key = StreamKey(kind=self._kind, source_name=ev44.source_name)
+        key = StreamKey(kind=self._kind, name=ev44.source_name)
         # A fallback, useful in particular for testing so serialized data can be reused.
         if ev44.reference_time.size > 0:
             timestamp = ev44.reference_time[-1]
@@ -119,7 +119,7 @@ class KafkaToDa00Adapter(
 
     def adapt(self, message: KafkaMessage) -> Message[list[dataarray_da00.Variable]]:
         da00 = dataarray_da00.deserialise_da00(message.value())
-        key = StreamKey(kind=self._kind, source_name=da00.source_name)
+        key = StreamKey(kind=self._kind, name=da00.source_name)
         timestamp = da00.timestamp_ns
         return Message(timestamp=timestamp, key=key, value=da00.data)
 
@@ -129,7 +129,7 @@ class KafkaToF144Adapter(
 ):
     def adapt(self, message: KafkaMessage) -> Message[logdata_f144.ExtractedLogData]:
         log_data = logdata_f144.deserialise_f144(message.value())
-        key = StreamKey(kind=StreamKind.LOG, source_name=log_data.source_name)
+        key = StreamKey(kind=StreamKind.LOG, name=log_data.source_name)
         timestamp = log_data.timestamp_unix_ns
         return Message(timestamp=timestamp, key=key, value=log_data)
 
@@ -172,7 +172,7 @@ class KafkaToMonitorEventsAdapter(MessageAdapter[KafkaMessage, Message[MonitorEv
             topic=message.topic(), source_name=event.SourceName().decode("utf-8")
         )
         key = StreamKey(
-            kind=StreamKind.MONITOR_EVENTS, source_name=self._monitor_mapping[input_key]
+            kind=StreamKind.MONITOR_EVENTS, name=self._monitor_mapping[input_key]
         )
         reference_time = event.ReferenceTimeAsNumpy()
         time_of_arrival = event.TimeOfFlightAsNumpy()
@@ -209,7 +209,7 @@ class Ev44ToDetectorEventsAdapter(
     ) -> Message[DetectorEvents]:
         key = message.key
         if self._merge_detectors:
-            key = replace(key, source_name='unified_detector')
+            key = replace(key, name='unified_detector')
         return replace(message, key=key, value=DetectorEvents.from_ev44(message.value))
 
 

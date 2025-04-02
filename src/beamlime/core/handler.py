@@ -256,7 +256,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
                 timestamp=timestamp,
                 key=StreamKey(
                     kind=StreamKind.BEAMLIME_DATA,
-                    source_name=source_name(key.source_name, name),
+                    name=source_name(key.name, name),
                 ),
                 value=accumulator.get(),
             )

@@ -84,7 +84,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         )
 
     def make_handler(self, key: StreamKey) -> Handler[DetectorEvents, sc.DataArray]:
-        detector_name = key.source_name
+        detector_name = key.name
         candidates = {
             view_name: self._make_view(detector)
             for view_name, detector in self._detector_config.items()

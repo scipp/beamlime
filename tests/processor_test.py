@@ -27,7 +27,7 @@ class ValueToStringHandler(Handler[T, str]):
 
 
 def test_consumes_and_produces_messages() -> None:
-    key = StreamKey(source_name='source')
+    key = StreamKey(name='source')
     source = FakeMessageSource(
         messages=[
             [],

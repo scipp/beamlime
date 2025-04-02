@@ -13,9 +13,9 @@ class PlotToPngSink(MessageSink[sc.DataArray]):
 
     def publish_messages(self, messages: Message[sc.DataArray]) -> None:
         for msg in compact_messages(messages):
-            title = f"{msg.key.kind} - {msg.key.source_name}"
+            title = f"{msg.key.kind} - {msg.key.name}"
             # Normalize the source name to be a valid filename and not a directory
-            filename = f"{msg.key.kind}_{msg.key.source_name.replace('/', '_')}.png"
+            filename = f"{msg.key.kind}_{msg.key.name.replace('/', '_')}.png"
             try:
                 msg.value.plot(title=title).save(filename)
             except Exception:

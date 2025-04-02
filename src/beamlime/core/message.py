@@ -26,10 +26,10 @@ class StreamKind(str, Enum):
 @dataclass(frozen=True, slots=True, kw_only=True)
 class StreamKey:
     kind: StreamKind = StreamKind.UNKNOWN
-    source_name: str
+    name: str
 
 
-CONFIG_MESSAGE_KEY = StreamKey(kind=StreamKind.BEAMLIME_CONFIG, source_name='')
+CONFIG_MESSAGE_KEY = StreamKey(kind=StreamKind.BEAMLIME_CONFIG, name='')
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

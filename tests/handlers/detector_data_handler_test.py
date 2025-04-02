@@ -18,7 +18,7 @@ def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -
         instrument='dummy', config_registry=FakeConfigRegistry()
     )
     handler = factory.make_handler(
-        StreamKey(kind=StreamKind.DETECTOR_EVENTS, source_name='panel_0')
+        StreamKey(kind=StreamKind.DETECTOR_EVENTS, name='panel_0')
     )
     events = DetectorEvents(
         pixel_id=np.array([1, 2, 3]),
@@ -27,7 +27,7 @@ def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -
     )
     message = Message(
         timestamp=1234,
-        key=StreamKey(kind=StreamKind.DETECTOR_EVENTS, source_name='ignored'),
+        key=StreamKey(kind=StreamKind.DETECTOR_EVENTS, name='ignored'),
         value=events,
     )
     results = handler.handle([message])
@@ -69,6 +69,4 @@ def test_factory_can_create_handler(instrument: str) -> None:
         instrument=instrument, config_registry=FakeConfigRegistry()
     )
     for name in detectors:
-        _ = factory.make_handler(
-            StreamKey(kind=StreamKind.DETECTOR_EVENTS, source_name=name)
-        )
+        _ = factory.make_handler(StreamKey(kind=StreamKind.DETECTOR_EVENTS, name=name))

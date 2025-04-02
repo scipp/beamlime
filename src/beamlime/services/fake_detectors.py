@@ -134,7 +134,7 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
 
         return Message(
             timestamp=timestamp,
-            key=StreamKey(kind=StreamKind.DETECTOR_EVENTS, source_name=name),
+            key=StreamKey(kind=StreamKind.DETECTOR_EVENTS, name=name),
             value=ds,
         )
 
@@ -155,7 +155,7 @@ def serialize_detector_events_to_ev44(
         raise SerializationError(f"Expected unit 'ns', got {msg.value.unit}")
     try:
         ev44 = eventdata_ev44.serialise_ev44(
-            source_name=msg.key.source_name,
+            source_name=msg.key.name,
             message_id=0,
             reference_time=msg.timestamp,
             reference_time_index=0,
