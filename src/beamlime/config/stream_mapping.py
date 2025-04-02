@@ -48,22 +48,6 @@ class StreamMapping:
         return self._monitors
 
 
-def _make_loki_detectors(production: bool = False) -> dict[InputStreamKey, str]:
-    if production:
-        return {
-            InputStreamKey(
-                topic=f'loki_detector_bank{bank}', source_name='caen'
-            ): f'loki_detector_{bank}'
-            for bank in range(9)
-        }
-    return {
-        InputStreamKey(
-            topic=detector_topic('loki'), source_name=f'loki_detector_{bank}'
-        ): f'loki_detector_{bank}'
-        for bank in range(9)
-    }
-
-
 def _make_cbm_monitors(
     instrument: str, monitor_count: int = 10
 ) -> dict[InputStreamKey, str]:
@@ -72,6 +56,31 @@ def _make_cbm_monitors(
             topic=beam_monitor_topic(instrument), source_name=f'cbm{monitor}'
         ): f'monitor{monitor}'
         for monitor in range(monitor_count)
+    }
+
+
+def _make_loki_detectors() -> dict[InputStreamKey, str]:
+    return {
+        InputStreamKey(
+            topic=f'loki_detector_bank{bank}', source_name='caen'
+        ): f'loki_detector_{bank}'
+        for bank in range(9)
+    }
+
+
+def _make_dream_detectors() -> dict[InputStreamKey, str]:
+    mapping = {
+        'bwec': 'endcap_backward',
+        'fwec': 'endcap_forward',
+        'hr': 'high_resolution',
+        'mantle': 'mantle',
+        'sans': 'sans',
+    }
+    return {
+        InputStreamKey(
+            topic=f'dream_detector_{key}', source_name='dream'
+        ): f'{value}_detector'
+        for key, value in mapping.items()
     }
 
 
@@ -93,7 +102,7 @@ def _make_dev_beam_monitors(instrument: str) -> dict[InputStreamKey, str]:
     }
 
 
-def make_dev_stream_mapping(instrument: str) -> StreamMapping:
+def _make_dev_stream_mapping(instrument: str) -> StreamMapping:
     return StreamMapping(
         instrument=instrument,
         detectors=_make_dev_detectors(instrument),
@@ -102,15 +111,20 @@ def make_dev_stream_mapping(instrument: str) -> StreamMapping:
 
 
 _dev_instruments = {
-    'dummy': make_dev_stream_mapping('dummy'),
-    'dream': make_dev_stream_mapping('dream'),
-    'loki': make_dev_stream_mapping('loki'),
-    'nmx': make_dev_stream_mapping('nmx'),
-    'bifrost': make_dev_stream_mapping('bifrost'),
+    'dummy': _make_dev_stream_mapping('dummy'),
+    'dream': _make_dev_stream_mapping('dream'),
+    'loki': _make_dev_stream_mapping('loki'),
+    'nmx': _make_dev_stream_mapping('nmx'),
+    'bifrost': _make_dev_stream_mapping('bifrost'),
 }
 
 
-instruments = {
+_production_instruments = {
+    'dream': StreamMapping(
+        instrument='dream',
+        detectors=_make_dream_detectors(),
+        monitors=_make_cbm_monitors('dream'),
+    ),
     'loki': StreamMapping(
         instrument='loki',
         detectors=_make_loki_detectors(),
@@ -125,7 +139,4 @@ def get_stream_mapping(*, instrument: str, dev: bool) -> StreamMapping:
     """
     if dev:
         return _dev_instruments[instrument]
-    if instrument == 'loki':
-        return instruments['loki']
-    else:
-        raise ValueError(f'Unknown instrument: {instrument}')
+    return _production_instruments[instrument]
