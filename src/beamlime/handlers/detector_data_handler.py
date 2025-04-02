@@ -21,7 +21,7 @@ from ..core.handler import (
     HandlerFactory,
     PeriodicAccumulatingHandler,
 )
-from ..core.message import StreamKey
+from ..core.message import StreamId
 from .accumulators import (
     DetectorEvents,
     GroupIntoPixels,
@@ -83,7 +83,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
             pixel_noise=detector_config.get('pixel_noise'),
         )
 
-    def make_handler(self, key: StreamKey) -> Handler[DetectorEvents, sc.DataArray]:
+    def make_handler(self, key: StreamId) -> Handler[DetectorEvents, sc.DataArray]:
         detector_name = key.name
         candidates = {
             view_name: self._make_view(detector)

@@ -5,7 +5,7 @@ from dataclasses import replace
 import numpy as np
 from scipp.testing import assert_identical
 
-from beamlime.core.handler import FakeConfigRegistry, Message, StreamKey, StreamKind
+from beamlime.core.handler import FakeConfigRegistry, Message, StreamId, StreamKind
 from beamlime.handlers.monitor_data_handler import (
     MonitorEvents,
     MonitorHandlerFactory,
@@ -15,11 +15,11 @@ from beamlime.handlers.monitor_data_handler import (
 def test_handler() -> None:
     factory = MonitorHandlerFactory(config_registry=FakeConfigRegistry())
     handler = factory.make_handler(
-        key=StreamKey(name='monitor1', kind=StreamKind.MONITOR_EVENTS)
+        key=StreamId(name='monitor1', kind=StreamKind.MONITOR_EVENTS)
     )
     msg = Message(
         timestamp=0,
-        stream=StreamKey(kind=StreamKind.MONITOR_EVENTS, name='monitor1'),
+        stream=StreamId(kind=StreamKind.MONITOR_EVENTS, name='monitor1'),
         value=MonitorEvents(
             time_of_arrival=np.array([int(1e6), int(2e6), int(4e7)]), unit='ns'
         ),

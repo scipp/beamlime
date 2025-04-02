@@ -6,10 +6,10 @@ import pytest
 from streaming_data_types import eventdata_ev44, logdata_f144
 
 from beamlime.core.message import (
-    CONFIG_STREAM_KEY,
+    CONFIG_STREAM_ID,
     Message,
     MessageSource,
-    StreamKey,
+    StreamId,
     StreamKind,
 )
 from beamlime.kafka.message_adapter import (
@@ -144,7 +144,7 @@ def test_RouteBySchemaAdapter_raises_KeyError_if_no_route_found() -> None:
 
 
 def fake_message_with_value(message: KafkaMessage, value: str) -> Message[str]:
-    return Message(timestamp=1234, stream=StreamKey(name="dummy"), value=value)
+    return Message(timestamp=1234, stream=StreamId(name="dummy"), value=value)
 
 
 def test_RouteBySchemaAdapter_calls_adapter_based_on_route() -> None:
@@ -169,5 +169,5 @@ def test_BeamlimeConfigMessageAdapter() -> None:
     adapter = BeamlimeConfigMessageAdapter()
     adapted_message = adapter.adapt(message)
     # So it gets routed to config handler
-    assert adapted_message.stream == CONFIG_STREAM_KEY
+    assert adapted_message.stream == CONFIG_STREAM_ID
     assert adapted_message.value == RawConfigItem(key=key, value=encoded)

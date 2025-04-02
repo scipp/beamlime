@@ -13,7 +13,7 @@ from ..core.handler import (
     HandlerFactory,
     PeriodicAccumulatingHandler,
 )
-from ..core.message import Message, StreamKey, StreamKind
+from ..core.message import Message, StreamId, StreamKind
 from .accumulators import DetectorEvents, ToNXevent_data
 from .monitor_data_handler import make_monitor_data_preprocessor
 from .to_nx_log import ToNXlog
@@ -46,7 +46,7 @@ class ReductionHandlerFactory(
         self._f144_attribute_registry = f144_attribute_registry
 
     def make_handler(
-        self, key: StreamKey
+        self, key: StreamId
     ) -> Handler[DetectorEvents, sc.DataGroup[sc.DataArray]]:
         self._logger.info("Creating handler for %s", key)
         accumulator = self._workflow_manager.get_accumulator(key.name)

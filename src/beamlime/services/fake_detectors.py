@@ -11,7 +11,7 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from beamlime import Handler, Message, MessageSource, Service, StreamKey
+from beamlime import Handler, Message, MessageSource, Service, StreamId
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.config.topics import detector_topic
@@ -134,7 +134,7 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
 
         return Message(
             timestamp=timestamp,
-            stream=StreamKey(kind=StreamKind.DETECTOR_EVENTS, name=name),
+            stream=StreamId(kind=StreamKind.DETECTOR_EVENTS, name=name),
             value=ds,
         )
 

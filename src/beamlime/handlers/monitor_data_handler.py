@@ -13,12 +13,12 @@ from ..core.handler import (
     HandlerFactory,
     PeriodicAccumulatingHandler,
 )
-from ..core.message import StreamKey, StreamKind
+from ..core.message import StreamId, StreamKind
 from .accumulators import Cumulative, MonitorEvents, TOAHistogrammer
 
 
 def make_monitor_data_preprocessor(
-    key: StreamKey, config: Config
+    key: StreamId, config: Config
 ) -> (
     PeriodicAccumulatingHandler[MonitorEvents, sc.DataArray]
     | PeriodicAccumulatingHandler[sc.DataArray, sc.DataArray]
@@ -43,7 +43,7 @@ class MonitorHandlerFactory(HandlerFactory[MonitorEvents | sc.DataArray, sc.Data
         self._config_registry = config_registry or FakeConfigRegistry()
 
     def make_handler(
-        self, key: StreamKey
+        self, key: StreamId
     ) -> (
         PeriodicAccumulatingHandler[MonitorEvents, sc.DataArray]
         | PeriodicAccumulatingHandler[sc.DataArray, sc.DataArray]

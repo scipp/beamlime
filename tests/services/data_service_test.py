@@ -3,7 +3,7 @@
 
 import time
 
-from beamlime import CommonHandlerFactory, Handler, Message, StreamKey
+from beamlime import CommonHandlerFactory, Handler, Message, StreamId
 from beamlime.fakes import FakeMessageSink
 from beamlime.kafka.message_adapter import (
     FakeKafkaMessage,
@@ -15,7 +15,7 @@ from beamlime.service_factory import DataServiceBuilder
 
 
 def fake_message_with_value(message: KafkaMessage, value: str) -> Message[str]:
-    return Message(timestamp=1234, stream=StreamKey(name="dummy"), value=value)
+    return Message(timestamp=1234, stream=StreamId(name="dummy"), value=value)
 
 
 class ForwardingAdapter(MessageAdapter[KafkaMessage, Message[int]]):
