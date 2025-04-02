@@ -14,7 +14,6 @@ Tout = TypeVar('Tout')
 class StreamKind(str, Enum):
     __slots__ = ()
     UNKNOWN = "unknown"
-    MONITOR = "monitor"
     MONITOR_COUNTS = "monitor_counts"
     MONITOR_EVENTS = "monitor_events"
     DETECTOR_EVENTS = "detector_events"
