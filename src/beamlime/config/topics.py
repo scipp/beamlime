@@ -2,6 +2,8 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from collections.abc import Sequence
 
+from ..core.message import StreamKind
+
 
 def topic_for_instrument(*, topic: str | Sequence[str], instrument: str) -> str:
     """
@@ -58,3 +60,26 @@ def source_name(device: str, signal: str) -> str:
     ':' is used as the separator in the ECDC naming convention at ESS.
     """
     return f'{device}:{signal}'
+
+
+def stream_kind_to_topic(instrument: str, kind: StreamKind) -> str:
+    """
+    Convert a StreamKind to a topic name.
+
+    Used for constructing the topic name from the StreamKind when publishing to Kafka.
+    """
+    match kind:
+        case StreamKind.MONITOR:
+            return beam_monitor_topic(instrument)
+        case StreamKind.MONITOR_COUNTS:
+            return beam_monitor_topic(instrument)
+        case StreamKind.MONITOR_EVENTS:
+            return beam_monitor_topic(instrument)
+        case StreamKind.DETECTOR:
+            return detector_topic(instrument)
+        case StreamKind.LOG:
+            return motion_topic(instrument)
+        case StreamKind.BEAMLIME_DATA:
+            return f'{instrument}_beamlime_data'
+        case _:
+            raise ValueError(f'Unknown stream kind: {kind}')

@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Mapping
-from dataclasses import replace
 from typing import Any, Generic, Protocol, TypeVar
 
 from ..config import models
 from ..config.topics import source_name
-from .message import Message, MessageKey, Tin, Tout
+from .message import Message, MessageKey, StreamKind, Tin, Tout
 
 
 class Config(Protocol):
@@ -88,8 +87,7 @@ class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
 
     def make_handler(self, key: MessageKey) -> Handler[Tin, Tout]:
         return self._handler_cls(
-            logger=self._logger,
-            config=self._config_registry.get_config(key.source_name),
+            logger=self._logger, config=self._config_registry.get_config(key)
         )
 
 
@@ -256,12 +254,8 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         return [
             Message(
                 timestamp=timestamp,
-                key=replace(
-                    key,
-                    # Extract the instrument name from the topic name.
-                    topic=f'{key.topic.split("_")[0]}_beamlime_data',
-                    source_name=source_name(key.source_name, name),
-                ),
+                key=source_name(key, name),
+                kind=StreamKind.BEAMLIME_DATA,
                 value=accumulator.get(),
             )
             for name, accumulator in self._accumulators.items()

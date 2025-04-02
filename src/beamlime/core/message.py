@@ -25,6 +25,7 @@ class StreamKind(str, Enum):
     MONITOR_EVENTS = "monitor_events"
     DETECTOR = "detector"
     LOG = "log"
+    BEAMLIME_DATA = "beamlime_data"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
