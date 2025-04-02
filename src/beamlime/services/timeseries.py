@@ -64,7 +64,7 @@ def run_service(
     kafka_upstream_config = load_config(namespace=config_names.kafka_upstream)
 
     if sink_type == 'kafka':
-        sink = KafkaSink(kafka_config=kafka_downstream_config)
+        sink = KafkaSink(instrument=instrument, kafka_config=kafka_downstream_config)
     else:
         sink = PlotToPngSink()
     sink = UnrollingSinkAdapter(sink)
