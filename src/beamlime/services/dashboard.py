@@ -103,7 +103,7 @@ class DashboardApp(ServiceBase):
         return AdaptingMessageSource(
             source=KafkaMessageSource(consumer=consumer, num_messages=1000),
             adapter=ChainedAdapter(
-                first=KafkaToDa00Adapter(kind=StreamKind.BEAMLIME_DATA),
+                first=KafkaToDa00Adapter(stream_kind=StreamKind.BEAMLIME_DATA),
                 second=Da00ToScippAdapter(),
             ),
         )
