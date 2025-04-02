@@ -125,7 +125,7 @@ def message_with_schema(schema: str) -> KafkaMessage:
     return FakeKafkaMessage(value=f"xxxx{schema}".encode(), topic=schema)
 
 
-def test_routing_adapter_raises_KeyError_if_no_route_found() -> None:
+def test_RouteBySchemaAdapter_raises_KeyError_if_no_route_found() -> None:
     adapter = RouteBySchemaAdapter(routes={})
     with pytest.raises(KeyError, match="ev44"):
         adapter.adapt(message_with_schema("ev44"))
@@ -139,7 +139,7 @@ def fake_message_with_value(message: KafkaMessage, value: str) -> Message[str]:
     )
 
 
-def test_routing_adapter_calls_adapter_based_on_route() -> None:
+def test_RouteBySchemaAdapter_calls_adapter_based_on_route() -> None:
     class Adapter:
         def __init__(self, value: str):
             self._value = value
