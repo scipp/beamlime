@@ -103,8 +103,8 @@ class UnrollingSinkAdapter(MessageSink[T | sc.DataGroup[T]]):
         for msg in messages:
             if isinstance(msg.value, sc.DataGroup):
                 for name, value in msg.value.items():
-                    key = replace(msg.stream, name=f'{msg.stream.name}/{name}')
-                    unrolled.append(replace(msg, key=key, value=value))
+                    stream = replace(msg.stream, name=f'{msg.stream.name}/{name}')
+                    unrolled.append(replace(msg, stream=stream, value=value))
             else:
                 unrolled.append(msg)
         self._sink.publish_messages(unrolled)
