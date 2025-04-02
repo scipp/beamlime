@@ -9,7 +9,7 @@ from beamlime.core.handler import (
     HandlerFactory,
     HandlerRegistry,
 )
-from beamlime.core.message import Message, MessageKey
+from beamlime.core.message import Message, StreamKey
 from beamlime.core.processor import StreamProcessor
 from beamlime.fakes import FakeMessageSink, FakeMessageSource
 
@@ -27,7 +27,7 @@ class ValueToStringHandler(Handler[T, str]):
 
 
 def test_consumes_and_produces_messages() -> None:
-    key = MessageKey(source_name='source')
+    key = StreamKey(source_name='source')
     source = FakeMessageSource(
         messages=[
             [],
@@ -69,7 +69,7 @@ class SelectiveHandlerFactory(HandlerFactory[T, str]):
         self._handler_cls = handler_cls
         self._allowed_keys = allowed_keys
 
-    def make_handler(self, key: MessageKey) -> Handler[T, str] | None:
+    def make_handler(self, key: StreamKey) -> Handler[T, str] | None:
         if key in self._allowed_keys:
             return self._handler_cls(logger=None, config=self._config)
         return None

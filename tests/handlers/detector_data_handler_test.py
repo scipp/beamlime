@@ -5,7 +5,7 @@ import pytest
 import scipp as sc
 
 from beamlime.config.raw_detectors import available_instruments, get_config
-from beamlime.core.handler import FakeConfigRegistry, Message, MessageKey, StreamKind
+from beamlime.core.handler import FakeConfigRegistry, Message, StreamKey, StreamKind
 from beamlime.handlers.accumulators import DetectorEvents
 from beamlime.handlers.detector_data_handler import (
     DetectorHandlerFactory,
@@ -18,7 +18,7 @@ def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -
         instrument='dummy', config_registry=FakeConfigRegistry()
     )
     handler = factory.make_handler(
-        MessageKey(kind=StreamKind.DETECTOR_EVENTS, source_name='panel_0')
+        StreamKey(kind=StreamKind.DETECTOR_EVENTS, source_name='panel_0')
     )
     events = DetectorEvents(
         pixel_id=np.array([1, 2, 3]),
@@ -27,7 +27,7 @@ def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -
     )
     message = Message(
         timestamp=1234,
-        key=MessageKey(kind=StreamKind.DETECTOR_EVENTS, source_name='ignored'),
+        key=StreamKey(kind=StreamKind.DETECTOR_EVENTS, source_name='ignored'),
         value=events,
     )
     results = handler.handle([message])
@@ -70,5 +70,5 @@ def test_factory_can_create_handler(instrument: str) -> None:
     )
     for name in detectors:
         _ = factory.make_handler(
-            MessageKey(kind=StreamKind.DETECTOR_EVENTS, source_name=name)
+            StreamKey(kind=StreamKind.DETECTOR_EVENTS, source_name=name)
         )
