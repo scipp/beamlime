@@ -9,17 +9,11 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from beamlime import (
-    Handler,
-    Message,
-    MessageKey,
-    MessageSource,
-    Service,
-)
+from beamlime import Handler, Message, MessageSource, Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
-from beamlime.config.topics import beam_monitor_topic
 from beamlime.core.handler import CommonHandlerFactory
+from beamlime.core.message import StreamKind
 from beamlime.kafka.message_adapter import MessageAdapter
 from beamlime.kafka.sink import (
     KafkaSink,
@@ -33,7 +27,6 @@ class FakeMonitorSource(MessageSource[sc.Variable]):
     """Fake message source that generates random monitor events."""
 
     def __init__(self, *, interval_ns: int = int(1e9 / 14), instrument: str):
-        self._topic = beam_monitor_topic(instrument=instrument)
         self._rng = np.random.default_rng()
         self._tof = sc.linspace('tof', 0, 71_000_000, num=50, unit='ns')
         self._interval_ns = interval_ns
@@ -68,9 +61,7 @@ class FakeMonitorSource(MessageSource[sc.Variable]):
         time_of_flight = self._make_normal(mean=30_000_000, std=10_000_000, size=size)
         var = sc.array(dims=['time_of_arrival'], values=time_of_flight, unit='ns')
         return Message(
-            timestamp=timestamp,
-            key=MessageKey(topic=self._topic, source_name=name),
-            value=var,
+            timestamp=timestamp, key=name, kind=StreamKind.MONITOR_EVENTS, value=var
         )
 
 
@@ -81,7 +72,11 @@ class EventsToHistogramAdapter(
         self._toa = toa
 
     def adapt(self, message: Message[sc.Variable]) -> Message[sc.DataArray]:
-        return replace(message, value=message.value.hist({self._toa.dim: self._toa}))
+        return replace(
+            message,
+            kind=StreamKind.MONITOR_COUNTS,
+            value=message.value.hist({self._toa.dim: self._toa}),
+        )
 
 
 T = TypeVar('T')
@@ -98,7 +93,7 @@ def serialize_variable_to_monitor_ev44(msg: Message[sc.Variable]) -> bytes:
         raise SerializationError(f"Expected unit 'ns', got {msg.value.unit}")
     try:
         ev44 = eventdata_ev44.serialise_ev44(
-            source_name=msg.key.source_name,
+            source_name=msg.key,
             message_id=0,
             reference_time=msg.timestamp,
             reference_time_index=0,
@@ -131,7 +126,9 @@ def run_service(
     )
     service = builder.from_source(
         source=FakeMonitorSource(instrument=instrument),
-        sink=KafkaSink(kafka_config=kafka_config, serializer=serializer),
+        sink=KafkaSink(
+            instrument=instrument, kafka_config=kafka_config, serializer=serializer
+        ),
     )
     service.start()
 

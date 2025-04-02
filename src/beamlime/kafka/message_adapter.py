@@ -10,13 +10,19 @@ import streaming_data_types.exceptions
 from streaming_data_types import dataarray_da00, eventdata_ev44, logdata_f144
 from streaming_data_types.fbschemas.eventdata_ev44 import Event44Message
 
-from ..core.message import Message, MessageKey, MessageSource
+from ..core.message import Message, MessageKey, MessageSource, StreamKind
 from ..handlers.accumulators import DetectorEvents, LogData, MonitorEvents
 from .scipp_da00_compat import da00_to_scipp
 
 T = TypeVar('T')
 U = TypeVar('U')
 V = TypeVar('V')
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class InputStreamKey:
+    topic: str
+    source_name: str
 
 
 class KafkaMessage(Protocol):
@@ -99,9 +105,10 @@ class KafkaToEv44Adapter(
 class KafkaToDa00Adapter(
     MessageAdapter[KafkaMessage, Message[list[dataarray_da00.Variable]]]
 ):
+    # TODO set kind?
     def adapt(self, message: KafkaMessage) -> Message[list[dataarray_da00.Variable]]:
         da00 = dataarray_da00.deserialise_da00(message.value())
-        key = MessageKey(topic=message.topic(), source_name=da00.source_name)
+        key = da00.source_name
         timestamp = da00.timestamp_ns
         return Message(timestamp=timestamp, key=key, value=da00.data)
 
@@ -143,13 +150,17 @@ class KafkaToMonitorEventsAdapter(MessageAdapter[KafkaMessage, Message[MonitorEv
     yields better performance.
     """
 
+    def __init__(self, *, monitor_mapping: dict[InputStreamKey, str]):
+        self._monitor_mapping = monitor_mapping
+
     def adapt(self, message: KafkaMessage) -> Message[MonitorEvents]:
         buffer = message.value()
         eventdata_ev44.check_schema_identifier(buffer, eventdata_ev44.FILE_IDENTIFIER)
         event = Event44Message.Event44Message.GetRootAs(buffer, 0)
-        key = MessageKey(
+        input_key = InputStreamKey(
             topic=message.topic(), source_name=event.SourceName().decode("utf-8")
         )
+        key = self._monitor_mapping[input_key]
         reference_time = event.ReferenceTimeAsNumpy()
         time_of_arrival = event.TimeOfFlightAsNumpy()
 
@@ -161,6 +172,7 @@ class KafkaToMonitorEventsAdapter(MessageAdapter[KafkaMessage, Message[MonitorEv
         return Message(
             timestamp=timestamp,
             key=key,
+            kind=StreamKind.MONITOR_EVENTS,
             value=MonitorEvents(time_of_arrival=time_of_arrival, unit='ns'),
         )
 

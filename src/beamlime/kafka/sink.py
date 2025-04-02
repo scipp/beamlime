@@ -9,6 +9,7 @@ import confluent_kafka as kafka
 import scipp as sc
 from streaming_data_types import dataarray_da00, logdata_f144
 
+from ..config.topics import stream_kind_to_topic
 from ..core.message import Message, MessageSink
 from .scipp_da00_compat import scipp_to_da00
 
@@ -26,7 +27,7 @@ class Serializer(Protocol, Generic[T]):
 def serialize_dataarray_to_da00(msg: Message[sc.DataArray]) -> bytes:
     try:
         da00 = dataarray_da00.serialise_da00(
-            source_name=msg.key.source_name,
+            source_name=msg.key,
             timestamp_ns=time.time_ns(),
             data=scipp_to_da00(msg.value),
         )
@@ -39,7 +40,7 @@ def serialize_dataarray_to_f144(msg: Message[sc.DataArray]) -> bytes:
     try:
         da = msg.value
         f144 = logdata_f144.serialise_f144(
-            source_name=msg.key.source_name,
+            source_name=msg.key,
             value=da.value,
             timestamp_unix_ns=da.coords['time'].to(unit='ns', copy=False).value,
         )
@@ -53,12 +54,14 @@ class KafkaSink(MessageSink[T]):
         self,
         *,
         logger: logging.Logger | None = None,
+        instrument: str,
         kafka_config: dict[str, Any],
         serializer: Serializer[T] = serialize_dataarray_to_da00,
     ):
         self._logger = logger or logging.getLogger(__name__)
         self._producer = kafka.Producer(kafka_config)
         self._serializer = serializer
+        self._instrument = instrument
 
     def publish_messages(self, messages: Message[T]) -> None:
         def delivery_callback(err, msg):
@@ -69,10 +72,10 @@ class KafkaSink(MessageSink[T]):
 
         self._logger.debug("Publishing %d messages", len(messages))
         for msg in messages:
-            topic = msg.key.topic
             try:
+                topic = stream_kind_to_topic(instrument=self._instrument, kind=msg.kind)
                 value = self._serializer(msg)
-            except SerializationError as e:
+            except SerializationError as e:  # noqa: PERF203
                 self._logger.error("Failed to serialize message: %s", e)
             else:
                 try:
@@ -98,7 +101,7 @@ class UnrollingSinkAdapter(MessageSink[T | sc.DataGroup[T]]):
         for msg in messages:
             if isinstance(msg.value, sc.DataGroup):
                 for name, value in msg.value.items():
-                    key = replace(msg.key, source_name=f'{msg.key.source_name}/{name}')
+                    key = f'{msg.key}/{name}'
                     unrolled.append(replace(msg, key=key, value=value))
             else:
                 unrolled.append(msg)

@@ -28,15 +28,15 @@ def beamlime_config_route(instrument: str) -> dict[str, MessageAdapter]:
 
 def beam_monitor_route(instrument: str) -> dict[str, MessageAdapter]:
     """Returns a dictionary of routes for monitor data."""
+    mapping = get_stream_mapping(instrument)
     monitors = RouteBySchemaAdapter(
         routes={
-            'ev44': KafkaToMonitorEventsAdapter(),
+            'ev44': KafkaToMonitorEventsAdapter(monitor_mapping=mapping.monitors),
             'da00': ChainedAdapter(
                 first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
             ),
         }
     )
-    mapping = get_stream_mapping(instrument)
     return {topic: monitors for topic in mapping.monitor_topics}
 
 

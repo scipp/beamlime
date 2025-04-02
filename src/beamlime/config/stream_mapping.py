@@ -11,7 +11,7 @@ use this mapping to assign a unique stream name to each (topic, source name) pai
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from beamlime.kafka.message_adapter import InputStreamKey
 
 from .topics import beam_monitor_topic, detector_topic
 
@@ -19,12 +19,6 @@ from .topics import beam_monitor_topic, detector_topic
 # or convert to internal stream names before sending to adapters.
 # To know the source name, we need to desrialize the message, which requires specific
 # adapter => topic-based routes.
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class InputStreamKey:
-    topic: str
-    source_name: str
 
 
 class StreamMapping:
