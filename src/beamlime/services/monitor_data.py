@@ -5,12 +5,12 @@ import logging
 from contextlib import ExitStack
 from typing import Literal, NoReturn
 
-from beamlime import CommonHandlerFactory, Service
+from beamlime import Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.core.message import CONFIG_MESSAGE_KEY
 from beamlime.handlers.config_handler import ConfigHandler
-from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
+from beamlime.handlers.monitor_data_handler import MonitorHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import RouteByTopicAdapter
 from beamlime.kafka.routes import beam_monitor_route, beamlime_config_route
@@ -36,9 +36,7 @@ def make_monitor_service_builder(
 ) -> DataServiceBuilder:
     service_name = 'monitor_data'
     config_handler = ConfigHandler(service_name=service_name)
-    handler_factory = CommonHandlerFactory(
-        handler_cls=create_monitor_data_handler, config_registry=config_handler
-    )
+    handler_factory = MonitorHandlerFactory(config_registry=config_handler)
     adapter = RouteByTopicAdapter(
         routes={**beam_monitor_route(instrument), **beamlime_config_route(instrument)},
     )
