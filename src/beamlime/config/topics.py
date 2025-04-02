@@ -70,8 +70,6 @@ def stream_kind_to_topic(instrument: str, kind: StreamKind) -> str:
     The non-beamlime topics are thus only used when using our fake data generators.
     """
     match kind:
-        case StreamKind.MONITOR:
-            return beam_monitor_topic(instrument)
         case StreamKind.MONITOR_COUNTS:
             return beam_monitor_topic(instrument)
         case StreamKind.MONITOR_EVENTS:

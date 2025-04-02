@@ -35,6 +35,7 @@ def setup_arg_parser() -> argparse.ArgumentParser:
 def make_timeseries_service_builder(
     *,
     instrument: str,
+    dev: bool = True,
     log_level: int = logging.INFO,
     attribute_registry: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> DataServiceBuilder:
@@ -57,6 +58,7 @@ def run_service(
     *,
     sink_type: Literal['kafka', 'png'],
     instrument: str,
+    dev: bool,
     log_level: int = logging.INFO,
 ) -> NoReturn:
     consumer_config = load_config(namespace=config_names.raw_data_consumer, env='')
@@ -70,7 +72,7 @@ def run_service(
     sink = UnrollingSinkAdapter(sink)
 
     builder = make_timeseries_service_builder(
-        instrument=instrument, log_level=log_level
+        instrument=instrument, dev=dev, log_level=log_level
     )
 
     with ExitStack() as stack:

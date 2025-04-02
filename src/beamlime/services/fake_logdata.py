@@ -123,7 +123,9 @@ class IdentityHandler(Handler[T, T]):
         return messages
 
 
-def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
+def run_service(
+    *, instrument: str, dev: bool, log_level: int = logging.INFO
+) -> NoReturn:
     kafka_config = load_config(namespace=config_names.kafka_upstream)
     serializer = serialize_dataarray_to_f144
     builder = DataServiceBuilder(

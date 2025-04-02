@@ -11,6 +11,7 @@ from beamlime import Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.config.raw_detectors import get_config
+from beamlime.config.stream_mapping import get_stream_mapping
 from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.data_reduction_handler import ReductionHandlerFactory
@@ -41,12 +42,13 @@ def setup_arg_parser() -> argparse.ArgumentParser:
 
 
 def make_reduction_service_builder(
-    *, instrument: str, log_level: int = logging.INFO
+    *, instrument: str, dev: bool = True, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
+    stream_mapping = get_stream_mapping(instrument=instrument, dev=dev)
     adapter = RouteByTopicAdapter(
         routes={
-            **beam_monitor_route(instrument),
-            **detector_route(instrument),
+            **beam_monitor_route(stream_mapping),
+            **detector_route(stream_mapping),
             **logdata_route(instrument),
             **beamlime_config_route(instrument),
         }
@@ -81,6 +83,7 @@ def run_service(
     *,
     sink_type: Literal['kafka', 'png'],
     instrument: str,
+    dev: bool,
     log_level: int = logging.INFO,
 ) -> NoReturn:
     config = load_config(namespace=config_names.data_reduction, env='')
@@ -94,7 +97,9 @@ def run_service(
         sink = PlotToPngSink()
     sink = UnrollingSinkAdapter(sink)
 
-    builder = make_reduction_service_builder(instrument=instrument, log_level=log_level)
+    builder = make_reduction_service_builder(
+        instrument=instrument, dev=dev, log_level=log_level
+    )
 
     with ExitStack() as stack:
         control_consumer = stack.enter_context(

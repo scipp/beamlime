@@ -108,7 +108,11 @@ def serialize_variable_to_monitor_ev44(msg: Message[sc.Variable]) -> bytes:
 
 
 def run_service(
-    *, instrument: str, mode: Literal['ev44', 'da00'], log_level: int = logging.INFO
+    *,
+    instrument: str,
+    dev: bool,
+    mode: Literal['ev44', 'da00'],
+    log_level: int = logging.INFO,
 ) -> NoReturn:
     kafka_config = load_config(namespace=config_names.kafka_upstream)
     if mode == 'ev44':

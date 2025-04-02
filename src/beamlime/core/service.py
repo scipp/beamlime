@@ -164,6 +164,12 @@ class Service(ServiceBase):
             help='Select the instrument',
         )
         parser.add_argument(
+            '--dev',
+            action='store_true',
+            default=False,
+            help='Run in development mode with simplified topic naming',
+        )
+        parser.add_argument(
             '--log-level',
             choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],
             default='INFO',

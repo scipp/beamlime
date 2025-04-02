@@ -35,6 +35,7 @@ class DashboardApp(ServiceBase):
         self,
         *,
         instrument: str = 'dummy',
+        dev: bool,
         debug: bool = False,
         log_level: int = logging.INFO,
         auto_remove_plots_after_seconds: float = 10.0,
