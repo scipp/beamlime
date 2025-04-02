@@ -92,7 +92,7 @@ def _make_dev_beam_monitors(instrument: str) -> dict[InputStreamKey, str]:
         InputStreamKey(
             topic=beam_monitor_topic(instrument), source_name=f'monitor{monitor}'
         ): f'monitor{monitor}'
-        for monitor in range(1, 3)
+        for monitor in range(10)
     }
 
 
