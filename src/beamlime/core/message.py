@@ -56,8 +56,7 @@ class MessageSink(Protocol, Generic[Tout]):
         Publish messages to the producer.
 
         Args:
-            messages: A dictionary of messages to publish, where the key is the
-                topic and the value is the message.
+            messages: A list of messages to publish.
         """
 
 
