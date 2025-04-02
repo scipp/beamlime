@@ -68,7 +68,7 @@ class Ev44Consumer(KafkaConsumer):
         # allows use to reuse the serialized content, to avoid seeing the cost in the
         # benchmarks.
         return eventdata_ev44.serialise_ev44(
-            source_name=f"monitor_{source}",
+            source_name=f"monitor{source}",
             message_id=0,
             reference_time=[],
             reference_time_index=0,
@@ -131,10 +131,10 @@ def test_monitor_data_service() -> None:
     service.start(blocking=False)
     start_and_wait_for_completion(consumer=consumer)
     source_names = [msg.key.source_name for msg in sink.messages]
-    assert source_name('monitor_0', 'cumulative') in source_names
-    assert source_name('monitor_1', 'cumulative') in source_names
-    assert source_name('monitor_0', 'current') in source_names
-    assert source_name('monitor_1', 'current') in source_names
+    assert source_name('monitor0', 'cumulative') in source_names
+    assert source_name('monitor1', 'cumulative') in source_names
+    assert source_name('monitor0', 'current') in source_names
+    assert source_name('monitor1', 'current') in source_names
     size = len(sink.messages)
     start_and_wait_for_completion(consumer=consumer)
     assert len(sink.messages) > size
