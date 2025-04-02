@@ -130,7 +130,7 @@ def test_monitor_data_service() -> None:
     service = builder.from_consumer(consumer=consumer, sink=sink)
     service.start(blocking=False)
     start_and_wait_for_completion(consumer=consumer)
-    source_names = [msg.key.name for msg in sink.messages]
+    source_names = [msg.stream.name for msg in sink.messages]
     assert source_name('monitor0', 'cumulative') in source_names
     assert source_name('monitor1', 'cumulative') in source_names
     assert source_name('monitor0', 'current') in source_names

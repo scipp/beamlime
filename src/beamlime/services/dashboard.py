@@ -538,7 +538,7 @@ class DashboardApp(ServiceBase):
                 "Got %d messages, showing most recent %d", num, len(messages)
             )
             for msg in messages:
-                orig_source_name, suffix = msg.key.name.split(':', maxsplit=1)
+                orig_source_name, suffix = msg.stream.name.split(':', maxsplit=1)
                 key = f'Source name: {orig_source_name}<br>{suffix}'
                 data = msg.value
                 for dim in data.dims:

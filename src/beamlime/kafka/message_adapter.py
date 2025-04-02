@@ -108,7 +108,7 @@ class KafkaToEv44Adapter(
             timestamp = ev44.reference_time[-1]
         else:
             timestamp = message.timestamp()[1]
-        return Message(timestamp=timestamp, key=key, value=ev44)
+        return Message(timestamp=timestamp, stream=key, value=ev44)
 
 
 class KafkaToDa00Adapter(
@@ -121,7 +121,7 @@ class KafkaToDa00Adapter(
         da00 = dataarray_da00.deserialise_da00(message.value())
         key = StreamKey(kind=self._kind, name=da00.source_name)
         timestamp = da00.timestamp_ns
-        return Message(timestamp=timestamp, key=key, value=da00.data)
+        return Message(timestamp=timestamp, stream=key, value=da00.data)
 
 
 class KafkaToF144Adapter(
@@ -131,7 +131,7 @@ class KafkaToF144Adapter(
         log_data = logdata_f144.deserialise_f144(message.value())
         key = StreamKey(kind=StreamKind.LOG, name=log_data.source_name)
         timestamp = log_data.timestamp_unix_ns
-        return Message(timestamp=timestamp, key=key, value=log_data)
+        return Message(timestamp=timestamp, stream=key, value=log_data)
 
 
 class F144ToLogDataAdapter(
@@ -184,7 +184,7 @@ class KafkaToMonitorEventsAdapter(MessageAdapter[KafkaMessage, Message[MonitorEv
             timestamp = message.timestamp()[1]
         return Message(
             timestamp=timestamp,
-            key=key,
+            stream=key,
             value=MonitorEvents(time_of_arrival=time_of_arrival, unit='ns'),
         )
 
@@ -207,10 +207,12 @@ class Ev44ToDetectorEventsAdapter(
     def adapt(
         self, message: Message[eventdata_ev44.EventData]
     ) -> Message[DetectorEvents]:
-        key = message.key
+        stream = message.stream
         if self._merge_detectors:
-            key = replace(key, name='unified_detector')
-        return replace(message, key=key, value=DetectorEvents.from_ev44(message.value))
+            stream = replace(stream, name='unified_detector')
+        return replace(
+            message, stream=stream, value=DetectorEvents.from_ev44(message.value)
+        )
 
 
 class Da00ToScippAdapter(
@@ -238,7 +240,7 @@ class BeamlimeConfigMessageAdapter(
         # Beamlime configuration uses a compacted Kafka topic. The Kafka message key
         # is the encoded string representation of a :py:class:`ConfigKey` object.
         item = RawConfigItem(key=message.key(), value=message.value())
-        return Message(key=CONFIG_MESSAGE_KEY, timestamp=timestamp, value=item)
+        return Message(stream=CONFIG_MESSAGE_KEY, timestamp=timestamp, value=item)
 
 
 class ChainedAdapter(MessageAdapter[T, V]):

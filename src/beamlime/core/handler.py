@@ -232,7 +232,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
             accumulator.add(timestamp=messages[-1].timestamp, data=data)
         if messages[-1].timestamp < self._next_update:
             return []
-        return self._produce_update(messages[-1].key, messages[-1].timestamp)
+        return self._produce_update(messages[-1].stream, messages[-1].timestamp)
 
     def _preprocess(self, message: Message[T]) -> None:
         if self.start_time().value_ns > self._last_clear:
@@ -254,7 +254,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         return [
             Message(
                 timestamp=timestamp,
-                key=StreamKey(
+                stream=StreamKey(
                     kind=StreamKind.BEAMLIME_DATA,
                     name=source_name(key.name, name),
                 ),

@@ -27,7 +27,7 @@ def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -
     )
     message = Message(
         timestamp=1234,
-        key=StreamKey(kind=StreamKind.DETECTOR_EVENTS, name='ignored'),
+        stream=StreamKey(kind=StreamKind.DETECTOR_EVENTS, name='ignored'),
         value=events,
     )
     results = handler.handle([message])

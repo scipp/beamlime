@@ -27,7 +27,7 @@ class Serializer(Protocol, Generic[T]):
 def serialize_dataarray_to_da00(msg: Message[sc.DataArray]) -> bytes:
     try:
         da00 = dataarray_da00.serialise_da00(
-            source_name=msg.key.name,
+            source_name=msg.stream.name,
             timestamp_ns=time.time_ns(),
             data=scipp_to_da00(msg.value),
         )
@@ -40,7 +40,7 @@ def serialize_dataarray_to_f144(msg: Message[sc.DataArray]) -> bytes:
     try:
         da = msg.value
         f144 = logdata_f144.serialise_f144(
-            source_name=msg.key.name,
+            source_name=msg.stream.name,
             value=da.value,
             timestamp_unix_ns=da.coords['time'].to(unit='ns', copy=False).value,
         )
@@ -103,7 +103,7 @@ class UnrollingSinkAdapter(MessageSink[T | sc.DataGroup[T]]):
         for msg in messages:
             if isinstance(msg.value, sc.DataGroup):
                 for name, value in msg.value.items():
-                    key = replace(msg.key, name=f'{msg.key.name}/{name}')
+                    key = replace(msg.stream, name=f'{msg.stream.name}/{name}')
                     unrolled.append(replace(msg, key=key, value=value))
             else:
                 unrolled.append(msg)

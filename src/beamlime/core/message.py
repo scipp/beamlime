@@ -35,7 +35,7 @@ CONFIG_MESSAGE_KEY = StreamKey(kind=StreamKind.BEAMLIME_CONFIG, name='')
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Message(Generic[T]):
     timestamp: int
-    key: StreamKey
+    stream: StreamKey
     value: T
 
     def __lt__(self, other: Message[T]) -> bool:
@@ -66,6 +66,6 @@ def compact_messages(messages: list[Message[T]]) -> list[Message[T]]:
     """
     latest = {}
     for msg in sorted(messages, reverse=True):  # Newest first
-        if msg.key not in latest:
-            latest[msg.key] = msg
+        if msg.stream not in latest:
+            latest[msg.stream] = msg
     return sorted(latest.values())
