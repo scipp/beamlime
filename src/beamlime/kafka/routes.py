@@ -32,9 +32,11 @@ def beam_monitor_route(instrument: str) -> dict[str, MessageAdapter]:
     mapping = get_stream_mapping(instrument)
     monitors = RouteBySchemaAdapter(
         routes={
-            'ev44': KafkaToMonitorEventsAdapter(monitor_mapping=mapping.monitors),
+            'ev44': KafkaToMonitorEventsAdapter(stream_lut=mapping.monitors),
             'da00': ChainedAdapter(
-                first=KafkaToDa00Adapter(kind=StreamKind.MONITOR_COUNTS),
+                first=KafkaToDa00Adapter(
+                    stream_lut=mapping.monitors, stream_kind=StreamKind.MONITOR_COUNTS
+                ),
                 second=Da00ToScippAdapter(),
             ),
         }
@@ -44,11 +46,13 @@ def beam_monitor_route(instrument: str) -> dict[str, MessageAdapter]:
 
 def detector_route(instrument: str) -> dict[str, MessageAdapter]:
     """Returns a dictionary of routes for detector data."""
+    mapping = get_stream_mapping(instrument)
     detectors = ChainedAdapter(
-        first=KafkaToEv44Adapter(kind=StreamKind.DETECTOR_EVENTS),
+        first=KafkaToEv44Adapter(
+            stream_lut=mapping.detectors, stream_kind=StreamKind.DETECTOR_EVENTS
+        ),
         second=Ev44ToDetectorEventsAdapter(merge_detectors=instrument == 'bifrost'),
     )
-    mapping = get_stream_mapping(instrument)
     return {topic: detectors for topic in mapping.detector_topics}
 
 

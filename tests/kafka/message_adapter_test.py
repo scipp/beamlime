@@ -70,7 +70,7 @@ def test_adapting_source() -> None:
     source = AdaptingMessageSource(
         source=FakeKafkaMessageSource(),
         adapter=ChainedAdapter(
-            first=KafkaToEv44Adapter(kind=StreamKind.MONITOR_EVENTS),
+            first=KafkaToEv44Adapter(stream_kind=StreamKind.MONITOR_EVENTS),
             second=Ev44ToMonitorEventsAdapter(),
         ),
     )
@@ -86,7 +86,7 @@ def test_KafkaToMonitorEventsAdapter() -> None:
     source = AdaptingMessageSource(
         source=FakeKafkaMessageSource(),
         adapter=KafkaToMonitorEventsAdapter(
-            monitor_mapping={
+            stream_lut={
                 InputStreamKey(topic="monitors", source_name="monitor1"): "monitor_0"
             }
         ),
