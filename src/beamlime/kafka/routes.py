@@ -6,6 +6,7 @@ from ..config.topics import (
     beamlime_config_topic,
     motion_topic,
 )
+from ..core.message import StreamKind
 from .message_adapter import (
     BeamlimeConfigMessageAdapter,
     ChainedAdapter,
@@ -33,7 +34,8 @@ def beam_monitor_route(instrument: str) -> dict[str, MessageAdapter]:
         routes={
             'ev44': KafkaToMonitorEventsAdapter(monitor_mapping=mapping.monitors),
             'da00': ChainedAdapter(
-                first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
+                first=KafkaToDa00Adapter(kind=StreamKind.MONITOR_COUNTS),
+                second=Da00ToScippAdapter(),
             ),
         }
     )
@@ -43,7 +45,7 @@ def beam_monitor_route(instrument: str) -> dict[str, MessageAdapter]:
 def detector_route(instrument: str) -> dict[str, MessageAdapter]:
     """Returns a dictionary of routes for detector data."""
     detectors = ChainedAdapter(
-        first=KafkaToEv44Adapter(),
+        first=KafkaToEv44Adapter(kind=StreamKind.DETECTOR_EVENTS),
         second=Ev44ToDetectorEventsAdapter(merge_detectors=instrument == 'bifrost'),
     )
     mapping = get_stream_mapping(instrument)

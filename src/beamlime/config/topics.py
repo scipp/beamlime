@@ -67,6 +67,7 @@ def stream_kind_to_topic(instrument: str, kind: StreamKind) -> str:
     Convert a StreamKind to a topic name.
 
     Used for constructing the topic name from the StreamKind when publishing to Kafka.
+    The non-beamlime topics are thus only used when using our fake data generators.
     """
     match kind:
         case StreamKind.MONITOR:
@@ -75,7 +76,7 @@ def stream_kind_to_topic(instrument: str, kind: StreamKind) -> str:
             return beam_monitor_topic(instrument)
         case StreamKind.MONITOR_EVENTS:
             return beam_monitor_topic(instrument)
-        case StreamKind.DETECTOR:
+        case StreamKind.DETECTOR_EVENTS:
             return detector_topic(instrument)
         case StreamKind.LOG:
             return motion_topic(instrument)

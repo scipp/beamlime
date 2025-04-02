@@ -97,9 +97,12 @@ class IdentityAdapter(MessageAdapter[T, T]):
 class KafkaToEv44Adapter(
     MessageAdapter[KafkaMessage, Message[eventdata_ev44.EventData]]
 ):
+    def __init__(self, kind: StreamKind):
+        self._kind = kind
+
     def adapt(self, message: KafkaMessage) -> Message[eventdata_ev44.EventData]:
         ev44 = eventdata_ev44.deserialise_ev44(message.value())
-        key = MessageKey(topic=message.topic(), source_name=ev44.source_name)
+        key = MessageKey(kind=self._kind, source_name=ev44.source_name)
         # A fallback, useful in particular for testing so serialized data can be reused.
         if ev44.reference_time.size > 0:
             timestamp = ev44.reference_time[-1]
@@ -111,10 +114,12 @@ class KafkaToEv44Adapter(
 class KafkaToDa00Adapter(
     MessageAdapter[KafkaMessage, Message[list[dataarray_da00.Variable]]]
 ):
-    # TODO set kind?
+    def __init__(self, kind: StreamKind):
+        self._kind = kind
+
     def adapt(self, message: KafkaMessage) -> Message[list[dataarray_da00.Variable]]:
         da00 = dataarray_da00.deserialise_da00(message.value())
-        key = MessageKey(source_name=da00.source_name)
+        key = MessageKey(kind=self._kind, source_name=da00.source_name)
         timestamp = da00.timestamp_ns
         return Message(timestamp=timestamp, key=key, value=da00.data)
 

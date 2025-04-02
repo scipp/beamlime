@@ -16,6 +16,7 @@ from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.config.topics import detector_topic
 from beamlime.core.handler import CommonHandlerFactory
+from beamlime.core.message import StreamKind
 from beamlime.kafka.sink import KafkaSink, SerializationError
 from beamlime.service_factory import DataServiceBuilder
 
@@ -133,7 +134,7 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
 
         return Message(
             timestamp=timestamp,
-            key=MessageKey(topic=self._topic, source_name=name),
+            key=MessageKey(kind=StreamKind.DETECTOR_EVENTS, source_name=name),
             value=ds,
         )
 
@@ -177,7 +178,9 @@ def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
     )
     service = builder.from_source(
         source=FakeDetectorSource(instrument=instrument),
-        sink=KafkaSink(kafka_config=kafka_config, serializer=serializer),
+        sink=KafkaSink(
+            instrument=instrument, kafka_config=kafka_config, serializer=serializer
+        ),
     )
     service.start()
 
