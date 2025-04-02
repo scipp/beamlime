@@ -16,11 +16,11 @@ from beamlime.config import config_names, models
 from beamlime.config.config_loader import load_config
 from beamlime.config.models import ConfigKey
 from beamlime.config.raw_detectors import get_config
+from beamlime.config.topics import topic_for_instrument
 from beamlime.core.config_service import ConfigService
 from beamlime.core.message import compact_messages
 from beamlime.handlers.workflow_manager import processor_factory
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.helpers import topic_for_instrument
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,

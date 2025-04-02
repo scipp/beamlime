@@ -10,8 +10,8 @@ import scipp as sc
 from streaming_data_types import logdata_f144
 
 from beamlime.config.raw_detectors import available_instruments
+from beamlime.config.topics import motion_topic
 from beamlime.fakes import FakeMessageSink
-from beamlime.kafka.helpers import motion_topic
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.sink import UnrollingSinkAdapter
 from beamlime.kafka.source import KafkaConsumer

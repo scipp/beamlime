@@ -8,8 +8,8 @@ import pytest
 from streaming_data_types import eventdata_ev44
 
 from beamlime.config.raw_detectors import available_instruments, get_config
+from beamlime.config.topics import detector_topic, source_name
 from beamlime.fakes import FakeMessageSink
-from beamlime.kafka.helpers import detector_topic, source_name
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.sink import UnrollingSinkAdapter
 from beamlime.kafka.source import KafkaConsumer

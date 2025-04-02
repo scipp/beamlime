@@ -8,7 +8,7 @@ from dataclasses import replace
 from typing import Any, Generic, Protocol, TypeVar
 
 from ..config import models
-from ..kafka.helpers import source_name
+from ..config.topics import source_name
 from .message import Message, MessageKey, Tin, Tout
 
 

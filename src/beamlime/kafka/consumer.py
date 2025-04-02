@@ -9,7 +9,7 @@ import confluent_kafka as kafka
 from confluent_kafka.error import KafkaException
 
 from ..config.config_loader import load_config
-from .helpers import topic_for_instrument
+from ..config.topics import topic_for_instrument
 
 
 def validate_topics_exist(consumer: kafka.Consumer, topics: list[str]) -> None:
