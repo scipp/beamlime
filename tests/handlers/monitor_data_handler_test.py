@@ -19,7 +19,7 @@ def test_handler() -> None:
     )
     msg = Message(
         timestamp=0,
-        key=StreamKey(kind=StreamKind.MONITOR_EVENTS, name='monitor1'),
+        stream=StreamKey(kind=StreamKind.MONITOR_EVENTS, name='monitor1'),
         value=MonitorEvents(
             time_of_arrival=np.array([int(1e6), int(2e6), int(4e7)]), unit='ns'
         ),
@@ -45,7 +45,7 @@ def test_handler() -> None:
     cumulative_value = -1
     sliding_window_value = -1
     for msg in results:
-        if 'cumulative' in msg.key.name:
+        if 'cumulative' in msg.stream.name:
             cumulative_value = msg.value
         else:
             sliding_window_value = msg.value

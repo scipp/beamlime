@@ -109,7 +109,7 @@ class FakeLogdataSource(MessageSource[sc.DataArray]):
         """Create a message with the given data and timestamp."""
         return Message(
             timestamp=self._time_ns().value,
-            key=StreamKey(kind=StreamKind.LOG, name=name),
+            stream=StreamKey(kind=StreamKind.LOG, name=name),
             value=data,
         )
 

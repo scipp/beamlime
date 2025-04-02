@@ -158,7 +158,7 @@ def test_full_handler_lifecycle(default_config, attribute_registry):
     timestamp = int(time.time() * 1e9)  # Current time in nanoseconds
     message = Message(
         timestamp=timestamp,
-        key=key,
+        stream=key,
         value=LogData(time=1_000_000_000, value=273.15),
     )
 
@@ -192,12 +192,12 @@ def test_handler_with_multiple_messages(default_config, attribute_registry):
     # Create messages
     message1 = Message(
         timestamp=base_timestamp,
-        key=key,
+        stream=key,
         value=LogData(time=1_000_000_000, value=273.15),
     )
     message2 = Message(
         timestamp=base_timestamp + 100_000_000,  # 100ms later, still within interval
-        key=key,
+        stream=key,
         value=LogData(time=2_000_000_000, value=293.15),
     )
 
@@ -235,7 +235,7 @@ def test_handler_across_update_intervals(attribute_registry):
     # First interval
     message1 = Message(
         timestamp=base_timestamp,
-        key=key,
+        stream=key,
         value=LogData(time=1_000_000_000, value=273.15),
     )
 
@@ -245,7 +245,7 @@ def test_handler_across_update_intervals(attribute_registry):
     # Second interval (more than update_interval_seconds later)
     message2 = Message(
         timestamp=base_timestamp + int(1.5e9),  # 1.5 seconds later
-        key=key,
+        stream=key,
         value=LogData(time=2_000_000_000, value=293.15),
     )
 
@@ -273,10 +273,10 @@ def test_logdata_handler_preserves_source_name(default_config, attribute_registr
 
     message = Message(
         timestamp=int(time.time() * 1e9),
-        key=key,
+        stream=key,
         value=LogData(time=1_000_000_000, value=273.15),
     )
 
     results = handler.handle([message])
     assert len(results) == 1
-    assert results[0].key.name == f'{source_name}:timeseries'
+    assert results[0].stream.name == f'{source_name}:timeseries'
