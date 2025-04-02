@@ -7,7 +7,7 @@ from typing import Generic, TypeVar
 
 from .core import MessageSink, StreamProcessor
 from .core.handler import HandlerFactory, HandlerRegistry
-from .core.message import MessageSource, StreamKey
+from .core.message import MessageSource, StreamId
 from .core.service import Service
 from .kafka.message_adapter import (
     AdaptingMessageSource,
@@ -36,7 +36,7 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         self._adapter = adapter or IdentityAdapter()
         self._handler_registry = HandlerRegistry(factory=handler_factory)
 
-    def add_handler(self, key: StreamKey, handler: HandlerFactory[Tin, Tout]) -> None:
+    def add_handler(self, key: StreamId, handler: HandlerFactory[Tin, Tout]) -> None:
         """Add specific handler to use for given key, instead of using the factory."""
         self._handler_registry.register_handler(key=key, handler=handler)
 

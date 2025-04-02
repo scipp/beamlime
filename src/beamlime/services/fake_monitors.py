@@ -9,7 +9,7 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from beamlime import Handler, Message, MessageSource, Service, StreamKey
+from beamlime import Handler, Message, MessageSource, Service, StreamId
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.core.handler import CommonHandlerFactory
@@ -62,7 +62,7 @@ class FakeMonitorSource(MessageSource[sc.Variable]):
         var = sc.array(dims=['time_of_arrival'], values=time_of_flight, unit='ns')
         return Message(
             timestamp=timestamp,
-            stream=StreamKey(kind=StreamKind.MONITOR_EVENTS, name=name),
+            stream=StreamId(kind=StreamKind.MONITOR_EVENTS, name=name),
             value=var,
         )
 

@@ -13,7 +13,7 @@ from ..core.handler import (
     HandlerFactory,
     PeriodicAccumulatingHandler,
 )
-from ..core.message import StreamKey
+from ..core.message import StreamId
 from .accumulators import ForwardingAccumulator, LogData
 from .to_nx_log import ToNXlog
 
@@ -62,7 +62,7 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
         else:
             self._attribute_registry = attribute_registry
 
-    def make_handler(self, key: StreamKey) -> Handler[LogData, sc.DataArray] | None:
+    def make_handler(self, key: StreamId) -> Handler[LogData, sc.DataArray] | None:
         source_name = key.name
         attrs = self._attribute_registry.get(source_name)
         if attrs is None:

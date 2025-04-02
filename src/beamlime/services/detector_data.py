@@ -10,7 +10,7 @@ from typing import Literal, NoReturn
 from beamlime import Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
-from beamlime.core.message import CONFIG_STREAM_KEY
+from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
@@ -51,7 +51,7 @@ def make_detector_service_builder(
         adapter=adapter,
         handler_factory=handler_factory,
     )
-    builder.add_handler(CONFIG_STREAM_KEY, config_handler)
+    builder.add_handler(CONFIG_STREAM_ID, config_handler)
     return builder
 
 

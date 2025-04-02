@@ -11,10 +11,10 @@ from streaming_data_types import dataarray_da00, eventdata_ev44, logdata_f144
 from streaming_data_types.fbschemas.eventdata_ev44 import Event44Message
 
 from ..core.message import (
-    CONFIG_STREAM_KEY,
+    CONFIG_STREAM_ID,
     Message,
     MessageSource,
-    StreamKey,
+    StreamId,
     StreamKind,
 )
 from ..handlers.accumulators import DetectorEvents, LogData, MonitorEvents
@@ -102,7 +102,7 @@ class KafkaToEv44Adapter(
 
     def adapt(self, message: KafkaMessage) -> Message[eventdata_ev44.EventData]:
         ev44 = eventdata_ev44.deserialise_ev44(message.value())
-        key = StreamKey(kind=self._kind, name=ev44.source_name)
+        key = StreamId(kind=self._kind, name=ev44.source_name)
         # A fallback, useful in particular for testing so serialized data can be reused.
         if ev44.reference_time.size > 0:
             timestamp = ev44.reference_time[-1]
@@ -119,7 +119,7 @@ class KafkaToDa00Adapter(
 
     def adapt(self, message: KafkaMessage) -> Message[list[dataarray_da00.Variable]]:
         da00 = dataarray_da00.deserialise_da00(message.value())
-        key = StreamKey(kind=self._kind, name=da00.source_name)
+        key = StreamId(kind=self._kind, name=da00.source_name)
         timestamp = da00.timestamp_ns
         return Message(timestamp=timestamp, stream=key, value=da00.data)
 
@@ -129,7 +129,7 @@ class KafkaToF144Adapter(
 ):
     def adapt(self, message: KafkaMessage) -> Message[logdata_f144.ExtractedLogData]:
         log_data = logdata_f144.deserialise_f144(message.value())
-        key = StreamKey(kind=StreamKind.LOG, name=log_data.source_name)
+        key = StreamId(kind=StreamKind.LOG, name=log_data.source_name)
         timestamp = log_data.timestamp_unix_ns
         return Message(timestamp=timestamp, stream=key, value=log_data)
 
@@ -171,7 +171,7 @@ class KafkaToMonitorEventsAdapter(MessageAdapter[KafkaMessage, Message[MonitorEv
         input_key = InputStreamKey(
             topic=message.topic(), source_name=event.SourceName().decode("utf-8")
         )
-        key = StreamKey(
+        key = StreamId(
             kind=StreamKind.MONITOR_EVENTS, name=self._monitor_mapping[input_key]
         )
         reference_time = event.ReferenceTimeAsNumpy()
@@ -240,7 +240,7 @@ class BeamlimeConfigMessageAdapter(
         # Beamlime configuration uses a compacted Kafka topic. The Kafka message key
         # is the encoded string representation of a :py:class:`ConfigKey` object.
         item = RawConfigItem(key=message.key(), value=message.value())
-        return Message(stream=CONFIG_STREAM_KEY, timestamp=timestamp, value=item)
+        return Message(stream=CONFIG_STREAM_ID, timestamp=timestamp, value=item)
 
 
 class ChainedAdapter(MessageAdapter[T, V]):

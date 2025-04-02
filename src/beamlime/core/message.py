@@ -24,12 +24,12 @@ class StreamKind(str, Enum):
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class StreamKey:
+class StreamId:
     kind: StreamKind = StreamKind.UNKNOWN
     name: str
 
 
-CONFIG_STREAM_KEY = StreamKey(kind=StreamKind.BEAMLIME_CONFIG, name='')
+CONFIG_STREAM_ID = StreamId(kind=StreamKind.BEAMLIME_CONFIG, name='')
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -49,7 +49,7 @@ class Message(Generic[T]):
     """
 
     timestamp: int
-    stream: StreamKey
+    stream: StreamId
     value: T
 
     def __lt__(self, other: Message[T]) -> bool:

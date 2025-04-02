@@ -5,7 +5,7 @@ import json
 import pytest
 
 from beamlime.config.models import ConfigKey
-from beamlime.core.message import CONFIG_STREAM_KEY, Message
+from beamlime.core.message import CONFIG_STREAM_ID, Message
 from beamlime.handlers.config_handler import ConfigHandler, ConfigUpdate
 from beamlime.kafka.message_adapter import RawConfigItem
 
@@ -85,7 +85,7 @@ class TestConfigHandler:
                     value=json.dumps("value1").encode('utf-8'),
                 ),
                 timestamp=123456789,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
         handler.handle(messages)
@@ -114,7 +114,7 @@ class TestConfigHandler:
                     value=json.dumps("value1").encode('utf-8'),
                 ),
                 timestamp=123456789,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
 
@@ -137,7 +137,7 @@ class TestConfigHandler:
                     value=json.dumps("source1-value").encode('utf-8'),
                 ),
                 timestamp=123456789,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
         handler.handle(source_messages)
@@ -150,7 +150,7 @@ class TestConfigHandler:
                     value=json.dumps("global-value").encode('utf-8'),
                 ),
                 timestamp=123456790,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
         handler.handle(global_messages)
@@ -172,7 +172,7 @@ class TestConfigHandler:
                     value=json.dumps("common-value").encode('utf-8'),
                 ),
                 timestamp=123456789,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
         handler.handle(global_messages)
@@ -185,7 +185,7 @@ class TestConfigHandler:
                     value=json.dumps("specific-value").encode('utf-8'),
                 ),
                 timestamp=123456790,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
         handler.handle(source_messages)
@@ -222,7 +222,7 @@ class TestConfigHandler:
                     value=json.dumps(42).encode('utf-8'),
                 ),
                 timestamp=123456789,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
 
@@ -257,7 +257,7 @@ class TestConfigHandler:
                     value=json.dumps(42).encode('utf-8'),
                 ),
                 timestamp=123456789,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
 
@@ -279,7 +279,7 @@ class TestConfigHandler:
                     value=json.dumps("value1").encode('utf-8'),
                 ),
                 timestamp=123456789,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
 
@@ -300,7 +300,7 @@ class TestConfigHandler:
                     value=json.dumps("value1").encode('utf-8'),
                 ),
                 timestamp=123456789,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
 
@@ -323,7 +323,7 @@ class TestConfigHandler:
                     value=json.dumps("global-value").encode('utf-8'),
                 ),
                 timestamp=123456789,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
 
@@ -352,7 +352,7 @@ class TestConfigHandler:
                     value=json.dumps(42).encode('utf-8'),
                 ),
                 timestamp=123456789,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
 
@@ -373,7 +373,7 @@ class TestConfigHandler:
                     value=b'not valid json',
                 ),
                 timestamp=123456789,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
 
@@ -394,7 +394,7 @@ class TestConfigHandler:
                     value=json.dumps("source1-value").encode('utf-8'),
                 ),
                 timestamp=123456789,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
         handler.handle(source_messages)
@@ -407,7 +407,7 @@ class TestConfigHandler:
                     value=json.dumps("global-value").encode('utf-8'),
                 ),
                 timestamp=123456890,  # Later timestamp
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
         handler.handle(global_messages)
@@ -424,7 +424,7 @@ class TestConfigHandler:
                     value=json.dumps("override-value").encode('utf-8'),
                 ),
                 timestamp=123456900,  # Even later timestamp
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
         handler.handle(override_messages)
@@ -445,7 +445,7 @@ class TestConfigHandler:
                     value=json.dumps("value1").encode('utf-8'),
                 ),
                 timestamp=123456789,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             )
         ]
 
@@ -466,7 +466,7 @@ class TestConfigHandler:
                     value=json.dumps("value1").encode('utf-8'),
                 ),
                 timestamp=123456789,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             ),
             # This one is for a different service and should be ignored
             Message(
@@ -475,7 +475,7 @@ class TestConfigHandler:
                     value=json.dumps("value2").encode('utf-8'),
                 ),
                 timestamp=123456790,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             ),
             # This one has a wildcard service and should be processed
             Message(
@@ -484,7 +484,7 @@ class TestConfigHandler:
                     value=json.dumps("value3").encode('utf-8'),
                 ),
                 timestamp=123456791,
-                stream=CONFIG_STREAM_KEY,
+                stream=CONFIG_STREAM_ID,
             ),
         ]
 
