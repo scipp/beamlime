@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 """
-Mappings from (topic, source_name) to internal stream name.
+Mappings from (topic, source_name) to internal stream identifier.
 
 Raw data is received from Kafka on a variety of topics. Each message has a source name.
 The latter is not unique (not event within an instrument), only the combination of topic
@@ -14,11 +14,6 @@ from __future__ import annotations
 from beamlime.kafka.message_adapter import InputStreamKey
 
 from .topics import beam_monitor_topic, detector_topic
-
-# We have two options, either setup topic-based routes dynamically for each instrument,
-# or convert to internal stream names before sending to adapters.
-# To know the source name, we need to desrialize the message, which requires specific
-# adapter => topic-based routes.
 
 
 class StreamMapping:
