@@ -11,16 +11,8 @@ from beamlime.config.config_loader import load_config
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.helpers import beam_monitor_topic, beamlime_command_topic
-from beamlime.kafka.message_adapter import (
-    BeamlimeConfigMessageAdapter,
-    ChainedAdapter,
-    Da00ToScippAdapter,
-    KafkaToDa00Adapter,
-    KafkaToMonitorEventsAdapter,
-    RouteByTopicAdapter,
-    RoutingAdapter,
-)
+from beamlime.kafka.message_adapter import RouteByTopicAdapter
+from beamlime.kafka.routes import beam_monitor_route, beamlime_config_route
 from beamlime.kafka.sink import KafkaSink
 from beamlime.kafka.source import MultiConsumer
 from beamlime.service_factory import DataServiceBuilder
@@ -38,23 +30,6 @@ def setup_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def make_monitor_data_adapter(instrument: str) -> RoutingAdapter:
-    monitors = RoutingAdapter(
-        routes={
-            'ev44': KafkaToMonitorEventsAdapter(),
-            'da00': ChainedAdapter(
-                first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
-            ),
-        }
-    )
-    return RouteByTopicAdapter(
-        routes={
-            beam_monitor_topic(instrument): monitors,
-            beamlime_command_topic(instrument): BeamlimeConfigMessageAdapter(),
-        },
-    )
-
-
 def make_monitor_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
@@ -63,11 +38,14 @@ def make_monitor_service_builder(
     handler_factory = CommonHandlerFactory(
         handler_cls=create_monitor_data_handler, config_registry=config_handler
     )
+    adapter = RouteByTopicAdapter(
+        routes={**beam_monitor_route(instrument), **beamlime_config_route(instrument)},
+    )
     builder = DataServiceBuilder(
         instrument=instrument,
         name=service_name,
         log_level=log_level,
-        adapter=make_monitor_data_adapter(instrument=instrument),
+        adapter=adapter,
         handler_factory=handler_factory,
     )
     builder.add_handler(ConfigHandler.message_key(instrument), config_handler)

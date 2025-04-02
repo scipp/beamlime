@@ -13,14 +13,8 @@ from beamlime.config.config_loader import load_config
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.helpers import beamlime_command_topic, detector_topic
-from beamlime.kafka.message_adapter import (
-    BeamlimeConfigMessageAdapter,
-    ChainedAdapter,
-    Ev44ToDetectorEventsAdapter,
-    KafkaToEv44Adapter,
-    RouteByTopicAdapter,
-)
+from beamlime.kafka.message_adapter import RouteByTopicAdapter
+from beamlime.kafka.routes import beamlime_config_route, detector_route
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
 from beamlime.kafka.source import MultiConsumer
 from beamlime.service_factory import DataServiceBuilder
@@ -38,19 +32,6 @@ def setup_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def make_detector_data_adapter(instrument: str) -> RouteByTopicAdapter:
-    detectors = ChainedAdapter(
-        first=KafkaToEv44Adapter(),
-        second=Ev44ToDetectorEventsAdapter(merge_detectors=instrument == 'bifrost'),
-    )
-    return RouteByTopicAdapter(
-        routes={
-            detector_topic(instrument): detectors,
-            beamlime_command_topic(instrument): BeamlimeConfigMessageAdapter(),
-        },
-    )
-
-
 def make_detector_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
@@ -59,11 +40,14 @@ def make_detector_service_builder(
     handler_factory = DetectorHandlerFactory(
         instrument=instrument, config_registry=config_handler
     )
+    adapter = RouteByTopicAdapter(
+        routes={**detector_route(instrument), **beamlime_config_route(instrument)},
+    )
     builder = DataServiceBuilder(
         instrument=instrument,
         name=service_name,
         log_level=log_level,
-        adapter=make_detector_data_adapter(instrument=instrument),
+        adapter=adapter,
         handler_factory=handler_factory,
     )
     builder.add_handler(ConfigHandler.message_key(instrument), config_handler)

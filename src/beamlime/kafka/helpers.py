@@ -41,9 +41,9 @@ def motion_topic(instrument: str) -> str:
     return topic_for_instrument(topic='motion', instrument=instrument)
 
 
-def beamlime_command_topic(instrument: str) -> str:
+def beamlime_config_topic(instrument: str) -> str:
     """
-    Return the topic name for the beamlime command data of an instrument.
+    Return the topic name for the beamlime configuration of an instrument.
     """
     return topic_for_instrument(topic='beamlime_commands', instrument=instrument)
 
