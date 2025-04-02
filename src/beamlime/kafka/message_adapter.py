@@ -129,7 +129,7 @@ class KafkaToF144Adapter(
 ):
     def adapt(self, message: KafkaMessage) -> Message[logdata_f144.ExtractedLogData]:
         log_data = logdata_f144.deserialise_f144(message.value())
-        key = MessageKey(topic=message.topic(), source_name=log_data.source_name)
+        key = MessageKey(kind=StreamKind.LOG, source_name=log_data.source_name)
         timestamp = log_data.timestamp_unix_ns
         return Message(timestamp=timestamp, key=key, value=log_data)
 
