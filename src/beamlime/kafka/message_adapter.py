@@ -10,7 +10,13 @@ import streaming_data_types.exceptions
 from streaming_data_types import dataarray_da00, eventdata_ev44, logdata_f144
 from streaming_data_types.fbschemas.eventdata_ev44 import Event44Message
 
-from ..core.message import Message, MessageKey, MessageSource, StreamKind
+from ..core.message import (
+    CONFIG_MESSAGE_KEY,
+    Message,
+    MessageKey,
+    MessageSource,
+    StreamKind,
+)
 from ..handlers.accumulators import DetectorEvents, LogData, MonitorEvents
 from .scipp_da00_compat import da00_to_scipp
 
@@ -108,7 +114,7 @@ class KafkaToDa00Adapter(
     # TODO set kind?
     def adapt(self, message: KafkaMessage) -> Message[list[dataarray_da00.Variable]]:
         da00 = dataarray_da00.deserialise_da00(message.value())
-        key = da00.source_name
+        key = MessageKey(source_name=da00.source_name)
         timestamp = da00.timestamp_ns
         return Message(timestamp=timestamp, key=key, value=da00.data)
 
@@ -160,7 +166,9 @@ class KafkaToMonitorEventsAdapter(MessageAdapter[KafkaMessage, Message[MonitorEv
         input_key = InputStreamKey(
             topic=message.topic(), source_name=event.SourceName().decode("utf-8")
         )
-        key = self._monitor_mapping[input_key]
+        key = MessageKey(
+            kind=StreamKind.MONITOR_EVENTS, source_name=self._monitor_mapping[input_key]
+        )
         reference_time = event.ReferenceTimeAsNumpy()
         time_of_arrival = event.TimeOfFlightAsNumpy()
 
@@ -172,7 +180,6 @@ class KafkaToMonitorEventsAdapter(MessageAdapter[KafkaMessage, Message[MonitorEv
         return Message(
             timestamp=timestamp,
             key=key,
-            kind=StreamKind.MONITOR_EVENTS,
             value=MonitorEvents(time_of_arrival=time_of_arrival, unit='ns'),
         )
 
@@ -223,13 +230,10 @@ class BeamlimeConfigMessageAdapter(
 
     def adapt(self, message: KafkaMessage) -> Message[RawConfigItem]:
         timestamp = message.timestamp()[1]
-        # The source name is set to 'config' to ensure these messages can be routed to
-        # the :py:class:`ConfigHandler` in the service.
-        key = MessageKey(topic=message.topic(), source_name='config')
         # Beamlime configuration uses a compacted Kafka topic. The Kafka message key
         # is the encoded string representation of a :py:class:`ConfigKey` object.
         item = RawConfigItem(key=message.key(), value=message.value())
-        return Message(key=key, timestamp=timestamp, value=item)
+        return Message(key=CONFIG_MESSAGE_KEY, timestamp=timestamp, value=item)
 
 
 class ChainedAdapter(MessageAdapter[T, V]):

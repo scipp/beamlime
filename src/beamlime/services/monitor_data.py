@@ -8,6 +8,7 @@ from typing import Literal, NoReturn
 from beamlime import CommonHandlerFactory, Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
+from beamlime.core.message import CONFIG_MESSAGE_KEY
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
 from beamlime.kafka import consumer as kafka_consumer
@@ -48,7 +49,7 @@ def make_monitor_service_builder(
         adapter=adapter,
         handler_factory=handler_factory,
     )
-    builder.add_handler(ConfigHandler.message_key(instrument), config_handler)
+    builder.add_handler(CONFIG_MESSAGE_KEY, config_handler)
     return builder
 
 
