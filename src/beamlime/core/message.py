@@ -29,7 +29,7 @@ class StreamKey:
     name: str
 
 
-CONFIG_MESSAGE_KEY = StreamKey(kind=StreamKind.BEAMLIME_CONFIG, name='')
+CONFIG_STREAM_KEY = StreamKey(kind=StreamKind.BEAMLIME_CONFIG, name='')
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

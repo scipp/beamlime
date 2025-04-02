@@ -6,7 +6,7 @@ import pytest
 from streaming_data_types import eventdata_ev44, logdata_f144
 
 from beamlime.core.message import (
-    CONFIG_MESSAGE_KEY,
+    CONFIG_STREAM_KEY,
     Message,
     MessageSource,
     StreamKey,
@@ -169,5 +169,5 @@ def test_BeamlimeConfigMessageAdapter() -> None:
     adapter = BeamlimeConfigMessageAdapter()
     adapted_message = adapter.adapt(message)
     # So it gets routed to config handler
-    assert adapted_message.stream == CONFIG_MESSAGE_KEY
+    assert adapted_message.stream == CONFIG_STREAM_KEY
     assert adapted_message.value == RawConfigItem(key=key, value=encoded)

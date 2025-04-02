@@ -11,7 +11,7 @@ from streaming_data_types import dataarray_da00, eventdata_ev44, logdata_f144
 from streaming_data_types.fbschemas.eventdata_ev44 import Event44Message
 
 from ..core.message import (
-    CONFIG_MESSAGE_KEY,
+    CONFIG_STREAM_KEY,
     Message,
     MessageSource,
     StreamKey,
@@ -240,7 +240,7 @@ class BeamlimeConfigMessageAdapter(
         # Beamlime configuration uses a compacted Kafka topic. The Kafka message key
         # is the encoded string representation of a :py:class:`ConfigKey` object.
         item = RawConfigItem(key=message.key(), value=message.value())
-        return Message(stream=CONFIG_MESSAGE_KEY, timestamp=timestamp, value=item)
+        return Message(stream=CONFIG_STREAM_KEY, timestamp=timestamp, value=item)
 
 
 class ChainedAdapter(MessageAdapter[T, V]):
