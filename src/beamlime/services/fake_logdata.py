@@ -6,7 +6,7 @@ from typing import NoReturn, TypeVar
 import numpy as np
 import scipp as sc
 
-from beamlime import Handler, Message, MessageKey, MessageSource, Service
+from beamlime import Handler, Message, MessageSource, Service, StreamKey
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.core.handler import CommonHandlerFactory
@@ -109,7 +109,7 @@ class FakeLogdataSource(MessageSource[sc.DataArray]):
         """Create a message with the given data and timestamp."""
         return Message(
             timestamp=self._time_ns().value,
-            key=MessageKey(kind=StreamKind.LOG, source_name=name),
+            key=StreamKey(kind=StreamKind.LOG, source_name=name),
             value=data,
         )
 

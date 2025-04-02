@@ -8,7 +8,7 @@ from typing import Any, Generic, Protocol, TypeVar
 
 from ..config import models
 from ..config.topics import source_name
-from .message import Message, MessageKey, StreamKind, Tin, Tout
+from .message import Message, StreamKey, StreamKind, Tin, Tout
 
 
 class Config(Protocol):
@@ -65,7 +65,7 @@ class Handler(Generic[Tin, Tout]):
 
 
 class HandlerFactory(Protocol, Generic[Tin, Tout]):
-    def make_handler(self, key: MessageKey) -> Handler[Tin, Tout] | None:
+    def make_handler(self, key: StreamKey) -> Handler[Tin, Tout] | None:
         pass
 
 
@@ -85,7 +85,7 @@ class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
         self._config_registry = config_registry or FakeConfigRegistry()
         self._handler_cls = handler_cls
 
-    def make_handler(self, key: MessageKey) -> Handler[Tin, Tout]:
+    def make_handler(self, key: StreamKey) -> Handler[Tin, Tout]:
         return self._handler_cls(
             logger=self._logger, config=self._config_registry.get_config(key)
         )
@@ -101,15 +101,15 @@ class HandlerRegistry(Generic[Tin, Tout]):
 
     def __init__(self, *, factory: HandlerFactory[Tin, Tout]):
         self._factory = factory
-        self._handlers: dict[MessageKey, Handler[Tin, Tout] | None] = {}
+        self._handlers: dict[StreamKey, Handler[Tin, Tout] | None] = {}
 
     def __len__(self) -> int:
         return sum(1 for handler in self._handlers.values() if handler is not None)
 
-    def register_handler(self, key: MessageKey, handler: Handler[Tin, Tout]) -> None:
+    def register_handler(self, key: StreamKey, handler: Handler[Tin, Tout]) -> None:
         self._handlers[key] = handler
 
-    def get(self, key: MessageKey) -> Handler[Tin, Tout] | None:
+    def get(self, key: StreamKey) -> Handler[Tin, Tout] | None:
         if key not in self._handlers:
             self._handlers[key] = self._factory.make_handler(key)
         return self._handlers[key]
@@ -244,7 +244,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
             self._next_update = message.timestamp
         self._preprocessor.add(message.timestamp, message.value)
 
-    def _produce_update(self, key: MessageKey, timestamp: int) -> list[Message[V]]:
+    def _produce_update(self, key: StreamKey, timestamp: int) -> list[Message[V]]:
         # If there were no pulses for a while we need to skip several updates.
         # Note that we do not simply set _next_update based on reference_time
         # to avoid drifts.
@@ -254,7 +254,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         return [
             Message(
                 timestamp=timestamp,
-                key=MessageKey(
+                key=StreamKey(
                     kind=StreamKind.BEAMLIME_DATA,
                     source_name=source_name(key.source_name, name),
                 ),
