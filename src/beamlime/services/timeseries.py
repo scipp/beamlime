@@ -13,14 +13,8 @@ from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.handlers.timeseries_handler import LogdataHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.helpers import beamlime_command_topic, motion_topic
-from beamlime.kafka.message_adapter import (
-    BeamlimeConfigMessageAdapter,
-    ChainedAdapter,
-    F144ToLogDataAdapter,
-    KafkaToF144Adapter,
-    RouteByTopicAdapter,
-)
+from beamlime.kafka.message_adapter import RouteByTopicAdapter
+from beamlime.kafka.routes import beamlime_config_route, logdata_route
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
 from beamlime.kafka.source import MultiConsumer
 from beamlime.service_factory import DataServiceBuilder
@@ -38,17 +32,6 @@ def setup_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def make_timeseries_adapter(instrument: str) -> RouteByTopicAdapter:
-    return RouteByTopicAdapter(
-        routes={
-            motion_topic(instrument): ChainedAdapter(
-                first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
-            ),
-            beamlime_command_topic(instrument): BeamlimeConfigMessageAdapter(),
-        },
-    )
-
-
 def make_timeseries_service_builder(
     *,
     instrument: str,
@@ -58,11 +41,14 @@ def make_timeseries_service_builder(
     handler_factory = LogdataHandlerFactory(
         instrument=instrument, attribute_registry=attribute_registry, config={}
     )
+    adapter = RouteByTopicAdapter(
+        routes={**logdata_route(instrument), **beamlime_config_route(instrument)},
+    )
     return DataServiceBuilder(
         instrument=instrument,
         name='timeseries',
         log_level=log_level,
-        adapter=make_timeseries_adapter(instrument=instrument),
+        adapter=adapter,
         handler_factory=handler_factory,
     )
 

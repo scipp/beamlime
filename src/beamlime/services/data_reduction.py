@@ -15,24 +15,12 @@ from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.data_reduction_handler import ReductionHandlerFactory
 from beamlime.handlers.workflow_manager import WorkflowManager
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.helpers import (
-    beam_monitor_topic,
-    beamlime_command_topic,
-    detector_topic,
-    motion_topic,
-)
-from beamlime.kafka.message_adapter import (
-    BeamlimeConfigMessageAdapter,
-    ChainedAdapter,
-    Da00ToScippAdapter,
-    Ev44ToDetectorEventsAdapter,
-    F144ToLogDataAdapter,
-    KafkaToDa00Adapter,
-    KafkaToEv44Adapter,
-    KafkaToF144Adapter,
-    KafkaToMonitorEventsAdapter,
-    RouteByTopicAdapter,
-    RoutingAdapter,
+from beamlime.kafka.message_adapter import RouteByTopicAdapter
+from beamlime.kafka.routes import (
+    beam_monitor_route,
+    beamlime_config_route,
+    detector_route,
+    logdata_route,
 )
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
 from beamlime.kafka.source import MultiConsumer
@@ -54,27 +42,12 @@ def setup_arg_parser() -> argparse.ArgumentParser:
 def make_reduction_service_builder(
     *, instrument: str, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
-    monitors = RoutingAdapter(
-        routes={
-            'ev44': KafkaToMonitorEventsAdapter(),
-            'da00': ChainedAdapter(
-                first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
-            ),
-        }
-    )
     adapter = RouteByTopicAdapter(
         routes={
-            beam_monitor_topic(instrument): monitors,
-            detector_topic(instrument): ChainedAdapter(
-                first=KafkaToEv44Adapter(),
-                second=Ev44ToDetectorEventsAdapter(
-                    merge_detectors=instrument == 'bifrost'
-                ),
-            ),
-            motion_topic(instrument): ChainedAdapter(
-                first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
-            ),
-            beamlime_command_topic(instrument): BeamlimeConfigMessageAdapter(),
+            **beam_monitor_route(instrument),
+            **detector_route(instrument),
+            **logdata_route(instrument),
+            **beamlime_config_route(instrument),
         }
     )
     instrument_config = get_config(instrument)

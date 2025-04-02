@@ -18,7 +18,7 @@ from beamlime.kafka.message_adapter import (
     KafkaToF144Adapter,
     KafkaToMonitorEventsAdapter,
     RawConfigItem,
-    RoutingAdapter,
+    RouteBySchemaAdapter,
 )
 
 
@@ -126,7 +126,7 @@ def message_with_schema(schema: str) -> KafkaMessage:
 
 
 def test_routing_adapter_raises_KeyError_if_no_route_found() -> None:
-    adapter = RoutingAdapter(routes={})
+    adapter = RouteBySchemaAdapter(routes={})
     with pytest.raises(KeyError, match="ev44"):
         adapter.adapt(message_with_schema("ev44"))
 
@@ -147,7 +147,7 @@ def test_routing_adapter_calls_adapter_based_on_route() -> None:
         def adapt(self, message: KafkaMessage) -> Message[str]:
             return fake_message_with_value(message, self._value)
 
-    adapter = RoutingAdapter(
+    adapter = RouteBySchemaAdapter(
         routes={"ev44": Adapter('adapter1'), "da00": Adapter('adapter2')}
     )
     assert adapter.adapt(message_with_schema('ev44')).value == "adapter1"

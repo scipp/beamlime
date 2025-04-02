@@ -233,7 +233,7 @@ class ChainedAdapter(MessageAdapter[T, V]):
         return self._second.adapt(intermediate)
 
 
-class RoutingAdapter(MessageAdapter[KafkaMessage, T]):
+class RouteBySchemaAdapter(MessageAdapter[KafkaMessage, T]):
     """
     Routes messages to different adapters based on the schema.
     """
