@@ -11,6 +11,7 @@ from beamlime import Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.config.raw_detectors import get_config
+from beamlime.core.message import CONFIG_MESSAGE_KEY
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.data_reduction_handler import ReductionHandlerFactory
 from beamlime.handlers.workflow_manager import WorkflowManager
@@ -72,7 +73,7 @@ def make_reduction_service_builder(
         adapter=adapter,
         handler_factory=handler_factory,
     )
-    builder.add_handler(ConfigHandler.message_key(instrument), config_handler)
+    builder.add_handler(CONFIG_MESSAGE_KEY, config_handler)
     return builder
 
 
@@ -88,7 +89,7 @@ def run_service(
     kafka_upstream_config = load_config(namespace=config_names.kafka_upstream)
 
     if sink_type == 'kafka':
-        sink = KafkaSink(kafka_config=kafka_downstream_config)
+        sink = KafkaSink(instrument=instrument, kafka_config=kafka_downstream_config)
     else:
         sink = PlotToPngSink()
     sink = UnrollingSinkAdapter(sink)
