@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 
-from .helpers import (
-    beam_monitor_topic,
+from ..config.stream_mapping import get_stream_mapping
+from ..config.topics import (
     beamlime_config_topic,
-    detector_topic,
     motion_topic,
 )
 from .message_adapter import (
@@ -37,7 +36,8 @@ def beam_monitor_route(instrument: str) -> dict[str, MessageAdapter]:
             ),
         }
     )
-    return {beam_monitor_topic(instrument): monitors}
+    mapping = get_stream_mapping(instrument)
+    return {topic: monitors for topic in mapping.monitor_topics}
 
 
 def detector_route(instrument: str) -> dict[str, MessageAdapter]:
@@ -46,7 +46,8 @@ def detector_route(instrument: str) -> dict[str, MessageAdapter]:
         first=KafkaToEv44Adapter(),
         second=Ev44ToDetectorEventsAdapter(merge_detectors=instrument == 'bifrost'),
     )
-    return {detector_topic(instrument): detectors}
+    mapping = get_stream_mapping(instrument)
+    return {topic: detectors for topic in mapping.detector_topics}
 
 
 def logdata_route(instrument: str) -> dict[str, MessageAdapter]:

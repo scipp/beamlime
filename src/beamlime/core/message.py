@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Generic, Protocol, TypeVar
 
 T = TypeVar('T')
@@ -16,10 +17,21 @@ class MessageKey:
     source_name: str
 
 
+class StreamKind(str, Enum):
+    __slots__ = ()
+    UNKNOWN = "unknown"
+    MONITOR = "monitor"
+    MONITOR_COUNTS = "monitor_counts"
+    MONITOR_EVENTS = "monitor_events"
+    DETECTOR = "detector"
+    LOG = "log"
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Message(Generic[T]):
     timestamp: int
     key: MessageKey
+    kind: StreamKind = StreamKind.UNKNOWN
     value: T
 
     def __lt__(self, other: Message[T]) -> bool:

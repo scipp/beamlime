@@ -14,8 +14,8 @@ from streaming_data_types import eventdata_ev44
 from beamlime import Handler, Message, MessageKey, MessageSource, Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
+from beamlime.config.topics import detector_topic
 from beamlime.core.handler import CommonHandlerFactory
-from beamlime.kafka.helpers import detector_topic
 from beamlime.kafka.sink import KafkaSink, SerializationError
 from beamlime.service_factory import DataServiceBuilder
 

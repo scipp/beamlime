@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..config.models import ConfigKey
+from ..config.topics import beamlime_config_topic
 from ..core.handler import Config, Handler
 from ..core.message import Message, MessageKey
-from ..kafka.helpers import beamlime_config_topic
 from ..kafka.message_adapter import RawConfigItem
 
 

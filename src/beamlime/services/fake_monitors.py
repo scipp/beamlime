@@ -18,8 +18,8 @@ from beamlime import (
 )
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
+from beamlime.config.topics import beam_monitor_topic
 from beamlime.core.handler import CommonHandlerFactory
-from beamlime.kafka.helpers import beam_monitor_topic
 from beamlime.kafka.message_adapter import MessageAdapter
 from beamlime.kafka.sink import (
     KafkaSink,
