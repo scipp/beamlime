@@ -8,6 +8,7 @@ from typing import Literal, NoReturn
 from beamlime import Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
+from beamlime.config.stream_mapping import get_stream_mapping
 from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.monitor_data_handler import MonitorHandlerFactory
@@ -32,13 +33,17 @@ def setup_arg_parser() -> argparse.ArgumentParser:
 
 
 def make_monitor_service_builder(
-    *, instrument: str, log_level: int = logging.INFO
+    *, instrument: str, dev: bool = True, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
     service_name = 'monitor_data'
     config_handler = ConfigHandler(service_name=service_name)
     handler_factory = MonitorHandlerFactory(config_registry=config_handler)
+    stream_mapping = get_stream_mapping(instrument=instrument, dev=dev)
     adapter = RouteByTopicAdapter(
-        routes={**beam_monitor_route(instrument), **beamlime_config_route(instrument)},
+        routes={
+            **beam_monitor_route(stream_mapping),
+            **beamlime_config_route(instrument),
+        },
     )
     builder = DataServiceBuilder(
         instrument=instrument,
@@ -55,6 +60,7 @@ def run_service(
     *,
     sink_type: Literal['kafka', 'png'],
     instrument: str,
+    dev: bool,
     log_level: int = logging.INFO,
 ) -> NoReturn:
     config = load_config(namespace=config_names.monitor_data, env='')
@@ -67,7 +73,9 @@ def run_service(
     else:
         sink = PlotToPngSink()
 
-    builder = make_monitor_service_builder(instrument=instrument, log_level=log_level)
+    builder = make_monitor_service_builder(
+        instrument=instrument, dev=dev, log_level=log_level
+    )
 
     with ExitStack() as stack:
         control_consumer = stack.enter_context(

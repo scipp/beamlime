@@ -10,6 +10,7 @@ from typing import Literal, NoReturn
 from beamlime import Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
+from beamlime.config.stream_mapping import get_stream_mapping
 from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
@@ -34,15 +35,16 @@ def setup_arg_parser() -> argparse.ArgumentParser:
 
 
 def make_detector_service_builder(
-    *, instrument: str, log_level: int = logging.INFO
+    *, instrument: str, dev: bool = True, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
     service_name = 'detector_data'
     config_handler = ConfigHandler(service_name=service_name)
     handler_factory = DetectorHandlerFactory(
         instrument=instrument, config_registry=config_handler
     )
+    stream_mapping = get_stream_mapping(instrument=instrument, dev=dev)
     adapter = RouteByTopicAdapter(
-        routes={**detector_route(instrument), **beamlime_config_route(instrument)},
+        routes={**detector_route(stream_mapping), **beamlime_config_route(instrument)},
     )
     builder = DataServiceBuilder(
         instrument=instrument,
@@ -59,6 +61,7 @@ def run_service(
     *,
     sink_type: Literal['kafka', 'png'],
     instrument: str,
+    dev: bool,
     log_level: int = logging.INFO,
 ) -> NoReturn:
     config = load_config(namespace=config_names.detector_data, env='')
@@ -72,7 +75,9 @@ def run_service(
         sink = PlotToPngSink()
     sink = UnrollingSinkAdapter(sink)
 
-    builder = make_detector_service_builder(instrument=instrument, log_level=log_level)
+    builder = make_detector_service_builder(
+        instrument=instrument, dev=dev, log_level=log_level
+    )
 
     with ExitStack() as stack:
         control_consumer = stack.enter_context(

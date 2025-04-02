@@ -74,7 +74,7 @@ class KafkaSink(MessageSink[T]):
         for msg in messages:
             try:
                 topic = stream_kind_to_topic(
-                    instrument=self._instrument, kind=msg.key.kind
+                    instrument=self._instrument, kind=msg.stream.kind
                 )
                 value = self._serializer(msg)
             except SerializationError as e:  # noqa: PERF203

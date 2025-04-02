@@ -19,9 +19,11 @@ from .topics import beam_monitor_topic, detector_topic
 class StreamMapping:
     def __init__(
         self,
+        instrument: str,
         detectors: dict[InputStreamKey, str],
         monitors: dict[InputStreamKey, str],
     ) -> None:
+        self.instrument = instrument
         self._detectors = detectors
         self._monitors = monitors
 
@@ -93,6 +95,7 @@ def _make_dev_beam_monitors(instrument: str) -> dict[InputStreamKey, str]:
 
 def make_dev_stream_mapping(instrument: str) -> StreamMapping:
     return StreamMapping(
+        instrument=instrument,
         detectors=_make_dev_detectors(instrument),
         monitors=_make_dev_beam_monitors(instrument),
     )
@@ -109,16 +112,18 @@ _dev_instruments = {
 
 instruments = {
     'loki': StreamMapping(
-        detectors=_make_loki_detectors(), monitors=_make_cbm_monitors('loki')
+        instrument='loki',
+        detectors=_make_loki_detectors(),
+        monitors=_make_cbm_monitors('loki'),
     ),
 }
 
 
-def get_stream_mapping(instrument: str, production: bool = False) -> StreamMapping:
+def get_stream_mapping(*, instrument: str, dev: bool) -> StreamMapping:
     """
     Returns the stream mapping for the given instrument.
     """
-    if not production:
+    if dev:
         return _dev_instruments[instrument]
     if instrument == 'loki':
         return instruments['loki']
