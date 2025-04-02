@@ -17,7 +17,7 @@ class StreamKind(str, Enum):
     MONITOR = "monitor"
     MONITOR_COUNTS = "monitor_counts"
     MONITOR_EVENTS = "monitor_events"
-    DETECTOR = "detector"
+    DETECTOR_EVENTS = "detector_events"
     LOG = "log"
     BEAMLIME_CONFIG = "beamlime_config"
     BEAMLIME_DATA = "beamlime_data"

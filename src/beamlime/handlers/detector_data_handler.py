@@ -55,9 +55,6 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         self._nexus_file = _try_get_nexus_geometry_filename(instrument)
         self._window_length = 1
 
-    def _key_to_detector_name(self, key: MessageKey) -> str:
-        return key.source_name
-
     def _make_view(
         self, detector_config: dict[str, Any]
     ) -> raw.RollingDetectorView | None:
@@ -87,7 +84,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         )
 
     def make_handler(self, key: MessageKey) -> Handler[DetectorEvents, sc.DataArray]:
-        detector_name = self._key_to_detector_name(key)
+        detector_name = key.source_name
         candidates = {
             view_name: self._make_view(detector)
             for view_name, detector in self._detector_config.items()
