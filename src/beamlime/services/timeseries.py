@@ -13,7 +13,6 @@ from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.handlers.timeseries_handler import LogdataHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.message_adapter import RouteByTopicAdapter
 from beamlime.kafka.routes import beamlime_config_route, logdata_route
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
 from beamlime.kafka.source import MultiConsumer
@@ -42,14 +41,12 @@ def make_timeseries_service_builder(
     handler_factory = LogdataHandlerFactory(
         instrument=instrument, attribute_registry=attribute_registry, config={}
     )
-    adapter = RouteByTopicAdapter(
-        routes={**logdata_route(instrument), **beamlime_config_route(instrument)},
-    )
+    routes = {**logdata_route(instrument), **beamlime_config_route(instrument)}
     return DataServiceBuilder(
         instrument=instrument,
         name='timeseries',
         log_level=log_level,
-        adapter=adapter,
+        routes=routes,
         handler_factory=handler_factory,
     )
 

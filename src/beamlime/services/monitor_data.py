@@ -13,7 +13,6 @@ from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.monitor_data_handler import MonitorHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.message_adapter import RouteByTopicAdapter
 from beamlime.kafka.routes import beam_monitor_route, beamlime_config_route
 from beamlime.kafka.sink import KafkaSink
 from beamlime.kafka.source import MultiConsumer
@@ -39,17 +38,12 @@ def make_monitor_service_builder(
     config_handler = ConfigHandler(service_name=service_name)
     handler_factory = MonitorHandlerFactory(config_registry=config_handler)
     stream_mapping = get_stream_mapping(instrument=instrument, dev=dev)
-    adapter = RouteByTopicAdapter(
-        routes={
-            **beam_monitor_route(stream_mapping),
-            **beamlime_config_route(instrument),
-        },
-    )
+    routes = {**beam_monitor_route(stream_mapping), **beamlime_config_route(instrument)}
     builder = DataServiceBuilder(
         instrument=instrument,
         name=service_name,
         log_level=log_level,
-        adapter=adapter,
+        routes=routes,
         handler_factory=handler_factory,
     )
     builder.add_handler(CONFIG_STREAM_ID, config_handler)

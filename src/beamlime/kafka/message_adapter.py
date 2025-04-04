@@ -24,10 +24,12 @@ T = TypeVar('T')
 U = TypeVar('U')
 V = TypeVar('V')
 
+KafkaTopic = str
+
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class InputStreamKey:
-    topic: str
+    topic: KafkaTopic
     source_name: str
 
 

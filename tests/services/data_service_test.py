@@ -54,7 +54,7 @@ def test_basics() -> None:
     builder = DataServiceBuilder(
         instrument='instrument',
         name='name',
-        adapter=ForwardingAdapter(),
+        routes={'dummy': ForwardingAdapter()},
         handler_factory=CommonHandlerFactory(handler_cls=ForwardingHandler),
     )
     sink = FakeMessageSink()
