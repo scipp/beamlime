@@ -5,17 +5,14 @@
 import argparse
 import logging
 from collections.abc import Mapping
-from contextlib import ExitStack
 from typing import Any, Literal, NoReturn
 
 from beamlime import Service
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.handlers.timeseries_handler import LogdataHandlerFactory
-from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.routes import logdata_route
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
-from beamlime.kafka.source import MultiConsumer
 from beamlime.service_factory import DataServiceBuilder
 from beamlime.sinks import PlotToPngSink
 
@@ -67,23 +64,14 @@ def run_service(
         sink = PlotToPngSink()
     sink = UnrollingSinkAdapter(sink)
 
-    builder = make_timeseries_service_builder(
+    with make_timeseries_service_builder(
         instrument=instrument, dev=dev, log_level=log_level
-    )
-
-    with ExitStack() as stack:
-        control_consumer = stack.enter_context(
-            kafka_consumer.make_control_consumer(instrument=instrument)
+    ) as builder_ctx:
+        consumer = builder_ctx.create_consumer(
+            kafka_config={**consumer_config, **kafka_upstream_config},
+            consumer_group='timeseries',
         )
-        data_consumer = stack.enter_context(
-            kafka_consumer.make_consumer_from_config(
-                topics=builder.topics,
-                config={**consumer_config, **kafka_upstream_config},
-                group='timeseries',
-            )
-        )
-        consumer = MultiConsumer([control_consumer, data_consumer])
-        service = builder.from_consumer(consumer=consumer, sink=sink)
+        service = builder_ctx.from_consumer(consumer=consumer, sink=sink)
         service.start()
 
 
