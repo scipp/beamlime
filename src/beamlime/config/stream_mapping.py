@@ -28,14 +28,14 @@ class StreamMapping:
         self._monitors = monitors
 
     @property
-    def detector_topics(self) -> list[str]:
+    def detector_topics(self) -> set[str]:
         """Returns the list of detector topics."""
-        return [stream.topic for stream in self.detectors.keys()]
+        return {stream.topic for stream in self.detectors.keys()}
 
     @property
-    def monitor_topics(self) -> list[str]:
+    def monitor_topics(self) -> set[str]:
         """Returns the list of monitor topics."""
-        return [stream.topic for stream in self.monitors.keys()]
+        return {stream.topic for stream in self.monitors.keys()}
 
     @property
     def detectors(self) -> dict[InputStreamKey, str]:
