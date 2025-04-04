@@ -7,7 +7,9 @@ import numpy as np
 import pytest
 from streaming_data_types import eventdata_ev44
 
-from beamlime.config.topics import beam_monitor_topic, source_name
+from beamlime import StreamKind
+from beamlime.config.stream_mapping import stream_kind_to_topic
+from beamlime.config.topics import source_name
 from beamlime.fakes import FakeMessageSink
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.source import KafkaConsumer
@@ -29,6 +31,9 @@ class Ev44Consumer(KafkaConsumer):
         events_per_message: int = 1_000,
         max_events: int = 1_000_000,
     ) -> None:
+        self._topic = stream_kind_to_topic(
+            instrument='dummy', kind=StreamKind.MONITOR_EVENTS
+        )
         self._num_sources = num_sources
         self._events_per_message = events_per_message
         self._max_events = max_events
@@ -82,7 +87,7 @@ class Ev44Consumer(KafkaConsumer):
         messages = [
             FakeKafkaMessage(
                 value=self._content[msg % self._num_sources],
-                topic=beam_monitor_topic("dummy"),
+                topic=self._topic,
                 timestamp=self._make_timestamp(),
             )
             for msg in range(num_messages)

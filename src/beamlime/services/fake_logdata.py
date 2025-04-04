@@ -6,11 +6,10 @@ from typing import NoReturn, TypeVar
 import numpy as np
 import scipp as sc
 
-from beamlime import Handler, Message, MessageSource, Service, StreamId
+from beamlime import Handler, Message, MessageSource, Service, StreamId, StreamKind
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.core.handler import CommonHandlerFactory
-from beamlime.core.message import StreamKind
 from beamlime.kafka.sink import KafkaSink, serialize_dataarray_to_f144
 from beamlime.service_factory import DataServiceBuilder
 

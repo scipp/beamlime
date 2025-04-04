@@ -9,8 +9,9 @@ import pytest
 import scipp as sc
 from streaming_data_types import logdata_f144
 
+from beamlime import StreamKind
 from beamlime.config.raw_detectors import available_instruments
-from beamlime.config.topics import motion_topic
+from beamlime.config.stream_mapping import stream_kind_to_topic
 from beamlime.fakes import FakeMessageSink
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.sink import UnrollingSinkAdapter
@@ -32,7 +33,9 @@ class F144Consumer(KafkaConsumer):
             'temperature',
             'pressure',
         ]
-        self._topic = motion_topic(instrument=instrument)
+        self._topic = stream_kind_to_topic(
+            instrument=self._instrument, kind=StreamKind.LOG
+        )
 
         self._reference_time = int(sc.epoch(unit='ns').value)
         self._running = False

@@ -21,6 +21,7 @@ from .core import (
     Service,
     ServiceBase,
     StreamId,
+    StreamKind,
     StreamProcessor,
     compact_messages,
 )
@@ -37,6 +38,7 @@ __all__ = [
     "Service",
     "ServiceBase",
     "StreamId",
+    "StreamKind",
     "StreamProcessor",
     "WorkflowResult",
     "compact_messages",

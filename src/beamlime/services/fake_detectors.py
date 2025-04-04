@@ -11,12 +11,10 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from beamlime import Handler, Message, MessageSource, Service, StreamId
+from beamlime import Handler, Message, MessageSource, Service, StreamId, StreamKind
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
-from beamlime.config.topics import detector_topic
 from beamlime.core.handler import CommonHandlerFactory
-from beamlime.core.message import StreamKind
 from beamlime.kafka.sink import KafkaSink, SerializationError
 from beamlime.service_factory import DataServiceBuilder
 
@@ -83,7 +81,6 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
         instrument: str,
     ):
         self._instrument = instrument
-        self._topic = detector_topic(instrument=instrument)
         self._rng = np.random.default_rng()
         self._tof = sc.linspace('tof', 0, 71_000_000, num=50, unit='ns')
         self._interval_ns = interval_ns

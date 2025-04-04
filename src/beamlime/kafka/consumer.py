@@ -8,9 +8,9 @@ from typing import Any
 import confluent_kafka as kafka
 from confluent_kafka.error import KafkaException
 
+from .. import StreamKind
 from ..config.config_loader import load_config
-from ..config.topics import stream_kind_to_topic
-from ..core.message import StreamKind
+from ..config.stream_mapping import stream_kind_to_topic
 
 
 def validate_topics_exist(consumer: kafka.Consumer, topics: list[str]) -> None:
