@@ -9,7 +9,7 @@ from streaming_data_types import eventdata_ev44
 
 from beamlime import StreamKind
 from beamlime.config.raw_detectors import available_instruments, get_config
-from beamlime.config.stream_mapping import stream_kind_to_topic
+from beamlime.config.streams import stream_kind_to_topic
 from beamlime.config.topics import source_name
 from beamlime.fakes import FakeMessageSink
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
