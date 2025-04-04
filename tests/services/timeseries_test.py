@@ -11,7 +11,7 @@ from streaming_data_types import logdata_f144
 
 from beamlime import StreamKind
 from beamlime.config.raw_detectors import available_instruments
-from beamlime.config.stream_mapping import stream_kind_to_topic
+from beamlime.config.streams import stream_kind_to_topic
 from beamlime.fakes import FakeMessageSink
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.sink import UnrollingSinkAdapter

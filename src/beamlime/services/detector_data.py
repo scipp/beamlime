@@ -5,7 +5,7 @@
 import logging
 from typing import NoReturn
 
-from beamlime.config.stream_mapping import get_stream_mapping
+from beamlime.config.streams import get_stream_mapping
 from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
