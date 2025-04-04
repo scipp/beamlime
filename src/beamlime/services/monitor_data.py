@@ -2,7 +2,6 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import argparse
 import logging
-from contextlib import ExitStack
 from typing import Literal, NoReturn
 
 from beamlime import Service
@@ -12,10 +11,8 @@ from beamlime.config.stream_mapping import get_stream_mapping
 from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.monitor_data_handler import MonitorHandlerFactory
-from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.routes import beam_monitor_route
 from beamlime.kafka.sink import KafkaSink
-from beamlime.kafka.source import MultiConsumer
 from beamlime.service_factory import DataServiceBuilder
 from beamlime.sinks import PlotToPngSink
 
@@ -65,23 +62,14 @@ def run_service(
     else:
         sink = PlotToPngSink()
 
-    builder = make_monitor_service_builder(
+    with make_monitor_service_builder(
         instrument=instrument, dev=dev, log_level=log_level
-    )
-
-    with ExitStack() as stack:
-        control_consumer = stack.enter_context(
-            kafka_consumer.make_control_consumer(instrument=instrument)
+    ) as builder_ctx:
+        consumer = builder_ctx.create_consumer(
+            kafka_config={**consumer_config, **kafka_upstream_config},
+            consumer_group='monitor_data',
         )
-        data_consumer = stack.enter_context(
-            kafka_consumer.make_consumer_from_config(
-                topics=builder.topics,
-                config={**consumer_config, **kafka_upstream_config},
-                group='monitor_data',
-            )
-        )
-        consumer = MultiConsumer([control_consumer, data_consumer])
-        service = builder.from_consumer(consumer=consumer, sink=sink)
+        service = builder_ctx.from_consumer(consumer=consumer, sink=sink)
         service.start()
 
 
