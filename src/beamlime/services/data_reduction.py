@@ -2,11 +2,9 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 """Service that runs a data reduction workflow."""
 
-import argparse
 import logging
 from typing import NoReturn
 
-from beamlime import Service
 from beamlime.config.raw_detectors import get_config
 from beamlime.config.stream_mapping import get_stream_mapping
 from beamlime.core.message import CONFIG_STREAM_ID
@@ -14,18 +12,7 @@ from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.data_reduction_handler import ReductionHandlerFactory
 from beamlime.handlers.workflow_manager import WorkflowManager
 from beamlime.kafka.routes import beam_monitor_route, detector_route, logdata_route
-from beamlime.service_factory import DataServiceBuilder, run_data_service
-
-
-def setup_arg_parser() -> argparse.ArgumentParser:
-    parser = Service.setup_arg_parser(description='Data Reduction Service')
-    parser.add_argument(
-        '--sink-type',
-        choices=['kafka', 'png'],
-        default='kafka',
-        help='Select sink type: kafka or png',
-    )
-    return parser
+from beamlime.service_factory import DataServiceBuilder, DataServiceRunner
 
 
 def make_reduction_service_builder(
@@ -64,10 +51,10 @@ def make_reduction_service_builder(
 
 
 def main() -> NoReturn:
-    parser = setup_arg_parser()
-    run_data_service(
-        **vars(parser.parse_args()), make_builder=make_reduction_service_builder
+    runner = DataServiceRunner(
+        pretty_name='Data Reduction', make_builder=make_reduction_service_builder
     )
+    runner.run()
 
 
 if __name__ == "__main__":

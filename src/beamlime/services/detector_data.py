@@ -2,28 +2,15 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 """Service that processes detector event data into 2-D data for plotting."""
 
-import argparse
 import logging
 from typing import NoReturn
 
-from beamlime import Service
 from beamlime.config.stream_mapping import get_stream_mapping
 from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
 from beamlime.kafka.routes import detector_route
-from beamlime.service_factory import DataServiceBuilder, run_data_service
-
-
-def setup_arg_parser() -> argparse.ArgumentParser:
-    parser = Service.setup_arg_parser(description='Detector Data Service')
-    parser.add_argument(
-        '--sink-type',
-        choices=['kafka', 'png'],
-        default='kafka',
-        help='Select sink type: kafka or png',
-    )
-    return parser
+from beamlime.service_factory import DataServiceBuilder, DataServiceRunner
 
 
 def make_detector_service_builder(
@@ -47,10 +34,10 @@ def make_detector_service_builder(
 
 
 def main() -> NoReturn:
-    parser = setup_arg_parser()
-    run_data_service(
-        **vars(parser.parse_args()), make_builder=make_detector_service_builder
+    runner = DataServiceRunner(
+        pretty_name='Detector Data', make_builder=make_detector_service_builder
     )
+    runner.run()
 
 
 if __name__ == "__main__":
