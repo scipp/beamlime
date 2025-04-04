@@ -14,11 +14,11 @@ from .core import MessageSink, StreamProcessor
 from .core.handler import HandlerFactory, HandlerRegistry
 from .core.message import MessageSource, StreamId
 from .core.service import Service
+from .kafka import KafkaTopic
 from .kafka import consumer as kafka_consumer
 from .kafka.message_adapter import (
     AdaptingMessageSource,
     IdentityAdapter,
-    KafkaTopic,
     MessageAdapter,
     RouteByTopicAdapter,
 )
