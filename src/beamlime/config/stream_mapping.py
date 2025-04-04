@@ -11,7 +11,7 @@ use this mapping to assign a unique stream name to each (topic, source name) pai
 
 from __future__ import annotations
 
-from beamlime.kafka.message_adapter import InputStreamKey
+from beamlime.kafka import InputStreamKey, KafkaTopic
 
 from .topics import beam_monitor_topic, detector_topic
 
@@ -28,12 +28,12 @@ class StreamMapping:
         self._monitors = monitors
 
     @property
-    def detector_topics(self) -> set[str]:
+    def detector_topics(self) -> set[KafkaTopic]:
         """Returns the list of detector topics."""
         return {stream.topic for stream in self.detectors.keys()}
 
     @property
-    def monitor_topics(self) -> set[str]:
+    def monitor_topics(self) -> set[KafkaTopic]:
         """Returns the list of monitor topics."""
         return {stream.topic for stream in self.monitors.keys()}
 
