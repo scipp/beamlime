@@ -9,6 +9,8 @@ import confluent_kafka as kafka
 from confluent_kafka.error import KafkaException
 
 from ..config.config_loader import load_config
+from ..config.topics import stream_kind_to_topic
+from ..core.message import StreamKind
 
 
 def validate_topics_exist(consumer: kafka.Consumer, topics: list[str]) -> None:
@@ -69,8 +71,9 @@ def make_consumer_from_config(
 def make_control_consumer(*, instrument: str) -> Generator[kafka.Consumer, None, None]:
     control_config = load_config(namespace='control_consumer', env='')
     kafka_downstream_config = load_config(namespace='kafka_downstream')
+    topic = stream_kind_to_topic(instrument=instrument, kind=StreamKind.BEAMLIME_CONFIG)
     with make_consumer_from_config(
-        topics=[f'{instrument}_beamlime_commands'],
+        topics=[topic],
         config={**control_config, **kafka_downstream_config},
         group='beamlime_commands',
     ) as consumer:

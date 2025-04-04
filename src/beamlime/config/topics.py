@@ -80,5 +80,7 @@ def stream_kind_to_topic(instrument: str, kind: StreamKind) -> str:
             return motion_topic(instrument)
         case StreamKind.BEAMLIME_DATA:
             return f'{instrument}_beamlime_data'
+        case StreamKind.BEAMLIME_CONFIG:
+            return beamlime_config_topic(instrument)
         case _:
             raise ValueError(f'Unknown stream kind: {kind}')
