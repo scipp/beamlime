@@ -20,12 +20,7 @@ from .processor import Processor
 
 
 class ServiceBase(ABC):
-    def __init__(
-        self,
-        *,
-        name: str | None = None,
-        log_level: int = logging.INFO,
-    ):
+    def __init__(self, *, name: str | None = None, log_level: int = logging.INFO):
         self._logger = logging.getLogger(name or __name__)
         self._setup_logging(log_level)
         self._running = False
@@ -107,7 +102,7 @@ class Service(ServiceBase):
     Complete service with proper lifecycle management.
 
     Calls the injected processor in a loop with a configurable poll interval.
-    Can be used as a context manager to ensure proper resource cleanup.
+    If resources were passed, this should be a context manager.
     """
 
     def __init__(
@@ -123,7 +118,6 @@ class Service(ServiceBase):
         self._poll_interval = poll_interval
         self._processor = processor
         self._thread: threading.Thread | None = None
-        # Store resources to be managed
         self._resources = resources
 
     def __enter__(self) -> Self:
@@ -134,7 +128,6 @@ class Service(ServiceBase):
         """Exit the context manager protocol, ensuring resources are cleaned up."""
         if self.is_running:
             self.stop()
-        # Clean up any resources
         if self._resources is not None:
             self._resources.close()
 
