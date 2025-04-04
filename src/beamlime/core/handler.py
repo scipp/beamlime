@@ -7,7 +7,7 @@ from collections.abc import Callable, Mapping
 from typing import Any, Generic, Protocol, TypeVar
 
 from ..config import models
-from ..config.topics import source_name
+from ..kafka.helpers import source_name
 from .message import Message, StreamId, StreamKind, Tin, Tout
 
 
