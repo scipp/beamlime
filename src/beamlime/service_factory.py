@@ -2,10 +2,11 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+import argparse
 import logging
 from collections.abc import Callable
 from contextlib import ExitStack
-from typing import Any, Generic, Literal, NoReturn, TypeVar
+from typing import Any, Generic, NoReturn, TypeVar
 
 from .config import config_names
 from .config.config_loader import load_config
@@ -127,29 +128,51 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         )
 
 
-def run_data_service(
-    *,
-    sink_type: Literal['kafka', 'png'],
-    instrument: str,
-    dev: bool = True,
-    log_level: int = logging.INFO,
-    make_builder: Callable[[str, bool, int], DataServiceBuilder],
-) -> NoReturn:
-    consumer_config = load_config(namespace=config_names.raw_data_consumer, env='')
-    kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
-    kafka_upstream_config = load_config(namespace=config_names.kafka_upstream)
-
-    builder = make_builder(instrument=instrument, dev=dev, log_level=log_level)
-
-    if sink_type == 'kafka':
-        sink = KafkaSink(
-            instrument=builder.instrument, kafka_config=kafka_downstream_config
+class DataServiceRunner:
+    def __init__(
+        self,
+        *,
+        pretty_name: str,
+        make_builder: Callable[..., DataServiceBuilder],
+    ) -> None:
+        self._make_builder = make_builder
+        self._parser = Service.setup_arg_parser(description=f'{pretty_name} Service')
+        self._parser.add_argument(
+            '--sink-type',
+            choices=['kafka', 'png'],
+            default='kafka',
+            help='Select sink type: kafka or png',
         )
-    else:
-        sink = PlotToPngSink()
-    sink = UnrollingSinkAdapter(sink)
 
-    with builder.from_consumer_config(
-        kafka_config={**consumer_config, **kafka_upstream_config}, sink=sink
-    ) as service:
-        service.start()
+    @property
+    def parser(self) -> argparse.ArgumentParser:
+        """
+        Returns the argument parser.
+
+        Use this to add extra arguments the `make_builder` function needs.
+        """
+        return self._parser
+
+    def run(
+        self,
+    ) -> NoReturn:
+        args = vars(self._parser.parse_args())
+        consumer_config = load_config(namespace=config_names.raw_data_consumer, env='')
+        kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
+        kafka_upstream_config = load_config(namespace=config_names.kafka_upstream)
+
+        sink_type = args.pop('sink_type')
+        builder = self._make_builder(**args)
+
+        if sink_type == 'kafka':
+            sink = KafkaSink(
+                instrument=builder.instrument, kafka_config=kafka_downstream_config
+            )
+        else:
+            sink = PlotToPngSink()
+        sink = UnrollingSinkAdapter(sink)
+
+        with builder.from_consumer_config(
+            kafka_config={**consumer_config, **kafka_upstream_config}, sink=sink
+        ) as service:
+            service.start()

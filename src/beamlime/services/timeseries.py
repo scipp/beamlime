@@ -2,26 +2,13 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 """Service that processes logdata into timeseries for plotting."""
 
-import argparse
 import logging
 from collections.abc import Mapping
 from typing import Any, NoReturn
 
-from beamlime import Service
 from beamlime.handlers.timeseries_handler import LogdataHandlerFactory
 from beamlime.kafka.routes import logdata_route
-from beamlime.service_factory import DataServiceBuilder, run_data_service
-
-
-def setup_arg_parser() -> argparse.ArgumentParser:
-    parser = Service.setup_arg_parser(description='Timeseries Service')
-    parser.add_argument(
-        '--sink-type',
-        choices=['kafka', 'png'],
-        default='kafka',
-        help='Select sink type: kafka or png',
-    )
-    return parser
+from beamlime.service_factory import DataServiceBuilder, DataServiceRunner
 
 
 def make_timeseries_service_builder(
@@ -44,10 +31,11 @@ def make_timeseries_service_builder(
 
 
 def main() -> NoReturn:
-    parser = setup_arg_parser()
-    run_data_service(
-        **vars(parser.parse_args()), make_builder=make_timeseries_service_builder
+    runner = DataServiceRunner(
+        pretty_name='Logdata to Timeseries',
+        make_builder=make_timeseries_service_builder,
     )
+    runner.run()
 
 
 if __name__ == "__main__":
