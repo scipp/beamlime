@@ -7,8 +7,10 @@ import numpy as np
 import pytest
 from streaming_data_types import eventdata_ev44
 
+from beamlime import StreamKind
 from beamlime.config.raw_detectors import available_instruments, get_config
-from beamlime.config.topics import detector_topic, source_name
+from beamlime.config.stream_mapping import stream_kind_to_topic
+from beamlime.config.topics import source_name
 from beamlime.fakes import FakeMessageSink
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.sink import UnrollingSinkAdapter
@@ -32,7 +34,9 @@ class Ev44Consumer(KafkaConsumer):
         events_per_message: int = 1_000,
         max_events: int = 1_000_000,
     ) -> None:
-        self._topic = detector_topic(instrument=instrument)
+        self._topic = stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.DETECTOR_EVENTS
+        )
         self._detector_config = detector_config[instrument]
         self._events_per_message = events_per_message
         self._max_events = max_events

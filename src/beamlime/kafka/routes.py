@@ -1,11 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 
-from ..config.stream_mapping import StreamMapping
-from ..config.topics import (
-    beamlime_config_topic,
-    motion_topic,
-)
+from ..config.stream_mapping import StreamMapping, stream_kind_to_topic
 from ..core.message import StreamKind
 from .message_adapter import (
     BeamlimeConfigMessageAdapter,
@@ -24,7 +20,8 @@ from .message_adapter import (
 
 def beamlime_config_route(instrument: str) -> dict[str, MessageAdapter]:
     """Returns a dictionary of routes for beamlime configuration."""
-    return {beamlime_config_topic(instrument): BeamlimeConfigMessageAdapter()}
+    topic = stream_kind_to_topic(instrument, StreamKind.BEAMLIME_CONFIG)
+    return {topic: BeamlimeConfigMessageAdapter()}
 
 
 def beam_monitor_route(stream_mapping: StreamMapping) -> dict[str, MessageAdapter]:
@@ -59,8 +56,7 @@ def detector_route(stream_mapping: StreamMapping) -> dict[str, MessageAdapter]:
 
 def logdata_route(instrument: str) -> dict[str, MessageAdapter]:
     """Returns a dictionary of routes for log data."""
+    topic = stream_kind_to_topic(instrument, StreamKind.LOG)
     return {
-        motion_topic(instrument): ChainedAdapter(
-            first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
-        )
+        topic: ChainedAdapter(first=KafkaToF144Adapter(), second=F144ToLogDataAdapter())
     }

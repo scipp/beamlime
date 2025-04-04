@@ -9,11 +9,10 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from beamlime import Handler, Message, MessageSource, Service, StreamId
+from beamlime import Handler, Message, MessageSource, Service, StreamId, StreamKind
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.core.handler import CommonHandlerFactory
-from beamlime.core.message import StreamKind
 from beamlime.kafka.message_adapter import MessageAdapter
 from beamlime.kafka.sink import (
     KafkaSink,

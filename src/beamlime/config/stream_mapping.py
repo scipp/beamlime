@@ -11,9 +11,32 @@ use this mapping to assign a unique stream name to each (topic, source name) pai
 
 from __future__ import annotations
 
+from beamlime import StreamKind
 from beamlime.kafka import InputStreamKey, KafkaTopic
 
-from .topics import beam_monitor_topic, detector_topic
+
+def stream_kind_to_topic(instrument: str, kind: StreamKind) -> str:
+    """
+    Convert a StreamKind to a topic name.
+
+    Used for constructing the topic name from the StreamKind when publishing to Kafka.
+    The non-beamlime topics are thus only used when using our fake data generators.
+    """
+    match kind:
+        case StreamKind.MONITOR_COUNTS:
+            return f'{instrument}_beam_monitor'
+        case StreamKind.MONITOR_EVENTS:
+            return f'{instrument}_beam_monitor'
+        case StreamKind.DETECTOR_EVENTS:
+            return f'{instrument}_detector'
+        case StreamKind.LOG:
+            return f'{instrument}_motion'
+        case StreamKind.BEAMLIME_DATA:
+            return f'{instrument}_beamlime_data'
+        case StreamKind.BEAMLIME_CONFIG:
+            return f'{instrument}_beamlime_commands'
+        case _:
+            raise ValueError(f'Unknown stream kind: {kind}')
 
 
 class StreamMapping:
@@ -51,10 +74,10 @@ class StreamMapping:
 def _make_cbm_monitors(
     instrument: str, monitor_count: int = 10
 ) -> dict[InputStreamKey, str]:
+    # Might also be MONITOR_COUNTS, but topic is supposedly the same.
+    topic = stream_kind_to_topic(instrument=instrument, kind=StreamKind.MONITOR_EVENTS)
     return {
-        InputStreamKey(
-            topic=beam_monitor_topic(instrument), source_name=f'cbm{monitor}'
-        ): f'monitor{monitor}'
+        InputStreamKey(topic=topic, source_name=f'cbm{monitor}'): f'monitor{monitor}'
         for monitor in range(monitor_count)
     }
 
@@ -87,16 +110,19 @@ def _make_dream_detectors() -> dict[InputStreamKey, str]:
 def _make_dev_detectors(instrument: str) -> dict[InputStreamKey, str]:
     from beamlime.services.fake_detectors import detector_config
 
+    topic = stream_kind_to_topic(instrument=instrument, kind=StreamKind.DETECTOR_EVENTS)
     return {
-        InputStreamKey(topic=detector_topic(instrument), source_name=name): name
+        InputStreamKey(topic=topic, source_name=name): name
         for name in detector_config[instrument]
     }
 
 
 def _make_dev_beam_monitors(instrument: str) -> dict[InputStreamKey, str]:
+    # Might also be MONITOR_COUNTS, but topic is supposedly the same.
+    topic = stream_kind_to_topic(instrument=instrument, kind=StreamKind.MONITOR_EVENTS)
     return {
         InputStreamKey(
-            topic=beam_monitor_topic(instrument), source_name=f'monitor{monitor}'
+            topic=topic, source_name=f'monitor{monitor}'
         ): f'monitor{monitor}'
         for monitor in range(10)
     }

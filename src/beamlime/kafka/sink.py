@@ -9,7 +9,7 @@ import confluent_kafka as kafka
 import scipp as sc
 from streaming_data_types import dataarray_da00, logdata_f144
 
-from ..config.topics import stream_kind_to_topic
+from ..config.stream_mapping import stream_kind_to_topic
 from ..core.message import Message, MessageSink
 from .scipp_da00_compat import scipp_to_da00
 
