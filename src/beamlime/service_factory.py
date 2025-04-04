@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from contextlib import ExitStack
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Literal, NoReturn, TypeVar
 
+from .config import config_names
+from .config.config_loader import load_config
 from .core import MessageSink, StreamProcessor
 from .core.handler import HandlerFactory, HandlerRegistry
 from .core.message import MessageSource, StreamId
@@ -19,7 +22,9 @@ from .kafka.message_adapter import (
     RouteByTopicAdapter,
 )
 from .kafka.routes import beamlime_config_route
+from .kafka.sink import KafkaSink, UnrollingSinkAdapter
 from .kafka.source import KafkaConsumer, KafkaMessageSource, MultiConsumer
+from .sinks import PlotToPngSink
 
 Traw = TypeVar("Traw")
 Tin = TypeVar("Tin")
@@ -50,7 +55,11 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         else:
             self._adapter = routes
         self._handler_registry = HandlerRegistry(factory=handler_factory)
-        self._exit_stack = ExitStack()
+
+    @property
+    def instrument(self) -> str:
+        """Returns the instrument name."""
+        return self._instrument
 
     @property
     def topics(self) -> list[KafkaTopic]:
@@ -63,36 +72,84 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         """Add specific handler to use for given key, instead of using the factory."""
         self._handler_registry.register_handler(key=key, handler=handler)
 
-    def __enter__(self) -> DataServiceBuilder[Traw, Tin, Tout]:
-        self._exit_stack.__enter__()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        self._exit_stack.__exit__(exc_type, exc_val, exc_tb)
-
-    def create_consumer(
-        self, kafka_config: dict[str, Any], consumer_group: str
-    ) -> KafkaConsumer:
-        """Create and register consumer with the exit stack."""
-        control_consumer = self._exit_stack.enter_context(
-            kafka_consumer.make_control_consumer(instrument=self._instrument)
-        )
-        data_consumer = self._exit_stack.enter_context(
-            kafka_consumer.make_consumer_from_config(
-                topics=self.topics, config=kafka_config, group=consumer_group
+    def from_consumer_config(
+        self, kafka_config: dict[str, Any], sink: MessageSink[Tout]
+    ) -> Service:
+        """Create a service from a consumer config."""
+        resources = ExitStack()
+        try:
+            control_consumer = resources.enter_context(
+                kafka_consumer.make_control_consumer(instrument=self._instrument)
             )
-        )
-        return MultiConsumer([control_consumer, data_consumer])
+            data_consumer = resources.enter_context(
+                kafka_consumer.make_consumer_from_config(
+                    topics=self.topics, config=kafka_config, group=self._name
+                )
+            )
+            consumer = MultiConsumer([control_consumer, data_consumer])
+
+            # Ownership of resource stack transferred to the service
+            return self.from_source(
+                source=KafkaMessageSource(consumer=consumer),
+                sink=sink,
+                resources=resources.pop_all(),
+            )
+        except Exception:
+            resources.close()
+            raise
 
     def from_consumer(
-        self, consumer: KafkaConsumer, sink: MessageSink[Tout]
+        self,
+        consumer: KafkaConsumer,
+        sink: MessageSink[Tout],
+        resources: ExitStack | None = None,
     ) -> Service:
-        return self.from_source(source=KafkaMessageSource(consumer=consumer), sink=sink)
+        return self.from_source(
+            source=KafkaMessageSource(consumer=consumer), sink=sink, resources=resources
+        )
 
-    def from_source(self, source: MessageSource, sink: MessageSink[Tout]) -> Service:
+    def from_source(
+        self,
+        source: MessageSource,
+        sink: MessageSink[Tout],
+        resources: ExitStack | None = None,
+    ) -> Service:
         processor = StreamProcessor(
             source=AdaptingMessageSource(source=source, adapter=self._adapter),
             sink=sink,
             handler_registry=self._handler_registry,
         )
-        return Service(processor=processor, name=self._name, log_level=self._log_level)
+        return Service(
+            processor=processor,
+            name=self._name,
+            log_level=self._log_level,
+            resources=resources,
+        )
+
+
+def run_data_service(
+    *,
+    sink_type: Literal['kafka', 'png'],
+    instrument: str,
+    dev: bool = True,
+    log_level: int = logging.INFO,
+    make_builder: Callable[[str, bool, int], DataServiceBuilder],
+) -> NoReturn:
+    consumer_config = load_config(namespace=config_names.raw_data_consumer, env='')
+    kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
+    kafka_upstream_config = load_config(namespace=config_names.kafka_upstream)
+
+    builder = make_builder(instrument=instrument, dev=dev, log_level=log_level)
+
+    if sink_type == 'kafka':
+        sink = KafkaSink(
+            instrument=builder.instrument, kafka_config=kafka_downstream_config
+        )
+    else:
+        sink = PlotToPngSink()
+    sink = UnrollingSinkAdapter(sink)
+
+    with builder.from_consumer_config(
+        kafka_config={**consumer_config, **kafka_upstream_config}, sink=sink
+    ) as service:
+        service.start()

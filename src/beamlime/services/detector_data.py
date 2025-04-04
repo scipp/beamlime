@@ -4,19 +4,15 @@
 
 import argparse
 import logging
-from typing import Literal, NoReturn
+from typing import NoReturn
 
 from beamlime import Service
-from beamlime.config import config_names
-from beamlime.config.config_loader import load_config
 from beamlime.config.stream_mapping import get_stream_mapping
 from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
 from beamlime.kafka.routes import detector_route
-from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
-from beamlime.service_factory import DataServiceBuilder
-from beamlime.sinks import PlotToPngSink
+from beamlime.service_factory import DataServiceBuilder, run_data_service
 
 
 def setup_arg_parser() -> argparse.ArgumentParser:
@@ -50,37 +46,11 @@ def make_detector_service_builder(
     return builder
 
 
-def run_service(
-    *,
-    sink_type: Literal['kafka', 'png'],
-    instrument: str,
-    dev: bool,
-    log_level: int = logging.INFO,
-) -> NoReturn:
-    consumer_config = load_config(namespace=config_names.raw_data_consumer, env='')
-    kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
-    kafka_upstream_config = load_config(namespace=config_names.kafka_upstream)
-
-    if sink_type == 'kafka':
-        sink = KafkaSink(instrument=instrument, kafka_config=kafka_downstream_config)
-    else:
-        sink = PlotToPngSink()
-    sink = UnrollingSinkAdapter(sink)
-
-    with make_detector_service_builder(
-        instrument=instrument, dev=dev, log_level=log_level
-    ) as builder_ctx:
-        consumer = builder_ctx.create_consumer(
-            kafka_config={**consumer_config, **kafka_upstream_config},
-            consumer_group='detector_data',
-        )
-        service = builder_ctx.from_consumer(consumer=consumer, sink=sink)
-        service.start()
-
-
 def main() -> NoReturn:
     parser = setup_arg_parser()
-    run_service(**vars(parser.parse_args()))
+    run_data_service(
+        **vars(parser.parse_args()), make_builder=make_detector_service_builder
+    )
 
 
 if __name__ == "__main__":

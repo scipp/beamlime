@@ -10,14 +10,22 @@ import sys
 import threading
 import time
 from abc import ABC, abstractmethod
+from contextlib import ExitStack
 from typing import Any, Protocol
+
+from typing_extensions import Self
 
 from ..config.raw_detectors import available_instruments
 from .processor import Processor
 
 
 class ServiceBase(ABC):
-    def __init__(self, *, name: str | None = None, log_level: int = logging.INFO):
+    def __init__(
+        self,
+        *,
+        name: str | None = None,
+        log_level: int = logging.INFO,
+    ):
         self._logger = logging.getLogger(name or __name__)
         self._setup_logging(log_level)
         self._running = False
@@ -99,6 +107,7 @@ class Service(ServiceBase):
     Complete service with proper lifecycle management.
 
     Calls the injected processor in a loop with a configurable poll interval.
+    Can be used as a context manager to ensure proper resource cleanup.
     """
 
     def __init__(
@@ -108,11 +117,26 @@ class Service(ServiceBase):
         name: str | None = None,
         log_level: int = logging.INFO,
         poll_interval: float = 0.01,
+        resources: ExitStack | None = None,
     ):
         super().__init__(name=name, log_level=log_level)
         self._poll_interval = poll_interval
         self._processor = processor
         self._thread: threading.Thread | None = None
+        # Store resources to be managed
+        self._resources = resources
+
+    def __enter__(self) -> Self:
+        """Enter the context manager protocol."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit the context manager protocol, ensuring resources are cleaned up."""
+        if self.is_running:
+            self.stop()
+        # Clean up any resources
+        if self._resources is not None:
+            self._resources.close()
 
     def _start_impl(self) -> None:
         """Start the service and block until stopped"""
