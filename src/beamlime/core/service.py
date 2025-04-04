@@ -152,7 +152,9 @@ class Service(ServiceBase):
             self._thread.join()
 
     @staticmethod
-    def setup_arg_parser(description: str) -> argparse.ArgumentParser:
+    def setup_arg_parser(
+        description: str, *, dev_flag: bool = True
+    ) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
             description=description,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -163,12 +165,13 @@ class Service(ServiceBase):
             default='dummy',
             help='Select the instrument',
         )
-        parser.add_argument(
-            '--dev',
-            action='store_true',
-            default=False,
-            help='Run in development mode with simplified topic naming',
-        )
+        if dev_flag:
+            parser.add_argument(
+                '--dev',
+                action='store_true',
+                default=False,
+                help='Run in development mode with simplified topic naming',
+            )
         parser.add_argument(
             '--log-level',
             choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],

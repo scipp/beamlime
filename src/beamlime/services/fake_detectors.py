@@ -167,9 +167,7 @@ def serialize_detector_events_to_ev44(
     return ev44
 
 
-def run_service(
-    *, instrument: str, dev: bool, log_level: int = logging.INFO
-) -> NoReturn:
+def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
     kafka_config = load_config(namespace=config_names.kafka_upstream)
     serializer = serialize_detector_events_to_ev44
     builder = DataServiceBuilder(
@@ -188,7 +186,9 @@ def run_service(
 
 
 def main() -> NoReturn:
-    parser = Service.setup_arg_parser('Fake that publishes random detector data')
+    parser = Service.setup_arg_parser(
+        'Fake that publishes random detector data', dev_flag=False
+    )
     run_service(**vars(parser.parse_args()))
 
 
