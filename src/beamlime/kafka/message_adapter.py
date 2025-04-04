@@ -19,18 +19,11 @@ from ..core.message import (
 )
 from ..handlers.accumulators import DetectorEvents, LogData, MonitorEvents
 from .scipp_da00_compat import da00_to_scipp
+from .stream_mapping import InputStreamKey
 
 T = TypeVar('T')
 U = TypeVar('U')
 V = TypeVar('V')
-
-KafkaTopic = str
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class InputStreamKey:
-    topic: KafkaTopic
-    source_name: str
 
 
 StreamLUT = dict[InputStreamKey, str]

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 
-from ..config.streams import StreamMapping, stream_kind_to_topic
+from ..config.streams import stream_kind_to_topic
 from ..core.message import StreamKind
 from .message_adapter import (
     BeamlimeConfigMessageAdapter,
@@ -16,6 +16,7 @@ from .message_adapter import (
     MessageAdapter,
     RouteBySchemaAdapter,
 )
+from .stream_mapping import StreamMapping
 
 
 def beamlime_config_route(instrument: str) -> dict[str, MessageAdapter]:

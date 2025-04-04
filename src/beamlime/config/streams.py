@@ -12,7 +12,7 @@ use this mapping to assign a unique stream name to each (topic, source name) pai
 from __future__ import annotations
 
 from beamlime import StreamKind
-from beamlime.kafka import InputStreamKey, KafkaTopic
+from beamlime.kafka import InputStreamKey, StreamMapping
 
 
 def stream_kind_to_topic(instrument: str, kind: StreamKind) -> str:
@@ -37,38 +37,6 @@ def stream_kind_to_topic(instrument: str, kind: StreamKind) -> str:
             return f'{instrument}_beamlime_commands'
         case _:
             raise ValueError(f'Unknown stream kind: {kind}')
-
-
-class StreamMapping:
-    def __init__(
-        self,
-        instrument: str,
-        detectors: dict[InputStreamKey, str],
-        monitors: dict[InputStreamKey, str],
-    ) -> None:
-        self.instrument = instrument
-        self._detectors = detectors
-        self._monitors = monitors
-
-    @property
-    def detector_topics(self) -> set[KafkaTopic]:
-        """Returns the list of detector topics."""
-        return {stream.topic for stream in self.detectors.keys()}
-
-    @property
-    def monitor_topics(self) -> set[KafkaTopic]:
-        """Returns the list of monitor topics."""
-        return {stream.topic for stream in self.monitors.keys()}
-
-    @property
-    def detectors(self) -> dict[InputStreamKey, str]:
-        """Returns the mapping for detector data."""
-        return self._detectors
-
-    @property
-    def monitors(self) -> dict[InputStreamKey, str]:
-        """Returns the mapping for monitor data."""
-        return self._monitors
 
 
 def _make_cbm_monitors(
