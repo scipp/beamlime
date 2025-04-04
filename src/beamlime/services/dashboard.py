@@ -16,7 +16,7 @@ from beamlime.config import config_names, models
 from beamlime.config.config_loader import load_config
 from beamlime.config.models import ConfigKey
 from beamlime.config.raw_detectors import get_config
-from beamlime.config.topics import stream_kind_to_topic, topic_for_instrument
+from beamlime.config.topics import stream_kind_to_topic
 from beamlime.core.config_service import ConfigService
 from beamlime.core.message import StreamKind, compact_messages
 from beamlime.handlers.workflow_manager import processor_factory
@@ -78,8 +78,8 @@ class DashboardApp(ServiceBase):
             consumer=self._exit_stack.enter_context(
                 kafka_consumer.make_control_consumer(instrument=self._instrument)
             ),
-            topic=topic_for_instrument(
-                topic='beamlime_commands', instrument=self._instrument
+            topic=stream_kind_to_topic(
+                instrument=self._instrument, kind=StreamKind.BEAMLIME_CONFIG
             ),
             logger=self._logger,
         )
