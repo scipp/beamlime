@@ -30,20 +30,17 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         instrument: str,
         name: str,
         log_level: int = logging.INFO,
-        routes: dict[KafkaTopic, MessageAdapter] | None = None,
-        adapter: MessageAdapter | None = None,
+        routes: MessageAdapter | dict[KafkaTopic, MessageAdapter] | None = None,
         handler_factory: HandlerFactory[Tin, Tout],
     ):
         self._name = f'{instrument}_{name}'
         self._log_level = log_level
-        if adapter is not None:
-            if routes is not None:
-                raise ValueError('Cannot specify both adapter and routes. ')
-            self._adapter = adapter
-        elif routes is None:
+        if routes is None:
             self._adapter = IdentityAdapter()
-        else:
+        elif isinstance(routes, dict):
             self._adapter = RouteByTopicAdapter(routes=routes)
+        else:
+            self._adapter = routes
         self._handler_registry = HandlerRegistry(factory=handler_factory)
 
     def add_handler(self, key: StreamId, handler: HandlerFactory[Tin, Tout]) -> None:
