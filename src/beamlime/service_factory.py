@@ -12,7 +12,9 @@ from .core.service import Service
 from .kafka.message_adapter import (
     AdaptingMessageSource,
     IdentityAdapter,
+    KafkaTopic,
     MessageAdapter,
+    RouteByTopicAdapter,
 )
 from .kafka.source import KafkaConsumer, KafkaMessageSource
 
@@ -28,12 +30,14 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         instrument: str,
         name: str,
         log_level: int = logging.INFO,
-        adapter: MessageAdapter[Traw, Tin] | None = None,
+        routes: dict[KafkaTopic, MessageAdapter] | None = None,
         handler_factory: HandlerFactory[Tin, Tout],
     ):
         self._name = f'{instrument}_{name}'
         self._log_level = log_level
-        self._adapter = adapter or IdentityAdapter()
+        self._adapter = (
+            IdentityAdapter() if routes is None else RouteByTopicAdapter(routes=routes)
+        )
         self._handler_registry = HandlerRegistry(factory=handler_factory)
 
     def add_handler(self, key: StreamId, handler: HandlerFactory[Tin, Tout]) -> None:

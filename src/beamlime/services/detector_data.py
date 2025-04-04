@@ -15,7 +15,6 @@ from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.message_adapter import RouteByTopicAdapter
 from beamlime.kafka.routes import beamlime_config_route, detector_route
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
 from beamlime.kafka.source import MultiConsumer
@@ -43,14 +42,12 @@ def make_detector_service_builder(
         instrument=instrument, config_registry=config_handler
     )
     stream_mapping = get_stream_mapping(instrument=instrument, dev=dev)
-    adapter = RouteByTopicAdapter(
-        routes={**detector_route(stream_mapping), **beamlime_config_route(instrument)},
-    )
+    routes = {**detector_route(stream_mapping), **beamlime_config_route(instrument)}
     builder = DataServiceBuilder(
         instrument=instrument,
         name=service_name,
         log_level=log_level,
-        adapter=adapter,
+        routes=routes,
         handler_factory=handler_factory,
     )
     builder.add_handler(CONFIG_STREAM_ID, config_handler)
