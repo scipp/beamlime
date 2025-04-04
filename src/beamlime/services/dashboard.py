@@ -16,7 +16,7 @@ from beamlime.config import config_names, models
 from beamlime.config.config_loader import load_config
 from beamlime.config.models import ConfigKey
 from beamlime.config.raw_detectors import get_config
-from beamlime.config.topics import topic_for_instrument
+from beamlime.config.topics import stream_kind_to_topic, topic_for_instrument
 from beamlime.core.config_service import ConfigService
 from beamlime.core.message import StreamKind, compact_messages
 from beamlime.handlers.workflow_manager import processor_factory
@@ -92,12 +92,14 @@ class DashboardApp(ServiceBase):
             namespace=config_names.reduced_data_consumer, env=''
         )
         kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
-        config = load_config(namespace=config_names.visualization, env='')
         consumer = self._exit_stack.enter_context(
             kafka_consumer.make_consumer_from_config(
-                topics=config['topics'],
+                topics=[
+                    stream_kind_to_topic(
+                        instrument=self._instrument, kind=StreamKind.BEAMLIME_DATA
+                    )
+                ],
                 config={**consumer_config, **kafka_downstream_config},
-                instrument=self._instrument,
                 group='dashboard',
             )
         )

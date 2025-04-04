@@ -16,6 +16,7 @@ from .kafka.message_adapter import (
     MessageAdapter,
     RouteByTopicAdapter,
 )
+from .kafka.routes import beamlime_config_route
 from .kafka.source import KafkaConsumer, KafkaMessageSource
 
 Traw = TypeVar("Traw")
@@ -35,13 +36,24 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
     ):
         self._name = f'{instrument}_{name}'
         self._log_level = log_level
+        self._topics: list[KafkaTopic] | None = None
         if routes is None:
             self._adapter = IdentityAdapter()
         elif isinstance(routes, dict):
-            self._adapter = RouteByTopicAdapter(routes=routes)
+            self._topics = list(routes.keys())
+            self._adapter = RouteByTopicAdapter(
+                {**routes, **beamlime_config_route(instrument)}
+            )
         else:
             self._adapter = routes
         self._handler_registry = HandlerRegistry(factory=handler_factory)
+
+    @property
+    def topics(self) -> list[KafkaTopic]:
+        """Returns the list of topics to subscribe to."""
+        if self._topics is None:
+            raise ValueError('Topics not set. Use routes to set topics.')
+        return self._topics
 
     def add_handler(self, key: StreamId, handler: HandlerFactory[Tin, Tout]) -> None:
         """Add specific handler to use for given key, instead of using the factory."""

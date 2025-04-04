@@ -15,7 +15,7 @@ from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.routes import beamlime_config_route, detector_route
+from beamlime.kafka.routes import detector_route
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
 from beamlime.kafka.source import MultiConsumer
 from beamlime.service_factory import DataServiceBuilder
@@ -42,12 +42,11 @@ def make_detector_service_builder(
         instrument=instrument, config_registry=config_handler
     )
     stream_mapping = get_stream_mapping(instrument=instrument, dev=dev)
-    routes = {**detector_route(stream_mapping), **beamlime_config_route(instrument)}
     builder = DataServiceBuilder(
         instrument=instrument,
         name=service_name,
         log_level=log_level,
-        routes=routes,
+        routes=detector_route(stream_mapping),
         handler_factory=handler_factory,
     )
     builder.add_handler(CONFIG_STREAM_ID, config_handler)
@@ -61,7 +60,6 @@ def run_service(
     dev: bool,
     log_level: int = logging.INFO,
 ) -> NoReturn:
-    config = load_config(namespace=config_names.detector_data, env='')
     consumer_config = load_config(namespace=config_names.raw_data_consumer, env='')
     kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
     kafka_upstream_config = load_config(namespace=config_names.kafka_upstream)
@@ -82,9 +80,8 @@ def run_service(
         )
         data_consumer = stack.enter_context(
             kafka_consumer.make_consumer_from_config(
-                topics=config['topics'],
+                topics=builder.topics,
                 config={**consumer_config, **kafka_upstream_config},
-                instrument=instrument,
                 group='detector_data',
             )
         )

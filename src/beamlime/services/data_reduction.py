@@ -17,12 +17,7 @@ from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.data_reduction_handler import ReductionHandlerFactory
 from beamlime.handlers.workflow_manager import WorkflowManager
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.routes import (
-    beam_monitor_route,
-    beamlime_config_route,
-    detector_route,
-    logdata_route,
-)
+from beamlime.kafka.routes import beam_monitor_route, detector_route, logdata_route
 from beamlime.kafka.sink import KafkaSink, UnrollingSinkAdapter
 from beamlime.kafka.source import MultiConsumer
 from beamlime.service_factory import DataServiceBuilder
@@ -48,7 +43,6 @@ def make_reduction_service_builder(
         **beam_monitor_route(stream_mapping),
         **detector_route(stream_mapping),
         **logdata_route(instrument),
-        **beamlime_config_route(instrument),
     }
     instrument_config = get_config(instrument)
     workflow_manager = WorkflowManager(
@@ -83,7 +77,6 @@ def run_service(
     dev: bool,
     log_level: int = logging.INFO,
 ) -> NoReturn:
-    config = load_config(namespace=config_names.data_reduction, env='')
     consumer_config = load_config(namespace=config_names.raw_data_consumer, env='')
     kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
     kafka_upstream_config = load_config(namespace=config_names.kafka_upstream)
@@ -104,9 +97,8 @@ def run_service(
         )
         data_consumer = stack.enter_context(
             kafka_consumer.make_consumer_from_config(
-                topics=config['topics'],
+                topics=builder.topics,
                 config={**consumer_config, **kafka_upstream_config},
-                instrument=instrument,
                 group='data_reduction',
             )
         )
