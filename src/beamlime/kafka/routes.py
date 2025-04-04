@@ -1,12 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 
-from .helpers import (
-    beam_monitor_topic,
-    beamlime_config_topic,
-    detector_topic,
-    motion_topic,
-)
+from ..config.streams import stream_kind_to_topic
+from ..core.message import StreamKind
 from .message_adapter import (
     BeamlimeConfigMessageAdapter,
     ChainedAdapter,
@@ -20,39 +16,48 @@ from .message_adapter import (
     MessageAdapter,
     RouteBySchemaAdapter,
 )
+from .stream_mapping import StreamMapping
 
 
 def beamlime_config_route(instrument: str) -> dict[str, MessageAdapter]:
     """Returns a dictionary of routes for beamlime configuration."""
-    return {beamlime_config_topic(instrument): BeamlimeConfigMessageAdapter()}
+    topic = stream_kind_to_topic(instrument, StreamKind.BEAMLIME_CONFIG)
+    return {topic: BeamlimeConfigMessageAdapter()}
 
 
-def beam_monitor_route(instrument: str) -> dict[str, MessageAdapter]:
+def beam_monitor_route(stream_mapping: StreamMapping) -> dict[str, MessageAdapter]:
     """Returns a dictionary of routes for monitor data."""
     monitors = RouteBySchemaAdapter(
         routes={
-            'ev44': KafkaToMonitorEventsAdapter(),
+            'ev44': KafkaToMonitorEventsAdapter(stream_lut=stream_mapping.monitors),
             'da00': ChainedAdapter(
-                first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
+                first=KafkaToDa00Adapter(
+                    stream_lut=stream_mapping.monitors,
+                    stream_kind=StreamKind.MONITOR_COUNTS,
+                ),
+                second=Da00ToScippAdapter(),
             ),
         }
     )
-    return {beam_monitor_topic(instrument): monitors}
+    return {topic: monitors for topic in stream_mapping.monitor_topics}
 
 
-def detector_route(instrument: str) -> dict[str, MessageAdapter]:
+def detector_route(stream_mapping: StreamMapping) -> dict[str, MessageAdapter]:
     """Returns a dictionary of routes for detector data."""
     detectors = ChainedAdapter(
-        first=KafkaToEv44Adapter(),
-        second=Ev44ToDetectorEventsAdapter(merge_detectors=instrument == 'bifrost'),
+        first=KafkaToEv44Adapter(
+            stream_lut=stream_mapping.detectors, stream_kind=StreamKind.DETECTOR_EVENTS
+        ),
+        second=Ev44ToDetectorEventsAdapter(
+            merge_detectors=stream_mapping.instrument == 'bifrost'
+        ),
     )
-    return {detector_topic(instrument): detectors}
+    return {topic: detectors for topic in stream_mapping.detector_topics}
 
 
 def logdata_route(instrument: str) -> dict[str, MessageAdapter]:
     """Returns a dictionary of routes for log data."""
+    topic = stream_kind_to_topic(instrument, StreamKind.LOG)
     return {
-        motion_topic(instrument): ChainedAdapter(
-            first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
-        )
+        topic: ChainedAdapter(first=KafkaToF144Adapter(), second=F144ToLogDataAdapter())
     }

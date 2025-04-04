@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Generic, Protocol, TypeVar
 
 T = TypeVar('T')
@@ -10,16 +11,44 @@ Tin = TypeVar('Tin')
 Tout = TypeVar('Tout')
 
 
+class StreamKind(str, Enum):
+    __slots__ = ()
+    UNKNOWN = "unknown"
+    MONITOR_COUNTS = "monitor_counts"
+    MONITOR_EVENTS = "monitor_events"
+    DETECTOR_EVENTS = "detector_events"
+    LOG = "log"
+    BEAMLIME_CONFIG = "beamlime_config"
+    BEAMLIME_DATA = "beamlime_data"
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
-class MessageKey:
-    topic: str
-    source_name: str
+class StreamId:
+    kind: StreamKind = StreamKind.UNKNOWN
+    name: str
+
+
+CONFIG_STREAM_ID = StreamId(kind=StreamKind.BEAMLIME_CONFIG, name='')
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Message(Generic[T]):
+    """
+    A message with a timestamp and a stream key.
+
+    Parameters
+    ----------
+    timestamp:
+        The timestamp of the message in nanoseconds since the epoch.
+    stream:
+        The stream key of the message. Identifies which stream the message belongs to.
+        This can be used to distinguish messages from different sources or types.
+    value:
+        The value of the message.
+    """
+
     timestamp: int
-    key: MessageKey
+    stream: StreamId
     value: T
 
     def __lt__(self, other: Message[T]) -> bool:
@@ -40,8 +69,7 @@ class MessageSink(Protocol, Generic[Tout]):
         Publish messages to the producer.
 
         Args:
-            messages: A dictionary of messages to publish, where the key is the
-                topic and the value is the message.
+            messages: A list of messages to publish.
         """
 
 
@@ -51,6 +79,6 @@ def compact_messages(messages: list[Message[T]]) -> list[Message[T]]:
     """
     latest = {}
     for msg in sorted(messages, reverse=True):  # Newest first
-        if msg.key not in latest:
-            latest[msg.key] = msg
+        if msg.stream not in latest:
+            latest[msg.stream] = msg
     return sorted(latest.values())

@@ -53,11 +53,6 @@ def test_kafka_upstream(env: str | None):
     assert 'bootstrap.servers' in config
 
 
-def test_monitor_data():
-    config = load_config(namespace=config_names.monitor_data, env='')
-    assert 'topics' in config
-
-
 def test_raw_data_consumer():
     config = load_config(namespace=config_names.raw_data_consumer, env='')
     assert config['auto.offset.reset'] == 'latest'
@@ -66,8 +61,3 @@ def test_raw_data_consumer():
 def test_reduced_data_consumer():
     config = load_config(namespace=config_names.reduced_data_consumer, env='')
     assert config['auto.offset.reset'] == 'latest'
-
-
-def test_visualization():
-    config = load_config(namespace=config_names.visualization, env='')
-    assert 'topics' in config

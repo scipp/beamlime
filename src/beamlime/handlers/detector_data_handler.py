@@ -21,7 +21,7 @@ from ..core.handler import (
     HandlerFactory,
     PeriodicAccumulatingHandler,
 )
-from ..core.message import MessageKey
+from ..core.message import StreamId
 from .accumulators import (
     DetectorEvents,
     GroupIntoPixels,
@@ -55,9 +55,6 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
         self._nexus_file = _try_get_nexus_geometry_filename(instrument)
         self._window_length = 1
 
-    def _key_to_detector_name(self, key: MessageKey) -> str:
-        return key.source_name
-
     def _make_view(
         self, detector_config: dict[str, Any]
     ) -> raw.RollingDetectorView | None:
@@ -86,8 +83,8 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
             pixel_noise=detector_config.get('pixel_noise'),
         )
 
-    def make_handler(self, key: MessageKey) -> Handler[DetectorEvents, sc.DataArray]:
-        detector_name = self._key_to_detector_name(key)
+    def make_handler(self, key: StreamId) -> Handler[DetectorEvents, sc.DataArray]:
+        detector_name = key.name
         candidates = {
             view_name: self._make_view(detector)
             for view_name, detector in self._detector_config.items()

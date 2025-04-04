@@ -9,9 +9,10 @@ import pytest
 import scipp as sc
 from streaming_data_types import logdata_f144
 
+from beamlime import StreamKind
 from beamlime.config.raw_detectors import available_instruments
+from beamlime.config.streams import stream_kind_to_topic
 from beamlime.fakes import FakeMessageSink
-from beamlime.kafka.helpers import motion_topic
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.sink import UnrollingSinkAdapter
 from beamlime.kafka.source import KafkaConsumer
@@ -32,7 +33,9 @@ class F144Consumer(KafkaConsumer):
             'temperature',
             'pressure',
         ]
-        self._topic = motion_topic(instrument=instrument)
+        self._topic = stream_kind_to_topic(
+            instrument=self._instrument, kind=StreamKind.LOG
+        )
 
         self._reference_time = int(sc.epoch(unit='ns').value)
         self._running = False
@@ -168,7 +171,7 @@ def test_timeseries_service(instrument: str) -> None:
     # Group messages by source name
     messages_by_source = {}
     for msg in sink.messages:
-        source_name = msg.key.source_name.split(':')[0]
+        source_name = msg.stream.name.split(':')[0]
         if source_name not in messages_by_source:
             messages_by_source[source_name] = []
         messages_by_source[source_name].append(msg)
@@ -217,7 +220,7 @@ def test_timeseries_accumulation() -> None:
     messages = [
         msg
         for msg in sink.messages
-        if msg.key.source_name == 'detector_rotation:timeseries'
+        if msg.stream.name == 'detector_rotation:timeseries'
     ]
     assert len(messages) > 1
 

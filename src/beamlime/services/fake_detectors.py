@@ -11,11 +11,10 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from beamlime import Handler, Message, MessageKey, MessageSource, Service
+from beamlime import Handler, Message, MessageSource, Service, StreamId, StreamKind
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.core.handler import CommonHandlerFactory
-from beamlime.kafka.helpers import detector_topic
 from beamlime.kafka.sink import KafkaSink, SerializationError
 from beamlime.service_factory import DataServiceBuilder
 
@@ -82,7 +81,6 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
         instrument: str,
     ):
         self._instrument = instrument
-        self._topic = detector_topic(instrument=instrument)
         self._rng = np.random.default_rng()
         self._tof = sc.linspace('tof', 0, 71_000_000, num=50, unit='ns')
         self._interval_ns = interval_ns
@@ -133,7 +131,7 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
 
         return Message(
             timestamp=timestamp,
-            key=MessageKey(topic=self._topic, source_name=name),
+            stream=StreamId(kind=StreamKind.DETECTOR_EVENTS, name=name),
             value=ds,
         )
 
@@ -154,7 +152,7 @@ def serialize_detector_events_to_ev44(
         raise SerializationError(f"Expected unit 'ns', got {msg.value.unit}")
     try:
         ev44 = eventdata_ev44.serialise_ev44(
-            source_name=msg.key.source_name,
+            source_name=msg.stream.name,
             message_id=0,
             reference_time=msg.timestamp,
             reference_time_index=0,
@@ -177,13 +175,17 @@ def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
     )
     service = builder.from_source(
         source=FakeDetectorSource(instrument=instrument),
-        sink=KafkaSink(kafka_config=kafka_config, serializer=serializer),
+        sink=KafkaSink(
+            instrument=instrument, kafka_config=kafka_config, serializer=serializer
+        ),
     )
     service.start()
 
 
 def main() -> NoReturn:
-    parser = Service.setup_arg_parser('Fake that publishes random detector data')
+    parser = Service.setup_arg_parser(
+        'Fake that publishes random detector data', dev_flag=False
+    )
     run_service(**vars(parser.parse_args()))
 
 
