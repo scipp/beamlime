@@ -108,11 +108,7 @@ def serialize_variable_to_monitor_ev44(msg: Message[sc.Variable]) -> bytes:
 
 
 def run_service(
-    *,
-    instrument: str,
-    dev: bool,
-    mode: Literal['ev44', 'da00'],
-    log_level: int = logging.INFO,
+    *, instrument: str, mode: Literal['ev44', 'da00'], log_level: int = logging.INFO
 ) -> NoReturn:
     kafka_config = load_config(namespace=config_names.kafka_upstream)
     if mode == 'ev44':
@@ -141,7 +137,7 @@ def run_service(
 
 def main() -> NoReturn:
     parser = Service.setup_arg_parser(
-        'Fake that publishes random da00 or ev44 monitor data'
+        'Fake that publishes random da00 or ev44 monitor data', dev_flag=False
     )
     parser.add_argument(
         '--mode',
