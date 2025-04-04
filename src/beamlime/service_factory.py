@@ -74,24 +74,20 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         self, kafka_config: dict[str, Any], consumer_group: str
     ) -> KafkaConsumer:
         """Create and register consumer with the exit stack."""
-        return self._exit_stack.enter_context(
+        control_consumer = self._exit_stack.enter_context(
+            kafka_consumer.make_control_consumer(instrument=self._instrument)
+        )
+        data_consumer = self._exit_stack.enter_context(
             kafka_consumer.make_consumer_from_config(
                 topics=self.topics, config=kafka_config, group=consumer_group
             )
         )
+        return MultiConsumer([control_consumer, data_consumer])
 
     def from_consumer(
         self, consumer: KafkaConsumer, sink: MessageSink[Tout]
     ) -> Service:
-        control_consumer = self._exit_stack.enter_context(
-            kafka_consumer.make_control_consumer(instrument=self._instrument)
-        )
-        return self.from_source(
-            source=KafkaMessageSource(
-                consumer=MultiConsumer([control_consumer, consumer])
-            ),
-            sink=sink,
-        )
+        return self.from_source(source=KafkaMessageSource(consumer=consumer), sink=sink)
 
     def from_source(self, source: MessageSource, sink: MessageSink[Tout]) -> Service:
         processor = StreamProcessor(
