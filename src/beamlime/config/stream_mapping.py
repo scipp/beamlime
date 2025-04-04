@@ -110,13 +110,14 @@ def _make_dev_stream_mapping(instrument: str) -> StreamMapping:
     )
 
 
-_dev_instruments = {
-    'dummy': _make_dev_stream_mapping('dummy'),
-    'dream': _make_dev_stream_mapping('dream'),
-    'loki': _make_dev_stream_mapping('loki'),
-    'nmx': _make_dev_stream_mapping('nmx'),
-    'bifrost': _make_dev_stream_mapping('bifrost'),
-}
+def _dev_instruments():
+    return {
+        'dummy': _make_dev_stream_mapping('dummy'),
+        'dream': _make_dev_stream_mapping('dream'),
+        'loki': _make_dev_stream_mapping('loki'),
+        'nmx': _make_dev_stream_mapping('nmx'),
+        'bifrost': _make_dev_stream_mapping('bifrost'),
+    }
 
 
 _production_instruments = {
@@ -138,5 +139,5 @@ def get_stream_mapping(*, instrument: str, dev: bool) -> StreamMapping:
     Returns the stream mapping for the given instrument.
     """
     if dev:
-        return _dev_instruments[instrument]
+        return _dev_instruments()[instrument]
     return _production_instruments[instrument]

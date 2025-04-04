@@ -9,7 +9,6 @@ import confluent_kafka as kafka
 from confluent_kafka.error import KafkaException
 
 from ..config.config_loader import load_config
-from ..config.topics import topic_for_instrument
 
 
 def validate_topics_exist(consumer: kafka.Consumer, topics: list[str]) -> None:
@@ -56,17 +55,13 @@ def make_consumer_from_config(
     *,
     topics: list[str],
     config: dict[str, Any],
-    instrument: str,
     group: str,
     unique_group_id: bool = True,
 ) -> Generator[kafka.Consumer, None, None]:
     """Create a Kafka consumer from a configuration dictionary."""
     if unique_group_id:
-        config['group.id'] = f'{instrument}_{group}_{uuid.uuid4()}'
-    with make_bare_consumer(
-        config=config,
-        topics=topic_for_instrument(topic=topics, instrument=instrument),
-    ) as consumer:
+        config['group.id'] = f'{group}_{uuid.uuid4()}'
+    with make_bare_consumer(config=config, topics=topics) as consumer:
         yield consumer
 
 
@@ -75,9 +70,8 @@ def make_control_consumer(*, instrument: str) -> Generator[kafka.Consumer, None,
     control_config = load_config(namespace='control_consumer', env='')
     kafka_downstream_config = load_config(namespace='kafka_downstream')
     with make_consumer_from_config(
-        topics=['beamlime_commands'],
+        topics=[f'{instrument}_beamlime_commands'],
         config={**control_config, **kafka_downstream_config},
-        instrument=instrument,
         group='beamlime_commands',
     ) as consumer:
         yield consumer
