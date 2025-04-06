@@ -122,7 +122,7 @@ def run_service(
         instrument=instrument,
         name=f'fake_{mode}_producer',
         log_level=log_level,
-        routes=adapter,
+        adapter=adapter,
         handler_factory=CommonHandlerFactory(handler_cls=IdentityHandler),
     )
     service = builder.from_source(

@@ -279,6 +279,11 @@ class RouteByTopicAdapter(MessageAdapter[KafkaMessage, T]):
     def __init__(self, routes: dict[str, MessageAdapter[KafkaMessage, T]]):
         self._routes = routes
 
+    @property
+    def topics(self) -> list[str]:
+        """Returns the list of topics to subscribe to."""
+        return list(self._routes.keys())
+
     def adapt(self, message: KafkaMessage) -> Message[T]:
         return self._routes[message.topic()].adapt(message)
 

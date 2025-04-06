@@ -7,7 +7,7 @@ from beamlime.config.streams import get_stream_mapping
 from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.monitor_data_handler import MonitorHandlerFactory
-from beamlime.kafka.routes import beam_monitor_route
+from beamlime.kafka.routes import RoutingAdapterBuilder
 from beamlime.service_factory import DataServiceBuilder, DataServiceRunner
 
 
@@ -18,11 +18,17 @@ def make_monitor_service_builder(
     config_handler = ConfigHandler(service_name=service_name)
     handler_factory = MonitorHandlerFactory(config_registry=config_handler)
     stream_mapping = get_stream_mapping(instrument=instrument, dev=dev)
+    adapter = (
+        RoutingAdapterBuilder(stream_mapping=stream_mapping)
+        .with_beam_monitor_route()
+        .with_beamlime_config_route()
+        .build()
+    )
     builder = DataServiceBuilder(
         instrument=instrument,
         name=service_name,
         log_level=log_level,
-        routes=beam_monitor_route(stream_mapping),
+        adapter=adapter,
         handler_factory=handler_factory,
     )
     builder.add_handler(CONFIG_STREAM_ID, config_handler)

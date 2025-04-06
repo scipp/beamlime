@@ -73,11 +73,12 @@ class DashboardApp(ServiceBase):
 
     def _setup_config_service(self) -> None:
         kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
+        _, consumer = self._exit_stack.enter_context(
+            kafka_consumer.make_control_consumer(instrument=self._instrument)
+        )
         self._config_service = ConfigService(
             kafka_config={**kafka_downstream_config},
-            consumer=self._exit_stack.enter_context(
-                kafka_consumer.make_control_consumer(instrument=self._instrument)
-            ),
+            consumer=consumer,
             topic=stream_kind_to_topic(
                 instrument=self._instrument, kind=StreamKind.BEAMLIME_CONFIG
             ),

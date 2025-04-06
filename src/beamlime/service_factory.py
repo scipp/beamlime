@@ -16,13 +16,7 @@ from .core.message import MessageSource, StreamId
 from .core.service import Service
 from .kafka import KafkaTopic
 from .kafka import consumer as kafka_consumer
-from .kafka.message_adapter import (
-    AdaptingMessageSource,
-    IdentityAdapter,
-    MessageAdapter,
-    RouteByTopicAdapter,
-)
-from .kafka.routes import beamlime_config_route
+from .kafka.message_adapter import AdaptingMessageSource, MessageAdapter
 from .kafka.sink import KafkaSink, UnrollingSinkAdapter
 from .kafka.source import KafkaConsumer, KafkaMessageSource, MultiConsumer
 from .sinks import PlotToPngSink
@@ -39,35 +33,20 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         instrument: str,
         name: str,
         log_level: int = logging.INFO,
-        routes: MessageAdapter | dict[KafkaTopic, MessageAdapter] | None = None,
+        adapter: MessageAdapter | None = None,
         handler_factory: HandlerFactory[Tin, Tout],
     ):
         self._name = f'{instrument}_{name}'
         self._log_level = log_level
         self._topics: list[KafkaTopic] | None = None
         self._instrument = instrument
-        if routes is None:
-            self._adapter = IdentityAdapter()
-        elif isinstance(routes, dict):
-            self._topics = list(routes.keys())
-            self._adapter = RouteByTopicAdapter(
-                {**routes, **beamlime_config_route(instrument)}
-            )
-        else:
-            self._adapter = routes
+        self._adapter = adapter
         self._handler_registry = HandlerRegistry(factory=handler_factory)
 
     @property
     def instrument(self) -> str:
         """Returns the instrument name."""
         return self._instrument
-
-    @property
-    def topics(self) -> list[KafkaTopic]:
-        """Returns the list of topics to subscribe to."""
-        if self._topics is None:
-            raise ValueError('Topics not set. Use routes to set topics.')
-        return self._topics
 
     def add_handler(self, key: StreamId, handler: HandlerFactory[Tin, Tout]) -> None:
         """Add specific handler to use for given key, instead of using the factory."""
@@ -79,15 +58,17 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         """Create a service from a consumer config."""
         resources = ExitStack()
         try:
-            control_consumer = resources.enter_context(
+            config_topic, config_consumer = resources.enter_context(
                 kafka_consumer.make_control_consumer(instrument=self._instrument)
             )
+            topics = self._adapter.topics
+            data_topics = [topic for topic in topics if topic != config_topic]
             data_consumer = resources.enter_context(
                 kafka_consumer.make_consumer_from_config(
-                    topics=self.topics, config=kafka_config, group=self._name
+                    topics=data_topics, config=kafka_config, group=self._name
                 )
             )
-            consumer = MultiConsumer([control_consumer, data_consumer])
+            consumer = MultiConsumer([config_consumer, data_consumer])
 
             # Ownership of resource stack transferred to the service
             return self.from_source(
@@ -116,7 +97,9 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         resources: ExitStack | None = None,
     ) -> Service:
         processor = StreamProcessor(
-            source=AdaptingMessageSource(source=source, adapter=self._adapter),
+            source=source
+            if self._adapter is None
+            else AdaptingMessageSource(source=source, adapter=self._adapter),
             sink=sink,
             handler_registry=self._handler_registry,
         )

@@ -9,7 +9,7 @@ from beamlime.config.streams import get_stream_mapping
 from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.detector_data_handler import DetectorHandlerFactory
-from beamlime.kafka.routes import detector_route
+from beamlime.kafka.routes import RoutingAdapterBuilder
 from beamlime.service_factory import DataServiceBuilder, DataServiceRunner
 
 
@@ -22,11 +22,17 @@ def make_detector_service_builder(
         instrument=instrument, config_registry=config_handler
     )
     stream_mapping = get_stream_mapping(instrument=instrument, dev=dev)
+    adapter = (
+        RoutingAdapterBuilder(stream_mapping=stream_mapping)
+        .with_detector_route()
+        .with_beamlime_config_route()
+        .build()
+    )
     builder = DataServiceBuilder(
         instrument=instrument,
         name=service_name,
         log_level=log_level,
-        routes=detector_route(stream_mapping),
+        adapter=adapter,
         handler_factory=handler_factory,
     )
     builder.add_handler(CONFIG_STREAM_ID, config_handler)
