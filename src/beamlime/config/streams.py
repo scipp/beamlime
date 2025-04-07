@@ -11,6 +11,8 @@ use this mapping to assign a unique stream name to each (topic, source name) pai
 
 from __future__ import annotations
 
+from typing import Any
+
 from beamlime import StreamKind
 from beamlime.kafka import InputStreamKey, StreamMapping
 
@@ -97,10 +99,16 @@ def _make_dev_beam_monitors(instrument: str) -> dict[InputStreamKey, str]:
 
 
 def _make_dev_stream_mapping(instrument: str) -> StreamMapping:
+    motion_topic = f'{instrument}_motion'
+    log_topics = {motion_topic}
     return StreamMapping(
         instrument=instrument,
         detectors=_make_dev_detectors(instrument),
         monitors=_make_dev_beam_monitors(instrument),
+        log_topics=log_topics,
+        beamline_config_topic=stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.BEAMLIME_CONFIG
+        ),
     )
 
 
@@ -114,17 +122,24 @@ def _make_dev_instruments() -> dict[str, StreamMapping]:
     }
 
 
+def _make_common(instrument: str) -> dict[str, Any]:
+    return {
+        'instrument': instrument,
+        'monitors': _make_cbm_monitors(instrument),
+        'log_topics': None,
+        'beamline_config_topic': stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.BEAMLIME_CONFIG
+        ),
+    }
+
+
 def _make_production_instruments() -> dict[str, StreamMapping]:
     return {
         'dream': StreamMapping(
-            instrument='dream',
-            detectors=_make_dream_detectors(),
-            monitors=_make_cbm_monitors('dream'),
+            **_make_common(instrument='dream'), detectors=_make_dream_detectors()
         ),
         'loki': StreamMapping(
-            instrument='loki',
-            detectors=_make_loki_detectors(),
-            monitors=_make_cbm_monitors('loki'),
+            **_make_common(instrument='loki'), detectors=_make_loki_detectors()
         ),
     }
 

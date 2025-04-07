@@ -14,13 +14,25 @@ class InputStreamKey:
 class StreamMapping:
     def __init__(
         self,
+        *,
         instrument: str,
         detectors: dict[InputStreamKey, str],
         monitors: dict[InputStreamKey, str],
+        log_topics: set[KafkaTopic] | None = None,
+        beamline_config_topic: str,
     ) -> None:
         self.instrument = instrument
         self._detectors = detectors
         self._monitors = monitors
+        # Currently we simply reuse the source_name as the stream name
+        self._logs = None
+        self._log_topics = log_topics or set()
+        self._beamline_config_topic = beamline_config_topic
+
+    @property
+    def beamline_config_topic(self) -> KafkaTopic:
+        """Returns the beamline config topic."""
+        return self._beamline_config_topic
 
     @property
     def detector_topics(self) -> set[KafkaTopic]:
@@ -33,6 +45,11 @@ class StreamMapping:
         return {stream.topic for stream in self.monitors.keys()}
 
     @property
+    def log_topics(self) -> set[KafkaTopic]:
+        """Returns the list of log topics."""
+        return self._log_topics
+
+    @property
     def detectors(self) -> dict[InputStreamKey, str]:
         """Returns the mapping for detector data."""
         return self._detectors
@@ -41,3 +58,8 @@ class StreamMapping:
     def monitors(self) -> dict[InputStreamKey, str]:
         """Returns the mapping for monitor data."""
         return self._monitors
+
+    @property
+    def logs(self) -> dict[InputStreamKey, str] | None:
+        """Returns the mapping for log data."""
+        return self._logs

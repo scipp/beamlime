@@ -126,8 +126,8 @@ class KafkaToDa00Adapter(KafkaAdapter[Message[list[dataarray_da00.Variable]]]):
 
 
 class KafkaToF144Adapter(KafkaAdapter[Message[logdata_f144.ExtractedLogData]]):
-    def __init__(self):
-        super().__init__(stream_kind=StreamKind.LOG)
+    def __init__(self, *, stream_lut: StreamLUT | None = None):
+        super().__init__(stream_lut=stream_lut, stream_kind=StreamKind.LOG)
 
     def adapt(self, message: KafkaMessage) -> Message[logdata_f144.ExtractedLogData]:
         log_data = logdata_f144.deserialise_f144(message.value())
