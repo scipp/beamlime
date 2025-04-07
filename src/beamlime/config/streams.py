@@ -139,10 +139,16 @@ def _make_tbl_detectors() -> StreamLUT:
     https://confluence.ess.eu/display/ECDC/Kafka+Topics+Overview+for+Instruments
     """
     return {
-        InputStreamKey(topic='tbltp3_detector', source_name='timepix3'): 'tbltp3',
-        InputStreamKey(topic='tblmb_detector', source_name='freia'): 'tblmb',
-        InputStreamKey(topic='tbl3he_detector', source_name='bank0'): 'tbl3he_bank0',
-        InputStreamKey(topic='tbl3he_detector', source_name='bank1'): 'tbl3he_bank1',
+        InputStreamKey(
+            topic='tbl_detector_tpx3', source_name='timepix3'
+        ): 'tbl_detector_tp3',
+        InputStreamKey(topic='tbl_detector_mb', source_name='freia'): 'tbl_detector_mb',
+        InputStreamKey(
+            topic='tbl_detector_3he', source_name='bank0'
+        ): 'tbl_detector_3he_bank0',
+        InputStreamKey(
+            topic='tbl_detector_3he', source_name='bank1'
+        ): 'tbl_detector_3he_bank1',
     }
 
 
