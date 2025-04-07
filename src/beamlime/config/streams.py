@@ -52,16 +52,30 @@ def _make_cbm_monitors(
     }
 
 
-def _make_loki_detectors() -> dict[InputStreamKey, str]:
+def _make_bifrost_detectors() -> dict[InputStreamKey, str]:
+    """
+    Bifrost detector mapping.
+
+    Input keys based on
+    https://confluence.ess.eu/display/ECDC/Kafka+Topics+Overview+for+Instruments
+    """
+    # Source names have the format `arc=[0-4];triplet=[0-8]`.
     return {
         InputStreamKey(
-            topic=f'loki_detector_bank{bank}', source_name='caen'
-        ): f'loki_detector_{bank}'
-        for bank in range(9)
+            topic='bifrost_detector', source_name=f'arc={arc};triplet={triplet}'
+        ): f'arc{arc}_triplet{triplet}'
+        for arc in range(5)
+        for triplet in range(9)
     }
 
 
 def _make_dream_detectors() -> dict[InputStreamKey, str]:
+    """
+    Dream detector mapping.
+
+    Input keys based on
+    https://confluence.ess.eu/display/ECDC/Kafka+Topics+Overview+for+Instruments
+    """
     mapping = {
         'bwec': 'endcap_backward',
         'fwec': 'endcap_forward',
@@ -74,6 +88,58 @@ def _make_dream_detectors() -> dict[InputStreamKey, str]:
             topic=f'dream_detector_{key}', source_name='dream'
         ): f'{value}_detector'
         for key, value in mapping.items()
+    }
+
+
+def _make_loki_detectors() -> dict[InputStreamKey, str]:
+    """
+    Loki detector mapping.
+
+    Input keys based on
+    https://confluence.ess.eu/display/ECDC/Kafka+Topics+Overview+for+Instruments
+    """
+    return {
+        InputStreamKey(
+            topic=f'loki_detector_bank{bank}', source_name='caen'
+        ): f'loki_detector_{bank}'
+        for bank in range(9)
+    }
+
+
+def _make_nmx_detectors() -> dict[InputStreamKey, str]:
+    """
+    NMX detector mapping.
+
+    Input keys based on
+    https://confluence.ess.eu/display/ECDC/Kafka+Topics+Overview+for+Instruments
+    """
+    return {InputStreamKey(topic='nmx_detector', source_name='nmx'): 'nmx_detector'}
+
+
+def _make_odin_detectors() -> dict[InputStreamKey, str]:
+    """
+    Odin detector mapping.
+
+    Input keys based on
+    https://confluence.ess.eu/display/ECDC/Kafka+Topics+Overview+for+Instruments
+    """
+    return {
+        InputStreamKey(topic='odin_detector', source_name='timepix3'): 'odin_detector'
+    }
+
+
+def _make_tbl_detectors() -> dict[InputStreamKey, str]:
+    """
+    TBL detector mapping.
+
+    Input keys based on
+    https://confluence.ess.eu/display/ECDC/Kafka+Topics+Overview+for+Instruments
+    """
+    return {
+        InputStreamKey(topic='tbltp3_detector', source_name='timepix3'): 'tbltp3',
+        InputStreamKey(topic='tblmb_detector', source_name='freia'): 'tblmb',
+        InputStreamKey(topic='tbl3he_detector', source_name='bank0'): 'tbl3he_bank0',
+        InputStreamKey(topic='tbl3he_detector', source_name='bank1'): 'tbl3he_bank1',
     }
 
 
@@ -135,11 +201,23 @@ def _make_common(instrument: str) -> dict[str, Any]:
 
 def _make_production_instruments() -> dict[str, StreamMapping]:
     return {
+        'bifrost': StreamMapping(
+            **_make_common(instrument='bifrost'), detectors=_make_bifrost_detectors()
+        ),
         'dream': StreamMapping(
             **_make_common(instrument='dream'), detectors=_make_dream_detectors()
         ),
         'loki': StreamMapping(
             **_make_common(instrument='loki'), detectors=_make_loki_detectors()
+        ),
+        'nmx': StreamMapping(
+            **_make_common(instrument='nmx'), detectors=_make_nmx_detectors()
+        ),
+        'odin': StreamMapping(
+            **_make_common(instrument='odin'), detectors=_make_odin_detectors()
+        ),
+        'tbl': StreamMapping(
+            **_make_common(instrument='tbl'), detectors=_make_tbl_detectors()
         ),
     }
 
