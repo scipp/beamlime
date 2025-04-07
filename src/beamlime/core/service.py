@@ -15,7 +15,7 @@ from typing import Any, Protocol
 
 from typing_extensions import Self
 
-from ..config.raw_detectors import available_instruments
+from ..config.instruments import available_instruments
 from .processor import Processor
 
 

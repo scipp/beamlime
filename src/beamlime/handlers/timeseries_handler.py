@@ -6,7 +6,7 @@ import logging
 
 import scipp as sc
 
-from ..config.raw_detectors import get_config
+from ..config.instruments import get_config
 from ..core.handler import (
     Config,
     Handler,
