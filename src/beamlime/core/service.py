@@ -137,15 +137,18 @@ class Service(ServiceBase):
                 remaining = max(0.0, self._poll_interval - elapsed)
                 if remaining > 0:
                     time.sleep(remaining)
-        except RuntimeError:
+        except (RuntimeError, ValueError):
             self._logger.exception("Error in service loop")
-            self.stop()
+            self._running = False
+            # Send a signal to the main thread to unblock it
+            if threading.current_thread() is not threading.main_thread():
+                os.kill(os.getpid(), signal.SIGINT)
         finally:
             self._logger.info("Service loop stopped")
 
     def _stop_impl(self) -> None:
         """Stop the service gracefully"""
-        if self._thread:
+        if self._thread and self._thread is not threading.current_thread():
             self._thread.join()
 
     @staticmethod
