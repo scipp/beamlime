@@ -102,7 +102,7 @@ class Service(ServiceBase):
     Complete service with proper lifecycle management.
 
     Calls the injected processor in a loop with a configurable poll interval.
-    If resources were passed, this should be a context manager.
+    If resources were passed, this class should be used as a context manager.
     """
 
     def __init__(
