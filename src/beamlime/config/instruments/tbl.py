@@ -33,7 +33,7 @@ def _make_tbl_detectors() -> StreamLUT:
     return {
         InputStreamKey(
             topic='tbl_detector_tpx3', source_name='timepix3'
-        ): 'tbl_detector_tp3',
+        ): 'tbl_detector_tpx3',
         InputStreamKey(
             topic='tbl_detector_mb', source_name='multiblade'
         ): 'tbl_detector_mb',
