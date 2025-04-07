@@ -4,7 +4,7 @@ This guide explains how to add support for a new instrument in Beamlime.
 
 ## Required Steps
 
-1. Create a new configuration file in `src/beamlime/config/raw_detectors/<instrument>.py`
+1. Create a new configuration file in `src/beamlime/config/instruments/<instrument>.py`
    - The filename will be used as the instrument identifier
    - Beamlime automatically detects and loads all Python files in this directory
 2. Add detector configuration including:
@@ -40,10 +40,20 @@ detectors_config = {  # Must use this exact variable name
             ),
         },
     },
+    'fakes': {  # Pixel ID range for fake data
+        'panel_a' : (1, 128**2),               # (first_id, last_id)
+        'panel_b' : (128**2 + 1, 2 * 128**2),
+    }
 }
 ```
 
 Note that it is valid to configure multiple views for the same detector, e.g., for different resolutions or projections.
+
+
+To enable development without real detector data, you can add your instrument to the fake detectors service by adding entries in the 'fakes' dictionary.
+
+- The pixel IDs must match your detector configuration and should not overlap
+- The fake detector service will generate random events within these ID ranges
 
 ## View Types
 
@@ -69,27 +79,6 @@ Otherwise, you need to provide a NeXus geometry file for the instrument:
 The date should be the first date the geometry file is used in production.
 There can be more than one geometry file for an instrument, but only one can be active at a time.
 
-## Development Support
-
-### Setting up Fake Detector Data
-
-To enable development without real detector data, you can add your instrument to the fake detectors service:
-
-1. Add detector pixel ID ranges in `fake_detectors.py`:
-
-```python
-detector_config = {
-    'your_instrument': {
-        'panel_a': (1, 16384),       # (first_id, last_id)
-        'panel_b': (16385, 32768),
-    },
-    # ...existing instruments...
-}
-```
-
-2. The pixel IDs must match your detector configuration and should not overlap
-3. The fake detector service will generate random events within these ID ranges
-
 ## Examples
 
 See existing instrument configurations for reference implementations:
@@ -98,4 +87,4 @@ See existing instrument configurations for reference implementations:
 - LOKI: Multiple detector panels with standard XY projections
 - NMX: Example of logical view configuration
 
-For more details about specific detector configurations, refer to the corresponding files in `src/beamlime/config/raw_detectors/`.
+For more details about specific detector configurations, refer to the corresponding files in `src/beamlime/config/instruments/`.
