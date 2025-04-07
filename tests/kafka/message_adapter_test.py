@@ -432,6 +432,7 @@ class TestAdaptingMessageSource:
             source=TestMessageSource(),
             adapter=KafkaToDa00Adapter(stream_kind=StreamKind.DETECTOR_EVENTS),
             logger=fake_logger,
+            raise_on_error=False,
         )
 
         messages = adapting_source.get_messages()
@@ -513,3 +514,197 @@ class TestBeamlimeConfigMessageAdapter:
         # So it gets routed to config handler
         assert adapted_message.stream == CONFIG_STREAM_ID
         assert adapted_message.value == RawConfigItem(key=key, value=encoded)
+
+
+class TestErrorHandling:
+    """Tests for handling malformed or corrupt Kafka messages."""
+
+    def setup_method(self):
+        self.fake_logger = self._create_fake_logger()
+
+    def _create_fake_logger(self):
+        class FakeLogger:
+            def __init__(self):
+                self.warning_calls = []
+                self.exception_calls = []
+                self.info_calls = []
+
+            def warning(self, message, *args, **kwargs):
+                self.warning_calls.append((message, args, kwargs))
+
+            def exception(self, message, *args, **kwargs):
+                self.exception_calls.append((message, args, kwargs))
+
+            def info(self, message, *args, **kwargs):
+                self.info_calls.append((message, args, kwargs))
+
+        return FakeLogger()
+
+    def test_corrupt_ev44_message(self, monkeypatch):
+        """Test handling of corrupt ev44 message."""
+        # Create a message that has the ev44 schema identifier but corrupt content
+        corrupt_ev44 = bytearray(make_serialized_ev44())
+        # Corrupt the data after the schema identifier
+        if len(corrupt_ev44) > 12:
+            corrupt_ev44[12:] = b'corrupt' * 10
+
+        class CorruptEv44Source(MessageSource[KafkaMessage]):
+            def get_messages(self):
+                return [FakeKafkaMessage(value=bytes(corrupt_ev44), topic="monitors")]
+
+        def mock_deserialize(*args, **kwargs):
+            raise ValueError("Failed to deserialize corrupt ev44 data")
+
+        monkeypatch.setattr(
+            "streaming_data_types.eventdata_ev44.deserialise_ev44", mock_deserialize
+        )
+
+        source = AdaptingMessageSource(
+            source=CorruptEv44Source(),
+            adapter=KafkaToEv44Adapter(stream_kind=StreamKind.MONITOR_EVENTS),
+            logger=self.fake_logger,
+        )
+
+        # The exception should be caught and logged, then re-raised
+        with pytest.raises(ValueError, match="Failed to deserialize corrupt ev44 data"):
+            source.get_messages()
+
+        assert len(self.fake_logger.exception_calls) == 1
+        assert (
+            "error adapting message" in self.fake_logger.exception_calls[0][0].lower()
+        )
+
+    def test_corrupt_da00_message(self, monkeypatch):
+        """Test handling of corrupt da00 message."""
+        corrupt_da00 = bytearray(make_serialized_da00())
+        # Corrupt the data after the schema identifier
+        if len(corrupt_da00) > 12:
+            corrupt_da00[12:] = b'corrupt' * 10
+
+        class CorruptDa00Source(MessageSource[KafkaMessage]):
+            def get_messages(self):
+                return [FakeKafkaMessage(value=bytes(corrupt_da00), topic="instrument")]
+
+        def mock_deserialize(*args, **kwargs):
+            raise ValueError("Failed to deserialize corrupt da00 data")
+
+        monkeypatch.setattr(
+            "streaming_data_types.dataarray_da00.deserialise_da00", mock_deserialize
+        )
+
+        source = AdaptingMessageSource(
+            source=CorruptDa00Source(),
+            adapter=KafkaToDa00Adapter(stream_kind=StreamKind.MONITOR_COUNTS),
+            logger=self.fake_logger,
+        )
+
+        with pytest.raises(ValueError, match="Failed to deserialize corrupt da00 data"):
+            source.get_messages()
+
+        assert len(self.fake_logger.exception_calls) == 1
+        assert (
+            "error adapting message" in self.fake_logger.exception_calls[0][0].lower()
+        )
+
+    def test_corrupt_f144_message(self, monkeypatch):
+        """Test handling of corrupt f144 message."""
+        corrupt_f144 = bytearray(make_serialized_f144())
+        # Corrupt the data after the schema identifier
+        if len(corrupt_f144) > 12:
+            corrupt_f144[12:] = b'corrupt' * 10
+
+        class CorruptF144Source(MessageSource[KafkaMessage]):
+            def get_messages(self):
+                return [FakeKafkaMessage(value=bytes(corrupt_f144), topic="sensors")]
+
+        def mock_deserialize(*args, **kwargs):
+            raise ValueError("Failed to deserialize corrupt f144 data")
+
+        monkeypatch.setattr(
+            "streaming_data_types.logdata_f144.deserialise_f144", mock_deserialize
+        )
+
+        source = AdaptingMessageSource(
+            source=CorruptF144Source(),
+            adapter=KafkaToF144Adapter(),
+            logger=self.fake_logger,
+        )
+
+        with pytest.raises(ValueError, match="Failed to deserialize corrupt f144 data"):
+            source.get_messages()
+
+        assert len(self.fake_logger.exception_calls) == 1
+        assert (
+            "error adapting message" in self.fake_logger.exception_calls[0][0].lower()
+        )
+
+    def test_mixed_good_and_corrupt_messages(self, monkeypatch):
+        """Test handling a mix of good and corrupt messages."""
+
+        class MixedMessagesSource(MessageSource[KafkaMessage]):
+            def get_messages(self):
+                return [
+                    FakeKafkaMessage(
+                        value=make_serialized_ev44(), topic="monitors"
+                    ),  # Good
+                    FakeKafkaMessage(
+                        value=b"xxxx????", topic="unknown"
+                    ),  # Unknown schema
+                    FakeKafkaMessage(
+                        value=make_serialized_f144(), topic="sensors"
+                    ),  # Good
+                ]
+
+        # Mock to make the second good message fail
+        original_deserialize_f144 = logdata_f144.deserialise_f144
+
+        def mock_deserialize_f144(buffer):
+            if buffer == make_serialized_f144():
+                raise ValueError("Simulated failure for testing")
+            return original_deserialize_f144(buffer)
+
+        monkeypatch.setattr(
+            "streaming_data_types.logdata_f144.deserialise_f144", mock_deserialize_f144
+        )
+
+        # Create a router that handles both ev44 and f144
+        router = RouteBySchemaAdapter(
+            {
+                "ev44": KafkaToEv44Adapter(stream_kind=StreamKind.MONITOR_EVENTS),
+                "f144": KafkaToF144Adapter(),
+            }
+        )
+
+        source = AdaptingMessageSource(
+            source=MixedMessagesSource(),
+            adapter=router,
+            logger=self.fake_logger,
+            raise_on_error=False,
+        )
+
+        source.get_messages()
+
+        assert len(self.fake_logger.exception_calls) == 2
+        assert isinstance(self.fake_logger.exception_calls[0][1][1], KeyError)
+        assert (
+            "error adapting message" in self.fake_logger.exception_calls[1][0].lower()
+        )
+
+    def test_non_fatal_error_handling_option(self):
+        """Test an option to make adapter errors non-fatal."""
+
+        class FailingAdapter:
+            def adapt(self, message):
+                raise ValueError("Simulated adapter failure")
+
+        class SimpleSource(MessageSource[KafkaMessage]):
+            def get_messages(self):
+                return [FakeKafkaMessage(value=b"any", topic="any")]
+
+        source = AdaptingMessageSource(
+            source=SimpleSource(), adapter=FailingAdapter(), logger=self.fake_logger
+        )
+
+        # Current behavior is to raise the exception by default
+        with pytest.raises(ValueError, match="Simulated adapter failure"):
+            source.get_messages()

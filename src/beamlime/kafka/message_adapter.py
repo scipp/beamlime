@@ -297,10 +297,26 @@ class AdaptingMessageSource(MessageSource[U]):
         source: MessageSource[T],
         adapter: MessageAdapter[T, U],
         logger: logging.Logger | None = None,
+        raise_on_error: bool = True,
     ):
+        """
+        Parameters
+        ----------
+        source
+            The source of messages to adapt.
+        adapter
+            The adapter to use.
+        logger
+            Logger to use for logging errors.
+        raise_on_error
+            If True, exceptions during adaptation will be re-raised. If False,
+            they will be logged and the message will be skipped. Messages with unknown
+            schemas will always be skipped.
+        """
         self._logger = logger or logging.getLogger(__name__)
         self._source = source
         self._adapter = adapter
+        self._raise_on_error = raise_on_error
 
     def get_messages(self) -> list[U]:
         raw_messages = self._source.get_messages()
@@ -312,11 +328,8 @@ class AdaptingMessageSource(MessageSource[U]):
                 self._logger.warning('Message %s has an unknown schema. Skipping.', msg)
             except Exception as e:
                 self._logger.exception('Error adapting message %s: %s', msg, e)
-                # Raise so service will shut down. In production we may want to simply
-                # skip the message, but we need more information about the possible
-                # errors to make that decision. For now, we raise to avoid silent
-                # failures.
-                raise
+                if self._raise_on_error:
+                    raise
         return adapted
 
     def close(self) -> None:
