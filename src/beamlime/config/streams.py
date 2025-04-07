@@ -151,6 +151,9 @@ def _make_tbl_detectors() -> StreamLUT:
         InputStreamKey(
             topic='tbl_detector_3he', source_name='bank1'
         ): 'tbl_detector_3he_bank1',
+        InputStreamKey(
+            topic='tbl_detector_ngem', source_name='tbl-ngem'
+        ): 'tbl_detector_ngem',
     }
 
 
