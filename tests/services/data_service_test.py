@@ -59,7 +59,9 @@ def test_basics() -> None:
     )
     sink = FakeMessageSink()
     consumer = IntConsumer()
-    service = builder.from_consumer(consumer=consumer, sink=sink)
+    service = builder.from_consumer(
+        consumer=consumer, sink=sink, raise_on_adapter_error=True
+    )
     service.start(blocking=False)
     while not consumer.at_end:
         time.sleep(0.1)

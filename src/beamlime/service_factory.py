@@ -53,7 +53,10 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         self._handler_registry.register_handler(key=key, handler=handler)
 
     def from_consumer_config(
-        self, kafka_config: dict[str, Any], sink: MessageSink[Tout]
+        self,
+        kafka_config: dict[str, Any],
+        sink: MessageSink[Tout],
+        raise_on_adapter_error: bool = False,
     ) -> Service:
         """Create a service from a consumer config."""
         resources = ExitStack()
@@ -75,6 +78,7 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
                 source=KafkaMessageSource(consumer=consumer),
                 sink=sink,
                 resources=resources.pop_all(),
+                raise_on_adapter_error=raise_on_adapter_error,
             )
         except Exception:
             resources.close()
@@ -85,9 +89,13 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         consumer: KafkaConsumer,
         sink: MessageSink[Tout],
         resources: ExitStack | None = None,
+        raise_on_adapter_error: bool = False,
     ) -> Service:
         return self.from_source(
-            source=KafkaMessageSource(consumer=consumer), sink=sink, resources=resources
+            source=KafkaMessageSource(consumer=consumer),
+            sink=sink,
+            resources=resources,
+            raise_on_adapter_error=raise_on_adapter_error,
         )
 
     def from_source(
@@ -95,11 +103,16 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         source: MessageSource,
         sink: MessageSink[Tout],
         resources: ExitStack | None = None,
+        raise_on_adapter_error: bool = False,
     ) -> Service:
         processor = StreamProcessor(
             source=source
             if self._adapter is None
-            else AdaptingMessageSource(source=source, adapter=self._adapter),
+            else AdaptingMessageSource(
+                source=source,
+                adapter=self._adapter,
+                raise_on_error=raise_on_adapter_error,
+            ),
             sink=sink,
             handler_registry=self._handler_registry,
         )
