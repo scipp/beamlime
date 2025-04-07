@@ -69,10 +69,10 @@ detector_config = {
         f'detector_panel_{i}': (i * 1280**2 + 1, (i + 1) * 1280**2) for i in range(3)
     },
     'odin': {
-        'detector_0': (1, 128**2),
+        'odin_detector': (1, 128**2),
     },
     'tbl': {
-        'detector_0': (1, 128**2),
+        'tbl_detector_tpx3': (1, 128**2),
     },
 }
 

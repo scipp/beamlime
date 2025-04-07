@@ -1,9 +1,22 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 
+import scipp as sc
+
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
+
+detectors_config = {
+    'detectors': {
+        'Detector': {
+            'detector_name': 'tbl_detector_tpx3',
+            'detector_number': sc.arange('yx', 0, 128**2, unit=None).fold(
+                dim='yx', sizes={'y': -1, 'x': 128}
+            ),
+        }
+    }
+}
 
 
 def _make_tbl_detectors() -> StreamLUT:
