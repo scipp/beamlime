@@ -44,6 +44,7 @@ def _bifrost_generator() -> Generator[tuple[str, tuple[int, int]]]:
 
 
 detector_config = {
+    'bifrost': dict(_bifrost_generator()),
     'dummy': {
         'panel_0': (1, 128**2),
     },
@@ -67,7 +68,12 @@ detector_config = {
     'nmx': {
         f'detector_panel_{i}': (i * 1280**2 + 1, (i + 1) * 1280**2) for i in range(3)
     },
-    'bifrost': dict(_bifrost_generator()),
+    'odin': {
+        'detector_0': (1, 128**2),
+    },
+    'tbl': {
+        'detector_0': (1, 128**2),
+    },
 }
 
 

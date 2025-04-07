@@ -16,6 +16,9 @@ from scippnexus import NXdetector
 
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.handlers.workflow_manager import processor_factory
+from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
+
+from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
 _res_scale = 12
 
@@ -80,12 +83,10 @@ detectors_config = {
     },
 }
 
-_workflow = _configured_Larmor_AgBeh_workflow()
-
 
 @processor_factory.register(name='I(Q)')
 def _i_of_q(source_name: str) -> StreamProcessor:
-    wf = _workflow.copy()
+    wf = _configured_Larmor_AgBeh_workflow()
     wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
     wf[NeXusDetectorName] = source_name
     return StreamProcessor(
@@ -125,3 +126,25 @@ source_to_key = {
     'monitor2': NeXusData[Transmission, SampleRun],
 }
 f144_attribute_registry = {}
+
+
+def _make_loki_detectors() -> StreamLUT:
+    """
+    Loki detector mapping.
+
+    Input keys based on
+    https://confluence.ess.eu/display/ECDC/Kafka+Topics+Overview+for+Instruments
+    """
+    return {
+        InputStreamKey(
+            topic=f'loki_detector_bank{bank}', source_name='caen'
+        ): f'loki_detector_{bank}'
+        for bank in range(9)
+    }
+
+
+stream_mapping_dev = make_dev_stream_mapping('loki')
+stream_mapping = StreamMapping(
+    **make_common_stream_mapping_inputs(instrument='loki'),
+    detectors=_make_loki_detectors(),
+)
