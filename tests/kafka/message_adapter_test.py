@@ -67,7 +67,7 @@ class FakeF144KafkaMessageSource(MessageSource[KafkaMessage]):
 
 
 def make_serialized_da00() -> bytes:
-    """Create serialized DA00 message for testing."""
+    """Create serialized da00 message for testing."""
     return dataarray_da00.serialise_da00(
         source_name="instrument",
         timestamp_ns=5678,
@@ -97,22 +97,18 @@ class TestFakeKafkaMessageSource:
 
 class TestKafkaToMonitorEventsAdapter:
     def test_adapter(self) -> None:
-        source = AdaptingMessageSource(
-            source=FakeKafkaMessageSource(),
-            adapter=KafkaToMonitorEventsAdapter(
-                stream_lut={
-                    InputStreamKey(
-                        topic="monitors", source_name="monitor1"
-                    ): "monitor_0"
-                }
-            ),
+        message = FakeKafkaMessage(value=make_serialized_ev44(), topic="monitors")
+        adapter = KafkaToMonitorEventsAdapter(
+            stream_lut={
+                InputStreamKey(topic="monitors", source_name="monitor1"): "monitor_0"
+            }
         )
-        messages = source.get_messages()
-        assert len(messages) == 1
-        assert messages[0].stream.kind == StreamKind.MONITOR_EVENTS
-        assert messages[0].stream.name == "monitor_0"
-        assert messages[0].value.time_of_arrival == [123456]
-        assert messages[0].timestamp == 1234
+        result = adapter.adapt(message)
+
+        assert result.stream.kind == StreamKind.MONITOR_EVENTS
+        assert result.stream.name == "monitor_0"
+        assert result.value.time_of_arrival == [123456]
+        assert result.timestamp == 1234
 
     def test_no_reference_time_uses_message_timestamp(self) -> None:
         """Test that when reference_time is empty, the message timestamp is used."""
@@ -159,86 +155,89 @@ class TestKafkaToMonitorEventsAdapter:
 
 class TestKafkaToF144Adapter:
     def test_adapter(self) -> None:
-        source = AdaptingMessageSource(
-            source=FakeF144KafkaMessageSource(),
-            adapter=KafkaToF144Adapter(),
+        message = FakeKafkaMessage(value=make_serialized_f144(), topic="sensors")
+        adapter = KafkaToF144Adapter()
+        result = adapter.adapt(message)
+
+        assert result.stream.kind == StreamKind.LOG
+        assert result.stream.name == "temperature1"
+        assert result.value.value == 123.45
+        assert result.timestamp == 9876543210
+
+    def test_adapter_with_stream_mapping(self) -> None:
+        message = FakeKafkaMessage(value=make_serialized_f144(), topic="sensors")
+        adapter = KafkaToF144Adapter(
+            stream_lut={
+                InputStreamKey(
+                    topic="sensors", source_name="temperature1"
+                ): "mapped_temperature"
+            }
         )
-        messages = source.get_messages()
-        assert len(messages) == 1
-        assert messages[0].stream.kind == StreamKind.LOG
-        assert messages[0].stream.name == "temperature1"
-        assert messages[0].value.value == 123.45
-        assert messages[0].timestamp == 9876543210
+        result = adapter.adapt(message)
+
+        assert result.stream.kind == StreamKind.LOG
+        assert result.stream.name == "mapped_temperature"
 
 
 class TestF144ToLogDataAdapter:
     def test_adapter(self) -> None:
-        source = AdaptingMessageSource(
-            source=FakeF144KafkaMessageSource(),
-            adapter=ChainedAdapter(
-                first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
-            ),
-        )
-        messages = source.get_messages()
-        assert len(messages) == 1
-        assert messages[0].stream.kind == StreamKind.LOG
-        assert messages[0].stream.name == "temperature1"
-        assert messages[0].value.value == 123.45
-        assert messages[0].value.time == 9876543210
-        assert messages[0].timestamp == 9876543210
+        f144_adapter = KafkaToF144Adapter()
+        message = FakeKafkaMessage(value=make_serialized_f144(), topic="sensors")
+        adapted_f144 = f144_adapter.adapt(message)
+
+        log_data_adapter = F144ToLogDataAdapter()
+        result = log_data_adapter.adapt(adapted_f144)
+
+        assert result.stream.kind == StreamKind.LOG
+        assert result.stream.name == "temperature1"
+        assert result.value.value == 123.45
+        assert result.value.time == 9876543210
+        assert result.timestamp == 9876543210
 
 
 class TestKafkaToDa00Adapter:
     def test_adapter(self) -> None:
-        source = AdaptingMessageSource(
-            source=FakeDa00KafkaMessageSource(),
-            adapter=KafkaToDa00Adapter(stream_kind=StreamKind.MONITOR_COUNTS),
-        )
-        messages = source.get_messages()
-        assert len(messages) == 1
-        assert messages[0].stream.kind == StreamKind.MONITOR_COUNTS
-        assert messages[0].stream.name == "instrument"
-        assert messages[0].timestamp == 5678
-        assert len(messages[0].value) == 1
-        assert messages[0].value[0].name == "temperature"
-        assert messages[0].value[0].values.tolist() == [25.0]
-        assert messages[0].value[0].unit == "degC"
+        message = FakeKafkaMessage(value=make_serialized_da00(), topic="instrument")
+        adapter = KafkaToDa00Adapter(stream_kind=StreamKind.MONITOR_COUNTS)
+        result = adapter.adapt(message)
+
+        assert result.stream.kind == StreamKind.MONITOR_COUNTS
+        assert result.stream.name == "instrument"
+        assert result.timestamp == 5678
+        assert len(result.value) == 2  # signal and temperature
+        assert {var.name for var in result.value} == {"signal", "temperature"}
 
     def test_adapter_with_stream_mapping(self) -> None:
-        source = AdaptingMessageSource(
-            source=FakeDa00KafkaMessageSource(),
-            adapter=KafkaToDa00Adapter(
-                stream_kind=StreamKind.MONITOR_COUNTS,
-                stream_lut={
-                    InputStreamKey(
-                        topic="instrument", source_name="instrument"
-                    ): "mapped_instrument"
-                },
-            ),
+        message = FakeKafkaMessage(value=make_serialized_da00(), topic="instrument")
+        adapter = KafkaToDa00Adapter(
+            stream_kind=StreamKind.MONITOR_COUNTS,
+            stream_lut={
+                InputStreamKey(
+                    topic="instrument", source_name="instrument"
+                ): "mapped_instrument"
+            },
         )
-        messages = source.get_messages()
-        assert len(messages) == 1
-        assert messages[0].stream.kind == StreamKind.MONITOR_COUNTS
-        assert messages[0].stream.name == "mapped_instrument"
+        result = adapter.adapt(message)
+
+        assert result.stream.kind == StreamKind.MONITOR_COUNTS
+        assert result.stream.name == "mapped_instrument"
 
 
 class TestDa00ToScippAdapter:
     def test_adapter(self) -> None:
-        source = AdaptingMessageSource(
-            source=FakeDa00KafkaMessageSource(),
-            adapter=ChainedAdapter(
-                first=KafkaToDa00Adapter(stream_kind=StreamKind.MONITOR_COUNTS),
-                second=Da00ToScippAdapter(),
-            ),
-        )
-        messages = source.get_messages()
-        assert len(messages) == 1
-        assert messages[0].stream.kind == StreamKind.MONITOR_COUNTS
-        assert messages[0].stream.name == "instrument"
-        assert isinstance(messages[0].value, sc.DataArray)
-        assert messages[0].value.name == "temperature"
-        assert messages[0].value.unit == sc.Unit("degC")
-        assert messages[0].value.values.tolist() == [25.0]
+        da00_adapter = KafkaToDa00Adapter(stream_kind=StreamKind.MONITOR_COUNTS)
+        message = FakeKafkaMessage(value=make_serialized_da00(), topic="instrument")
+        adapted_da00 = da00_adapter.adapt(message)
+
+        scipp_adapter = Da00ToScippAdapter()
+        result = scipp_adapter.adapt(adapted_da00)
+
+        assert result.stream.kind == StreamKind.MONITOR_COUNTS
+        assert result.stream.name == "instrument"
+        assert isinstance(result.value, sc.DataArray)
+        assert result.value.unit == 'counts'
+        assert result.value.values == [1.0]
+        assert 'temperature' in result.value.coords
 
 
 class TestEv44ToDetectorEventsAdapter:
@@ -356,6 +355,23 @@ class TestRouteByTopicAdapter:
 
 
 class TestKafkaToEv44Adapter:
+    def test_adapter_with_stream_mapping(self) -> None:
+        message = FakeKafkaMessage(value=make_serialized_ev44(), topic="monitors")
+        adapter = KafkaToEv44Adapter(
+            stream_kind=StreamKind.MONITOR_EVENTS,
+            stream_lut={
+                InputStreamKey(
+                    topic="monitors", source_name="monitor1"
+                ): "mapped_monitor1"
+            },
+        )
+        result = adapter.adapt(message)
+
+        assert result.stream.kind == StreamKind.MONITOR_EVENTS
+        assert result.stream.name == "mapped_monitor1"
+        assert result.value.time_of_flight == [123456]
+        assert result.timestamp == 1234
+
     def test_no_reference_time_uses_message_timestamp(self) -> None:
         """Test that when reference_time is empty, the message timestamp is used."""
         empty_ref_time_ev44 = eventdata_ev44.serialise_ev44(

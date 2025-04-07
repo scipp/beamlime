@@ -105,7 +105,7 @@ class KafkaAdapter(MessageAdapter[KafkaMessage, Message[T]]):
 class KafkaToEv44Adapter(KafkaAdapter[Message[eventdata_ev44.EventData]]):
     def adapt(self, message: KafkaMessage) -> Message[eventdata_ev44.EventData]:
         ev44 = eventdata_ev44.deserialise_ev44(message.value())
-        stream = StreamId(kind=self._stream_kind, name=ev44.source_name)
+        stream = self.get_stream_id(topic=message.topic(), source_name=ev44.source_name)
         # A fallback, useful in particular for testing so serialized data can be reused.
         if ev44.reference_time.size > 0:
             timestamp = ev44.reference_time[-1]
@@ -117,7 +117,7 @@ class KafkaToEv44Adapter(KafkaAdapter[Message[eventdata_ev44.EventData]]):
 class KafkaToDa00Adapter(KafkaAdapter[Message[list[dataarray_da00.Variable]]]):
     def adapt(self, message: KafkaMessage) -> Message[list[dataarray_da00.Variable]]:
         da00 = dataarray_da00.deserialise_da00(message.value())
-        key = StreamId(kind=self._stream_kind, name=da00.source_name)
+        key = self.get_stream_id(topic=message.topic(), source_name=da00.source_name)
         timestamp = da00.timestamp_ns
         return Message(timestamp=timestamp, stream=key, value=da00.data)
 
@@ -128,7 +128,9 @@ class KafkaToF144Adapter(KafkaAdapter[Message[logdata_f144.ExtractedLogData]]):
 
     def adapt(self, message: KafkaMessage) -> Message[logdata_f144.ExtractedLogData]:
         log_data = logdata_f144.deserialise_f144(message.value())
-        key = StreamId(kind=StreamKind.LOG, name=log_data.source_name)
+        key = self.get_stream_id(
+            topic=message.topic(), source_name=log_data.source_name
+        )
         timestamp = log_data.timestamp_unix_ns
         return Message(timestamp=timestamp, stream=key, value=log_data)
 
