@@ -35,7 +35,9 @@ def _make_odin_detectors() -> StreamLUT:
     }
 
 
-stream_mapping_dev = make_dev_stream_mapping('odin')
+stream_mapping_dev = make_dev_stream_mapping(
+    'odin', detectors=list(detectors_config['fakes'])
+)
 stream_mapping = StreamMapping(
     **make_common_stream_mapping_inputs(instrument='odin'),
     detectors=_make_odin_detectors(),

@@ -51,7 +51,9 @@ def _make_nmx_detectors() -> StreamLUT:
     }
 
 
-stream_mapping_dev = make_dev_stream_mapping('nmx')
+stream_mapping_dev = make_dev_stream_mapping(
+    'nmx', detectors=list(detectors_config['fakes'])
+)
 stream_mapping = StreamMapping(
     **make_common_stream_mapping_inputs(instrument='nmx'),
     detectors=_make_nmx_detectors(),

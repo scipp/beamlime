@@ -190,7 +190,9 @@ def _make_bifrost_detectors() -> StreamLUT:
     }
 
 
-stream_mapping_dev = make_dev_stream_mapping('bifrost')
+stream_mapping_dev = make_dev_stream_mapping(
+    'bifrost', detectors=list(detectors_config['fakes'])
+)
 stream_mapping = StreamMapping(
     **make_common_stream_mapping_inputs(instrument='bifrost'),
     detectors=_make_bifrost_detectors(),

@@ -30,7 +30,9 @@ def _make_dummy_detectors() -> StreamLUT:
     return {InputStreamKey(topic='dummy_detector', source_name='panel_0'): 'panel_0'}
 
 
-stream_mapping_dev = make_dev_stream_mapping('dummy')
+stream_mapping_dev = make_dev_stream_mapping(
+    'dummy', detectors=list(detectors_config['fakes'])
+)
 stream_mapping = StreamMapping(
     **make_common_stream_mapping_inputs(instrument='dummy'),
     detectors=_make_dummy_detectors(),

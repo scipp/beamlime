@@ -17,8 +17,6 @@ from beamlime import StreamKind
 from beamlime.config.streams import stream_kind_to_topic
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
-from . import get_config
-
 
 def _make_cbm_monitors(instrument: str, monitor_count: int = 10) -> StreamLUT:
     # Might also be MONITOR_COUNTS, but topic is supposedly the same.
@@ -29,14 +27,9 @@ def _make_cbm_monitors(instrument: str, monitor_count: int = 10) -> StreamLUT:
     }
 
 
-def _make_dev_detectors(instrument: str) -> StreamLUT:
-    config = get_config(instrument=instrument)
-    dev_detectors = config.detectors_config['fakes']
-
+def _make_dev_detectors(*, instrument: str, detectors: list[str]) -> StreamLUT:
     topic = stream_kind_to_topic(instrument=instrument, kind=StreamKind.DETECTOR_EVENTS)
-    return {
-        InputStreamKey(topic=topic, source_name=name): name for name in dev_detectors
-    }
+    return {InputStreamKey(topic=topic, source_name=name): name for name in detectors}
 
 
 def _make_dev_beam_monitors(instrument: str) -> StreamLUT:
@@ -50,12 +43,12 @@ def _make_dev_beam_monitors(instrument: str) -> StreamLUT:
     }
 
 
-def make_dev_stream_mapping(instrument: str) -> StreamMapping:
+def make_dev_stream_mapping(instrument: str, detectors: list[str]) -> StreamMapping:
     motion_topic = f'{instrument}_motion'
     log_topics = {motion_topic}
     return StreamMapping(
         instrument=instrument,
-        detectors=_make_dev_detectors(instrument),
+        detectors=_make_dev_detectors(instrument=instrument, detectors=detectors),
         monitors=_make_dev_beam_monitors(instrument),
         log_topics=log_topics,
         beamline_config_topic=stream_kind_to_topic(
