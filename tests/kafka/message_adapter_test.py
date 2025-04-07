@@ -58,74 +58,81 @@ class FakeF144KafkaMessageSource(MessageSource[KafkaMessage]):
         return [FakeKafkaMessage(value=f144, topic="sensors")]
 
 
-def test_fake_kafka_message_source() -> None:
-    source = FakeKafkaMessageSource()
-    messages = source.get_messages()
-    assert len(messages) == 1
-    assert messages[0].topic() == "monitors"
-    assert messages[0].value() == make_serialized_ev44()
+class TestFakeKafkaMessageSource:
+    def test_source(self) -> None:
+        source = FakeKafkaMessageSource()
+        messages = source.get_messages()
+        assert len(messages) == 1
+        assert messages[0].topic() == "monitors"
+        assert messages[0].value() == make_serialized_ev44()
 
 
-def test_adapting_source() -> None:
-    source = AdaptingMessageSource(
-        source=FakeKafkaMessageSource(),
-        adapter=ChainedAdapter(
-            first=KafkaToEv44Adapter(stream_kind=StreamKind.MONITOR_EVENTS),
-            second=Ev44ToMonitorEventsAdapter(),
-        ),
-    )
-    messages = source.get_messages()
-    assert len(messages) == 1
-    assert messages[0].stream.kind == StreamKind.MONITOR_EVENTS
-    assert messages[0].stream.name == "monitor1"
-    assert messages[0].value.time_of_arrival == [123456]
-    assert messages[0].timestamp == 1234
+class TestAdaptingMessageSource:
+    def test_source(self) -> None:
+        source = AdaptingMessageSource(
+            source=FakeKafkaMessageSource(),
+            adapter=ChainedAdapter(
+                first=KafkaToEv44Adapter(stream_kind=StreamKind.MONITOR_EVENTS),
+                second=Ev44ToMonitorEventsAdapter(),
+            ),
+        )
+        messages = source.get_messages()
+        assert len(messages) == 1
+        assert messages[0].stream.kind == StreamKind.MONITOR_EVENTS
+        assert messages[0].stream.name == "monitor1"
+        assert messages[0].value.time_of_arrival == [123456]
+        assert messages[0].timestamp == 1234
 
 
-def test_KafkaToMonitorEventsAdapter() -> None:
-    source = AdaptingMessageSource(
-        source=FakeKafkaMessageSource(),
-        adapter=KafkaToMonitorEventsAdapter(
-            stream_lut={
-                InputStreamKey(topic="monitors", source_name="monitor1"): "monitor_0"
-            }
-        ),
-    )
-    messages = source.get_messages()
-    assert len(messages) == 1
-    assert messages[0].stream.kind == StreamKind.MONITOR_EVENTS
-    assert messages[0].stream.name == "monitor_0"
-    assert messages[0].value.time_of_arrival == [123456]
-    assert messages[0].timestamp == 1234
+class TestKafkaToMonitorEventsAdapter:
+    def test_adapter(self) -> None:
+        source = AdaptingMessageSource(
+            source=FakeKafkaMessageSource(),
+            adapter=KafkaToMonitorEventsAdapter(
+                stream_lut={
+                    InputStreamKey(
+                        topic="monitors", source_name="monitor1"
+                    ): "monitor_0"
+                }
+            ),
+        )
+        messages = source.get_messages()
+        assert len(messages) == 1
+        assert messages[0].stream.kind == StreamKind.MONITOR_EVENTS
+        assert messages[0].stream.name == "monitor_0"
+        assert messages[0].value.time_of_arrival == [123456]
+        assert messages[0].timestamp == 1234
 
 
-def test_KafkaToF144Adapter() -> None:
-    source = AdaptingMessageSource(
-        source=FakeF144KafkaMessageSource(),
-        adapter=KafkaToF144Adapter(),
-    )
-    messages = source.get_messages()
-    assert len(messages) == 1
-    assert messages[0].stream.kind == StreamKind.LOG
-    assert messages[0].stream.name == "temperature1"
-    assert messages[0].value.value == 123.45
-    assert messages[0].timestamp == 9876543210
+class TestKafkaToF144Adapter:
+    def test_adapter(self) -> None:
+        source = AdaptingMessageSource(
+            source=FakeF144KafkaMessageSource(),
+            adapter=KafkaToF144Adapter(),
+        )
+        messages = source.get_messages()
+        assert len(messages) == 1
+        assert messages[0].stream.kind == StreamKind.LOG
+        assert messages[0].stream.name == "temperature1"
+        assert messages[0].value.value == 123.45
+        assert messages[0].timestamp == 9876543210
 
 
-def test_F144ToLogDataAdapter() -> None:
-    source = AdaptingMessageSource(
-        source=FakeF144KafkaMessageSource(),
-        adapter=ChainedAdapter(
-            first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
-        ),
-    )
-    messages = source.get_messages()
-    assert len(messages) == 1
-    assert messages[0].stream.kind == StreamKind.LOG
-    assert messages[0].stream.name == "temperature1"
-    assert messages[0].value.value == 123.45
-    assert messages[0].value.time == 9876543210
-    assert messages[0].timestamp == 9876543210
+class TestF144ToLogDataAdapter:
+    def test_adapter(self) -> None:
+        source = AdaptingMessageSource(
+            source=FakeF144KafkaMessageSource(),
+            adapter=ChainedAdapter(
+                first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
+            ),
+        )
+        messages = source.get_messages()
+        assert len(messages) == 1
+        assert messages[0].stream.kind == StreamKind.LOG
+        assert messages[0].stream.name == "temperature1"
+        assert messages[0].value.value == 123.45
+        assert messages[0].value.time == 9876543210
+        assert messages[0].timestamp == 9876543210
 
 
 def message_with_schema(schema: str) -> KafkaMessage:
@@ -137,37 +144,40 @@ def message_with_schema(schema: str) -> KafkaMessage:
     return FakeKafkaMessage(value=f"xxxx{schema}".encode(), topic=schema)
 
 
-def test_RouteBySchemaAdapter_raises_KeyError_if_no_route_found() -> None:
-    adapter = RouteBySchemaAdapter(routes={})
-    with pytest.raises(KeyError, match="ev44"):
-        adapter.adapt(message_with_schema("ev44"))
+class TestRouteBySchemaAdapter:
+    def test_raises_KeyError_if_no_route_found(self) -> None:
+        adapter = RouteBySchemaAdapter(routes={})
+        with pytest.raises(KeyError, match="ev44"):
+            adapter.adapt(message_with_schema("ev44"))
+
+    def test_calls_adapter_based_on_route(self) -> None:
+        class Adapter:
+            def __init__(self, value: str):
+                self._value = value
+
+            def adapt(self, message: KafkaMessage) -> Message[str]:
+                return fake_message_with_value(message, self._value)
+
+        adapter = RouteBySchemaAdapter(
+            routes={"ev44": Adapter('adapter1'), "da00": Adapter('adapter2')}
+        )
+        assert adapter.adapt(message_with_schema('ev44')).value == "adapter1"
+        assert adapter.adapt(message_with_schema('da00')).value == "adapter2"
 
 
 def fake_message_with_value(message: KafkaMessage, value: str) -> Message[str]:
     return Message(timestamp=1234, stream=StreamId(name="dummy"), value=value)
 
 
-def test_RouteBySchemaAdapter_calls_adapter_based_on_route() -> None:
-    class Adapter:
-        def __init__(self, value: str):
-            self._value = value
-
-        def adapt(self, message: KafkaMessage) -> Message[str]:
-            return fake_message_with_value(message, self._value)
-
-    adapter = RouteBySchemaAdapter(
-        routes={"ev44": Adapter('adapter1'), "da00": Adapter('adapter2')}
-    )
-    assert adapter.adapt(message_with_schema('ev44')).value == "adapter1"
-    assert adapter.adapt(message_with_schema('da00')).value == "adapter2"
-
-
-def test_BeamlimeConfigMessageAdapter() -> None:
-    key = b'my_source/my_service/my_key'
-    encoded = json.dumps('my_value').encode('utf-8')
-    message = FakeKafkaMessage(key=key, value=encoded, topic="dummy_beamlime_commands")
-    adapter = BeamlimeConfigMessageAdapter()
-    adapted_message = adapter.adapt(message)
-    # So it gets routed to config handler
-    assert adapted_message.stream == CONFIG_STREAM_ID
-    assert adapted_message.value == RawConfigItem(key=key, value=encoded)
+class TestBeamlimeConfigMessageAdapter:
+    def test_adapter(self) -> None:
+        key = b'my_source/my_service/my_key'
+        encoded = json.dumps('my_value').encode('utf-8')
+        message = FakeKafkaMessage(
+            key=key, value=encoded, topic="dummy_beamlime_commands"
+        )
+        adapter = BeamlimeConfigMessageAdapter()
+        adapted_message = adapter.adapt(message)
+        # So it gets routed to config handler
+        assert adapted_message.stream == CONFIG_STREAM_ID
+        assert adapted_message.value == RawConfigItem(key=key, value=encoded)
