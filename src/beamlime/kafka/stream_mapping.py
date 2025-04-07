@@ -7,6 +7,8 @@ KafkaTopic = str
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class InputStreamKey:
+    """Unique identified for an input stream."""
+
     topic: KafkaTopic
     source_name: str
 
@@ -15,6 +17,14 @@ StreamLUT = dict[InputStreamKey, str]
 
 
 class StreamMapping:
+    """
+    Helper for mapping input streams to Beamlime-internal stream names.
+
+    This isolates the internals of Beamlimes from the input stream identifiers,
+    which may contain irrelevant information as well as implementation details
+    such as split topics.
+    """
+
     def __init__(
         self,
         *,
