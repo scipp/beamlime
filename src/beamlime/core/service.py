@@ -137,7 +137,7 @@ class Service(ServiceBase):
                 remaining = max(0.0, self._poll_interval - elapsed)
                 if remaining > 0:
                     time.sleep(remaining)
-        except (RuntimeError, ValueError):
+        except Exception:
             self._logger.exception("Error in service loop")
             self._running = False
             # Send a signal to the main thread to unblock it
