@@ -142,7 +142,9 @@ def _make_tbl_detectors() -> StreamLUT:
         InputStreamKey(
             topic='tbl_detector_tpx3', source_name='timepix3'
         ): 'tbl_detector_tp3',
-        InputStreamKey(topic='tbl_detector_mb', source_name='freia'): 'tbl_detector_mb',
+        InputStreamKey(
+            topic='tbl_detector_mb', source_name='multiblade'
+        ): 'tbl_detector_mb',
         InputStreamKey(
             topic='tbl_detector_3he', source_name='bank0'
         ): 'tbl_detector_3he_bank0',
