@@ -111,7 +111,12 @@ def _make_nmx_detectors() -> StreamLUT:
     Input keys based on
     https://confluence.ess.eu/display/ECDC/Kafka+Topics+Overview+for+Instruments
     """
-    return {InputStreamKey(topic='nmx_detector', source_name='nmx'): 'nmx_detector'}
+    return {
+        InputStreamKey(
+            topic=f'nmx_detector_p{panel}', source_name='nmx'
+        ): 'nmx_detector'
+        for panel in range(3)
+    }
 
 
 def _make_odin_detectors() -> StreamLUT:
