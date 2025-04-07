@@ -7,6 +7,7 @@ from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
+# Note: Panel size is fake and does not correspond to production setting
 detectors_config = {
     'detectors': {
         'Detector': {
@@ -15,7 +16,10 @@ detectors_config = {
                 dim='yx', sizes={'y': -1, 'x': 128}
             ),
         }
-    }
+    },
+    'fakes': {
+        'tbl_detector_tpx3': (1, 128**2),
+    },
 }
 
 

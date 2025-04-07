@@ -4,7 +4,6 @@
 
 import logging
 import time
-from collections.abc import Generator
 from typing import NoReturn, TypeVar
 
 import numpy as np
@@ -14,67 +13,10 @@ from streaming_data_types import eventdata_ev44
 from beamlime import Handler, Message, MessageSource, Service, StreamId, StreamKind
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
+from beamlime.config.instruments import get_config
 from beamlime.core.handler import CommonHandlerFactory
 from beamlime.kafka.sink import KafkaSink, SerializationError
 from beamlime.service_factory import DataServiceBuilder
-
-# Configure detectors to fake for each instrument
-# Values as of January 2025. These may change if the detector configuration changes.
-
-
-def _bifrost_generator() -> Generator[tuple[str, tuple[int, int]]]:
-    # BEWARE! There are gaps in the detector_number per bank, which would usually get
-    # dropped when mapping to pixels. BUT we merge banks for Bifrost, before mapping to
-    # pixels, so the generated fake events in the wrong bank will end up in the right
-    # bank. As a consequence we do not lose any fake events, but the travel over Kafka
-    # with the wrong source_name.
-    start = 123
-    ntube = 3
-    for sector in range(1, 10):
-        for analyzer in range(1, 6):
-            # Note: Actual start is at base + 100 * (sector - 1), but we start earlier
-            # to get consistent counts across all banks, relating to comment above.
-            base = ntube * 900 * (analyzer - 1)
-            yield (
-                f'{start}_channel_{sector}_{analyzer}_triplet',
-                (base + 1, base + 2700),
-            )
-            start += 4
-        start += 1
-
-
-detector_config = {
-    'bifrost': dict(_bifrost_generator()),
-    'dummy': {
-        'panel_0': (1, 128**2),
-    },
-    'dream': {
-        'mantle_detector': (229377, 720896),
-        'endcap_backward_detector': (71618, 229376),
-        'endcap_forward_detector': (1, 71680),
-        'high_resolution_detector': (1122337, 1523680),  # Note: Not consecutive!
-    },
-    'loki': {
-        'loki_detector_0': (1, 802816),
-        'loki_detector_1': (802817, 1032192),
-        'loki_detector_2': (1032193, 1204224),
-        'loki_detector_3': (1204225, 1433600),
-        'loki_detector_4': (1433601, 1605632),
-        'loki_detector_5': (1605633, 2007040),
-        'loki_detector_6': (2007041, 2465792),
-        'loki_detector_7': (2465793, 2752512),
-        'loki_detector_8': (2752513, 3211264),
-    },
-    'nmx': {
-        f'detector_panel_{i}': (i * 1280**2 + 1, (i + 1) * 1280**2) for i in range(3)
-    },
-    'odin': {
-        'odin_detector': (1, 128**2),
-    },
-    'tbl': {
-        'tbl_detector_tpx3': (1, 128**2),
-    },
-}
 
 
 class FakeDetectorSource(MessageSource[sc.Dataset]):
@@ -87,18 +29,19 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
         instrument: str,
     ):
         self._instrument = instrument
+        self._config = get_config(instrument).detectors_config['fakes']
         self._rng = np.random.default_rng()
         self._tof = sc.linspace('tof', 0, 71_000_000, num=50, unit='ns')
         self._interval_ns = interval_ns
         self._last_message_time = {
-            detector: time.time_ns() for detector in detector_config[instrument]
+            detector: time.time_ns() for detector in self._config
         }
 
     def _make_normal(self, mean: float, std: float, size: int) -> np.ndarray:
         return self._rng.normal(loc=mean, scale=std, size=size).astype(np.int64)
 
     def _make_ids(self, name: str, size: int) -> np.ndarray:
-        low, high = detector_config[self._instrument][name]
+        low, high = self._config[name]
         return self._rng.integers(low=low, high=high + 1, size=size)
 
     def get_messages(self) -> list[Message[sc.Dataset]]:

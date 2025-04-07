@@ -30,6 +30,9 @@ detectors_config = {
             ).fold(dim=dim, sizes=sizes),
         },
     },
+    'fakes': {
+        f'detector_panel_{i}': (i * 1280**2 + 1, (i + 1) * 1280**2) for i in range(3)
+    },
 }
 
 

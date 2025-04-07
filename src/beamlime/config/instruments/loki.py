@@ -81,6 +81,17 @@ detectors_config = {
             'pixel_noise': 'cylindrical',
         },
     },
+    'fakes': {
+        'loki_detector_0': (1, 802816),
+        'loki_detector_1': (802817, 1032192),
+        'loki_detector_2': (1032193, 1204224),
+        'loki_detector_3': (1204225, 1433600),
+        'loki_detector_4': (1433601, 1605632),
+        'loki_detector_5': (1605633, 2007040),
+        'loki_detector_6': (2007041, 2465792),
+        'loki_detector_7': (2465793, 2752512),
+        'loki_detector_8': (2752513, 3211264),
+    },
 }
 
 

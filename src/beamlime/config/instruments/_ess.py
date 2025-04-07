@@ -17,6 +17,8 @@ from beamlime import StreamKind
 from beamlime.config.streams import stream_kind_to_topic
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
+from . import get_config
+
 
 def _make_cbm_monitors(instrument: str, monitor_count: int = 10) -> StreamLUT:
     # Might also be MONITOR_COUNTS, but topic is supposedly the same.
@@ -28,12 +30,12 @@ def _make_cbm_monitors(instrument: str, monitor_count: int = 10) -> StreamLUT:
 
 
 def _make_dev_detectors(instrument: str) -> StreamLUT:
-    from beamlime.services.fake_detectors import detector_config
+    config = get_config(instrument=instrument)
+    dev_detectors = config.detectors_config['fakes']
 
     topic = stream_kind_to_topic(instrument=instrument, kind=StreamKind.DETECTOR_EVENTS)
     return {
-        InputStreamKey(topic=topic, source_name=name): name
-        for name in detector_config[instrument]
+        InputStreamKey(topic=topic, source_name=name): name for name in dev_detectors
     }
 
 

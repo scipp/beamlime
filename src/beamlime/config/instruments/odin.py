@@ -16,7 +16,10 @@ detectors_config = {
                 dim='yx', sizes={'y': -1, 'x': 128}
             ),
         }
-    }
+    },
+    'fakes': {
+        'odin_detector': (1, 128**2),
+    },
 }
 
 

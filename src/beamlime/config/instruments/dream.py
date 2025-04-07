@@ -63,6 +63,12 @@ detectors_config = {
             'projection': _get_mantle_front_layer,
         },
     },
+    'fakes': {
+        'mantle_detector': (229377, 720896),
+        'endcap_backward_detector': (71618, 229376),
+        'endcap_forward_detector': (1, 71680),
+        'high_resolution_detector': (1122337, 1523680),  # Note: Not consecutive!
+    },
 }
 
 

@@ -2,6 +2,7 @@
 Bifrost with all banks merged into a single one.
 """
 
+from collections.abc import Generator
 from typing import NewType
 
 import scipp as sc
@@ -44,6 +45,29 @@ detectors_config['detectors']['unified_detector'] = {
     'detector_number': detector_number,
 }
 
+
+def _bifrost_generator() -> Generator[tuple[str, tuple[int, int]]]:
+    # BEWARE! There are gaps in the detector_number per bank, which would usually get
+    # dropped when mapping to pixels. BUT we merge banks for Bifrost, before mapping to
+    # pixels, so the generated fake events in the wrong bank will end up in the right
+    # bank. As a consequence we do not lose any fake events, but the travel over Kafka
+    # with the wrong source_name.
+    start = 123
+    ntube = 3
+    for sector in range(1, 10):
+        for analyzer in range(1, 6):
+            # Note: Actual start is at base + 100 * (sector - 1), but we start earlier
+            # to get consistent counts across all banks, relating to comment above.
+            base = ntube * 900 * (analyzer - 1)
+            yield (
+                f'{start}_channel_{sector}_{analyzer}_triplet',
+                (base + 1, base + 2700),
+            )
+            start += 4
+        start += 1
+
+
+detectors_config['fakes'] = dict(_bifrost_generator())
 
 # Would like to use a 2-D scipp.Variable, but GenericNeXusWorkflow does not accept
 # detector names as scalar variables.

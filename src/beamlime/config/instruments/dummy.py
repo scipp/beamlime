@@ -19,6 +19,9 @@ detectors_config = {
             ),
         },
     },
+    'fakes': {
+        'panel_0': (1, 128**2),
+    },
 }
 
 
