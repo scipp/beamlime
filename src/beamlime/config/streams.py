@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from beamlime import StreamKind
-from beamlime.kafka import InputStreamKey, StreamMapping
+from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 
 def stream_kind_to_topic(instrument: str, kind: StreamKind) -> str:
@@ -41,9 +41,7 @@ def stream_kind_to_topic(instrument: str, kind: StreamKind) -> str:
             raise ValueError(f'Unknown stream kind: {kind}')
 
 
-def _make_cbm_monitors(
-    instrument: str, monitor_count: int = 10
-) -> dict[InputStreamKey, str]:
+def _make_cbm_monitors(instrument: str, monitor_count: int = 10) -> StreamLUT:
     # Might also be MONITOR_COUNTS, but topic is supposedly the same.
     topic = stream_kind_to_topic(instrument=instrument, kind=StreamKind.MONITOR_EVENTS)
     return {
@@ -52,7 +50,7 @@ def _make_cbm_monitors(
     }
 
 
-def _make_bifrost_detectors() -> dict[InputStreamKey, str]:
+def _make_bifrost_detectors() -> StreamLUT:
     """
     Bifrost detector mapping.
 
@@ -69,7 +67,7 @@ def _make_bifrost_detectors() -> dict[InputStreamKey, str]:
     }
 
 
-def _make_dream_detectors() -> dict[InputStreamKey, str]:
+def _make_dream_detectors() -> StreamLUT:
     """
     Dream detector mapping.
 
@@ -91,7 +89,7 @@ def _make_dream_detectors() -> dict[InputStreamKey, str]:
     }
 
 
-def _make_loki_detectors() -> dict[InputStreamKey, str]:
+def _make_loki_detectors() -> StreamLUT:
     """
     Loki detector mapping.
 
@@ -106,7 +104,7 @@ def _make_loki_detectors() -> dict[InputStreamKey, str]:
     }
 
 
-def _make_nmx_detectors() -> dict[InputStreamKey, str]:
+def _make_nmx_detectors() -> StreamLUT:
     """
     NMX detector mapping.
 
@@ -116,7 +114,7 @@ def _make_nmx_detectors() -> dict[InputStreamKey, str]:
     return {InputStreamKey(topic='nmx_detector', source_name='nmx'): 'nmx_detector'}
 
 
-def _make_odin_detectors() -> dict[InputStreamKey, str]:
+def _make_odin_detectors() -> StreamLUT:
     """
     Odin detector mapping.
 
@@ -128,7 +126,7 @@ def _make_odin_detectors() -> dict[InputStreamKey, str]:
     }
 
 
-def _make_tbl_detectors() -> dict[InputStreamKey, str]:
+def _make_tbl_detectors() -> StreamLUT:
     """
     TBL detector mapping.
 
@@ -143,7 +141,7 @@ def _make_tbl_detectors() -> dict[InputStreamKey, str]:
     }
 
 
-def _make_dev_detectors(instrument: str) -> dict[InputStreamKey, str]:
+def _make_dev_detectors(instrument: str) -> StreamLUT:
     from beamlime.services.fake_detectors import detector_config
 
     topic = stream_kind_to_topic(instrument=instrument, kind=StreamKind.DETECTOR_EVENTS)
@@ -153,7 +151,7 @@ def _make_dev_detectors(instrument: str) -> dict[InputStreamKey, str]:
     }
 
 
-def _make_dev_beam_monitors(instrument: str) -> dict[InputStreamKey, str]:
+def _make_dev_beam_monitors(instrument: str) -> StreamLUT:
     # Might also be MONITOR_COUNTS, but topic is supposedly the same.
     topic = stream_kind_to_topic(instrument=instrument, kind=StreamKind.MONITOR_EVENTS)
     return {

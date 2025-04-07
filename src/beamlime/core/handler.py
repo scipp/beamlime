@@ -7,7 +7,6 @@ from collections.abc import Callable, Mapping
 from typing import Any, Generic, Protocol, TypeVar
 
 from ..config import models
-from ..kafka.helpers import source_name
 from .message import Message, StreamId, StreamKind, Tin, Tout
 
 
@@ -178,6 +177,18 @@ class ConfigModelAccessor(Generic[T, U]):
             self._raw_value = raw_value
             self._value = self._convert(self._model_cls.model_validate(raw_value))
         return self._value
+
+
+def source_name(device: str, signal: str) -> str:
+    """
+    Return the source name for a given device and signal.
+
+    This is used to construct the source name from the device name and signal name
+    The source_name is used in various Kafka messages.
+
+    ':' is used as the separator in the ECDC naming convention at ESS.
+    """
+    return f'{device}:{signal}'
 
 
 class PeriodicAccumulatingHandler(Handler[T, U]):

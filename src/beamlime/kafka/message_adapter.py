@@ -19,14 +19,11 @@ from ..core.message import (
 )
 from ..handlers.accumulators import DetectorEvents, LogData, MonitorEvents
 from .scipp_da00_compat import da00_to_scipp
-from .stream_mapping import InputStreamKey
+from .stream_mapping import InputStreamKey, StreamLUT
 
 T = TypeVar('T')
 U = TypeVar('U')
 V = TypeVar('V')
-
-
-StreamLUT = dict[InputStreamKey, str]
 
 
 class KafkaMessage(Protocol):
@@ -93,6 +90,15 @@ class IdentityAdapter(MessageAdapter[T, T]):
 
 
 class KafkaAdapter(MessageAdapter[KafkaMessage, Message[T]]):
+    """
+    Base class for Kafka adapters.
+
+    This provides a common interface for converting the unique (topic, source_name) to
+    the Beamlime-internal stream ID. The actual conversion is done by the subclasses.
+    This conversion serves as a mechanism to isolate Beamlime from irrelevant details of
+    the Kafka topics.
+    """
+
     def __init__(self, *, stream_lut: StreamLUT | None = None, stream_kind: StreamKind):
         self._stream_lut = stream_lut
         self._stream_kind = stream_kind

@@ -11,13 +11,16 @@ class InputStreamKey:
     source_name: str
 
 
+StreamLUT = dict[InputStreamKey, str]
+
+
 class StreamMapping:
     def __init__(
         self,
         *,
         instrument: str,
-        detectors: dict[InputStreamKey, str],
-        monitors: dict[InputStreamKey, str],
+        detectors: StreamLUT,
+        monitors: StreamLUT,
         log_topics: set[KafkaTopic] | None = None,
         beamline_config_topic: str,
     ) -> None:
@@ -50,16 +53,16 @@ class StreamMapping:
         return self._log_topics
 
     @property
-    def detectors(self) -> dict[InputStreamKey, str]:
+    def detectors(self) -> StreamLUT:
         """Returns the mapping for detector data."""
         return self._detectors
 
     @property
-    def monitors(self) -> dict[InputStreamKey, str]:
+    def monitors(self) -> StreamLUT:
         """Returns the mapping for monitor data."""
         return self._monitors
 
     @property
-    def logs(self) -> dict[InputStreamKey, str] | None:
+    def logs(self) -> StreamLUT | None:
         """Returns the mapping for log data."""
         return self._logs
