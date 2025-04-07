@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+import logging
 from dataclasses import dataclass, replace
 from typing import Any, Generic, Protocol, TypeVar
 
@@ -265,7 +266,13 @@ class AdaptingMessageSource(MessageSource[U]):
     Wraps a source of messages and adapts them to a different type.
     """
 
-    def __init__(self, source: MessageSource[T], adapter: MessageAdapter[T, U]):
+    def __init__(
+        self,
+        source: MessageSource[T],
+        adapter: MessageAdapter[T, U],
+        logger: logging.Logger | None = None,
+    ):
+        self._logger = logger or logging.getLogger(__name__)
         self._source = source
         self._adapter = adapter
 
@@ -276,7 +283,14 @@ class AdaptingMessageSource(MessageSource[U]):
             try:
                 adapted.append(self._adapter.adapt(msg))
             except streaming_data_types.exceptions.WrongSchemaException:  # noqa: PERF203
-                pass
+                self._logger.warning('Message %s has an unknown schema. Skipping.', msg)
+            except Exception as e:
+                self._logger.exception('Error adapting message %s: %s', msg, e)
+                # Raise so service will shut down. In production we may want to simply
+                # skip the message, but we need more information about the possible
+                # errors to make that decision. For now, we raise to avoid silent
+                # failures.
+                raise
         return adapted
 
     def close(self) -> None:
