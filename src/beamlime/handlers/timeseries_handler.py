@@ -8,7 +8,7 @@ import scipp as sc
 
 from ..config.instruments import get_config
 from ..core.handler import (
-    Config,
+    ConfigRegistry,
     Handler,
     HandlerFactory,
     PeriodicAccumulatingHandler,
@@ -31,7 +31,7 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
         *,
         instrument: str,
         logger: logging.Logger | None = None,
-        config: Config,
+        config_registry: ConfigRegistry,
         attribute_registry: dict[str, dict[str, any]] | None = None,
     ) -> None:
         """
@@ -55,7 +55,7 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
         """
 
         self._logger = logger or logging.getLogger(__name__)
-        self._config = config
+        self._config_registry = config_registry
         self._instrument = instrument
         if attribute_registry is None:
             self._attribute_registry = get_config(instrument).f144_attribute_registry
@@ -83,9 +83,11 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
             return None
 
         accumulators = {'timeseries': ForwardingAccumulator()}
+        config = self._config_registry.get_config(source_name)
         return PeriodicAccumulatingHandler(
+            service_name=self._config_registry.service_name,
             logger=self._logger,
-            config=self._config,
+            config=config,
             preprocessor=to_nx_log,
             accumulators=accumulators,
         )

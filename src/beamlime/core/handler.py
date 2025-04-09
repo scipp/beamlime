@@ -26,6 +26,11 @@ class ConfigRegistry(Protocol):
     based on the source name of the messages they are processing.
     """
 
+    @property
+    def service_name(self) -> str:
+        """Name of the service this registry is associated with."""
+        pass
+
     def get_config(self, source_name: str) -> Config:
         pass
 
@@ -37,8 +42,13 @@ class FakeConfigRegistry(ConfigRegistry):
     This is used for testing purposes and is not meant to be used in production.
     """
 
-    def __init__(self):
-        self._configs: dict[str, Config] = {}
+    def __init__(self, configs: dict[str, Config] | None = None):
+        self._service_name = 'fake_service'
+        self._configs: dict[str, Config] = configs or {}
+
+    @property
+    def service_name(self) -> str:
+        return self._service_name
 
     def get_config(self, source_name: str) -> Config:
         return self._configs.setdefault(source_name, {})
@@ -179,16 +189,11 @@ class ConfigModelAccessor(Generic[T, U]):
         return self._value
 
 
-def source_name(device: str, signal: str) -> str:
+def output_stream_name(*, service_name: str, stream_name: str, signal_name: str) -> str:
     """
-    Return the source name for a given device and signal.
-
-    This is used to construct the source name from the device name and signal name
-    The source_name is used in various Kafka messages.
-
-    ':' is used as the separator in the ECDC naming convention at ESS.
+    Return the output stream name for a given service name, stream name and signal.
     """
-    return f'{device}:{signal}'
+    return f'{stream_name}/{service_name}/{signal_name}'
 
 
 class PeriodicAccumulatingHandler(Handler[T, U]):
@@ -200,11 +205,13 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         self,
         *,
         logger: logging.Logger | None = None,
+        service_name: str,
         config: Config,
         preprocessor: Accumulator[T, U],
         accumulators: Mapping[str, Accumulator[U, V]],
     ):
         super().__init__(logger=logger, config=config)
+        self._service_name = service_name
         self._preprocessor = preprocessor
         self._accumulators = accumulators
         self._next_update = 0
@@ -266,7 +273,12 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
             Message(
                 timestamp=timestamp,
                 stream=StreamId(
-                    kind=StreamKind.BEAMLIME_DATA, name=source_name(key.name, name)
+                    kind=StreamKind.BEAMLIME_DATA,
+                    name=output_stream_name(
+                        service_name=self._service_name,
+                        stream_name=key.name,
+                        signal_name=name,
+                    ),
                 ),
                 value=accumulator.get(),
             )

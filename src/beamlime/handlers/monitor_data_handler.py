@@ -55,6 +55,7 @@ class MonitorHandlerFactory(HandlerFactory[MonitorEvents | sc.DataArray, sc.Data
         }
         preprocessor = make_monitor_data_preprocessor(key, config)
         return PeriodicAccumulatingHandler(
+            service_name=self._config_registry.service_name,
             logger=self._logger,
             config=config,
             preprocessor=preprocessor,

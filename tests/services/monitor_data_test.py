@@ -9,7 +9,7 @@ from streaming_data_types import eventdata_ev44
 
 from beamlime import StreamKind
 from beamlime.config.streams import stream_kind_to_topic
-from beamlime.core.handler import source_name
+from beamlime.core.handler import output_stream_name
 from beamlime.fakes import FakeMessageSink
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.source import KafkaConsumer
@@ -144,10 +144,34 @@ def test_monitor_data_service() -> None:
     service.start(blocking=False)
     start_and_wait_for_completion(consumer=consumer)
     source_names = [msg.stream.name for msg in sink.messages]
-    assert source_name('monitor0', 'cumulative') in source_names
-    assert source_name('monitor1', 'cumulative') in source_names
-    assert source_name('monitor0', 'current') in source_names
-    assert source_name('monitor1', 'current') in source_names
+    assert (
+        output_stream_name(
+            service_name='monitor_data',
+            stream_name='monitor0',
+            signal_name='cumulative',
+        )
+        in source_names
+    )
+    assert (
+        output_stream_name(
+            service_name='monitor_data',
+            stream_name='monitor1',
+            signal_name='cumulative',
+        )
+        in source_names
+    )
+    assert (
+        output_stream_name(
+            service_name='monitor_data', stream_name='monitor0', signal_name='current'
+        )
+        in source_names
+    )
+    assert (
+        output_stream_name(
+            service_name='monitor_data', stream_name='monitor1', signal_name='current'
+        )
+        in source_names
+    )
     size = len(sink.messages)
     start_and_wait_for_completion(consumer=consumer)
     assert len(sink.messages) > size
