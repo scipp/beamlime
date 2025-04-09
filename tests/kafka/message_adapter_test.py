@@ -464,7 +464,10 @@ class TestAdaptingMessageSource:
                 raise ValueError("Test error")
 
         adapting_source = AdaptingMessageSource(
-            source=TestMessageSource(), adapter=TestAdapter(), logger=fake_logger
+            source=TestMessageSource(),
+            adapter=TestAdapter(),
+            logger=fake_logger,
+            raise_on_error=True,  # Explicitly set to raise errors
         )
 
         with pytest.raises(ValueError, match="Test error"):
@@ -563,6 +566,7 @@ class TestErrorHandling:
             source=CorruptEv44Source(),
             adapter=KafkaToEv44Adapter(stream_kind=StreamKind.MONITOR_EVENTS),
             logger=self.fake_logger,
+            raise_on_error=True,  # Explicitly set to raise errors
         )
 
         # The exception should be caught and logged, then re-raised
@@ -596,6 +600,7 @@ class TestErrorHandling:
             source=CorruptDa00Source(),
             adapter=KafkaToDa00Adapter(stream_kind=StreamKind.MONITOR_COUNTS),
             logger=self.fake_logger,
+            raise_on_error=True,  # Explicitly set to raise errors
         )
 
         with pytest.raises(ValueError, match="Failed to deserialize corrupt da00 data"):
@@ -628,6 +633,7 @@ class TestErrorHandling:
             source=CorruptF144Source(),
             adapter=KafkaToF144Adapter(),
             logger=self.fake_logger,
+            raise_on_error=True,  # Explicitly set to raise errors
         )
 
         with pytest.raises(ValueError, match="Failed to deserialize corrupt f144 data"):
@@ -701,10 +707,24 @@ class TestErrorHandling:
             def get_messages(self):
                 return [FakeKafkaMessage(value=b"any", topic="any")]
 
-        source = AdaptingMessageSource(
+        # Test with raise_on_error=True (explicit setting)
+        source_raising = AdaptingMessageSource(
+            source=SimpleSource(),
+            adapter=FailingAdapter(),
+            logger=self.fake_logger,
+            raise_on_error=True,
+        )
+
+        with pytest.raises(ValueError, match="Simulated adapter failure"):
+            source_raising.get_messages()
+
+        # Test with default behavior (raise_on_error=False)
+        source_non_raising = AdaptingMessageSource(
             source=SimpleSource(), adapter=FailingAdapter(), logger=self.fake_logger
         )
 
-        # Current behavior is to raise the exception by default
-        with pytest.raises(ValueError, match="Simulated adapter failure"):
-            source.get_messages()
+        # Should not raise an exception, but should log it
+        messages = source_non_raising.get_messages()
+        assert len(messages) == 0  # No messages should be returned
+        assert len(self.fake_logger.exception_calls) >= 1
+        assert "Simulated adapter failure" in str(self.fake_logger.exception_calls[-1])
