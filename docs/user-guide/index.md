@@ -18,5 +18,13 @@ maxdepth: 2
 ---
 
 ../environments/index
+```
 
+```{toctree}
+---
+caption: Installation
+maxdepth: 1
+---
+
+installation
 ```

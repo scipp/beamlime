@@ -1,5 +1,5 @@
 # Changes here will be overwritten by Copier; NEVER EDIT MANUALLY
-_commit: 5c4fd02
+_commit: d3d4dc7
 _src_path: gh:scipp/copier_template
 description: Live data reduction visualisation framework for ESS.
 max_python: '3.13'
