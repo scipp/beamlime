@@ -1,12 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+from typing_extensions import Self
 
-from .helpers import (
-    beam_monitor_topic,
-    beamlime_config_topic,
-    detector_topic,
-    motion_topic,
-)
+from ..core.message import StreamKind
 from .message_adapter import (
     BeamlimeConfigMessageAdapter,
     ChainedAdapter,
@@ -19,40 +15,68 @@ from .message_adapter import (
     KafkaToMonitorEventsAdapter,
     MessageAdapter,
     RouteBySchemaAdapter,
+    RouteByTopicAdapter,
 )
+from .stream_mapping import StreamMapping
 
 
-def beamlime_config_route(instrument: str) -> dict[str, MessageAdapter]:
-    """Returns a dictionary of routes for beamlime configuration."""
-    return {beamlime_config_topic(instrument): BeamlimeConfigMessageAdapter()}
+class RoutingAdapterBuilder:
+    def __init__(self, *, stream_mapping: StreamMapping):
+        self._stream_mapping = stream_mapping
+        self._routes: dict[str, MessageAdapter] = {}
 
+    def build(self) -> RouteByTopicAdapter:
+        """Builds the routing adapter."""
+        return RouteByTopicAdapter(self._routes)
 
-def beam_monitor_route(instrument: str) -> dict[str, MessageAdapter]:
-    """Returns a dictionary of routes for monitor data."""
-    monitors = RouteBySchemaAdapter(
-        routes={
-            'ev44': KafkaToMonitorEventsAdapter(),
-            'da00': ChainedAdapter(
-                first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
-            ),
-        }
-    )
-    return {beam_monitor_topic(instrument): monitors}
-
-
-def detector_route(instrument: str) -> dict[str, MessageAdapter]:
-    """Returns a dictionary of routes for detector data."""
-    detectors = ChainedAdapter(
-        first=KafkaToEv44Adapter(),
-        second=Ev44ToDetectorEventsAdapter(merge_detectors=instrument == 'bifrost'),
-    )
-    return {detector_topic(instrument): detectors}
-
-
-def logdata_route(instrument: str) -> dict[str, MessageAdapter]:
-    """Returns a dictionary of routes for log data."""
-    return {
-        motion_topic(instrument): ChainedAdapter(
-            first=KafkaToF144Adapter(), second=F144ToLogDataAdapter()
+    def with_beam_monitor_route(self) -> Self:
+        """Adds the beam monitor route."""
+        adapter = RouteBySchemaAdapter(
+            routes={
+                'ev44': KafkaToMonitorEventsAdapter(
+                    stream_lut=self._stream_mapping.monitors
+                ),
+                'da00': ChainedAdapter(
+                    first=KafkaToDa00Adapter(
+                        stream_lut=self._stream_mapping.monitors,
+                        stream_kind=StreamKind.MONITOR_COUNTS,
+                    ),
+                    second=Da00ToScippAdapter(),
+                ),
+            }
         )
-    }
+        for topic in self._stream_mapping.monitor_topics:
+            self._routes[topic] = adapter
+        return self
+
+    def with_detector_route(self) -> Self:
+        """Adds the detector route."""
+        adapter = ChainedAdapter(
+            first=KafkaToEv44Adapter(
+                stream_lut=self._stream_mapping.detectors,
+                stream_kind=StreamKind.DETECTOR_EVENTS,
+            ),
+            second=Ev44ToDetectorEventsAdapter(
+                merge_detectors=self._stream_mapping.instrument == 'bifrost'
+            ),
+        )
+        for topic in self._stream_mapping.detector_topics:
+            self._routes[topic] = adapter
+        return self
+
+    def with_logdata_route(self) -> Self:
+        """Adds the logdata route."""
+        adapter = ChainedAdapter(
+            first=KafkaToF144Adapter(stream_lut=self._stream_mapping.logs),
+            second=F144ToLogDataAdapter(),
+        )
+        for topic in self._stream_mapping.log_topics:
+            self._routes[topic] = adapter
+        return self
+
+    def with_beamlime_config_route(self) -> Self:
+        """Adds the beamlime config route."""
+        self._routes[self._stream_mapping.beamline_config_topic] = (
+            BeamlimeConfigMessageAdapter()
+        )
+        return self

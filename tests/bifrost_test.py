@@ -5,7 +5,7 @@ import scipp as sc
 from ess.reduce.nexus.types import CalibratedBeamline, SampleRun
 from scipp.testing import assert_identical
 
-from beamlime.config.raw_detectors import bifrost
+from beamlime.config.instruments import bifrost
 
 
 def test_workflow_produces_detector_with_consecutive_detector_number():

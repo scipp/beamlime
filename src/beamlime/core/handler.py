@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Mapping
-from dataclasses import replace
 from typing import Any, Generic, Protocol, TypeVar
 
 from ..config import models
-from ..kafka.helpers import source_name
-from .message import Message, MessageKey, Tin, Tout
+from .message import Message, StreamId, StreamKind, Tin, Tout
 
 
 class Config(Protocol):
@@ -28,6 +26,11 @@ class ConfigRegistry(Protocol):
     based on the source name of the messages they are processing.
     """
 
+    @property
+    def service_name(self) -> str:
+        """Name of the service this registry is associated with."""
+        pass
+
     def get_config(self, source_name: str) -> Config:
         pass
 
@@ -39,8 +42,13 @@ class FakeConfigRegistry(ConfigRegistry):
     This is used for testing purposes and is not meant to be used in production.
     """
 
-    def __init__(self):
-        self._configs: dict[str, Config] = {}
+    def __init__(self, configs: dict[str, Config] | None = None):
+        self._service_name = 'fake_service'
+        self._configs: dict[str, Config] = configs or {}
+
+    @property
+    def service_name(self) -> str:
+        return self._service_name
 
     def get_config(self, source_name: str) -> Config:
         return self._configs.setdefault(source_name, {})
@@ -66,7 +74,7 @@ class Handler(Generic[Tin, Tout]):
 
 
 class HandlerFactory(Protocol, Generic[Tin, Tout]):
-    def make_handler(self, key: MessageKey) -> Handler[Tin, Tout] | None:
+    def make_handler(self, key: StreamId) -> Handler[Tin, Tout] | None:
         pass
 
 
@@ -86,10 +94,9 @@ class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
         self._config_registry = config_registry or FakeConfigRegistry()
         self._handler_cls = handler_cls
 
-    def make_handler(self, key: MessageKey) -> Handler[Tin, Tout]:
+    def make_handler(self, key: StreamId) -> Handler[Tin, Tout]:
         return self._handler_cls(
-            logger=self._logger,
-            config=self._config_registry.get_config(key.source_name),
+            logger=self._logger, config=self._config_registry.get_config(key)
         )
 
 
@@ -103,15 +110,15 @@ class HandlerRegistry(Generic[Tin, Tout]):
 
     def __init__(self, *, factory: HandlerFactory[Tin, Tout]):
         self._factory = factory
-        self._handlers: dict[MessageKey, Handler[Tin, Tout] | None] = {}
+        self._handlers: dict[StreamId, Handler[Tin, Tout] | None] = {}
 
     def __len__(self) -> int:
         return sum(1 for handler in self._handlers.values() if handler is not None)
 
-    def register_handler(self, key: MessageKey, handler: Handler[Tin, Tout]) -> None:
+    def register_handler(self, key: StreamId, handler: Handler[Tin, Tout]) -> None:
         self._handlers[key] = handler
 
-    def get(self, key: MessageKey) -> Handler[Tin, Tout] | None:
+    def get(self, key: StreamId) -> Handler[Tin, Tout] | None:
         if key not in self._handlers:
             self._handlers[key] = self._factory.make_handler(key)
         return self._handlers[key]
@@ -182,6 +189,13 @@ class ConfigModelAccessor(Generic[T, U]):
         return self._value
 
 
+def output_stream_name(*, service_name: str, stream_name: str, signal_name: str) -> str:
+    """
+    Return the output stream name for a given service name, stream name and signal.
+    """
+    return f'{stream_name}/{service_name}/{signal_name}'
+
+
 class PeriodicAccumulatingHandler(Handler[T, U]):
     """
     Handler that accumulates data over time and emits the accumulated data periodically.
@@ -191,11 +205,13 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         self,
         *,
         logger: logging.Logger | None = None,
+        service_name: str,
         config: Config,
         preprocessor: Accumulator[T, U],
         accumulators: Mapping[str, Accumulator[U, V]],
     ):
         super().__init__(logger=logger, config=config)
+        self._service_name = service_name
         self._preprocessor = preprocessor
         self._accumulators = accumulators
         self._next_update = 0
@@ -234,7 +250,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
             accumulator.add(timestamp=messages[-1].timestamp, data=data)
         if messages[-1].timestamp < self._next_update:
             return []
-        return self._produce_update(messages[-1].key, messages[-1].timestamp)
+        return self._produce_update(messages[-1].stream, messages[-1].timestamp)
 
     def _preprocess(self, message: Message[T]) -> None:
         if self.start_time().value_ns > self._last_clear:
@@ -246,7 +262,7 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
             self._next_update = message.timestamp
         self._preprocessor.add(message.timestamp, message.value)
 
-    def _produce_update(self, key: MessageKey, timestamp: int) -> list[Message[V]]:
+    def _produce_update(self, key: StreamId, timestamp: int) -> list[Message[V]]:
         # If there were no pulses for a while we need to skip several updates.
         # Note that we do not simply set _next_update based on reference_time
         # to avoid drifts.
@@ -256,11 +272,13 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         return [
             Message(
                 timestamp=timestamp,
-                key=replace(
-                    key,
-                    # Extract the instrument name from the topic name.
-                    topic=f'{key.topic.split("_")[0]}_beamlime_data',
-                    source_name=source_name(key.source_name, name),
+                stream=StreamId(
+                    kind=StreamKind.BEAMLIME_DATA,
+                    name=output_stream_name(
+                        service_name=self._service_name,
+                        stream_name=key.name,
+                        signal_name=name,
+                    ),
                 ),
                 value=accumulator.get(),
             )

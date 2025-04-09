@@ -6,11 +6,10 @@ from typing import NoReturn, TypeVar
 import numpy as np
 import scipp as sc
 
-from beamlime import Handler, Message, MessageKey, MessageSource, Service
+from beamlime import Handler, Message, MessageSource, Service, StreamId, StreamKind
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.core.handler import CommonHandlerFactory
-from beamlime.kafka.helpers import motion_topic
 from beamlime.kafka.sink import KafkaSink, serialize_dataarray_to_f144
 from beamlime.service_factory import DataServiceBuilder
 
@@ -43,7 +42,6 @@ class FakeLogdataSource(MessageSource[sc.DataArray]):
     """Fake message source that generates continuous monitor events in a loop."""
 
     def __init__(self, *, instrument: str):
-        self._topic = motion_topic(instrument=instrument)
         # Create the base ramp patterns
         self._ramp_patterns = {'detector_rotation': _make_ramp(size=100)}
         # Track the current time and cycle count for each log data
@@ -110,7 +108,7 @@ class FakeLogdataSource(MessageSource[sc.DataArray]):
         """Create a message with the given data and timestamp."""
         return Message(
             timestamp=self._time_ns().value,
-            key=MessageKey(topic=self._topic, source_name=name),
+            stream=StreamId(kind=StreamKind.LOG, name=name),
             value=data,
         )
 
@@ -135,13 +133,17 @@ def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
     )
     service = builder.from_source(
         source=FakeLogdataSource(instrument=instrument),
-        sink=KafkaSink(kafka_config=kafka_config, serializer=serializer),
+        sink=KafkaSink(
+            instrument=instrument, kafka_config=kafka_config, serializer=serializer
+        ),
     )
     service.start()
 
 
 def main() -> NoReturn:
-    parser = Service.setup_arg_parser('Fake that publishes f144 logdata')
+    parser = Service.setup_arg_parser(
+        'Fake that publishes f144 logdata', dev_flag=False
+    )
     run_service(**vars(parser.parse_args()))
 
 

@@ -6,14 +6,14 @@ import logging
 
 import scipp as sc
 
-from ..config.raw_detectors import get_config
+from ..config.instruments import get_config
 from ..core.handler import (
-    Config,
+    ConfigRegistry,
     Handler,
     HandlerFactory,
     PeriodicAccumulatingHandler,
 )
-from ..core.message import MessageKey
+from ..core.message import StreamId
 from .accumulators import ForwardingAccumulator, LogData
 from .to_nx_log import ToNXlog
 
@@ -31,7 +31,7 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
         *,
         instrument: str,
         logger: logging.Logger | None = None,
-        config: Config,
+        config_registry: ConfigRegistry,
         attribute_registry: dict[str, dict[str, any]] | None = None,
     ) -> None:
         """
@@ -55,15 +55,15 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
         """
 
         self._logger = logger or logging.getLogger(__name__)
-        self._config = config
+        self._config_registry = config_registry
         self._instrument = instrument
         if attribute_registry is None:
             self._attribute_registry = get_config(instrument).f144_attribute_registry
         else:
             self._attribute_registry = attribute_registry
 
-    def make_handler(self, key: MessageKey) -> Handler[LogData, sc.DataArray] | None:
-        source_name = key.source_name
+    def make_handler(self, key: StreamId) -> Handler[LogData, sc.DataArray] | None:
+        source_name = key.name
         attrs = self._attribute_registry.get(source_name)
         if attrs is None:
             self._logger.warning(
@@ -83,9 +83,11 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
             return None
 
         accumulators = {'timeseries': ForwardingAccumulator()}
+        config = self._config_registry.get_config(source_name)
         return PeriodicAccumulatingHandler(
+            service_name=self._config_registry.service_name,
             logger=self._logger,
-            config=self._config,
+            config=config,
             preprocessor=to_nx_log,
             accumulators=accumulators,
         )

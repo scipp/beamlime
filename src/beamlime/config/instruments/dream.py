@@ -7,6 +7,11 @@ import sciline
 import scipp as sc
 from ess.reduce.streaming import StreamProcessor
 
+from beamlime.config.env import StreamingEnv
+from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
+
+from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
+
 
 def _get_mantle_front_layer(da: sc.DataArray) -> sc.DataArray:
     return (
@@ -58,6 +63,12 @@ detectors_config = {
             'detector_number': sc.arange('dummy', 229377, 720897, unit=None),
             'projection': _get_mantle_front_layer,
         },
+    },
+    'fakes': {
+        'mantle_detector': (229377, 720896),
+        'endcap_backward_detector': (71618, 229376),
+        'endcap_forward_detector': (1, 71680),
+        'high_resolution_detector': (1122337, 1523680),  # Note: Not consecutive!
     },
 }
 
@@ -128,4 +139,37 @@ source_to_key = {
     'high_resolution_detector': RawDetectorData,
     'monitor1': RawMon1,
     'monitor2': RawMon2,
+}
+
+
+def _make_dream_detectors() -> StreamLUT:
+    """
+    Dream detector mapping.
+
+    Input keys based on
+    https://confluence.ess.eu/display/ECDC/Kafka+Topics+Overview+for+Instruments
+    """
+    mapping = {
+        'bwec': 'endcap_backward',
+        'fwec': 'endcap_forward',
+        'hr': 'high_resolution',
+        'mantle': 'mantle',
+        'sans': 'sans',
+    }
+    return {
+        InputStreamKey(
+            topic=f'dream_detector_{key}', source_name='dream'
+        ): f'{value}_detector'
+        for key, value in mapping.items()
+    }
+
+
+stream_mapping = {
+    StreamingEnv.DEV: make_dev_stream_mapping(
+        'dream', detectors=list(detectors_config['fakes'])
+    ),
+    StreamingEnv.PROD: StreamMapping(
+        **make_common_stream_mapping_inputs(instrument='dream'),
+        detectors=_make_dream_detectors(),
+    ),
 }

@@ -10,9 +10,12 @@ import sys
 import threading
 import time
 from abc import ABC, abstractmethod
+from contextlib import ExitStack
 from typing import Any, Protocol
 
-from ..config.raw_detectors import available_instruments
+from typing_extensions import Self
+
+from ..config.instruments import available_instruments
 from .processor import Processor
 
 
@@ -99,6 +102,7 @@ class Service(ServiceBase):
     Complete service with proper lifecycle management.
 
     Calls the injected processor in a loop with a configurable poll interval.
+    If resources were passed, this class should be used as a context manager.
     """
 
     def __init__(
@@ -108,11 +112,24 @@ class Service(ServiceBase):
         name: str | None = None,
         log_level: int = logging.INFO,
         poll_interval: float = 0.01,
+        resources: ExitStack | None = None,
     ):
         super().__init__(name=name, log_level=log_level)
         self._poll_interval = poll_interval
         self._processor = processor
         self._thread: threading.Thread | None = None
+        self._resources = resources
+
+    def __enter__(self) -> Self:
+        """Enter the context manager protocol."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit the context manager protocol, ensuring resources are cleaned up."""
+        if self.is_running:
+            self.stop()
+        if self._resources is not None:
+            self._resources.close()
 
     def _start_impl(self) -> None:
         """Start the service and block until stopped"""
@@ -152,7 +169,9 @@ class Service(ServiceBase):
             self._thread.join()
 
     @staticmethod
-    def setup_arg_parser(description: str) -> argparse.ArgumentParser:
+    def setup_arg_parser(
+        description: str, *, dev_flag: bool = True
+    ) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
             description=description,
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -163,6 +182,13 @@ class Service(ServiceBase):
             default='dummy',
             help='Select the instrument',
         )
+        if dev_flag:
+            parser.add_argument(
+                '--dev',
+                action='store_true',
+                default=False,
+                help='Run in development mode with simplified topic naming',
+            )
         parser.add_argument(
             '--log-level',
             choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'],

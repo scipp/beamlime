@@ -43,7 +43,7 @@ class StreamProcessor(Generic[Tin, Tout]):
         messages = self._source.get_messages()
         messages_by_key = defaultdict(list)
         for msg in messages:
-            messages_by_key[msg.key].append(msg)
+            messages_by_key[msg.stream].append(msg)
 
         results = []
         for key, msgs in messages_by_key.items():

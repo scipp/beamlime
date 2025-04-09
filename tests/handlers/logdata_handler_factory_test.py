@@ -8,14 +8,15 @@ import pytest
 import scipp as sc
 from scipp.testing import assert_identical
 
-from beamlime.core.message import Message, MessageKey
+from beamlime.core.handler import FakeConfigRegistry
+from beamlime.core.message import Message, StreamId, StreamKind
 from beamlime.handlers.accumulators import LogData
 from beamlime.handlers.timeseries_handler import LogdataHandlerFactory
 
 
 @pytest.fixture
-def default_config():
-    return {}
+def fake_config_registry():
+    return FakeConfigRegistry()
 
 
 @pytest.fixture
@@ -68,26 +69,28 @@ def log_capture() -> LogCapture:
     logger.removeHandler(handler)
 
 
-def test_logdata_handler_factory_initialization(default_config, attribute_registry):
+def test_logdata_handler_factory_initialization(
+    fake_config_registry, attribute_registry
+):
     """Test that LogdataHandlerFactory initializes correctly"""
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
         logger=None,
-        config=default_config,
+        config_registry=fake_config_registry,
         attribute_registry=attribute_registry,
     )
     assert factory is not None
 
 
-def test_make_handler_with_valid_source(default_config, attribute_registry):
+def test_make_handler_with_valid_source(fake_config_registry, attribute_registry):
     """Test creating a handler with a valid source name"""
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
-        config=default_config,
+        config_registry=fake_config_registry,
         attribute_registry=attribute_registry,
     )
 
-    key = MessageKey(topic="logs", source_name="temperature_sensor")
+    key = StreamId(kind=StreamKind.LOG, name="temperature_sensor")
     handler = factory.make_handler(key)
 
     # Just verify the handler is created
@@ -95,17 +98,17 @@ def test_make_handler_with_valid_source(default_config, attribute_registry):
 
 
 def test_make_handler_with_missing_source(
-    default_config, attribute_registry, log_capture: LogCapture
+    fake_config_registry, attribute_registry, log_capture: LogCapture
 ):
     """Test creating a handler with a source name that doesn't have attributes"""
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
         logger=log_capture.logger,
-        config=default_config,
+        config_registry=fake_config_registry,
         attribute_registry=attribute_registry,
     )
 
-    key = MessageKey(topic="logs", source_name="nonexistent_sensor")
+    key = StreamId(kind=StreamKind.LOG, name="nonexistent_sensor")
     handler = factory.make_handler(key)
 
     assert handler is None
@@ -117,7 +120,7 @@ def test_make_handler_with_missing_source(
 
 
 def test_make_handler_with_invalid_attributes(
-    default_config, attribute_registry, log_capture: LogCapture
+    fake_config_registry, attribute_registry, log_capture: LogCapture
 ):
     """Test creating a handler with invalid attributes for a source"""
     # Create a copy of the attribute registry with invalid attributes
@@ -127,11 +130,11 @@ def test_make_handler_with_invalid_attributes(
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
         logger=log_capture.logger,
-        config=default_config,
+        config_registry=fake_config_registry,
         attribute_registry=invalid_registry,
     )
 
-    key = MessageKey(topic="logs", source_name="invalid_sensor")
+    key = StreamId(kind=StreamKind.LOG, name="invalid_sensor")
     handler = factory.make_handler(key)
 
     assert handler is None
@@ -142,15 +145,15 @@ def test_make_handler_with_invalid_attributes(
     )
 
 
-def test_full_handler_lifecycle(default_config, attribute_registry):
+def test_full_handler_lifecycle(fake_config_registry, attribute_registry):
     """Test the full lifecycle of creating and using a handler"""
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
-        config=default_config,
+        config_registry=fake_config_registry,
         attribute_registry=attribute_registry,
     )
 
-    key = MessageKey(topic="logs", source_name="temperature_sensor")
+    key = StreamId(kind=StreamKind.LOG, name="temperature_sensor")
     handler = factory.make_handler(key)
     assert handler is not None
 
@@ -158,7 +161,7 @@ def test_full_handler_lifecycle(default_config, attribute_registry):
     timestamp = int(time.time() * 1e9)  # Current time in nanoseconds
     message = Message(
         timestamp=timestamp,
-        key=key,
+        stream=key,
         value=LogData(time=1_000_000_000, value=273.15),
     )
 
@@ -176,15 +179,15 @@ def test_full_handler_lifecycle(default_config, attribute_registry):
     assert_identical(result.coords["time"][0], expected_time)
 
 
-def test_handler_with_multiple_messages(default_config, attribute_registry):
+def test_handler_with_multiple_messages(fake_config_registry, attribute_registry):
     """Test handling multiple messages within the same update interval"""
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
-        config=default_config,
+        config_registry=fake_config_registry,
         attribute_registry=attribute_registry,
     )
 
-    key = MessageKey(topic="logs", source_name="temperature_sensor")
+    key = StreamId(kind=StreamKind.LOG, name="temperature_sensor")
     handler = factory.make_handler(key)
 
     base_timestamp = int(time.time() * 1e9)
@@ -192,12 +195,12 @@ def test_handler_with_multiple_messages(default_config, attribute_registry):
     # Create messages
     message1 = Message(
         timestamp=base_timestamp,
-        key=key,
+        stream=key,
         value=LogData(time=1_000_000_000, value=273.15),
     )
     message2 = Message(
         timestamp=base_timestamp + 100_000_000,  # 100ms later, still within interval
-        key=key,
+        stream=key,
         value=LogData(time=2_000_000_000, value=293.15),
     )
 
@@ -223,11 +226,13 @@ def test_handler_across_update_intervals(attribute_registry):
     """Test handling messages across different update intervals"""
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
-        config={'update_every': {'value': 0.5}},
+        config_registry=FakeConfigRegistry(
+            {'temperature_sensor': {'update_every': {'value': 0.5}}}
+        ),
         attribute_registry=attribute_registry,
     )
 
-    key = MessageKey(topic="logs", source_name="temperature_sensor")
+    key = StreamId(kind=StreamKind.LOG, name="temperature_sensor")
     handler = factory.make_handler(key)
 
     base_timestamp = int(time.time() * 1e9)
@@ -235,7 +240,7 @@ def test_handler_across_update_intervals(attribute_registry):
     # First interval
     message1 = Message(
         timestamp=base_timestamp,
-        key=key,
+        stream=key,
         value=LogData(time=1_000_000_000, value=273.15),
     )
 
@@ -245,7 +250,7 @@ def test_handler_across_update_intervals(attribute_registry):
     # Second interval (more than update_interval_seconds later)
     message2 = Message(
         timestamp=base_timestamp + int(1.5e9),  # 1.5 seconds later
-        key=key,
+        stream=key,
         value=LogData(time=2_000_000_000, value=293.15),
     )
 
@@ -259,24 +264,29 @@ def test_handler_across_update_intervals(attribute_registry):
     )
 
 
-def test_logdata_handler_preserves_source_name(default_config, attribute_registry):
+def test_logdata_handler_preserves_source_name(
+    fake_config_registry, attribute_registry
+):
     """Test that the generated messages preserve the source name"""
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
-        config=default_config,
+        config_registry=fake_config_registry,
         attribute_registry=attribute_registry,
     )
 
     source_name = "temperature_sensor"
-    key = MessageKey(topic="logs", source_name=source_name)
+    key = StreamId(kind=StreamKind.LOG, name=source_name)
     handler = factory.make_handler(key)
 
     message = Message(
         timestamp=int(time.time() * 1e9),
-        key=key,
+        stream=key,
         value=LogData(time=1_000_000_000, value=273.15),
     )
 
     results = handler.handle([message])
     assert len(results) == 1
-    assert results[0].key.source_name == f'{source_name}:timeseries'
+    assert (
+        results[0].stream.name
+        == f'{source_name}/{fake_config_registry.service_name}/timeseries'
+    )

@@ -10,9 +10,16 @@ import streaming_data_types.exceptions
 from streaming_data_types import dataarray_da00, eventdata_ev44, logdata_f144
 from streaming_data_types.fbschemas.eventdata_ev44 import Event44Message
 
-from ..core.message import Message, MessageKey, MessageSource
+from ..core.message import (
+    CONFIG_STREAM_ID,
+    Message,
+    MessageSource,
+    StreamId,
+    StreamKind,
+)
 from ..handlers.accumulators import DetectorEvents, LogData, MonitorEvents
 from .scipp_da00_compat import da00_to_scipp
+from .stream_mapping import InputStreamKey, StreamLUT
 
 T = TypeVar('T')
 U = TypeVar('U')
@@ -73,47 +80,59 @@ class MessageAdapter(Protocol, Generic[T, U]):
         pass
 
 
-class IdentityAdapter(MessageAdapter[T, T]):
+class KafkaAdapter(MessageAdapter[KafkaMessage, Message[T]]):
     """
-    An adapter that does not change the message.
+    Base class for Kafka adapters.
+
+    This provides a common interface for converting the unique (topic, source_name) to
+    the Beamlime-internal stream ID. The actual conversion is done by the subclasses.
+    This conversion serves as a mechanism to isolate Beamlime from irrelevant details of
+    the Kafka topics.
     """
 
-    def adapt(self, message: T) -> T:
-        return message
+    def __init__(self, *, stream_lut: StreamLUT | None = None, stream_kind: StreamKind):
+        self._stream_lut = stream_lut
+        self._stream_kind = stream_kind
+
+    def get_stream_id(self, topic: str, source_name: str) -> StreamId:
+        if self._stream_lut is None:
+            # Assume the source name is unique
+            return StreamId(kind=self._stream_kind, name=source_name)
+        input_key = InputStreamKey(topic=topic, source_name=source_name)
+        return StreamId(kind=self._stream_kind, name=self._stream_lut[input_key])
 
 
-class KafkaToEv44Adapter(
-    MessageAdapter[KafkaMessage, Message[eventdata_ev44.EventData]]
-):
+class KafkaToEv44Adapter(KafkaAdapter[Message[eventdata_ev44.EventData]]):
     def adapt(self, message: KafkaMessage) -> Message[eventdata_ev44.EventData]:
         ev44 = eventdata_ev44.deserialise_ev44(message.value())
-        key = MessageKey(topic=message.topic(), source_name=ev44.source_name)
+        stream = self.get_stream_id(topic=message.topic(), source_name=ev44.source_name)
         # A fallback, useful in particular for testing so serialized data can be reused.
         if ev44.reference_time.size > 0:
             timestamp = ev44.reference_time[-1]
         else:
             timestamp = message.timestamp()[1]
-        return Message(timestamp=timestamp, key=key, value=ev44)
+        return Message(timestamp=timestamp, stream=stream, value=ev44)
 
 
-class KafkaToDa00Adapter(
-    MessageAdapter[KafkaMessage, Message[list[dataarray_da00.Variable]]]
-):
+class KafkaToDa00Adapter(KafkaAdapter[Message[list[dataarray_da00.Variable]]]):
     def adapt(self, message: KafkaMessage) -> Message[list[dataarray_da00.Variable]]:
         da00 = dataarray_da00.deserialise_da00(message.value())
-        key = MessageKey(topic=message.topic(), source_name=da00.source_name)
+        key = self.get_stream_id(topic=message.topic(), source_name=da00.source_name)
         timestamp = da00.timestamp_ns
-        return Message(timestamp=timestamp, key=key, value=da00.data)
+        return Message(timestamp=timestamp, stream=key, value=da00.data)
 
 
-class KafkaToF144Adapter(
-    MessageAdapter[KafkaMessage, Message[logdata_f144.ExtractedLogData]]
-):
+class KafkaToF144Adapter(KafkaAdapter[Message[logdata_f144.ExtractedLogData]]):
+    def __init__(self, *, stream_lut: StreamLUT | None = None):
+        super().__init__(stream_lut=stream_lut, stream_kind=StreamKind.LOG)
+
     def adapt(self, message: KafkaMessage) -> Message[logdata_f144.ExtractedLogData]:
         log_data = logdata_f144.deserialise_f144(message.value())
-        key = MessageKey(topic=message.topic(), source_name=log_data.source_name)
+        key = self.get_stream_id(
+            topic=message.topic(), source_name=log_data.source_name
+        )
         timestamp = log_data.timestamp_unix_ns
-        return Message(timestamp=timestamp, key=key, value=log_data)
+        return Message(timestamp=timestamp, stream=key, value=log_data)
 
 
 class F144ToLogDataAdapter(
@@ -134,7 +153,7 @@ class Ev44ToMonitorEventsAdapter(
         return replace(message, value=MonitorEvents.from_ev44(message.value))
 
 
-class KafkaToMonitorEventsAdapter(MessageAdapter[KafkaMessage, Message[MonitorEvents]]):
+class KafkaToMonitorEventsAdapter(KafkaAdapter[Message[MonitorEvents]]):
     """
     Directly adapts a Kafka message to MonitorEvents.
 
@@ -143,11 +162,14 @@ class KafkaToMonitorEventsAdapter(MessageAdapter[KafkaMessage, Message[MonitorEv
     yields better performance.
     """
 
+    def __init__(self, stream_lut: StreamLUT):
+        super().__init__(stream_lut=stream_lut, stream_kind=StreamKind.MONITOR_EVENTS)
+
     def adapt(self, message: KafkaMessage) -> Message[MonitorEvents]:
         buffer = message.value()
         eventdata_ev44.check_schema_identifier(buffer, eventdata_ev44.FILE_IDENTIFIER)
         event = Event44Message.Event44Message.GetRootAs(buffer, 0)
-        key = MessageKey(
+        stream = self.get_stream_id(
             topic=message.topic(), source_name=event.SourceName().decode("utf-8")
         )
         reference_time = event.ReferenceTimeAsNumpy()
@@ -160,7 +182,7 @@ class KafkaToMonitorEventsAdapter(MessageAdapter[KafkaMessage, Message[MonitorEv
             timestamp = message.timestamp()[1]
         return Message(
             timestamp=timestamp,
-            key=key,
+            stream=stream,
             value=MonitorEvents(time_of_arrival=time_of_arrival, unit='ns'),
         )
 
@@ -183,10 +205,12 @@ class Ev44ToDetectorEventsAdapter(
     def adapt(
         self, message: Message[eventdata_ev44.EventData]
     ) -> Message[DetectorEvents]:
-        key = message.key
+        stream = message.stream
         if self._merge_detectors:
-            key = replace(key, source_name='unified_detector')
-        return replace(message, key=key, value=DetectorEvents.from_ev44(message.value))
+            stream = replace(stream, name='unified_detector')
+        return replace(
+            message, stream=stream, value=DetectorEvents.from_ev44(message.value)
+        )
 
 
 class Da00ToScippAdapter(
@@ -211,13 +235,10 @@ class BeamlimeConfigMessageAdapter(
 
     def adapt(self, message: KafkaMessage) -> Message[RawConfigItem]:
         timestamp = message.timestamp()[1]
-        # The source name is set to 'config' to ensure these messages can be routed to
-        # the :py:class:`ConfigHandler` in the service.
-        key = MessageKey(topic=message.topic(), source_name='config')
         # Beamlime configuration uses a compacted Kafka topic. The Kafka message key
         # is the encoded string representation of a :py:class:`ConfigKey` object.
         item = RawConfigItem(key=message.key(), value=message.value())
-        return Message(key=key, timestamp=timestamp, value=item)
+        return Message(stream=CONFIG_STREAM_ID, timestamp=timestamp, value=item)
 
 
 class ChainedAdapter(MessageAdapter[T, V]):
@@ -257,6 +278,11 @@ class RouteByTopicAdapter(MessageAdapter[KafkaMessage, T]):
     def __init__(self, routes: dict[str, MessageAdapter[KafkaMessage, T]]):
         self._routes = routes
 
+    @property
+    def topics(self) -> list[str]:
+        """Returns the list of topics to subscribe to."""
+        return list(self._routes.keys())
+
     def adapt(self, message: KafkaMessage) -> Message[T]:
         return self._routes[message.topic()].adapt(message)
 
@@ -271,10 +297,25 @@ class AdaptingMessageSource(MessageSource[U]):
         source: MessageSource[T],
         adapter: MessageAdapter[T, U],
         logger: logging.Logger | None = None,
+        raise_on_error: bool = False,
     ):
+        """
+        Parameters
+        ----------
+        source
+            The source of messages to adapt.
+        adapter
+            The adapter to use.
+        logger
+            Logger to use for logging errors.
+        raise_on_error
+            If True, exceptions during adaptation will be re-raised. If False,
+            they will be logged and the message will be skipped.
+        """
         self._logger = logger or logging.getLogger(__name__)
         self._source = source
         self._adapter = adapter
+        self._raise_on_error = raise_on_error
 
     def get_messages(self) -> list[U]:
         raw_messages = self._source.get_messages()
@@ -284,13 +325,12 @@ class AdaptingMessageSource(MessageSource[U]):
                 adapted.append(self._adapter.adapt(msg))
             except streaming_data_types.exceptions.WrongSchemaException:  # noqa: PERF203
                 self._logger.warning('Message %s has an unknown schema. Skipping.', msg)
+                if self._raise_on_error:
+                    raise
             except Exception as e:
                 self._logger.exception('Error adapting message %s: %s', msg, e)
-                # Raise so service will shut down. In production we may want to simply
-                # skip the message, but we need more information about the possible
-                # errors to make that decision. For now, we raise to avoid silent
-                # failures.
-                raise
+                if self._raise_on_error:
+                    raise
         return adapted
 
     def close(self) -> None:

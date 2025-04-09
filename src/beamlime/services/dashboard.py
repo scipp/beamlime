@@ -14,13 +14,13 @@ from dash.exceptions import PreventUpdate
 from beamlime import Service, ServiceBase
 from beamlime.config import config_names, models
 from beamlime.config.config_loader import load_config
+from beamlime.config.instruments import get_config
 from beamlime.config.models import ConfigKey
-from beamlime.config.raw_detectors import get_config
+from beamlime.config.streams import stream_kind_to_topic
 from beamlime.core.config_service import ConfigService
-from beamlime.core.message import compact_messages
+from beamlime.core.message import StreamKind, compact_messages
 from beamlime.handlers.workflow_manager import processor_factory
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.helpers import topic_for_instrument
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
@@ -35,6 +35,7 @@ class DashboardApp(ServiceBase):
         self,
         *,
         instrument: str = 'dummy',
+        dev: bool,
         debug: bool = False,
         log_level: int = logging.INFO,
         auto_remove_plots_after_seconds: float = 10.0,
@@ -72,13 +73,14 @@ class DashboardApp(ServiceBase):
 
     def _setup_config_service(self) -> None:
         kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
+        _, consumer = self._exit_stack.enter_context(
+            kafka_consumer.make_control_consumer(instrument=self._instrument)
+        )
         self._config_service = ConfigService(
             kafka_config={**kafka_downstream_config},
-            consumer=self._exit_stack.enter_context(
-                kafka_consumer.make_control_consumer(instrument=self._instrument)
-            ),
-            topic=topic_for_instrument(
-                topic='beamlime_commands', instrument=self._instrument
+            consumer=consumer,
+            topic=stream_kind_to_topic(
+                instrument=self._instrument, kind=StreamKind.BEAMLIME_CONFIG
             ),
             logger=self._logger,
         )
@@ -91,19 +93,22 @@ class DashboardApp(ServiceBase):
             namespace=config_names.reduced_data_consumer, env=''
         )
         kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
-        config = load_config(namespace=config_names.visualization, env='')
         consumer = self._exit_stack.enter_context(
             kafka_consumer.make_consumer_from_config(
-                topics=config['topics'],
+                topics=[
+                    stream_kind_to_topic(
+                        instrument=self._instrument, kind=StreamKind.BEAMLIME_DATA
+                    )
+                ],
                 config={**consumer_config, **kafka_downstream_config},
-                instrument=self._instrument,
                 group='dashboard',
             )
         )
         return AdaptingMessageSource(
             source=KafkaMessageSource(consumer=consumer, num_messages=1000),
             adapter=ChainedAdapter(
-                first=KafkaToDa00Adapter(), second=Da00ToScippAdapter()
+                first=KafkaToDa00Adapter(stream_kind=StreamKind.BEAMLIME_DATA),
+                second=Da00ToScippAdapter(),
             ),
         )
 
@@ -537,7 +542,9 @@ class DashboardApp(ServiceBase):
                 "Got %d messages, showing most recent %d", num, len(messages)
             )
             for msg in messages:
-                orig_source_name, suffix = msg.key.source_name.split(':', maxsplit=1)
+                orig_source_name, service_name, suffix = msg.stream.name.split(
+                    '/', maxsplit=2
+                )
                 key = f'Source name: {orig_source_name}<br>{suffix}'
                 data = msg.value
                 for dim in data.dims:

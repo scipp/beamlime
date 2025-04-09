@@ -7,14 +7,15 @@ import numpy as np
 import pytest
 from streaming_data_types import eventdata_ev44
 
-from beamlime.config.raw_detectors import available_instruments, get_config
+from beamlime import StreamKind
+from beamlime.config.instruments import available_instruments, get_config
+from beamlime.config.streams import stream_kind_to_topic
+from beamlime.core.handler import output_stream_name
 from beamlime.fakes import FakeMessageSink
-from beamlime.kafka.helpers import detector_topic, source_name
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.sink import UnrollingSinkAdapter
 from beamlime.kafka.source import KafkaConsumer
 from beamlime.services.detector_data import make_detector_service_builder
-from beamlime.services.fake_detectors import detector_config
 
 
 class EmptyConsumer(KafkaConsumer):
@@ -32,8 +33,10 @@ class Ev44Consumer(KafkaConsumer):
         events_per_message: int = 1_000,
         max_events: int = 1_000_000,
     ) -> None:
-        self._topic = detector_topic(instrument=instrument)
-        self._detector_config = detector_config[instrument]
+        self._topic = stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.DETECTOR_EVENTS
+        )
+        self._detector_config = get_config(instrument).detectors_config['fakes']
         self._events_per_message = events_per_message
         self._max_events = max_events
         self._pixel_id = np.ones(events_per_message, dtype=np.int32)
@@ -125,7 +128,9 @@ def test_performance(benchmark, instrument: str, events_per_message: int) -> Non
     # It is thus always returning messages quickly, which shifts the balance in the
     # services to a different place than in reality.
     builder = make_detector_service_builder(instrument=instrument)
-    service = builder.from_consumer(consumer=EmptyConsumer(), sink=FakeMessageSink())
+    service = builder.from_consumer(
+        consumer=EmptyConsumer(), sink=FakeMessageSink(), raise_on_adapter_error=True
+    )
 
     sink = FakeMessageSink()
     consumer = Ev44Consumer(
@@ -133,39 +138,50 @@ def test_performance(benchmark, instrument: str, events_per_message: int) -> Non
         events_per_message=events_per_message,
         max_events=50_000_000,
     )
-    service = builder.from_consumer(consumer=consumer, sink=sink)
+    service = builder.from_consumer(
+        consumer=consumer, sink=sink, raise_on_adapter_error=True
+    )
     service.start(blocking=False)
     benchmark(start_and_wait_for_completion, consumer=consumer)
     service.stop()
-    assert len(sink.messages) > len(detector_config[instrument]) * 10
+    fake_detectors = get_config(instrument).detectors_config['fakes']
+    assert len(sink.messages) > len(fake_detectors) * 10
 
 
 @pytest.mark.parametrize('instrument', available_instruments())
 def test_detector_data_service(instrument: str) -> None:
     builder = make_detector_service_builder(instrument=instrument)
-    service = builder.from_consumer(consumer=EmptyConsumer(), sink=FakeMessageSink())
+    service = builder.from_consumer(
+        consumer=EmptyConsumer(), sink=FakeMessageSink(), raise_on_adapter_error=True
+    )
     sink = FakeMessageSink()
     consumer = Ev44Consumer(
         instrument=instrument, events_per_message=100, max_events=10_000
     )
-    service = builder.from_consumer(consumer=consumer, sink=UnrollingSinkAdapter(sink))
+    service = builder.from_consumer(
+        consumer=consumer, sink=UnrollingSinkAdapter(sink), raise_on_adapter_error=True
+    )
     service.start(blocking=False)
     start_and_wait_for_completion(consumer=consumer)
     service.stop()
-    source_names = [msg.key.source_name for msg in sink.messages]
+    source_names = [msg.stream.name for msg in sink.messages]
 
     detectors = get_config(instrument).detectors_config['detectors']
     for view_name, view_config in detectors.items():
-        base_key = source_name(device=view_config['detector_name'], signal=view_name)
+        base_key = output_stream_name(
+            service_name='detector_data',
+            stream_name=view_config['detector_name'],
+            signal_name=view_name,
+        )
         assert f'{base_key}/cumulative' in source_names
         assert f'{base_key}/current' in source_names
         assert f'{base_key}/roi' in source_names
 
     # Implicitly yields the latest cumulative message for each detector
     cumulative = {
-        msg.key.source_name: msg.value
+        msg.stream.name: msg.value
         for msg in sink.messages
-        if msg.key.source_name.endswith('/cumulative')
+        if msg.stream.name.endswith('/cumulative')
     }
     assert len(cumulative) == len(detectors)
     for name, msg in cumulative.items():

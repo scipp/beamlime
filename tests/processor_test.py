@@ -9,7 +9,7 @@ from beamlime.core.handler import (
     HandlerFactory,
     HandlerRegistry,
 )
-from beamlime.core.message import Message, MessageKey
+from beamlime.core.message import Message, StreamId
 from beamlime.core.processor import StreamProcessor
 from beamlime.fakes import FakeMessageSink, FakeMessageSource
 
@@ -20,21 +20,23 @@ class ValueToStringHandler(Handler[T, str]):
     def handle(self, messages: list[Message[T]]) -> list[Message[str]]:
         return [
             Message(
-                timestamp=message.timestamp, key=message.key, value=str(message.value)
+                timestamp=message.timestamp,
+                stream=message.stream,
+                value=str(message.value),
             )
             for message in messages
         ]
 
 
 def test_consumes_and_produces_messages() -> None:
-    key = MessageKey(topic='topic', source_name='source')
+    key = StreamId(name='source')
     source = FakeMessageSource(
         messages=[
             [],
-            [Message(timestamp=0, key=key, value=111)],
+            [Message(timestamp=0, stream=key, value=111)],
             [
-                Message(timestamp=0, key=key, value=222),
-                Message(timestamp=0, key=key, value=333),
+                Message(timestamp=0, stream=key, value=222),
+                Message(timestamp=0, stream=key, value=333),
             ],
         ]
     )
@@ -69,7 +71,7 @@ class SelectiveHandlerFactory(HandlerFactory[T, str]):
         self._handler_cls = handler_cls
         self._allowed_keys = allowed_keys
 
-    def make_handler(self, key: MessageKey) -> Handler[T, str] | None:
+    def make_handler(self, key: StreamId) -> Handler[T, str] | None:
         if key in self._allowed_keys:
             return self._handler_cls(logger=None, config=self._config)
         return None
@@ -98,9 +100,9 @@ def test_processor_skips_keys_without_handlers():
     source = FakeMessageSource(
         messages=[
             [
-                Message(timestamp=0, key='allowed', value=111),
-                Message(timestamp=0, key='disallowed', value=222),
-                Message(timestamp=0, key='allowed', value=333),
+                Message(timestamp=0, stream='allowed', value=111),
+                Message(timestamp=0, stream='disallowed', value=222),
+                Message(timestamp=0, stream='allowed', value=333),
             ],
         ]
     )
@@ -124,12 +126,12 @@ def test_processor_with_mixed_handlers():
     config = {}
     source = FakeMessageSource(
         messages=[
-            [Message(timestamp=0, key='allowed', value=111)],
-            [Message(timestamp=0, key='disallowed', value=222)],
+            [Message(timestamp=0, stream='allowed', value=111)],
+            [Message(timestamp=0, stream='disallowed', value=222)],
             [
-                Message(timestamp=0, key='allowed', value=333),
-                Message(timestamp=0, key='disallowed', value=444),
-                Message(timestamp=0, key='allowed', value=555),
+                Message(timestamp=0, stream='allowed', value=333),
+                Message(timestamp=0, stream='disallowed', value=444),
+                Message(timestamp=0, stream='allowed', value=555),
             ],
         ]
     )
