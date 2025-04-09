@@ -61,6 +61,11 @@ class ConfigHandler(Handler[bytes, None]):
         self._stores: dict[str, dict[str, Any]] = {}
         self._actions: dict[str, list[Callable[[str, Any], None]]] = {}
 
+    @property
+    def service_name(self) -> str:
+        """Name of the service this handler is associated with."""
+        return self._service_name
+
     def get_config(self, source_name: str) -> Config:
         """
         Get the configuration store for a specific source name.

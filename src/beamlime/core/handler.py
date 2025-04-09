@@ -26,6 +26,11 @@ class ConfigRegistry(Protocol):
     based on the source name of the messages they are processing.
     """
 
+    @property
+    def service_name(self) -> str:
+        """Name of the service this registry is associated with."""
+        pass
+
     def get_config(self, source_name: str) -> Config:
         pass
 
@@ -38,7 +43,12 @@ class FakeConfigRegistry(ConfigRegistry):
     """
 
     def __init__(self):
+        self._service_name = 'fake_service'
         self._configs: dict[str, Config] = {}
+
+    @property
+    def service_name(self) -> str:
+        return self._service_name
 
     def get_config(self, source_name: str) -> Config:
         return self._configs.setdefault(source_name, {})
@@ -200,11 +210,13 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         self,
         *,
         logger: logging.Logger | None = None,
+        service_name: str,
         config: Config,
         preprocessor: Accumulator[T, U],
         accumulators: Mapping[str, Accumulator[U, V]],
     ):
         super().__init__(logger=logger, config=config)
+        self._service_name = service_name
         self._preprocessor = preprocessor
         self._accumulators = accumulators
         self._next_update = 0

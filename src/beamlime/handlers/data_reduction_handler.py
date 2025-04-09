@@ -86,6 +86,7 @@ class ReductionHandlerFactory(
         self._logger.info("%s using accumulator %s", key.name, accumulator)
 
         return PeriodicAccumulatingHandler(
+            service_name=self._config_registry.service_name,
             logger=self._logger,
             config=config,
             preprocessor=preprocessor,

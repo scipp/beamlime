@@ -112,6 +112,7 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
             )
 
         return PeriodicAccumulatingHandler(
+            service_name=self._config_registry.service_name,
             logger=self._logger,
             config=config,
             preprocessor=preprocessor,
