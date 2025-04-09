@@ -39,6 +39,10 @@ esssans==25.2.0
     # via -r basetest.in
 essspectroscopy==25.3.0
     # via -r basetest.in
+exceptiongroup==1.2.2
+    # via
+    #   ipython
+    #   pytest
 execnet==2.1.1
     # via pytest-xdist
 executing==2.2.0
@@ -65,10 +69,8 @@ iniconfig==2.1.0
     # via pytest
 ipydatawidgets==4.3.5
     # via pythreejs
-ipython==9.1.0
+ipython==8.35.0
     # via ipywidgets
-ipython-pygments-lexers==1.1.1
-    # via ipython
 ipywidgets==8.1.5
     # via
     #   ipydatawidgets
@@ -146,9 +148,7 @@ pydantic==2.11.3
 pydantic-core==2.33.1
     # via pydantic
 pygments==2.19.1
-    # via
-    #   ipython
-    #   ipython-pygments-lexers
+    # via ipython
 pyparsing==3.2.3
     # via matplotlib
 pytest==8.3.5
@@ -210,6 +210,10 @@ stack-data==0.6.3
     # via ipython
 tof==25.4.0
     # via essspectroscopy
+tomli==2.2.1
+    # via
+    #   coverage
+    #   pytest
 toolz==1.0.0
     # via
     #   dask
