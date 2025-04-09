@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import scipp as sc
 
-from beamlime.config.raw_detectors import available_instruments, get_config
+from beamlime.config.instruments import available_instruments, get_config
 from beamlime.core.handler import FakeConfigRegistry, Message, StreamId, StreamKind
 from beamlime.handlers.accumulators import DetectorEvents
 from beamlime.handlers.detector_data_handler import (

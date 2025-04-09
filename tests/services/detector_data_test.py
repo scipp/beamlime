@@ -8,7 +8,7 @@ import pytest
 from streaming_data_types import eventdata_ev44
 
 from beamlime import StreamKind
-from beamlime.config.raw_detectors import available_instruments, get_config
+from beamlime.config.instruments import available_instruments, get_config
 from beamlime.config.streams import stream_kind_to_topic
 from beamlime.core.handler import source_name
 from beamlime.fakes import FakeMessageSink
@@ -16,7 +16,6 @@ from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.sink import UnrollingSinkAdapter
 from beamlime.kafka.source import KafkaConsumer
 from beamlime.services.detector_data import make_detector_service_builder
-from beamlime.services.fake_detectors import detector_config
 
 
 class EmptyConsumer(KafkaConsumer):
@@ -37,7 +36,7 @@ class Ev44Consumer(KafkaConsumer):
         self._topic = stream_kind_to_topic(
             instrument=instrument, kind=StreamKind.DETECTOR_EVENTS
         )
-        self._detector_config = detector_config[instrument]
+        self._detector_config = get_config(instrument).detectors_config['fakes']
         self._events_per_message = events_per_message
         self._max_events = max_events
         self._pixel_id = np.ones(events_per_message, dtype=np.int32)
@@ -145,7 +144,8 @@ def test_performance(benchmark, instrument: str, events_per_message: int) -> Non
     service.start(blocking=False)
     benchmark(start_and_wait_for_completion, consumer=consumer)
     service.stop()
-    assert len(sink.messages) > len(detector_config[instrument]) * 10
+    fake_detectors = get_config(instrument).detectors_config['fakes']
+    assert len(sink.messages) > len(fake_detectors) * 10
 
 
 @pytest.mark.parametrize('instrument', available_instruments())

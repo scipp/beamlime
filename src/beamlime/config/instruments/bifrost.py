@@ -2,6 +2,7 @@
 Bifrost with all banks merged into a single one.
 """
 
+from collections.abc import Generator
 from typing import NewType
 
 import scipp as sc
@@ -17,8 +18,12 @@ from ess.reduce.nexus.types import (
 from ess.reduce.streaming import StreamProcessor
 from scippnexus import NXdetector
 
+from beamlime.config.env import StreamingEnv
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.handlers.workflow_manager import processor_factory
+from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
+
+from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
 
 def _to_flat_detector_view(da: sc.DataArray) -> sc.DataArray:
@@ -41,6 +46,29 @@ detectors_config['detectors']['unified_detector'] = {
     'detector_number': detector_number,
 }
 
+
+def _bifrost_generator() -> Generator[tuple[str, tuple[int, int]]]:
+    # BEWARE! There are gaps in the detector_number per bank, which would usually get
+    # dropped when mapping to pixels. BUT we merge banks for Bifrost, before mapping to
+    # pixels, so the generated fake events in the wrong bank will end up in the right
+    # bank. As a consequence we do not lose any fake events, but the travel over Kafka
+    # with the wrong source_name.
+    start = 123
+    ntube = 3
+    for sector in range(1, 10):
+        for analyzer in range(1, 6):
+            # Note: Actual start is at base + 100 * (sector - 1), but we start earlier
+            # to get consistent counts across all banks, relating to comment above.
+            base = ntube * 900 * (analyzer - 1)
+            yield (
+                f'{start}_channel_{sector}_{analyzer}_triplet',
+                (base + 1, base + 2700),
+            )
+            start += 4
+        start += 1
+
+
+detectors_config['fakes'] = dict(_bifrost_generator())
 
 # Would like to use a 2-D scipp.Variable, but GenericNeXusWorkflow does not accept
 # detector names as scalar variables.
@@ -143,4 +171,32 @@ source_to_key = {
 
 f144_attribute_registry = {
     'detector_rotation': {'units': 'deg'},
+}
+
+
+def _make_bifrost_detectors() -> StreamLUT:
+    """
+    Bifrost detector mapping.
+
+    Input keys based on
+    https://confluence.ess.eu/display/ECDC/Kafka+Topics+Overview+for+Instruments
+    """
+    # Source names have the format `arc=[0-4];triplet=[0-8]`.
+    return {
+        InputStreamKey(
+            topic='bifrost_detector', source_name=f'arc={arc};triplet={triplet}'
+        ): f'arc{arc}_triplet{triplet}'
+        for arc in range(5)
+        for triplet in range(9)
+    }
+
+
+stream_mapping = {
+    StreamingEnv.DEV: make_dev_stream_mapping(
+        'bifrost', detectors=list(detectors_config['fakes'])
+    ),
+    StreamingEnv.PROD: StreamMapping(
+        **make_common_stream_mapping_inputs(instrument='bifrost'),
+        detectors=_make_bifrost_detectors(),
+    ),
 }

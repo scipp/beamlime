@@ -26,7 +26,7 @@ def get_config(instrument: str) -> ModuleType:
     try:
         return importlib.import_module(f'.{instrument}', __package__)
     except (ImportError, AttributeError) as e:
-        raise ValueError(f'No detector config found for instrument {instrument}') from e
+        raise ValueError(f'No config found for instrument {instrument}') from e
 
 
 __all__ = ['available_instruments', 'get_config']

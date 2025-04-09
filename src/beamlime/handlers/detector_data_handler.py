@@ -11,7 +11,7 @@ import scipp as sc
 from ess.reduce.live import raw
 
 from ..config import models
-from ..config.raw_detectors import get_config
+from ..config.instruments import get_config
 from ..core.handler import (
     Accumulator,
     Config,
