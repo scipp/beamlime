@@ -10,7 +10,7 @@ from streaming_data_types import eventdata_ev44
 from beamlime import StreamKind
 from beamlime.config.instruments import available_instruments, get_config
 from beamlime.config.streams import stream_kind_to_topic
-from beamlime.core.handler import source_name
+from beamlime.core.handler import output_stream_name
 from beamlime.fakes import FakeMessageSink
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.sink import UnrollingSinkAdapter
@@ -168,7 +168,11 @@ def test_detector_data_service(instrument: str) -> None:
 
     detectors = get_config(instrument).detectors_config['detectors']
     for view_name, view_config in detectors.items():
-        base_key = source_name(device=view_config['detector_name'], signal=view_name)
+        base_key = output_stream_name(
+            service_name='detector_data',
+            stream_name=view_config['detector_name'],
+            signal_name=view_name,
+        )
         assert f'{base_key}/cumulative' in source_names
         assert f'{base_key}/current' in source_names
         assert f'{base_key}/roi' in source_names

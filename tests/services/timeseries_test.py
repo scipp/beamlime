@@ -173,7 +173,7 @@ def test_timeseries_service(instrument: str) -> None:
     # Group messages by source name
     messages_by_source = {}
     for msg in sink.messages:
-        source_name = msg.stream.name.split(':')[0]
+        source_name = msg.stream.name.split('/')[0]
         if source_name not in messages_by_source:
             messages_by_source[source_name] = []
         messages_by_source[source_name].append(msg)
@@ -189,11 +189,11 @@ def test_timeseries_service(instrument: str) -> None:
             assert 'time' in data.dims
 
             # Check that the data has the expected units
-            if source_name == 'detector_rotation:timeseries':
+            if source_name == 'detector_rotation/timeseries/timeseries':
                 assert data.unit == sc.Unit('deg')
-            elif source_name == 'temperature:timeseries':
+            elif source_name == 'temperature/timeseries/timeseries':
                 assert data.unit == sc.Unit('C')
-            elif source_name == 'pressure:timeseries':
+            elif source_name == 'pressure/timeseries/timeseries':
                 assert data.unit == sc.Unit('kPa')
 
 
@@ -224,7 +224,7 @@ def test_timeseries_accumulation() -> None:
     messages = [
         msg
         for msg in sink.messages
-        if msg.stream.name == 'detector_rotation:timeseries'
+        if msg.stream.name == 'detector_rotation/timeseries/timeseries'
     ]
     assert len(messages) > 1
 
