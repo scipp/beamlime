@@ -10,8 +10,7 @@ from typing import Any
 
 from ..config.models import ConfigKey
 from ..core.handler import Config, Handler
-from ..core.message import Message, MessageKey
-from ..kafka.helpers import beamlime_config_topic
+from ..core.message import Message
 from ..kafka.message_adapter import RawConfigItem
 
 
@@ -54,10 +53,6 @@ class ConfigHandler(Handler[bytes, None]):
     config
         Configuration object to update
     """
-
-    @staticmethod
-    def message_key(instrument: str) -> MessageKey:
-        return MessageKey(topic=beamlime_config_topic(instrument), source_name='config')
 
     def __init__(self, *, logger: logging.Logger | None = None, service_name: str):
         super().__init__(logger=logger, config={})

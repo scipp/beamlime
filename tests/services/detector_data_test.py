@@ -7,9 +7,11 @@ import numpy as np
 import pytest
 from streaming_data_types import eventdata_ev44
 
+from beamlime import StreamKind
 from beamlime.config.raw_detectors import available_instruments, get_config
+from beamlime.config.streams import stream_kind_to_topic
+from beamlime.core.handler import source_name
 from beamlime.fakes import FakeMessageSink
-from beamlime.kafka.helpers import detector_topic, source_name
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.sink import UnrollingSinkAdapter
 from beamlime.kafka.source import KafkaConsumer
@@ -32,7 +34,9 @@ class Ev44Consumer(KafkaConsumer):
         events_per_message: int = 1_000,
         max_events: int = 1_000_000,
     ) -> None:
-        self._topic = detector_topic(instrument=instrument)
+        self._topic = stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.DETECTOR_EVENTS
+        )
         self._detector_config = detector_config[instrument]
         self._events_per_message = events_per_message
         self._max_events = max_events
@@ -152,7 +156,7 @@ def test_detector_data_service(instrument: str) -> None:
     service.start(blocking=False)
     start_and_wait_for_completion(consumer=consumer)
     service.stop()
-    source_names = [msg.key.source_name for msg in sink.messages]
+    source_names = [msg.stream.name for msg in sink.messages]
 
     detectors = get_config(instrument).detectors_config['detectors']
     for view_name, view_config in detectors.items():
@@ -163,9 +167,9 @@ def test_detector_data_service(instrument: str) -> None:
 
     # Implicitly yields the latest cumulative message for each detector
     cumulative = {
-        msg.key.source_name: msg.value
+        msg.stream.name: msg.value
         for msg in sink.messages
-        if msg.key.source_name.endswith('/cumulative')
+        if msg.stream.name.endswith('/cumulative')
     }
     assert len(cumulative) == len(detectors)
     for name, msg in cumulative.items():

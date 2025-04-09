@@ -7,8 +7,10 @@ import numpy as np
 import pytest
 from streaming_data_types import eventdata_ev44
 
+from beamlime import StreamKind
+from beamlime.config.streams import stream_kind_to_topic
+from beamlime.core.handler import source_name
 from beamlime.fakes import FakeMessageSink
-from beamlime.kafka.helpers import beam_monitor_topic, source_name
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.source import KafkaConsumer
 from beamlime.services.monitor_data import make_monitor_service_builder
@@ -29,6 +31,9 @@ class Ev44Consumer(KafkaConsumer):
         events_per_message: int = 1_000,
         max_events: int = 1_000_000,
     ) -> None:
+        self._topic = stream_kind_to_topic(
+            instrument='dummy', kind=StreamKind.MONITOR_EVENTS
+        )
         self._num_sources = num_sources
         self._events_per_message = events_per_message
         self._max_events = max_events
@@ -68,7 +73,7 @@ class Ev44Consumer(KafkaConsumer):
         # allows use to reuse the serialized content, to avoid seeing the cost in the
         # benchmarks.
         return eventdata_ev44.serialise_ev44(
-            source_name=f"monitor_{source}",
+            source_name=f"monitor{source}",
             message_id=0,
             reference_time=[],
             reference_time_index=0,
@@ -82,7 +87,7 @@ class Ev44Consumer(KafkaConsumer):
         messages = [
             FakeKafkaMessage(
                 value=self._content[msg % self._num_sources],
-                topic=beam_monitor_topic("dummy"),
+                topic=self._topic,
                 timestamp=self._make_timestamp(),
             )
             for msg in range(num_messages)
@@ -130,11 +135,11 @@ def test_monitor_data_service() -> None:
     service = builder.from_consumer(consumer=consumer, sink=sink)
     service.start(blocking=False)
     start_and_wait_for_completion(consumer=consumer)
-    source_names = [msg.key.source_name for msg in sink.messages]
-    assert source_name('monitor_0', 'cumulative') in source_names
-    assert source_name('monitor_1', 'cumulative') in source_names
-    assert source_name('monitor_0', 'current') in source_names
-    assert source_name('monitor_1', 'current') in source_names
+    source_names = [msg.stream.name for msg in sink.messages]
+    assert source_name('monitor0', 'cumulative') in source_names
+    assert source_name('monitor1', 'cumulative') in source_names
+    assert source_name('monitor0', 'current') in source_names
+    assert source_name('monitor1', 'current') in source_names
     size = len(sink.messages)
     start_and_wait_for_completion(consumer=consumer)
     assert len(sink.messages) > size
