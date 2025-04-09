@@ -14,6 +14,7 @@ from __future__ import annotations
 from beamlime import StreamKind
 from beamlime.kafka import StreamMapping
 
+from .env import StreamingEnv
 from .instruments import get_config
 
 
@@ -46,4 +47,5 @@ def get_stream_mapping(*, instrument: str, dev: bool) -> StreamMapping:
     Returns the stream mapping for the given instrument.
     """
     config = get_config(instrument=instrument)
-    return config.stream_mapping_dev if dev else config.stream_mapping
+    env = StreamingEnv.DEV if dev else StreamingEnv.PROD
+    return config.stream_mapping[env]

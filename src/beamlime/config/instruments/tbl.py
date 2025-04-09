@@ -3,6 +3,7 @@
 
 import scipp as sc
 
+from beamlime.config.env import StreamingEnv
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
@@ -49,10 +50,12 @@ def _make_tbl_detectors() -> StreamLUT:
     }
 
 
-stream_mapping_dev = make_dev_stream_mapping(
-    'tbl', detectors=list(detectors_config['fakes'])
-)
-stream_mapping = StreamMapping(
-    **make_common_stream_mapping_inputs(instrument='tbl'),
-    detectors=_make_tbl_detectors(),
-)
+stream_mapping = {
+    StreamingEnv.DEV: make_dev_stream_mapping(
+        'tbl', detectors=list(detectors_config['fakes'])
+    ),
+    StreamingEnv.PROD: StreamMapping(
+        **make_common_stream_mapping_inputs(instrument='tbl'),
+        detectors=_make_tbl_detectors(),
+    ),
+}

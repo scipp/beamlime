@@ -14,6 +14,7 @@ from ess.sans.types import (
 )
 from scippnexus import NXdetector
 
+from beamlime.config.env import StreamingEnv
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.handlers.workflow_manager import processor_factory
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
@@ -154,10 +155,12 @@ def _make_loki_detectors() -> StreamLUT:
     }
 
 
-stream_mapping_dev = make_dev_stream_mapping(
-    'loki', detectors=list(detectors_config['fakes'])
-)
-stream_mapping = StreamMapping(
-    **make_common_stream_mapping_inputs(instrument='loki'),
-    detectors=_make_loki_detectors(),
-)
+stream_mapping = {
+    StreamingEnv.DEV: make_dev_stream_mapping(
+        'loki', detectors=list(detectors_config['fakes'])
+    ),
+    StreamingEnv.PROD: StreamMapping(
+        **make_common_stream_mapping_inputs(instrument='loki'),
+        detectors=_make_loki_detectors(),
+    ),
+}

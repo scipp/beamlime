@@ -6,6 +6,7 @@ Detector configuration for a dummy instrument used for development and testing.
 
 import scipp as sc
 
+from beamlime.config.env import StreamingEnv
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
@@ -30,10 +31,12 @@ def _make_dummy_detectors() -> StreamLUT:
     return {InputStreamKey(topic='dummy_detector', source_name='panel_0'): 'panel_0'}
 
 
-stream_mapping_dev = make_dev_stream_mapping(
-    'dummy', detectors=list(detectors_config['fakes'])
-)
-stream_mapping = StreamMapping(
-    **make_common_stream_mapping_inputs(instrument='dummy'),
-    detectors=_make_dummy_detectors(),
-)
+stream_mapping = {
+    StreamingEnv.DEV: make_dev_stream_mapping(
+        'dummy', detectors=list(detectors_config['fakes'])
+    ),
+    StreamingEnv.PROD: StreamMapping(
+        **make_common_stream_mapping_inputs(instrument='dummy'),
+        detectors=_make_dummy_detectors(),
+    ),
+}

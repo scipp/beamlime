@@ -18,6 +18,7 @@ from ess.reduce.nexus.types import (
 from ess.reduce.streaming import StreamProcessor
 from scippnexus import NXdetector
 
+from beamlime.config.env import StreamingEnv
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.handlers.workflow_manager import processor_factory
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
@@ -190,10 +191,12 @@ def _make_bifrost_detectors() -> StreamLUT:
     }
 
 
-stream_mapping_dev = make_dev_stream_mapping(
-    'bifrost', detectors=list(detectors_config['fakes'])
-)
-stream_mapping = StreamMapping(
-    **make_common_stream_mapping_inputs(instrument='bifrost'),
-    detectors=_make_bifrost_detectors(),
-)
+stream_mapping = {
+    StreamingEnv.DEV: make_dev_stream_mapping(
+        'bifrost', detectors=list(detectors_config['fakes'])
+    ),
+    StreamingEnv.PROD: StreamMapping(
+        **make_common_stream_mapping_inputs(instrument='bifrost'),
+        detectors=_make_bifrost_detectors(),
+    ),
+}
