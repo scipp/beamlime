@@ -19,9 +19,9 @@ mdurl==0.1.2
     # via markdown-it-py
 pygments==2.19.1
     # via rich
-rich==13.9.4
+rich==14.0.0
     # via textual
-textual==2.1.2
+textual==3.0.1
     # via -r stream.in
 uc-micro-py==1.0.3
     # via linkify-it-py
