@@ -10,6 +10,7 @@ import plotly.graph_objects as go
 import scipp as sc
 from dash import Dash, Input, Output, dcc, html
 from dash.exceptions import PreventUpdate
+import numpy as np
 
 from beamlime import Service, ServiceBase
 from beamlime.config import config_names, models
@@ -423,7 +424,8 @@ class DashboardApp(ServiceBase):
 
         size = 800
         opts = {
-            'title': key,
+            # Add a description to the plot to clarify that it is a log scale
+            'title': key + "\n(counts are logscale)",
             'xaxis_title': f'{x_dim}{maybe_unit(x_dim)}',
             'yaxis_title': f'{y_dim}{maybe_unit(y_dim)}',
             'uirevision': key,
@@ -455,6 +457,9 @@ class DashboardApp(ServiceBase):
             else:
                 scale = max_size / long
                 fig.update_layout(width=x_size * scale, height=y_size * scale, **opts)
+        # If you need to reverse the axes, uncomment the following lines    
+        # fig.update_xaxes(autorange="reversed")
+        # fig.update_yaxes(autorange="reversed")
         return fig
 
     def update_plots(self, n: int | None):
@@ -482,10 +487,15 @@ class DashboardApp(ServiceBase):
                     fig.data[0].x = data.coords[data.dim].values
                     fig.data[0].y = data.values
                 else:  # 2D
+                    # Transpose the data to match the physical detector position
+                    data = sc.transpose(data, ['x', 'y'])
+                    fig.update_yaxes(title={'text': y_dim})
+                    fig.update_xaxes(title={'text': x_dim})
                     y_dim, x_dim = data.dims
                     fig.data[0].x = data.coords[x_dim].values
                     fig.data[0].y = data.coords[y_dim].values
-                    fig.data[0].z = data.values
+                    # Taking log scale of the counts
+                    fig.data[0].z = np.log1p(data.values)
 
         except Exception as e:
             self._logger.exception("Error in update_plots: %s", e)

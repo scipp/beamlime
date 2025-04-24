@@ -1,0 +1,17 @@
+[Unit]
+Description=Beamlime Detector Dashboard Service (%i)
+After=network.target
+
+[Service]
+Type=simple
+User=essdaq
+Group=essdaq
+WorkingDirectory=/home/essdaq/essproj/beamlime
+ExecStart=/bin/bash /home/essdaq/essproj/beamlime-services/beamlime-dashboard.sh %i
+StandardOutput=append:/var/log/beamlime-dashboard-%i.log
+StandardError=append:/var/log/beamlime-dashboard-%i.log
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
