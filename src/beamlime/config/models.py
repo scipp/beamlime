@@ -7,7 +7,7 @@ Models for configuration values that can be used to control Beamlime services vi
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Literal
+from typing import Any, Generic, Literal, TypeVar
 
 import scipp as sc
 from pydantic import BaseModel, Field, model_validator
@@ -179,3 +179,78 @@ class ConfigKey(BaseModel):
         if service_name == '*':
             service_name = None
         return cls(source_name=source_name, service_name=service_name, key=key)
+
+
+T = TypeVar('T')
+
+
+class ParameterType(str, Enum):
+    """
+    Enum for parameter types.
+
+    This enum is used to define the type of a parameter.
+    """
+
+    INT = 'int'
+    FLOAT = 'float'
+    STRING = 'string'
+    BOOL = 'bool'
+
+
+class Parameter(BaseModel, Generic[T]):
+    """
+    Model for workflow parameter.
+
+    This model is used to define a parameter for a specific workflow.
+    """
+
+    name: str = Field(description="Name of the parameter.")
+    description: str = Field(description="Description of the parameter.")
+    param_type: ParameterType = Field(description="Type of the parameter.")
+    default: T | None = Field(
+        default=None, description="Default value of the parameter."
+    )
+
+
+class WorkflowSpec(BaseModel):
+    """
+    Model for workflow specification.
+
+    This model is used to define a workflow and its parameters.
+    """
+
+    name: str = Field(description="Name of the workflow.")
+    description: str = Field(description="Description of the workflow.")
+    parameters: list[Parameter[Any]] = Field(
+        default_factory=list, description="Parameters for the workflow."
+    )
+
+
+WorkflowId = str
+
+
+class WorkflowSpecs(BaseModel):
+    """
+    Model for workflow specifications.
+
+    This model is used to define multiple workflows and their parameters.
+    """
+
+    workflows: dict[WorkflowId, WorkflowSpec] = Field(
+        default_factory=dict, description="Workflows and their parameters."
+    )
+
+
+class WorkflowConfig(BaseModel):
+    """
+    Model for workflow configuration.
+
+    This model is used to set the parameter values for a specific workflow.
+    """
+
+    identifier: WorkflowId = Field(
+        description="Hash of the workflow, used to identify the workflow."
+    )
+    values: dict[str, Any] = Field(
+        default_factory=dict, description="Parameter values for the workflow."
+    )

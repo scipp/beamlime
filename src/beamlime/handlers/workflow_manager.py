@@ -10,6 +10,7 @@ import scipp as sc
 from ess.reduce.streaming import StreamProcessor
 from sciline.typing import Key
 
+from ..config.models import WorkflowSpec, WorkflowSpecs
 from ..core.handler import Accumulator
 
 
@@ -114,6 +115,27 @@ class WorkflowManager:
         self._proxies: dict[str, StreamProcessorProxy] = {}
         for name in source_names:
             self.set_worklow(name, None)
+
+    def get_workflow_specs(self) -> WorkflowSpecs:
+        """
+        Get the workflow specifications for the available workflows.
+
+        Returns
+        -------
+        WorkflowSpecs
+            The workflow specifications.
+        """
+        # TODO The key should be a hash or uuid
+        return WorkflowSpecs(
+            workflows={
+                name: WorkflowSpec(
+                    name=name,
+                    description=f'Workflow that computes {name}',
+                    parameters=[],
+                )
+                for name in processor_factory.get_available()
+            }
+        )
 
     def set_worklow(self, source_name: str, processor: StreamProcessor | None) -> None:
         """

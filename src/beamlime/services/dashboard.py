@@ -19,7 +19,6 @@ from beamlime.config.models import ConfigKey
 from beamlime.config.streams import stream_kind_to_topic
 from beamlime.core.config_service import ConfigService
 from beamlime.core.message import StreamKind, compact_messages
-from beamlime.handlers.workflow_manager import processor_factory
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
@@ -87,6 +86,16 @@ class DashboardApp(ServiceBase):
         self._config_service_thread = threading.Thread(
             target=self._config_service.start
         )
+
+    def _get_available_workflows(self) -> list[tuple[str, str]]:
+        """Get available workflows from the config service."""
+        config_key = ConfigKey(service_name="data_reduction", key="workflow_specs")
+        workflow_specs = self._config_service.get(config_key)
+        if workflow_specs is None:
+            return []
+        return [
+            (hash, spec['name']) for hash, spec in workflow_specs['workflows'].items()
+        ]
 
     def _setup_kafka_consumer(self) -> AdaptingMessageSource:
         consumer_config = load_config(
@@ -268,11 +277,8 @@ class DashboardApp(ServiceBase):
                     html.Label('Workflow Name'),
                     dcc.Dropdown(
                         id='workflow-name',
-                        options=[
-                            {'label': name, 'value': name}
-                            for name in processor_factory.get_available()
-                        ],
-                        value=processor_factory.get_available()[0],
+                        options=[],  # Start with empty options
+                        value=None,
                         style={'width': '100%', 'marginBottom': '10px'},
                     ),
                 ],
@@ -314,6 +320,10 @@ class DashboardApp(ServiceBase):
                     },
                 ),
                 dcc.Interval(id='interval-component', interval=200, n_intervals=0),
+                # Add interval for workflow updates
+                dcc.Interval(
+                    id='workflow-update-interval', interval=5000, n_intervals=0
+                ),
             ],
             style={
                 'height': '100vh',
@@ -385,6 +395,12 @@ class DashboardApp(ServiceBase):
             Output('workflow-name', 'disabled'),
             Input('workflow-enable', 'value'),
         )(lambda value: len(value) == 0)
+
+        # Add callback to update workflow dropdown options
+        self._app.callback(
+            Output('workflow-name', 'options'),
+            Input('workflow-update-interval', 'n_intervals'),
+        )(self.update_workflow_dropdown)
 
         # Update workflow control button callback
         self._app.callback(
@@ -615,8 +631,21 @@ class DashboardApp(ServiceBase):
 
         return 0
 
+    def update_workflow_dropdown(self, _: int) -> list[dict]:
+        """Update the workflow dropdown with available workflows from config."""
+        try:
+            available_workflows = self._get_available_workflows()
+            return [
+                {'label': name, 'value': hash} for hash, name in available_workflows
+            ]
+        except Exception as e:
+            self._logger.warning("Failed to update workflow dropdown: %s", e)
+            return []
+
     def _start_impl(self) -> None:
         self._config_service_thread.start()
+        # Wait briefly to allow config service to fetch initial configs
+        time.sleep(0.5)
 
     def run_forever(self) -> None:
         """Only for development purposes."""
