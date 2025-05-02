@@ -131,6 +131,7 @@ class WorkflowManager:
                 name: WorkflowSpec(
                     name=name,
                     description=f'Workflow that computes {name}',
+                    source_names=list(self._source_names),
                     parameters=[],
                 )
                 for name in processor_factory.get_available()

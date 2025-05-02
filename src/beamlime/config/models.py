@@ -221,6 +221,10 @@ class WorkflowSpec(BaseModel):
 
     name: str = Field(description="Name of the workflow.")
     description: str = Field(description="Description of the workflow.")
+    source_names: list[str] = Field(
+        default_factory=list,
+        description="List of detectors the workflow can be applied to.",
+    )
     parameters: list[Parameter[Any]] = Field(
         default_factory=list, description="Parameters for the workflow."
     )

@@ -87,15 +87,41 @@ class DashboardApp(ServiceBase):
             target=self._config_service.start
         )
 
-    def _get_available_workflows(self) -> list[tuple[str, str]]:
+    def _get_available_workflows(self) -> list[tuple[str, str, list[str]]]:
         """Get available workflows from the config service."""
         config_key = ConfigKey(service_name="data_reduction", key="workflow_specs")
         workflow_specs = self._config_service.get(config_key)
         if workflow_specs is None:
             return []
         return [
-            (hash, spec['name']) for hash, spec in workflow_specs['workflows'].items()
+            (hash, spec['name'], spec.get('source_names', []))
+            for hash, spec in workflow_specs['workflows'].items()
         ]
+
+    def _get_all_source_names(self) -> list[str]:
+        """Get all source names from workflow specs and instrument config."""
+        workflow_source_names = set()
+        for _, _, source_names in self._get_available_workflows():
+            workflow_source_names.update(source_names)
+
+        # Combine with instrument config source names
+        all_source_names = list(
+            set(self._instrument_config.source_names) | workflow_source_names
+        )
+        all_source_names.sort()  # Sort for consistent display
+        return all_source_names
+
+    def _get_workflow_options_for_source(self, source_name: str) -> list[dict]:
+        """Get workflow options that are compatible with the given source name."""
+        available_workflows = self._get_available_workflows()
+        compatible_workflows = []
+
+        for hash_id, name, source_names in available_workflows:
+            # A workflow is compatible if it has no source restrictions or the current source is in its list
+            if not source_names or source_name in source_names:
+                compatible_workflows.append({'label': name, 'value': hash_id})
+
+        return compatible_workflows
 
     def _setup_kafka_consumer(self) -> AdaptingMessageSource:
         consumer_config = load_config(
@@ -259,11 +285,8 @@ class DashboardApp(ServiceBase):
             html.Label('Source Name'),
             dcc.Dropdown(
                 id='workflow-source-name',
-                options=[
-                    {'label': name, 'value': name}
-                    for name in self._instrument_config.source_names
-                ],
-                value=self._instrument_config.source_names[0],
+                options=[],  # Will be populated dynamically
+                value=None,
                 style={'width': '100%', 'marginBottom': '10px'},
             ),
             html.Div(
@@ -399,17 +422,28 @@ class DashboardApp(ServiceBase):
         # Add callback to update workflow dropdown options
         self._app.callback(
             Output('workflow-name', 'options'),
+            Input('workflow-source-name', 'value'),
             Input('workflow-update-interval', 'n_intervals'),
         )(self.update_workflow_dropdown)
 
-        # Update workflow control button callback
+        # Update source name dropdown options
         self._app.callback(
-            Output('workflow-control-button', 'n_clicks'),
-            Input('workflow-control-button', 'n_clicks'),
+            Output('workflow-source-name', 'options'),
+            Input('workflow-update-interval', 'n_intervals'),
+        )(self.update_source_dropdown)
+
+        # Set initial value for source dropdown if empty
+        self._app.callback(
+            Output('workflow-source-name', 'value'),
+            Input('workflow-source-name', 'options'),
             Input('workflow-source-name', 'value'),
-            Input('workflow-name', 'value'),
-            Input('workflow-enable', 'value'),
-        )(self.send_workflow_control)
+        )(self.set_initial_source)
+
+        # Clear workflow selection when source changes
+        self._app.callback(
+            Output('workflow-name', 'value'),
+            Input('workflow-source-name', 'value'),
+        )(lambda _: None)
 
     def update_roi(self, x_center, x_delta, y_center, y_delta):
         x_min = max(0, x_center - x_delta)
@@ -631,16 +665,36 @@ class DashboardApp(ServiceBase):
 
         return 0
 
-    def update_workflow_dropdown(self, _: int) -> list[dict]:
-        """Update the workflow dropdown with available workflows from config."""
+    def update_workflow_dropdown(self, source_name: str | None, _: int) -> list[dict]:
+        """Update the workflow dropdown based on selected source."""
+        if not source_name:
+            return []
+
         try:
-            available_workflows = self._get_available_workflows()
-            return [
-                {'label': name, 'value': hash} for hash, name in available_workflows
-            ]
+            return self._get_workflow_options_for_source(source_name)
         except Exception as e:
             self._logger.warning("Failed to update workflow dropdown: %s", e)
             return []
+
+    def update_source_dropdown(self, _: int) -> list[dict]:
+        """Update the source dropdown with all unique source names from workflows."""
+        try:
+            source_names = self._get_all_source_names()
+            return [{'label': name, 'value': name} for name in source_names]
+        except Exception as e:
+            self._logger.warning("Failed to update source dropdown: %s", e)
+            return [
+                {'label': name, 'value': name}
+                for name in self._instrument_config.source_names
+            ]
+
+    def set_initial_source(
+        self, options: list[dict], current_value: str | None
+    ) -> str | None:
+        """Set initial value for source dropdown if it's currently empty."""
+        if current_value is None and options:
+            return options[0]['value']
+        return current_value
 
     def _start_impl(self) -> None:
         self._config_service_thread.start()
