@@ -267,8 +267,8 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
         y, x = self._roi_filter._indices.dims
         sizes = self._roi_filter._indices.sizes
         roi = self._roi()
-        ry = roi.x
-        rx = roi.y
+        rx = roi.x
+        ry = roi.y
         # Convert fraction to indices
         y_indices = (int(ry.low * (sizes[y] - 1)), int(ry.high * (sizes[y] - 1)))
         x_indices = (int(rx.low * (sizes[x] - 1)), int(rx.high * (sizes[x] - 1)))
