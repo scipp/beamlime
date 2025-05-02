@@ -111,7 +111,8 @@ class ConfigHandler(Handler[bytes, None]):
         :
             Empty list as this handler doesn't produce output messages
         """
-        updated: defaultdict[str, list[ConfigUpdate]] = defaultdict(list)
+        # Stores the most recent update for this key/source combination
+        updated: defaultdict[str, dict[str | None, ConfigUpdate]] = defaultdict(dict)
         for message in messages:
             try:
                 update = ConfigUpdate.from_raw(message.value)
@@ -128,27 +129,27 @@ class ConfigHandler(Handler[bytes, None]):
                     value,
                     message.timestamp,
                 )
-                updated[config_key].append(update)
                 if source_name is None:
                     self._global_store[config_key] = value
-                    for store in self._stores.values():
+                    for source_name, store in self._stores.items():
+                        updated[config_key][source_name] = update
                         store[config_key] = value
                 else:
+                    updated[config_key][source_name] = update
                     self.get_config(source_name)[config_key] = value
             except Exception:
                 self._logger.exception('Error processing config message:')
 
         # Delay action calls until all messages are processed to reduce triggering
         # multiple calls for the same key in case of multiple messages with same key.
-        for config_key, updates in updated.items():
+        for config_key, source_updates in updated.items():
             for action in self._actions.get(config_key, []):
-                for update in updates:
+                for source_name, update in source_updates.items():
                     try:
-                        action(source_name=update.source_name, value=update.value)
+                        # Note: Not update.source_name, as it is None for global updates
+                        action(source_name=source_name, value=update.value)
                         self._logger.info(
-                            'Action %s called for source name %s',
-                            action,
-                            update.source_name,
+                            'Action %s called for source name %s', action, source_name
                         )
                     except Exception:  # noqa: PERF203
                         self._logger.exception(
