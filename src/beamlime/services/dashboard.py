@@ -8,7 +8,7 @@ from contextlib import ExitStack
 
 import plotly.graph_objects as go
 import scipp as sc
-from dash import Dash, Input, Output, dcc, html
+from dash import Dash, Input, Output, State, dcc, html
 from dash.exceptions import PreventUpdate
 
 from beamlime import Service, ServiceBase
@@ -289,28 +289,30 @@ class DashboardApp(ServiceBase):
                 style={'width': '100%', 'marginBottom': '10px'},
             ),
             html.Div(
-                [
-                    dcc.Checklist(
-                        id='workflow-enable',
-                        options=[{'label': 'Enable workflow', 'value': 'enabled'}],
-                        value=['enabled'],
-                        style={'margin': '10px 0'},
+                style={
+                    'display': 'flex',
+                    'justifyContent': 'space-between',
+                    'marginTop': '10px',
+                },
+                children=[
+                    html.Button(
+                        'Stop Workflow',
+                        id='workflow-stop-button',
+                        n_clicks=0,
+                        style={'width': '48%'},
                     ),
-                    html.Label('Workflow Name'),
-                    dcc.Dropdown(
-                        id='workflow-name',
-                        options=[],  # Start with empty options
-                        value=None,
-                        style={'width': '100%', 'marginBottom': '10px'},
+                    html.Button(
+                        'Configure Workflow',
+                        id='workflow-configure-button',
+                        n_clicks=0,
+                        style={'width': '48%'},
                     ),
                 ],
-                id='workflow-selector-container',
             ),
-            html.Button(
-                'Go!',
-                id='workflow-control-button',
-                n_clicks=0,
-                style={'width': '100%', 'marginTop': '10px'},
+            html.Div(
+                id='workflow-controls-container',
+                children=[],  # Will be populated when Configure Workflow is clicked
+                style={'marginTop': '10px'},
             ),
             html.Label('Note that workflow changes may take a few seconds to apply.'),
         ]
@@ -412,45 +414,42 @@ class DashboardApp(ServiceBase):
             Input('use-weights-checkbox', 'value'),
         )(self.update_use_weights)
 
-        # Add callback to enable/disable workflow dropdown
+        # Replace workflow enable/disable callback with new button callbacks
         self._app.callback(
-            Output('workflow-name', 'disabled'),
-            Input('workflow-enable', 'value'),
-        )(lambda value: len(value) == 0)
+            Output('workflow-controls-container', 'children'),
+            Input('workflow-configure-button', 'n_clicks'),
+            State('workflow-source-name', 'value'),
+        )(self.show_workflow_config)
 
-        # Add callback to update workflow dropdown options
+        # Add callback for workflow stop button
         self._app.callback(
-            Output('workflow-name', 'options'),
+            Output('workflow-stop-button', 'n_clicks'),
+            Input('workflow-stop-button', 'n_clicks'),
             Input('workflow-source-name', 'value'),
-            Input('workflow-update-interval', 'n_intervals'),
-        )(self.update_workflow_dropdown)
+        )(self.stop_workflow)
 
-        # Update source name dropdown options
+        # Update source name dropdown options periodically
         self._app.callback(
             Output('workflow-source-name', 'options'),
             Input('workflow-update-interval', 'n_intervals'),
+            Input('workflow-source-name', 'value'),
         )(self.update_source_dropdown)
 
-        # Set initial value for source dropdown if empty
+        # Set initial value for source dropdown ONLY if empty and only once
         self._app.callback(
             Output('workflow-source-name', 'value'),
             Input('workflow-source-name', 'options'),
             Input('workflow-source-name', 'value'),
+            prevent_initial_call=True,  # Prevent automatic call on initial load
         )(self.set_initial_source)
 
-        # Clear workflow selection when source changes
+        # Add callback for workflow selection and application
         self._app.callback(
-            Output('workflow-name', 'value'),
-            Input('workflow-source-name', 'value'),
-        )(lambda _: None)
-
-        # Add callback for workflow control button
-        self._app.callback(
-            Output('workflow-control-button', 'n_clicks'),
-            Input('workflow-control-button', 'n_clicks'),
-            Input('workflow-source-name', 'value'),
+            Output('workflow-apply-button', 'n_clicks'),
+            Input('workflow-apply-button', 'n_clicks'),
+            State('workflow-source-storage', 'children'),
             Input('workflow-name', 'value'),
-            Input('workflow-enable', 'value'),
+            State('workflow-configure-button', 'n_clicks'),
         )(self.send_workflow_control)
 
     def update_roi(self, x_center, x_delta, y_center, y_delta):
@@ -657,52 +656,124 @@ class DashboardApp(ServiceBase):
     def send_workflow_control(
         self,
         n_clicks: int | None,
-        source_name: str | None,
-        workflow_name: str,
-        enable_workflow: list[str],
+        source_name: str | None,  # Now comes from the hidden storage div
+        workflow_name: str | None,
+        _: int,  # configure_button_clicks, just to ensure the config panel is shown
     ) -> int:
-        """Send a workflow control message."""
-        if n_clicks is None or n_clicks == 0 or not source_name:
+        """Apply the selected workflow."""
+        if (
+            n_clicks is None
+            or n_clicks == 0
+            or not source_name
+            or workflow_name is None
+        ):
             raise PreventUpdate
 
-        actual_workflow_name = workflow_name if enable_workflow else None
         config_key = ConfigKey(
             source_name=source_name, service_name="data_reduction", key="workflow_name"
         )
-        self._config_service.update_config(config_key, actual_workflow_name)
+        self._config_service.update_config(config_key, workflow_name)
 
         return 0
 
-    def update_workflow_dropdown(self, source_name: str | None, _: int) -> list[dict]:
-        """Update the workflow dropdown based on selected source."""
-        if not source_name:
+    def show_workflow_config(
+        self, n_clicks: int | None, source_name: str | None
+    ) -> list:
+        """Show the workflow config panel when the Configure button is clicked."""
+        if n_clicks is None or n_clicks == 0 or not source_name:
             return []
 
         try:
-            return self._get_workflow_options_for_source(source_name)
-        except Exception as e:
-            self._logger.warning("Failed to update workflow dropdown: %s", e)
-            return []
+            workflow_options = self._get_workflow_options_for_source(source_name)
 
-    def update_source_dropdown(self, _: int) -> list[dict]:
-        """Update the source dropdown with all unique source names from workflows."""
+            return [
+                html.Div(
+                    f"Configuring workflows for source: {source_name}",
+                    style={'fontWeight': 'bold', 'marginBottom': '10px'},
+                ),
+                html.Label('Workflow Name'),
+                dcc.Dropdown(
+                    id='workflow-name',
+                    options=workflow_options,
+                    value=workflow_options[0]['value'] if workflow_options else None,
+                    style={'width': '100%', 'marginBottom': '10px'},
+                ),
+                html.Button(
+                    'Apply Workflow',
+                    id='workflow-apply-button',
+                    n_clicks=0,
+                    style={'width': '100%', 'marginTop': '10px'},
+                ),
+                # Add hidden div to store the source name this control set is for
+                html.Div(
+                    id='workflow-source-storage',
+                    children=source_name,
+                    style={'display': 'none'},
+                ),
+            ]
+        except Exception as e:
+            self._logger.warning("Failed to update workflow controls: %s", e)
+            return [
+                html.Div(
+                    f"Error loading workflow options for {source_name}: {e}",
+                    style={'color': 'red', 'margin': '10px 0'},
+                )
+            ]
+
+    def stop_workflow(self, n_clicks: int | None, source_name: str | None) -> int:
+        """Stop/disable a workflow for the selected source."""
+        if n_clicks is None or n_clicks == 0 or not source_name:
+            raise PreventUpdate
+
+        config_key = ConfigKey(
+            source_name=source_name, service_name="data_reduction", key="workflow_name"
+        )
+        self._config_service.update_config(config_key, None)
+        return 0
+
+    def update_source_dropdown(self, _: int, current_value: str | None) -> list[dict]:
+        """
+        Update the source dropdown with all unique source names from workflows.
+
+        Preserves the current selection by passing it through.
+        """
         try:
             source_names = self._get_all_source_names()
-            return [{'label': name, 'value': name} for name in source_names]
+            options = [{'label': name, 'value': name} for name in source_names]
+
+            # Ensure current value is in options if it's not None
+            if current_value and not any(
+                opt['value'] == current_value for opt in options
+            ):
+                options.append(
+                    {'label': f"{current_value} (not found)", 'value': current_value}
+                )
+
+            return options
         except Exception as e:
             self._logger.warning("Failed to update source dropdown: %s", e)
-            return [
+            options = [
                 {'label': name, 'value': name}
                 for name in self._instrument_config.source_names
             ]
 
+            # Same check for current value
+            if current_value and not any(
+                opt['value'] == current_value for opt in options
+            ):
+                options.append(
+                    {'label': f"{current_value} (not found)", 'value': current_value}
+                )
+
+            return options
+
     def set_initial_source(
         self, options: list[dict], current_value: str | None
     ) -> str | None:
-        """Set initial value for source dropdown if it's currently empty."""
+        """Set initial value for source dropdown only if it's currently empty."""
         if current_value is None and options:
             return options[0]['value']
-        return current_value
+        return current_value  # Keep existing selection
 
     def _start_impl(self) -> None:
         self._config_service_thread.start()
