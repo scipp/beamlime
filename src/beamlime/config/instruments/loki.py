@@ -95,8 +95,20 @@ detectors_config = {
     },
 }
 
+source_names = (
+    'loki_detector_0',
+    'loki_detector_1',
+    'loki_detector_2',
+    'loki_detector_3',
+    'loki_detector_4',
+    'loki_detector_5',
+    'loki_detector_6',
+    'loki_detector_7',
+    'loki_detector_8',
+)
 
-@processor_factory.register(name='I(Q)')
+
+@processor_factory.register(name='I(Q)', source_names=source_names)
 def _i_of_q(source_name: str) -> StreamProcessor:
     wf = _configured_Larmor_AgBeh_workflow()
     wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
@@ -113,17 +125,6 @@ def _i_of_q(source_name: str) -> StreamProcessor:
     )
 
 
-source_names = (
-    'loki_detector_0',
-    'loki_detector_1',
-    'loki_detector_2',
-    'loki_detector_3',
-    'loki_detector_4',
-    'loki_detector_5',
-    'loki_detector_6',
-    'loki_detector_7',
-    'loki_detector_8',
-)
 source_to_key = {
     'loki_detector_0': NeXusData[NXdetector, SampleRun],
     'loki_detector_1': NeXusData[NXdetector, SampleRun],

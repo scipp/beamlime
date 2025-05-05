@@ -2,65 +2,16 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-import inspect
-from collections.abc import Callable, Iterator, MutableMapping, Sequence
-from functools import wraps
+from collections.abc import Iterator, MutableMapping, Sequence
 
 import scipp as sc
 from ess.reduce.streaming import StreamProcessor
 from sciline.typing import Key
 
+from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
+
 from ..config.models import WorkflowSpec, WorkflowSpecs
 from ..core.handler import Accumulator
-
-
-class StreamProcessorFactory:
-    def __init__(self) -> None:
-        self._factories: dict[str, Callable[[], StreamProcessor]] = {}
-
-    def get_available(self) -> tuple[str, ...]:
-        """Return a tuple of available factory names."""
-        return tuple(self._factories.keys())
-
-    def register(
-        self, name: str
-    ) -> Callable[[Callable[[], StreamProcessor]], Callable[[], StreamProcessor]]:
-        """
-        Decorator to register a factory function for creating StreamProcessors.
-
-        Parameters
-        ----------
-        name:
-            Name to register the factory under.
-
-        Returns
-        -------
-        Decorator function that registers the factory and returns it unchanged.
-        """
-
-        def decorator(
-            factory: Callable[[], StreamProcessor],
-        ) -> Callable[[], StreamProcessor]:
-            @wraps(factory)
-            def wrapper() -> StreamProcessor:
-                return factory()
-
-            if name in self._factories:
-                raise ValueError(f"Factory for {name} already registered")
-            self._factories[name] = factory
-            return wrapper
-
-        return decorator
-
-    def create(self, *, workflow_name: str, source_name: str) -> StreamProcessor:
-        """Create a StreamProcessor using the registered factory."""
-        factory = self._factories[workflow_name]
-        sig = inspect.signature(factory)
-        if 'source_name' in sig.parameters:
-            return factory(source_name=source_name)
-        else:
-            return factory()
-
 
 processor_factory = StreamProcessorFactory()
 
@@ -163,7 +114,7 @@ class WorkflowManager:
             source_name,
             processor=None
             if value is None
-            else processor_factory.create(workflow_name=value, source_name=source_name),
+            else processor_factory.create(workflow_id=value, source_name=source_name),
         )
 
     def get_accumulator(
