@@ -70,6 +70,18 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
 
     def create(self, *, workflow_id: WorkflowId, source_name: str) -> StreamProcessor:
         """Create a StreamProcessor using the registered factory."""
+        if workflow_id not in self._workflow_specs:
+            raise KeyError(f"Unknown workflow ID: {workflow_id}")
+
+        workflow_spec = self._workflow_specs[workflow_id]
+        if workflow_spec.source_names and source_name not in workflow_spec.source_names:
+            allowed_sources = ", ".join(workflow_spec.source_names)
+            raise ValueError(
+                f"Source '{source_name}' is not allowed for workflow "
+                f"'{workflow_spec.name}'. "
+                f"Allowed sources: {allowed_sources}"
+            )
+
         factory = self._factories[workflow_id]
         sig = inspect.signature(factory)
         if 'source_name' in sig.parameters:
