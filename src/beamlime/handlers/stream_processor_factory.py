@@ -2,7 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import inspect
 import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from functools import wraps
 
 from ess.reduce.streaming import StreamProcessor
@@ -10,14 +10,19 @@ from ess.reduce.streaming import StreamProcessor
 from beamlime.config.models import WorkflowId, WorkflowSpec
 
 
-class StreamProcessorFactory:
+class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
     def __init__(self) -> None:
         self._factories: dict[WorkflowId, Callable[[], StreamProcessor]] = {}
         self._workflow_specs: dict[WorkflowId, WorkflowSpec] = {}
 
-    def get_available(self) -> tuple[WorkflowId, ...]:
-        """Return a tuple of available factory names."""
-        return tuple(self._factories.keys())
+    def __getitem__(self, key: WorkflowId) -> WorkflowSpec:
+        return self._workflow_specs[key]
+
+    def __iter__(self) -> Iterator[WorkflowId]:
+        return iter(self._workflow_specs)
+
+    def __len__(self) -> int:
+        return len(self._workflow_specs)
 
     def register(
         self,
@@ -50,8 +55,6 @@ class StreamProcessorFactory:
             def wrapper() -> StreamProcessor:
                 return factory()
 
-            if name in self._factories:
-                raise ValueError(f"Factory for {name} already registered")
             spec = WorkflowSpec(
                 name=name,
                 description=description,
