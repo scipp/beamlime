@@ -225,7 +225,7 @@ class WorkflowSpec(BaseModel):
         default_factory=list,
         description="List of detectors the workflow can be applied to.",
     )
-    parameters: list[Parameter[Any]] = Field(
+    parameters: list[Parameter] = Field(
         default_factory=list, description="Parameters for the workflow."
     )
 

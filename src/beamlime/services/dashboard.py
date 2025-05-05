@@ -94,7 +94,7 @@ class DashboardApp(ServiceBase):
         if workflow_specs is None:
             return []
         return [
-            (hash, spec['name'], spec.get('source_names', []))
+            (hash, spec['name'], spec['source_names'])
             for hash, spec in workflow_specs['workflows'].items()
         ]
 
@@ -656,7 +656,7 @@ class DashboardApp(ServiceBase):
     def send_workflow_control(
         self,
         n_clicks: int | None,
-        source_name: str | None,  # Now comes from the hidden storage div
+        source_name: str | None,
         workflow_name: str | None,
         _: int,  # configure_button_clicks, just to ensure the config panel is shown
     ) -> int:

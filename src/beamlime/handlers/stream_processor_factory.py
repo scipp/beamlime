@@ -7,7 +7,7 @@ from functools import wraps
 
 from ess.reduce.streaming import StreamProcessor
 
-from beamlime.config.models import WorkflowId, WorkflowSpec
+from beamlime.config.models import Parameter, ParameterType, WorkflowId, WorkflowSpec
 
 
 class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
@@ -59,7 +59,14 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
                 name=name,
                 description=description,
                 source_names=source_names or [],
-                parameters=[],
+                parameters=[
+                    Parameter(
+                        name='QBins',
+                        description='Number of Q bins',
+                        param_type=ParameterType.INT,
+                        default=20,
+                    )
+                ],
             )
             spec_id = str(uuid.uuid4())
             self._factories[spec_id] = factory
