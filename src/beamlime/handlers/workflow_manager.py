@@ -10,7 +10,7 @@ from sciline.typing import Key
 
 from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 
-from ..config.models import WorkflowSpecs
+from ..config.models import WorkflowConfig, WorkflowSpecs
 from ..core.handler import Accumulator
 
 processor_factory = StreamProcessorFactory()
@@ -104,6 +104,17 @@ class WorkflowManager:
             processor=None
             if value is None
             else processor_factory.create(workflow_id=value, source_name=source_name),
+        )
+
+    def set_workflow_with_config(self, source_name: str, value: dict) -> None:
+        config = WorkflowConfig.model_validate(value)
+        self.set_worklow(
+            source_name,
+            processor=processor_factory.create(
+                workflow_id=config.identifier,
+                source_name=source_name,
+                workflow_params=config.values,
+            ),
         )
 
     def get_accumulator(

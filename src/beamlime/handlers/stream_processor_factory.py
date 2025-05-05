@@ -7,7 +7,7 @@ from functools import wraps
 
 from ess.reduce.streaming import StreamProcessor
 
-from beamlime.config.models import Parameter, ParameterType, WorkflowId, WorkflowSpec
+from beamlime.config.models import Parameter, WorkflowId, WorkflowSpec
 
 
 class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
@@ -29,6 +29,7 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
         name: str,
         description: str = '',
         source_names: Sequence[str] | None = None,
+        parameters: Sequence[Parameter] | None = None,
     ) -> Callable[[Callable[[], StreamProcessor]], Callable[[], StreamProcessor]]:
         """
         Decorator to register a factory function for creating StreamProcessors.
@@ -41,6 +42,9 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
             Optional description of the factory.
         source_names:
             Optional list of source names that the factory can handle. This is used to
+            create a workflow specification.
+        parameters:
+            Optional list of parameters that the factory accepts. This is used to
             create a workflow specification.
 
         Returns
@@ -59,14 +63,7 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
                 name=name,
                 description=description,
                 source_names=source_names or [],
-                parameters=[
-                    Parameter(
-                        name='QBins',
-                        description='Number of Q bins',
-                        param_type=ParameterType.INT,
-                        default=20,
-                    )
-                ],
+                parameters=parameters or [],
             )
             spec_id = str(uuid.uuid4())
             self._factories[spec_id] = factory
@@ -75,8 +72,25 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
 
         return decorator
 
-    def create(self, *, workflow_id: WorkflowId, source_name: str) -> StreamProcessor:
-        """Create a StreamProcessor using the registered factory."""
+    def create(
+        self,
+        *,
+        workflow_id: WorkflowId,
+        source_name: str,
+        workflow_params: dict | None = None,
+    ) -> StreamProcessor:
+        """
+        Create a StreamProcessor using the registered factory.
+
+        Parameters
+        ----------
+        workflow_id:
+            ID of the workflow to create.
+        source_name:
+            Name of the data source.
+        workflow_params:
+            Optional dictionary of parameter values to pass to the factory.
+        """
         if workflow_id not in self._workflow_specs:
             raise KeyError(f"Unknown workflow ID: {workflow_id}")
 
@@ -91,7 +105,18 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
 
         factory = self._factories[workflow_id]
         sig = inspect.signature(factory)
+
+        # Prepare arguments based on the factory signature
+        kwargs = {}
         if 'source_name' in sig.parameters:
-            return factory(source_name=source_name)
+            kwargs['source_name'] = source_name
+
+        # Add any additional workflow parameters if they match factory parameters
+        if workflow_params:
+            kwargs.update(workflow_params)
+
+        # Call factory with appropriate arguments
+        if kwargs:
+            return factory(**kwargs)
         else:
             return factory()

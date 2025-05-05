@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+import scipp as sc
 from ess.loki.live import _configured_Larmor_AgBeh_workflow
 from ess.reduce.nexus.types import NeXusData, NeXusDetectorName, SampleRun
 from ess.reduce.streaming import StreamProcessor
+from ess.sans import types as params
 from ess.sans.types import (
     Denominator,
     Filename,
@@ -15,6 +17,7 @@ from ess.sans.types import (
 from scippnexus import NXdetector
 
 from beamlime.config.env import StreamingEnv
+from beamlime.config.models import Parameter, ParameterType
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.handlers.workflow_manager import processor_factory
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
@@ -108,11 +111,42 @@ source_names = (
 )
 
 
+qbins_param = Parameter(
+    name='QBins',
+    description='Number of Q bins',
+    param_type=ParameterType.INT,
+    default=20,
+)
+
+
 @processor_factory.register(name='I(Q)', source_names=source_names)
 def _i_of_q(source_name: str) -> StreamProcessor:
     wf = _configured_Larmor_AgBeh_workflow()
     wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
     wf[NeXusDetectorName] = source_name
+    return StreamProcessor(
+        wf,
+        dynamic_keys=(
+            NeXusData[NXdetector, SampleRun],
+            NeXusData[Incident, SampleRun],
+            NeXusData[Transmission, SampleRun],
+        ),
+        target_keys=(IofQ[SampleRun],),
+        accumulators=(ReducedQ[SampleRun, Numerator], ReducedQ[SampleRun, Denominator]),
+    )
+
+
+@processor_factory.register(
+    name='I(Q) with params', source_names=source_names, parameters=(qbins_param,)
+)
+def _i_of_q_with_params(source_name: str, QBins: int) -> StreamProcessor:
+    wf = _configured_Larmor_AgBeh_workflow()
+    wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
+    wf[NeXusDetectorName] = source_name
+
+    wf[params.QBins] = sc.linspace(
+        dim='Q', start=0.01, stop=0.3, num=QBins + 1, unit='1/angstrom'
+    )
     return StreamProcessor(
         wf,
         dynamic_keys=(

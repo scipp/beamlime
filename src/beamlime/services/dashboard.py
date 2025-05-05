@@ -8,14 +8,14 @@ from contextlib import ExitStack
 
 import plotly.graph_objects as go
 import scipp as sc
-from dash import Dash, Input, Output, State, dcc, html
+from dash import ALL, Dash, Input, Output, State, dcc, html
 from dash.exceptions import PreventUpdate
 
 from beamlime import Service, ServiceBase
 from beamlime.config import config_names, models
 from beamlime.config.config_loader import load_config
 from beamlime.config.instruments import get_config
-from beamlime.config.models import ConfigKey
+from beamlime.config.models import ConfigKey, WorkflowConfig
 from beamlime.config.streams import stream_kind_to_topic
 from beamlime.core.config_service import ConfigService
 from beamlime.core.message import StreamKind, compact_messages
@@ -87,21 +87,21 @@ class DashboardApp(ServiceBase):
             target=self._config_service.start
         )
 
-    def _get_available_workflows(self) -> list[tuple[str, str, list[str]]]:
+    def _get_available_workflows(self) -> list[tuple[str, str, list[str], list[dict]]]:
         """Get available workflows from the config service."""
         config_key = ConfigKey(service_name="data_reduction", key="workflow_specs")
         workflow_specs = self._config_service.get(config_key)
         if workflow_specs is None:
             return []
         return [
-            (hash, spec['name'], spec['source_names'])
+            (hash, spec['name'], spec['source_names'], spec.get('parameters', []))
             for hash, spec in workflow_specs['workflows'].items()
         ]
 
     def _get_all_source_names(self) -> list[str]:
         """Get all source names from workflow specs and instrument config."""
         workflow_source_names = set()
-        for _, _, source_names in self._get_available_workflows():
+        for _, _, source_names, _ in self._get_available_workflows():
             workflow_source_names.update(source_names)
 
         # Combine with instrument config source names
@@ -116,11 +116,88 @@ class DashboardApp(ServiceBase):
         available_workflows = self._get_available_workflows()
         compatible_workflows = []
 
-        for hash_id, name, source_names in available_workflows:
+        for hash_id, name, source_names, _ in available_workflows:
             if source_name in source_names:
                 compatible_workflows.append({'label': name, 'value': hash_id})
 
         return compatible_workflows
+
+    def _get_workflow_parameters(self, workflow_id: str) -> list[dict]:
+        """Get parameters for a specific workflow."""
+        available_workflows = self._get_available_workflows()
+        for hash_id, _, _, parameters in available_workflows:
+            if hash_id == workflow_id:
+                return parameters
+        return []
+
+    def _create_parameter_widget(self, param: dict, param_id_prefix: str) -> list:
+        """Create appropriate widget based on parameter type."""
+        param_type = param.get('param_type', 'STRING').upper()
+        default_value = param.get('default', '')
+        description = param.get('description', '')
+
+        # Create label with tooltip for description
+        label = html.Label(
+            param['name'],
+            title=description,  # Tooltip on hover
+            style={'cursor': 'help' if description else 'default'},
+        )
+
+        # Create appropriate input widget based on parameter type
+        if param_type == 'BOOL':
+            input_widget = dcc.Checklist(
+                id={'type': 'param-input', 'name': param['name']},
+                options=[{'label': '', 'value': 'true'}],
+                value=['true'] if default_value else [],
+                style={'margin': '5px 0'},
+            )
+        elif param_type == 'INT':
+            input_widget = dcc.Input(
+                id={'type': 'param-input', 'name': param['name']},
+                type='number',
+                step=1,
+                value=default_value,
+                style={'width': '100%'},
+            )
+        elif param_type == 'FLOAT':
+            input_widget = dcc.Input(
+                id={'type': 'param-input', 'name': param['name']},
+                type='number',
+                step=0.1,
+                value=default_value,
+                style={'width': '100%'},
+            )
+        elif param_type == 'OPTIONS' and 'options' in param:
+            options = [{'label': opt, 'value': opt} for opt in param['options']]
+            input_widget = dcc.Dropdown(
+                id={'type': 'param-input', 'name': param['name']},
+                options=options,
+                value=default_value
+                if default_value in param['options']
+                else param['options'][0],
+                style={'width': '100%'},
+            )
+        else:  # Default to string input for any other type
+            input_widget = dcc.Input(
+                id={'type': 'param-input', 'name': param['name']},
+                type='text',
+                value=str(default_value),
+                style={'width': '100%'},
+            )
+
+        # Add hidden div to store parameter type for value conversion
+        param_type_store = html.Div(
+            id={'type': 'param-type', 'name': param['name']},
+            children=param_type,
+            style={'display': 'none'},
+        )
+
+        return [
+            label,
+            input_widget,
+            param_type_store,
+            html.Div(style={'marginBottom': '10px'}),
+        ]
 
     def _setup_kafka_consumer(self) -> AdaptingMessageSource:
         consumer_config = load_config(
@@ -421,6 +498,13 @@ class DashboardApp(ServiceBase):
             State('workflow-source-name', 'value'),
         )(self.show_workflow_config)
 
+        # Add callback for workflow selection to update parameters
+        self._app.callback(
+            Output('workflow-params-container', 'children'),
+            Input('workflow-name', 'value'),
+            State('workflow-source-name', 'value'),
+        )(self.update_workflow_parameters)
+
         # Add callback for workflow stop button
         self._app.callback(
             Output('workflow-stop-button', 'n_clicks'),
@@ -443,13 +527,16 @@ class DashboardApp(ServiceBase):
             prevent_initial_call=True,  # Prevent automatic call on initial load
         )(self.set_initial_source)
 
-        # Add callback for workflow selection and application
+        # Update workflow apply button callback to collect parameter values
         self._app.callback(
             Output('workflow-apply-button', 'n_clicks'),
             Input('workflow-apply-button', 'n_clicks'),
             State('workflow-source-storage', 'children'),
-            Input('workflow-name', 'value'),
-            State('workflow-configure-button', 'n_clicks'),
+            State('workflow-name', 'value'),
+            # Use ALL pattern to get all parameter inputs
+            State({'type': 'param-input', 'name': ALL}, 'value'),
+            State({'type': 'param-type', 'name': ALL}, 'children'),
+            State({'type': 'param-input', 'name': ALL}, 'id'),
         )(self.send_workflow_control)
 
     def update_roi(self, x_center, x_delta, y_center, y_delta):
@@ -657,22 +744,60 @@ class DashboardApp(ServiceBase):
         self,
         n_clicks: int | None,
         source_name: str | None,
-        workflow_name: str | None,
-        _: int,  # configure_button_clicks, just to ensure the config panel is shown
+        workflow_id: str | None,
+        param_values: list,
+        param_types: list,
+        param_ids: list,
     ) -> int:
-        """Apply the selected workflow."""
-        if (
-            n_clicks is None
-            or n_clicks == 0
-            or not source_name
-            or workflow_name is None
-        ):
+        """Apply the selected workflow with parameter values."""
+        if n_clicks is None or n_clicks == 0 or not source_name or workflow_id is None:
             raise PreventUpdate
 
-        config_key = ConfigKey(
-            source_name=source_name, service_name="data_reduction", key="workflow_name"
-        )
-        self._config_service.update_config(config_key, workflow_name)
+        try:
+            # Process parameter values based on their types
+            param_dict = {}
+            for value, param_type, param_id in zip(
+                param_values, param_types, param_ids, strict=True
+            ):
+                # Extract parameter name from the id dictionary
+                param_name = param_id.get('name', '')
+                if not param_name:
+                    continue
+
+                # Convert value based on parameter type
+                if param_type == 'BOOL':
+                    # Convert checklist value to boolean
+                    processed_value = len(value) > 0 and 'true' in value
+                elif param_type == 'INT':
+                    processed_value = int(value) if value is not None else None
+                elif param_type == 'FLOAT':
+                    processed_value = float(value) if value is not None else None
+                else:
+                    # String or other types
+                    processed_value = value
+
+                param_dict[param_name] = processed_value
+
+            # Create WorkflowConfig
+            workflow_config = WorkflowConfig(identifier=workflow_id, values=param_dict)
+
+            # Send workflow config
+            config_key = ConfigKey(
+                source_name=source_name,
+                service_name="data_reduction",
+                key="workflow_config",
+            )
+
+            self._config_service.update_config(config_key, workflow_config.model_dump())
+            self._logger.info(
+                "Applied workflow %s to source %s with parameters: %s",
+                workflow_id,
+                source_name,
+                param_dict,
+            )
+
+        except Exception as exc:
+            self._logger.exception("Error applying workflow config: %s", exc)
 
         return 0
 
@@ -686,7 +811,10 @@ class DashboardApp(ServiceBase):
         try:
             workflow_options = self._get_workflow_options_for_source(source_name)
 
-            return [
+            workflow_id = workflow_options[0]['value'] if workflow_options else None
+
+            # Initialize with basic workflow selection UI
+            controls = [
                 html.Div(
                     f"Configuring workflows for source: {source_name}",
                     style={'fontWeight': 'bold', 'marginBottom': '10px'},
@@ -695,8 +823,14 @@ class DashboardApp(ServiceBase):
                 dcc.Dropdown(
                     id='workflow-name',
                     options=workflow_options,
-                    value=workflow_options[0]['value'] if workflow_options else None,
+                    value=workflow_id,
                     style={'width': '100%', 'marginBottom': '10px'},
+                ),
+                # Hidden div to store parameters
+                html.Div(
+                    id='workflow-params-container',
+                    children=[],
+                    style={'marginTop': '10px'},
                 ),
                 html.Button(
                     'Apply Workflow',
@@ -711,11 +845,55 @@ class DashboardApp(ServiceBase):
                     style={'display': 'none'},
                 ),
             ]
+
+            return controls
+
         except Exception as e:
             self._logger.warning("Failed to update workflow controls: %s", e)
             return [
                 html.Div(
                     f"Error loading workflow options for {source_name}: {e}",
+                    style={'color': 'red', 'margin': '10px 0'},
+                )
+            ]
+
+    def update_workflow_parameters(
+        self, workflow_id: str, source_name: str | None
+    ) -> list:
+        """Update parameter widgets when a workflow is selected."""
+        self._logger.info(
+            "Updating workflow parameters for workflow ID: %s", workflow_id
+        )
+        if not workflow_id or not source_name:
+            return []
+
+        try:
+            parameters = self._get_workflow_parameters(workflow_id)
+
+            if not parameters:
+                return [html.Div("No configurable parameters for this workflow")]
+
+            # Create parameter header
+            parameter_widgets = [
+                html.H4(
+                    "Workflow Parameters",
+                    style={'marginTop': '15px', 'marginBottom': '10px'},
+                )
+            ]
+
+            # Create widgets for each parameter
+            for param in parameters:
+                parameter_widgets.extend(
+                    self._create_parameter_widget(param, f"param-{workflow_id}")
+                )
+
+            return parameter_widgets
+
+        except Exception as e:
+            self._logger.warning("Failed to create parameter widgets: %s", e)
+            return [
+                html.Div(
+                    f"Error loading parameters: {e}",
                     style={'color': 'red', 'margin': '10px 0'},
                 )
             ]

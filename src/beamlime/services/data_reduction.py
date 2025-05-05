@@ -43,6 +43,9 @@ def make_reduction_service_builder(
     config_handler.register_action(
         key='workflow_name', action=workflow_manager.set_workflow_from_name
     )
+    config_handler.register_action(
+        key='workflow_config', action=workflow_manager.set_workflow_with_config
+    )
     handler_factory = ReductionHandlerFactory(
         config_registry=config_handler,
         workflow_manager=workflow_manager,
