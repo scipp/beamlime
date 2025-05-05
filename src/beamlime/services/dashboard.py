@@ -117,8 +117,7 @@ class DashboardApp(ServiceBase):
         compatible_workflows = []
 
         for hash_id, name, source_names in available_workflows:
-            # A workflow is compatible if it has no source restrictions or the current source is in its list
-            if not source_names or source_name in source_names:
+            if source_name in source_names:
                 compatible_workflows.append({'label': name, 'value': hash_id})
 
         return compatible_workflows
@@ -444,6 +443,15 @@ class DashboardApp(ServiceBase):
             Output('workflow-name', 'value'),
             Input('workflow-source-name', 'value'),
         )(lambda _: None)
+
+        # Add callback for workflow control button
+        self._app.callback(
+            Output('workflow-control-button', 'n_clicks'),
+            Input('workflow-control-button', 'n_clicks'),
+            Input('workflow-source-name', 'value'),
+            Input('workflow-name', 'value'),
+            Input('workflow-enable', 'value'),
+        )(self.send_workflow_control)
 
     def update_roi(self, x_center, x_delta, y_center, y_delta):
         x_min = max(0, x_center - x_delta)

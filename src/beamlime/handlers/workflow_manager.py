@@ -10,7 +10,7 @@ from sciline.typing import Key
 
 from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 
-from ..config.models import WorkflowSpec, WorkflowSpecs
+from ..config.models import WorkflowSpecs
 from ..core.handler import Accumulator
 
 processor_factory = StreamProcessorFactory()
@@ -76,18 +76,7 @@ class WorkflowManager:
         WorkflowSpecs
             The workflow specifications.
         """
-        # TODO The key should be a hash or uuid
-        return WorkflowSpecs(
-            workflows={
-                name: WorkflowSpec(
-                    name=name,
-                    description=f'Workflow that computes {name}',
-                    source_names=list(self._source_names),
-                    parameters=[],
-                )
-                for name in processor_factory.get_available()
-            }
-        )
+        return WorkflowSpecs(workflows=dict(processor_factory.items()))
 
     def set_worklow(self, source_name: str, processor: StreamProcessor | None) -> None:
         """
