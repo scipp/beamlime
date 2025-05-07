@@ -217,7 +217,9 @@ class WorkflowSpec(BaseModel):
     """
     Model for workflow specification.
 
-    This model is used to define a workflow and its parameters.
+    This model is used to define a workflow and its parameters. Beamlime publishes
+    workflow specifications to Kafka, which can be used to create user interfaces for
+    configuring workflows.
     """
 
     name: str = Field(description="Name of the workflow.")
@@ -250,7 +252,9 @@ class WorkflowConfig(BaseModel):
     """
     Model for workflow configuration.
 
-    This model is used to set the parameter values for a specific workflow.
+    This model is used to set the parameter values for a specific workflow. The values
+    correspond to the parameters defined in the workflow specification
+    :py:class:`WorkflowSpec`.
     """
 
     identifier: WorkflowId = Field(
