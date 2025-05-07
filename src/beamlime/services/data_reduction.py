@@ -41,7 +41,7 @@ def make_reduction_service_builder(
         f144_attribute_registry=instrument_config.f144_attribute_registry,
     )
     workflow_specs_msg = Message(
-        timestamp=0,
+        timestamp=0,  # ignored by sink when publishing, should have no effect
         stream=CONFIG_STREAM_ID,
         value=ConfigUpdate(
             config_key=ConfigKey(service_name=service_name, key='workflow_specs'),
