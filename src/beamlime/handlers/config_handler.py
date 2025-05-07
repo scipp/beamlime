@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -110,7 +111,8 @@ class ConfigHandler(Handler[bytes, None]):
         :
             Empty list as this handler doesn't produce output messages
         """
-        updated: dict[str, ConfigUpdate] = {}
+        # Stores the most recent update for this key/source combination
+        updated: defaultdict[str, dict[str | None, ConfigUpdate]] = defaultdict(dict)
         for message in messages:
             try:
                 update = ConfigUpdate.from_raw(message.value)
@@ -118,32 +120,39 @@ class ConfigHandler(Handler[bytes, None]):
                     # Ignore messages not for this service
                     continue
                 source_name = update.source_name
-                key = update.key
+                config_key = update.key
                 value = update.value
                 self._logger.info(
                     'Updating config for source_name = %s: %s = %s at %s',
                     source_name,
-                    key,
+                    config_key,
                     value,
                     message.timestamp,
                 )
-                updated[key] = update
                 if source_name is None:
-                    self._global_store[key] = value
-                    for store in self._stores.values():
-                        store[key] = value
+                    self._global_store[config_key] = value
+                    for source_name, store in self._stores.items():
+                        updated[config_key][source_name] = update
+                        store[config_key] = value
                 else:
-                    self.get_config(source_name)[key] = value
+                    updated[config_key][source_name] = update
+                    self.get_config(source_name)[config_key] = value
             except Exception:
                 self._logger.exception('Error processing config message:')
+
         # Delay action calls until all messages are processed to reduce triggering
         # multiple calls for the same key in case of multiple messages with same key.
-        for key, update in updated.items():
-            for action in self._actions.get(key, []):
-                try:
-                    action(source_name=update.source_name, value=update.value)
-                except KeyError:  # noqa: PERF203
-                    self._logger.exception(
-                        'Error processing config action for %s:', key
-                    )
+        for config_key, source_updates in updated.items():
+            for action in self._actions.get(config_key, []):
+                for source_name, update in source_updates.items():
+                    try:
+                        # Note: Not update.source_name, as it is None for global updates
+                        action(source_name=source_name, value=update.value)
+                        self._logger.info(
+                            'Action %s called for source name %s', action, source_name
+                        )
+                    except Exception:  # noqa: PERF203
+                        self._logger.exception(
+                            'Error processing config action for %s:', config_key
+                        )
         return []

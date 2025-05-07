@@ -495,3 +495,253 @@ class TestConfigHandler:
         assert config["key1"] == "value1"
         assert "key2" not in config
         assert config["key3"] == "value3"
+
+    def test_action_triggered_for_each_source_with_same_key(self):
+        handler = ConfigHandler(service_name="my_service")
+
+        # Set up a mock action
+        action_calls = []
+
+        def mock_action(source_name: str, value):
+            action_calls.append((source_name, value))
+
+        # Register the action
+        handler.register_action(key="test_key", action=mock_action)
+
+        # Send messages with same key but different source names
+        messages = [
+            Message(
+                value=RawConfigItem(
+                    key=b'source1/my_service/test_key',
+                    value=json.dumps(42).encode('utf-8'),
+                ),
+                timestamp=123456789,
+                stream=CONFIG_STREAM_ID,
+            ),
+            Message(
+                value=RawConfigItem(
+                    key=b'source2/my_service/test_key',
+                    value=json.dumps(43).encode('utf-8'),
+                ),
+                timestamp=123456790,
+                stream=CONFIG_STREAM_ID,
+            ),
+            Message(
+                value=RawConfigItem(
+                    key=b'source3/my_service/test_key',
+                    value=json.dumps(44).encode('utf-8'),
+                ),
+                timestamp=123456791,
+                stream=CONFIG_STREAM_ID,
+            ),
+        ]
+
+        handler.handle(messages)
+
+        # Verify action was called for each source
+        assert len(action_calls) == 3
+        assert ("source1", 42) in action_calls
+        assert ("source2", 43) in action_calls
+        assert ("source3", 44) in action_calls
+
+    def test_action_triggered_for_multiple_global_and_source_specific_messages(self):
+        handler = ConfigHandler(service_name="my_service")
+
+        # Set up a mock action
+        action_calls = []
+
+        def mock_action(source_name: str, value):
+            action_calls.append((source_name, value))
+
+        # Register the action
+        handler.register_action(key="test_key", action=mock_action)
+
+        # Send a mix of global and source-specific messages with the same key
+        messages = [
+            Message(
+                value=RawConfigItem(
+                    key=b'source1/my_service/test_key',
+                    value=json.dumps("source1-value").encode('utf-8'),
+                ),
+                timestamp=123456790,
+                stream=CONFIG_STREAM_ID,
+            ),
+            Message(
+                value=RawConfigItem(
+                    key=b'*/my_service/test_key',
+                    value=json.dumps("global-value").encode('utf-8'),
+                ),
+                timestamp=123456789,
+                stream=CONFIG_STREAM_ID,
+            ),
+            Message(
+                value=RawConfigItem(
+                    key=b'source2/my_service/test_key',
+                    value=json.dumps("source2-value").encode('utf-8'),
+                ),
+                timestamp=123456791,
+                stream=CONFIG_STREAM_ID,
+            ),
+        ]
+
+        handler.handle(messages)
+
+        assert len(action_calls) == 2
+        assert ("source2", "source2-value") in action_calls
+        assert ("source1", "global-value") in action_calls
+
+    def test_action_triggered_for_same_key_multiple_batches(self):
+        handler = ConfigHandler(service_name="my_service")
+
+        # Set up a mock action
+        action_calls = []
+
+        def mock_action(source_name: str, value):
+            action_calls.append((source_name, value))
+
+        # Register the action
+        handler.register_action(key="test_key", action=mock_action)
+
+        # First batch with a message for source1
+        batch1 = [
+            Message(
+                value=RawConfigItem(
+                    key=b'source1/my_service/test_key',
+                    value=json.dumps("value1").encode('utf-8'),
+                ),
+                timestamp=123456789,
+                stream=CONFIG_STREAM_ID,
+            )
+        ]
+        handler.handle(batch1)
+
+        # Second batch with messages for source2 and source3
+        batch2 = [
+            Message(
+                value=RawConfigItem(
+                    key=b'source2/my_service/test_key',
+                    value=json.dumps("value2").encode('utf-8'),
+                ),
+                timestamp=123456790,
+                stream=CONFIG_STREAM_ID,
+            ),
+            Message(
+                value=RawConfigItem(
+                    key=b'source3/my_service/test_key',
+                    value=json.dumps("value3").encode('utf-8'),
+                ),
+                timestamp=123456791,
+                stream=CONFIG_STREAM_ID,
+            ),
+        ]
+        handler.handle(batch2)
+
+        # Verify action was called for each source
+        assert len(action_calls) == 3
+        assert ("source1", "value1") in action_calls
+        assert ("source2", "value2") in action_calls
+        assert ("source3", "value3") in action_calls
+
+    def test_action_triggered_for_duplicate_sources_different_values(self):
+        handler = ConfigHandler(service_name="my_service")
+
+        # Set up a mock action
+        action_calls = []
+
+        def mock_action(source_name: str, value):
+            action_calls.append((source_name, value))
+
+        # Register the action
+        handler.register_action(key="test_key", action=mock_action)
+
+        # Send multiple messages for the same source but with different values
+        messages = [
+            Message(
+                value=RawConfigItem(
+                    key=b'source1/my_service/test_key',
+                    value=json.dumps("first-value").encode('utf-8'),
+                ),
+                timestamp=123456789,
+                stream=CONFIG_STREAM_ID,
+            ),
+            Message(
+                value=RawConfigItem(
+                    key=b'source1/my_service/test_key',
+                    value=json.dumps("updated-value").encode('utf-8'),
+                ),
+                timestamp=123456790,
+                stream=CONFIG_STREAM_ID,
+            ),
+        ]
+
+        handler.handle(messages)
+
+        # Verify action was called once with the final value
+        assert len(action_calls) == 1
+        assert action_calls[0] == ("source1", "updated-value")
+
+    def test_action_triggered_once_per_source_for_same_key(self):
+        handler = ConfigHandler(service_name="my_service")
+
+        # Set up a mock action
+        action_calls = []
+
+        def mock_action(source_name: str, value):
+            action_calls.append((source_name, value))
+
+        # Register the action
+        handler.register_action(key="test_key", action=mock_action)
+
+        # Send messages with multiple updates for different sources
+        messages = [
+            # First source has two updates
+            Message(
+                value=RawConfigItem(
+                    key=b'source1/my_service/test_key',
+                    value=json.dumps("source1-first").encode('utf-8'),
+                ),
+                timestamp=123456789,
+                stream=CONFIG_STREAM_ID,
+            ),
+            Message(
+                value=RawConfigItem(
+                    key=b'source1/my_service/test_key',
+                    value=json.dumps("source1-final").encode('utf-8'),
+                ),
+                timestamp=123456795,
+                stream=CONFIG_STREAM_ID,
+            ),
+            # Global update
+            Message(
+                value=RawConfigItem(
+                    key=b'*/my_service/test_key',
+                    value=json.dumps("global-first").encode('utf-8'),
+                ),
+                timestamp=123456791,
+                stream=CONFIG_STREAM_ID,
+            ),
+            Message(
+                value=RawConfigItem(
+                    key=b'*/my_service/test_key',
+                    value=json.dumps("global-final").encode('utf-8'),
+                ),
+                timestamp=123456792,
+                stream=CONFIG_STREAM_ID,
+            ),
+            # Second source has one update
+            Message(
+                value=RawConfigItem(
+                    key=b'source2/my_service/test_key',
+                    value=json.dumps("source2-value").encode('utf-8'),
+                ),
+                timestamp=123456790,
+                stream=CONFIG_STREAM_ID,
+            ),
+        ]
+
+        handler.handle(messages)
+
+        # Verify action was called once per source with the final value
+        assert len(action_calls) == 2  # One for each source
+        assert ("source1", "global-final") in action_calls
+        assert ("source2", "source2-value") in action_calls
