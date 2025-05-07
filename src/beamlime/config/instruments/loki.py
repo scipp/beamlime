@@ -117,6 +117,27 @@ qbins_param = Parameter(
     param_type=ParameterType.INT,
     default=20,
 )
+wav_min_param = Parameter(
+    name='WavelengthMin',
+    unit='angstrom',
+    description='Minimum wavelength',
+    param_type=ParameterType.FLOAT,
+    default=1.0,
+)
+wav_max_param = Parameter(
+    name='WavelengthMax',
+    unit='angstrom',
+    description='Maximum wavelength',
+    param_type=ParameterType.FLOAT,
+    default=13.0,
+)
+wav_bins_param = Parameter(
+    name='WavelengthBins',
+    unit=None,
+    description='Number of wavelength bins',
+    param_type=ParameterType.INT,
+    default=100,
+)
 
 
 @processor_factory.register(name='I(Q)', source_names=source_names)
@@ -137,15 +158,30 @@ def _i_of_q(source_name: str) -> StreamProcessor:
 
 
 @processor_factory.register(
-    name='I(Q) with params', source_names=source_names, parameters=(qbins_param,)
+    name='I(Q) with params',
+    source_names=source_names,
+    parameters=(qbins_param, wav_min_param, wav_max_param, wav_bins_param),
 )
-def _i_of_q_with_params(source_name: str, QBins: int) -> StreamProcessor:
+def _i_of_q_with_params(
+    source_name: str,
+    QBins: int,
+    WavelengthMin: float,
+    WavelengthMax: float,
+    WavelengthBins: int,
+) -> StreamProcessor:
     wf = _configured_Larmor_AgBeh_workflow()
     wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
     wf[NeXusDetectorName] = source_name
 
     wf[params.QBins] = sc.linspace(
         dim='Q', start=0.01, stop=0.3, num=QBins + 1, unit='1/angstrom'
+    )
+    wf[params.WavelengthBins] = sc.linspace(
+        dim='wavelength',
+        start=WavelengthMin,
+        stop=WavelengthMax,
+        num=WavelengthBins + 1,
+        unit='angstrom',
     )
     return StreamProcessor(
         wf,

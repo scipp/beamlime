@@ -130,15 +130,17 @@ class DashboardApp(ServiceBase):
                 return parameters
         return []
 
-    def _create_parameter_widget(self, param: dict, param_id_prefix: str) -> list:
+    def _create_parameter_widget(self, param: dict) -> list:
         """Create appropriate widget based on parameter type."""
         param_type = param.get('param_type', 'STRING').upper()
+        unit = param.get('unit')
         default_value = param.get('default', '')
         description = param.get('description', '')
+        widget_id = {'type': 'param-input', 'name': param['name']}
 
         # Create label with tooltip for description
         label = html.Label(
-            param['name'],
+            param['name'] if not unit else f'{param["name"]} [{unit}]',
             title=description,  # Tooltip on hover
             style={'cursor': 'help' if description else 'default'},
         )
@@ -146,14 +148,14 @@ class DashboardApp(ServiceBase):
         # Create appropriate input widget based on parameter type
         if param_type == 'BOOL':
             input_widget = dcc.Checklist(
-                id={'type': 'param-input', 'name': param['name']},
+                id=widget_id,
                 options=[{'label': '', 'value': 'true'}],
                 value=['true'] if default_value else [],
                 style={'margin': '5px 0'},
             )
         elif param_type == 'INT':
             input_widget = dcc.Input(
-                id={'type': 'param-input', 'name': param['name']},
+                id=widget_id,
                 type='number',
                 step=1,
                 value=default_value,
@@ -161,7 +163,7 @@ class DashboardApp(ServiceBase):
             )
         elif param_type == 'FLOAT':
             input_widget = dcc.Input(
-                id={'type': 'param-input', 'name': param['name']},
+                id=widget_id,
                 type='number',
                 step=0.1,
                 value=default_value,
@@ -170,7 +172,7 @@ class DashboardApp(ServiceBase):
         elif param_type == 'OPTIONS' and 'options' in param:
             options = [{'label': opt, 'value': opt} for opt in param['options']]
             input_widget = dcc.Dropdown(
-                id={'type': 'param-input', 'name': param['name']},
+                id=widget_id,
                 options=options,
                 value=default_value
                 if default_value in param['options']
@@ -179,7 +181,7 @@ class DashboardApp(ServiceBase):
             )
         else:  # Default to string input for any other type
             input_widget = dcc.Input(
-                id={'type': 'param-input', 'name': param['name']},
+                id=widget_id,
                 type='text',
                 value=str(default_value),
                 style={'width': '100%'},
@@ -896,9 +898,7 @@ class DashboardApp(ServiceBase):
 
             # Create widgets for each parameter
             for param in parameters:
-                parameter_widgets.extend(
-                    self._create_parameter_widget(param, f"param-{workflow_id}")
-                )
+                parameter_widgets.extend(self._create_parameter_widget(param))
 
             return parameter_widgets
 

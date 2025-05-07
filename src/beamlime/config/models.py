@@ -205,6 +205,7 @@ class Parameter(BaseModel, Generic[T]):
     """
 
     name: str = Field(description="Name of the parameter.")
+    unit: str | None = Field(default=None, description="Unit of the parameter.")
     description: str = Field(description="Description of the parameter.")
     param_type: ParameterType = Field(description="Type of the parameter.")
     default: T | None = Field(
