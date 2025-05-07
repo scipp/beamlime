@@ -740,6 +740,19 @@ class DashboardApp(ServiceBase):
         self._config_service.update_config(config_key, model.model_dump())
         return 0
 
+    def stop_workflow(self, n_clicks: int | None, source_name: str | None) -> int:
+        """Stop/disable a workflow for the selected source."""
+        if n_clicks is None or n_clicks == 0 or not source_name:
+            raise PreventUpdate
+
+        config_key = ConfigKey(
+            source_name=source_name,
+            service_name="data_reduction",
+            key="workflow_config",
+        )
+        self._config_service.update_config(config_key, None)
+        return 0
+
     def send_workflow_control(
         self,
         n_clicks: int | None,
@@ -897,17 +910,6 @@ class DashboardApp(ServiceBase):
                     style={'color': 'red', 'margin': '10px 0'},
                 )
             ]
-
-    def stop_workflow(self, n_clicks: int | None, source_name: str | None) -> int:
-        """Stop/disable a workflow for the selected source."""
-        if n_clicks is None or n_clicks == 0 or not source_name:
-            raise PreventUpdate
-
-        config_key = ConfigKey(
-            source_name=source_name, service_name="data_reduction", key="workflow_name"
-        )
-        self._config_service.update_config(config_key, None)
-        return 0
 
     def update_source_dropdown(self, _: int, current_value: str | None) -> list[dict]:
         """
