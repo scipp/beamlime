@@ -162,6 +162,10 @@ def _i_of_q(source_name: str) -> StreamProcessor:
     )
 
 
+# Note: For now we are setting up a manual parameter mapping. In the future we may want
+# auto-generate this, e.g., based on the widget-related components in ess.reduce.
+# On the other hand, a curated list of parameters may be useful and advantageous for
+# a simplified workflow control for live reduction.
 @processor_factory.register(
     name='I(Q) with params',
     source_names=_source_names,
