@@ -37,6 +37,22 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         handler_factory: HandlerFactory[Tin, Tout],
         startup_messages: list[Message[Tout]] | None = None,
     ) -> None:
+        """
+        Parameters
+        ----------
+        instrument:
+            The name of the instrument.
+        name:
+            The name of the service.
+        log_level:
+            The log level to use for the service.
+        adapter:
+            The message adapter to use for incoming messages.
+        handler_factory:
+            The factory to use for creating handlers for messages.
+        startup_messages:
+            A list of messages to publish before starting the service.
+        """
         self._name = f'{instrument}_{name}'
         self._log_level = log_level
         self._topics: list[KafkaTopic] | None = None
