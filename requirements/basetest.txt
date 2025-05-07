@@ -180,7 +180,7 @@ sciline==25.4.1
     #   essreduce
     #   esssans
     #   essspectroscopy
-scipp==25.4.0
+scipp==25.5.0
     # via
     #   essreduce
     #   esssans
