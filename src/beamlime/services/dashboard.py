@@ -491,21 +491,16 @@ class DashboardApp(ServiceBase):
             Input('use-weights-checkbox', 'value'),
         )(self.update_use_weights)
 
-        # Replace workflow enable/disable callback with new button callbacks
         self._app.callback(
             Output('workflow-controls-container', 'children'),
             Input('workflow-configure-button', 'n_clicks'),
             State('workflow-source-name', 'value'),
         )(self.show_workflow_config)
-
-        # Add callback for workflow selection to update parameters
         self._app.callback(
             Output('workflow-params-container', 'children'),
             Input('workflow-name', 'value'),
             State('workflow-source-name', 'value'),
         )(self.update_workflow_parameters)
-
-        # Add callback for workflow stop button
         self._app.callback(
             Output('workflow-stop-button', 'n_clicks'),
             Input('workflow-stop-button', 'n_clicks'),
