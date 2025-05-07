@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+import hashlib
 import inspect
-import uuid
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from functools import wraps
+from importlib import metadata
 
 from ess.reduce.streaming import StreamProcessor
 
@@ -80,7 +81,8 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
                 source_names=source_names or [],
                 parameters=parameters or [],
             )
-            spec_id = str(uuid.uuid4())
+
+            spec_id = _hash_factory(factory)
             self._factories[spec_id] = factory
             self._workflow_specs[spec_id] = spec
             return wrapper
@@ -135,3 +137,38 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
             return factory(**kwargs)
         else:
             return factory()
+
+
+def _hash_factory(factory: Callable[[], StreamProcessor]) -> str:
+    """
+    Create a simple hash of the factory function to use as a unique identifier.
+
+    Note that this is currently not a full hash of the workflow or stream processor, but
+    it should catch a fair number of changes, while enabling workflow recreation across
+    service restarts. If the workflow or stream processor had incompatible changes, the
+    worst that can happen is likely exceptions when running the workflow, e.g., from
+    missing parameters.
+
+    Parameters
+    ----------
+    factory:
+        The factory function to hash.
+
+    Returns
+    -------
+    :
+        The hash of the factory function.
+    """
+    module_name = factory.__module__
+    package_name = module_name.split('.')[0]
+    qualname = factory.__qualname__
+    version = metadata.version(package_name)
+    source = inspect.getsource(factory)
+    info = (
+        module_name.encode()
+        + package_name.encode()
+        + qualname.encode()
+        + version.encode()
+        + source.encode()
+    )
+    return hashlib.sha256(info).hexdigest()
