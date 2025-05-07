@@ -120,16 +120,9 @@ class TestStreamProcessorFactory:
 
         workflow_id = next(iter(factory))
 
-        # Test __getitem__
         assert factory[workflow_id].name == "workflow1"
-
-        # Test __iter__
         assert list(iter(factory)) == [workflow_id]
-
-        # Test __len__
         assert len(factory) == 1
-
-        # Test keys(), values(), items()
         assert list(factory.keys()) == [workflow_id]
         assert len(list(factory.values())) == 1
         assert next(iter(factory.items()))[0] == workflow_id
