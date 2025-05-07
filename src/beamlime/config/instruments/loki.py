@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+import ess.loki.live  # noqa: F401
 import scipp as sc
-from ess.loki.live import _configured_Larmor_AgBeh_workflow
+from ess import loki
 from ess.reduce.nexus.types import NeXusData, NeXusDetectorName, SampleRun
 from ess.reduce.streaming import StreamProcessor
 from ess.sans import types as params
@@ -139,10 +140,14 @@ wav_bins_param = Parameter(
     default=100,
 )
 
+# Created once outside workflow wrappers since this configures some files from pooch
+# where a checksum is needed, which takes significant time.
+_base_workflow = loki.live._configured_Larmor_AgBeh_workflow()
+
 
 @processor_factory.register(name='I(Q)', source_names=source_names)
 def _i_of_q(source_name: str) -> StreamProcessor:
-    wf = _configured_Larmor_AgBeh_workflow()
+    wf = _base_workflow.copy()
     wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
     wf[NeXusDetectorName] = source_name
     return StreamProcessor(
@@ -169,7 +174,7 @@ def _i_of_q_with_params(
     WavelengthMax: float,
     WavelengthBins: int,
 ) -> StreamProcessor:
-    wf = _configured_Larmor_AgBeh_workflow()
+    wf = _base_workflow.copy()
     wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
     wf[NeXusDetectorName] = source_name
 
