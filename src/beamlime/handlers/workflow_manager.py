@@ -2,7 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-from collections.abc import Iterator, MutableMapping, Sequence
+from collections.abc import Iterator, MutableMapping
 
 import scipp as sc
 from ess.reduce.streaming import StreamProcessor
@@ -41,12 +41,7 @@ class ProcessorRegistry(MutableMapping[str, StreamProcessor]):
 
 
 class WorkflowManager:
-    def __init__(
-        self,
-        *,
-        source_names: Sequence[str],
-        source_to_key: dict[str, Key],
-    ) -> None:
+    def __init__(self, *, source_to_key: dict[str, Key]) -> None:
         """
         Parameters
         ----------
@@ -60,12 +55,9 @@ class WorkflowManager:
         dynamic_workflows:
             Dictionary mapping source names to dynamic workflows.
         """
-        self._source_names = source_names
         self._source_to_key = source_to_key
         self._processors = ProcessorRegistry()
         self._proxies: dict[str, StreamProcessorProxy] = {}
-        for name in source_names:
-            self.set_worklow(name, None)
 
     def get_workflow_specs(self) -> WorkflowSpecs:
         """
@@ -89,8 +81,6 @@ class WorkflowManager:
         workflow:
             The workflow to attach to the source name. If None, the workflow is removed.
         """
-        if source_name not in self._source_names:
-            raise ValueError(f"Workflow {source_name} was not defined in the manager.")
         if processor is None:
             self._processors.pop(source_name, None)
         else:
@@ -118,7 +108,7 @@ class WorkflowManager:
         wf_key = self._source_to_key.get(source_name)
         if wf_key is None:
             return None
-        if source_name in self._source_names:
+        if source_name in processor_factory.source_names:
             # Note that the processor may be 'None' at this point.
             proxy = StreamProcessorProxy(self._processors.get(source_name), key=wf_key)
             self._proxies[source_name] = proxy

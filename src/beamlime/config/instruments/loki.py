@@ -99,7 +99,7 @@ detectors_config = {
     },
 }
 
-source_names = (
+_source_names = (
     'loki_detector_0',
     'loki_detector_1',
     'loki_detector_2',
@@ -145,7 +145,7 @@ wav_bins_param = Parameter(
 _base_workflow = loki.live._configured_Larmor_AgBeh_workflow()
 
 
-@processor_factory.register(name='I(Q)', source_names=source_names)
+@processor_factory.register(name='I(Q)', source_names=_source_names)
 def _i_of_q(source_name: str) -> StreamProcessor:
     wf = _base_workflow.copy()
     wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
@@ -164,7 +164,7 @@ def _i_of_q(source_name: str) -> StreamProcessor:
 
 @processor_factory.register(
     name='I(Q) with params',
-    source_names=source_names,
+    source_names=_source_names,
     parameters=(qbins_param, wav_min_param, wav_max_param, wav_bins_param),
 )
 def _i_of_q_with_params(

@@ -29,10 +29,7 @@ def make_reduction_service_builder(
         .build()
     )
     instrument_config = get_config(instrument)
-    workflow_manager = WorkflowManager(
-        source_names=instrument_config.source_names,
-        source_to_key=instrument_config.source_to_key,
-    )
+    workflow_manager = WorkflowManager(source_to_key=instrument_config.source_to_key)
     service_name = 'data_reduction'
     publish_workflow_specs(
         instrument=instrument,
