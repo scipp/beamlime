@@ -162,7 +162,10 @@ def _hash_factory(factory: Callable[[], StreamProcessor]) -> str:
     module_name = factory.__module__
     package_name = module_name.split('.')[0]
     qualname = factory.__qualname__
-    version = metadata.version(package_name)
+    try:
+        version = metadata.version(package_name)
+    except metadata.PackageNotFoundError:
+        version = '0.0.0'
     source = inspect.getsource(factory)
     info = (
         module_name.encode()
