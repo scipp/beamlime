@@ -105,9 +105,7 @@ class DashboardApp(ServiceBase):
             workflow_source_names.update(source_names)
 
         # Combine with instrument config source names
-        all_source_names = list(
-            set(self._instrument_config.source_names) | workflow_source_names
-        )
+        all_source_names = list(workflow_source_names)
         all_source_names.sort()  # Sort for consistent display
         return all_source_names
 
@@ -917,35 +915,17 @@ class DashboardApp(ServiceBase):
 
         Preserves the current selection by passing it through.
         """
-        try:
-            source_names = self._get_all_source_names()
-            options = [{'label': name, 'value': name} for name in source_names]
+        options = [
+            {'label': name, 'value': name} for name in self._get_all_source_names()
+        ]
 
-            # Ensure current value is in options if it's not None
-            if current_value and not any(
-                opt['value'] == current_value for opt in options
-            ):
-                options.append(
-                    {'label': f"{current_value} (not found)", 'value': current_value}
-                )
+        # Ensure current value is in options if it's not None
+        if current_value and not any(opt['value'] == current_value for opt in options):
+            options.append(
+                {'label': f"{current_value} (not found)", 'value': current_value}
+            )
 
-            return options
-        except Exception as e:
-            self._logger.warning("Failed to update source dropdown: %s", e)
-            options = [
-                {'label': name, 'value': name}
-                for name in self._instrument_config.source_names
-            ]
-
-            # Same check for current value
-            if current_value and not any(
-                opt['value'] == current_value for opt in options
-            ):
-                options.append(
-                    {'label': f"{current_value} (not found)", 'value': current_value}
-                )
-
-            return options
+        return options
 
     def set_initial_source(
         self, options: list[dict], current_value: str | None

@@ -6,12 +6,12 @@ import logging
 from typing import NoReturn
 
 from beamlime.config.instruments import get_config
+from beamlime.config.models import ConfigKey
 from beamlime.config.streams import get_stream_mapping
-from beamlime.core.message import CONFIG_STREAM_ID
-from beamlime.handlers.config_handler import ConfigHandler
+from beamlime.core.message import CONFIG_STREAM_ID, Message
+from beamlime.handlers.config_handler import ConfigHandler, ConfigUpdate
 from beamlime.handlers.data_reduction_handler import ReductionHandlerFactory
-from beamlime.handlers.workflow_manager import WorkflowManager
-from beamlime.kafka.publisher import publish_workflow_specs
+from beamlime.handlers.workflow_manager import WorkflowManager, get_workflow_specs
 from beamlime.kafka.routes import RoutingAdapterBuilder
 from beamlime.service_factory import DataServiceBuilder, DataServiceRunner
 
@@ -31,11 +31,6 @@ def make_reduction_service_builder(
     instrument_config = get_config(instrument)
     workflow_manager = WorkflowManager(source_to_key=instrument_config.source_to_key)
     service_name = 'data_reduction'
-    publish_workflow_specs(
-        instrument=instrument,
-        workflow_specs=workflow_manager.get_workflow_specs(),
-        service_name=service_name,
-    )
     config_handler = ConfigHandler(service_name=service_name)
     config_handler.register_action(
         key='workflow_config', action=workflow_manager.set_workflow_with_config
@@ -45,12 +40,21 @@ def make_reduction_service_builder(
         workflow_manager=workflow_manager,
         f144_attribute_registry=instrument_config.f144_attribute_registry,
     )
+    workflow_specs_msg = Message(
+        timestamp=0,
+        stream=CONFIG_STREAM_ID,
+        value=ConfigUpdate(
+            config_key=ConfigKey(service_name=service_name, key='workflow_specs'),
+            value=get_workflow_specs(),
+        ),
+    )
     builder = DataServiceBuilder(
         instrument=instrument,
         name=service_name,
         log_level=log_level,
         adapter=adapter,
         handler_factory=handler_factory,
+        startup_messages=[workflow_specs_msg],
     )
     builder.add_handler(CONFIG_STREAM_ID, config_handler)
     return builder
