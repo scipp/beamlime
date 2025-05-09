@@ -5,6 +5,7 @@
 import logging
 from typing import NoReturn
 
+from beamlime.config import instrument_registry
 from beamlime.config.instruments import get_config
 from beamlime.config.models import ConfigKey
 from beamlime.config.streams import get_stream_mapping
@@ -28,7 +29,8 @@ def make_reduction_service_builder(
         .with_beamlime_config_route()
         .build()
     )
-    instrument_config = get_config(instrument)
+    _ = get_config(instrument)  # Load the module to register the instrument
+    instrument_config = instrument_registry[instrument]
     workflow_manager = WorkflowManager(
         processor_factory=instrument_config.processor_factory,
         source_to_key=instrument_config.source_to_key,

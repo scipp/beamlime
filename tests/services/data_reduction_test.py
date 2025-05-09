@@ -153,7 +153,7 @@ def test_publishes_workflow_specs_on_startup(instrument: str) -> None:
     assert isinstance(message.value, ConfigUpdate)
     assert isinstance(message.value.config_key, ConfigKey)
     assert isinstance(message.value.value, WorkflowSpecs)
-    if instrument in ('bifrost', 'loki'):
+    if instrument in ('bifrost', 'dummy', 'loki'):
         assert len(message.value.value.workflows) > 0
 
 

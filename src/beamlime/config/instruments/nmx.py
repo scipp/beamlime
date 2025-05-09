@@ -2,10 +2,13 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import scipp as sc
 
+from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
+
+instrument = Instrument(name='nmx')
 
 # TODO Unclear if this is transposed or not. Wait for updated files.
 dim = 'detector_number'
