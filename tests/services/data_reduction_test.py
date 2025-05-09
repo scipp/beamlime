@@ -131,9 +131,14 @@ def make_reduction_app(instrument: str) -> ReductionApp:
     service = builder.from_consumer(
         consumer=consumer, sink=UnrollingSinkAdapter(sink), raise_on_adapter_error=True
     )
-    return ReductionApp(
+    app = ReductionApp(
         service=service, consumer=consumer, sink=sink, instrument=instrument
     )
+    app.publish_config_message(
+        key=ConfigKey(key="update_every"),
+        value=models.UpdateEvery(value=0.5, unit='s').model_dump(),
+    )
+    return app
 
 
 @pytest.fixture(params=('bifrost', 'dummy'))
