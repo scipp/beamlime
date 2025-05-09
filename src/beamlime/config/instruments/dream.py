@@ -7,10 +7,13 @@ import sciline
 import scipp as sc
 from ess.reduce.streaming import StreamProcessor
 
+from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
+
+instrument = Instrument(name='dream')
 
 
 def _get_mantle_front_layer(da: sc.DataArray) -> sc.DataArray:
