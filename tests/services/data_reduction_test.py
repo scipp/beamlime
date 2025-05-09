@@ -11,6 +11,7 @@ import pytest
 from streaming_data_types import eventdata_ev44
 
 from beamlime import Service, StreamKind
+from beamlime.config import models
 from beamlime.config.instruments import available_instruments, get_config
 from beamlime.config.models import ConfigKey, WorkflowConfig, WorkflowSpecs
 from beamlime.config.streams import stream_kind_to_topic
@@ -286,3 +287,53 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     app.publish_events(size=1000, time=20)
     service.step()
     assert len(sink.messages) == 3
+
+
+def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO)
+    app = make_reduction_app(instrument='dummy')
+    sink = app.sink
+    service = app.service
+    workflow_specs = sink.messages[0].value.value
+    workflow_id, spec = next(iter(workflow_specs.workflows.items()))
+
+    app.publish_events(size=1000, time=0)
+    service.step()
+
+    # Assume workflow is runnable for all source names
+    config_key = ConfigKey(
+        source_name=None, service_name="data_reduction", key="workflow_config"
+    )
+    workflow_config = WorkflowConfig(
+        identifier=workflow_id,
+        values={param.name: param.default for param in spec.parameters},
+    )
+    # Trigger workflow start
+    app.publish_config_message(key=config_key, value=workflow_config.model_dump())
+    app.publish_events(size=2000, time=1)
+    app.publish_events(size=3000, time=2)
+    service.step()
+    assert len(sink.messages) == 2
+    assert sink.messages[-1].value.values.sum() == 5000
+
+    config_key = ConfigKey(key="start_time")
+    model = models.StartTime(value=5, unit='s')
+    app.publish_config_message(key=config_key, value=model.model_dump())
+
+    app.publish_events(size=1000, time=4)
+    service.step()
+    assert sink.messages[-1].value.values.sum() == 1000
+    app.publish_events(size=1000, time=6)
+    service.step()
+    assert sink.messages[-1].value.values.sum() == 2000
+
+    config_key = ConfigKey(key="start_time")
+    model = models.StartTime(value=8, unit='s')
+    app.publish_config_message(key=config_key, value=model.model_dump())
+
+    app.publish_events(size=100, time=9)
+    service.step()
+    assert sink.messages[-1].value.values.sum() == 100
+    app.publish_events(size=100, time=10)
+    service.step()
+    assert sink.messages[-1].value.values.sum() == 200
