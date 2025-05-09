@@ -3,7 +3,6 @@
 import hashlib
 import inspect
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from functools import wraps
 from importlib import metadata
 
 from ess.reduce.streaming import StreamProcessor
@@ -69,23 +68,18 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
         """
 
         def decorator(
-            factory: Callable[[], StreamProcessor],
-        ) -> Callable[[], StreamProcessor]:
-            @wraps(factory)
-            def wrapper() -> StreamProcessor:
-                return factory()
-
+            factory: Callable[..., StreamProcessor],
+        ) -> Callable[..., StreamProcessor]:
             spec = WorkflowSpec(
                 name=name,
                 description=description,
                 source_names=source_names or [],
                 parameters=parameters or [],
             )
-
             spec_id = _hash_factory(factory)
             self._factories[spec_id] = factory
             self._workflow_specs[spec_id] = spec
-            return wrapper
+            return factory
 
         return decorator
 

@@ -168,10 +168,11 @@ spectrum_view_pixels_per_tube_param = Parameter(
 def _spectrum_view(
     SpectrumViewTimeBins: int, SpectrumViewPixelsPerTube: int
 ) -> StreamProcessor:
-    _reduction_workflow[_SpectrumViewTimeBins] = SpectrumViewTimeBins
-    _reduction_workflow[_SpectrumViewPixelsPerTube] = SpectrumViewPixelsPerTube
+    wf = _reduction_workflow.copy()
+    wf[_SpectrumViewTimeBins] = SpectrumViewTimeBins
+    wf[_SpectrumViewPixelsPerTube] = SpectrumViewPixelsPerTube
     return StreamProcessor(
-        _reduction_workflow.copy(),
+        wf,
         dynamic_keys=(NeXusData[NXdetector, SampleRun],),
         target_keys=(SpectrumView,),
         accumulators=(SpectrumView,),
