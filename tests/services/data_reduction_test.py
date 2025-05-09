@@ -183,7 +183,9 @@ def test_can_configure_and_stop_workflow_with_detector(
         identifier=workflow_id,
         values={param.name: param.default for param in spec.parameters},
     )
+    # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
+
     app.publish_events(size=2000, time=2)
     service.step()
     assert len(sink.messages) == 1
@@ -206,6 +208,76 @@ def test_can_configure_and_stop_workflow_with_detector(
     service.step()
     assert len(sink.messages) == 3
     assert sink.messages[2].value.values.sum() == 7000
+
+    # Stop workflow
+    app.publish_config_message(key=config_key, value=None)
+    app.publish_events(size=1000, time=10)
+    service.step()
+    app.publish_events(size=1000, time=20)
+    service.step()
+    assert len(sink.messages) == 3
+
+
+@pytest.mark.parametrize("instrument", ['loki'])
+def test_can_configure_and_stop_workflow_with_detector_and_monitors(
+    instrument: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = make_reduction_app(instrument=instrument)
+    sink = app.sink
+    service = app.service
+    workflow_specs = sink.messages[0].value.value
+    workflow_id, spec = next(iter(workflow_specs.workflows.items()))
+    sink.messages.clear()
+    service.step()
+    assert len(sink.messages) == 0
+
+    app.publish_events(size=1000, time=0)
+    service.step()
+    assert len(sink.messages) == 0
+
+    # Assume workflow is runnable for all source names
+    config_key = ConfigKey(
+        source_name=None, service_name="data_reduction", key="workflow_config"
+    )
+    workflow_config = WorkflowConfig(
+        identifier=workflow_id,
+        values={param.name: param.default for param in spec.parameters},
+    )
+    # Trigger workflow start
+    app.publish_config_message(key=config_key, value=workflow_config.model_dump())
+
+    app.publish_events(size=2000, time=2)
+    service.step()
+    # No monitor data yet, so the workflow was not able to produce a result yet
+    assert len(sink.messages) == 0
+
+    # Monitor messages on their own do not trigger the workflow...
+    app.publish_monitor_events(size=2000, time=3)
+    service.step()
+    assert len(sink.messages) == 0
+
+    # ... trigger by detector events instead
+    app.publish_events(size=0, time=3)
+    service.step()
+    assert len(sink.messages) == 1
+
+    # Once we have monitor data the worklow works even if only detector data comes in.
+    # There is currently no "smart" mechanism to check if we have monitor and detector
+    # data for the same time (intervals).
+    app.publish_events(size=3000, time=4)
+    service.step()
+    assert len(sink.messages) == 2
+
+    # More events but the same time, should not publish again
+    app.publish_events(size=1000, time=4)
+    service.step()
+    assert len(sink.messages) == 2
+
+    # Later time should publish again
+    app.publish_events(size=1000, time=5)
+    service.step()
+    assert len(sink.messages) == 3
 
     # Stop workflow
     app.publish_config_message(key=config_key, value=None)
