@@ -12,7 +12,7 @@ from .config import config_names
 from .config.config_loader import load_config
 from .core import MessageSink, StreamProcessor
 from .core.handler import HandlerFactory, HandlerRegistry
-from .core.message import MessageSource, StreamId
+from .core.message import Message, MessageSource, StreamId
 from .core.service import Service
 from .kafka import KafkaTopic
 from .kafka import consumer as kafka_consumer
@@ -35,13 +35,31 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         log_level: int = logging.INFO,
         adapter: MessageAdapter | None = None,
         handler_factory: HandlerFactory[Tin, Tout],
-    ):
+        startup_messages: list[Message[Tout]] | None = None,
+    ) -> None:
+        """
+        Parameters
+        ----------
+        instrument:
+            The name of the instrument.
+        name:
+            The name of the service.
+        log_level:
+            The log level to use for the service.
+        adapter:
+            The message adapter to use for incoming messages.
+        handler_factory:
+            The factory to use for creating handlers for messages.
+        startup_messages:
+            A list of messages to publish before starting the service.
+        """
         self._name = f'{instrument}_{name}'
         self._log_level = log_level
         self._topics: list[KafkaTopic] | None = None
         self._instrument = instrument
         self._adapter = adapter
         self._handler_registry = HandlerRegistry(factory=handler_factory)
+        self._startup_messages = startup_messages or []
 
     @property
     def instrument(self) -> str:
@@ -116,6 +134,7 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
             sink=sink,
             handler_registry=self._handler_registry,
         )
+        sink.publish_messages(self._startup_messages)
         return Service(
             processor=processor,
             name=self._name,

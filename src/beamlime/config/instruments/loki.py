@@ -1,8 +1,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-from ess.loki.live import _configured_Larmor_AgBeh_workflow
+import ess.loki.live  # noqa: F401
+import scipp as sc
+from ess import loki
 from ess.reduce.nexus.types import NeXusData, NeXusDetectorName, SampleRun
 from ess.reduce.streaming import StreamProcessor
+from ess.sans import types as params
 from ess.sans.types import (
     Denominator,
     Filename,
@@ -15,6 +18,7 @@ from ess.sans.types import (
 from scippnexus import NXdetector
 
 from beamlime.config.env import StreamingEnv
+from beamlime.config.models import Parameter, ParameterType
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.handlers.workflow_manager import processor_factory
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
@@ -95,10 +99,55 @@ detectors_config = {
     },
 }
 
+_source_names = (
+    'loki_detector_0',
+    'loki_detector_1',
+    'loki_detector_2',
+    'loki_detector_3',
+    'loki_detector_4',
+    'loki_detector_5',
+    'loki_detector_6',
+    'loki_detector_7',
+    'loki_detector_8',
+)
 
-@processor_factory.register(name='I(Q)')
+
+qbins_param = Parameter(
+    name='QBins',
+    description='Number of Q bins',
+    param_type=ParameterType.INT,
+    default=20,
+)
+wav_min_param = Parameter(
+    name='WavelengthMin',
+    unit='angstrom',
+    description='Minimum wavelength',
+    param_type=ParameterType.FLOAT,
+    default=1.0,
+)
+wav_max_param = Parameter(
+    name='WavelengthMax',
+    unit='angstrom',
+    description='Maximum wavelength',
+    param_type=ParameterType.FLOAT,
+    default=13.0,
+)
+wav_bins_param = Parameter(
+    name='WavelengthBins',
+    unit=None,
+    description='Number of wavelength bins',
+    param_type=ParameterType.INT,
+    default=100,
+)
+
+# Created once outside workflow wrappers since this configures some files from pooch
+# where a checksum is needed, which takes significant time.
+_base_workflow = loki.live._configured_Larmor_AgBeh_workflow()
+
+
+@processor_factory.register(name='I(Q)', source_names=_source_names)
 def _i_of_q(source_name: str) -> StreamProcessor:
-    wf = _configured_Larmor_AgBeh_workflow()
+    wf = _base_workflow.copy()
     wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
     wf[NeXusDetectorName] = source_name
     return StreamProcessor(
@@ -113,17 +162,48 @@ def _i_of_q(source_name: str) -> StreamProcessor:
     )
 
 
-source_names = (
-    'loki_detector_0',
-    'loki_detector_1',
-    'loki_detector_2',
-    'loki_detector_3',
-    'loki_detector_4',
-    'loki_detector_5',
-    'loki_detector_6',
-    'loki_detector_7',
-    'loki_detector_8',
+# Note: For now we are setting up a manual parameter mapping. In the future we may want
+# auto-generate this, e.g., based on the widget-related components in ess.reduce.
+# On the other hand, a curated list of parameters may be useful and advantageous for
+# a simplified workflow control for live reduction.
+@processor_factory.register(
+    name='I(Q) with params',
+    source_names=_source_names,
+    parameters=(qbins_param, wav_min_param, wav_max_param, wav_bins_param),
 )
+def _i_of_q_with_params(
+    source_name: str,
+    QBins: int,
+    WavelengthMin: float,
+    WavelengthMax: float,
+    WavelengthBins: int,
+) -> StreamProcessor:
+    wf = _base_workflow.copy()
+    wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
+    wf[NeXusDetectorName] = source_name
+
+    wf[params.QBins] = sc.linspace(
+        dim='Q', start=0.01, stop=0.3, num=QBins + 1, unit='1/angstrom'
+    )
+    wf[params.WavelengthBins] = sc.linspace(
+        dim='wavelength',
+        start=WavelengthMin,
+        stop=WavelengthMax,
+        num=WavelengthBins + 1,
+        unit='angstrom',
+    )
+    return StreamProcessor(
+        wf,
+        dynamic_keys=(
+            NeXusData[NXdetector, SampleRun],
+            NeXusData[Incident, SampleRun],
+            NeXusData[Transmission, SampleRun],
+        ),
+        target_keys=(IofQ[SampleRun],),
+        accumulators=(ReducedQ[SampleRun, Numerator], ReducedQ[SampleRun, Denominator]),
+    )
+
+
 source_to_key = {
     'loki_detector_0': NeXusData[NXdetector, SampleRun],
     'loki_detector_1': NeXusData[NXdetector, SampleRun],
