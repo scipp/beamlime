@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 from streaming_data_types import eventdata_ev44
 
-from beamlime import StreamKind
+from beamlime import Service, StreamKind
 from beamlime.config.instruments import available_instruments, get_config
 from beamlime.config.models import ConfigKey, WorkflowConfig, WorkflowSpecs
 from beamlime.config.streams import stream_kind_to_topic
@@ -41,7 +41,7 @@ class FakeConsumer(KafkaConsumer):
 class ReductionApp:
     """A testable "application" with a fake consumer and sink."""
 
-    service: KafkaConsumer
+    service: Service
     consumer: FakeConsumer
     sink: FakeMessageSink
     instrument: str
