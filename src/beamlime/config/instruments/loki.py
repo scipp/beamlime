@@ -17,10 +17,10 @@ from ess.sans.types import (
 )
 from scippnexus import NXdetector
 
+from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
 from beamlime.config.models import Parameter, ParameterType
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
-from beamlime.handlers.workflow_manager import processor_factory
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
@@ -144,8 +144,25 @@ wav_bins_param = Parameter(
 # where a checksum is needed, which takes significant time.
 _base_workflow = loki.live._configured_Larmor_AgBeh_workflow()
 
+instrument = Instrument(
+    name='loki',
+    source_to_key={
+        'loki_detector_0': NeXusData[NXdetector, SampleRun],
+        'loki_detector_1': NeXusData[NXdetector, SampleRun],
+        'loki_detector_2': NeXusData[NXdetector, SampleRun],
+        'loki_detector_3': NeXusData[NXdetector, SampleRun],
+        'loki_detector_4': NeXusData[NXdetector, SampleRun],
+        'loki_detector_5': NeXusData[NXdetector, SampleRun],
+        'loki_detector_6': NeXusData[NXdetector, SampleRun],
+        'loki_detector_7': NeXusData[NXdetector, SampleRun],
+        'loki_detector_8': NeXusData[NXdetector, SampleRun],
+        'monitor1': NeXusData[Incident, SampleRun],
+        'monitor2': NeXusData[Transmission, SampleRun],
+    },
+)
 
-@processor_factory.register(name='I(Q)', source_names=_source_names)
+
+@instrument.register_workflow(name='I(Q)', source_names=_source_names)
 def _i_of_q(source_name: str) -> StreamProcessor:
     wf = _base_workflow.copy()
     wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
@@ -166,7 +183,7 @@ def _i_of_q(source_name: str) -> StreamProcessor:
 # auto-generate this, e.g., based on the widget-related components in ess.reduce.
 # On the other hand, a curated list of parameters may be useful and advantageous for
 # a simplified workflow control for live reduction.
-@processor_factory.register(
+@instrument.register_workflow(
     name='I(Q) with params',
     source_names=_source_names,
     parameters=(qbins_param, wav_min_param, wav_max_param, wav_bins_param),
@@ -202,22 +219,6 @@ def _i_of_q_with_params(
         target_keys=(IofQ[SampleRun],),
         accumulators=(ReducedQ[SampleRun, Numerator], ReducedQ[SampleRun, Denominator]),
     )
-
-
-source_to_key = {
-    'loki_detector_0': NeXusData[NXdetector, SampleRun],
-    'loki_detector_1': NeXusData[NXdetector, SampleRun],
-    'loki_detector_2': NeXusData[NXdetector, SampleRun],
-    'loki_detector_3': NeXusData[NXdetector, SampleRun],
-    'loki_detector_4': NeXusData[NXdetector, SampleRun],
-    'loki_detector_5': NeXusData[NXdetector, SampleRun],
-    'loki_detector_6': NeXusData[NXdetector, SampleRun],
-    'loki_detector_7': NeXusData[NXdetector, SampleRun],
-    'loki_detector_8': NeXusData[NXdetector, SampleRun],
-    'monitor1': NeXusData[Incident, SampleRun],
-    'monitor2': NeXusData[Transmission, SampleRun],
-}
-f144_attribute_registry = {}
 
 
 def _make_loki_detectors() -> StreamLUT:

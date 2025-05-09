@@ -18,10 +18,10 @@ from ess.reduce.nexus.types import (
 from ess.reduce.streaming import StreamProcessor
 from scippnexus import NXdetector
 
+from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
 from beamlime.config.models import Parameter, ParameterType
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
-from beamlime.handlers.workflow_manager import processor_factory
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
@@ -159,8 +159,19 @@ spectrum_view_pixels_per_tube_param = Parameter(
     options=[1, 2, 5, 10, 20, 50, 100],  # Must be a divisor of 100
 )
 
+instrument = Instrument(
+    name='bifrost',
+    source_to_key={
+        'unified_detector': NeXusData[NXdetector, SampleRun],
+        'detector_rotation': DetectorRotation,
+    },
+    f144_attribute_registry={
+        'detector_rotation': {'units': 'deg'},
+    },
+)
 
-@processor_factory.register(
+
+@instrument.register_workflow(
     name='spectrum-view',
     source_names=_source_names,
     parameters=(spectrum_view_time_bins_param, spectrum_view_pixels_per_tube_param),
@@ -179,7 +190,7 @@ def _spectrum_view(
     )
 
 
-@processor_factory.register(name='counts-per-angle', source_names=_source_names)
+@instrument.register_workflow(name='counts-per-angle', source_names=_source_names)
 def _counts_per_angle() -> StreamProcessor:
     return StreamProcessor(
         _reduction_workflow.copy(),
@@ -190,7 +201,7 @@ def _counts_per_angle() -> StreamProcessor:
     )
 
 
-@processor_factory.register(name='all', source_names=_source_names)
+@instrument.register_workflow(name='all', source_names=_source_names)
 def _all() -> StreamProcessor:
     return StreamProcessor(
         _reduction_workflow.copy(),
@@ -199,16 +210,6 @@ def _all() -> StreamProcessor:
         target_keys=(CountsPerAngle, SpectrumView),
         accumulators=(CountsPerAngle, SpectrumView),
     )
-
-
-source_to_key = {
-    'unified_detector': NeXusData[NXdetector, SampleRun],
-    'detector_rotation': DetectorRotation,
-}
-
-f144_attribute_registry = {
-    'detector_rotation': {'units': 'deg'},
-}
 
 
 def _make_bifrost_detectors() -> StreamLUT:

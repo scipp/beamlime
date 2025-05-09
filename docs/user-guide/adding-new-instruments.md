@@ -7,12 +7,30 @@ This guide explains how to add support for a new instrument in Beamlime.
 1. Create a new configuration file in `src/beamlime/config/instruments/<instrument>.py`
    - The filename will be used as the instrument identifier
    - Beamlime automatically detects and loads all Python files in this directory
-2. Add detector configuration including:
+2. Import and create and instance of the `Instrument` class in the new file.
+3. Add detector configuration including:
    - Detector names and pixel ID ranges
    - View configurations (resolution, projection type)
    - Optional pixel noise settings
 
-## Detector Configuration Example
+## Creating the Instrument instance
+
+Example of creating an instrument instance:
+
+```python
+from beamlime.config import Instrument
+
+instrument = Instrument(name='instrument_name')
+```
+
+Creating the instance registers the instrument with Beamlime and makes it available for use.
+The variable name (`instrument`) is irrelevant.
+The instrument instance provides further configuration options as well as a decorator for registering data reduction workflows.
+We refer to the API documentation for the `Instrument` class for more details.
+
+## Detector Configuration
+
+### Example
 
 Example for a new instrument with two detector panels:
 
@@ -55,7 +73,7 @@ To enable development without real detector data, you can add your instrument to
 - The pixel IDs must match your detector configuration and should not overlap
 - The fake detector service will generate random events within these ID ranges
 
-## View Types
+### View Types
 
 Beamlime supports different view types for detectors:
 
@@ -67,7 +85,7 @@ Geometric projections (`xy_plane`, `cylinder_mantle_z`) are used when detector p
 Projections are towards the sample position (assumed at the origin).
 For more details see [ess.reduce.live.raw](https://scipp.github.io/essreduce/generated/modules/ess.reduce.live.raw.html).
 
-## Geometry Files
+### Geometry Files
 
 If your instrument is configured to use `raw.LogicalView` *and* defined `detector_number` in the configuration, you do not need to provide a geometry file.
 Otherwise, you need to provide a NeXus geometry file for the instrument:

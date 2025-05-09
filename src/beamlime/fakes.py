@@ -33,7 +33,7 @@ class FakeMessageSink(Generic[T]):
     """
 
     def __init__(self) -> None:
-        self.messages = []
+        self.messages: list[Message[T]] = []
 
     def publish_messages(self, messages: list[Message[T]]) -> None:
         self.messages.extend(messages)
