@@ -19,6 +19,7 @@ from ess.reduce.streaming import StreamProcessor
 from scippnexus import NXdetector
 
 from beamlime.config.env import StreamingEnv
+from beamlime.config.models import Parameter, ParameterType
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.handlers.workflow_manager import processor_factory
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
@@ -92,12 +93,21 @@ SpectrumView = NewType('SpectrumView', sc.DataArray)
 DetectorRotation = NewType('DetectorRotation', sc.DataArray)
 CountsPerAngle = NewType('CountsPerAngle', sc.DataArray)
 
+_SpectrumViewTimeBins = NewType('_SpectrumViewTimeBins', int)
+_SpectrumViewPixelsPerTube = NewType('_SpectrumViewPixelsPerTube', int)
 
-def _make_spectrum_view(data: DetectorData[SampleRun]) -> SpectrumView:
-    edges = sc.linspace('event_time_offset', 0, 71_000_000, num=701, unit='ns')
-    # Combine 10 pixels into 1, so we have tubes with 10 pixels each
+
+def _make_spectrum_view(
+    data: DetectorData[SampleRun],
+    time_bins: _SpectrumViewTimeBins,
+    pixels_per_tube: _SpectrumViewPixelsPerTube,
+) -> SpectrumView:
+    edges = sc.linspace(
+        'event_time_offset', 0, 71_000_000, num=time_bins + 1, unit='ns'
+    )
+    # Combine, e.g., 10 pixels into 1, so we have tubes with 10 pixels each
     return (
-        data.fold('pixel', sizes={'pixel': 10, 'subpixel': -1})
+        data.fold('pixel', sizes={'pixel': pixels_per_tube, 'subpixel': -1})
         .drop_coords(tuple(data.coords))
         .bins.concat('subpixel')
         .flatten(to='analyzer/tube/sector/pixel')
@@ -127,12 +137,39 @@ _reduction_workflow[CalibratedBeamline[SampleRun]] = (
     .reduce(func=_combine_banks)
 )
 
+_reduction_workflow[_SpectrumViewTimeBins] = 500
+_reduction_workflow[_SpectrumViewPixelsPerTube] = 10
 _reduction_workflow.insert(_make_spectrum_view)
 _reduction_workflow.insert(_make_counts_per_angle)
 
+_source_names = ('unified_detector',)
 
-@processor_factory.register(name='spectrum-view')
-def _spectrum_view() -> StreamProcessor:
+spectrum_view_time_bins_param = Parameter(
+    name='SpectrumViewTimeBins',
+    description='Number of time bins for the spectrum view.',
+    param_type=ParameterType.INT,
+    default=500,
+)
+
+spectrum_view_pixels_per_tube_param = Parameter(
+    name='SpectrumViewPixelsPerTube',
+    description='Number of pixels per tube for the spectrum view.',
+    param_type=ParameterType.OPTIONS,
+    default=10,
+    options=[1, 2, 5, 10, 20, 50, 100],  # Must be a divisor of 100
+)
+
+
+@processor_factory.register(
+    name='spectrum-view',
+    source_names=_source_names,
+    parameters=(spectrum_view_time_bins_param, spectrum_view_pixels_per_tube_param),
+)
+def _spectrum_view(
+    SpectrumViewTimeBins: int, SpectrumViewPixelsPerTube: int
+) -> StreamProcessor:
+    _reduction_workflow[_SpectrumViewTimeBins] = SpectrumViewTimeBins
+    _reduction_workflow[_SpectrumViewPixelsPerTube] = SpectrumViewPixelsPerTube
     return StreamProcessor(
         _reduction_workflow.copy(),
         dynamic_keys=(NeXusData[NXdetector, SampleRun],),
@@ -141,7 +178,7 @@ def _spectrum_view() -> StreamProcessor:
     )
 
 
-@processor_factory.register(name='counts-per-angle')
+@processor_factory.register(name='counts-per-angle', source_names=_source_names)
 def _counts_per_angle() -> StreamProcessor:
     return StreamProcessor(
         _reduction_workflow.copy(),
@@ -152,7 +189,7 @@ def _counts_per_angle() -> StreamProcessor:
     )
 
 
-@processor_factory.register(name='all')
+@processor_factory.register(name='all', source_names=_source_names)
 def _all() -> StreamProcessor:
     return StreamProcessor(
         _reduction_workflow.copy(),
@@ -163,7 +200,6 @@ def _all() -> StreamProcessor:
     )
 
 
-source_names = ('unified_detector',)
 source_to_key = {
     'unified_detector': NeXusData[NXdetector, SampleRun],
     'detector_rotation': DetectorRotation,

@@ -195,6 +195,7 @@ class ParameterType(str, Enum):
     FLOAT = 'float'
     STRING = 'string'
     BOOL = 'bool'
+    OPTIONS = 'options'
 
 
 class Parameter(BaseModel, Generic[T]):
@@ -211,6 +212,28 @@ class Parameter(BaseModel, Generic[T]):
     default: T | None = Field(
         default=None, description="Default value of the parameter."
     )
+    options: list[Any] | None = Field(
+        default=None,
+        description="List of options, if it is a parameter with options.",
+    )
+
+    @model_validator(mode='after')
+    def validate_options(self) -> Parameter:
+        """Validate that options are provided for OPTIONS parameter type."""
+        if self.param_type == ParameterType.OPTIONS:
+            if self.options is None or not self.options:
+                raise ValueError(
+                    "Options must be provided for parameter type 'OPTIONS'"
+                )
+            if self.default not in set(self.options):
+                raise ValueError(
+                    f"Default {self.default} must be one of options {self.options}"
+                )
+        elif self.options is not None:
+            raise ValueError(
+                "Options must be None for parameter types other than 'OPTIONS'"
+            )
+        return self
 
 
 class WorkflowSpec(BaseModel):
