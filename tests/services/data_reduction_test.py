@@ -67,7 +67,7 @@ class ReductionApp:
         )
         self.consumer.add_message(message)
 
-    def publish_events(self, *, size: int, time: int) -> None:
+    def publish_monitor_events(self, *, size: int, time: int) -> None:
         monitor_message = FakeKafkaMessage(
             value=self.make_serialized_monitor_ev44(name='monitor1', size=size),
             topic=self._monitor_topic,
@@ -80,6 +80,8 @@ class ReductionApp:
             timestamp=time * 1_000_000_000,
         )
         self.consumer.add_message(monitor_message)
+
+    def publish_events(self, *, size: int, time: int) -> None:
         message = FakeKafkaMessage(
             value=self.make_serialized_ev44(
                 name=next(iter(self._detector_config)), size=size
@@ -133,7 +135,7 @@ def make_reduction_app(instrument: str) -> ReductionApp:
     )
 
 
-@pytest.fixture(params=('bifrost', 'loki'))
+@pytest.fixture(params=('bifrost', 'dummy'))
 def reduction_app(request) -> ReductionApp:
     """Create a testable service with a fake consumer and sink."""
     return make_reduction_app(instrument=request.param)
@@ -155,19 +157,21 @@ def test_publishes_workflow_specs_on_startup(instrument: str) -> None:
         assert len(message.value.value.workflows) > 0
 
 
-def test_can_configure_and_stop_workflow(
-    reduction_app: ReductionApp, caplog: pytest.LogCaptureFixture
+@pytest.mark.parametrize("instrument", ['bifrost', 'dummy'])
+def test_can_configure_and_stop_workflow_with_detector(
+    instrument: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.INFO)
-    sink = reduction_app.sink
-    service = reduction_app.service
+    app = make_reduction_app(instrument=instrument)
+    sink = app.sink
+    service = app.service
     workflow_specs = sink.messages[0].value.value
     workflow_id, spec = next(iter(workflow_specs.workflows.items()))
     sink.messages.clear()
     service.step()
     assert len(sink.messages) == 0
 
-    reduction_app.publish_events(size=1000, time=0)
+    app.publish_events(size=1000, time=0)
     service.step()
     assert len(sink.messages) == 0
 
@@ -179,36 +183,34 @@ def test_can_configure_and_stop_workflow(
         identifier=workflow_id,
         values={param.name: param.default for param in spec.parameters},
     )
-    reduction_app.publish_config_message(
-        key=config_key, value=workflow_config.model_dump()
-    )
-    reduction_app.publish_events(size=2000, time=2)
+    app.publish_config_message(key=config_key, value=workflow_config.model_dump())
+    app.publish_events(size=2000, time=2)
     service.step()
     assert len(sink.messages) == 1
     # Events before workflow config was published should not be included
     assert sink.messages[0].value.values.sum() == 2000
     service.step()
     assert len(sink.messages) == 1
-    reduction_app.publish_events(size=3000, time=4)
+    app.publish_events(size=3000, time=4)
     service.step()
     assert len(sink.messages) == 2
     assert sink.messages[1].value.values.sum() == 5000
 
     # More events but the same time, should not publish again
-    reduction_app.publish_events(size=1000, time=4)
+    app.publish_events(size=1000, time=4)
     service.step()
     assert len(sink.messages) == 2
 
     # Later time should publish again, including the previous events with duplicate time
-    reduction_app.publish_events(size=1000, time=5)
+    app.publish_events(size=1000, time=5)
     service.step()
     assert len(sink.messages) == 3
     assert sink.messages[2].value.values.sum() == 7000
 
     # Stop workflow
-    reduction_app.publish_config_message(key=config_key, value=None)
-    reduction_app.publish_events(size=1000, time=10)
+    app.publish_config_message(key=config_key, value=None)
+    app.publish_events(size=1000, time=10)
     service.step()
-    reduction_app.publish_events(size=1000, time=20)
+    app.publish_events(size=1000, time=20)
     service.step()
     assert len(sink.messages) == 3
