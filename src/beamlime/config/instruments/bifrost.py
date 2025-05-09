@@ -21,7 +21,7 @@ from scippnexus import NXdetector
 from beamlime.config.env import StreamingEnv
 from beamlime.config.models import Parameter, ParameterType
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
-from beamlime.handlers.workflow_manager import processor_factory
+from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
@@ -158,6 +158,8 @@ spectrum_view_pixels_per_tube_param = Parameter(
     default=10,
     options=[1, 2, 5, 10, 20, 50, 100],  # Must be a divisor of 100
 )
+
+processor_factory = StreamProcessorFactory()
 
 
 @processor_factory.register(
