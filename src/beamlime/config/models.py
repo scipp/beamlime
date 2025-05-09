@@ -209,9 +209,7 @@ class Parameter(BaseModel, Generic[T]):
     unit: str | None = Field(default=None, description="Unit of the parameter.")
     description: str = Field(description="Description of the parameter.")
     param_type: ParameterType = Field(description="Type of the parameter.")
-    default: T | None = Field(
-        default=None, description="Default value of the parameter."
-    )
+    default: T = Field(description="Default value of the parameter.")
     options: list[T] | None = Field(
         default=None,
         description="List of options, if it is a parameter with options.",

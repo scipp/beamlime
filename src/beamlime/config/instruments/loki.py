@@ -20,7 +20,7 @@ from scippnexus import NXdetector
 from beamlime.config.env import StreamingEnv
 from beamlime.config.models import Parameter, ParameterType
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
-from beamlime.handlers.workflow_manager import processor_factory
+from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
@@ -143,6 +143,8 @@ wav_bins_param = Parameter(
 # Created once outside workflow wrappers since this configures some files from pooch
 # where a checksum is needed, which takes significant time.
 _base_workflow = loki.live._configured_Larmor_AgBeh_workflow()
+
+processor_factory = StreamProcessorFactory()
 
 
 @processor_factory.register(name='I(Q)', source_names=_source_names)
