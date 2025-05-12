@@ -78,13 +78,13 @@ class ReductionApp:
 
     def publish_monitor_events(self, *, size: int, time: int) -> None:
         monitor_message = FakeKafkaMessage(
-            value=self.make_serialized_monitor_ev44(name='monitor1', size=size),
+            value=self.make_serialized_ev44(name='monitor1', size=size, with_ids=False),
             topic=self._monitor_topic,
             timestamp=time * 1_000_000_000,
         )
         self.consumer.add_message(monitor_message)
         monitor_message = FakeKafkaMessage(
-            value=self.make_serialized_monitor_ev44(name='monitor2', size=size),
+            value=self.make_serialized_ev44(name='monitor2', size=size, with_ids=False),
             topic=self._monitor_topic,
             timestamp=time * 1_000_000_000,
         )
@@ -93,30 +93,20 @@ class ReductionApp:
     def publish_events(self, *, size: int, time: int) -> None:
         message = FakeKafkaMessage(
             value=self.make_serialized_ev44(
-                name=next(iter(self._detector_config)), size=size
+                name=next(iter(self._detector_config)), size=size, with_ids=True
             ),
             topic=self._detector_topic,
             timestamp=time * 1_000_000_000,
         )
         self.consumer.add_message(message)
 
-    def make_serialized_ev44(self, name: str, size: int) -> bytes:
+    def make_serialized_ev44(self, name: str, size: int, with_ids: bool) -> bytes:
         time_of_arrival = self._rng.uniform(0, 70_000_000, size).astype(np.int32)
-        first, last = self._detector_config[name]
-        pixel_id = self._rng.integers(first, last + 1, size, dtype=np.int32)
-        # Empty reference_time. KafkaToEv44Adapter falls back to message.timestamp().
-        return eventdata_ev44.serialise_ev44(
-            source_name=name,
-            message_id=0,
-            reference_time=[],
-            reference_time_index=0,
-            time_of_flight=time_of_arrival,
-            pixel_id=pixel_id,
-        )
-
-    def make_serialized_monitor_ev44(self, name: str, size: int) -> bytes:
-        time_of_arrival = self._rng.uniform(0, 70_000_000, size).astype(np.int32)
-        pixel_id = np.zeros(size, dtype=np.int32)
+        if with_ids:
+            first, last = self._detector_config[name]
+            pixel_id = self._rng.integers(first, last + 1, size, dtype=np.int32)
+        else:
+            pixel_id = np.zeros(size, dtype=np.int32)
         # Empty reference_time. KafkaToEv44Adapter falls back to message.timestamp().
         return eventdata_ev44.serialise_ev44(
             source_name=name,
