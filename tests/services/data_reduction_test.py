@@ -1,26 +1,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 
-import json
 import logging
-from dataclasses import dataclass
-from typing import Any
 
-import numpy as np
 import pytest
-from streaming_data_types import eventdata_ev44
 
-from beamlime import Service, StreamKind
 from beamlime.config import models
-from beamlime.config.instruments import available_instruments, get_config
-from beamlime.config.streams import stream_kind_to_topic
+from beamlime.config.instruments import available_instruments
 from beamlime.core.message import CONFIG_STREAM_ID
-from beamlime.fakes import FakeMessageSink
 from beamlime.handlers.config_handler import ConfigUpdate
-from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
-from beamlime.kafka.sink import UnrollingSinkAdapter
-from beamlime.kafka.source import KafkaConsumer
 from beamlime.services.data_reduction import make_reduction_service_builder
+from tests.helpers.beamlime_app import BeamlimeApp
 
 
 def _get_workflow_by_name(
@@ -32,109 +22,15 @@ def _get_workflow_by_name(
     raise ValueError(f"Workflow {name} not found in specs")
 
 
-class FakeConsumer(KafkaConsumer):
-    def __init__(self) -> None:
-        self._messages: list[KafkaMessage] = []
-
-    def add_message(self, message: KafkaMessage) -> None:
-        self._messages.append(message)
-
-    def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]:
-        _ = timeout  # Ignore timeout for the fake consumer
-        result = self._messages[:num_messages]
-        self._messages = self._messages[num_messages:]
-        return result
-
-
-@dataclass(kw_only=True)
-class ReductionApp:
-    """A testable "application" with a fake consumer and sink."""
-
-    service: Service
-    consumer: FakeConsumer
-    sink: FakeMessageSink
-    instrument: str
-
-    def __post_init__(self) -> None:
-        self._detector_topic = stream_kind_to_topic(
-            instrument=self.instrument, kind=StreamKind.DETECTOR_EVENTS
-        )
-        self._monitor_topic = stream_kind_to_topic(
-            instrument=self.instrument, kind=StreamKind.MONITOR_EVENTS
-        )
-        self._detector_config = get_config(self.instrument).detectors_config['fakes']
-        self._rng = np.random.default_rng(seed=1234)  # Avoid test flakiness
-
-    def publish_config_message(self, key: models.ConfigKey, value: Any) -> None:
-        message = FakeKafkaMessage(
-            key=str(key).encode('utf-8'),
-            value=json.dumps(value).encode('utf-8'),
-            topic=stream_kind_to_topic(
-                instrument=self.instrument, kind=StreamKind.BEAMLIME_CONFIG
-            ),
-            timestamp=0,
-        )
-        self.consumer.add_message(message)
-
-    def publish_monitor_events(self, *, size: int, time: int) -> None:
-        monitor_message = FakeKafkaMessage(
-            value=self.make_serialized_ev44(name='monitor1', size=size, with_ids=False),
-            topic=self._monitor_topic,
-            timestamp=time * 1_000_000_000,
-        )
-        self.consumer.add_message(monitor_message)
-        monitor_message = FakeKafkaMessage(
-            value=self.make_serialized_ev44(name='monitor2', size=size, with_ids=False),
-            topic=self._monitor_topic,
-            timestamp=time * 1_000_000_000,
-        )
-        self.consumer.add_message(monitor_message)
-
-    def publish_events(self, *, size: int, time: int) -> None:
-        message = FakeKafkaMessage(
-            value=self.make_serialized_ev44(
-                name=next(iter(self._detector_config)), size=size, with_ids=True
-            ),
-            topic=self._detector_topic,
-            timestamp=time * 1_000_000_000,
-        )
-        self.consumer.add_message(message)
-
-    def make_serialized_ev44(self, name: str, size: int, with_ids: bool) -> bytes:
-        time_of_arrival = self._rng.uniform(0, 70_000_000, size).astype(np.int32)
-        if with_ids:
-            first, last = self._detector_config[name]
-            pixel_id = self._rng.integers(first, last + 1, size, dtype=np.int32)
-        else:
-            pixel_id = np.zeros(size, dtype=np.int32)
-        # Empty reference_time. KafkaToEv44Adapter falls back to message.timestamp().
-        return eventdata_ev44.serialise_ev44(
-            source_name=name,
-            message_id=0,
-            reference_time=[],
-            reference_time_index=0,
-            time_of_flight=time_of_arrival,
-            pixel_id=pixel_id,
-        )
-
-
-def make_reduction_app(instrument: str) -> ReductionApp:
+def make_reduction_app(instrument: str) -> BeamlimeApp:
     builder = make_reduction_service_builder(instrument=instrument)
-    sink = FakeMessageSink()
-    consumer = FakeConsumer()
-    service = builder.from_consumer(
-        consumer=consumer, sink=UnrollingSinkAdapter(sink), raise_on_adapter_error=True
-    )
-    return ReductionApp(
-        service=service, consumer=consumer, sink=sink, instrument=instrument
-    )
+    return BeamlimeApp.from_service_builder(builder)
 
 
 @pytest.mark.parametrize("instrument", available_instruments())
 def test_publishes_workflow_specs_on_startup(instrument: str) -> None:
     app = make_reduction_app(instrument=instrument)
     sink = app.sink
-    instrument = app.instrument
 
     assert len(sink.messages) == 1
     message = sink.messages[0]
