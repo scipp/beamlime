@@ -82,7 +82,9 @@ class ConfigHandler(Handler[bytes, None]):
         """
         return self._stores.setdefault(source_name, dict(self._global_store))
 
-    def register_action(self, *, key: str, action: Callable[[str, Any], None]) -> None:
+    def register_action(
+        self, *, key: str, action: Callable[[str | None, Any], None]
+    ) -> None:
         """
         Register an action to be called when a specific key is updated.
 
@@ -94,6 +96,7 @@ class ConfigHandler(Handler[bytes, None]):
             Function to call when the key is updated. The function will be invoked
             with the source_name and the new value as keyword arguments, e.g.,
             ``action(source_name=source_name, value=value)``.
+            Note: The source_name may be None for global updates.
         """
         self._actions.setdefault(key, []).append(action)
 
@@ -129,10 +132,18 @@ class ConfigHandler(Handler[bytes, None]):
                     value,
                     message.timestamp,
                 )
+                # Note: The source_name may be None for global updates. ConfigHandler is
+                # not aware of all the possible values for source_name (using the keys
+                # of self._stores could be incomplete), so the target if the action is
+                # responsible for translating source_name=None to the correct list of
+                # source names.
                 if source_name is None:
+                    # source_name=None overrides all previous source-specific updates
+                    # for this key.
+                    updated[config_key].clear()
+                    updated[config_key][source_name] = update
                     self._global_store[config_key] = value
-                    for source_name, store in self._stores.items():
-                        updated[config_key][source_name] = update
+                    for store in self._stores.values():
                         store[config_key] = value
                 else:
                     updated[config_key][source_name] = update

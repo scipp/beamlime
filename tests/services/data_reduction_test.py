@@ -338,3 +338,157 @@ def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None
     app.publish_events(size=100, time=10)
     service.step()
     assert sink.messages[-1].value.values.sum() == 200
+
+
+@pytest.mark.parametrize("instrument", ['bifrost', 'dummy'])
+def test_service_can_recover_after_bad_workflow_id_was_set(
+    instrument: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = make_reduction_app(instrument=instrument)
+    sink = app.sink
+    service = app.service
+    workflow_specs = sink.messages[0].value.value
+    workflow_name = {'bifrost': 'spectrum-view', 'dummy': 'Total counts'}[instrument]
+    for wid, spec in workflow_specs.workflows.items():
+        if spec.name == workflow_name:
+            workflow_id = wid
+            break
+    else:
+        raise ValueError(f"Workflow {workflow_name} not found in specs")
+    sink.messages.clear()  # Clear the initial message
+
+    # Assume workflow is runnable for all source names
+    config_key = models.ConfigKey(
+        source_name=None, service_name="data_reduction", key="workflow_config"
+    )
+    bad_workflow_id = models.WorkflowConfig(
+        identifier='abcde12345',  # Invalid workflow ID
+        values={param.name: param.default for param in spec.parameters},
+    )
+    # Trigger workflow start
+    app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())
+
+    app.publish_events(size=2000, time=2)
+    service.step()
+    service.step()
+    app.publish_events(size=3000, time=4)
+    service.step()
+    assert len(sink.messages) == 0  # Workflow not started
+
+    bad_param_value = models.WorkflowConfig(
+        identifier=workflow_id,
+        values={param.name: param.default for param in spec.parameters},
+    )
+    # Trigger workflow start
+    app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
+    app.publish_events(size=1000, time=5)
+    service.step()
+    assert len(sink.messages) == 1  # Service recovered and started the workflow
+
+
+@pytest.mark.parametrize("instrument", ['bifrost', 'dummy'])
+def test_service_can_recover_after_bad_workflow_param_was_set(
+    instrument: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = make_reduction_app(instrument=instrument)
+    sink = app.sink
+    service = app.service
+    workflow_specs = sink.messages[0].value.value
+    workflow_name = {'bifrost': 'spectrum-view', 'dummy': 'Total counts'}[instrument]
+    for wid, spec in workflow_specs.workflows.items():
+        if spec.name == workflow_name:
+            workflow_id = wid
+            break
+    else:
+        raise ValueError(f"Workflow {workflow_name} not found in specs")
+    sink.messages.clear()  # Clear the initial message
+
+    # Assume workflow is runnable for all source names
+    config_key = models.ConfigKey(
+        source_name=None, service_name="data_reduction", key="workflow_config"
+    )
+    defaults = {param.name: param.default for param in spec.parameters}
+    defaults['does_not_exist'] = 1
+    bad_param_value = models.WorkflowConfig(identifier=workflow_id, values=defaults)
+    # Trigger workflow start
+    app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
+
+    app.publish_events(size=2000, time=2)
+    service.step()
+    service.step()
+    app.publish_events(size=3000, time=4)
+    service.step()
+    assert len(sink.messages) == 0  # Workflow not started
+
+    bad_param_value = models.WorkflowConfig(
+        identifier=workflow_id,
+        values={param.name: param.default for param in spec.parameters},
+    )
+    # Trigger workflow start
+    app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
+    app.publish_events(size=1000, time=5)
+    service.step()
+    assert len(sink.messages) == 1  # Service recovered and started the workflow
+
+
+@pytest.mark.parametrize("instrument", ['bifrost', 'dummy'])
+def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
+    instrument: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    app = make_reduction_app(instrument=instrument)
+    sink = app.sink
+    service = app.service
+    workflow_specs = sink.messages[0].value.value
+    workflow_name = {'bifrost': 'spectrum-view', 'dummy': 'Total counts'}[instrument]
+    for wid, spec in workflow_specs.workflows.items():
+        if spec.name == workflow_name:
+            workflow_id = wid
+            break
+    else:
+        raise ValueError(f"Workflow {workflow_name} not found in specs")
+    sink.messages.clear()  # Clear the initial message
+
+    # Start a valid workflow first
+    config_key = models.ConfigKey(
+        source_name=None, service_name="data_reduction", key="workflow_config"
+    )
+    workflow_config = models.WorkflowConfig(
+        identifier=workflow_id,
+        values={param.name: param.default for param in spec.parameters},
+    )
+    app.publish_config_message(key=config_key, value=workflow_config.model_dump())
+    service.step()
+
+    # Add events and verify workflow is running
+    app.publish_events(size=2000, time=2)
+    service.step()
+    assert len(sink.messages) == 1
+    assert sink.messages[0].value.values.sum() == 2000
+
+    # Try to set an invalid workflow ID
+    bad_workflow_id = models.WorkflowConfig(
+        identifier='abcde12345',  # Invalid workflow ID
+        values={},
+    )
+    app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())
+
+    # Add more events and verify the original workflow is still running
+    app.publish_events(size=3000, time=4)
+    service.step()
+    assert len(sink.messages) == 2
+    assert sink.messages[1].value.values.sum() == 5000
+
+    # Try to set a workflow with invalid parameters
+    defaults = {param.name: param.default for param in spec.parameters}
+    defaults['does_not_exist'] = 1
+    bad_param_value = models.WorkflowConfig(identifier=workflow_id, values=defaults)
+    app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
+
+    # Add more events and verify the original workflow is still running
+    app.publish_events(size=1000, time=6)
+    service.step()
+    assert len(sink.messages) == 3
+    assert sink.messages[2].value.values.sum() == 6000

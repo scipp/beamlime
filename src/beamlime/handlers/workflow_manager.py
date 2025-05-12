@@ -92,7 +92,13 @@ class WorkflowManager:
         if (proxy := self._proxies.get(source_name)) is not None:
             proxy.set_processor(self._processors.get(source_name))
 
-    def set_workflow_with_config(self, source_name: str, value: dict | None) -> None:
+    def set_workflow_with_config(
+        self, source_name: str | None, value: dict | None
+    ) -> None:
+        if source_name is None:
+            for name in self._processor_factory.source_names:
+                self.set_workflow_with_config(name, value)
+            return
         if value is None:
             self.set_workflow(source_name, None)
             return
