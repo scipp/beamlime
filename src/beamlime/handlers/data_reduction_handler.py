@@ -64,18 +64,14 @@ class ReductionHandlerFactory(
         # when the workflow is cleared. This is done via the proxy the workflow manager
         # returns for the detector data accumulator.
         match key.kind:
-            case StreamKind.MONITOR_EVENTS | StreamKind.MONITOR_COUNTS:
-                # TODO The config for the preprocessor may need to be setup differently,
-                # e.g., to obtain the desired number of TOA bins. Or maybe we should
-                # not histogram in the preprocessor, i.e., not reuse the same
-                # preprocessor as in the monitor_data service.
+            case StreamKind.MONITOR_COUNTS:
                 preprocessor = make_monitor_data_preprocessor(key, config={})
                 config = {}
             case StreamKind.LOG:
                 attrs = self._f144_attribute_registry[key.name]
                 preprocessor = ToNXlog(attrs=attrs)
                 config = {}
-            case StreamKind.DETECTOR_EVENTS:
+            case StreamKind.MONITOR_EVENTS | StreamKind.DETECTOR_EVENTS:
                 preprocessor = ToNXevent_data()
                 config = self._config_registry.get_config(key.name)
             case _:
