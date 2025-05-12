@@ -13,7 +13,6 @@ from streaming_data_types import eventdata_ev44
 from beamlime import Service, StreamKind
 from beamlime.config import models
 from beamlime.config.instruments import available_instruments, get_config
-from beamlime.config.models import ConfigKey, WorkflowConfig, WorkflowSpecs
 from beamlime.config.streams import stream_kind_to_topic
 from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.fakes import FakeMessageSink
@@ -57,7 +56,7 @@ class ReductionApp:
         self._detector_config = get_config(self.instrument).detectors_config['fakes']
         self._rng = np.random.default_rng(seed=1234)  # Avoid test flakiness
 
-    def publish_config_message(self, key: ConfigKey, value: Any) -> None:
+    def publish_config_message(self, key: models.ConfigKey, value: Any) -> None:
         message = FakeKafkaMessage(
             key=str(key).encode('utf-8'),
             value=json.dumps(value).encode('utf-8'),
@@ -96,9 +95,7 @@ class ReductionApp:
         time_of_arrival = self._rng.uniform(0, 70_000_000, size).astype(np.int32)
         first, last = self._detector_config[name]
         pixel_id = self._rng.integers(first, last + 1, size, dtype=np.int32)
-        # Note empty reference_time. KafkaToEv44Adapter uses message.timestamp(), which
-        # allows us to reuse the serialized content, to avoid seeing the cost in the
-        # benchmarks.
+        # Empty reference_time. KafkaToEv44Adapter falls back to message.timestamp().
         return eventdata_ev44.serialise_ev44(
             source_name=name,
             message_id=0,
@@ -111,9 +108,7 @@ class ReductionApp:
     def make_serialized_monitor_ev44(self, name: str, size: int) -> bytes:
         time_of_arrival = self._rng.uniform(0, 70_000_000, size).astype(np.int32)
         pixel_id = np.zeros(size, dtype=np.int32)
-        # Note empty reference_time. KafkaToEv44Adapter uses message.timestamp(), which
-        # allows us to reuse the serialized content, to avoid seeing the cost in the
-        # benchmarks.
+        # Empty reference_time. KafkaToEv44Adapter falls back to message.timestamp().
         return eventdata_ev44.serialise_ev44(
             source_name=name,
             message_id=0,
@@ -136,12 +131,6 @@ def make_reduction_app(instrument: str) -> ReductionApp:
     )
 
 
-@pytest.fixture(params=('bifrost', 'dummy'))
-def reduction_app(request) -> ReductionApp:
-    """Create a testable service with a fake consumer and sink."""
-    return make_reduction_app(instrument=request.param)
-
-
 @pytest.mark.parametrize("instrument", available_instruments())
 def test_publishes_workflow_specs_on_startup(instrument: str) -> None:
     app = make_reduction_app(instrument=instrument)
@@ -152,8 +141,8 @@ def test_publishes_workflow_specs_on_startup(instrument: str) -> None:
     message = sink.messages[0]
     assert message.stream == CONFIG_STREAM_ID
     assert isinstance(message.value, ConfigUpdate)
-    assert isinstance(message.value.config_key, ConfigKey)
-    assert isinstance(message.value.value, WorkflowSpecs)
+    assert isinstance(message.value.config_key, models.ConfigKey)
+    assert isinstance(message.value.value, models.WorkflowSpecs)
     if instrument in ('bifrost', 'dummy', 'loki'):
         assert len(message.value.value.workflows) > 0
 
@@ -167,7 +156,13 @@ def test_can_configure_and_stop_workflow_with_detector(
     sink = app.sink
     service = app.service
     workflow_specs = sink.messages[0].value.value
-    workflow_id, spec = next(iter(workflow_specs.workflows.items()))
+    workflow_name = {'bifrost': 'spectrum-view', 'dummy': 'Total counts'}[instrument]
+    for wid, spec in workflow_specs.workflows.items():
+        if spec.name == workflow_name:
+            workflow_id = wid
+            break
+    else:
+        raise ValueError(f"Workflow {workflow_name} not found in specs")
     sink.messages.clear()
     service.step()
     assert len(sink.messages) == 0
@@ -177,10 +172,10 @@ def test_can_configure_and_stop_workflow_with_detector(
     assert len(sink.messages) == 0
 
     # Assume workflow is runnable for all source names
-    config_key = ConfigKey(
+    config_key = models.ConfigKey(
         source_name=None, service_name="data_reduction", key="workflow_config"
     )
-    workflow_config = WorkflowConfig(
+    workflow_config = models.WorkflowConfig(
         identifier=workflow_id,
         values={param.name: param.default for param in spec.parameters},
     )
@@ -228,7 +223,13 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     sink = app.sink
     service = app.service
     workflow_specs = sink.messages[0].value.value
-    workflow_id, spec = next(iter(workflow_specs.workflows.items()))
+    workflow_name = 'I(Q)'
+    for wid, spec in workflow_specs.workflows.items():
+        if spec.name == workflow_name:
+            workflow_id = wid
+            break
+    else:
+        raise ValueError(f"Workflow {workflow_name} not found in specs")
     sink.messages.clear()
     service.step()
     assert len(sink.messages) == 0
@@ -238,10 +239,10 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     assert len(sink.messages) == 0
 
     # Assume workflow is runnable for all source names
-    config_key = ConfigKey(
+    config_key = models.ConfigKey(
         source_name=None, service_name="data_reduction", key="workflow_config"
     )
-    workflow_config = WorkflowConfig(
+    workflow_config = models.WorkflowConfig(
         identifier=workflow_id,
         values={param.name: param.default for param in spec.parameters},
     )
@@ -301,10 +302,10 @@ def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None
     service.step()
 
     # Assume workflow is runnable for all source names
-    config_key = ConfigKey(
+    config_key = models.ConfigKey(
         source_name=None, service_name="data_reduction", key="workflow_config"
     )
-    workflow_config = WorkflowConfig(
+    workflow_config = models.WorkflowConfig(
         identifier=workflow_id,
         values={param.name: param.default for param in spec.parameters},
     )
@@ -316,7 +317,7 @@ def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None
     assert len(sink.messages) == 2
     assert sink.messages[-1].value.values.sum() == 5000
 
-    config_key = ConfigKey(key="start_time")
+    config_key = models.ConfigKey(key="start_time")
     model = models.StartTime(value=5, unit='s')
     app.publish_config_message(key=config_key, value=model.model_dump())
 
@@ -327,7 +328,7 @@ def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None
     service.step()
     assert sink.messages[-1].value.values.sum() == 2000
 
-    config_key = ConfigKey(key="start_time")
+    config_key = models.ConfigKey(key="start_time")
     model = models.StartTime(value=8, unit='s')
     app.publish_config_message(key=config_key, value=model.model_dump())
 
