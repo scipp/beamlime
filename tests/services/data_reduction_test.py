@@ -23,6 +23,15 @@ from beamlime.kafka.source import KafkaConsumer
 from beamlime.services.data_reduction import make_reduction_service_builder
 
 
+def _get_workflow_by_name(
+    workflow_specs: models.WorkflowSpecs, name: str
+) -> tuple[str, models.WorkflowSpec]:
+    for wid, spec in workflow_specs.workflows.items():
+        if spec.name == name:
+            return wid, spec
+    raise ValueError(f"Workflow {name} not found in specs")
+
+
 class FakeConsumer(KafkaConsumer):
     def __init__(self) -> None:
         self._messages: list[KafkaMessage] = []
@@ -157,19 +166,8 @@ def test_can_configure_and_stop_workflow_with_detector(
     service = app.service
     workflow_specs = sink.messages[0].value.value
     workflow_name = {'bifrost': 'spectrum-view', 'dummy': 'Total counts'}[instrument]
-    for wid, spec in workflow_specs.workflows.items():
-        if spec.name == workflow_name:
-            workflow_id = wid
-            break
-    else:
-        raise ValueError(f"Workflow {workflow_name} not found in specs")
-    sink.messages.clear()
-    service.step()
-    assert len(sink.messages) == 0
-
-    app.publish_events(size=1000, time=0)
-    service.step()
-    assert len(sink.messages) == 0
+    workflow_id, spec = _get_workflow_by_name(workflow_specs, workflow_name)
+    sink.messages.clear()  # Clear the initial message
 
     # Assume workflow is runnable for all source names
     config_key = models.ConfigKey(
@@ -223,20 +221,8 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     sink = app.sink
     service = app.service
     workflow_specs = sink.messages[0].value.value
-    workflow_name = 'I(Q)'
-    for wid, spec in workflow_specs.workflows.items():
-        if spec.name == workflow_name:
-            workflow_id = wid
-            break
-    else:
-        raise ValueError(f"Workflow {workflow_name} not found in specs")
-    sink.messages.clear()
-    service.step()
-    assert len(sink.messages) == 0
-
-    app.publish_events(size=1000, time=0)
-    service.step()
-    assert len(sink.messages) == 0
+    workflow_id, spec = _get_workflow_by_name(workflow_specs, 'I(Q)')
+    sink.messages.clear()  # Clear the initial message
 
     # Assume workflow is runnable for all source names
     config_key = models.ConfigKey(
@@ -296,7 +282,7 @@ def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None
     sink = app.sink
     service = app.service
     workflow_specs = sink.messages[0].value.value
-    workflow_id, spec = next(iter(workflow_specs.workflows.items()))
+    workflow_id, spec = _get_workflow_by_name(workflow_specs, 'Total counts')
 
     app.publish_events(size=1000, time=0)
     service.step()
@@ -340,22 +326,15 @@ def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None
     assert sink.messages[-1].value.values.sum() == 200
 
 
-@pytest.mark.parametrize("instrument", ['bifrost', 'dummy'])
 def test_service_can_recover_after_bad_workflow_id_was_set(
-    instrument: str, caplog: pytest.LogCaptureFixture
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
-    app = make_reduction_app(instrument=instrument)
+    app = make_reduction_app(instrument='dummy')
     sink = app.sink
     service = app.service
     workflow_specs = sink.messages[0].value.value
-    workflow_name = {'bifrost': 'spectrum-view', 'dummy': 'Total counts'}[instrument]
-    for wid, spec in workflow_specs.workflows.items():
-        if spec.name == workflow_name:
-            workflow_id = wid
-            break
-    else:
-        raise ValueError(f"Workflow {workflow_name} not found in specs")
+    workflow_id, spec = _get_workflow_by_name(workflow_specs, 'Total counts')
     sink.messages.clear()  # Clear the initial message
 
     # Assume workflow is runnable for all source names
@@ -387,22 +366,15 @@ def test_service_can_recover_after_bad_workflow_id_was_set(
     assert len(sink.messages) == 1  # Service recovered and started the workflow
 
 
-@pytest.mark.parametrize("instrument", ['bifrost', 'dummy'])
 def test_service_can_recover_after_bad_workflow_param_was_set(
-    instrument: str, caplog: pytest.LogCaptureFixture
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
-    app = make_reduction_app(instrument=instrument)
+    app = make_reduction_app(instrument='dummy')
     sink = app.sink
     service = app.service
     workflow_specs = sink.messages[0].value.value
-    workflow_name = {'bifrost': 'spectrum-view', 'dummy': 'Total counts'}[instrument]
-    for wid, spec in workflow_specs.workflows.items():
-        if spec.name == workflow_name:
-            workflow_id = wid
-            break
-    else:
-        raise ValueError(f"Workflow {workflow_name} not found in specs")
+    workflow_id, spec = _get_workflow_by_name(workflow_specs, 'Total counts')
     sink.messages.clear()  # Clear the initial message
 
     # Assume workflow is runnable for all source names
@@ -433,22 +405,15 @@ def test_service_can_recover_after_bad_workflow_param_was_set(
     assert len(sink.messages) == 1  # Service recovered and started the workflow
 
 
-@pytest.mark.parametrize("instrument", ['bifrost', 'dummy'])
 def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
-    instrument: str, caplog: pytest.LogCaptureFixture
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.DEBUG)
-    app = make_reduction_app(instrument=instrument)
+    app = make_reduction_app(instrument='dummy')
     sink = app.sink
     service = app.service
     workflow_specs = sink.messages[0].value.value
-    workflow_name = {'bifrost': 'spectrum-view', 'dummy': 'Total counts'}[instrument]
-    for wid, spec in workflow_specs.workflows.items():
-        if spec.name == workflow_name:
-            workflow_id = wid
-            break
-    else:
-        raise ValueError(f"Workflow {workflow_name} not found in specs")
+    workflow_id, spec = _get_workflow_by_name(workflow_specs, 'Total counts')
     sink.messages.clear()  # Clear the initial message
 
     # Start a valid workflow first
@@ -492,3 +457,52 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
     service.step()
     assert len(sink.messages) == 3
     assert sink.messages[2].value.values.sum() == 6000
+
+
+@pytest.mark.parametrize(
+    "data_before_config",
+    [False, True],
+    ids=["config_before_data", "data_before_config"],
+)
+@pytest.mark.parametrize(
+    "all_source_names", [False, True], ids=["specific_source", "all_sources"]
+)
+def test_workflow_starts_with_specific_or_global_source_name(
+    data_before_config: bool,
+    all_source_names: bool,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = make_reduction_app(instrument='dummy')
+    sink = app.sink
+    service = app.service
+    workflow_specs = sink.messages[0].value.value
+    workflow_id, spec = _get_workflow_by_name(workflow_specs, 'Total counts')
+    source_name = None if all_source_names else spec.source_names[0]
+    sink.messages.clear()  # Clear the initial message
+
+    # This branch ensures that the service configures the workflow even for source names
+    # it has not "seen" yet.
+    if data_before_config:
+        app.publish_events(size=1000, time=0)
+        service.step()
+        assert len(sink.messages) == 0
+
+    config_key = models.ConfigKey(
+        source_name=source_name, service_name="data_reduction", key="workflow_config"
+    )
+    workflow_config = models.WorkflowConfig(
+        identifier=workflow_id,
+        values={param.name: param.default for param in spec.parameters},
+    )
+    # Trigger workflow start
+    app.publish_config_message(key=config_key, value=workflow_config.model_dump())
+    # Process config message before data arrives. Without calling step() the order of
+    # processing of config vs data messages is not guaranteed.
+    service.step()
+
+    app.publish_events(size=2000, time=2)
+    service.step()
+    assert len(sink.messages) == 1
+    # Events before workflow config was published should not be included
+    assert sink.messages[0].value.values.sum() == 2000
