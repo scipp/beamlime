@@ -48,15 +48,10 @@ class WorkflowManager:
         """
         Parameters
         ----------
-        source_names:
-            List of source names to attach workflows to. These need to be passed
-            explicitly, so we can distinguish source names that should not be handled
-            (to proxy and handler will be created) from source names that may later be
-            configured to use a workflow.
+        processor_factory:
+            Factory for creating stream processors.
         source_to_key:
             Dictionary mapping source names to workflow input keys.
-        dynamic_workflows:
-            Dictionary mapping source names to dynamic workflows.
         """
         self._processor_factory = processor_factory
         self._source_to_key = source_to_key
