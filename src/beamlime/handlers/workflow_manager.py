@@ -71,7 +71,7 @@ class WorkflowManager:
         self._processors = ProcessorRegistry()
         self._proxies: dict[str, StreamProcessorProxy] = {}
 
-    def set_worklow(self, source_name: str, processor: StreamProcessor | None) -> None:
+    def set_workflow(self, source_name: str, processor: StreamProcessor | None) -> None:
         """
         Add a workflow to the manager.
 
@@ -91,10 +91,10 @@ class WorkflowManager:
 
     def set_workflow_with_config(self, source_name: str, value: dict | None) -> None:
         if value is None:
-            self.set_worklow(source_name, None)
+            self.set_workflow(source_name, None)
             return
         config = WorkflowConfig.model_validate(value)
-        self.set_worklow(
+        self.set_workflow(
             source_name,
             processor=processor_factory.create(
                 workflow_id=config.identifier,
