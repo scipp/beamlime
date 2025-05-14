@@ -212,7 +212,7 @@ class Parameter(BaseModel, Generic[T]):
     default: T | None = Field(
         default=None, description="Default value of the parameter."
     )
-    options: list[Any] | None = Field(
+    options: list[T] | None = Field(
         default=None,
         description="List of options, if it is a parameter with options.",
     )
