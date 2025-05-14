@@ -2,66 +2,30 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-import inspect
-from collections.abc import Callable, Iterator, MutableMapping, Sequence
-from functools import wraps
+from collections.abc import Iterator, MutableMapping
 
 import scipp as sc
 from ess.reduce.streaming import StreamProcessor
 from sciline.typing import Key
 
+from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
+
+from ..config.models import WorkflowConfig, WorkflowSpecs
 from ..core.handler import Accumulator
 
-
-class StreamProcessorFactory:
-    def __init__(self) -> None:
-        self._factories: dict[str, Callable[[], StreamProcessor]] = {}
-
-    def get_available(self) -> tuple[str, ...]:
-        """Return a tuple of available factory names."""
-        return tuple(self._factories.keys())
-
-    def register(
-        self, name: str
-    ) -> Callable[[Callable[[], StreamProcessor]], Callable[[], StreamProcessor]]:
-        """
-        Decorator to register a factory function for creating StreamProcessors.
-
-        Parameters
-        ----------
-        name:
-            Name to register the factory under.
-
-        Returns
-        -------
-        Decorator function that registers the factory and returns it unchanged.
-        """
-
-        def decorator(
-            factory: Callable[[], StreamProcessor],
-        ) -> Callable[[], StreamProcessor]:
-            @wraps(factory)
-            def wrapper() -> StreamProcessor:
-                return factory()
-
-            if name in self._factories:
-                raise ValueError(f"Factory for {name} already registered")
-            self._factories[name] = factory
-            return wrapper
-
-        return decorator
-
-    def create(self, *, workflow_name: str, source_name: str) -> StreamProcessor:
-        """Create a StreamProcessor using the registered factory."""
-        factory = self._factories[workflow_name]
-        sig = inspect.signature(factory)
-        if 'source_name' in sig.parameters:
-            return factory(source_name=source_name)
-        else:
-            return factory()
-
-
 processor_factory = StreamProcessorFactory()
+
+
+def get_workflow_specs() -> WorkflowSpecs:
+    """
+    Get the workflow specifications for the available workflows.
+
+    Returns
+    -------
+    WorkflowSpecs
+        The workflow specifications.
+    """
+    return WorkflowSpecs(workflows=dict(processor_factory.items()))
 
 
 class ProcessorRegistry(MutableMapping[str, StreamProcessor]):
@@ -89,12 +53,7 @@ class ProcessorRegistry(MutableMapping[str, StreamProcessor]):
 
 
 class WorkflowManager:
-    def __init__(
-        self,
-        *,
-        source_names: Sequence[str],
-        source_to_key: dict[str, Key],
-    ) -> None:
+    def __init__(self, *, source_to_key: dict[str, Key]) -> None:
         """
         Parameters
         ----------
@@ -108,14 +67,11 @@ class WorkflowManager:
         dynamic_workflows:
             Dictionary mapping source names to dynamic workflows.
         """
-        self._source_names = source_names
         self._source_to_key = source_to_key
         self._processors = ProcessorRegistry()
         self._proxies: dict[str, StreamProcessorProxy] = {}
-        for name in source_names:
-            self.set_worklow(name, None)
 
-    def set_worklow(self, source_name: str, processor: StreamProcessor | None) -> None:
+    def set_workflow(self, source_name: str, processor: StreamProcessor | None) -> None:
         """
         Add a workflow to the manager.
 
@@ -126,8 +82,6 @@ class WorkflowManager:
         workflow:
             The workflow to attach to the source name. If None, the workflow is removed.
         """
-        if source_name not in self._source_names:
-            raise ValueError(f"Workflow {source_name} was not defined in the manager.")
         if processor is None:
             self._processors.pop(source_name, None)
         else:
@@ -135,12 +89,18 @@ class WorkflowManager:
         if (proxy := self._proxies.get(source_name)) is not None:
             proxy.set_processor(self._processors.get(source_name))
 
-    def set_workflow_from_name(self, source_name: str, value: str | None) -> None:
-        self.set_worklow(
+    def set_workflow_with_config(self, source_name: str, value: dict | None) -> None:
+        if value is None:
+            self.set_workflow(source_name, None)
+            return
+        config = WorkflowConfig.model_validate(value)
+        self.set_workflow(
             source_name,
-            processor=None
-            if value is None
-            else processor_factory.create(workflow_name=value, source_name=source_name),
+            processor=processor_factory.create(
+                workflow_id=config.identifier,
+                source_name=source_name,
+                workflow_params=config.values,
+            ),
         )
 
     def get_accumulator(
@@ -149,7 +109,7 @@ class WorkflowManager:
         wf_key = self._source_to_key.get(source_name)
         if wf_key is None:
             return None
-        if source_name in self._source_names:
+        if source_name in processor_factory.source_names:
             # Note that the processor may be 'None' at this point.
             proxy = StreamProcessorProxy(self._processors.get(source_name), key=wf_key)
             self._proxies[source_name] = proxy
