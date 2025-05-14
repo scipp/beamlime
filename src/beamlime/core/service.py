@@ -144,6 +144,12 @@ class Service(ServiceBase):
             except KeyboardInterrupt:  # noqa: PERF203
                 self.stop()
 
+    def step(self) -> None:
+        """Run one step of the service loop for testing purposes"""
+        if self.is_running:
+            raise RuntimeError("Service is running, cannot step")
+        self._processor.process()
+
     def _run_loop(self) -> None:
         """Main service loop"""
         try:

@@ -5,13 +5,14 @@
 import logging
 from typing import NoReturn
 
+from beamlime.config import instrument_registry
 from beamlime.config.instruments import get_config
 from beamlime.config.models import ConfigKey
 from beamlime.config.streams import get_stream_mapping
 from beamlime.core.message import CONFIG_STREAM_ID, Message
 from beamlime.handlers.config_handler import ConfigHandler, ConfigUpdate
 from beamlime.handlers.data_reduction_handler import ReductionHandlerFactory
-from beamlime.handlers.workflow_manager import WorkflowManager, get_workflow_specs
+from beamlime.handlers.workflow_manager import WorkflowManager
 from beamlime.kafka.routes import RoutingAdapterBuilder
 from beamlime.service_factory import DataServiceBuilder, DataServiceRunner
 
@@ -28,8 +29,12 @@ def make_reduction_service_builder(
         .with_beamlime_config_route()
         .build()
     )
-    instrument_config = get_config(instrument)
-    workflow_manager = WorkflowManager(source_to_key=instrument_config.source_to_key)
+    _ = get_config(instrument)  # Load the module to register the instrument
+    instrument_config = instrument_registry[instrument]
+    workflow_manager = WorkflowManager(
+        processor_factory=instrument_config.processor_factory,
+        source_to_key=instrument_config.source_to_key,
+    )
     service_name = 'data_reduction'
     config_handler = ConfigHandler(service_name=service_name)
     config_handler.register_action(
@@ -45,7 +50,7 @@ def make_reduction_service_builder(
         stream=CONFIG_STREAM_ID,
         value=ConfigUpdate(
             config_key=ConfigKey(service_name=service_name, key='workflow_specs'),
-            value=get_workflow_specs(),
+            value=workflow_manager.get_workflow_specs(),
         ),
     )
     builder = DataServiceBuilder(

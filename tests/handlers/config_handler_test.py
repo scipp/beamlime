@@ -588,7 +588,7 @@ class TestConfigHandler:
 
         assert len(action_calls) == 2
         assert ("source2", "source2-value") in action_calls
-        assert ("source1", "global-value") in action_calls
+        assert (None, "global-value") in action_calls
 
     def test_action_triggered_for_same_key_multiple_batches(self):
         handler = ConfigHandler(service_name="my_service")
@@ -743,5 +743,5 @@ class TestConfigHandler:
 
         # Verify action was called once per source with the final value
         assert len(action_calls) == 2  # One for each source
-        assert ("source1", "global-final") in action_calls
+        assert (None, "global-final") in action_calls
         assert ("source2", "source2-value") in action_calls

@@ -13,20 +13,6 @@ from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 from ..config.models import WorkflowConfig, WorkflowSpecs
 from ..core.handler import Accumulator
 
-processor_factory = StreamProcessorFactory()
-
-
-def get_workflow_specs() -> WorkflowSpecs:
-    """
-    Get the workflow specifications for the available workflows.
-
-    Returns
-    -------
-    WorkflowSpecs
-        The workflow specifications.
-    """
-    return WorkflowSpecs(workflows=dict(processor_factory.items()))
-
 
 class ProcessorRegistry(MutableMapping[str, StreamProcessor]):
     def __init__(self) -> None:
@@ -53,23 +39,35 @@ class ProcessorRegistry(MutableMapping[str, StreamProcessor]):
 
 
 class WorkflowManager:
-    def __init__(self, *, source_to_key: dict[str, Key]) -> None:
+    def __init__(
+        self,
+        *,
+        processor_factory: StreamProcessorFactory,
+        source_to_key: dict[str, Key],
+    ) -> None:
         """
         Parameters
         ----------
-        source_names:
-            List of source names to attach workflows to. These need to be passed
-            explicitly, so we can distinguish source names that should not be handled
-            (to proxy and handler will be created) from source names that may later be
-            configured to use a workflow.
+        processor_factory:
+            Factory for creating stream processors.
         source_to_key:
             Dictionary mapping source names to workflow input keys.
-        dynamic_workflows:
-            Dictionary mapping source names to dynamic workflows.
         """
+        self._processor_factory = processor_factory
         self._source_to_key = source_to_key
         self._processors = ProcessorRegistry()
         self._proxies: dict[str, StreamProcessorProxy] = {}
+
+    def get_workflow_specs(self) -> WorkflowSpecs:
+        """
+        Get the workflow specifications for the available workflows.
+
+        Returns
+        -------
+        WorkflowSpecs
+            The workflow specifications.
+        """
+        return WorkflowSpecs(workflows=dict(self._processor_factory.items()))
 
     def set_workflow(self, source_name: str, processor: StreamProcessor | None) -> None:
         """
@@ -89,14 +87,20 @@ class WorkflowManager:
         if (proxy := self._proxies.get(source_name)) is not None:
             proxy.set_processor(self._processors.get(source_name))
 
-    def set_workflow_with_config(self, source_name: str, value: dict | None) -> None:
+    def set_workflow_with_config(
+        self, source_name: str | None, value: dict | None
+    ) -> None:
+        if source_name is None:
+            for name in self._processor_factory.source_names:
+                self.set_workflow_with_config(name, value)
+            return
         if value is None:
             self.set_workflow(source_name, None)
             return
         config = WorkflowConfig.model_validate(value)
         self.set_workflow(
             source_name,
-            processor=processor_factory.create(
+            processor=self._processor_factory.create(
                 workflow_id=config.identifier,
                 source_name=source_name,
                 workflow_params=config.values,
@@ -109,7 +113,7 @@ class WorkflowManager:
         wf_key = self._source_to_key.get(source_name)
         if wf_key is None:
             return None
-        if source_name in processor_factory.source_names:
+        if source_name in self._processor_factory.source_names:
             # Note that the processor may be 'None' at this point.
             proxy = StreamProcessorProxy(self._processors.get(source_name), key=wf_key)
             self._proxies[source_name] = proxy
