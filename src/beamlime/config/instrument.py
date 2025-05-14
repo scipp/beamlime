@@ -2,7 +2,8 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections import UserDict
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -12,7 +13,7 @@ from beamlime.config.models import Parameter
 from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 
 
-class InstrumentRegistry(Mapping[str, 'Instrument']):
+class InstrumentRegistry(UserDict[str, 'Instrument']):
     """
     Registry for instrument configurations.
 
@@ -26,30 +27,11 @@ class InstrumentRegistry(Mapping[str, 'Instrument']):
     means that the registry will typically contain only a single instrument.
     """
 
-    def __init__(self) -> None:
-        self._instruments: dict[str, Instrument] = {}
-
     def register(self, instrument: Instrument) -> None:
         """Register an instrument configuration."""
-        if instrument.name in self._instruments:
+        if instrument.name in self:
             raise ValueError(f"Instrument {instrument.name} is already registered.")
-        self._instruments[instrument.name] = instrument
-
-    def __getitem__(self, name: str) -> Instrument:
-        """Get an instrument by name (implements Mapping)."""
-        return self._instruments[name]
-
-    def __iter__(self) -> Iterator[str]:
-        """Return an iterator over instrument names (implements Mapping)."""
-        return iter(self._instruments)
-
-    def __len__(self) -> int:
-        """Return the number of registered instruments (implements Mapping)."""
-        return len(self._instruments)
-
-    def __contains__(self, name: str) -> bool:
-        """Check if an instrument is registered."""
-        return name in self._instruments
+        self[instrument.name] = instrument
 
 
 instrument_registry = InstrumentRegistry()
