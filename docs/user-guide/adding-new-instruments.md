@@ -7,7 +7,7 @@ This guide explains how to add support for a new instrument in Beamlime.
 1. Create a new configuration file in `src/beamlime/config/instruments/<instrument>.py`
    - The filename will be used as the instrument identifier
    - Beamlime automatically detects and loads all Python files in this directory
-2. Import and create and instance of the `Instrument` class in the new file.
+2. Import and create an instance of the `Instrument` class in the new file.
 3. Add detector configuration including:
    - Detector names and pixel ID ranges
    - View configurations (resolution, projection type)
