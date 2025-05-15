@@ -7,7 +7,6 @@ from ess.reduce.nexus.types import NeXusData, NeXusDetectorName, SampleRun
 from ess.reduce.streaming import StreamProcessor
 from ess.sans import types as params
 from ess.sans.types import (
-    Denominator,
     Filename,
     Incident,
     IofQ,
@@ -139,10 +138,18 @@ wav_bins_param = Parameter(
     param_type=ParameterType.INT,
     default=100,
 )
+use_transmission_run = Parameter(
+    name='UseTransmissionRun',
+    unit=None,
+    description='Use transmission run instead of monitor readings of sample run',
+    param_type=ParameterType.BOOL,
+    default=False,
+)
 
 # Created once outside workflow wrappers since this configures some files from pooch
 # where a checksum is needed, which takes significant time.
 _base_workflow = loki.live._configured_Larmor_AgBeh_workflow()
+_base_workflow[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
 
 instrument = Instrument(
     name='loki',
@@ -162,20 +169,33 @@ instrument = Instrument(
 )
 
 
+def _transmission_from_current_run(
+    data: params.CleanMonitor[SampleRun, params.MonitorType],
+) -> params.CleanMonitor[params.TransmissionRun[SampleRun], params.MonitorType]:
+    return data
+
+
+_dynamic_keys = (
+    NeXusData[NXdetector, SampleRun],
+    NeXusData[Incident, SampleRun],
+    NeXusData[Transmission, SampleRun],
+)
+_accumulators = (
+    ReducedQ[SampleRun, Numerator],
+    params.CleanMonitor[SampleRun, Incident],
+    params.CleanMonitor[SampleRun, Transmission],
+)
+
+
 @instrument.register_workflow(name='I(Q)', source_names=_source_names)
 def _i_of_q(source_name: str) -> StreamProcessor:
     wf = _base_workflow.copy()
-    wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
     wf[NeXusDetectorName] = source_name
     return StreamProcessor(
         wf,
-        dynamic_keys=(
-            NeXusData[NXdetector, SampleRun],
-            NeXusData[Incident, SampleRun],
-            NeXusData[Transmission, SampleRun],
-        ),
+        dynamic_keys=_dynamic_keys,
         target_keys=(IofQ[SampleRun],),
-        accumulators=(ReducedQ[SampleRun, Numerator], ReducedQ[SampleRun, Denominator]),
+        accumulators=_accumulators,
     )
 
 
@@ -186,7 +206,13 @@ def _i_of_q(source_name: str) -> StreamProcessor:
 @instrument.register_workflow(
     name='I(Q) with params',
     source_names=_source_names,
-    parameters=(qbins_param, wav_min_param, wav_max_param, wav_bins_param),
+    parameters=(
+        qbins_param,
+        wav_min_param,
+        wav_max_param,
+        wav_bins_param,
+        use_transmission_run,
+    ),
 )
 def _i_of_q_with_params(
     source_name: str,
@@ -194,9 +220,9 @@ def _i_of_q_with_params(
     WavelengthMin: float,
     WavelengthMax: float,
     WavelengthBins: int,
+    UseTransmissionRun: bool,
 ) -> StreamProcessor:
     wf = _base_workflow.copy()
-    wf[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
     wf[NeXusDetectorName] = source_name
 
     wf[params.QBins] = sc.linspace(
@@ -209,15 +235,17 @@ def _i_of_q_with_params(
         num=WavelengthBins + 1,
         unit='angstrom',
     )
+    if not UseTransmissionRun:
+        target_keys = (IofQ[SampleRun], params.TransmissionFraction[SampleRun])
+        wf.insert(_transmission_from_current_run)
+    else:
+        # Transmission fraction is static, do not display
+        target_keys = (IofQ[SampleRun],)
     return StreamProcessor(
         wf,
-        dynamic_keys=(
-            NeXusData[NXdetector, SampleRun],
-            NeXusData[Incident, SampleRun],
-            NeXusData[Transmission, SampleRun],
-        ),
-        target_keys=(IofQ[SampleRun],),
-        accumulators=(ReducedQ[SampleRun, Numerator], ReducedQ[SampleRun, Denominator]),
+        dynamic_keys=_dynamic_keys,
+        target_keys=target_keys,
+        accumulators=_accumulators,
     )
 
 
