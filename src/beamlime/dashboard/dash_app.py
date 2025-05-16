@@ -44,6 +44,9 @@ def _setup_layout(app: Dash) -> None:
 </html>
 '''
 
+    # TODO Note that the widgets currently do not set their values based on config from
+    # Kafka. That is, there is a mismatch between the values in the UI and the values
+    # used in the backend!
     controls = [
         html.Label('Update Speed (ms)'),
         dcc.Slider(
