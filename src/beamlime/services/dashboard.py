@@ -22,6 +22,7 @@ from beamlime.core.message import StreamKind, compact_messages
 from beamlime.dashboard.dash_app import make_dash_app
 from beamlime.dashboard.parameter_widget import create_parameter_widget
 from beamlime.dashboard.plots import create_detector_plot
+from beamlime.dashboard.workflow_widget import create_workflow_controls
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
@@ -361,39 +362,11 @@ class DashboardApp(ServiceBase):
             workflow_id = workflow_options[0]['value'] if workflow_options else None
 
             # Initialize with basic workflow selection UI
-            controls = [
-                html.Div(
-                    f"Configuring workflows for source: {source_name}",
-                    style={'fontWeight': 'bold', 'marginBottom': '10px'},
-                ),
-                html.Label('Workflow Name'),
-                dcc.Dropdown(
-                    id='workflow-name',
-                    options=workflow_options,
-                    value=workflow_id,
-                    style={'width': '100%', 'marginBottom': '10px'},
-                ),
-                # Hidden div to store parameters
-                html.Div(
-                    id='workflow-params-container',
-                    children=[],
-                    style={'marginTop': '10px'},
-                ),
-                html.Button(
-                    'Apply Workflow',
-                    id='workflow-apply-button',
-                    n_clicks=0,
-                    style={'width': '100%', 'marginTop': '10px'},
-                ),
-                # Add hidden div to store the source name this control set is for
-                html.Div(
-                    id='workflow-source-storage',
-                    children=source_name,
-                    style={'display': 'none'},
-                ),
-            ]
-
-            return controls
+            return create_workflow_controls(
+                source_name=source_name,
+                workflow_options=workflow_options,
+                workflow_id=workflow_id,
+            )
 
         except Exception as e:
             self._logger.warning("Failed to update workflow controls: %s", e)
