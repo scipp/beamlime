@@ -8,7 +8,7 @@ from contextlib import ExitStack
 
 import plotly.graph_objects as go
 import scipp as sc
-from dash import ALL, Dash, Input, Output, State, dcc, html
+from dash import dcc, html
 from dash.exceptions import PreventUpdate
 
 from beamlime import Service, ServiceBase
@@ -19,6 +19,10 @@ from beamlime.config.models import ConfigKey, WorkflowConfig
 from beamlime.config.streams import stream_kind_to_topic
 from beamlime.core.config_service import ConfigService
 from beamlime.core.message import StreamKind, compact_messages
+from beamlime.dashboard.dash_app import make_dash_app
+from beamlime.dashboard.parameter_widget import create_parameter_widget
+from beamlime.dashboard.plots import create_detector_plot
+from beamlime.dashboard.workflow_widget import create_workflow_controls
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
@@ -61,9 +65,7 @@ class DashboardApp(ServiceBase):
         self._source = self._setup_kafka_consumer()
 
         # Initialize Dash
-        self._app = Dash(name)
-        self._setup_layout()
-        self._setup_callbacks()
+        self._app = make_dash_app(name=name, callbacks=self)
 
     @property
     def server(self):
@@ -128,77 +130,6 @@ class DashboardApp(ServiceBase):
                 return parameters
         return []
 
-    def _create_parameter_widget(self, param: dict) -> list:
-        """Create appropriate widget based on parameter type."""
-        param_type = param.get('param_type', 'STRING').upper()
-        unit = param.get('unit')
-        default_value = param.get('default', '')
-        description = param.get('description', '')
-        widget_id = {'type': 'param-input', 'name': param['name']}
-
-        # Create label with tooltip for description
-        label = html.Label(
-            param['name'] if not unit else f'{param["name"]} [{unit}]',
-            title=description,  # Tooltip on hover
-            style={'cursor': 'help' if description else 'default'},
-        )
-
-        # Create appropriate input widget based on parameter type
-        if param_type == 'BOOL':
-            input_widget = dcc.Checklist(
-                id=widget_id,
-                options=[{'label': '', 'value': 'true'}],
-                value=['true'] if default_value else [],
-                style={'margin': '5px 0'},
-            )
-        elif param_type == 'INT':
-            input_widget = dcc.Input(
-                id=widget_id,
-                type='number',
-                step=1,
-                value=default_value,
-                style={'width': '100%'},
-            )
-        elif param_type == 'FLOAT':
-            input_widget = dcc.Input(
-                id=widget_id,
-                type='number',
-                step=0.1,
-                value=default_value,
-                style={'width': '100%'},
-            )
-        elif param_type == 'OPTIONS' and 'options' in param:
-            options = [{'label': opt, 'value': opt} for opt in param['options']]
-            input_widget = dcc.Dropdown(
-                id=widget_id,
-                options=options,
-                value=default_value
-                if default_value in param['options']
-                else param['options'][0],
-                style={'width': '100%'},
-            )
-        else:  # Default to string input for any other type
-            input_widget = dcc.Input(
-                id=widget_id,
-                type='text',
-                value=str(default_value),
-                style={'width': '100%'},
-            )
-
-        # Add hidden div to store parameter type for value conversion
-        param_type_store = html.Div(
-            id={'type': 'param-type', 'name': param['name']},
-            children=param_type,
-            style={'display': 'none'},
-        )
-
-        return [
-            label,
-            input_widget,
-            param_type_store,
-            html.Div(style={'marginBottom': '10px'}),
-        ]
-
     def _setup_kafka_consumer(self) -> AdaptingMessageSource:
         consumer_config = load_config(
             namespace=config_names.reduced_data_consumer, env=''
@@ -223,316 +154,8 @@ class DashboardApp(ServiceBase):
             ),
         )
 
-    def _setup_layout(self) -> None:
-        # Add CSS styles using the Dash assets approach
-        self._app.index_string = '''
-<!DOCTYPE html>
-<html>
-    <head>
-        {%metas%}
-        <title>{%title%}</title>
-        {%favicon%}
-        {%css%}
-        <style>
-            html, body {
-                margin: 0;
-                padding: 0;
-                overflow-x: hidden;
-                height: 100%;
-                max-height: 100%;
-            }
-            #react-entry-point {
-                height: 100%;
-            }
-        </style>
-    </head>
-    <body>
-        {%app_entry%}
-        <footer>
-            {%config%}
-            {%scripts%}
-            {%renderer%}
-        </footer>
-    </body>
-</html>
-'''
-
-        controls = [
-            html.Label('Update Speed (ms)'),
-            dcc.Slider(
-                id='update-speed',
-                min=8,
-                max=13,
-                step=0.5,
-                value=10,
-                marks={i: {'label': f'{2**i}'} for i in range(8, 14)},
-            ),
-            dcc.Checklist(
-                id='bins-checkbox',
-                options=[
-                    {
-                        'label': 'Time-of-arrival bins (WARNING: Clears the history!)',
-                        'value': 'confirmed',
-                    }
-                ],
-                value=[],
-                style={'margin': '10px 0'},
-            ),
-            dcc.Slider(
-                id='num-points',
-                min=10,
-                max=1000,
-                step=10,
-                value=100,
-                marks={i: str(i) for i in range(0, 1001, 100)},
-                disabled=True,
-            ),
-            html.Label('ROI X-axis Center (%)'),
-            dcc.Slider(
-                id='roi-x-center',
-                min=0,
-                max=100,
-                step=1,
-                value=50,
-                marks={i: str(i) for i in range(0, 101, 20)},
-            ),
-            html.Label('ROI X-axis Width (%)'),
-            dcc.Slider(
-                id='roi-x-delta',
-                min=0,
-                max=10,
-                step=1,
-                value=5,
-                marks={i: str(i) for i in range(0, 11, 1)},
-            ),
-            html.Label('ROI Y-axis Center (%)'),
-            dcc.Slider(
-                id='roi-y-center',
-                min=0,
-                max=100,
-                step=1,
-                value=50,
-                marks={i: str(i) for i in range(0, 101, 20)},
-            ),
-            html.Label('ROI Y-axis Width (%)'),
-            dcc.Slider(
-                id='roi-y-delta',
-                min=0,
-                max=10,
-                step=1,
-                value=5,
-                marks={i: str(i) for i in range(0, 11, 1)},
-            ),
-            dcc.Checklist(
-                id='toa-checkbox',
-                options=[
-                    {'label': 'Filter by time-of-arrival (μs)', 'value': 'enabled'}
-                ],
-                value=[],
-                style={'margin': '10px 0'},
-            ),
-            html.Label('Time-of-arrival center (μs)'),
-            dcc.Slider(
-                id='toa-center',
-                min=0,
-                max=71_000,
-                step=100,
-                value=35_500,
-                marks={i: str(i) for i in range(0, 71_001, 10_000)},
-            ),
-            html.Label('Time-of-arrival width (μs)'),
-            dcc.Slider(
-                id='toa-delta',
-                min=0,
-                max=5_000,
-                step=100,
-                value=5_000,
-                marks={i: str(i) for i in range(0, 5_001, 1000)},
-            ),
-            dcc.Checklist(
-                id='use-weights-checkbox',
-                options=[{'label': 'Use weights', 'value': 'enabled'}],
-                value=['enabled'],
-                style={'margin': '10px 0'},
-            ),
-            html.Button('Clear', id='clear-button', n_clicks=0),
-            html.Hr(style={'margin': '20px 0'}),
-            html.H3('Workflow Control', style={'marginTop': '10px'}),
-            html.Label('Source Name'),
-            dcc.Dropdown(
-                id='workflow-source-name',
-                options=[],  # Will be populated dynamically
-                value=None,
-                style={'width': '100%', 'marginBottom': '10px'},
-            ),
-            html.Div(
-                style={
-                    'display': 'flex',
-                    'justifyContent': 'space-between',
-                    'marginTop': '10px',
-                },
-                children=[
-                    html.Button(
-                        'Stop Workflow',
-                        id='workflow-stop-button',
-                        n_clicks=0,
-                        style={'width': '48%'},
-                    ),
-                    html.Button(
-                        'Configure Workflow',
-                        id='workflow-configure-button',
-                        n_clicks=0,
-                        style={'width': '48%'},
-                    ),
-                ],
-            ),
-            html.Div(
-                id='workflow-controls-container',
-                children=[],  # Will be populated when Configure Workflow is clicked
-                style={'marginTop': '10px'},
-            ),
-            html.Label('Note that workflow changes may take a few seconds to apply.'),
-        ]
-        self._app.layout = html.Div(
-            [
-                html.Div(
-                    controls,
-                    style={
-                        'width': '300px',
-                        'position': 'fixed',
-                        'top': '0',
-                        'left': '0',
-                        'bottom': '0',
-                        'padding': '10px',
-                        'overflowY': 'auto',
-                        'backgroundColor': '#f8f9fa',
-                        'borderRight': '1px solid #dee2e6',
-                        'zIndex': '1000',
-                    },
-                ),
-                html.Div(
-                    id='plots-container',
-                    style={
-                        'marginLeft': '320px',
-                        'padding': '10px 10px 0 10px',  # Remove bottom padding
-                        'height': '100vh',
-                        'overflowY': 'auto',
-                        'boxSizing': 'border-box',
-                    },
-                ),
-                dcc.Interval(id='interval-component', interval=200, n_intervals=0),
-                # Add interval for workflow updates
-                dcc.Interval(
-                    id='workflow-update-interval', interval=5000, n_intervals=0
-                ),
-            ],
-            style={
-                'height': '100vh',
-                'width': '100%',
-                'margin': '0',
-                'padding': '0',
-                'overflow': 'hidden',  # Hide both x and y overflow
-                'boxSizing': 'border-box',
-                'display': 'block',  # Ensure block display
-            },
-        )
-
     def _toggle_slider(self, checkbox_value):
         return len(checkbox_value) == 0
-
-    def _setup_callbacks(self) -> None:
-        self._app.callback(
-            Output('num-points', 'disabled'), Input('bins-checkbox', 'value')
-        )(self._toggle_slider)
-
-        self._app.callback(
-            Output('plots-container', 'children'),
-            Input('interval-component', 'n_intervals'),
-        )(self.update_plots)
-
-        self._app.callback(
-            Output('interval-component', 'interval'), Input('update-speed', 'value')
-        )(self.update_timing_settings)
-
-        self._app.callback(Output('num-points', 'value'), Input('num-points', 'value'))(
-            self.update_num_points
-        )
-
-        self._app.callback(
-            Output('clear-button', 'n_clicks'), Input('clear-button', 'n_clicks')
-        )(self.clear_data)
-
-        self._app.callback(
-            Output('roi-x-center', 'value'),
-            Output('roi-x-delta', 'value'),
-            Output('roi-y-center', 'value'),
-            Output('roi-y-delta', 'value'),
-            Input('roi-x-center', 'value'),
-            Input('roi-x-delta', 'value'),
-            Input('roi-y-center', 'value'),
-            Input('roi-y-delta', 'value'),
-        )(self.update_roi)
-
-        self._app.callback(
-            [Output('toa-center', 'disabled'), Output('toa-delta', 'disabled')],
-            Input('toa-checkbox', 'value'),
-        )(lambda value: [len(value) == 0, len(value) == 0])
-
-        self._app.callback(
-            Output('toa-center', 'value'),
-            Output('toa-delta', 'value'),
-            Input('toa-center', 'value'),
-            Input('toa-delta', 'value'),
-            Input('toa-checkbox', 'value'),
-        )(self.update_toa_range)
-
-        self._app.callback(
-            Output('use-weights-checkbox', 'value'),
-            Input('use-weights-checkbox', 'value'),
-        )(self.update_use_weights)
-
-        self._app.callback(
-            Output('workflow-controls-container', 'children'),
-            Input('workflow-configure-button', 'n_clicks'),
-            State('workflow-source-name', 'value'),
-        )(self.show_workflow_config)
-        self._app.callback(
-            Output('workflow-params-container', 'children'),
-            Input('workflow-name', 'value'),
-            State('workflow-source-name', 'value'),
-        )(self.update_workflow_parameters)
-        self._app.callback(
-            Output('workflow-stop-button', 'n_clicks'),
-            Input('workflow-stop-button', 'n_clicks'),
-            Input('workflow-source-name', 'value'),
-        )(self.stop_workflow)
-
-        # Update source name dropdown options periodically
-        self._app.callback(
-            Output('workflow-source-name', 'options'),
-            Input('workflow-update-interval', 'n_intervals'),
-            Input('workflow-source-name', 'value'),
-        )(self.update_source_dropdown)
-
-        # Set initial value for source dropdown ONLY if empty and only once
-        self._app.callback(
-            Output('workflow-source-name', 'value'),
-            Input('workflow-source-name', 'options'),
-            Input('workflow-source-name', 'value'),
-            prevent_initial_call=True,  # Prevent automatic call on initial load
-        )(self.set_initial_source)
-
-        # Update workflow apply button callback to collect parameter values
-        self._app.callback(
-            Output('workflow-apply-button', 'n_clicks'),
-            Input('workflow-apply-button', 'n_clicks'),
-            State('workflow-source-storage', 'children'),
-            State('workflow-name', 'value'),
-            # Use ALL pattern to get all parameter inputs
-            State({'type': 'param-input', 'name': ALL}, 'value'),
-            State({'type': 'param-type', 'name': ALL}, 'children'),
-            State({'type': 'param-input', 'name': ALL}, 'id'),
-        )(self.send_workflow_control)
 
     def update_roi(self, x_center, x_delta, y_center, y_delta):
         x_min = max(0, x_center - x_delta)
@@ -585,89 +208,6 @@ class DashboardApp(ServiceBase):
         self._config_service.update_config(config_key, model.model_dump())
         return value
 
-    @staticmethod
-    def create_monitor_plot(key: str, data: sc.DataArray) -> go.Figure:
-        fig = go.Figure()
-        fig.add_scatter(x=[], y=[], mode='lines', line_width=2)
-        dim = data.dim
-        fig.update_layout(
-            title=key,
-            width=500,
-            height=400,
-            xaxis_title=f'{dim} [{data.coords[dim].unit}]',
-            yaxis_title=f'[{data.unit}]',
-            uirevision=key,
-        )
-        return fig
-
-    @staticmethod
-    def create_detector_plot(key: str, data: sc.DataArray) -> go.Figure:
-        if len(data.dims) == 1:
-            return DashboardApp.create_monitor_plot(key, data)
-
-        fig = go.Figure()
-        y_dim, x_dim = data.dims
-        fig.add_heatmap(
-            z=[[]],
-            x=[],  # Will be filled with coordinate values
-            y=[],  # Will be filled with coordinate values
-            colorscale='Viridis',
-        )
-        # Add ROI rectangle (initially hidden)
-        if not key.startswith('reduced'):  # ROI selection only for raw detector plots
-            fig.add_shape(
-                type="rect",
-                x0=0,
-                y0=0,
-                x1=1,
-                y1=1,
-                line={'color': 'red', 'width': 2},
-                fillcolor="red",
-                opacity=0.2,
-                visible=False,
-                name="ROI",
-            )
-
-        def maybe_unit(dim: str) -> str:
-            unit = data.coords[dim].unit
-            return f' [{unit}]' if unit is not None else ''
-
-        size = 800
-        opts = {
-            'title': key,
-            'xaxis_title': f'{x_dim}{maybe_unit(x_dim)}',
-            'yaxis_title': f'{y_dim}{maybe_unit(y_dim)}',
-            'uirevision': key,
-            'showlegend': False,
-        }
-        y_size, x_size = data.shape
-        if data.coords[x_dim].unit is not None and (
-            maybe_unit(y_dim) == maybe_unit(x_dim)
-        ):
-            if y_size < x_size:
-                fig.update_layout(width=size, **opts)
-                fig.update_yaxes(scaleanchor="x", scaleratio=1, constrain="domain")
-                fig.update_xaxes(constrain="domain")
-            else:
-                fig.update_layout(height=size, **opts)
-                fig.update_xaxes(scaleanchor="y", scaleratio=1, constrain="domain")
-                fig.update_yaxes(constrain="domain")
-        else:
-            # Set size based on pixel count
-            long = max(y_size, x_size)
-            short = min(y_size, x_size)
-            ratio = long / short
-            max_size = 900
-            if ratio > 3:
-                if y_size < x_size:
-                    fig.update_layout(width=max_size, height=max_size // 3, **opts)
-                else:
-                    fig.update_layout(width=max_size // 3, height=max_size, **opts)
-            else:
-                scale = max_size / long
-                fig.update_layout(width=x_size * scale, height=y_size * scale, **opts)
-        return fig
-
     def update_plots(self, n: int | None):
         if n is None:
             raise PreventUpdate
@@ -690,7 +230,7 @@ class DashboardApp(ServiceBase):
                     if dim not in data.coords:
                         data.coords[dim] = sc.arange(dim, data.sizes[dim], unit=None)
                 if key not in self._plots:
-                    self._plots[key] = self.create_detector_plot(key, data)
+                    self._plots[key] = create_detector_plot(key, data)
                 fig = self._plots[key]
                 if len(data.dims) == 1:
                     fig.data[0].x = data.coords[data.dim].values
@@ -822,39 +362,11 @@ class DashboardApp(ServiceBase):
             workflow_id = workflow_options[0]['value'] if workflow_options else None
 
             # Initialize with basic workflow selection UI
-            controls = [
-                html.Div(
-                    f"Configuring workflows for source: {source_name}",
-                    style={'fontWeight': 'bold', 'marginBottom': '10px'},
-                ),
-                html.Label('Workflow Name'),
-                dcc.Dropdown(
-                    id='workflow-name',
-                    options=workflow_options,
-                    value=workflow_id,
-                    style={'width': '100%', 'marginBottom': '10px'},
-                ),
-                # Hidden div to store parameters
-                html.Div(
-                    id='workflow-params-container',
-                    children=[],
-                    style={'marginTop': '10px'},
-                ),
-                html.Button(
-                    'Apply Workflow',
-                    id='workflow-apply-button',
-                    n_clicks=0,
-                    style={'width': '100%', 'marginTop': '10px'},
-                ),
-                # Add hidden div to store the source name this control set is for
-                html.Div(
-                    id='workflow-source-storage',
-                    children=source_name,
-                    style={'display': 'none'},
-                ),
-            ]
-
-            return controls
+            return create_workflow_controls(
+                source_name=source_name,
+                workflow_options=workflow_options,
+                workflow_id=workflow_id,
+            )
 
         except Exception as e:
             self._logger.warning("Failed to update workflow controls: %s", e)
@@ -891,7 +403,7 @@ class DashboardApp(ServiceBase):
 
             # Create widgets for each parameter
             for param in parameters:
-                parameter_widgets.extend(self._create_parameter_widget(param))
+                parameter_widgets.extend(create_parameter_widget(param))
 
             return parameter_widgets
 
