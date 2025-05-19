@@ -525,3 +525,32 @@ def test_message_with_bad_ev44_is_ignored(
     app.step()
     assert len(sink.messages) == 1
     assert sink.messages[0].value.values.sum() == 2000
+
+
+def test_message_with_bad_timestamp_is_ignored(
+    configured_dummy_reduction: BeamlimeApp,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = configured_dummy_reduction
+    sink = app.sink
+
+    app.publish_events(size=1000, time=0, reuse_events=True)
+    bad_events = eventdata_ev44.serialise_ev44(
+        source_name='panel_0',
+        message_id=0,
+        reference_time=[],
+        reference_time_index=0,
+        time_of_flight=[1, 2],
+        pixel_id=[1, 2],
+    )
+    import numpy as np
+
+    app.publish_data(topic=app.detector_topic, time=np.array([1, 2]), data=bad_events)
+    app.publish_events(size=1000, time=1, reuse_events=True)
+
+    # We should have valid data in the *same* batch of messages, but only the bad
+    # message should be skipped.
+    app.step()
+    assert len(sink.messages) == 1
+    assert sink.messages[0].value.values.sum() == 2000

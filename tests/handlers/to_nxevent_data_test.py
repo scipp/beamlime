@@ -17,13 +17,29 @@ def test_MonitorEvents_from_ev44() -> None:
         source_name='ignored',
         message_id=0,
         reference_time=[],
-        reference_time_index=[],
+        reference_time_index=[0],
         pixel_id=[1, 1, 1],
         time_of_flight=[1, 2, 3],
     )
     monitor_events = MonitorEvents.from_ev44(ev44)
     assert monitor_events.time_of_arrival == [1, 2, 3]
     assert monitor_events.unit == 'ns'
+
+
+@pytest.mark.parametrize('events_cls', [MonitorEvents, DetectorEvents])
+def test_MonitorEvents_from_ev44_raises_with_multi_pulse_message(
+    events_cls: MonitorEvents,
+) -> None:
+    ev44 = eventdata_ev44.EventData(
+        source_name='ignored',
+        message_id=0,
+        reference_time=[1, 2],
+        reference_time_index=[0, 1],
+        pixel_id=[1, 1, 1],
+        time_of_flight=[1, 2, 3],
+    )
+    with pytest.raises(NotImplementedError):
+        events_cls.from_ev44(ev44)
 
 
 def test_MonitorEvents_ToNXevent_data() -> None:

@@ -13,6 +13,12 @@ from streaming_data_types import eventdata_ev44
 from beamlime.core.handler import Accumulator
 
 
+def _require_single_pulse(ev44: eventdata_ev44.EventData) -> None:
+    index = np.asarray(ev44.reference_time_index)
+    if index.shape != (1,) or index != 0 or len(ev44.reference_time) > 1:
+        raise NotImplementedError("Processing multi-pulse messages is not supported.")
+
+
 @dataclass
 class MonitorEvents:
     """
@@ -30,6 +36,7 @@ class MonitorEvents:
 
     @staticmethod
     def from_ev44(ev44: eventdata_ev44.EventData) -> MonitorEvents:
+        _require_single_pulse(ev44)
         return MonitorEvents(time_of_arrival=ev44.time_of_flight, unit='ns')
 
 
@@ -56,6 +63,7 @@ class DetectorEvents(MonitorEvents):
 
     @staticmethod
     def from_ev44(ev44: eventdata_ev44.EventData) -> DetectorEvents:
+        _require_single_pulse(ev44)
         return DetectorEvents(
             pixel_id=ev44.pixel_id, time_of_arrival=ev44.time_of_flight, unit='ns'
         )
@@ -81,8 +89,8 @@ class ToNXevent_data(Accumulator[Events, sc.DataArray]):
         elif self._have_event_id != isinstance(data, DetectorEvents):
             # This should never happen, but we check to be safe.
             raise ValueError("Inconsistent event_id")
+        self._timestamps.append(int(timestamp))
         self._chunks.append(data)
-        self._timestamps.append(timestamp)
 
     def get(self) -> sc.DataArray:
         if self._have_event_id is None:
