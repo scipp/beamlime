@@ -21,7 +21,7 @@ pygments==2.19.1
     # via rich
 rich==14.0.0
     # via textual
-textual==3.0.1
+textual==3.2.0
     # via -r stream.in
 uc-micro-py==1.0.3
     # via linkify-it-py

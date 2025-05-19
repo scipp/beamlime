@@ -6,7 +6,7 @@ from collections.abc import Generator
 from typing import NewType
 
 import scipp as sc
-from ess import bifrost
+from ess.reduce import time_of_flight
 from ess.reduce.nexus.types import (
     CalibratedBeamline,
     DetectorData,
@@ -16,6 +16,7 @@ from ess.reduce.nexus.types import (
     SampleRun,
 )
 from ess.reduce.streaming import StreamProcessor
+from ess.spectroscopy.indirect.time_of_flight import TofWorkflow
 from scippnexus import NXdetector
 
 from beamlime.config import Instrument
@@ -126,10 +127,14 @@ def _make_counts_per_angle(
     counts = sc.values(data.sum().data)
     if rotation is not None:
         da['angle', rotation.data[-1]] += counts
-    return da
+    return CountsPerAngle(da)
 
 
-_reduction_workflow = bifrost.io.nexus.LoadNeXusWorkflow()
+_reduction_workflow = TofWorkflow(
+    run_types=(SampleRun,),
+    monitor_types=(),
+    tof_lut_provider=time_of_flight.TofLutProvider.FILE,
+)
 _reduction_workflow[Filename[SampleRun]] = get_nexus_geometry_filename('bifrost')
 _reduction_workflow[CalibratedBeamline[SampleRun]] = (
     _reduction_workflow[CalibratedBeamline[SampleRun]]
