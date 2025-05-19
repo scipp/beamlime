@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from typing import Any, Generic, Protocol, TypeVar
 
@@ -32,17 +33,13 @@ class KafkaMessage(Protocol):
     def error(self) -> Any | None:
         pass
 
-    def key(self) -> bytes:
-        pass
+    def key(self) -> bytes: ...
 
-    def value(self) -> bytes:
-        pass
+    def value(self) -> bytes: ...
 
-    def timestamp(self) -> tuple[int, int]:
-        pass
+    def timestamp(self) -> tuple[int, int]: ...
 
-    def topic(self) -> str:
-        pass
+    def topic(self) -> str: ...
 
 
 class FakeKafkaMessage(KafkaMessage):
@@ -76,8 +73,7 @@ class FakeKafkaMessage(KafkaMessage):
 
 
 class MessageAdapter(Protocol, Generic[T, U]):
-    def adapt(self, message: T) -> U:
-        pass
+    def adapt(self, message: T) -> U: ...
 
 
 class KafkaAdapter(MessageAdapter[KafkaMessage, Message[T]]):
@@ -102,7 +98,7 @@ class KafkaAdapter(MessageAdapter[KafkaMessage, Message[T]]):
         return StreamId(kind=self._stream_kind, name=self._stream_lut[input_key])
 
 
-class KafkaToEv44Adapter(KafkaAdapter[Message[eventdata_ev44.EventData]]):
+class KafkaToEv44Adapter(KafkaAdapter[eventdata_ev44.EventData]):
     def adapt(self, message: KafkaMessage) -> Message[eventdata_ev44.EventData]:
         ev44 = eventdata_ev44.deserialise_ev44(message.value())
         stream = self.get_stream_id(topic=message.topic(), source_name=ev44.source_name)
@@ -114,15 +110,16 @@ class KafkaToEv44Adapter(KafkaAdapter[Message[eventdata_ev44.EventData]]):
         return Message(timestamp=timestamp, stream=stream, value=ev44)
 
 
-class KafkaToDa00Adapter(KafkaAdapter[Message[list[dataarray_da00.Variable]]]):
+class KafkaToDa00Adapter(KafkaAdapter[list[dataarray_da00.Variable]]):
     def adapt(self, message: KafkaMessage) -> Message[list[dataarray_da00.Variable]]:
-        da00 = dataarray_da00.deserialise_da00(message.value())
+        da00: dataarray_da00.da00_DataArray_t
+        da00 = dataarray_da00.deserialise_da00(message.value())  # type: ignore[reportAssignmentType]
         key = self.get_stream_id(topic=message.topic(), source_name=da00.source_name)
         timestamp = da00.timestamp_ns
         return Message(timestamp=timestamp, stream=key, value=da00.data)
 
 
-class KafkaToF144Adapter(KafkaAdapter[Message[logdata_f144.ExtractedLogData]]):
+class KafkaToF144Adapter(KafkaAdapter[logdata_f144.ExtractedLogData]):
     def __init__(self, *, stream_lut: StreamLUT | None = None):
         super().__init__(stream_lut=stream_lut, stream_kind=StreamKind.LOG)
 
@@ -141,7 +138,11 @@ class F144ToLogDataAdapter(
     def adapt(
         self, message: Message[logdata_f144.ExtractedLogData]
     ) -> Message[LogData]:
-        return replace(message, value=LogData.from_f144(message.value))
+        return Message(
+            timestamp=message.timestamp,
+            stream=message.stream,
+            value=LogData.from_f144(message.value),
+        )
 
 
 class Ev44ToMonitorEventsAdapter(
@@ -150,10 +151,14 @@ class Ev44ToMonitorEventsAdapter(
     def adapt(
         self, message: Message[eventdata_ev44.EventData]
     ) -> Message[MonitorEvents]:
-        return replace(message, value=MonitorEvents.from_ev44(message.value))
+        return Message(
+            timestamp=message.timestamp,
+            stream=message.stream,
+            value=MonitorEvents.from_ev44(message.value),
+        )
 
 
-class KafkaToMonitorEventsAdapter(KafkaAdapter[Message[MonitorEvents]]):
+class KafkaToMonitorEventsAdapter(KafkaAdapter[MonitorEvents]):
     """
     Directly adapts a Kafka message to MonitorEvents.
 
@@ -208,8 +213,10 @@ class Ev44ToDetectorEventsAdapter(
         stream = message.stream
         if self._merge_detectors:
             stream = replace(stream, name='unified_detector')
-        return replace(
-            message, stream=stream, value=DetectorEvents.from_ev44(message.value)
+        return Message(
+            timestamp=message.timestamp,
+            stream=stream,
+            value=DetectorEvents.from_ev44(message.value),
         )
 
 
@@ -219,7 +226,11 @@ class Da00ToScippAdapter(
     def adapt(
         self, message: Message[list[dataarray_da00.Variable]]
     ) -> Message[sc.DataArray]:
-        return replace(message, value=da00_to_scipp(message.value))
+        return Message(
+            timestamp=message.timestamp,
+            stream=message.stream,
+            value=da00_to_scipp(message.value),
+        )
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -263,7 +274,7 @@ class RouteBySchemaAdapter(MessageAdapter[KafkaMessage, T]):
     def __init__(self, routes: dict[str, MessageAdapter[KafkaMessage, T]]):
         self._routes = routes
 
-    def adapt(self, message: KafkaMessage) -> Message[T]:
+    def adapt(self, message: KafkaMessage) -> T:
         schema = streaming_data_types.utils.get_schema(message.value())
         if schema is None:
             raise streaming_data_types.exceptions.WrongSchemaException()
@@ -283,7 +294,7 @@ class RouteByTopicAdapter(MessageAdapter[KafkaMessage, T]):
         """Returns the list of topics to subscribe to."""
         return list(self._routes.keys())
 
-    def adapt(self, message: KafkaMessage) -> Message[T]:
+    def adapt(self, message: KafkaMessage) -> T:
         return self._routes[message.topic()].adapt(message)
 
 
@@ -317,7 +328,7 @@ class AdaptingMessageSource(MessageSource[U]):
         self._adapter = adapter
         self._raise_on_error = raise_on_error
 
-    def get_messages(self) -> list[U]:
+    def get_messages(self) -> Sequence[U]:
         raw_messages = self._source.get_messages()
         adapted = []
         for msg in raw_messages:

@@ -2,6 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 from typing import Generic, Protocol, TypeVar
@@ -56,7 +57,8 @@ class Message(Generic[T]):
 
 
 class MessageSource(Protocol, Generic[Tin]):
-    def get_messages(self) -> list[Message[Tin]]: ...
+    # Note that Tin is often (but not always) Message[T]
+    def get_messages(self) -> Sequence[Tin]: ...
 
     def close(self) -> None: ...
 
