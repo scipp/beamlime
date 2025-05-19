@@ -42,7 +42,7 @@ TotalCounts = NewType('TotalCounts', sc.DataArray)
 
 def _total_counts(events: Events) -> TotalCounts:
     """Calculate total counts from events."""
-    return TotalCounts(events.sum())
+    return TotalCounts(events.to(dtype='int64').sum())
 
 
 _total_counts_workflow = sciline.Pipeline((_total_counts,))

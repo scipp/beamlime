@@ -58,6 +58,7 @@ class BeamlimeApp:
         )
         self._detector_config = get_config(self.instrument).detectors_config['fakes']
         self._rng = np.random.default_rng(seed=1234)  # Avoid test flakiness
+        self._detector_events: bytes | None = None
 
     @staticmethod
     def from_service_builder(builder: DataServiceBuilder) -> BeamlimeApp:
@@ -104,11 +105,25 @@ class BeamlimeApp:
         )
         self.consumer.add_message(monitor_message)
 
-    def publish_events(self, *, size: int, time: int) -> None:
-        message = FakeKafkaMessage(
-            value=self.make_serialized_ev44(
+    def publish_events(
+        self, *, size: int, time: int, reuse_events: bool = False
+    ) -> None:
+        """
+        Publish events to the consumer.
+
+        If `reuse_events` is True, the same events are reused for each call to this
+        method. This is useful for speeding up tests that need to send many event
+        messages but do not require different events for each call.
+        """
+        if not reuse_events or self._detector_events is None:
+            events = self.make_serialized_ev44(
                 name=next(iter(self._detector_config)), size=size, with_ids=True
-            ),
+            )
+            self._detector_events = events
+        else:
+            events = self._detector_events
+        message = FakeKafkaMessage(
+            value=events,
             topic=self._detector_topic,
             timestamp=time * 1_000_000_000,
         )
