@@ -46,7 +46,7 @@ dynamic = ["version"]
 [project.optional-dependencies]
 test = [
     "esssans",
-    "essspectroscopy",
+    "essspectroscopy>=25.05.0",
     "pytest",
     "pytest-benchmark",
 ]

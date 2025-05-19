@@ -8,7 +8,7 @@ jinja2
 pydantic>=2
 pooch
 esssans
-essspectroscopy
+essspectroscopy>=25.05.0
 pytest
 pytest-benchmark
 scipp
