@@ -116,10 +116,9 @@ def _make_dream_detectors() -> StreamLUT:
 
 
 _reduction_workflow = GenericTofWorkflow(run_types=[SampleRun], monitor_types=[])
-_reduction_workflow[Filename[SampleRun]] = get_nexus_geometry_filename('dream')
-_reduction_workflow[Filename[SampleRun]] = (
-    '/home/simon/code/scipp/beamlime/977695_00067994.hdf'
-)
+# dream-no-shape is a much smaller file without pixel_shape, which is not needed for
+# data reduction.
+_reduction_workflow[Filename[SampleRun]] = get_nexus_geometry_filename('dream-no-shape')
 
 _source_names = [
     'mantle_detector',
