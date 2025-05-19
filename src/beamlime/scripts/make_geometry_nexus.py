@@ -9,12 +9,12 @@ from pathlib import Path
 import h5py
 
 
-def copy_attributes(src, dst):
+def _copy_attributes(src, dst):
     for key, value in src.attrs.items():
         dst.attrs[key] = value
 
 
-def copy_detector_fields(src_group, dst_group, use_pixel_shape: bool):
+def _copy_detector_fields(src_group, dst_group, use_pixel_shape: bool):
     compression_fields = [
         'detector_number',
         'x_pixel_offset',
@@ -32,13 +32,13 @@ def copy_detector_fields(src_group, dst_group, use_pixel_shape: bool):
                 compression_opts=1,
                 shuffle=True,
             )
-            copy_attributes(src_group[field], dst_group[field])
+            _copy_attributes(src_group[field], dst_group[field])
     src_group.copy('depends_on', dst_group)
     if use_pixel_shape and 'pixel_shape' in src_group:
         src_group.copy('pixel_shape', dst_group)
 
 
-def copy_monitor_fields(src_group, dst_group):
+def _copy_monitor_fields(src_group, dst_group):
     src_group.copy('depends_on', dst_group)
 
 
@@ -58,7 +58,7 @@ def write_minimal_geometry(
                 if current_path not in fout:
                     src_group = fin[current_path]
                     dst_group = fout.create_group(current_path)
-                    copy_attributes(src_group, dst_group)
+                    _copy_attributes(src_group, dst_group)
 
         def visit_and_copy(name, obj):
             if isinstance(obj, h5py.Group):
@@ -70,36 +70,39 @@ def write_minimal_geometry(
                     if nx_class == 'NXdetector':
                         ensure_parent_groups(name)
                         dst_group = fout.create_group(name)
-                        copy_attributes(obj, dst_group)
-                        copy_detector_fields(
+                        _copy_attributes(obj, dst_group)
+                        _copy_detector_fields(
                             obj, dst_group, use_pixel_shape=use_pixel_shape
                         )
                     elif nx_class == 'NXmonitor':
                         ensure_parent_groups(name)
                         dst_group = fout.create_group(name)
-                        copy_attributes(obj, dst_group)
-                        copy_monitor_fields(obj, dst_group)
+                        _copy_attributes(obj, dst_group)
+                        _copy_monitor_fields(obj, dst_group)
                     elif nx_class in ('NXsource', 'NXsample'):
                         ensure_parent_groups(name)
                         dst_group = fout.create_group(name)
-                        copy_attributes(obj, dst_group)
+                        _copy_attributes(obj, dst_group)
                         obj.copy('depends_on', dst_group)
                     elif nx_class == 'NXtransformations':
                         ensure_parent_groups(name)
                         dst_group = fout.create_group(name)
-                        copy_attributes(obj, dst_group)
+                        _copy_attributes(obj, dst_group)
                         # Copy all contents of the transformations group
                         for key in obj:
                             obj.copy(key, dst_group)
 
         # Copy root attributes
-        copy_attributes(fin, fout)
+        _copy_attributes(fin, fout)
         fin.visititems(visit_and_copy)
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Create a copy of a NeXus file with stripped event data.'
+        description=(
+            'Create a copy of a NeXus file, stripping non-geometry data such '
+            'as event data.'
+        )
     )
     parser.add_argument('input', type=Path, help='Input NeXus file')
     parser.add_argument('output', type=Path, help='Output NeXus file')
