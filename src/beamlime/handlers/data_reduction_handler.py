@@ -14,9 +14,10 @@ from ..core.handler import (
     PeriodicAccumulatingHandler,
 )
 from ..core.message import Message, StreamId, StreamKind
-from .accumulators import DetectorEvents, ToNXevent_data
+from .accumulators import DetectorEvents
 from .monitor_data_handler import make_monitor_data_preprocessor
-from .to_nx_log import ToNXlog
+from .to_nxevent_data import ToNXevent_data
+from .to_nxlog import ToNXlog
 from .workflow_manager import WorkflowManager
 
 
