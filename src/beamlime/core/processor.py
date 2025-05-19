@@ -7,7 +7,7 @@ from collections import defaultdict
 from typing import Generic, Protocol
 
 from .handler import HandlerRegistry
-from .message import MessageSink, MessageSource, Tin, Tout
+from .message import Message, MessageSink, MessageSource, Tin, Tout
 
 
 class Processor(Protocol):
@@ -30,7 +30,7 @@ class StreamProcessor(Generic[Tin, Tout]):
         self,
         *,
         logger: logging.Logger | None = None,
-        source: MessageSource[Tin],
+        source: MessageSource[Message[Tin]],
         sink: MessageSink[Tout],
         handler_registry: HandlerRegistry[Tin, Tout],
     ) -> None:
