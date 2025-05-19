@@ -47,6 +47,13 @@ class DetectorEvents(MonitorEvents):
 
     pixel_id: Sequence[int]
 
+    def __post_init__(self) -> None:
+        if len(self.pixel_id) != len(self.time_of_arrival):
+            raise ValueError(
+                f"pixel_id and time_of_arrival must have the same length, "
+                f"got {len(self.pixel_id)} and {len(self.time_of_arrival)}"
+            )
+
     @staticmethod
     def from_ev44(ev44: eventdata_ev44.EventData) -> DetectorEvents:
         return DetectorEvents(
@@ -74,10 +81,6 @@ class ToNXevent_data(Accumulator[Events, sc.DataArray]):
         elif self._have_event_id != isinstance(data, DetectorEvents):
             # This should never happen, but we check to be safe.
             raise ValueError("Inconsistent event_id")
-        if isinstance(data, DetectorEvents) and (
-            len(data.time_of_arrival) != len(data.pixel_id)
-        ):
-            raise ValueError("Inconsistent data length")
         self._chunks.append(data)
         self._timestamps.append(timestamp)
 
