@@ -3,17 +3,34 @@
 
 from typing import NewType
 
-import sciline
 import scipp as sc
+from ess.reduce.nexus.types import (
+    DetectorData,
+    Filename,
+    NeXusData,
+    NeXusName,
+    SampleRun,
+)
 from ess.reduce.streaming import StreamProcessor
+from ess.reduce.time_of_flight.workflow import GenericTofWorkflow
+from scippnexus import NXdetector
 
 from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
+from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
-instrument = Instrument(name='dream')
+instrument = Instrument(
+    name='dream',
+    source_to_key={
+        'mantle_detector': NeXusData[NXdetector, SampleRun],
+        'endcap_backward_detector': NeXusData[NXdetector, SampleRun],
+        'endcap_forward_detector': NeXusData[NXdetector, SampleRun],
+        'high_resolution_detector': NeXusData[NXdetector, SampleRun],
+    },
+)
 
 
 def _get_mantle_front_layer(da: sc.DataArray) -> sc.DataArray:
@@ -76,75 +93,6 @@ detectors_config = {
 }
 
 
-# Below is a dummy workflow for early dev and testing purposes.
-# This will be replaced by a real workflow provided by the ess.dream package.
-RawDetectorData = NewType('RawDetectorData', sc.DataArray)
-DetectorData = NewType('DetectorData', sc.DataArray)
-RawMon1 = NewType('RawMon1', sc.DataArray)
-RawMon2 = NewType('RawMon2', sc.DataArray)
-Mon1 = NewType('Mon1', sc.DataArray)
-Mon2 = NewType('Mon2', sc.DataArray)
-TransmissionFraction = NewType('TransmissionFraction', sc.DataArray)
-IofQ = NewType('IofQ', sc.DataArray)
-
-
-def process_detector_data(raw_detector_data: RawDetectorData) -> DetectorData:
-    return raw_detector_data.bins.concat().hist(
-        event_time_offset=sc.linspace(
-            'event_time_offset', 0, 71_000_000, num=100, unit='ns'
-        )
-    )
-
-
-def process_mon1(raw_mon1: RawMon1) -> Mon1:
-    return raw_mon1.sum()
-
-
-def process_mon2(raw_mon2: RawMon2) -> Mon2:
-    return raw_mon2.sum()
-
-
-def transmission_fraction(mon1: Mon1, mon2: Mon2) -> TransmissionFraction:
-    return mon2 / mon1
-
-
-def iofq(data: DetectorData, transmission_fraction: TransmissionFraction) -> IofQ:
-    return data / transmission_fraction
-
-
-wf = sciline.Pipeline(
-    (process_detector_data, process_mon1, process_mon2, transmission_fraction, iofq)
-)
-
-
-def _make_processor():
-    return StreamProcessor(
-        wf,
-        dynamic_keys=(RawMon1, RawMon2, RawDetectorData),
-        accumulators=(Mon1, Mon2, DetectorData),
-        target_keys=(IofQ,),
-    )
-
-
-def make_stream_processors():
-    return {
-        'mantle_detector': _make_processor(),
-        'endcap_backward_detector': _make_processor(),
-        'endcap_forward_detector': _make_processor(),
-        'high_resolution_detector': _make_processor(),
-    }
-
-
-source_to_key = {
-    'mantle_detector': RawDetectorData,
-    'endcap_backward_detector': RawDetectorData,
-    'endcap_forward_detector': RawDetectorData,
-    'high_resolution_detector': RawDetectorData,
-    'monitor1': RawMon1,
-    'monitor2': RawMon2,
-}
-
-
 def _make_dream_detectors() -> StreamLUT:
     """
     Dream detector mapping.
@@ -165,6 +113,49 @@ def _make_dream_detectors() -> StreamLUT:
         ): f'{value}_detector'
         for key, value in mapping.items()
     }
+
+
+_reduction_workflow = GenericTofWorkflow(run_types=[SampleRun], monitor_types=[])
+_reduction_workflow[Filename[SampleRun]] = get_nexus_geometry_filename('dream')
+_reduction_workflow[Filename[SampleRun]] = (
+    '/home/simon/code/scipp/beamlime/977695_00067994.hdf'
+)
+
+_source_names = [
+    'mantle_detector',
+    'endcap_backward_detector',
+    'endcap_forward_detector',
+    'high_resolution_detector',
+]
+
+TotalCounts = NewType('TotalCounts', sc.DataArray)
+
+
+def _total_counts(data: DetectorData[SampleRun]) -> TotalCounts:
+    """Dummy provider for some plottable result of total counts."""
+    return TotalCounts(
+        data.hist(
+            event_time_offset=sc.linspace(
+                'event_time_offset', 0, 71_000_000, num=1000, unit='ns'
+            ),
+            dim=data.dims,
+        )
+    )
+
+
+_reduction_workflow.insert(_total_counts)
+
+
+@instrument.register_workflow(name='Powder reduction', source_names=_source_names)
+def _powder_workflow(source_name: str) -> StreamProcessor:
+    wf = _reduction_workflow.copy()
+    wf[NeXusName[NXdetector]] = source_name
+    return StreamProcessor(
+        wf,
+        dynamic_keys=(NeXusData[NXdetector, SampleRun],),
+        target_keys=(TotalCounts,),
+        accumulators=(TotalCounts,),
+    )
 
 
 stream_mapping = {
