@@ -50,10 +50,10 @@ class BeamlimeApp:
     instrument: str
 
     def __post_init__(self) -> None:
-        self._detector_topic = stream_kind_to_topic(
+        self.detector_topic = stream_kind_to_topic(
             instrument=self.instrument, kind=StreamKind.DETECTOR_EVENTS
         )
-        self._monitor_topic = stream_kind_to_topic(
+        self.monitor_topic = stream_kind_to_topic(
             instrument=self.instrument, kind=StreamKind.MONITOR_EVENTS
         )
         self._detector_config = get_config(self.instrument).detectors_config['fakes']
@@ -74,11 +74,15 @@ class BeamlimeApp:
         service = builder.from_consumer(
             consumer=consumer,
             sink=UnrollingSinkAdapter(sink),
-            raise_on_adapter_error=True,
+            raise_on_adapter_error=False,
         )
         return BeamlimeApp(
             service=service, consumer=consumer, sink=sink, instrument=builder.instrument
         )
+
+    def step(self) -> None:
+        """Run one step of the service."""
+        self.service.step()
 
     def publish_config_message(self, key: models.ConfigKey, value: Any) -> None:
         message = FakeKafkaMessage(
@@ -94,13 +98,13 @@ class BeamlimeApp:
     def publish_monitor_events(self, *, size: int, time: int) -> None:
         monitor_message = FakeKafkaMessage(
             value=self.make_serialized_ev44(name='monitor1', size=size, with_ids=False),
-            topic=self._monitor_topic,
+            topic=self.monitor_topic,
             timestamp=time * 1_000_000_000,
         )
         self.consumer.add_message(monitor_message)
         monitor_message = FakeKafkaMessage(
             value=self.make_serialized_ev44(name='monitor2', size=size, with_ids=False),
-            topic=self._monitor_topic,
+            topic=self.monitor_topic,
             timestamp=time * 1_000_000_000,
         )
         self.consumer.add_message(monitor_message)
@@ -124,7 +128,16 @@ class BeamlimeApp:
             events = self._detector_events
         message = FakeKafkaMessage(
             value=events,
-            topic=self._detector_topic,
+            topic=self.detector_topic,
+            timestamp=time * 1_000_000_000,
+        )
+        self.consumer.add_message(message)
+
+    def publish_data(self, *, topic: str, time: int, data: bytes) -> None:
+        """Publish data to the consumer."""
+        message = FakeKafkaMessage(
+            value=data,
+            topic=topic,
             timestamp=time * 1_000_000_000,
         )
         self.consumer.add_message(message)
