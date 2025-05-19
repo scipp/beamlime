@@ -37,7 +37,7 @@ class MonitorEvents:
 
 
 @dataclass
-class DetectorEvents:
+class DetectorEvents(MonitorEvents):
     """
     Dataclass for detector events.
 
@@ -49,8 +49,6 @@ class DetectorEvents:
     """
 
     pixel_id: Sequence[int]
-    time_of_arrival: Sequence[int]
-    unit: str
 
     @staticmethod
     def from_ev44(ev44: eventdata_ev44.EventData) -> DetectorEvents:
@@ -308,7 +306,7 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
         self._chunks.clear()
 
 
-class TOAHistogrammer(Accumulator[DetectorEvents | MonitorEvents, sc.DataArray]):
+class TOAHistogrammer(Accumulator[MonitorEvents, sc.DataArray]):
     """
     Accumulator that bins time of arrival data into a histogram.
 
