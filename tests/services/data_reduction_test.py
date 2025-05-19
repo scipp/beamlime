@@ -4,6 +4,7 @@
 import logging
 
 import pytest
+from streaming_data_types import eventdata_ev44
 
 from beamlime.config import models
 from beamlime.config.instruments import available_instruments
@@ -497,3 +498,30 @@ def test_message_that_cannot_be_decoded_is_ignored(
         if r.levelname == "ERROR" and "beamlime.kafka.message_adapter" in r.name
     ]
     assert any("unpack_from requires a buffer" in r.message for r in error_records)
+
+
+def test_message_with_bad_ev44_is_ignored(
+    configured_dummy_reduction: BeamlimeApp,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = configured_dummy_reduction
+    sink = app.sink
+
+    app.publish_events(size=1000, time=0, reuse_events=True)
+    bad_events = eventdata_ev44.serialise_ev44(
+        source_name='panel_0',
+        message_id=0,
+        reference_time=[],
+        reference_time_index=0,
+        time_of_flight=[1, 2],
+        pixel_id=[1],  # Invalid, should be the same length as time_of_flight
+    )
+    app.publish_data(topic=app.detector_topic, time=1, data=bad_events)
+    app.publish_events(size=1000, time=1, reuse_events=True)
+
+    # We should have valid data in the *same* batch of messages, but only the bad
+    # message should be skipped.
+    app.step()
+    assert len(sink.messages) == 1
+    assert sink.messages[0].value.values.sum() == 2000

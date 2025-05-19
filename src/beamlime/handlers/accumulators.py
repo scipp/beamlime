@@ -94,6 +94,10 @@ class ToNXevent_data(Accumulator[Events, sc.DataArray]):
         elif self._have_event_id != isinstance(data, DetectorEvents):
             # This should never happen, but we check to be safe.
             raise ValueError("Inconsistent event_id")
+        if isinstance(data, DetectorEvents) and (
+            len(data.time_of_arrival) != len(data.pixel_id)
+        ):
+            raise ValueError("Inconsistent data length")
         self._chunks.append(data)
         self._timestamps.append(timestamp)
 

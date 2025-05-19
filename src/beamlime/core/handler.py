@@ -229,7 +229,13 @@ class PeriodicAccumulatingHandler(Handler[T, V]):
         # some time-dependent fluctuations in sliding-window results. The mechanism may
         # need to be revisited if this becomes a problem.
         for message in messages:
-            self._preprocess(message)
+            try:
+                self._preprocess(message)
+            except Exception:  # noqa: PERF203
+                self._logger.exception(
+                    'Error preprocessing message %s, skipping', message
+                )
+                continue
         # Note that preprocess.get or accumulator.add may be expensive. We may thus ask
         # whether this should only be done when _produce_update is called. This would
         # however lead to extra latency and likely even a waste of time in waiting idly
