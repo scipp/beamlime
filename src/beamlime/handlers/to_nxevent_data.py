@@ -14,8 +14,8 @@ from beamlime.core.handler import Accumulator
 
 
 def _require_single_pulse(ev44: eventdata_ev44.EventData) -> None:
-    index = np.asarray(ev44.reference_time_index)
-    if index.shape != (1,) or index != 0 or len(ev44.reference_time) > 1:
+    index = ev44.reference_time_index
+    if len(index) > 1 or index[0] != 0 or len(ev44.reference_time) > 1:
         raise NotImplementedError("Processing multi-pulse messages is not supported.")
 
 
