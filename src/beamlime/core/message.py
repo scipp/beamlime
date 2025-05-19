@@ -56,11 +56,9 @@ class Message(Generic[T]):
 
 
 class MessageSource(Protocol, Generic[Tin]):
-    def get_messages(self) -> list[Message[Tin]]:
-        pass
+    def get_messages(self) -> list[Message[Tin]]: ...
 
-    def close(self) -> None:
-        pass
+    def close(self) -> None: ...
 
 
 class MessageSink(Protocol, Generic[Tout]):
