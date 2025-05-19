@@ -44,7 +44,7 @@ def test_publishes_workflow_specs_on_startup(instrument: str) -> None:
         assert len(message.value.value.workflows) > 0
 
 
-@pytest.mark.parametrize("instrument", ['bifrost', 'dummy'])
+@pytest.mark.parametrize("instrument", ['bifrost', 'dream', 'dummy'])
 def test_can_configure_and_stop_workflow_with_detector(
     instrument: str, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -53,7 +53,11 @@ def test_can_configure_and_stop_workflow_with_detector(
     sink = app.sink
     service = app.service
     workflow_specs = sink.messages[0].value.value
-    workflow_name = {'bifrost': 'spectrum-view', 'dummy': 'Total counts'}[instrument]
+    workflow_name = {
+        'bifrost': 'spectrum-view',
+        'dream': 'Powder reduction',
+        'dummy': 'Total counts',
+    }[instrument]
     workflow_id, spec = _get_workflow_by_name(workflow_specs, workflow_name)
     sink.messages.clear()  # Clear the initial message
 
