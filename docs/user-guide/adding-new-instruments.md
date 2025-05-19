@@ -88,9 +88,12 @@ For more details see [ess.reduce.live.raw](https://scipp.github.io/essreduce/gen
 ### Geometry Files
 
 If your instrument is configured to use `raw.LogicalView` *and* defined `detector_number` in the configuration, you do not need to provide a geometry file.
+The geometry files are currently also used by the `data_reduction` service.
 Otherwise, you need to provide a NeXus geometry file for the instrument:
 
-1. Create a NeXus geometry file following the naming convention: `geometry-<instrument>-<date>.nxs`
+1. Create a NeXus geometry file following the naming convention: `geometry-<instrument>-<date>.nxs`.
+   The script `beamlime-make-geometry-nexus` can be used to create the geometry file from a "regular" NeXus file by stripping non-geometry data.
+   The date should be the first date the geometry file is used in production.
 2. Add the file's MD5 hash to the `_registry` in `detector_data_handler.py`
 3. Upload the file to the Scipp HTML server so it is available in https://public.esss.dk/groups/scipp/beamlime/geometry/.
 
