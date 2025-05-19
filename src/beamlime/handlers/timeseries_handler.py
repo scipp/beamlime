@@ -15,7 +15,7 @@ from ..core.handler import (
 )
 from ..core.message import StreamId
 from .accumulators import ForwardingAccumulator, LogData
-from .to_nx_log import ToNXlog
+from .to_nxlog import ToNXlog
 
 
 class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):

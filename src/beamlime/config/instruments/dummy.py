@@ -42,7 +42,7 @@ TotalCounts = NewType('TotalCounts', sc.DataArray)
 
 def _total_counts(events: Events) -> TotalCounts:
     """Calculate total counts from events."""
-    return TotalCounts(events.sum())
+    return TotalCounts(events.to(dtype='int64').sum())
 
 
 _total_counts_workflow = sciline.Pipeline((_total_counts,))
@@ -58,7 +58,7 @@ instrument = Instrument(
     description='Dummy workflow that simply computes the total counts.',
     source_names=['panel_0'],
 )
-def _total_counts() -> StreamProcessor:
+def _total_counts_processor() -> StreamProcessor:
     """Dummy processor for development and testing."""
     return StreamProcessor(
         base_workflow=_total_counts_workflow.copy(),
