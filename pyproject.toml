@@ -62,6 +62,9 @@ dashboard = [
   "plotly",
 ]
 
+[project.scripts]
+beamlime-make-geometry-nexus = "beamlime.scripts.make_geometry_nexus:main"
+
 [project.urls]
 "Bug Tracker" = "https://github.com/scipp/beamlime/issues"
 "Documentation" = "https://scipp.github.io/beamlime"
