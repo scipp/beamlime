@@ -14,15 +14,12 @@ from ..core.handler import (
     PeriodicAccumulatingHandler,
 )
 from ..core.message import StreamId, StreamKind
-from .accumulators import Cumulative, MonitorEvents, TOAHistogrammer
+from .accumulators import Accumulator, Cumulative, MonitorEvents, TOAHistogrammer
 
 
 def make_monitor_data_preprocessor(
     key: StreamId, config: Config
-) -> (
-    PeriodicAccumulatingHandler[MonitorEvents, sc.DataArray]
-    | PeriodicAccumulatingHandler[sc.DataArray, sc.DataArray]
-):
+) -> Accumulator[MonitorEvents, sc.DataArray] | Accumulator[sc.DataArray, sc.DataArray]:
     match key.kind:
         case StreamKind.MONITOR_EVENTS:
             return TOAHistogrammer(config=config)

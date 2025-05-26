@@ -11,8 +11,7 @@ from .message import Message, StreamId, StreamKind, Tin, Tout
 
 
 class Config(Protocol):
-    def get(self, key: str, default: Any | None = None) -> Any:
-        pass
+    def get(self, key: str, default: Any | None = None) -> Any: ...
 
 
 class ConfigRegistry(Protocol):
@@ -29,10 +28,9 @@ class ConfigRegistry(Protocol):
     @property
     def service_name(self) -> str:
         """Name of the service this registry is associated with."""
-        pass
+        ...
 
-    def get_config(self, source_name: str) -> Config:
-        pass
+    def get_config(self, source_name: str) -> Config: ...
 
 
 class FakeConfigRegistry(ConfigRegistry):
@@ -96,7 +94,7 @@ class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
 
     def make_handler(self, key: StreamId) -> Handler[Tin, Tout]:
         return self._handler_cls(
-            logger=self._logger, config=self._config_registry.get_config(key)
+            logger=self._logger, config=self._config_registry.get_config(key.name)
         )
 
 
@@ -137,14 +135,11 @@ class Accumulator(Protocol, Generic[T, U]):
     (1) preprocessors and (2) accumulators for the final data.
     """
 
-    def add(self, timestamp: int, data: T) -> None:
-        pass
+    def add(self, timestamp: int, data: T) -> None: ...
 
-    def get(self) -> U:
-        pass
+    def get(self) -> U: ...
 
-    def clear(self) -> None:
-        pass
+    def clear(self) -> None: ...
 
 
 class ConfigModelAccessor(Generic[T, U]):
@@ -196,7 +191,7 @@ def output_stream_name(*, service_name: str, stream_name: str, signal_name: str)
     return f'{stream_name}/{service_name}/{signal_name}'
 
 
-class PeriodicAccumulatingHandler(Handler[T, U]):
+class PeriodicAccumulatingHandler(Handler[T, V]):
     """
     Handler that accumulates data over time and emits the accumulated data periodically.
     """
@@ -234,7 +229,13 @@ class PeriodicAccumulatingHandler(Handler[T, U]):
         # some time-dependent fluctuations in sliding-window results. The mechanism may
         # need to be revisited if this becomes a problem.
         for message in messages:
-            self._preprocess(message)
+            try:
+                self._preprocess(message)
+            except Exception:  # noqa: PERF203
+                self._logger.exception(
+                    'Error preprocessing message %s, skipping', message
+                )
+                continue
         # Note that preprocess.get or accumulator.add may be expensive. We may thus ask
         # whether this should only be done when _produce_update is called. This would
         # however lead to extra latency and likely even a waste of time in waiting idly
