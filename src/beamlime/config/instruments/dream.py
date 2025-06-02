@@ -3,7 +3,10 @@
 
 from typing import NewType
 
+import ess.powder.types  # noqa: F401
 import scipp as sc
+from ess import dream, powder
+from ess.dream.workflow import DreamPowderWorkflow
 from ess.reduce.nexus.types import (
     DetectorData,
     Filename,
@@ -12,7 +15,6 @@ from ess.reduce.nexus.types import (
     SampleRun,
 )
 from ess.reduce.streaming import StreamProcessor
-from ess.reduce.time_of_flight.workflow import GenericTofWorkflow
 from scippnexus import NXdetector
 
 from beamlime.config import Instrument
@@ -29,6 +31,7 @@ instrument = Instrument(
         'endcap_backward_detector': NeXusData[NXdetector, SampleRun],
         'endcap_forward_detector': NeXusData[NXdetector, SampleRun],
         'high_resolution_detector': NeXusData[NXdetector, SampleRun],
+        'monitor1': NeXusData[powder.types.CaveMonitor, SampleRun],
     },
 )
 
@@ -115,7 +118,9 @@ def _make_dream_detectors() -> StreamLUT:
     }
 
 
-_reduction_workflow = GenericTofWorkflow(run_types=[SampleRun], monitor_types=[])
+_reduction_workflow = DreamPowderWorkflow(
+    run_norm=powder.RunNormalization.monitor_integrated
+)
 # dream-no-shape is a much smaller file without pixel_shape, which is not needed for
 # data reduction.
 _reduction_workflow[Filename[SampleRun]] = get_nexus_geometry_filename('dream-no-shape')
@@ -143,6 +148,27 @@ def _total_counts(data: DetectorData[SampleRun]) -> TotalCounts:
 
 
 _reduction_workflow.insert(_total_counts)
+_reduction_workflow[powder.types.DspacingBins] = sc.linspace(
+    dim='dspacing',
+    start=0.1,
+    stop=5.0,
+    num=500,
+    unit='angstrom',
+)
+_reduction_workflow[powder.types.TwoThetaBins] = sc.linspace(
+    dim="two_theta", unit="rad", start=0.0, stop=3.1416, num=201
+)
+_reduction_workflow[powder.types.CalibrationData] = None
+_reduction_workflow = powder.with_pixel_mask_filenames(_reduction_workflow, [])
+_reduction_workflow[dream.InstrumentConfiguration] = (
+    dream.InstrumentConfiguration.high_flux
+)
+_reduction_workflow[powder.types.UncertaintyBroadcastMode] = (
+    powder.types.UncertaintyBroadcastMode.drop
+)
+_reduction_workflow[powder.types.KeepEvents[SampleRun]] = powder.types.KeepEvents[
+    SampleRun
+](False)
 
 
 @instrument.register_workflow(name='Powder reduction', source_names=_source_names)
@@ -151,9 +177,18 @@ def _powder_workflow(source_name: str) -> StreamProcessor:
     wf[NeXusName[NXdetector]] = source_name
     return StreamProcessor(
         wf,
-        dynamic_keys=(NeXusData[NXdetector, SampleRun],),
-        target_keys=(TotalCounts,),
-        accumulators=(TotalCounts,),
+        dynamic_keys=(
+            NeXusData[NXdetector, SampleRun],
+            NeXusData[powder.types.CaveMonitor, SampleRun],
+        ),
+        target_keys=(
+            powder.types.FocussedDataDspacing[SampleRun],
+            powder.types.FocussedDataDspacingTwoTheta[SampleRun],
+        ),
+        accumulators=(
+            powder.types.ReducedCountsDspacing[SampleRun],
+            powder.types.WavelengthMonitor[SampleRun, powder.types.CaveMonitor],
+        ),
     )
 
 
