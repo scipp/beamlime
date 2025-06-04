@@ -43,26 +43,35 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
         interval_ns: int = int(1e9 / 14),
         instrument: str,
         nexus_file: str | None = None,
+        logger: logging.Logger | None = None,
     ):
+        self._logger = logger or logging.getLogger(__name__)
         self._instrument = instrument
         self._config = get_config(instrument).detectors_config['fakes']
         self._rng = np.random.default_rng()
         self._tof = sc.linspace('tof', 0, 71_000_000, num=50, unit='ns')
         self._interval_ns = interval_ns
-        self._last_message_time = {
-            detector: time.time_ns() for detector in self._config
-        }
-        self._offset = {name: 0 for name in self._config}
 
         # Load nexus data if file is provided
-        self._nexus_data = None
-        if nexus_file is not None:
-            try:
-                self._nexus_data = events_from_nexus(nexus_file)
-                logging.info("Loaded event data from %s", nexus_file)
-            except Exception:
-                logging.exception("Failed to load nexus file %s", nexus_file)
-                logging.info("Falling back to random event generation")
+        self._nexus_data = None if nexus_file is None else events_from_nexus(nexus_file)
+        if self._nexus_data is None:
+            detector_names = list(self._config.keys())
+            self._logger.info("Configured detectors: %s", detector_names)
+        else:
+            detector_names = list(self._nexus_data.keys())
+            self._logger.info("Loaded event data from %s", nexus_file)
+            self._logger.info(
+                "Loaded detectors:\n%s",
+                '\n'.join(
+                    f'    {detector}: {data["event_time_offset"].size} events'
+                    for detector, data in self._nexus_data.items()
+                ),
+            )
+
+        self._last_message_time = {
+            detector: time.time_ns() for detector in detector_names
+        }
+        self._offset = {name: 0 for name in detector_names}
 
     def _make_normal(self, mean: float, std: float, size: int) -> np.ndarray:
         return self._rng.normal(loc=mean, scale=std, size=size).astype(np.int64)
@@ -158,14 +167,19 @@ def run_service(
 ) -> NoReturn:
     kafka_config = load_config(namespace=config_names.kafka_upstream)
     serializer = serialize_detector_events_to_ev44
+    name = 'fake_producer'
     builder = DataServiceBuilder(
         instrument=instrument,
-        name='fake_producer',
+        name=name,
         log_level=log_level,
         handler_factory=CommonHandlerFactory(handler_cls=IdentityHandler),
     )
+    Service.configure_logging(log_level)
+    logger = logging.getLogger(f'{instrument}_{name}')
     service = builder.from_source(
-        source=FakeDetectorSource(instrument=instrument, nexus_file=nexus_file),
+        source=FakeDetectorSource(
+            instrument=instrument, nexus_file=nexus_file, logger=logger
+        ),
         sink=KafkaSink(
             instrument=instrument, kafka_config=kafka_config, serializer=serializer
         ),
