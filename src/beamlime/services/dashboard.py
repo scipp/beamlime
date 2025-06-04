@@ -6,6 +6,7 @@ import threading
 import time
 from contextlib import ExitStack
 
+import numpy as np
 import plotly.graph_objects as go
 import scipp as sc
 from dash import dcc, html
@@ -172,7 +173,7 @@ class DashboardApp(ServiceBase):
         self._config_service.update_config(config_key, roi.model_dump())
 
         # Update ROI rectangles in all 2D plots
-        for fig in self._plots.values():
+        for fig in list(self._plots.values()):
             if hasattr(fig.data[0], 'z'):  # Check if it's a 2D plot
                 x_range = [fig.data[0].x[0], fig.data[0].x[-1]]
                 y_range = [fig.data[0].y[0], fig.data[0].y[-1]]
@@ -230,8 +231,15 @@ class DashboardApp(ServiceBase):
                 for dim in data.dims:
                     if dim not in data.coords:
                         data.coords[dim] = sc.arange(dim, data.sizes[dim], unit=None)
+                if data.ndim == 2:
+                    data.values = np.log2(data.values)
+                    logscale = True
+                else:
+                    logscale = False
                 if key not in self._plots:
-                    self._plots[key] = create_detector_plot(key, data)
+                    self._plots[key] = create_detector_plot(
+                        key, data, logscale=logscale
+                    )
                 fig = self._plots[key]
                 if len(data.dims) == 1:
                     fig.data[0].x = data.coords[data.dim].values
