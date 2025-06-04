@@ -8,6 +8,7 @@ from typing import NoReturn, TypeVar
 
 import numpy as np
 import scipp as sc
+import scippnexus as snx
 from streaming_data_types import eventdata_ev44
 
 from beamlime import Handler, Message, MessageSource, Service, StreamId, StreamKind
@@ -19,6 +20,20 @@ from beamlime.kafka.sink import KafkaSink, SerializationError
 from beamlime.service_factory import DataServiceBuilder
 
 
+def events_from_nexus(file_path: str) -> dict[str, sc.DataGroup]:
+    """Load events from a NeXus file and return as a DataGroup."""
+    with snx.File(file_path, 'r', definitions={}) as f:
+        entry = next(iter(f[snx.NXentry].values()))
+        instrument = next(iter(entry[snx.NXinstrument].values()))
+        detectors = instrument[snx.NXdetector]
+        event_data = {name: det[snx.NXevent_data] for name, det in detectors.items()}
+        return {
+            name: next(iter(eg.values()))[...]
+            for name, eg in event_data.items()
+            if len(eg) == 1
+        }
+
+
 class FakeDetectorSource(MessageSource[sc.Dataset]):
     """Fake message source that generates random detector events."""
 
@@ -27,6 +42,7 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
         *,
         interval_ns: int = int(1e9 / 14),
         instrument: str,
+        nexus_file: str | None = None,
     ):
         self._instrument = instrument
         self._config = get_config(instrument).detectors_config['fakes']
@@ -36,6 +52,17 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
         self._last_message_time = {
             detector: time.time_ns() for detector in self._config
         }
+        self._offset = {name: 0 for name in self._config}
+
+        # Load nexus data if file is provided
+        self._nexus_data = None
+        if nexus_file is not None:
+            try:
+                self._nexus_data = events_from_nexus(nexus_file)
+                logging.info("Loaded event data from %s", nexus_file)
+            except Exception:
+                logging.exception("Failed to load nexus file %s", nexus_file)
+                logging.info("Falling back to random event generation")
 
     def _make_normal(self, mean: float, std: float, size: int) -> np.ndarray:
         return self._rng.normal(loc=mean, scale=std, size=size).astype(np.int64)
@@ -65,8 +92,21 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
     def _make_message(
         self, name: str, size: int, timestamp: int
     ) -> Message[sc.Variable]:
-        time_of_flight = self._make_normal(mean=30_000_000, std=10_000_000, size=size)
-        pixel_id = self._make_ids(name=name, size=size)
+        if self._nexus_data is not None and name in self._nexus_data:
+            # Use data from nexus file
+            s = slice(self._offset[name], self._offset[name] + size)
+            time_of_flight = self._nexus_data[name]['event_time_offset'].values[s]
+            pixel_id = self._nexus_data[name]['event_id'].values[s]
+            self._offset[name] += size
+            if self._offset[name] >= self._nexus_data[name]['event_id'].size:
+                self._offset[name] = 0
+        else:
+            # Generate random events
+            time_of_flight = self._make_normal(
+                mean=30_000_000, std=10_000_000, size=size
+            )
+            pixel_id = self._make_ids(name=name, size=size)
+
         ds = sc.Dataset(
             {
                 'time_of_arrival': sc.array(
@@ -113,7 +153,9 @@ def serialize_detector_events_to_ev44(
     return ev44
 
 
-def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
+def run_service(
+    *, instrument: str, nexus_file: str | None = None, log_level: int = logging.INFO
+) -> NoReturn:
     kafka_config = load_config(namespace=config_names.kafka_upstream)
     serializer = serialize_detector_events_to_ev44
     builder = DataServiceBuilder(
@@ -123,7 +165,7 @@ def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
         handler_factory=CommonHandlerFactory(handler_cls=IdentityHandler),
     )
     service = builder.from_source(
-        source=FakeDetectorSource(instrument=instrument),
+        source=FakeDetectorSource(instrument=instrument, nexus_file=nexus_file),
         sink=KafkaSink(
             instrument=instrument, kafka_config=kafka_config, serializer=serializer
         ),
@@ -134,6 +176,14 @@ def run_service(*, instrument: str, log_level: int = logging.INFO) -> NoReturn:
 def main() -> NoReturn:
     parser = Service.setup_arg_parser(
         'Fake that publishes random detector data', dev_flag=False
+    )
+    parser.add_argument(
+        '--nexus-file',
+        type=str,
+        help=(
+            'Path to NeXus file containing event data to replay. '
+            'The event data will be looped over indefinitely.'
+        ),
     )
     run_service(**vars(parser.parse_args()))
 
