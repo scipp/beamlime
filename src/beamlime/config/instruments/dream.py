@@ -19,6 +19,7 @@ from scippnexus import NXdetector
 
 from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
+from beamlime.config.models import Parameter, ParameterType
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
@@ -92,6 +93,7 @@ detectors_config = {
         'endcap_backward_detector': (71618, 229376),
         'endcap_forward_detector': (1, 71680),
         'high_resolution_detector': (1122337, 1523680),  # Note: Not consecutive!
+        'sans_detector': (0, 0),  # TODO
     },
 }
 
@@ -121,9 +123,6 @@ def _make_dream_detectors() -> StreamLUT:
 _reduction_workflow = DreamPowderWorkflow(
     run_norm=powder.RunNormalization.monitor_integrated
 )
-# dream-no-shape is a much smaller file without pixel_shape, which is not needed for
-# data reduction.
-_reduction_workflow[Filename[SampleRun]] = get_nexus_geometry_filename('dream-no-shape')
 
 _source_names = [
     'mantle_detector',
@@ -170,11 +169,25 @@ _reduction_workflow[powder.types.KeepEvents[SampleRun]] = powder.types.KeepEvent
     SampleRun
 ](False)
 
+# dream-no-shape is a much smaller file without pixel_shape, which is not needed for
+# data reduction.
+geometry_file_param = Parameter(
+    name='GeometryFile',
+    description='NeXus file containing instrument geometry and other static data.',
+    param_type=ParameterType.STRING,
+    default=str(get_nexus_geometry_filename('dream-no-shape')),
+)
 
-@instrument.register_workflow(name='Powder reduction', source_names=_source_names)
-def _powder_workflow(source_name: str) -> StreamProcessor:
+
+@instrument.register_workflow(
+    name='Powder reduction',
+    source_names=_source_names,
+    parameters=[geometry_file_param],
+)
+def _powder_workflow(source_name: str, GeometryFile: str) -> StreamProcessor:
     wf = _reduction_workflow.copy()
     wf[NeXusName[NXdetector]] = source_name
+    wf[Filename[SampleRun]] = GeometryFile
     return StreamProcessor(
         wf,
         dynamic_keys=(
