@@ -111,11 +111,11 @@ def create_detector_plot(
         short = min(y_size, x_size)
         ratio = long / short
         max_size = 900
-        if ratio > 3:
+        if ratio > 2:
             if y_size < x_size:
-                fig.update_layout(width=max_size, height=max_size // 3, **opts)
+                fig.update_layout(width=max_size, height=max_size // 2, **opts)
             else:
-                fig.update_layout(width=max_size // 3, height=max_size, **opts)
+                fig.update_layout(width=max_size // 2, height=max_size, **opts)
         else:
             scale = max_size / long
             fig.update_layout(width=x_size * scale, height=y_size * scale, **opts)

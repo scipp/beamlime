@@ -151,7 +151,7 @@ _reduction_workflow[powder.types.DspacingBins] = sc.linspace(
     dim='dspacing',
     start=0.1,
     stop=5.0,
-    num=500,
+    num=2000,
     unit='angstrom',
 )
 _reduction_workflow[powder.types.TwoThetaBins] = sc.linspace(
