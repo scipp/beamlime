@@ -101,7 +101,7 @@ def test_can_configure_and_stop_workflow_with_detector(
     assert len(sink.messages) == 3
 
 
-@pytest.mark.parametrize("instrument", ['loki'])
+@pytest.mark.parametrize("instrument", ['dream', 'loki'])
 def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     instrument: str, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -110,7 +110,12 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     sink = app.sink
     service = app.service
     workflow_specs = sink.messages[0].value.value
-    workflow_id, spec = _get_workflow_by_name(workflow_specs, 'I(Q)')
+    workflow_name = {
+        'dream': 'Powder reduction',
+        'loki': 'I(Q)',
+    }[instrument]
+    n_target = {'dream': 2, 'loki': 1}[instrument]
+    workflow_id, spec = _get_workflow_by_name(workflow_specs, workflow_name)
     sink.messages.clear()  # Clear the initial message
 
     # Assume workflow is runnable for all source names
@@ -137,24 +142,24 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     # ... trigger by detector events instead
     app.publish_events(size=0, time=3)
     service.step()
-    assert len(sink.messages) == 1
+    assert len(sink.messages) == 1 * n_target
 
     # Once we have monitor data the worklow works even if only detector data comes in.
     # There is currently no "smart" mechanism to check if we have monitor and detector
     # data for the same time (intervals).
     app.publish_events(size=3000, time=4)
     service.step()
-    assert len(sink.messages) == 2
+    assert len(sink.messages) == 2 * n_target
 
     # More events but the same time, should not publish again
     app.publish_events(size=1000, time=4)
     service.step()
-    assert len(sink.messages) == 2
+    assert len(sink.messages) == 2 * n_target
 
     # Later time should publish again
     app.publish_events(size=1000, time=5)
     service.step()
-    assert len(sink.messages) == 3
+    assert len(sink.messages) == 3 * n_target
 
     # Stop workflow
     app.publish_config_message(key=config_key, value=None)
@@ -162,7 +167,7 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     service.step()
     app.publish_events(size=1000, time=20)
     service.step()
-    assert len(sink.messages) == 3
+    assert len(sink.messages) == 3 * n_target
 
 
 def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None:
