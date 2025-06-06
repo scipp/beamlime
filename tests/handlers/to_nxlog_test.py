@@ -4,7 +4,7 @@ import scipp as sc
 from scipp.testing import assert_identical
 
 from beamlime.handlers.accumulators import LogData
-from beamlime.handlers.to_nx_log import ToNXlog
+from beamlime.handlers.to_nxlog import ToNXlog
 
 
 def test_to_nxlog_initialization():

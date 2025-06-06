@@ -3,7 +3,9 @@
 
 import logging
 
+import numpy as np
 import pytest
+from streaming_data_types import eventdata_ev44
 
 from beamlime.config import models
 from beamlime.config.instruments import available_instruments
@@ -391,4 +393,164 @@ def test_workflow_starts_with_specific_or_global_source_name(
     service.step()
     assert len(sink.messages) == 1
     # Events before workflow config was published should not be included
+    assert sink.messages[0].value.values.sum() == 2000
+
+
+@pytest.fixture
+def configured_dummy_reduction() -> BeamlimeApp:
+    app = make_reduction_app(instrument='dummy')
+    sink = app.sink
+    service = app.service
+    workflow_specs = sink.messages[0].value.value
+    workflow_id, spec = _get_workflow_by_name(workflow_specs, 'Total counts')
+    sink.messages.clear()  # Clear the initial message
+
+    config_key = models.ConfigKey(
+        source_name='panel_0', service_name="data_reduction", key="workflow_config"
+    )
+    workflow_config = models.WorkflowConfig(
+        identifier=workflow_id,
+        values={param.name: param.default for param in spec.parameters},
+    )
+    # Trigger workflow start
+    app.publish_config_message(key=config_key, value=workflow_config.model_dump())
+    # Process config message before data arrives. Without calling step() the order of
+    # processing of config vs data messages is not guaranteed.
+    service.step()
+    return app
+
+
+@pytest.mark.parametrize('n_msg', [0, 1, 10, 100, 1_234])
+@pytest.mark.parametrize('n_event', [0, 1, 10, 100, 1_000, 10_000, 100_000])
+def test_fully_consumes_long_chain_of_event_messages(
+    n_msg: int,
+    n_event: int,
+    configured_dummy_reduction: BeamlimeApp,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = configured_dummy_reduction
+    sink = app.sink
+
+    for i in range(n_msg):
+        app.publish_events(size=n_event, time=i, reuse_events=True)
+    n_step = 0
+    while n_step < n_msg:
+        app.step()
+        n_step += 1
+        accumulated_counts = sink.messages[-1].value.values.sum()
+        if accumulated_counts == n_msg * n_event:
+            break
+    # Fuzzy limit, depends on how many messages the service can consume in one step.
+    # Currently it is configured to consume up to 100.
+    assert n_step <= max(1, n_msg // 20)
+
+
+def test_message_with_unknown_schema_is_ignored(
+    configured_dummy_reduction: BeamlimeApp,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = configured_dummy_reduction
+    sink = app.sink
+
+    app.publish_events(size=1000, time=0, reuse_events=True)
+    # Unknown schema, should be skipped
+    app.publish_data(topic=app.detector_topic, time=1, data=b'corrupt data')
+    app.publish_events(size=1000, time=1, reuse_events=True)
+
+    app.step()
+    assert len(sink.messages) == 1
+    assert sink.messages[0].value.values.sum() == 2000
+
+    # Check log messages for exceptions
+    assert "has an unknown schema. Skipping." in caplog.text
+    warning_records = [
+        r
+        for r in caplog.records
+        if r.levelname == "WARNING" and "beamlime.kafka.message_adapter" in r.name
+    ]
+    assert any("has an unknown schema. Skipping." in r.message for r in warning_records)
+
+
+def test_message_that_cannot_be_decoded_is_ignored(
+    configured_dummy_reduction: BeamlimeApp,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = configured_dummy_reduction
+    sink = app.sink
+
+    app.publish_events(size=1000, time=0, reuse_events=True)
+    # Correct schema but invalid data, should be skipped
+    app.publish_data(topic=app.detector_topic, time=1, data=b'1234ev44data')
+    app.publish_events(size=1000, time=1, reuse_events=True)
+
+    app.step()
+    assert len(sink.messages) == 1
+    assert sink.messages[0].value.values.sum() == 2000
+
+    # Check log messages for exceptions
+    assert "Error adapting message" in caplog.text
+    assert "unpack_from requires a buffer" in caplog.text
+    error_records = [
+        r
+        for r in caplog.records
+        if r.levelname == "ERROR" and "beamlime.kafka.message_adapter" in r.name
+    ]
+    assert any("unpack_from requires a buffer" in r.message for r in error_records)
+
+
+def test_message_with_bad_ev44_is_ignored(
+    configured_dummy_reduction: BeamlimeApp,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = configured_dummy_reduction
+    sink = app.sink
+
+    app.publish_events(size=1000, time=0, reuse_events=True)
+    bad_events = eventdata_ev44.serialise_ev44(
+        source_name='panel_0',
+        message_id=0,
+        reference_time=[],
+        reference_time_index=0,
+        time_of_flight=[1, 2],
+        pixel_id=[1],  # Invalid, should be the same length as time_of_flight
+    )
+    app.publish_data(topic=app.detector_topic, time=1, data=bad_events)
+    app.publish_events(size=1000, time=1, reuse_events=True)
+
+    # We should have valid data in the *same* batch of messages, but only the bad
+    # message should be skipped.
+    app.step()
+    assert len(sink.messages) == 1
+    assert sink.messages[0].value.values.sum() == 2000
+
+
+def test_message_with_bad_timestamp_is_ignored(
+    configured_dummy_reduction: BeamlimeApp,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = configured_dummy_reduction
+    sink = app.sink
+
+    app.publish_events(size=1000, time=0, reuse_events=True)
+    bad_events = eventdata_ev44.serialise_ev44(
+        source_name='panel_0',
+        message_id=0,
+        reference_time=[],
+        reference_time_index=0,
+        time_of_flight=[1, 2],
+        pixel_id=[1, 2],
+    )
+
+    app.publish_data(topic=app.detector_topic, time=np.array([1, 2]), data=bad_events)
+    app.publish_events(size=1000, time=1, reuse_events=True)
+
+    # We should have valid data in the *same* batch of messages, but only the bad
+    # message should be skipped.
+    app.step()
+    assert len(sink.messages) == 1
     assert sink.messages[0].value.values.sum() == 2000

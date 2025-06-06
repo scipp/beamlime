@@ -7,11 +7,9 @@ from .message_adapter import KafkaMessage
 
 
 class KafkaConsumer(Protocol):
-    def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]:
-        pass
+    def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]: ...
 
-    def close(self) -> None:
-        pass
+    def close(self) -> None: ...
 
 
 class MultiConsumer:
