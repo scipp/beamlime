@@ -3,6 +3,7 @@
 
 import logging
 
+import numpy as np
 import pytest
 from streaming_data_types import eventdata_ev44
 
@@ -544,7 +545,6 @@ def test_message_with_bad_timestamp_is_ignored(
         time_of_flight=[1, 2],
         pixel_id=[1, 2],
     )
-    import numpy as np
 
     app.publish_data(topic=app.detector_topic, time=np.array([1, 2]), data=bad_events)
     app.publish_events(size=1000, time=1, reuse_events=True)
