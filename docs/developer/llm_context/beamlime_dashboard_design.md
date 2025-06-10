@@ -2,16 +2,17 @@
 
 ## Executive Summary
 
-The Beamlime dashboard provides real-time visualization of detector data streams, combining live data display with user-configurable processing controls. The architecture emphasizes maintainability, testability, and reusability across different dashboard variants while maintaining clear separation of concerns between data streaming, business logic, and presentation layers.
+The Beamlime dashboard provides real-time visualization of processed detector data streams, combining live data display with user-configurable processing controls. The dashboard consumes pre-processed data from Kafka microservices and publishes configuration messages to control upstream processing. The architecture emphasizes maintainability, testability, and reusability across different dashboard variants while maintaining clear separation of concerns between data streaming and presentation layers.
 
 ## System Architecture Overview
 
 ### Core Design Principles
 
 1. **Dependency Injection by Convention**: Manual dependency injection without frameworks, following patterns used in related Beamlime software
-2. **Clear Layer Separation**: Kafka integration, GUI presentation, and application logic remain strictly decoupled
+2. **Clear Layer Separation**: Kafka integration and GUI presentation remain strictly decoupled
 3. **Shared Component Architecture**: Core components reusable across different dashboard server variants
 4. **Testable Design**: Each layer unit-testable in isolation
+5. **Configuration as Messages**: Pydantic models for all configuration and control message serialization
 
 ### Architectural Layers
 
@@ -28,12 +29,6 @@ The Beamlime dashboard provides real-time visualization of detector data streams
 │ ├─ Data Aggregation Service                                │
 │ └─ Figure Preparation Service                               │
 ├─────────────────────────────────────────────────────────────┤
-│ Domain Layer (Pure Python)                                 │
-│ ├─ Data Processing Pipeline                                 │
-│ ├─ Configuration Models                                     │
-│ ├─ Data Models & Validation                                │
-│ └─ Processing Algorithms                                    │
-├─────────────────────────────────────────────────────────────┤
 │ Infrastructure Layer                                        │
 │ ├─ Kafka Consumer (Data Ingestion)                         │
 │ ├─ Kafka Producer (Config Publishing)                      │
@@ -42,120 +37,59 @@ The Beamlime dashboard provides real-time visualization of detector data streams
 └─────────────────────────────────────────────────────────────┘
 ```
 
+**Note on Layer Architecture**: The dashboard service primarily orchestrates data visualization and user interaction. Unlike a full-featured application, there is minimal domain logic beyond Pydantic models for message serialization. The Application Service Layer handles orchestration, data aggregation for visualization, and configuration management, while the Infrastructure Layer manages external integrations. A separate Domain Layer would add unnecessary complexity for this focused service.
+
 ## Detailed Component Design
 
-### 1. Domain Layer (Pure Business Logic)
+### 1. Application Service Layer (Orchestration & Business Logic)
 
 **Responsibilities:**
-- Data processing algorithms (1D/2D detector data transformation)
-- Configuration validation and modeling
-- Processing pipeline orchestration
-- No external dependencies (Kafka, Dash, Plotly)
-
-**Key Components:**
-
-```python
-# Data processing pipeline
-class DetectorDataProcessor:
-    def process_raw_data(self, raw_data: np.ndarray, config: ProcessingConfig) -> ProcessedData:
-        """Apply user-configured processing to raw detector data."""
-
-    def apply_weights(self, data: np.ndarray, weights: np.ndarray) -> np.ndarray:
-        """Apply detector weights if enabled."""
-
-    def compute_statistics(self, data: np.ndarray) -> DataStatistics:
-        """Compute rolling statistics for display."""
-
-# Configuration modeling
-@dataclass
-class ProcessingConfig:
-    use_weights: bool
-    update_interval_ms: int
-    processing_mode: str
-    threshold_values: dict[str, float]
-
-    def validate(self) -> None:
-        """Validate configuration parameters."""
-
-# Data models
-@dataclass
-class DetectorData:
-    timestamp: datetime
-    raw_data: np.ndarray
-    metadata: dict[str, Any]
-
-@dataclass
-class ProcessedData:
-    processed_data: np.ndarray
-    statistics: DataStatistics
-    processing_info: dict[str, Any]
-```
-
-### 2. Infrastructure Layer (External Integrations)
-
-**Responsibilities:**
-- Kafka message consumption/production
-- Data buffering and stream management
-- External service communication
-- No business logic
-
-**Key Components:**
-
-```python
-# Kafka integration
-class KafkaDataConsumer:
-    def __init__(self, bootstrap_servers: str, topic: str):
-        self._consumer = KafkaConsumer(...)
-
-    def consume_data_stream(self) -> Iterator[DetectorData]:
-        """Yield detector data from Kafka stream."""
-
-class KafkaConfigPublisher:
-    def __init__(self, bootstrap_servers: str, topic: str):
-        self._producer = KafkaProducer(...)
-
-    def publish_config(self, config: ProcessingConfig) -> None:
-        """Publish configuration changes to Kafka."""
-
-# Data buffer management
-class DataBuffer:
-    def __init__(self, max_size: int = 1000):
-        self._buffer: deque[ProcessedData] = deque(maxlen=max_size)
-
-    def add_data(self, data: ProcessedData) -> None:
-        """Add new data point to rolling buffer."""
-
-    def get_recent_data(self, n_points: int = 100) -> list[ProcessedData]:
-        """Retrieve recent data for visualization."""
-```
-
-### 3. Application Service Layer (Orchestration)
-
-**Responsibilities:**
-- Coordinate between domain and infrastructure layers
-- Prepare data for presentation
+- Orchestrate data flow from Kafka to visualization
+- Manage configuration state and publishing
+- Prepare data for presentation (aggregation, formatting)
 - Handle application workflows
-- Dependency injection coordination
+- Pydantic models for message serialization
 
 **Key Components:**
 
 ```python
+# Pydantic models for configuration
+class ProcessingConfig(BaseModel):
+    use_weights: bool = False
+    update_interval_ms: int = 1000
+    processing_mode: str = "standard"
+    threshold_values: dict[str, float] = {}
+
+    class Config:
+        extra = "forbid"
+
+class DetectorData(BaseModel):
+    timestamp: datetime
+    processed_data: list[list[float]]  # Pre-processed by upstream services
+    metadata: dict[str, Any]
+    processing_info: dict[str, Any]
+
+class DataStatistics(BaseModel):
+    mean: float
+    std: float
+    min_value: float
+    max_value: float
+    total_counts: int
+
 # Main orchestrator
 class DashboardOrchestrator:
     def __init__(
         self,
-        data_processor: DetectorDataProcessor,
         data_consumer: KafkaDataConsumer,
         config_publisher: KafkaConfigPublisher,
         data_buffer: DataBuffer,
     ):
-        self._data_processor = data_processor
         self._data_consumer = data_consumer
         self._config_publisher = config_publisher
         self._data_buffer = data_buffer
 
     def start_data_stream(self) -> None:
-        """Start consuming and processing data stream."""
+        """Start consuming processed data stream from Kafka."""
 
     def update_configuration(self, config: ProcessingConfig) -> None:
         """Update processing configuration and publish to Kafka."""
@@ -166,10 +100,10 @@ class FigureService:
         self._data_buffer = data_buffer
 
     def create_1d_plot(self, config: PlotConfig) -> go.Figure:
-        """Create 1D Plotly figure from recent data."""
+        """Create 1D Plotly figure from recent processed data."""
 
     def create_2d_heatmap(self, config: PlotConfig) -> go.Figure:
-        """Create 2D heatmap from recent data."""
+        """Create 2D heatmap from recent processed data."""
 
     def create_statistics_table(self) -> dict:
         """Prepare statistics data for table display."""
@@ -181,13 +115,66 @@ class ConfigurationService:
         self._current_config = ProcessingConfig()
 
     def update_config(self, **kwargs) -> ProcessingConfig:
-        """Update configuration with new values."""
+        """Update configuration with new values and validate with Pydantic."""
+        config_dict = self._current_config.dict()
+        config_dict.update(kwargs)
+        self._current_config = ProcessingConfig(**config_dict)
+        return self._current_config
 
     def get_current_config(self) -> ProcessingConfig:
         """Get current configuration state."""
+        return self._current_config
 ```
 
-### 4. Presentation Layer (Dash + Bootstrap)
+### 2. Infrastructure Layer (External Integrations)
+
+**Responsibilities:**
+- Kafka message consumption/production with Pydantic serialization
+- Data buffering and stream management
+- External service communication
+- No business logic
+
+**Key Components:**
+
+```python
+# Kafka integration with Pydantic
+class KafkaDataConsumer:
+    def __init__(self, bootstrap_servers: str, topic: str):
+        self._consumer = KafkaConsumer(...)
+
+    def consume_data_stream(self) -> Iterator[DetectorData]:
+        """Yield processed detector data from Kafka stream, deserializing with Pydantic."""
+        for message in self._consumer:
+            try:
+                data_dict = json.loads(message.value.decode('utf-8'))
+                yield DetectorData(**data_dict)
+            except ValidationError as e:
+                logger.warning("Invalid message format: %s", e)
+
+class KafkaConfigPublisher:
+    def __init__(self, bootstrap_servers: str, topic: str):
+        self._producer = KafkaProducer(...)
+
+    def publish_config(self, config: ProcessingConfig) -> None:
+        """Publish configuration changes to Kafka using Pydantic serialization."""
+        config_json = config.json()
+        self._producer.send(self._topic, config_json.encode('utf-8'))
+
+# Data buffer management
+class DataBuffer:
+    def __init__(self, max_size: int = 1000):
+        self._buffer: deque[DetectorData] = deque(maxlen=max_size)
+
+    def add_data(self, data: DetectorData) -> None:
+        """Add new processed data point to rolling buffer."""
+        self._buffer.append(data)
+
+    def get_recent_data(self, n_points: int = 100) -> list[DetectorData]:
+        """Retrieve recent processed data for visualization."""
+        return list(self._buffer)[-n_points:]
+```
+
+### 3. Presentation Layer (Dash + Bootstrap)
 
 **Responsibilities:**
 - UI layout using Dash Bootstrap Components
@@ -316,12 +303,8 @@ class DashboardDependencies:
         )
         self.data_buffer = DataBuffer(max_size=1000)
 
-        # Domain layer
-        self.data_processor = DetectorDataProcessor()
-
         # Service layer
         self.orchestrator = DashboardOrchestrator(
-            self.data_processor,
             self.data_consumer,
             self.config_publisher,
             self.data_buffer,
@@ -389,63 +372,132 @@ class MonitoringDashboardFactory(BaseDashboardFactory):
 
 ## Testing Strategy
 
-### Unit Testing Architecture
+### Unit Testing Architecture with Fakes
 
 ```python
-# Domain layer tests (pure Python)
-def test_detector_data_processor():
-    processor = DetectorDataProcessor()
-    config = ProcessingConfig(use_weights=True, update_interval_ms=100)
-    raw_data = np.random.random((100, 100))
+# Fake implementations instead of mocks
+class FakeKafkaDataConsumer:
+    def __init__(self, test_data: list[DetectorData] | None = None):
+        self._test_data = test_data or []
+        self._index = 0
 
-    result = processor.process_raw_data(raw_data, config)
+    def consume_data_stream(self) -> Iterator[DetectorData]:
+        """Yield test data for predictable testing."""
+        while self._index < len(self._test_data):
+            yield self._test_data[self._index]
+            self._index += 1
 
-    assert isinstance(result, ProcessedData)
-    assert result.processed_data.shape == raw_data.shape
+class FakeKafkaConfigPublisher:
+    def __init__(self):
+        self.published_configs: list[ProcessingConfig] = []
 
-# Service layer tests (with mocked dependencies)
+    def publish_config(self, config: ProcessingConfig) -> None:
+        """Record published configurations for test verification."""
+        self.published_configs.append(config)
+
+# Service layer tests with fakes
 def test_configuration_service():
-    mock_publisher = Mock(spec=KafkaConfigPublisher)
-    service = ConfigurationService(mock_publisher)
+    fake_publisher = FakeKafkaConfigPublisher()
+    service = ConfigurationService(fake_publisher)
 
     config = service.update_config(use_weights=False)
 
     assert config.use_weights is False
-    mock_publisher.publish_config.assert_called_once_with(config)
+    assert len(fake_publisher.published_configs) == 0  # Not published until orchestrator calls
 
-# Integration tests (using dash[testing])
+def test_dashboard_orchestrator():
+    test_data = [
+        DetectorData(
+            timestamp=datetime.now(),
+            processed_data=[[1.0, 2.0], [3.0, 4.0]],
+            metadata={},
+            processing_info={}
+        )
+    ]
+    fake_consumer = FakeKafkaDataConsumer(test_data)
+    fake_publisher = FakeKafkaConfigPublisher()
+    buffer = DataBuffer()
+
+    orchestrator = DashboardOrchestrator(fake_consumer, fake_publisher, buffer)
+    config = ProcessingConfig(use_weights=True)
+
+    orchestrator.update_configuration(config)
+
+    assert len(fake_publisher.published_configs) == 1
+    assert fake_publisher.published_configs[0].use_weights is True
+
+# Pydantic model validation tests
+def test_processing_config_validation():
+    # Valid configuration
+    config = ProcessingConfig(
+        use_weights=True,
+        update_interval_ms=500,
+        processing_mode="advanced"
+    )
+    assert config.use_weights is True
+
+    # Invalid configuration should raise ValidationError
+    with pytest.raises(ValidationError):
+        ProcessingConfig(update_interval_ms="invalid")
+
+# Integration tests with fakes
 def test_dashboard_interaction(dash_duo):
-    app = create_dashboard_app(test_kafka_config)
+    # Create test dependencies with fakes
+    fake_consumer = FakeKafkaDataConsumer([
+        DetectorData(
+            timestamp=datetime.now(),
+            processed_data=[[1.0, 2.0], [3.0, 4.0]],
+            metadata={},
+            processing_info={}
+        )
+    ])
+    fake_publisher = FakeKafkaConfigPublisher()
+
+    # Create app with fake dependencies
+    app = create_test_dashboard_app(fake_consumer, fake_publisher)
     dash_duo.start_server(app)
 
     # Test user interaction
     dash_duo.find_element("#use-weights-switch").click()
     dash_duo.wait_for_text_to_equal("#config-status", "Config updated")
+
+    # Verify configuration was published
+    assert len(fake_publisher.published_configs) > 0
 ```
 
-### Mock Strategy for External Dependencies
+### Test Fixtures with Fakes
 
 ```python
 # Test fixtures
 @pytest.fixture
-def mock_kafka_consumer():
-    consumer = Mock(spec=KafkaDataConsumer)
-    consumer.consume_data_stream.return_value = iter([
+def fake_kafka_consumer():
+    return FakeKafkaDataConsumer([
         DetectorData(
             timestamp=datetime.now(),
-            raw_data=np.random.random((100, 100)),
-            metadata={}
+            processed_data=[[1.0, 2.0], [3.0, 4.0]],
+            metadata={},
+            processing_info={}
         )
     ])
-    return consumer
 
 @pytest.fixture
-def dashboard_dependencies(mock_kafka_consumer):
-    """Create test dependencies with mocked external services."""
+def fake_kafka_publisher():
+    return FakeKafkaConfigPublisher()
+
+@pytest.fixture
+def dashboard_dependencies(fake_kafka_consumer, fake_kafka_publisher):
+    """Create test dependencies with fakes."""
     deps = DashboardDependencies.__new__(DashboardDependencies)
-    deps.data_consumer = mock_kafka_consumer
-    deps.config_publisher = Mock(spec=KafkaConfigPublisher)
-    # ... initialize other dependencies
+    deps.data_consumer = fake_kafka_consumer
+    deps.config_publisher = fake_kafka_publisher
+    deps.data_buffer = DataBuffer()
+    # Initialize services with fakes
+    deps.orchestrator = DashboardOrchestrator(
+        deps.data_consumer,
+        deps.config_publisher,
+        deps.data_buffer,
+    )
+    # ...existing code...
     return deps
 ```
 
@@ -457,6 +509,7 @@ def dashboard_dependencies(mock_kafka_consumer):
 - **Selective Updates**: Only update active plot tabs to reduce computation
 - **Background Processing**: Kafka consumption in separate thread
 - **Memory Management**: Automatic cleanup of old data points
+- **Pydantic Performance**: Use `parse_obj` for better performance when needed
 
 ### UI Responsiveness
 
@@ -485,8 +538,7 @@ python -m beamlime.dashboard.dev --kafka-servers=localhost:9092
 ### Configuration Management
 
 ```python
-@dataclass
-class DashboardConfig:
+class DashboardConfig(BaseModel):
     kafka_bootstrap_servers: str
     kafka_data_topic: str
     kafka_config_topic: str
@@ -534,11 +586,14 @@ class PluginRegistry:
 
 ## Conclusion
 
-This architecture provides a robust foundation for the Beamlime dashboard while maintaining the flexibility to support multiple dashboard variants. The clear separation of concerns, dependency injection patterns, and comprehensive testing strategy ensure maintainable, extensible code that aligns with the project's development principles.
+This architecture provides a focused, maintainable foundation for the Beamlime dashboard service. By removing data processing responsibilities and leveraging Pydantic for message serialization, the design becomes cleaner and more focused on its core responsibility: visualizing processed data and managing configuration.
 
 Key benefits:
-- **Maintainable**: Clear layer separation and dependency injection
-- **Testable**: Each layer can be unit tested in isolation
+- **Focused Responsibility**: Dashboard handles visualization and configuration only
+- **Type Safety**: Pydantic models ensure message validation and serialization
+- **Testable**: Fake implementations provide predictable, controllable testing
+- **Maintainable**: Clear separation between orchestration and infrastructure
 - **Reusable**: Shared components across dashboard variants
-- **Scalable**: Plugin architecture for future extensions
 - **Professional**: Modern UI with Dash Bootstrap Components
+
+The simplified layer architecture reflects the focused nature of the dashboard service while maintaining clear separation of concerns and testability.
