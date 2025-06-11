@@ -1,10 +1,11 @@
 import numpy as np
 import panel as pn
 import param
-from bokeh.models import ColumnDataSource
-from bokeh.plotting import figure
+import holoviews as hv
+from holoviews import streams
 
-pn.extension('bokeh', template='material')
+pn.extension('holoviews', template='material')
+hv.extension('bokeh')
 
 
 class DashboardApp(param.Parameterized):
@@ -24,9 +25,7 @@ class DashboardApp(param.Parameterized):
     detector_threshold = param.Number(
         default=0.5, bounds=(0, 1), doc="Detection threshold"
     )
-    detector_binning = param.Integer(
-        default=100, bounds=(10, 1000), doc="Number of bins"
-    )
+    pulse = param.Integer(default=100, bounds=(10, 1000), doc="Number of bins")
 
     monitor_integration_time = param.Number(
         default=10.0, bounds=(0.1, 100), doc="Integration time (s)"
@@ -43,40 +42,37 @@ class DashboardApp(param.Parameterized):
     def __init__(self, **params):
         super().__init__(**params)
         self.active_tab = "Detectors"
-        self._setup_detector_figures()
+        self._setup_detector_streams()
+        self._setup_monitor_streams()
+        self._setup_reduction_streams()
 
-    def _setup_detector_figures(self):
-        """Initialize persistent detector figures with data sources."""
-        # Create data sources that can be updated
-        self._detector_image_source = ColumnDataSource(data={})
-        self._histogram_source = ColumnDataSource(data={})
-
-        # Create persistent figures
-        self._detector_image_fig = figure(
-            title="Detector Image",
-            width=400,
-            height=300,
-            x_axis_label="X (mm)",
-            y_axis_label="Y (mm)",
-        )
-
-        self._histogram_fig = figure(
-            title="Intensity Distribution",
-            width=400,
-            height=300,
-            x_axis_label="Counts",
-            y_axis_label="Frequency",
-        )
-
-        # Add initial glyphs (will be updated with data)
-        self._image_glyph = None
-        self._histogram_glyph = None
+    def _setup_detector_streams(self):
+        """Initialize streams for detector data."""
+        self._detector_image_pipe = streams.Pipe(data=dict())
+        self._detector_histogram_pipe = streams.Pipe(data=dict())
 
         # Initialize with default data
-        self._update_detector_data()
+        self._update_detector_streams()
 
-    def _update_detector_data(self):
-        """Update the data in the detector figures based on current view mode."""
+    def _setup_monitor_streams(self):
+        """Initialize streams for monitor data."""
+        self._monitor_timeseries_pipe = streams.Pipe(data=dict())
+        self._monitor_profile_pipe = streams.Pipe(data=dict())
+
+        # Initialize with default data
+        self._update_monitor_streams()
+
+    def _setup_reduction_streams(self):
+        """Initialize streams for reduction data."""
+        self._reduction_comparison_pipe = streams.Pipe(data=dict())
+        self._reduction_residuals_pipe = streams.Pipe(data=dict())
+
+        # Initialize with default data
+        self._update_reduction_streams()
+
+    @pn.depends('detector_view_mode', 'pulse', watch=True)
+    def _update_detector_streams(self):
+        """Update the streams for detector visualizations."""
         # Generate data based on view mode
         x = np.linspace(0, 10, 50)
         y = np.linspace(0, 10, 50)
@@ -84,58 +80,191 @@ class DashboardApp(param.Parameterized):
 
         if self.detector_view_mode == "Cumulative":
             Z = 2 * np.sin(X) * np.cos(Y) + np.random.normal(0, 0.05, X.shape)
-            title_suffix = " (Cumulative)"
             counts = np.random.poisson(200, 1000)
         else:
             Z = np.sin(X) * np.cos(Y) + np.random.normal(0, 0.1, X.shape)
-            title_suffix = " (Current)"
             counts = np.random.poisson(100, 1000)
 
-        # Update figure titles
-        self._detector_image_fig.title.text = f"Detector Image{title_suffix}"
-        self._histogram_fig.title.text = f"Intensity Distribution{title_suffix}"
+        # Update image stream
+        image_data = {'x': x, 'y': y, 'z': Z, 'view_mode': self.detector_view_mode}
+        self._detector_image_pipe.send(image_data)
 
-        # Update image data
-        if self._image_glyph is None:
-            self._image_glyph = self._detector_image_fig.image(
-                image=[Z], x=0, y=0, dw=10, dh=10, palette="Viridis256"
-            )
-        else:
-            self._image_glyph.data_source.data = {
-                'image': [Z],
-                'x': [0],
-                'y': [0],
-                'dw': [10],
-                'dh': [10],
-            }
+        # Update histogram stream
+        hist, edges = np.histogram(counts, bins=self.pulse)
+        bin_centers = (edges[:-1] + edges[1:]) / 2
 
-        # Update histogram data
-        hist, edges = np.histogram(counts, bins=50)
+        histogram_data = {
+            'counts': bin_centers,
+            'frequency': hist,
+            'view_mode': self.detector_view_mode,
+        }
+        self._detector_histogram_pipe.send(histogram_data)
 
-        if self._histogram_glyph is None:
-            self._histogram_glyph = self._histogram_fig.quad(
-                top=hist,
-                bottom=0,
-                left=edges[:-1],
-                right=edges[1:],
-                fill_color="navy",
-                line_color="white",
-                alpha=0.7,
-            )
-        else:
-            self._histogram_glyph.data_source.data = {
-                'top': hist,
-                'bottom': np.zeros_like(hist),
-                'left': edges[:-1],
-                'right': edges[1:],
-            }
+    def _update_monitor_streams(self):
+        """Update the streams for monitor visualizations."""
+        # Time series data
+        time = np.linspace(0, 100, 1000)
+        signal = np.sin(0.1 * time) + 0.1 * np.random.randn(1000)
 
-    @pn.depends('detector_view_mode')
+        timeseries_data = {'time': time, 'signal': signal}
+        self._monitor_timeseries_pipe.send(timeseries_data)
+
+        # Beam profile data
+        x = np.linspace(-5, 5, 100)
+        profile = np.exp(-(x**2) / 2) + 0.05 * np.random.randn(100)
+
+        profile_data = {'position': x, 'intensity': profile}
+        self._monitor_profile_pipe.send(profile_data)
+
+    def _update_reduction_streams(self):
+        """Update the streams for reduction visualizations."""
+        # Before/after comparison
+        x = np.linspace(0, 20, 200)
+        raw_data = np.sin(x) + 0.3 * np.random.randn(200)
+        processed_data = np.convolve(raw_data, np.ones(5) / 5, mode='same')
+
+        comparison_data = {
+            'q': x,
+            'raw_intensity': raw_data,
+            'processed_intensity': processed_data,
+        }
+        self._reduction_comparison_pipe.send(comparison_data)
+
+        # Residuals
+        residuals = raw_data - processed_data
+
+        residuals_data = {'q': x, 'residual': residuals}
+        self._reduction_residuals_pipe.send(residuals_data)
+
+    def _create_detector_image_plot(self, data):
+        """Create detector image plot from stream data."""
+        if not data:
+            return hv.Image([])
+
+        view_suffix = f" ({data['view_mode']})" if 'view_mode' in data else ""
+        title = f"Detector Image{view_suffix}"
+
+        image = hv.Image((data['x'], data['y'], data['z']))
+        return image.opts(
+            title=title,
+            width=400,
+            height=300,
+            xlabel="X (mm)",
+            ylabel="Y (mm)",
+            cmap='viridis',
+            colorbar=True,
+        )
+
+    def _create_detector_histogram_plot(self, data):
+        """Create detector histogram plot from stream data."""
+        if not data:
+            return hv.Histogram([])
+
+        view_suffix = f" ({data['view_mode']})" if 'view_mode' in data else ""
+        title = f"Intensity Distribution{view_suffix}"
+
+        histogram = hv.Histogram((data['counts'], data['frequency']))
+        return histogram.opts(
+            title=title,
+            width=400,
+            height=300,
+            xlabel="Counts",
+            ylabel="Frequency",
+            color='navy',
+            alpha=0.7,
+        )
+
+    def _create_monitor_timeseries_plot(self, data):
+        """Create monitor time series plot from stream data."""
+        if not data:
+            return hv.Curve([])
+
+        curve = hv.Curve((data['time'], data['signal']))
+        return curve.opts(
+            title="Monitor Signal vs Time",
+            width=400,
+            height=300,
+            xlabel="Time (s)",
+            ylabel="Signal",
+            color='blue',
+            line_width=2,
+        )
+
+    def _create_monitor_profile_plot(self, data):
+        """Create monitor beam profile plot from stream data."""
+        if not data:
+            return hv.Curve([])
+
+        curve = hv.Curve((data['position'], data['intensity']))
+        return curve.opts(
+            title="Beam Profile",
+            width=400,
+            height=300,
+            xlabel="Position (mm)",
+            ylabel="Intensity",
+            color='red',
+            line_width=2,
+        )
+
+    def _create_reduction_comparison_plot(self, data):
+        """Create reduction comparison plot from stream data."""
+        if not data:
+            return hv.Overlay([])
+
+        raw_curve = hv.Curve((data['q'], data['raw_intensity']), label='Raw')
+        processed_curve = hv.Curve(
+            (data['q'], data['processed_intensity']), label='Processed'
+        )
+
+        overlay = raw_curve * processed_curve
+        return overlay.opts(
+            title="Data Processing Comparison",
+            width=400,
+            height=300,
+            xlabel="Q (Å⁻¹)",
+            ylabel="Intensity",
+            legend_position='top_right',
+        ).opts(
+            hv.opts.Curve('Raw', color='gray', alpha=0.7, line_width=2),
+            hv.opts.Curve('Processed', color='green', line_width=2),
+        )
+
+    def _create_reduction_residuals_plot(self, data):
+        """Create reduction residuals plot from stream data."""
+        if not data:
+            return hv.Curve([])
+
+        residuals_curve = hv.Curve((data['q'], data['residual']))
+        zero_line = hv.Curve((data['q'], np.zeros_like(data['q'])))
+
+        overlay = residuals_curve * zero_line
+        return overlay.opts(
+            title="Processing Residuals",
+            width=400,
+            height=300,
+            xlabel="Q (Å⁻¹)",
+            ylabel="Residual",
+        ).opts(
+            hv.opts.Curve('Curve', color='orange', line_width=2),
+            hv.opts.Curve('Curve.I', color='black', line_dash='dashed', line_width=1),
+        )
+
     def create_detector_plot_content(self):
-        """Create reactive plot content that updates data while preserving figure state."""
-        self._update_detector_data()
+        """Create reactive detector plot content."""
+        image_dmap = hv.DynamicMap(
+            self._create_detector_image_plot, streams=[self._detector_image_pipe]
+        )
+        histogram_dmap = hv.DynamicMap(
+            self._create_detector_histogram_plot,
+            streams=[self._detector_histogram_pipe],
+        )
+
+        # Disable shared axes by setting shared_axes=False on each plot
+        image_dmap = image_dmap.opts(shared_axes=False)
+        histogram_dmap = histogram_dmap.opts(shared_axes=False)
+
         return pn.FlexBox(
-            pn.pane.Bokeh(self._detector_image_fig), pn.pane.Bokeh(self._histogram_fig)
+            pn.pane.HoloViews(image_dmap), pn.pane.HoloViews(histogram_dmap)
         )
 
     def create_detector_plots(self):
@@ -153,7 +282,7 @@ class DashboardApp(param.Parameterized):
         return pn.Column(
             view_toggle,
             pn.Column(
-                self.create_detector_plot_content,
+                self.create_detector_plot_content(),
                 scroll=True,
                 height=300,
             ),
@@ -161,68 +290,30 @@ class DashboardApp(param.Parameterized):
 
     def create_monitor_plots(self) -> list:
         """Create plots for the Monitors tab."""
-        # Plot 1: Time series
-        time = np.linspace(0, 100, 1000)
-        signal = np.sin(0.1 * time) + 0.1 * np.random.randn(1000)
-
-        p1 = figure(
-            title="Monitor Signal vs Time",
-            width=400,
-            height=300,
-            x_axis_label="Time (s)",
-            y_axis_label="Signal",
+        timeseries_dmap = hv.DynamicMap(
+            self._create_monitor_timeseries_plot,
+            streams=[self._monitor_timeseries_pipe],
         )
-        p1.line(time, signal, line_width=2, color="blue")
 
-        # Plot 2: Beam profile
-        x = np.linspace(-5, 5, 100)
-        profile = np.exp(-(x**2) / 2) + 0.05 * np.random.randn(100)
-
-        p2 = figure(
-            title="Beam Profile",
-            width=400,
-            height=300,
-            x_axis_label="Position (mm)",
-            y_axis_label="Intensity",
+        profile_dmap = hv.DynamicMap(
+            self._create_monitor_profile_plot, streams=[self._monitor_profile_pipe]
         )
-        p2.line(x, profile, line_width=2, color="red")
 
-        return [pn.pane.Bokeh(p1), pn.pane.Bokeh(p2)]
+        return [pn.pane.HoloViews(timeseries_dmap), pn.pane.HoloViews(profile_dmap)]
 
     def create_reduction_plots(self) -> list:
         """Create plots for the Data Reduction tab."""
-        # Plot 1: Before/after comparison
-        x = np.linspace(0, 20, 200)
-        raw_data = np.sin(x) + 0.3 * np.random.randn(200)
-        processed_data = np.convolve(raw_data, np.ones(5) / 5, mode='same')
-
-        p1 = figure(
-            title="Data Processing Comparison",
-            width=400,
-            height=300,
-            x_axis_label="Q (Å⁻¹)",
-            y_axis_label="Intensity",
+        comparison_dmap = hv.DynamicMap(
+            self._create_reduction_comparison_plot,
+            streams=[self._reduction_comparison_pipe],
         )
-        p1.line(x, raw_data, legend_label="Raw", line_width=2, color="gray", alpha=0.7)
-        p1.line(
-            x, processed_data, legend_label="Processed", line_width=2, color="green"
+
+        residuals_dmap = hv.DynamicMap(
+            self._create_reduction_residuals_plot,
+            streams=[self._reduction_residuals_pipe],
         )
-        p1.legend.location = "top_right"
 
-        # Plot 2: Residuals
-        residuals = raw_data - processed_data
-
-        p2 = figure(
-            title="Processing Residuals",
-            width=400,
-            height=300,
-            x_axis_label="Q (Å⁻¹)",
-            y_axis_label="Residual",
-        )
-        p2.line(x, residuals, line_width=2, color="orange")
-        p2.line(x, np.zeros_like(x), line_width=1, color="black", line_dash="dashed")
-
-        return [pn.pane.Bokeh(p1), pn.pane.Bokeh(p2)]
+        return [pn.pane.HoloViews(comparison_dmap), pn.pane.HoloViews(residuals_dmap)]
 
     @pn.depends('active_tab')
     def get_dynamic_sidebar(self):
@@ -244,7 +335,7 @@ class DashboardApp(param.Parameterized):
                 pn.pane.Markdown("## Detector Settings"),
                 pn.Param(
                     self,
-                    parameters=['detector_threshold', 'detector_binning'],
+                    parameters=['detector_threshold', 'pulse'],
                     show_name=False,
                     width=250,
                 ),
@@ -296,7 +387,6 @@ def create_dashboard():
     def update_active_tab(event):
         tab_names = ["Detectors", "Monitors", "Data Reduction"]
         new_tab_name = tab_names[event.new]
-        print(f"Switching to tab: {new_tab_name}")
         app.active_tab = new_tab_name
 
     tabs.param.watch(update_active_tab, 'active')
