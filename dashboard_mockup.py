@@ -1,8 +1,8 @@
+import holoviews as hv
 import numpy as np
 import panel as pn
 import param
-import holoviews as hv
-from holoviews import streams
+from holoviews import opts, streams
 
 pn.extension('holoviews', template='material')
 hv.extension('bokeh')
@@ -258,6 +258,35 @@ class DashboardApp(param.Parameterized):
             self._create_detector_histogram_plot,
             streams=[self._detector_histogram_pipe],
         )
+        # Initial polygon data (scaled to image bounds)
+        poly = hv.Polygons([[]])
+
+        # Create PolyDraw stream
+        poly_stream = streams.PolyDraw(
+            source=poly,
+            drag=True,
+            num_objects=4,
+            show_vertices=True,
+            styles={'fill_color': ['red', 'green', 'blue', 'orange']},
+        )
+
+        # Create PolyEdit stream for editing existing polygons
+        poly_edit_stream = streams.PolyEdit(
+            source=poly, vertex_style={'color': 'red'}, shared=True, show_vertices=True
+        )
+
+        # Configure polygon styling for visibility over image
+        interactive_poly = poly.opts(
+            opts.Polygons(
+                fill_alpha=0.4,
+                line_color='white',
+                line_width=3,
+                active_tools=['poly_draw', 'poly_edit'],
+            )
+        )
+
+        # Overlay polygons on the image
+        image_dmap = image_dmap * interactive_poly
 
         # Disable shared axes by setting shared_axes=False on each plot
         image_dmap = image_dmap.opts(shared_axes=False)
