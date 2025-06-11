@@ -1,6 +1,6 @@
+import holoviews as hv
 import numpy as np
 import panel as pn
-import holoviews as hv
 from holoviews import opts, streams
 
 # Enable Panel extensions
@@ -17,7 +17,7 @@ def create_polydraw_demo() -> pn.Column:
     Panel Column containing the dashboard components.
     """
     # Initial polygon data
-    poly = hv.Polygons([[(2, 2), (5, 8), (8, 2)]])
+    poly = hv.Polygons([[]])
 
     # Create PolyDraw stream
     poly_stream = streams.PolyDraw(
@@ -39,8 +39,6 @@ def create_polydraw_demo() -> pn.Column:
             fill_alpha=0.6,
             line_color='black',
             line_width=2,
-            active_tools=['poly_draw', 'poly_edit'],
-            tools=['poly_draw', 'poly_edit'],
             width=600,
             height=400,
             title='Interactive Polygon Drawing Tool',
