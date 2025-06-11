@@ -66,31 +66,49 @@ class ReactiveWidget(param.Parameterized):
         self._store = store
         self._topic = topic
         self._updating_from_store = False
+        self._pending_store_value: Any = None
+        self._initialized = False
 
         # Subscribe to store updates
         self._store.subscribe(topic, self._on_store_update)
 
-        # Watch for parameter changes to publish to store
-        self.param.watch(self._on_widget_change, 'value')
-
-        # Initialize with current store value
-        current_value = self._store.get(topic, self.value)
-        if current_value != self.value:
-            self.value = current_value
-
-    def _on_store_update(self, new_value: Any) -> None:
-        """Handle updates from the store."""
-        if not self._updating_from_store and new_value != self.value:
+        # Initialize with current store value if available
+        current_value = self._store.get(topic)
+        if current_value is not None:
             self._updating_from_store = True
             try:
-                self.value = new_value
+                self.value = current_value
             finally:
                 self._updating_from_store = False
 
-    def _on_widget_change(self, event) -> None:
-        """Handle widget value changes to publish to store."""
-        if not self._updating_from_store:
-            self._store.publish(self._topic, event.new)
+        self._initialized = True
+
+    def _on_store_update(self, new_value: Any) -> None:
+        """Handle updates from the store."""
+        if self._updating_from_store:
+            # Queue the latest value if we're currently updating
+            self._pending_store_value = new_value
+            return
+
+        if new_value != self.value:
+            self._updating_from_store = True
+            try:
+                self.value = new_value
+                # Check if there's a pending value to apply
+                while (
+                    self._pending_store_value is not None
+                    and self._pending_store_value != self.value
+                ):
+                    pending_value = self._pending_store_value
+                    self._pending_store_value = None
+                    self.value = pending_value
+            finally:
+                self._updating_from_store = False
+
+    def publish_current_value(self) -> None:
+        """Publish the current widget value to the store."""
+        if self._initialized and not self._updating_from_store:
+            self._store.publish(self._topic, self.value)
 
 
 class KafkaWidgetDashboard:
@@ -105,13 +123,20 @@ class KafkaWidgetDashboard:
         # Create reactive widget
         self._reactive_widget = ReactiveWidget(self._store, self._topic)
 
-        # Create Panel components
-        self._slider = pn.Param(
-            self._reactive_widget,
-            parameters=['value'],
-            widgets={'value': pn.widgets.IntSlider},
+        # Create Panel components with custom slider that only publishes on release
+        self._slider_widget = pn.widgets.IntSlider(
+            value=int(self._reactive_widget.value),
+            start=0,
+            end=100,
             name="Reactive Slider",
         )
+
+        # Link slider to reactive widget bidirectionally
+        self._slider_widget.param.watch(self._on_slider_change, 'value')
+        self._reactive_widget.param.watch(self._on_widget_change, 'value')
+
+        # Publish only when slider is released (value_throttled parameter)
+        self._slider_widget.param.watch(self._on_slider_release, 'value_throttled')
 
         self._publish_button = pn.widgets.Button(
             name="Publish Random Value", button_type="primary"
@@ -124,6 +149,25 @@ class KafkaWidgetDashboard:
 
         # Update status periodically
         self._start_status_updates()
+
+    def _on_slider_change(self, event) -> None:
+        """Handle slider value changes (during dragging)."""
+        if event.new != self._reactive_widget.value:
+            # Update widget value without publishing to store
+            self._reactive_widget._updating_from_store = True
+            try:
+                self._reactive_widget.value = event.new
+            finally:
+                self._reactive_widget._updating_from_store = False
+
+    def _on_widget_change(self, event) -> None:
+        """Handle reactive widget value changes (from store updates)."""
+        if event.new != self._slider_widget.value:
+            self._slider_widget.value = int(event.new)
+
+    def _on_slider_release(self, event) -> None:
+        """Handle slider release - publish to store."""
+        self._reactive_widget.publish_current_value()
 
     def _publish_random_value(self, event) -> None:
         """Simulate external publisher setting a random value."""
@@ -167,7 +211,7 @@ class KafkaWidgetDashboard:
         """Create the Panel dashboard."""
         return pn.Column(
             self._current_value_indicator,
-            self._slider,
+            self._slider_widget,
             self._publish_button,
             sizing_mode="stretch_width",
             margin=20,
