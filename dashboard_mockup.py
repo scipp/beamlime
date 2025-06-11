@@ -27,6 +27,9 @@ class DashboardApp(param.Parameterized):
     )
     pulse = param.Integer(default=100, bounds=(10, 1000), doc="Number of bins")
 
+    # Polygon data storage
+    polygon_data = param.List(default=[], doc="Polygon vertices data")
+
     monitor_integration_time = param.Number(
         default=10.0, bounds=(0.1, 100), doc="Integration time (s)"
     )
@@ -45,6 +48,9 @@ class DashboardApp(param.Parameterized):
         self._setup_detector_streams()
         self._setup_monitor_streams()
         self._setup_reduction_streams()
+
+        # Initialize polygon display widget
+        self._polygon_display = pn.pane.Markdown("No polygons drawn", height=150)
 
     def _setup_detector_streams(self):
         """Initialize streams for detector data."""
@@ -249,6 +255,40 @@ class DashboardApp(param.Parameterized):
             hv.opts.Curve('Curve.I', color='black', line_dash='dashed', line_width=1),
         )
 
+    def _format_polygon_vertices(self):
+        """Format polygon vertices for display."""
+        if not self.polygon_data:
+            return "No polygons drawn"
+
+        content = "### Polygon Vertices\n\n"
+        for i, polygon in enumerate(self.polygon_data):
+            content += f"**Polygon {i+1}:**\n"
+            if len(polygon) > 0:
+                for j, (x, y) in enumerate(polygon):
+                    content += f"  Vertex {j+1}: ({x:.2f}, {y:.2f})\n"
+            else:
+                content += "  No vertices\n"
+            content += "\n"
+
+        return content
+
+    def _on_polygon_change(self, data):
+        """Callback for polygon data changes."""
+        # Extract polygon data from the stream
+        if data:
+            polygons = []
+            # Convert polygon array to list of (x, y) tuples
+            for i in range(len(data['xs'])):
+                vertices = [
+                    (float(x), float(y))
+                    for x, y in zip(data['xs'][i], data['ys'][i], strict=True)
+                ]
+                polygons.append(vertices)
+
+            self.polygon_data = polygons
+            # Update the display widget
+            self._polygon_display.object = self._format_polygon_vertices()
+
     def create_detector_plot_content(self):
         """Create reactive detector plot content."""
         image_dmap = hv.DynamicMap(
@@ -262,7 +302,7 @@ class DashboardApp(param.Parameterized):
         poly = hv.Polygons([[]])
 
         # Create PolyDraw stream
-        poly_stream = streams.PolyDraw(
+        self._poly_stream = streams.PolyDraw(
             source=poly,
             drag=True,
             num_objects=4,
@@ -270,10 +310,16 @@ class DashboardApp(param.Parameterized):
             styles={'fill_color': ['red', 'green', 'blue', 'orange']},
         )
 
+        # Connect polygon changes to callback
+        self._poly_stream.add_subscriber(self._on_polygon_change)
+
         # Create PolyEdit stream for editing existing polygons
-        poly_edit_stream = streams.PolyEdit(
+        self._poly_edit_stream = streams.PolyEdit(
             source=poly, vertex_style={'color': 'red'}, shared=True, show_vertices=True
         )
+
+        # Also connect edit stream to callback
+        self._poly_edit_stream.add_subscriber(self._on_polygon_change)
 
         # Configure polygon styling for visibility over image
         interactive_poly = poly.opts(
@@ -368,6 +414,8 @@ class DashboardApp(param.Parameterized):
                     show_name=False,
                     width=250,
                 ),
+                pn.layout.Spacer(height=20),
+                self._polygon_display,
             )
         elif self.active_tab == "Monitors":
             specific_controls = pn.Column(
