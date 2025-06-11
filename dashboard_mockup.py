@@ -1,7 +1,6 @@
 import panel as pn
 import numpy as np
 from bokeh.plotting import figure
-from bokeh.models import ColumnDataSource
 import param
 
 pn.extension('bokeh', template='material')
@@ -150,7 +149,8 @@ class DashboardApp(param.Parameterized):
     def get_dynamic_sidebar(self):
         """Create dynamic sidebar that updates based on active tab."""
         common_controls = pn.Column(
-            pn.pane.Markdown("## Common Controls"),
+            pn.pane.Markdown("## Status"),
+            pn.pane.Markdown("## Controls"),
             pn.Param(
                 self,
                 parameters=['sample_name', 'run_number'],
@@ -201,9 +201,9 @@ def create_dashboard():
     app = DashboardApp()
 
     # Create tab content
-    detector_plots = pn.Row(*app.create_detector_plots())
-    monitor_plots = pn.Row(*app.create_monitor_plots())
-    reduction_plots = pn.Row(*app.create_reduction_plots())
+    detector_plots = pn.FlexBox(*app.create_detector_plots())
+    monitor_plots = pn.FlexBox(*app.create_monitor_plots())
+    reduction_plots = pn.FlexBox(*app.create_reduction_plots())
 
     # Create tabs
     tabs = pn.Tabs(
@@ -224,7 +224,7 @@ def create_dashboard():
 
     # Configure template with dynamic sidebar
     template = pn.template.MaterialTemplate(
-        title="Beamline Dashboard",
+        title="DREAM — Live Data",
         sidebar=app.get_dynamic_sidebar,
         main=tabs,
         header_background='#2596be',
@@ -242,4 +242,4 @@ def main():
 
 if __name__ == "__main__":
     app = main()
-    pn.serve(app, port=5007, show=False, autoreload=False, dev=True)
+    pn.serve(app, port=5007, show=False, autoreload=True, dev=True)
