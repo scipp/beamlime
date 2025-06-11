@@ -1,0 +1,109 @@
+import numpy as np
+import panel as pn
+import holoviews as hv
+from holoviews import opts, streams
+
+# Enable Panel extensions
+pn.extension('bokeh')
+hv.extension('bokeh')
+
+
+def create_polydraw_demo() -> pn.Column:
+    """
+    Create a Panel dashboard demonstrating the PolyDraw tool.
+
+    Returns
+    -------
+    Panel Column containing the dashboard components.
+    """
+    # Initial polygon data
+    poly = hv.Polygons([[(2, 2), (5, 8), (8, 2)]])
+
+    # Create PolyDraw stream
+    poly_stream = streams.PolyDraw(
+        source=poly,
+        drag=True,
+        num_objects=4,
+        show_vertices=True,
+        styles={'fill_color': ['red', 'green', 'blue', 'orange']},
+    )
+
+    # Create PolyEdit stream for editing existing polygons
+    poly_edit_stream = streams.PolyEdit(
+        source=poly, vertex_style={'color': 'red'}, shared=True, show_vertices=True
+    )
+
+    # Configure polygon with interactive tools
+    interactive_poly = poly.opts(
+        opts.Polygons(
+            fill_alpha=0.6,
+            line_color='black',
+            line_width=2,
+            active_tools=['poly_draw', 'poly_edit'],
+            tools=['poly_draw', 'poly_edit'],
+            width=600,
+            height=400,
+            title='Interactive Polygon Drawing Tool',
+        )
+    )
+
+    # Create info panel
+    info_text = pn.pane.Markdown("""
+    ## PolyDraw Tool Demo
+
+    **Instructions:**
+    - Click to add vertices and create polygons
+    - Drag existing vertices to modify shapes
+    - Double-click to complete a polygon
+    - Use the polygon draw tool to create up to 4 polygons
+
+    **Features:**
+    - Interactive vertex editing
+    - Multiple polygon support
+    - Hover tooltips
+    - Customizable styling
+    """)
+
+    # Create polygon count indicator
+    count_indicator = pn.pane.HTML("<b>Polygons created: 1</b>", width=200)
+
+    def update_count(data):
+        count = len(data) if data else 1
+        count_indicator.object = f"<b>Polygons created: {count}</b>"
+
+    poly_stream.param.watch(lambda event: update_count(event.new), 'data')
+    poly_edit_stream.param.watch(lambda event: update_count(event.new), 'data')
+
+    # Create reset button
+    def reset_polygons(event):
+        poly_stream.source.data = {'xs': [[2, 5, 8]], 'ys': [[2, 8, 2]]}
+
+    reset_button = pn.widgets.Button(name="Reset Polygons", button_type="primary")
+    reset_button.on_click(reset_polygons)
+
+    # Layout the dashboard
+    controls = pn.Row(count_indicator, reset_button, margin=(10, 0))
+
+    dashboard = pn.Column(
+        "# PolyDraw Tool Dashboard",
+        pn.Row(
+            pn.Column(info_text, width=300),
+            pn.Column(interactive_poly, controls, width=650),
+        ),
+        margin=20,
+    )
+
+    return dashboard
+
+
+def main():
+    """Main function to serve the Panel dashboard."""
+    dashboard = create_polydraw_demo()
+    dashboard.servable()
+    return dashboard
+
+
+if __name__ == "__main__":
+    # Create and serve the dashboard
+    app = main()
+    pn.serve(app, port=5007, show=True, autoreload=True)
