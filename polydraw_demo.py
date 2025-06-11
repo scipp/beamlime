@@ -16,7 +16,24 @@ def create_polydraw_demo() -> pn.Column:
     -------
     Panel Column containing the dashboard components.
     """
-    # Initial polygon data
+    # Create a sample image as background
+    x = np.linspace(0, 10, 100)
+    y = np.linspace(0, 10, 100)
+    X, Y = np.meshgrid(x, y)
+    Z = np.sin(X) * np.cos(Y) + 0.1 * np.random.randn(100, 100)
+
+    # Create image element
+    background_image = hv.Image(Z, bounds=(0, 0, 10, 10)).opts(
+        opts.Image(
+            cmap='viridis',
+            colorbar=True,
+            width=600,
+            height=400,
+            title='Interactive Polygon Drawing on Image',
+        )
+    )
+
+    # Initial polygon data (scaled to image bounds)
     poly = hv.Polygons([[]])
 
     # Create PolyDraw stream
@@ -33,16 +50,19 @@ def create_polydraw_demo() -> pn.Column:
         source=poly, vertex_style={'color': 'red'}, shared=True, show_vertices=True
     )
 
-    # Configure polygon with interactive tools
+    # Configure polygon styling for visibility over image
     interactive_poly = poly.opts(
         opts.Polygons(
-            fill_alpha=0.6,
-            line_color='black',
-            line_width=2,
-            width=600,
-            height=400,
-            title='Interactive Polygon Drawing Tool',
+            fill_alpha=0.4,
+            line_color='white',
+            line_width=3,
+            active_tools=['poly_draw', 'poly_edit'],
         )
+    )
+
+    # Overlay polygons on the image
+    overlay = (background_image * interactive_poly).opts(
+        opts.Overlay(width=600, height=400)
     )
 
     # Create info panel
@@ -66,7 +86,7 @@ def create_polydraw_demo() -> pn.Column:
     count_indicator = pn.pane.HTML("<b>Polygons created: 1</b>", width=200)
 
     def update_count(data):
-        count = len(data) if data else 1
+        count = len(data) if data else 0
         count_indicator.object = f"<b>Polygons created: {count}</b>"
 
     poly_stream.param.watch(lambda event: update_count(event.new), 'data')
@@ -86,7 +106,7 @@ def create_polydraw_demo() -> pn.Column:
         "# PolyDraw Tool Dashboard",
         pn.Row(
             pn.Column(info_text, width=300),
-            pn.Column(interactive_poly, controls, width=650),
+            pn.Column(overlay, controls, width=650),
         ),
         margin=20,
     )
