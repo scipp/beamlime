@@ -150,7 +150,14 @@ class DashboardApp(param.Parameterized):
 
         view_toggle.link(self, value='detector_view_mode')
 
-        return pn.Column(view_toggle, self.create_detector_plot_content)
+        return pn.Column(
+            view_toggle,
+            pn.Column(
+                self.create_detector_plot_content,
+                scroll=True,
+                height=300,
+            ),
+        )
 
     def create_monitor_plots(self) -> list:
         """Create plots for the Monitors tab."""
@@ -282,6 +289,7 @@ def create_dashboard():
         ("Monitors", monitor_plots),
         ("Data Reduction", reduction_plots),
         dynamic=True,
+        sizing_mode='stretch_width',
     )
 
     # Callback to update active tab parameter
