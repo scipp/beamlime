@@ -50,7 +50,7 @@ class DashboardApp(param.Parameterized):
         self._setup_reduction_streams()
 
         # Initialize polygon display widget
-        self._polygon_display = pn.pane.Markdown("No polygons drawn", height=150)
+        self._polygon_display = pn.pane.Markdown("No ROI selected", height=150)
 
     def _setup_detector_streams(self):
         """Initialize streams for detector data."""
@@ -258,9 +258,9 @@ class DashboardApp(param.Parameterized):
     def _format_polygon_vertices(self):
         """Format polygon vertices for display."""
         if not self.polygon_data:
-            return "No polygons drawn"
+            return "No ROI selected"
 
-        content = "### Polygon Vertices\n\n"
+        content = "### ROIs\n\n"
         for i, polygon in enumerate(self.polygon_data):
             content += f"**Polygon {i+1}:**\n"
             if len(polygon) > 0:
@@ -305,9 +305,12 @@ class DashboardApp(param.Parameterized):
         self._poly_stream = streams.PolyDraw(
             source=poly,
             drag=True,
-            num_objects=4,
+            num_objects=2,
             show_vertices=True,
-            styles={'fill_color': ['red', 'green', 'blue', 'orange']},
+            styles={
+                'fill_color': ['red', 'green', 'blue', 'orange'],
+                'line_color': ['red', 'green', 'blue', 'orange'],
+            },
         )
 
         # Connect polygon changes to callback
@@ -315,7 +318,10 @@ class DashboardApp(param.Parameterized):
 
         # Create PolyEdit stream for editing existing polygons
         self._poly_edit_stream = streams.PolyEdit(
-            source=poly, vertex_style={'color': 'red'}, shared=True, show_vertices=True
+            source=poly,
+            vertex_style={'color': 'white'},
+            shared=True,
+            show_vertices=True,
         )
 
         # Also connect edit stream to callback
@@ -324,10 +330,9 @@ class DashboardApp(param.Parameterized):
         # Configure polygon styling for visibility over image
         interactive_poly = poly.opts(
             opts.Polygons(
-                fill_alpha=0.4,
+                fill_alpha=0.0,
                 line_color='white',
                 line_width=3,
-                active_tools=['poly_draw', 'poly_edit'],
             )
         )
 
@@ -368,11 +373,11 @@ class DashboardApp(param.Parameterized):
         timeseries_dmap = hv.DynamicMap(
             self._create_monitor_timeseries_plot,
             streams=[self._monitor_timeseries_pipe],
-        )
+        ).opts(shared_axes=False)
 
         profile_dmap = hv.DynamicMap(
             self._create_monitor_profile_plot, streams=[self._monitor_profile_pipe]
-        )
+        ).opts(shared_axes=False)
 
         return [pn.pane.HoloViews(timeseries_dmap), pn.pane.HoloViews(profile_dmap)]
 
@@ -381,12 +386,12 @@ class DashboardApp(param.Parameterized):
         comparison_dmap = hv.DynamicMap(
             self._create_reduction_comparison_plot,
             streams=[self._reduction_comparison_pipe],
-        )
+        ).opts(shared_axes=False)
 
         residuals_dmap = hv.DynamicMap(
             self._create_reduction_residuals_plot,
             streams=[self._reduction_residuals_pipe],
-        )
+        ).opts(shared_axes=False)
 
         return [pn.pane.HoloViews(comparison_dmap), pn.pane.HoloViews(residuals_dmap)]
 
@@ -394,11 +399,12 @@ class DashboardApp(param.Parameterized):
     def get_dynamic_sidebar(self):
         """Create dynamic sidebar that updates based on active tab."""
         common_controls = pn.Column(
-            pn.pane.Markdown("## Status"),
+            pn.pane.Markdown("## Status\nEverything is fine."),
             pn.pane.Markdown("## Controls"),
             pn.Param(
                 self,
-                parameters=['sample_name', 'run_number'],
+                parameters=[],
+                # parameters=['sample_name', 'run_number'],
                 show_name=False,
                 width=250,
             ),
