@@ -1,6 +1,7 @@
 import numpy as np
 import panel as pn
 import param
+from bokeh.models import ColumnDataSource
 from bokeh.plotting import figure
 
 pn.extension('bokeh', template='material')
@@ -42,11 +43,41 @@ class DashboardApp(param.Parameterized):
     def __init__(self, **params):
         super().__init__(**params)
         self.active_tab = "Detectors"
+        self._setup_detector_figures()
 
-    @pn.depends('detector_view_mode')
-    def create_detector_plot_content(self):
-        """Create reactive plot content that updates with view mode changes."""
-        # Plot 1: 2D detector image
+    def _setup_detector_figures(self):
+        """Initialize persistent detector figures with data sources."""
+        # Create data sources that can be updated
+        self._detector_image_source = ColumnDataSource(data={})
+        self._histogram_source = ColumnDataSource(data={})
+
+        # Create persistent figures
+        self._detector_image_fig = figure(
+            title="Detector Image",
+            width=400,
+            height=300,
+            x_axis_label="X (mm)",
+            y_axis_label="Y (mm)",
+        )
+
+        self._histogram_fig = figure(
+            title="Intensity Distribution",
+            width=400,
+            height=300,
+            x_axis_label="Counts",
+            y_axis_label="Frequency",
+        )
+
+        # Add initial glyphs (will be updated with data)
+        self._image_glyph = None
+        self._histogram_glyph = None
+
+        # Initialize with default data
+        self._update_detector_data()
+
+    def _update_detector_data(self):
+        """Update the data in the detector figures based on current view mode."""
+        # Generate data based on view mode
         x = np.linspace(0, 10, 50)
         y = np.linspace(0, 10, 50)
         X, Y = np.meshgrid(x, y)
@@ -54,45 +85,58 @@ class DashboardApp(param.Parameterized):
         if self.detector_view_mode == "Cumulative":
             Z = 2 * np.sin(X) * np.cos(Y) + np.random.normal(0, 0.05, X.shape)
             title_suffix = " (Cumulative)"
+            counts = np.random.poisson(200, 1000)
         else:
             Z = np.sin(X) * np.cos(Y) + np.random.normal(0, 0.1, X.shape)
             title_suffix = " (Current)"
-
-        p1 = figure(
-            title=f"Detector Image{title_suffix}",
-            width=400,
-            height=300,
-            x_axis_label="X (mm)",
-            y_axis_label="Y (mm)",
-        )
-        p1.image(image=[Z], x=0, y=0, dw=10, dh=10, palette="Viridis256")
-
-        # Plot 2: Intensity histogram
-        if self.detector_view_mode == "Cumulative":
-            counts = np.random.poisson(200, 1000)
-        else:
             counts = np.random.poisson(100, 1000)
 
+        # Update figure titles
+        self._detector_image_fig.title.text = f"Detector Image{title_suffix}"
+        self._histogram_fig.title.text = f"Intensity Distribution{title_suffix}"
+
+        # Update image data
+        if self._image_glyph is None:
+            self._image_glyph = self._detector_image_fig.image(
+                image=[Z], x=0, y=0, dw=10, dh=10, palette="Viridis256"
+            )
+        else:
+            self._image_glyph.data_source.data = {
+                'image': [Z],
+                'x': [0],
+                'y': [0],
+                'dw': [10],
+                'dh': [10],
+            }
+
+        # Update histogram data
         hist, edges = np.histogram(counts, bins=50)
 
-        p2 = figure(
-            title=f"Intensity Distribution{title_suffix}",
-            width=400,
-            height=300,
-            x_axis_label="Counts",
-            y_axis_label="Frequency",
-        )
-        p2.quad(
-            top=hist,
-            bottom=0,
-            left=edges[:-1],
-            right=edges[1:],
-            fill_color="navy",
-            line_color="white",
-            alpha=0.7,
-        )
+        if self._histogram_glyph is None:
+            self._histogram_glyph = self._histogram_fig.quad(
+                top=hist,
+                bottom=0,
+                left=edges[:-1],
+                right=edges[1:],
+                fill_color="navy",
+                line_color="white",
+                alpha=0.7,
+            )
+        else:
+            self._histogram_glyph.data_source.data = {
+                'top': hist,
+                'bottom': np.zeros_like(hist),
+                'left': edges[:-1],
+                'right': edges[1:],
+            }
 
-        return pn.FlexBox(pn.pane.Bokeh(p1), pn.pane.Bokeh(p2))
+    @pn.depends('detector_view_mode')
+    def create_detector_plot_content(self):
+        """Create reactive plot content that updates data while preserving figure state."""
+        self._update_detector_data()
+        return pn.FlexBox(
+            pn.pane.Bokeh(self._detector_image_fig), pn.pane.Bokeh(self._histogram_fig)
+        )
 
     def create_detector_plots(self):
         """Create plots for the Detectors tab with reactive content."""
