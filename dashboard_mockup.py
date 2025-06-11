@@ -1,7 +1,7 @@
-import panel as pn
 import numpy as np
-from bokeh.plotting import figure
+import panel as pn
 import param
+from bokeh.plotting import figure
 
 pn.extension('bokeh', template='material')
 
@@ -17,6 +17,9 @@ class DashboardApp(param.Parameterized):
     active_tab = param.String(default="Detectors")
 
     # Tab-specific parameters
+    detector_view_mode = param.Selector(
+        default="Current", objects=["Current", "Cumulative"], doc="Detector view mode"
+    )
     detector_threshold = param.Number(
         default=0.5, bounds=(0, 1), doc="Detection threshold"
     )
@@ -40,16 +43,23 @@ class DashboardApp(param.Parameterized):
         super().__init__(**params)
         self.active_tab = "Detectors"
 
-    def create_detector_plots(self) -> list:
-        """Create plots for the Detectors tab."""
+    @pn.depends('detector_view_mode')
+    def create_detector_plot_content(self):
+        """Create reactive plot content that updates with view mode changes."""
         # Plot 1: 2D detector image
         x = np.linspace(0, 10, 50)
         y = np.linspace(0, 10, 50)
         X, Y = np.meshgrid(x, y)
-        Z = np.sin(X) * np.cos(Y) + np.random.normal(0, 0.1, X.shape)
+
+        if self.detector_view_mode == "Cumulative":
+            Z = 2 * np.sin(X) * np.cos(Y) + np.random.normal(0, 0.05, X.shape)
+            title_suffix = " (Cumulative)"
+        else:
+            Z = np.sin(X) * np.cos(Y) + np.random.normal(0, 0.1, X.shape)
+            title_suffix = " (Current)"
 
         p1 = figure(
-            title="Detector Image",
+            title=f"Detector Image{title_suffix}",
             width=400,
             height=300,
             x_axis_label="X (mm)",
@@ -58,11 +68,15 @@ class DashboardApp(param.Parameterized):
         p1.image(image=[Z], x=0, y=0, dw=10, dh=10, palette="Viridis256")
 
         # Plot 2: Intensity histogram
-        counts = np.random.poisson(100, 1000)
+        if self.detector_view_mode == "Cumulative":
+            counts = np.random.poisson(200, 1000)
+        else:
+            counts = np.random.poisson(100, 1000)
+
         hist, edges = np.histogram(counts, bins=50)
 
         p2 = figure(
-            title="Intensity Distribution",
+            title=f"Intensity Distribution{title_suffix}",
             width=400,
             height=300,
             x_axis_label="Counts",
@@ -78,7 +92,21 @@ class DashboardApp(param.Parameterized):
             alpha=0.7,
         )
 
-        return [pn.pane.Bokeh(p1), pn.pane.Bokeh(p2)]
+        return pn.FlexBox(pn.pane.Bokeh(p1), pn.pane.Bokeh(p2))
+
+    def create_detector_plots(self):
+        """Create plots for the Detectors tab with reactive content."""
+        view_toggle = pn.widgets.RadioBoxGroup(
+            name="View Mode",
+            value=self.detector_view_mode,
+            options=["Current", "Cumulative"],
+            inline=True,
+            margin=(10, 0),
+        )
+
+        view_toggle.link(self, value='detector_view_mode')
+
+        return pn.Column(view_toggle, self.create_detector_plot_content)
 
     def create_monitor_plots(self) -> list:
         """Create plots for the Monitors tab."""
@@ -200,14 +228,13 @@ def create_dashboard():
     """Create and configure the main dashboard."""
     app = DashboardApp()
 
-    # Create tab content
-    detector_plots = pn.FlexBox(*app.create_detector_plots())
+    detector_content = app.create_detector_plots()
     monitor_plots = pn.FlexBox(*app.create_monitor_plots())
     reduction_plots = pn.FlexBox(*app.create_reduction_plots())
 
     # Create tabs
     tabs = pn.Tabs(
-        ("Detectors", detector_plots),
+        ("Detectors", detector_content),
         ("Monitors", monitor_plots),
         ("Data Reduction", reduction_plots),
         dynamic=True,
