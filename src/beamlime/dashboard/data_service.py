@@ -2,80 +2,21 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections import UserDict
 from collections.abc import Callable, Hashable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any
 
 import scipp as sc
+
+from .data_key import ComponentDataKey, DataKey
+from .multi_pipe import MultiPipe
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class RawData:
     cumulative: sc.DataArray
     current: sc.DataArray
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class DataKey:
-    service_name: str
-    source_name: str
-    key: str
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class ComponentDataKey(ABC):
-    component_name: str
-    view_name: str
-
-    @property
-    @abstractmethod
-    def service_name(self) -> str:
-        """
-        Returns the name of the service this component belongs to.
-        This is used to identify the service in the data store.
-        """
-
-    def cumulative_key(self) -> DataKey:
-        return DataKey(
-            service_name=self.service_name,
-            source_name=self.component_name,
-            key=f'{self.view_name}/cumulative',
-        )
-
-    def current_key(self) -> DataKey:
-        return DataKey(
-            service_name=self.service_name,
-            source_name=self.component_name,
-            key=f'{self.view_name}/current',
-        )
-
-
-class MonitorDataKey(ComponentDataKey):
-    @property
-    def service_name(self) -> str:
-        return 'monitor_data'
-
-
-class DetectorDataKey(ComponentDataKey):
-    @property
-    def service_name(self) -> str:
-        return 'detector_data'
-
-
-class UpdateListener(Protocol):
-    """Protocol for objects that listen to data updates."""
-
-    def on_data_updated(self, keys: set[DataKey]) -> None:
-        """
-        Called when data has been updated.
-
-        Parameters
-        ----------
-        keys
-            The set of data keys that were updated.
-        """
 
 
 DerivedGetter = Callable[['DataService', Hashable], Any | None]
@@ -89,20 +30,20 @@ class DataService(UserDict[DataKey, sc.DataArray]):
     def __init__(self) -> None:
         super().__init__()
         self._derived_getters: dict[Hashable, DerivedGetter] = {}
-        self._listeners: list[UpdateListener] = []
+        self._pipes: list[MultiPipe] = []
         self._pending_updates: set[DataKey] = set()
         self._in_transaction = False
 
-    def add_listener(self, listener: UpdateListener) -> None:
+    def register_ui_pipe(self, pipe: MultiPipe) -> None:
         """
-        Add a listener for data updates.
+        Register a pipe for updates.
 
         Parameters
         ----------
-        listener
-            The listener to add.
+        pipe
+            The pipe instance that defines its own data dependencies.
         """
-        self._listeners.append(listener)
+        self._pipes.append(pipe)
 
     def start_transaction(self) -> None:
         """Start a transaction to batch multiple updates."""
@@ -110,16 +51,49 @@ class DataService(UserDict[DataKey, sc.DataArray]):
         self._pending_updates.clear()
 
     def commit_transaction(self) -> None:
-        """Commit the transaction and notify listeners of all updates."""
+        """Commit the transaction and notify pipes of all updates."""
         if not self._in_transaction:
             return
 
         self._in_transaction = False
         if self._pending_updates:
-            # Notify all listeners with the batch of updated keys
-            for listener in self._listeners:
-                listener.on_data_updated(self._pending_updates.copy())
+            self._notify_pipes(self._pending_updates)
             self._pending_updates.clear()
+
+    def _notify_pipes(self, updated_keys: set[DataKey]) -> None:
+        """
+        Notify relevant pipes about data updates.
+
+        Parameters
+        ----------
+        updated_keys
+            The set of data keys that were updated.
+        """
+        for pipe in self._pipes:
+            if updated_keys & pipe.keys:
+                self._send_pipe_update(pipe)
+
+    def _send_pipe_update(self, pipe: MultiPipe) -> None:
+        """
+        Send update to UI pipe with complete data for all its keys.
+
+        Parameters
+        ----------
+        pipe
+            The pipe instance to send data to.
+        """
+        complete_data = {}
+        for key in pipe.keys:
+            if key.service_name == self._get_service_name() and key in self:
+                complete_data[key] = self.get(key)
+        pipe.send(complete_data)
+
+    def _get_service_name(self) -> str:
+        """Get the service name for this data service."""
+        class_name = self.__class__.__name__
+        if class_name.endswith('DataService'):
+            return class_name[:-11].lower() + '_data'
+        return class_name.lower()
 
     def __setitem__(self, key: DataKey, value: sc.DataArray) -> None:
         super().__setitem__(key, value)
