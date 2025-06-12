@@ -3,7 +3,8 @@
 import pytest
 import scipp as sc
 
-from beamlime.dashboard.data_service import DataForwarder, DataKey, DataService
+from beamlime.dashboard.data_forwarder import DataForwarder
+from beamlime.dashboard.data_service import DataKey, DataService
 
 
 class TestDataForwarder:
