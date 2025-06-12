@@ -7,6 +7,11 @@ from holoviews import opts, streams
 pn.extension('holoviews', template='material')
 hv.extension('bokeh')
 
+from beamlime.dashboard.headless import make_orchestrator
+from beamlime.services.dashboard import DashboardApp as LegacyDashboard
+
+legacy_app = LegacyDashboard(instrument='dream', dev=True)
+
 
 class DashboardApp(param.Parameterized):
     """Main dashboard application with tab-dependent sidebar controls."""
@@ -81,7 +86,13 @@ class DashboardApp(param.Parameterized):
 
     def _setup_detector_streams(self):
         """Initialize streams for detector data."""
-        self._detector_image_pipe = streams.Pipe(data=dict())
+        self._detector_image_pipe = streams.Pipe(data=None)
+        self._orchestrator = make_orchestrator(
+            source=legacy_app._source,
+            pipe=self._detector_image_pipe,
+            detector_name='mantle_detector',
+            view_name='mantle_projection',
+        )
         self._detector_histogram_pipe = streams.Pipe(data=dict())
 
         # Initialize with default data
@@ -120,7 +131,8 @@ class DashboardApp(param.Parameterized):
 
         # Update image stream
         image_data = {'x': x, 'y': y, 'z': Z, 'view_mode': self.detector_view_mode}
-        self._detector_image_pipe.send(image_data)
+        # self._detector_image_pipe.send(image_data)
+        self._orchestrator.update()
 
         # Update histogram stream
         hist, edges = np.histogram(counts, bins=self.pulse)
@@ -171,8 +183,15 @@ class DashboardApp(param.Parameterized):
 
     def _create_detector_image_plot(self, data):
         """Create detector image plot from stream data."""
-        if not data:
-            return hv.Image([])
+        import scipp as sc
+
+        if not isinstance(data, sc.DataArray):
+            return hv.Image([]).opts(width=800, height=600)
+        data = {
+            'z': data.values,
+            'x': data.coords[data.dims[1]].values,
+            'y': data.coords[data.dims[0]].values,
+        }
 
         view_suffix = f" ({data['view_mode']})" if 'view_mode' in data else ""
         title = f"Detector Image{view_suffix}"
@@ -180,12 +199,13 @@ class DashboardApp(param.Parameterized):
         image = hv.Image((data['x'], data['y'], data['z']))
         return image.opts(
             title=title,
-            width=400,
-            height=300,
+            width=800,
+            height=600,
             xlabel="X (mm)",
             ylabel="Y (mm)",
             cmap='viridis',
             colorbar=True,
+            logz=True,
         )
 
     def _create_detector_histogram_plot(self, data):
@@ -391,7 +411,7 @@ class DashboardApp(param.Parameterized):
             pn.Column(
                 self.create_detector_plot_content(),
                 scroll=True,
-                height=300,
+                height=600,
             ),
         )
 
