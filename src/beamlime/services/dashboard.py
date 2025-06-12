@@ -19,10 +19,10 @@ from beamlime.config.models import ConfigKey, WorkflowConfig
 from beamlime.config.streams import stream_kind_to_topic
 from beamlime.core.config_service import ConfigService
 from beamlime.core.message import StreamKind, compact_messages
-from beamlime.dashboard.dash_app import make_dash_app
-from beamlime.dashboard.parameter_widget import create_parameter_widget
-from beamlime.dashboard.plots import create_detector_plot
-from beamlime.dashboard.workflow_widget import create_workflow_controls
+from beamlime.dashboard_dash.dash_app import make_dash_app
+from beamlime.dashboard_dash.parameter_widget import create_parameter_widget
+from beamlime.dashboard_dash.plots import create_detector_plot
+from beamlime.dashboard_dash.workflow_widget import create_workflow_controls
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
