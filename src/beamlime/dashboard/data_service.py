@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from collections import UserDict
 from collections.abc import Callable, Hashable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 import scipp as sc
 
@@ -64,6 +64,20 @@ class DetectorDataKey(ComponentDataKey):
         return 'detector_data'
 
 
+class UpdateListener(Protocol):
+    """Protocol for objects that listen to data updates."""
+
+    def on_data_updated(self, keys: set[DataKey]) -> None:
+        """
+        Called when data has been updated.
+
+        Parameters
+        ----------
+        keys
+            The set of data keys that were updated.
+        """
+
+
 DerivedGetter = Callable[['DataService', Hashable], Any | None]
 
 
@@ -75,6 +89,45 @@ class DataService(UserDict[DataKey, sc.DataArray]):
     def __init__(self) -> None:
         super().__init__()
         self._derived_getters: dict[Hashable, DerivedGetter] = {}
+        self._listeners: list[UpdateListener] = []
+        self._pending_updates: set[DataKey] = set()
+        self._in_transaction = False
+
+    def add_listener(self, listener: UpdateListener) -> None:
+        """
+        Add a listener for data updates.
+
+        Parameters
+        ----------
+        listener
+            The listener to add.
+        """
+        self._listeners.append(listener)
+
+    def start_transaction(self) -> None:
+        """Start a transaction to batch multiple updates."""
+        self._in_transaction = True
+        self._pending_updates.clear()
+
+    def commit_transaction(self) -> None:
+        """Commit the transaction and notify listeners of all updates."""
+        if not self._in_transaction:
+            return
+
+        self._in_transaction = False
+        if self._pending_updates:
+            # Notify all listeners with the batch of updated keys
+            for listener in self._listeners:
+                listener.on_data_updated(self._pending_updates.copy())
+            self._pending_updates.clear()
+
+    def __setitem__(self, key: DataKey, value: sc.DataArray) -> None:
+        super().__setitem__(key, value)
+        self._pending_updates.add(key)
+
+        # If not in transaction, immediately notify
+        if not self._in_transaction:
+            self.commit_transaction()
 
 
 # TODO Weird, we don't want to register for all possible keys. Maybe this should just be
@@ -129,6 +182,16 @@ class DataForwarder:
             True if the data service exists, False otherwise.
         """
         return data_service_name in self._data_services
+
+    def start_transaction(self) -> None:
+        """Start transactions across all data services."""
+        for service in self._data_services.values():
+            service.start_transaction()
+
+    def commit_transaction(self) -> None:
+        """Commit transactions across all data services."""
+        for service in self._data_services.values():
+            service.commit_transaction()
 
     def forward(self, stream_name: str, value: sc.DataArray) -> None:
         """
