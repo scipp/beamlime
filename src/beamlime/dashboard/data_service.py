@@ -4,20 +4,12 @@ from __future__ import annotations
 
 from collections import UserDict
 from collections.abc import Callable, Hashable, Mapping, Sequence
-from dataclasses import dataclass
 from typing import Any
 
 import scipp as sc
 
-from .data_key import ComponentDataKey, DataKey
-from .pipe_base import DataSubscriber
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class RawData:
-    cumulative: sc.DataArray
-    current: sc.DataArray
-
+from .data_key import DataKey
+from .data_observer import DataSubscriber
 
 DerivedGetter = Callable[['DataService', Hashable], Any | None]
 
@@ -80,18 +72,6 @@ class DataService(UserDict[DataKey, sc.DataArray]):
         # If not in transaction, immediately notify
         if not self._in_transaction:
             self.commit_transaction()
-
-
-# TODO Weird, we don't want to register for all possible keys. Maybe this should just be
-# a method after all?
-def get_component_data(
-    store: Mapping[DataKey, sc.DataArray], key: ComponentDataKey
-) -> RawData | None:
-    cumulative = store.get(key.cumulative_key(), None)
-    current = store.get(key.current_key(), None)
-    if cumulative is None or current is None:
-        return None
-    return RawData(cumulative=cumulative, current=current)
 
 
 class TotalCountsGetter:

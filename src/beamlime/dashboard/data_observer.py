@@ -8,19 +8,19 @@ from typing import Any, Protocol
 from .data_service import DataKey
 
 
-class DownstreamPipe(Protocol):
+class Pipe(Protocol):
     """
     Protocol for downstream pipes that can receive data from upstream pipes.
     """
 
-    def send(self, **kwargs: Any) -> None:
+    def send(self, data: Any) -> None:
         """
         Send data to the downstream pipe.
 
         Parameters
         ----------
         data:
-            The data to be sent, keyed by DataKey.
+            The data to be sent.
         """
 
 
