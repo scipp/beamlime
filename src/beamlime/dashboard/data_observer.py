@@ -3,12 +3,28 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, Protocol
 
 from .data_service import DataKey
 
 
-class PipeBase(ABC):
+class DownstreamPipe(Protocol):
+    """
+    Protocol for downstream pipes that can receive data from upstream pipes.
+    """
+
+    def send(self, **kwargs: Any) -> None:
+        """
+        Send data to the downstream pipe.
+
+        Parameters
+        ----------
+        data:
+            The data to be sent, keyed by DataKey.
+        """
+
+
+class DataSubscriber(ABC):
     """Base class for pipes that define their data dependencies."""
 
     def __init__(self, keys: set[DataKey]) -> None:
@@ -57,8 +73,8 @@ class PipeBase(ABC):
         """
 
 
-class CachingPipe(PipeBase):
-    """A pipe that cached the latest data dict. For testing purposes."""
+class CachingObserver(DataSubscriber):
+    """An observer that cached the latest data dict. For testing purposes."""
 
     def __init__(self, keys: set[DataKey]) -> None:
         super().__init__(keys)
