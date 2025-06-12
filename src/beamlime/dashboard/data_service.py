@@ -73,13 +73,6 @@ class DataService(UserDict[DataKey, sc.DataArray]):
             if updated_keys & pipe.keys:
                 pipe.trigger(self.data)
 
-    def _get_service_name(self) -> str:
-        """Get the service name for this data service."""
-        class_name = self.__class__.__name__
-        if class_name.endswith('DataService'):
-            return class_name[:-11].lower() + '_data'
-        return class_name.lower()
-
     def __setitem__(self, key: DataKey, value: sc.DataArray) -> None:
         super().__setitem__(key, value)
         self._pending_updates.add(key)
