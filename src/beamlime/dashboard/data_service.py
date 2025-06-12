@@ -71,22 +71,7 @@ class DataService(UserDict[DataKey, sc.DataArray]):
         """
         for pipe in self._pipes:
             if updated_keys & pipe.keys:
-                self._send_pipe_update(pipe)
-
-    def _send_pipe_update(self, pipe: MultiPipe) -> None:
-        """
-        Send update to UI pipe with complete data for all its keys.
-
-        Parameters
-        ----------
-        pipe
-            The pipe instance to send data to.
-        """
-        complete_data = {}
-        for key in pipe.keys:
-            if key.service_name == self._get_service_name() and key in self:
-                complete_data[key] = self.get(key)
-        pipe.send(complete_data)
+                pipe.trigger(self.data)
 
     def _get_service_name(self) -> str:
         """Get the service name for this data service."""
