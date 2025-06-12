@@ -10,7 +10,7 @@ from typing import Any
 import scipp as sc
 
 from .data_key import ComponentDataKey, DataKey
-from .pipe import PipeBase
+from .pipe_base import PipeBase
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
