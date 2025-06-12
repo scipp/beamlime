@@ -71,19 +71,3 @@ class DataSubscriber(ABC):
         data:
             Complete data for all keys this pipe depends on.
         """
-
-
-class CachingObserver(DataSubscriber):
-    """An observer that cached the latest data dict. For testing purposes."""
-
-    def __init__(self, keys: set[DataKey]) -> None:
-        super().__init__(keys)
-        self._data: dict[DataKey, Any] = {}
-
-    def send(self, data: dict[DataKey, Any]) -> None:
-        """Cache the data."""
-        self._data.update(data)
-
-    def get_data(self) -> dict[DataKey, Any]:
-        """Return the cached data."""
-        return self._data

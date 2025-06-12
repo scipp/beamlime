@@ -9,7 +9,7 @@ from typing import Any
 import scipp as sc
 
 from .data_key import DataKey
-from .data_observer import DataSubscriber
+from .data_subscriber import DataSubscriber
 
 DerivedGetter = Callable[['DataService', Hashable], Any | None]
 
@@ -22,20 +22,20 @@ class DataService(UserDict[DataKey, sc.DataArray]):
     def __init__(self) -> None:
         super().__init__()
         self._derived_getters: dict[Hashable, DerivedGetter] = {}
-        self._observers: list[DataSubscriber] = []
+        self._subscribers: list[DataSubscriber] = []
         self._pending_updates: set[DataKey] = set()
         self._in_transaction = False
 
-    def register_observer(self, observer: DataSubscriber) -> None:
+    def register_subscriber(self, subscriber: DataSubscriber) -> None:
         """
-        Register an observer for updates.
+        Register a subscriber for updates.
 
         Parameters
         ----------
-        ovserver:
-            The observer to register. It should implement the DataSubscriber interface.
+        subscriber:
+            The subscriber to register. Must implement the DataSubscriber interface.
         """
-        self._observers.append(observer)
+        self._subscribers.append(subscriber)
 
     def start_transaction(self) -> None:
         """Start a transaction to batch multiple updates."""
@@ -49,21 +49,21 @@ class DataService(UserDict[DataKey, sc.DataArray]):
 
         self._in_transaction = False
         if self._pending_updates:
-            self._notify_observers(self._pending_updates)
+            self._notify_subscribers(self._pending_updates)
             self._pending_updates.clear()
 
-    def _notify_observers(self, updated_keys: set[DataKey]) -> None:
+    def _notify_subscribers(self, updated_keys: set[DataKey]) -> None:
         """
-        Notify relevant pipes about data updates.
+        Notify relevant subscribers about data updates.
 
         Parameters
         ----------
         updated_keys
             The set of data keys that were updated.
         """
-        for observer in self._observers:
-            if updated_keys & observer.keys:
-                observer.trigger(self.data)
+        for subscriber in self._subscribers:
+            if updated_keys & subscriber.keys:
+                subscriber.trigger(self.data)
 
     def __setitem__(self, key: DataKey, value: sc.DataArray) -> None:
         super().__setitem__(key, value)
