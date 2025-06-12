@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from ..core.message import MessageSource
 from .data_service import DataForwarder
-from .ui_update_manager import UIUpdateManager
 
 
 class Orchestrator:
@@ -12,11 +11,9 @@ class Orchestrator:
         self,
         message_source: MessageSource,
         forwarder: DataForwarder,
-        ui_manager: UIUpdateManager,
     ) -> None:
         self._message_source = message_source
         self._forwarder = forwarder
-        self._ui_manager = ui_manager
 
     def update(self) -> None:
         """
