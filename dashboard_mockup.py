@@ -42,6 +42,28 @@ class DashboardApp(param.Parameterized):
     )
     background_subtraction = param.Boolean(default=False, doc="Subtract background")
 
+    toa_range_switch = pn.widgets.Switch(name='TOA Range', value=False)
+    toa_center = pn.widgets.FloatSlider(
+        name='TOA range center (ms)',
+        start=0,
+        end=71,
+        value=35.0,
+        step=0.01,
+    )
+    toa_width = pn.widgets.FloatSlider(
+        name='TOA range width (ms)',
+        start=0,
+        end=71,
+        value=1.0,
+        step=0.01,
+    )
+
+    # Disable sliders when switch is False
+    def update_disabled(self, event):
+        disabled = not event.new
+        self.toa_center.disabled = disabled
+        self.toa_width.disabled = disabled
+
     def __init__(self, **params):
         super().__init__(**params)
         self.active_tab = "Detectors"
@@ -51,6 +73,11 @@ class DashboardApp(param.Parameterized):
 
         # Initialize polygon display widget
         self._polygon_display = pn.pane.Markdown("No ROI selected", height=150)
+
+        self.toa_range_switch.param.watch(self.update_disabled, 'value')
+        # Set initial state
+        self.toa_center.disabled = not self.toa_range_switch.value
+        self.toa_width.disabled = not self.toa_range_switch.value
 
     def _setup_detector_streams(self):
         """Initialize streams for detector data."""
@@ -414,9 +441,15 @@ class DashboardApp(param.Parameterized):
         if self.active_tab == "Detectors":
             specific_controls = pn.Column(
                 pn.pane.Markdown("## Detector Settings"),
+                pn.WidgetBox(
+                    "### TOA filtering",
+                    self.toa_range_switch,
+                    self.toa_center,
+                    self.toa_width,
+                ),
                 pn.Param(
                     self,
-                    parameters=['detector_threshold', 'pulse'],
+                    parameters=['pulse'],
                     show_name=False,
                     width=250,
                 ),
