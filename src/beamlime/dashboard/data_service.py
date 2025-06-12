@@ -2,9 +2,11 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections import UserDict
-from collections.abc import Callable
+from collections.abc import Callable, Hashable, Mapping
 from dataclasses import dataclass
+from typing import Any
 
 import scipp as sc
 
@@ -23,66 +25,58 @@ class DataKey:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class DetectorDataKey:
-    detector_name: str
+class ComponentDataKey(ABC):
+    component_name: str
     view_name: str
+
+    @property
+    @abstractmethod
+    def service_name(self) -> str:
+        """
+        Returns the name of the service this component belongs to.
+        This is used to identify the service in the data store.
+        """
 
     def cumulative_key(self) -> DataKey:
         return DataKey(
-            service_name='detector_data',
-            source_name=self.detector_name,
+            service_name=self.service_name,
+            source_name=self.component_name,
             key=f'{self.view_name}/cumulative',
         )
 
     def current_key(self) -> DataKey:
         return DataKey(
-            service_name='detector_data',
-            source_name=self.detector_name,
+            service_name=self.service_name,
+            source_name=self.component_name,
             key=f'{self.view_name}/current',
         )
 
 
-DerivedGetter = Callable[['DataService', DataKey], sc.DataArray]
+class MonitorDataKey(ComponentDataKey):
+    @property
+    def service_name(self) -> str:
+        return 'monitor_data'
 
 
-class DataService(UserDict):
+class DetectorDataKey(ComponentDataKey):
+    @property
+    def service_name(self) -> str:
+        return 'detector_data'
+
+
+DerivedGetter = Callable[['DataService', Hashable], Any | None]
+
+
+class DataService(UserDict[DataKey, sc.DataArray]):
     """
     A service for managing and retrieving data and derivaed data.
     """
 
     def __init__(self) -> None:
         super().__init__()
-        self._derived_getters: dict[DataKey, DerivedGetter] = {}
+        self._derived_getters: dict[Hashable, DerivedGetter] = {}
 
-    def __getitem__(self, key: DataKey) -> sc.DataArray | sc.DataGroup:
-        """
-        Retrieve a DataArray for the given key.
-
-        If a derived getter is registered for the key, it will be used to compute the
-        output. Otherwise, it will retrieve the data from the underlying dictionary.
-
-        Parameters
-        ----------
-        key:
-            The data key to retrieve.
-
-        Returns
-        -------
-        :
-            The data associated with the key.
-        """
-        if key in self._derived_getters:
-            return self._derived_getters[key](self, key)
-        return super().__getitem__(key)
-
-    def get_detector_data(self, key: DetectorDataKey) -> RawData | None:
-        cumulative = self.get(key.cumulative_key(), None)
-        current = self.get(key.current_key(), None)
-        if cumulative is None or current is None:
-            return None
-        return RawData(cumulative=cumulative, current=current)
-
-    def register_derived_getter(self, key: DataKey, getter: DerivedGetter) -> None:
+    def register_derived_getter(self, key: Hashable, getter: DerivedGetter) -> None:
         """
         Register a derived getter for a specific data key.
 
@@ -94,3 +88,33 @@ class DataService(UserDict):
             A callable that takes a DataService and a DataKey and returns a DataArray.
         """
         self._derived_getters[key] = getter
+
+    def get_derived(self, key: Hashable) -> Any | None:
+        """
+        Get a derived value for a specific data key.
+
+        Parameters
+        ----------
+        key:
+            The data key for which the derived value is requested.
+
+        Returns
+        -------
+        The derived value.
+        """
+        if (getter := self._derived_getters.get(key)) is not None:
+            return getter(self, key)
+        if isinstance(key, DataKey):
+            # If the key is a DataKey, we can try to get the data directly
+            return self.data.get(key, None)
+        raise KeyError(f"No derived getter registered for key: {key}")
+
+
+def get_detector_data(
+    store: Mapping[DataKey, sc.DataArray], key: DetectorDataKey
+) -> RawData | None:
+    cumulative = store.get(key.cumulative_key(), None)
+    current = store.get(key.current_key(), None)
+    if cumulative is None or current is None:
+        return None
+    return RawData(cumulative=cumulative, current=current)
