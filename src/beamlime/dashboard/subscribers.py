@@ -8,8 +8,8 @@ from typing import Any
 import scipp as sc
 
 from .data_key import ComponentDataKey
-from .data_observer import DataSubscriber, Pipe
 from .data_service import DataKey
+from .data_subscriber import DataSubscriber, Pipe
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -18,11 +18,11 @@ class RawData:
     current: sc.DataArray
 
 
-class ComponentDataPipe(DataSubscriber):
+class ComponentDataSubscriber(DataSubscriber):
     """
-    Pipe for processing component (detector or monitor) data.
+    Subscriber for processing component (detector or monitor) data.
 
-    This pipe is responsible for handling "raw" data that has both cumulative and
+    This subscriber is responsible for handling "raw" data that has both cumulative and
     current values.
     """
 

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..core.message import MessageSource
-from .DataForwarder import DataForwarder
+from .data_forwarder import DataForwarder
 
 
 class Orchestrator:
@@ -34,7 +34,9 @@ class Orchestrator:
 
         # Process all messages
         for message in messages:
-            self._forwarder.forward(stream_name=message.stream_name, value=message.data)
+            self._forwarder.forward(
+                stream_name=message.stream.name, value=message.value
+            )
 
         # Commit all transactions (this triggers UI updates)
         self._forwarder.commit_transaction()
