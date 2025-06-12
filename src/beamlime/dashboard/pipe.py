@@ -8,7 +8,7 @@ from typing import Any
 from .data_service import DataKey
 
 
-class MultiPipe(ABC):
+class PipeBase(ABC):
     """Base class for pipes that define their data dependencies."""
 
     def __init__(self, keys: set[DataKey]) -> None:
