@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..core.message import MessageSource
-from .data_service import DataForwarder
+from .DataForwarder import DataForwarder
 
 
 class Orchestrator:

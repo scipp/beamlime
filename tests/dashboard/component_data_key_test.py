@@ -2,11 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import pytest
 
-from beamlime.dashboard.data_service import (
-    DataKey,
-    DetectorDataKey,
-    MonitorDataKey,
-)
+from beamlime.dashboard.data_key import DataKey, DetectorDataKey, MonitorDataKey
 
 
 class TestComponentDataKey:
