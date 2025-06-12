@@ -10,7 +10,7 @@ from typing import Any
 import scipp as sc
 
 from .data_key import ComponentDataKey, DataKey
-from .pipe_base import PipeBase
+from .pipe_base import DataSubscriber
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -30,20 +30,20 @@ class DataService(UserDict[DataKey, sc.DataArray]):
     def __init__(self) -> None:
         super().__init__()
         self._derived_getters: dict[Hashable, DerivedGetter] = {}
-        self._pipes: list[PipeBase] = []
+        self._observers: list[DataSubscriber] = []
         self._pending_updates: set[DataKey] = set()
         self._in_transaction = False
 
-    def register_ui_pipe(self, pipe: PipeBase) -> None:
+    def register_observer(self, observer: DataSubscriber) -> None:
         """
-        Register a pipe for updates.
+        Register an observer for updates.
 
         Parameters
         ----------
-        pipe
-            The pipe instance that defines its own data dependencies.
+        ovserver:
+            The observer to register. It should implement the DataSubscriber interface.
         """
-        self._pipes.append(pipe)
+        self._observers.append(observer)
 
     def start_transaction(self) -> None:
         """Start a transaction to batch multiple updates."""
@@ -57,10 +57,10 @@ class DataService(UserDict[DataKey, sc.DataArray]):
 
         self._in_transaction = False
         if self._pending_updates:
-            self._notify_pipes(self._pending_updates)
+            self._notify_observers(self._pending_updates)
             self._pending_updates.clear()
 
-    def _notify_pipes(self, updated_keys: set[DataKey]) -> None:
+    def _notify_observers(self, updated_keys: set[DataKey]) -> None:
         """
         Notify relevant pipes about data updates.
 
@@ -69,9 +69,9 @@ class DataService(UserDict[DataKey, sc.DataArray]):
         updated_keys
             The set of data keys that were updated.
         """
-        for pipe in self._pipes:
-            if updated_keys & pipe.keys:
-                pipe.trigger(self.data)
+        for observer in self._observers:
+            if updated_keys & observer.keys:
+                observer.trigger(self.data)
 
     def __setitem__(self, key: DataKey, value: sc.DataArray) -> None:
         super().__setitem__(key, value)
