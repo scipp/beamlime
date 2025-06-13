@@ -4,13 +4,15 @@ import panel as pn
 import param
 from holoviews import opts, streams
 
-pn.extension('holoviews', template='material')
-hv.extension('bokeh')
-
 from beamlime.dashboard.headless import make_orchestrator
 from beamlime.services.dashboard import DashboardApp as LegacyDashboard
 
+pn.extension('holoviews', template='material')
+hv.extension('bokeh')
+
 legacy_app = LegacyDashboard(instrument='dream', dev=True)
+
+use_kafka = False
 
 
 class DashboardApp(param.Parameterized):
@@ -75,6 +77,13 @@ class DashboardApp(param.Parameterized):
         self._setup_detector_streams()
         self._setup_monitor_streams()
         self._setup_reduction_streams()
+        self._view_toggle = pn.widgets.RadioBoxGroup(
+            name="View Mode",
+            value=self.detector_view_mode,
+            options=["Current", "Cumulative"],
+            inline=True,
+            margin=(10, 0),
+        )
 
         # Initialize polygon display widget
         self._polygon_display = pn.pane.Markdown("No ROI selected", height=150)
@@ -93,28 +102,28 @@ class DashboardApp(param.Parameterized):
             detector_name='mantle_detector',
             view_name='mantle_projection',
         )
-        self._detector_histogram_pipe = streams.Pipe(data=dict())
+        self._detector_histogram_pipe = streams.Pipe(data=None)
 
         # Initialize with default data
         self._update_detector_streams()
 
     def _setup_monitor_streams(self):
         """Initialize streams for monitor data."""
-        self._monitor_timeseries_pipe = streams.Pipe(data=dict())
-        self._monitor_profile_pipe = streams.Pipe(data=dict())
+        self._monitor_timeseries_pipe = streams.Pipe(data=None)
+        self._monitor_profile_pipe = streams.Pipe(data=None)
 
         # Initialize with default data
         self._update_monitor_streams()
 
     def _setup_reduction_streams(self):
         """Initialize streams for reduction data."""
-        self._reduction_comparison_pipe = streams.Pipe(data=dict())
-        self._reduction_residuals_pipe = streams.Pipe(data=dict())
+        self._reduction_comparison_pipe = streams.Pipe(data=None)
+        self._reduction_residuals_pipe = streams.Pipe(data=None)
 
         # Initialize with default data
         self._update_reduction_streams()
 
-    @pn.depends('detector_view_mode', 'pulse', watch=True)
+    @pn.depends('pulse', watch=True)
     def _update_detector_streams(self):
         """Update the streams for detector visualizations."""
         # Generate data based on view mode
@@ -122,17 +131,15 @@ class DashboardApp(param.Parameterized):
         y = np.linspace(0, 10, 50)
         X, Y = np.meshgrid(x, y)
 
-        if self.detector_view_mode == "Cumulative":
-            Z = 2 * np.sin(X) * np.cos(Y) + np.random.normal(0, 0.05, X.shape)
-            counts = np.random.poisson(200, 1000)
-        else:
-            Z = np.sin(X) * np.cos(Y) + np.random.normal(0, 0.1, X.shape)
-            counts = np.random.poisson(100, 1000)
+        Z = np.sin(X) * np.cos(Y) + np.random.normal(0, 0.1, X.shape)
+        counts = np.random.poisson(100, 1000)
 
         # Update image stream
-        image_data = {'x': x, 'y': y, 'z': Z, 'view_mode': self.detector_view_mode}
-        # self._detector_image_pipe.send(image_data)
-        self._orchestrator.update()
+        image_data = {'x': x, 'y': y, 'z': Z}
+        if use_kafka:
+            self._orchestrator.update()
+        else:
+            self._detector_image_pipe.send(image_data)
 
         # Update histogram stream
         hist, edges = np.histogram(counts, bins=self.pulse)
@@ -181,31 +188,34 @@ class DashboardApp(param.Parameterized):
         residuals_data = {'q': x, 'residual': residuals}
         self._reduction_residuals_pipe.send(residuals_data)
 
-    def _create_detector_image_plot(self, data):
+    def _create_detector_image_plot(self, data, view_mode: bool = False):
         """Create detector image plot from stream data."""
-        import scipp as sc
-
-        if not isinstance(data, sc.DataArray):
+        if data is None:
             return hv.Image([]).opts(width=800, height=600)
-        data = {
-            'z': data.values,
-            'x': data.coords[data.dims[1]].values,
-            'y': data.coords[data.dims[0]].values,
-        }
 
-        view_suffix = f" ({data['view_mode']})" if 'view_mode' in data else ""
-        title = f"Detector Image{view_suffix}"
+        if isinstance(data, dict):
+            # Fake data
+            if view_mode == 'Cumulative':
+                data = data.copy()
+                data['z'] = data['z'] ** 2
+        else:
+            # From actual Kafka stream
+            data = data.cumulative if view_mode == 'Cumulative' else data.current
+            data = {
+                'z': data.values,
+                'x': data.coords[data.dims[1]].values,
+                'y': data.coords[data.dims[0]].values,
+            }
 
         image = hv.Image((data['x'], data['y'], data['z']))
         return image.opts(
-            title=title,
+            title=f"Detector Image ({view_mode})",
             width=800,
             height=600,
             xlabel="X (mm)",
             ylabel="Y (mm)",
             cmap='viridis',
             colorbar=True,
-            logz=True,
         )
 
     def _create_detector_histogram_plot(self, data):
@@ -338,9 +348,12 @@ class DashboardApp(param.Parameterized):
 
     def create_detector_plot_content(self):
         """Create reactive detector plot content."""
-        image_dmap = hv.DynamicMap(
-            self._create_detector_image_plot, streams=[self._detector_image_pipe]
+        # Bind widget to function - updates immediately when widget changes
+        bound_plot_fn = pn.bind(
+            self._create_detector_image_plot,
+            view_mode=self._view_toggle.param.value,
         )
+        image_dmap = hv.DynamicMap(bound_plot_fn, streams=[self._detector_image_pipe])
         histogram_dmap = hv.DynamicMap(
             self._create_detector_histogram_plot,
             streams=[self._detector_histogram_pipe],
@@ -396,23 +409,9 @@ class DashboardApp(param.Parameterized):
 
     def create_detector_plots(self):
         """Create plots for the Detectors tab with reactive content."""
-        view_toggle = pn.widgets.RadioBoxGroup(
-            name="View Mode",
-            value=self.detector_view_mode,
-            options=["Current", "Cumulative"],
-            inline=True,
-            margin=(10, 0),
-        )
-
-        view_toggle.link(self, value='detector_view_mode')
-
         return pn.Column(
-            view_toggle,
-            pn.Column(
-                self.create_detector_plot_content(),
-                scroll=True,
-                height=600,
-            ),
+            self._view_toggle,
+            pn.Column(self.create_detector_plot_content(), scroll=True, height=600),
         )
 
     def create_monitor_plots(self) -> list:
