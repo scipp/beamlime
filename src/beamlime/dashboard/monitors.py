@@ -12,6 +12,10 @@ hv.extension('bokeh')
 legacy_app = LegacyDashboard(instrument='dream', dev=True)
 
 
+def remove_bokeh_logo(plot, element):
+    plot.state.toolbar.logo = None
+
+
 class DashboardApp(param.Parameterized):
     """Main dashboard application with tab-dependent sidebar controls."""
 
@@ -48,12 +52,12 @@ class DashboardApp(param.Parameterized):
         toa += 5
         self._monitor2_pipe.send({'toa': toa, 'counts': counts})
 
-    def _create_monitor_timeseries_plot(self, data):
-        """Create monitor time series plot from stream data."""
+    def _plot_monitor1(self, data):
+        """Create monitor 1 plot."""
         if not data:
             return hv.Curve([])
 
-        curve = hv.Curve((data['toa'], data['counts']))
+        curve = hv.Curve((data['toa'], data['counts']), label='Monitor 1')
         return curve.opts(
             title="Monitor 1",
             width=400,
@@ -62,14 +66,15 @@ class DashboardApp(param.Parameterized):
             ylabel="Counts",
             color='blue',
             line_width=2,
+            hooks=[remove_bokeh_logo],
         )
 
-    def _create_monitor_profile_plot(self, data):
-        """Create monitor beam profile plot from stream data."""
+    def _plot_monitor2(self, data):
+        """Create monitor 2 plot."""
         if not data:
             return hv.Curve([])
 
-        curve = hv.Curve((data['toa'], data['counts']))
+        curve = hv.Curve((data['toa'], data['counts']), label='Monitor 2')
         return curve.opts(
             title="Monitor 2",
             width=400,
@@ -78,9 +83,15 @@ class DashboardApp(param.Parameterized):
             ylabel="Counts",
             color='red',
             line_width=2,
+            hooks=[remove_bokeh_logo],
         )
 
-    def _create_status_plot(self, monitor1, monitor2):
+    def _plot_monitors(self, monitor1, monitor2):
+        """Combined plot of monitor1 and 2."""
+        mons = self._plot_monitor1(monitor1) * self._plot_monitor2(monitor2)
+        return mons.opts(title="Monitors")
+
+    def _plot_monitor_total_counts(self, monitor1, monitor2):
         """Create status bar chart showing total counts from both monitors."""
         if not monitor1 or not monitor2:
             return hv.Bars([])
@@ -105,21 +116,27 @@ class DashboardApp(param.Parameterized):
 
     def create_monitor_plots(self) -> list:
         """Create plots for the Monitors tab."""
-        timeseries_dmap = hv.DynamicMap(
-            self._create_monitor_timeseries_plot,
-            streams=[self._monitor1_pipe],
+        mon1 = hv.DynamicMap(self._plot_monitor1, streams=[self._monitor1_pipe]).opts(
+            shared_axes=False
+        )
+        mon2 = hv.DynamicMap(self._plot_monitor2, streams=[self._monitor2_pipe]).opts(
+            shared_axes=False
+        )
+        mons = hv.DynamicMap(
+            self._plot_monitors,
+            streams={'monitor1': self._monitor1_pipe, 'monitor2': self._monitor2_pipe},
         ).opts(shared_axes=False)
 
-        profile_dmap = hv.DynamicMap(
-            self._create_monitor_profile_plot, streams=[self._monitor2_pipe]
-        ).opts(shared_axes=False)
-
-        return [pn.pane.HoloViews(timeseries_dmap), pn.pane.HoloViews(profile_dmap)]
+        return [
+            pn.pane.HoloViews(mons),
+            pn.pane.HoloViews(mon1),
+            pn.pane.HoloViews(mon2),
+        ]
 
     def create_status_plot(self):
         """Create status plot for the sidebar."""
         status_dmap = hv.DynamicMap(
-            self._create_status_plot,
+            self._plot_monitor_total_counts,
             streams={'monitor1': self._monitor1_pipe, 'monitor2': self._monitor2_pipe},
         ).opts(shared_axes=False)
 
