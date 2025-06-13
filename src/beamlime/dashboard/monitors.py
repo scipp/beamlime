@@ -80,6 +80,29 @@ class DashboardApp(param.Parameterized):
             line_width=2,
         )
 
+    def _create_status_plot(self, monitor1, monitor2):
+        """Create status bar chart showing total counts from both monitors."""
+        if not monitor1 or not monitor2:
+            return hv.Bars([])
+
+        monitor1_total = np.sum(monitor1['counts'])
+        monitor2_total = np.sum(monitor2['counts'])
+
+        data = [('Monitor 1', monitor1_total), ('Monitor 2', monitor2_total)]
+        bars = hv.Bars(reversed(data), kdims='Monitor', vdims='Total Counts')
+
+        return bars.opts(
+            title="",
+            width=300,
+            height=100,
+            color='lightblue',
+            ylabel="Total Counts",
+            xlabel="",
+            invert_axes=True,
+            show_legend=False,
+            toolbar=None,
+        )
+
     def create_monitor_plots(self) -> list:
         """Create plots for the Monitors tab."""
         timeseries_dmap = hv.DynamicMap(
@@ -92,6 +115,15 @@ class DashboardApp(param.Parameterized):
         ).opts(shared_axes=False)
 
         return [pn.pane.HoloViews(timeseries_dmap), pn.pane.HoloViews(profile_dmap)]
+
+    def create_status_plot(self):
+        """Create status plot for the sidebar."""
+        status_dmap = hv.DynamicMap(
+            self._create_status_plot,
+            streams={'monitor1': self._monitor1_pipe, 'monitor2': self._monitor2_pipe},
+        ).opts(shared_axes=False)
+
+        return pn.pane.HoloViews(status_dmap)
 
     def start_periodic_updates(self):
         """Start periodic updates for monitor streams."""
@@ -108,7 +140,8 @@ def create_dashboard():
     monitor_plots = pn.FlexBox(*dashboard.create_monitor_plots())
 
     sidebar = pn.Column(
-        pn.pane.Markdown("## Status\nEverything is fine."),
+        pn.pane.Markdown("## Status"),
+        dashboard.create_status_plot(),
         pn.pane.Markdown("## Controls"),
         pn.layout.Spacer(height=20),
     )
