@@ -25,7 +25,7 @@ class Orchestrator:
             return
 
         # Batch all updates in a transaction to avoid repeated UI updates. Reason:
-        # - Some listeners depend on multiple messages.
+        # - Some listeners depend on multiple streams.
         # - There may be multiple messages for the same stream, only the last one
         #   should trigger an update.
         with self._forwarder.transaction():
