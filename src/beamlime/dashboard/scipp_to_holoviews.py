@@ -4,33 +4,18 @@ import holoviews as hv
 import scipp as sc
 
 
-def _create_coord_dimension(data: sc.DataArray) -> hv.Dimension:
+def _coord_to_dimension(var: sc.Variable) -> hv.Dimension:
     """Create a Holoviews Dimension for the coordinate."""
-    dim = data.dim
-    coord = data.coords[dim]
-    label = f"{dim} [{coord.unit}]" if coord.unit is not None else dim
-    return hv.Dimension(dim, label=label)
+    dim = var.dim
+    unit = str(var.unit) if var.unit is not None else None
+    return hv.Dimension(dim, label=dim, unit=unit)
 
 
 def _create_value_dimension(data: sc.DataArray) -> hv.Dimension:
     """Create a Holoviews Dimension for the values."""
-    parts = []
-    if data.name:
-        parts.append(data.name)
-    if data.unit is not None:
-        parts.append(f"[{data.unit}]")
-    label = ' '.join(parts) if parts else 'values'
-    return hv.Dimension('values', label=label)
-
-
-def _create_coord_dimensions_2d(data: sc.DataArray) -> list[hv.Dimension]:
-    """Create Holoviews Dimensions for 2D coordinates."""
-    dims = []
-    for dim in reversed(data.dims):
-        coord = data.coords[dim]
-        label = f"{dim} [{coord.unit}]" if coord.unit is not None else dim
-        dims.append(hv.Dimension(dim, label=label))
-    return dims
+    label = data.name if data.name else 'values'
+    unit = str(data.unit) if data.unit is not None else None
+    return hv.Dimension('values', label=label, unit=unit)
 
 
 def convert_histogram_1d(data: sc.DataArray) -> hv.Histogram:
@@ -44,7 +29,7 @@ def convert_histogram_1d(data: sc.DataArray) -> hv.Histogram:
     """
     dim = data.dim
     coord = data.coords[dim]
-    kdims = [_create_coord_dimension(data)]
+    kdims = [_coord_to_dimension(coord)]
     vdims = [_create_value_dimension(data)]
 
     return hv.Histogram(data=(coord.values, data.values), kdims=kdims, vdims=vdims)
@@ -61,7 +46,7 @@ def convert_curve_1d(data: sc.DataArray) -> hv.Curve:
     """
     dim = data.dim
     coord = data.coords[dim]
-    kdims = [_create_coord_dimension(data)]
+    kdims = [_coord_to_dimension(coord)]
     vdims = [_create_value_dimension(data)]
 
     return hv.Curve(data=(coord.values, data.values), kdims=kdims, vdims=vdims)
@@ -78,7 +63,7 @@ def convert_quadmesh_2d(data: sc.DataArray) -> hv.QuadMesh:
     hv.QuadMesh
         A Holoviews QuadMesh object.
     """
-    kdims = _create_coord_dimensions_2d(data)
+    kdims = [_coord_to_dimension(data.coords[dim]) for dim in reversed(data.dims)]
     vdims = [_create_value_dimension(data)]
     coords = [data.coords[dim].values for dim in reversed(data.dims)]
 
