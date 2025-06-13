@@ -24,19 +24,12 @@ class Orchestrator:
         if not messages:
             return
 
-        # The UI has listeners on all data services. Since we are processing multiple
-        # messages that could all affect the same listener, we want to avoid repeated
-        # UI updates. Instead, we will batch the updates and send them all at once using
-        # a transaction mechanism.
-
-        # Start transaction across all services
-        self._forwarder.start_transaction()
-
-        # Process all messages
-        for message in messages:
-            self._forwarder.forward(
-                stream_name=message.stream.name, value=message.value
-            )
-
-        # Commit all transactions (this triggers UI updates)
-        self._forwarder.commit_transaction()
+        # Batch all updates in a transaction to avoid repeated UI updates. Reason:
+        # - Some listeners depend on multiple messages.
+        # - There may be multiple messages for the same stream, only the last one
+        #   should trigger an update.
+        with self._forwarder.transaction():
+            for message in messages:
+                self._forwarder.forward(
+                    stream_name=message.stream.name, value=message.value
+                )
