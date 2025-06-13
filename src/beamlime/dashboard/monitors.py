@@ -6,6 +6,8 @@ from holoviews import streams
 
 from beamlime.services.dashboard import DashboardApp as LegacyDashboard
 
+from .scipp_to_holoviews import to_holoviews
+
 pn.extension('holoviews', template='material')
 hv.extension('bokeh')
 
@@ -18,6 +20,8 @@ def remove_bokeh_logo(plot, element):
 
 class DashboardApp(param.Parameterized):
     """Main dashboard application with tab-dependent sidebar controls."""
+
+    logscale = param.Boolean(default=False, doc="Enable log scale for monitor plots")
 
     def __init__(self, **params):
         super().__init__(**params)
@@ -52,7 +56,7 @@ class DashboardApp(param.Parameterized):
         toa += 5
         self._monitor2_pipe.send({'toa': toa, 'counts': counts})
 
-    def _plot_monitor1(self, data):
+    def _plot_monitor1(self, data) -> hv.Curve:
         """Create monitor 1 plot."""
         if not data:
             return hv.Curve([])
@@ -69,7 +73,7 @@ class DashboardApp(param.Parameterized):
             hooks=[remove_bokeh_logo],
         )
 
-    def _plot_monitor2(self, data):
+    def _plot_monitor2(self, data) -> hv.Curve:
         """Create monitor 2 plot."""
         if not data:
             return hv.Curve([])
@@ -86,10 +90,14 @@ class DashboardApp(param.Parameterized):
             hooks=[remove_bokeh_logo],
         )
 
-    def _plot_monitors(self, monitor1, monitor2):
+    def _plot_monitors(self, monitor1, monitor2, logscale: bool = False):
         """Combined plot of monitor1 and 2."""
-        mons = self._plot_monitor1(monitor1) * self._plot_monitor2(monitor2)
-        return mons.opts(title="Monitors")
+        mon1 = self._plot_monitor1(monitor1)
+        mon2 = self._plot_monitor2(monitor2)
+        mons = mon1 * mon2
+        # DynamicMap does not support changes the scale after creation. Need to
+        # find a different solution. Recreate the dmaps?
+        return mons.opts(title="Monitors", logy=logscale)
 
     def _plot_monitor_total_counts(self, monitor1, monitor2):
         """Create status bar chart showing total counts from both monitors."""
@@ -122,9 +130,13 @@ class DashboardApp(param.Parameterized):
         mon2 = hv.DynamicMap(self._plot_monitor2, streams=[self._monitor2_pipe]).opts(
             shared_axes=False
         )
+        plot_with_scale = pn.bind(self._plot_monitors, logscale=self.param.logscale)
         mons = hv.DynamicMap(
-            self._plot_monitors,
-            streams={'monitor1': self._monitor1_pipe, 'monitor2': self._monitor2_pipe},
+            plot_with_scale,
+            streams={
+                'monitor1': self._monitor1_pipe,
+                'monitor2': self._monitor2_pipe,
+            },
         ).opts(shared_axes=False)
 
         return [
@@ -146,7 +158,7 @@ class DashboardApp(param.Parameterized):
         """Start periodic updates for monitor streams."""
         if self._callback is None:
             self._callback = pn.state.add_periodic_callback(
-                self._update_monitor_streams, period=1000
+                self._update_monitor_streams, period=5000
             )
 
 
@@ -160,6 +172,13 @@ def create_dashboard():
         pn.pane.Markdown("## Status"),
         dashboard.create_status_plot(),
         pn.pane.Markdown("## Controls"),
+        pn.Param(
+            dashboard,
+            parameters=['logscale'],
+            show_name=False,
+            width=300,
+            margin=(10, 0),
+        ),
         pn.layout.Spacer(height=20),
     )
 
