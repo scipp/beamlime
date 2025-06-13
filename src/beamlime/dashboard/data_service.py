@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import UserDict
 from collections.abc import Callable, Hashable, Mapping, Sequence
+from contextlib import contextmanager
 from typing import Any
 
 import scipp as sc
@@ -24,7 +25,23 @@ class DataService(UserDict[DataKey, sc.DataArray]):
         self._derived_getters: dict[Hashable, DerivedGetter] = {}
         self._subscribers: list[DataSubscriber] = []
         self._pending_updates: set[DataKey] = set()
-        self._in_transaction = False
+        self._transaction_depth = 0
+
+    @contextmanager
+    def transaction(self):
+        """Context manager for batching multiple updates."""
+        self._transaction_depth += 1
+        try:
+            yield
+        finally:
+            self._transaction_depth -= 1
+            if self._transaction_depth == 0 and self._pending_updates:
+                self._notify_subscribers(self._pending_updates)
+                self._pending_updates.clear()
+
+    @property
+    def _in_transaction(self) -> bool:
+        return self._transaction_depth > 0
 
     def register_subscriber(self, subscriber: DataSubscriber) -> None:
         """
@@ -36,21 +53,6 @@ class DataService(UserDict[DataKey, sc.DataArray]):
             The subscriber to register. Must implement the DataSubscriber interface.
         """
         self._subscribers.append(subscriber)
-
-    def start_transaction(self) -> None:
-        """Start a transaction to batch multiple updates."""
-        self._in_transaction = True
-        self._pending_updates.clear()
-
-    def commit_transaction(self) -> None:
-        """Commit the transaction and notify pipes of all updates."""
-        if not self._in_transaction:
-            return
-
-        self._in_transaction = False
-        if self._pending_updates:
-            self._notify_subscribers(self._pending_updates)
-            self._pending_updates.clear()
 
     def _notify_subscribers(self, updated_keys: set[DataKey]) -> None:
         """
@@ -71,7 +73,8 @@ class DataService(UserDict[DataKey, sc.DataArray]):
 
         # If not in transaction, immediately notify
         if not self._in_transaction:
-            self.commit_transaction()
+            self._notify_subscribers({key})
+            self._pending_updates.clear()
 
 
 class TotalCountsGetter:
