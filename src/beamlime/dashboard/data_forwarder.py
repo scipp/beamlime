@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+from contextlib import ExitStack, contextmanager
+
 import scipp as sc
 
 from .data_key import DataKey
@@ -28,15 +30,13 @@ class DataForwarder:
         """
         return data_service_name in self._data_services
 
-    def start_transaction(self) -> None:
-        """Start transactions across all data services."""
-        for service in self._data_services.values():
-            service.start_transaction()
-
-    def commit_transaction(self) -> None:
-        """Commit transactions across all data services."""
-        for service in self._data_services.values():
-            service.commit_transaction()
+    @contextmanager
+    def transaction(self):
+        """Context manager for batching updates across all data services."""
+        with ExitStack() as stack:
+            for service in self._data_services.values():
+                stack.enter_context(service.transaction())
+            yield
 
     def forward(self, stream_name: str, value: sc.DataArray) -> None:
         """
