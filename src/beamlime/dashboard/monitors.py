@@ -60,12 +60,12 @@ class DashboardApp(param.Parameterized):
         curve = hv.Curve((data['toa'], data['counts']), label='Monitor 1')
         return curve.opts(
             title="Monitor 1",
-            width=400,
-            height=300,
             xlabel="TOA",
             ylabel="Counts",
             color='blue',
             line_width=2,
+            responsive=True,
+            height=400,
             hooks=[remove_bokeh_logo],
         )
 
@@ -77,12 +77,12 @@ class DashboardApp(param.Parameterized):
         curve = hv.Curve((data['toa'], data['counts']), label='Monitor 2')
         return curve.opts(
             title="Monitor 2",
-            width=400,
-            height=300,
             xlabel="TOA",
             ylabel="Counts",
             color='red',
             line_width=2,
+            responsive=True,
+            height=400,
             hooks=[remove_bokeh_logo],
         )
 
@@ -104,7 +104,6 @@ class DashboardApp(param.Parameterized):
 
         return bars.opts(
             title="",
-            width=300,
             height=100,
             color='lightblue',
             ylabel="Total Counts",
@@ -112,6 +111,7 @@ class DashboardApp(param.Parameterized):
             invert_axes=True,
             show_legend=False,
             toolbar=None,
+            responsive=True,
         )
 
     def create_monitor_plots(self) -> list:
