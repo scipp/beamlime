@@ -114,7 +114,7 @@ class ROIRectangle(BaseModel):
     y: ROIAxisRange = Field(default_factory=ROIAxisRange)
 
 
-class ConfigKey(BaseModel):
+class ConfigKey(BaseModel, frozen=True):
     """
     Model for configuration key structure.
 
