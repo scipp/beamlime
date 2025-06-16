@@ -17,11 +17,9 @@ class MessageBridge(Protocol):
 
     def publish(self, key: ConfigKey, value: dict[str, Any]) -> None:
         """Publish a configuration update message."""
-        ...
 
     def pop_message(self) -> ConfigUpdate | None:
         """Pop the next available configuration update message."""
-        ...
 
 
 ConfigSchemaRegistry = dict[ConfigKey, type[pydantic.BaseModel]]
