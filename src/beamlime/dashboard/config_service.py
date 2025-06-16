@@ -1,15 +1,27 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-from collections.abc import Callable
-from collections import defaultdict, UserDict
-from typing import Any
-import json
 import logging
+from collections import defaultdict
+from collections.abc import Callable
+from functools import wraps
+from typing import Any, Protocol
+
 import pydantic
+
 from ..config.models import ConfigKey
 from ..handlers.config_handler import ConfigUpdate
-from ..kafka.message_adapter import RawConfigItem
-from functools import wraps
+
+
+class MessageBridge(Protocol):
+    """Protocol for publishing and consuming configuration messages."""
+
+    def publish(self, key: ConfigKey, value: dict[str, Any]) -> None:
+        """Publish a configuration update message."""
+        ...
+
+    def pop_message(self) -> ConfigUpdate | None:
+        """Pop the next available configuration update message."""
+        ...
 
 
 ConfigSchemaRegistry = dict[ConfigKey, type[pydantic.BaseModel]]
@@ -48,17 +60,15 @@ class ConfigService:
     def __init__(
         self,
         schema_manager: ConfigSchemaManager,
+        message_bridge: MessageBridge | None = None,
     ):
         self._schema_manager = schema_manager
+        self._message_bridge = message_bridge
         self._subscribers: dict[ConfigKey, list[Callable[..., None]]] = defaultdict(
             list
         )
         self._logger = logging.getLogger(__name__)
         self._config: dict[ConfigKey, dict[str, Any]] = {}
-
-    def update_config(self, key: ConfigKey, **kwargs: Any) -> None:
-        # TODO publish to Kafka
-        self._config[key] = self._schema_manager.validate_update(key, **kwargs)
 
     def subscribe(self, key: ConfigKey, callback: Callable[..., None]) -> None:
         """
@@ -72,9 +82,8 @@ class ConfigService:
             The callback function to be called when the configuration is updated.
         """
         self._subscribers[key].append(callback)
-        if key in self._config:
-            # Notify immediately with current config if available
-            callback(**self._config[key])
+        if (data := self._config.get(key)) is not None:
+            self._invoke(key, callback, data)
 
     def get_setter(self, key: ConfigKey) -> Callable[..., None]:
         """
@@ -90,63 +99,51 @@ class ConfigService:
 
         return setter
 
-    def _handle_kafka_message(self, key: ConfigKey, raw_data: dict) -> None:
-        """Handle incoming Kafka config message with validation."""
+    def update_config(self, key: ConfigKey, **kwargs: Any) -> None:
+        validated_config = self._schema_manager.validate_update(key, **kwargs)
+        self._config[key] = validated_config
+        if self._message_bridge:
+            self._message_bridge.publish(key, validated_config)
+
+    def process_incoming_messages(self) -> None:
+        """Process any available incoming messages from the message bridge."""
+        if not self._message_bridge:
+            return
+
+        while (update := self._message_bridge.pop_message()) is not None:
+            self._handle_config_update(update)
+
+    def _handle_config_update(self, update: ConfigUpdate) -> None:
+        """Handle a configuration update from the message bridge."""
         try:
             if (
-                validated := self._schema_manager.validate_raw(key, raw_data)
+                validated := self._schema_manager.validate_raw(
+                    update.config_key, update.value
+                )
             ) is not None:
-                if self._config.get(key) == validated:
-                    self._logger.debug('No change in config for key %s, skipping.', key)
+                if self._config.get(update.config_key) == validated:
+                    self._logger.debug(
+                        'No change in config for key %s, skipping.', update.key
+                    )
                     return
-                self._config[key] = validated
-                self._notify_subscribers(key, validated)
+                self._config[update.config_key] = validated
+                self._notify_subscribers(update.config_key, validated)
         except pydantic.ValidationError as e:
-            self._logger.error('Invalid config data received for key %s: %s', key, e)
+            self._logger.error(
+                'Invalid config data received for key %s: %s', update.key, e
+            )
 
     def _notify_subscribers(self, key: ConfigKey, data: dict) -> None:
         """Notify all subscribers for a given config key."""
         for callback in self._subscribers.get(key, []):
-            try:
-                callback(**data)
-            except Exception as e:  # noqa: PERF203
-                self._logger.error(
-                    'Error in config subscriber callback for key %s: %s', key, e
-                )
+            self._invoke(key, callback, data)
 
-    def start(self):
-        self._running = True
-        self._consumer.subscribe([self._topic])
+    def _invoke(
+        self, key: ConfigKey, callback: Callable[..., None], data: dict[str, Any]
+    ) -> None:
         try:
-            while self._running:
-                msg = self._consumer.poll(1.0)
-                if msg is None:
-                    continue
-                if msg.error():
-                    if msg.error().code() == KafkaError._PARTITION_EOF:
-                        continue
-                    else:
-                        self._logger.error('Consumer error: %s', msg.error())
-                        break
-
-                try:
-                    key_str = msg.key().decode('utf-8')
-                    value = json.loads(msg.value().decode('utf-8'))
-
-                    # Only update if not from our own producer
-                    update_id = f"{key_str}:{hash(str(value))}"
-                    if update_id not in self._local_updates:
-                        self._config[key_str] = value
-                    else:
-                        self._local_updates.discard(update_id)
-                except Exception as e:
-                    self._logger.error('Failed to process message: %s', e)
-
-        except KeyboardInterrupt:
-            pass
-        finally:
-            self._running = False
-            self._consumer.close()
-
-    def stop(self):
-        self._running = False
+            callback(**data)
+        except Exception as e:
+            self._logger.error(
+                'Error in config subscriber callback for key %s: %s', key, e
+            )
