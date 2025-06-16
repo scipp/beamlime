@@ -1,9 +1,23 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+from collections.abc import Callable
+
 import param
 
 
-class TOARangeParam(param.Parameterized):
+class ParamUpdaterMixin:
+    """Mixin to provide a method for updating parameters."""
+
+    def param_updater(self) -> Callable[..., None]:
+        """Wrapper to make linters/mypy happy with the callback signature."""
+
+        def update_callback(**kwargs) -> None:
+            self.param.update(**kwargs)
+
+        return update_callback
+
+
+class TOARangeParam(param.Parameterized, ParamUpdaterMixin):
     enabled = param.Boolean(
         default=False, doc="Enable the time of arrival range filter."
     )
