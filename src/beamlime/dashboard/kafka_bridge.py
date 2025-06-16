@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-from typing import Any
 import json
 import logging
 import threading
 import time
-from queue import Queue, Empty
-from confluent_kafka import Consumer, Producer, KafkaError
+from queue import Empty, Queue
+from typing import Any
+
+from confluent_kafka import Consumer, KafkaError, Producer
 
 from ..config.models import ConfigKey
 from ..handlers.config_handler import ConfigUpdate
@@ -18,7 +19,7 @@ class KafkaAdapter:
     Kafka adapter that runs in a background thread for non-blocking GUI operations.
 
     Handles both producing and consuming messages with internal queues for
-    communication with the GUI thread.
+    communication with the GUI thread. Implements the MessageBridge protocol.
     """
 
     def __init__(
