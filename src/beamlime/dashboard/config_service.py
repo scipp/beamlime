@@ -145,3 +145,34 @@ class ConfigService:
             self._logger.error(
                 'Error in config subscriber callback for key %s: %s', key, e
             )
+
+
+class FakeMessageBridge:
+    """Fake message bridge for testing purposes."""
+
+    def __init__(self):
+        self._published_messages: list[tuple[ConfigKey, dict[str, Any]]] = []
+        self._incoming_messages: list[ConfigUpdate] = []
+
+    def publish(self, key: ConfigKey, value: dict[str, Any]) -> None:
+        """Store published messages for inspection."""
+        self._published_messages.append((key, value))
+
+    def pop_message(self) -> ConfigUpdate | None:
+        """Pop the next message from the incoming queue."""
+        if self._incoming_messages:
+            return self._incoming_messages.pop(0)
+        return None
+
+    def add_incoming_message(self, update: ConfigUpdate) -> None:
+        """Add a message to the incoming queue for testing."""
+        self._incoming_messages.append(update)
+
+    def get_published_messages(self) -> list[tuple[ConfigKey, dict[str, Any]]]:
+        """Get all published messages for inspection."""
+        return self._published_messages.copy()
+
+    def clear(self) -> None:
+        """Clear all stored messages."""
+        self._published_messages.clear()
+        self._incoming_messages.clear()
