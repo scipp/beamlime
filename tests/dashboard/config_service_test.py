@@ -20,14 +20,14 @@ def config_key():
 @pytest.fixture
 def service(config_key: ConfigKey):
     schemas = ConfigSchemaManager({config_key: TOARange})
-    return ConfigService(schema_manager=schemas)
+    return ConfigService(schema_validator=schemas)
 
 
 @pytest.fixture
 def service_with_bridge(config_key: ConfigKey):
     schemas = ConfigSchemaManager({config_key: TOARange})
     bridge = FakeMessageBridge()
-    return ConfigService(schema_manager=schemas, message_bridge=bridge), bridge
+    return ConfigService(schema_validator=schemas, message_bridge=bridge), bridge
 
 
 class TestConfigService:
