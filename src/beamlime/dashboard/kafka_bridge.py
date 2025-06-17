@@ -12,9 +12,10 @@ from confluent_kafka import Consumer, KafkaError, Producer
 from ..config.models import ConfigKey
 from ..handlers.config_handler import ConfigUpdate
 from ..kafka.message_adapter import RawConfigItem
+from .config_service import MessageBridge
 
 
-class KafkaBridge:
+class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
     """
     Kafka bridge that runs in a background thread for non-blocking GUI operations.
 

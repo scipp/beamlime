@@ -2,10 +2,11 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import param
 
-from .params import ParamUpdaterMixin
+from ..config import models
+from .params import DetectorDataParam
 
 
-class TOARangeParam(param.Parameterized, ParamUpdaterMixin):
+class TOARangeParam(DetectorDataParam):
     enabled = param.Boolean(
         default=False, doc="Enable the time of arrival range filter."
     )
@@ -20,3 +21,11 @@ class TOARangeParam(param.Parameterized, ParamUpdaterMixin):
         objects=['ns', 'us', 'ms', 's'],
         doc="Physical unit for time values.",
     )
+
+    @property
+    def config_key_name(self) -> str:
+        return 'toa_range'
+
+    @property
+    def schema(self) -> type[models.TOARange]:
+        return models.TOARange

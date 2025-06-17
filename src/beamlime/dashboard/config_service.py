@@ -4,59 +4,72 @@ import logging
 from collections import UserDict, defaultdict
 from collections.abc import Callable
 from contextlib import contextmanager
-from functools import wraps
 from typing import Any, Generic, Protocol, TypeVar
 
 import pydantic
 
 K = TypeVar('K')
 V = TypeVar('V')
+Serialized = TypeVar('Serialized')
 
 
-class MessageBridge(Protocol, Generic[K, V]):
+class MessageBridge(Protocol, Generic[K, Serialized]):
     """Protocol for publishing and consuming configuration messages."""
 
-    def publish(self, key: K, value: V) -> None:
+    def publish(self, key: K, value: Serialized) -> None:
         """Publish a configuration update message."""
 
-    def pop_message(self) -> tuple[K, V] | None:
+    def pop_message(self) -> tuple[K, Serialized] | None:
         """Pop the next available configuration update message."""
 
 
-class ConfigSchemaValidator(Protocol, Generic[K, V]):
+class ConfigSchemaValidator(Protocol, Generic[K, Serialized, V]):
     """Protocol for validating configuration data against schemas."""
 
-    def has_schema(self, key: K) -> bool:
+    def validate(self, key: K, value: V) -> bool:
         """Check if a schema is registered for the given key."""
 
-    def validate(self, key: K, data: V) -> V | None:
+    def deserialize(self, key: K, data: Serialized) -> V | None:
         """Validate configuration data."""
+
+    def serialize(self, data: V) -> Serialized:
+        """Serialize a pydantic model to a dictionary."""
 
 
 ConfigSchemaRegistry = dict[K, type[pydantic.BaseModel]]
 
+JSONSerialized = dict[str, Any]
+
 
 class ConfigSchemaManager(
-    UserDict[K, type[pydantic.BaseModel]], ConfigSchemaValidator[K, dict[str, Any]]
+    UserDict[K, type[pydantic.BaseModel]],
+    ConfigSchemaValidator[K, JSONSerialized, pydantic.BaseModel],
 ):
     """Manages configuration schemas and provides validation."""
 
-    def has_schema(self, key: K) -> bool:
-        return key in self
+    def validate(self, key: K, value: V) -> bool:
+        model = self.get(key)
+        if model is None:
+            return False
+        return isinstance(value, model)
 
-    def validate(self, key: K, data: dict[str, Any]) -> dict[str, Any] | None:
+    def deserialize(self, key: K, data: JSONSerialized) -> pydantic.BaseModel | None:
         """Validate configuration data."""
         model = self.get(key)
         if model is None:
             return None
-        return model.model_validate(data).model_dump()
+        return model.model_validate(data)
+
+    def serialize(self, data: pydantic.BaseModel) -> JSONSerialized:
+        """Serialize a pydantic model to a dictionary."""
+        return data.model_dump(mode='json')
 
 
-class ConfigService(Generic[K, V]):
+class ConfigService(Generic[K, Serialized, V]):
     def __init__(
         self,
-        schema_validator: ConfigSchemaValidator[K, V] | None = None,
-        message_bridge: MessageBridge[K, V] | None = None,
+        schema_validator: ConfigSchemaValidator[K, Serialized, V] | None = None,
+        message_bridge: MessageBridge[K, Serialized] | None = None,
     ):
         self._schema_validator = schema_validator or ConfigSchemaManager()
         self._message_bridge = message_bridge
@@ -90,29 +103,21 @@ class ConfigService(Generic[K, V]):
         if (data := self._config.get(key)) is not None:
             self._invoke(key, callback, data)
 
-    def get_setter(self, key: K) -> Callable[..., None]:
-        """
-        Returns a callable that updates the configuration for the given key.
-
-        This callable can be used to update the configuration with keyword arguments
-        corresponding to the fields of the registered schema for the key.
-        """
-
-        @wraps(self.update_config)
-        def setter(**kwargs: Any) -> None:
-            self.update_config(key, **kwargs)
-
-        return setter
-
-    def update_config(self, key: K, **kwargs: Any) -> None:
+    def update_config(self, key: K, value: V) -> None:
         if self._update_disabled:
             return
-        validated_config = self._schema_validator.validate(key, kwargs)
-        if validated_config is None:
-            return  # No schema registered for this key
-        self._config[key] = validated_config
+        if not isinstance(value, pydantic.BaseModel):
+            raise TypeError(
+                f'Value for key {key} must be a pydantic model, got {type(value)}'
+            )
+        if not self._schema_validator.validate(key, value):
+            raise ValueError(
+                f'No schema registered for key {key} or value does not match schema'
+            )
+        self._config[key] = value
         if self._message_bridge:
-            self._message_bridge.publish(key, validated_config)
+            # Communication with message bridge is using raw JSON.
+            self._message_bridge.publish(key, self._schema_validator.serialize(value))
 
     @contextmanager
     def _disable_updates(self):
@@ -143,10 +148,10 @@ class ConfigService(Generic[K, V]):
             for key, value in updates.items():
                 self._handle_config_update(key, value)
 
-    def _handle_config_update(self, key: K, value: V) -> None:
+    def _handle_config_update(self, key: K, value: Serialized) -> None:
         """Handle a configuration update from the message bridge."""
         try:
-            validated = self._schema_validator.validate(key, value)
+            validated = self._schema_validator.deserialize(key, value)
             if validated is None:
                 return
             self._config[key] = validated
@@ -161,11 +166,7 @@ class ConfigService(Generic[K, V]):
 
     def _invoke(self, key: K, callback: Callable[..., None], data: V) -> None:
         try:
-            # Handle both dict-like and other value types
-            if isinstance(data, dict):
-                callback(**data)
-            else:
-                callback(data)
+            callback(data)
         except Exception as e:
             self._logger.error(
                 'Error in config subscriber callback for key %s: %s', key, e
