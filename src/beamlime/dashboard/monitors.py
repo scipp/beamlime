@@ -47,6 +47,8 @@ class DashboardApp(param.Parameterized):
         super().__init__(**params)
         self._instrument = 'dream'
         self._logger = logging.getLogger(__name__)
+        self.toa_edges = TOAEdgesParam()
+        self._num_edges = self.toa_edges.num_edges
         self._setup_monitor_streams()
         self._view_toggle = pn.widgets.RadioBoxGroup(
             name="View Mode",
@@ -55,7 +57,6 @@ class DashboardApp(param.Parameterized):
             inline=True,
             margin=(10, 0),
         )
-        self.toa_edges = TOAEdgesParam()
         self._callback = None
         self._exit_stack = ExitStack()
         self._exit_stack.__enter__()
@@ -83,6 +84,10 @@ class DashboardApp(param.Parameterized):
         self._config_service.subscribe(
             key=config_key, callback=self.toa_edges.param_updater()
         )
+        # Second subscription for fake data creation
+        self._config_service.subscribe(
+            key=config_key, callback=self._on_toa_edges_update
+        )
         setter = self._config_service.get_setter(config_key)
         param.bind(
             setter,
@@ -95,6 +100,12 @@ class DashboardApp(param.Parameterized):
 
         self._kafka_bridge_thread = threading.Thread(target=self._kafka_bridge.start)
 
+    def _on_toa_edges_update(self, **kwargs) -> None:
+        """Callback for TOA edges config updates."""
+        if 'num_edges' in kwargs:
+            self._num_edges = kwargs['num_edges']
+            self._update_monitor_streams()
+
     def _setup_monitor_streams(self):
         """Initialize streams for monitor data."""
         self._monitor1_pipe = streams.Pipe(data=None)
@@ -105,13 +116,13 @@ class DashboardApp(param.Parameterized):
 
     def _update_monitor_streams(self):
         """Update the streams for monitor visualizations."""
-        toa = np.linspace(-4, 6, 100)
-        counts = 1.5 * np.exp(-(toa**2) / 2) + 0.05 * np.random.randn(100)
+        toa = np.linspace(-4, 6, self._num_edges)
+        counts = 1.5 * np.exp(-(toa**2) / 2) + 0.05 * np.random.randn(self._num_edges)
         toa += 4
         self._monitor1_pipe.send({'toa': toa, 'counts': counts})
 
-        toa = np.linspace(-5, 5, 100)
-        counts = np.exp(-(toa**2) / 2) + 0.05 * np.random.randn(100)
+        toa = np.linspace(-5, 5, self._num_edges)
+        counts = np.exp(-(toa**2) / 2) + 0.05 * np.random.randn(self._num_edges)
         toa += 5
         self._monitor2_pipe.send({'toa': toa, 'counts': counts})
 
@@ -213,12 +224,15 @@ class DashboardApp(param.Parameterized):
 
         return pn.pane.HoloViews(status_dmap)
 
+    def _step(self):
+        """Step function for periodic updates."""
+        self._update_monitor_streams()
+        self._config_service.process_incoming_messages()
+
     def start_periodic_updates(self):
         """Start periodic updates for monitor streams."""
         if self._callback is None:
-            self._callback = pn.state.add_periodic_callback(
-                self._update_monitor_streams, period=1000
-            )
+            self._callback = pn.state.add_periodic_callback(self._step, period=1000)
 
 
 def create_dashboard():
