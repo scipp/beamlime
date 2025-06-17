@@ -6,15 +6,14 @@ import holoviews as hv
 import numpy as np
 import panel as pn
 import param
-import pydantic
 import scipp as sc
 from holoviews import streams
 
-from beamlime.config import config_names, models
+from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.config.streams import stream_kind_to_topic
 from beamlime.core.message import StreamKind
-from beamlime.dashboard.config_service import ConfigSchemaManager, ConfigService
+from beamlime.dashboard.config_service import ConfigService
 from beamlime.dashboard.kafka_bridge import KafkaBridge
 from beamlime.dashboard.monitors_params import TOAEdgesParam
 from beamlime.kafka import consumer as kafka_consumer
@@ -35,13 +34,6 @@ legacy_app = LegacyDashboard(instrument='dream', dev=True)
 
 def remove_bokeh_logo(plot, element):
     plot.state.toolbar.logo = None
-
-
-def make_monitors_schemas() -> dict[models.ConfigKey, type[pydantic.BaseModel]]:
-    service = 'monitor_data'
-    return {
-        models.ConfigKey(service_name=service, key='toa_edges'): models.TOAEdges,
-    }
 
 
 class DashboardApp(param.Parameterized):
@@ -81,27 +73,11 @@ class DashboardApp(param.Parameterized):
             consumer=consumer,
             logger=self._logger,
         )
-        schemas = make_monitors_schemas()
-        self._config_service = ConfigService(
-            message_bridge=self._kafka_bridge,
-            schema_validator=ConfigSchemaManager(schemas),
-        )
-        config_key = next(iter(schemas))
-        self._config_service.subscribe(
-            key=config_key, callback=self.toa_edges.param_updater()
-        )
+        self._config_service = ConfigService(message_bridge=self._kafka_bridge)
+        self.toa_edges.subscribe(self._config_service)
         # Second subscription for fake data creation
         self._config_service.subscribe(
-            key=config_key, callback=self._on_toa_edges_update
-        )
-        setter = self._config_service.get_setter(config_key)
-        param.bind(
-            setter,
-            low=self.toa_edges.param.low,
-            high=self.toa_edges.param.high,
-            num_edges=self.toa_edges.param.num_edges,
-            unit=self.toa_edges.param.unit,
-            watch=True,
+            key=self.toa_edges.config_key, callback=self._on_toa_edges_update
         )
 
         self._kafka_bridge_thread = threading.Thread(target=self._kafka_bridge.start)

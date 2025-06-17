@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import logging
-from collections import defaultdict
+from collections import UserDict, defaultdict
 from collections.abc import Callable
 from contextlib import contextmanager
 from functools import wraps
@@ -36,19 +36,17 @@ class ConfigSchemaValidator(Protocol, Generic[K, V]):
 ConfigSchemaRegistry = dict[K, type[pydantic.BaseModel]]
 
 
-class ConfigSchemaManager(ConfigSchemaValidator[K, dict[str, Any]]):
+class ConfigSchemaManager(
+    UserDict[K, type[pydantic.BaseModel]], ConfigSchemaValidator[K, dict[str, Any]]
+):
     """Manages configuration schemas and provides validation."""
 
-    def __init__(self, schema_registry: ConfigSchemaRegistry):
-        self._registry = schema_registry
-        self._logger = logging.getLogger(__name__)
-
     def has_schema(self, key: K) -> bool:
-        return key in self._registry
+        return key in self
 
     def validate(self, key: K, data: dict[str, Any]) -> dict[str, Any] | None:
         """Validate configuration data."""
-        model = self._registry.get(key)
+        model = self.get(key)
         if model is None:
             return None
         return model.model_validate(data).model_dump()
@@ -57,15 +55,25 @@ class ConfigSchemaManager(ConfigSchemaValidator[K, dict[str, Any]]):
 class ConfigService(Generic[K, V]):
     def __init__(
         self,
-        schema_validator: ConfigSchemaValidator[K, V],
+        schema_validator: ConfigSchemaValidator[K, V] | None = None,
         message_bridge: MessageBridge[K, V] | None = None,
     ):
-        self._schema_validator = schema_validator
+        self._schema_validator = schema_validator or ConfigSchemaManager()
         self._message_bridge = message_bridge
         self._subscribers: dict[K, list[Callable[..., None]]] = defaultdict(list)
         self._logger = logging.getLogger(__name__)
         self._config: dict[K, V] = {}
         self._update_disabled = False
+
+    def register_schema(self, key: K, schema: type[pydantic.BaseModel]) -> None:
+        """Register a schema for a configuration key."""
+        if isinstance(self._schema_validator, ConfigSchemaManager):
+            self._schema_validator[key] = schema
+        else:
+            raise TypeError(
+                'Schema validator must be an instance of ConfigSchemaManager for late '
+                'schema registration.'
+            )
 
     def subscribe(self, key: K, callback: Callable[..., None]) -> None:
         """
