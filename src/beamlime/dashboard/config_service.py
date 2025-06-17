@@ -8,7 +8,6 @@ from typing import Any, Generic, Protocol, TypeVar
 
 import pydantic
 
-from ..config.models import ConfigKey
 from ..handlers.config_handler import ConfigUpdate
 
 K = TypeVar('K')
@@ -30,46 +29,30 @@ class ConfigSchemaValidator(Protocol, Generic[K, V]):
 
     def has_schema(self, key: K) -> bool:
         """Check if a schema is registered for the given key."""
-        ...
 
-    def validate_update(self, key: K, **kwargs) -> V:
-        """Validate and serialize configuration update."""
-        ...
-
-    def validate_raw(self, key: K, raw_data: dict[str, Any]) -> V | None:
-        """Validate raw configuration data."""
+    def validate(self, key: K, data: V) -> V:
+        """Validate configuration data."""
 
 
-ConfigSchemaRegistry = dict[ConfigKey, type[pydantic.BaseModel]]
+ConfigSchemaRegistry = dict[K, type[pydantic.BaseModel]]
 
 
-class ConfigSchemaManager(ConfigSchemaValidator[ConfigKey, dict[str, Any]]):
+class ConfigSchemaManager(ConfigSchemaValidator[K, dict[str, Any]]):
     """Manages configuration schemas and provides validation."""
 
     def __init__(self, schema_registry: ConfigSchemaRegistry):
         self._registry = schema_registry
         self._logger = logging.getLogger(__name__)
 
-    def has_schema(self, key: ConfigKey) -> bool:
+    def has_schema(self, key: K) -> bool:
         return key in self._registry
 
-    def validate_update(self, key: ConfigKey, **kwargs) -> dict[str, Any]:
-        """Validate and serialize configuration update."""
+    def validate(self, key: K, data: dict[str, Any]) -> dict[str, Any]:
+        """Validate configuration data."""
         model = self._registry.get(key)
         if model is None:
             raise ValueError(f"No schema registered for key {key}")
-        return model(**kwargs).model_dump()
-
-    def validate_raw(
-        self, key: ConfigKey, raw_data: dict[str, Any]
-    ) -> dict[str, Any] | None:
-        """Validate raw configuration data."""
-        if not self.has_schema(key):
-            self._logger.warning('No schema registered for key %s', key)
-            return
-
-        model = self._registry[key]
-        return model.model_validate(raw_data).model_dump()
+        return model.model_validate(data).model_dump()
 
 
 class ConfigService(Generic[K, V]):
@@ -114,7 +97,7 @@ class ConfigService(Generic[K, V]):
         return setter
 
     def update_config(self, key: K, **kwargs: Any) -> None:
-        validated_config = self._schema_validator.validate_update(key, **kwargs)
+        validated_config = self._schema_validator.validate(key, kwargs)
         self._config[key] = validated_config
         if self._message_bridge:
             self._message_bridge.publish(key, validated_config)
@@ -130,18 +113,14 @@ class ConfigService(Generic[K, V]):
     def _handle_config_update(self, update: ConfigUpdate) -> None:
         """Handle a configuration update from the message bridge."""
         try:
-            if (
-                validated := self._schema_validator.validate_raw(
-                    update.config_key, update.value
+            validated = self._schema_validator.validate(update.config_key, update.value)
+            if self._config.get(update.config_key) == validated:
+                self._logger.debug(
+                    'No change in config for key %s, skipping.', update.key
                 )
-            ) is not None:
-                if self._config.get(update.config_key) == validated:
-                    self._logger.debug(
-                        'No change in config for key %s, skipping.', update.key
-                    )
-                    return
-                self._config[update.config_key] = validated
-                self._notify_subscribers(update.config_key, validated)
+                return
+            self._config[update.config_key] = validated
+            self._notify_subscribers(update.config_key, validated)
         except pydantic.ValidationError as e:
             self._logger.error(
                 'Invalid config data received for key %s: %s', update.key, e
