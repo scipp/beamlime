@@ -3,6 +3,7 @@
 import logging
 from collections import defaultdict
 from collections.abc import Callable
+from contextlib import contextmanager
 from functools import wraps
 from typing import Any, Generic, Protocol, TypeVar
 
@@ -64,6 +65,7 @@ class ConfigService(Generic[K, V]):
         self._subscribers: dict[K, list[Callable[..., None]]] = defaultdict(list)
         self._logger = logging.getLogger(__name__)
         self._config: dict[K, V] = {}
+        self._update_disabled = False
 
     def subscribe(self, key: K, callback: Callable[..., None]) -> None:
         """
@@ -95,18 +97,34 @@ class ConfigService(Generic[K, V]):
         return setter
 
     def update_config(self, key: K, **kwargs: Any) -> None:
+        if self._update_disabled:
+            return
         validated_config = self._schema_validator.validate(key, kwargs)
         self._config[key] = validated_config
         if self._message_bridge:
             self._message_bridge.publish(key, validated_config)
 
-    def process_incoming_messages(self) -> None:
+    @contextmanager
+    def _disable_updates(self):
+        """Context manager to temporarily disable update_config."""
+        old_state = self._update_disabled
+        self._update_disabled = True
+        try:
+            yield
+        finally:
+            self._update_disabled = old_state
+
+    def process_incoming_messages(self, num: int = 100) -> None:
         """Process any available incoming messages from the message bridge."""
         if not self._message_bridge:
             return
 
-        while (update := self._message_bridge.pop_message()) is not None:
-            self._handle_config_update(*update)
+        with self._disable_updates():
+            for _ in range(num):
+                if (update := self._message_bridge.pop_message()) is not None:
+                    self._handle_config_update(*update)
+                else:
+                    break
 
     def _handle_config_update(self, key: K, value: V) -> None:
         """Handle a configuration update from the message bridge."""
@@ -167,3 +185,24 @@ class FakeMessageBridge(MessageBridge[K, V], Generic[K, V]):
         """Clear all stored messages."""
         self._published_messages.clear()
         self._incoming_messages.clear()
+
+
+class LoopbackMessageBridge(MessageBridge[K, V], Generic[K, V]):
+    """Message bridge that loops back published messages to incoming."""
+
+    def __init__(self):
+        self.messages: list[tuple[K, V]] = []
+
+    def publish(self, key: K, value: V) -> None:
+        """Store messages and loop them back to incoming."""
+        self.messages.append((key, value))
+
+    def pop_message(self) -> tuple[K, V] | None:
+        """Pop the next message from the queue."""
+        if self.messages:
+            return self.messages.pop(0)
+        return None
+
+    def add_incoming_message(self, update: tuple[K, V]) -> None:
+        """Add a message to the incoming queue."""
+        self.messages.append(update)
