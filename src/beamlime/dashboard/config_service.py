@@ -8,8 +8,6 @@ from typing import Any, Generic, Protocol, TypeVar
 
 import pydantic
 
-from ..handlers.config_handler import ConfigUpdate
-
 K = TypeVar('K')
 V = TypeVar('V')
 
@@ -20,7 +18,7 @@ class MessageBridge(Protocol, Generic[K, V]):
     def publish(self, key: K, value: V) -> None:
         """Publish a configuration update message."""
 
-    def pop_message(self) -> ConfigUpdate | None:
+    def pop_message(self) -> tuple[K, V] | None:
         """Pop the next available configuration update message."""
 
 
@@ -108,23 +106,19 @@ class ConfigService(Generic[K, V]):
             return
 
         while (update := self._message_bridge.pop_message()) is not None:
-            self._handle_config_update(update)
+            self._handle_config_update(*update)
 
-    def _handle_config_update(self, update: ConfigUpdate) -> None:
+    def _handle_config_update(self, key: K, value: V) -> None:
         """Handle a configuration update from the message bridge."""
         try:
-            validated = self._schema_validator.validate(update.config_key, update.value)
-            if self._config.get(update.config_key) == validated:
-                self._logger.debug(
-                    'No change in config for key %s, skipping.', update.key
-                )
+            validated = self._schema_validator.validate(key, value)
+            if self._config.get(key) == validated:
+                self._logger.debug('No change in config for key %s, skipping.', key)
                 return
-            self._config[update.config_key] = validated
-            self._notify_subscribers(update.config_key, validated)
+            self._config[key] = validated
+            self._notify_subscribers(key, validated)
         except pydantic.ValidationError as e:
-            self._logger.error(
-                'Invalid config data received for key %s: %s', update.key, e
-            )
+            self._logger.error('Invalid config data received for key %s: %s', key, e)
 
     def _notify_subscribers(self, key: K, data: V) -> None:
         """Notify all subscribers for a given config key."""
@@ -149,19 +143,19 @@ class FakeMessageBridge(MessageBridge[K, V], Generic[K, V]):
 
     def __init__(self):
         self._published_messages: list[tuple[K, V]] = []
-        self._incoming_messages: list[ConfigUpdate] = []
+        self._incoming_messages: list[tuple[K, V]] = []
 
     def publish(self, key: K, value: V) -> None:
         """Store published messages for inspection."""
         self._published_messages.append((key, value))
 
-    def pop_message(self) -> ConfigUpdate | None:
+    def pop_message(self) -> tuple[K, V] | None:
         """Pop the next message from the incoming queue."""
         if self._incoming_messages:
             return self._incoming_messages.pop(0)
         return None
 
-    def add_incoming_message(self, update: ConfigUpdate) -> None:
+    def add_incoming_message(self, update: tuple[K, V]) -> None:
         """Add a message to the incoming queue for testing."""
         self._incoming_messages.append(update)
 
