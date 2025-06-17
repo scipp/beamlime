@@ -7,7 +7,6 @@ import numpy as np
 import panel as pn
 import param
 import scipp as sc
-from holoviews import streams
 
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
@@ -20,11 +19,10 @@ from beamlime.kafka import consumer as kafka_consumer
 from beamlime.services.dashboard import DashboardApp as LegacyDashboard
 
 from .data_forwarder import DataForwarder
-from .data_key import MonitorDataKey
 from .data_service import DataService
+from .data_streams import MonitorStreamManager
 from .orchestrator import Orchestrator
 from .scipp_to_holoviews import to_holoviews
-from .subscribers import ComponentDataSubscriber
 
 pn.extension('holoviews', template='material')
 hv.extension('bokeh')
@@ -84,20 +82,13 @@ class DashboardApp(param.Parameterized):
 
     def _setup_monitor_streams(self):
         """Initialize streams for monitor data."""
-        self._monitor1_pipe = streams.Pipe(data=None)
-        self._monitor2_pipe = streams.Pipe(data=None)
-
         monitor_data_service = DataService()
-        subscriber1 = ComponentDataSubscriber(
-            component_key=MonitorDataKey(component_name='monitor1', view_name=''),
-            pipe=self._monitor1_pipe,
-        )
-        subscriber2 = ComponentDataSubscriber(
-            component_key=MonitorDataKey(component_name='monitor2', view_name=''),
-            pipe=self._monitor2_pipe,
-        )
-        monitor_data_service.register_subscriber(subscriber1)
-        monitor_data_service.register_subscriber(subscriber2)
+        self._monitor_stream_manager = MonitorStreamManager(monitor_data_service)
+
+        # Get streams for both monitors
+        self._monitor1_pipe = self._monitor_stream_manager.get_stream('monitor1')
+        self._monitor2_pipe = self._monitor_stream_manager.get_stream('monitor2')
+
         data_services = {'monitor_data': monitor_data_service}
         forwarder = DataForwarder(data_services=data_services)
         self._orchestrator = Orchestrator(legacy_app._source, forwarder)
