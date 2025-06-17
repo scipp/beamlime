@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-import param
 import pytest
 
 from beamlime.config.models import TOARange
@@ -39,14 +38,10 @@ def service_with_loopback(config_key: str):
 
 
 class TestConfigService:
-    def test_get_setter(self, service: ConfigService, config_key: str):
-        setter = service.get_setter(config_key)
-        setter(enabled=True, low=0.0, high=72_000.0, unit='us')
-
     def test_subscriber(self, service_with_bridge, config_key: str):
         service, bridge = service_with_bridge
         toa_range = TOARangeParam()
-        service.subscribe(key=config_key, callback=toa_range.param_updater())
+        service.subscribe(key=config_key, callback=toa_range.from_pydantic())
 
         # Create a config update and add it to the bridge
         config_data = {'enabled': False, 'low': 1000.0, 'high': 2000.0, 'unit': 'us'}
@@ -60,30 +55,19 @@ class TestConfigService:
         assert toa_range.high == 2000.0
         assert toa_range.unit == 'us'
 
-    def test_bidirectional_param_binding_no_infinite_cycle(
-        self, service_with_loopback, config_key: str
-    ):
+    def test_bidirectional_param_binding_no_infinite_cycle(self, service_with_loopback):
         """Test that bidirectional param binding doesn't cause infinite cycles."""
         service, bridge = service_with_loopback
+
         toa_range = TOARangeParam()
+        toa_range.subscribe(service)
 
-        # Subscribe param to service updates
-        service.subscribe(key=config_key, callback=toa_range.param_updater())
-
-        # Init bridge with a single message after subscription
+        # Init bridge with a single message
         bridge.add_incoming_message(
-            (config_key, {'enabled': True, 'low': 1000.0, 'high': 2000.0, 'unit': 'us'})
-        )
-
-        # Bind param to service setter with watch=True
-        setter = service.get_setter(config_key)
-        param.bind(
-            setter,
-            enabled=toa_range.param.enabled,
-            low=toa_range.param.low,
-            high=toa_range.param.high,
-            unit=toa_range.param.unit,
-            watch=True,
+            (
+                toa_range.config_key,
+                {'enabled': True, 'low': 1000.0, 'high': 2000.0, 'unit': 'us'},
+            )
         )
 
         assert len(bridge.messages) == 1

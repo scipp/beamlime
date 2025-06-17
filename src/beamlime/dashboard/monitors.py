@@ -76,17 +76,11 @@ class DashboardApp(param.Parameterized):
         self._config_service = ConfigService(message_bridge=self._kafka_bridge)
         self.toa_edges.subscribe(self._config_service)
         # Second subscription for fake data creation
-        self._config_service.subscribe(
-            key=self.toa_edges.config_key, callback=self._on_toa_edges_update
-        )
+        # self._config_service.subscribe(
+        #    key=self.toa_edges.config_key, callback=self._on_toa_edges_update
+        # )
 
         self._kafka_bridge_thread = threading.Thread(target=self._kafka_bridge.start)
-
-    def _on_toa_edges_update(self, **kwargs) -> None:
-        """Callback for TOA edges config updates."""
-        if 'num_edges' in kwargs:
-            self._num_edges = kwargs['num_edges']
-            self._update_monitor_streams()
 
     def _setup_monitor_streams(self):
         """Initialize streams for monitor data."""
@@ -124,6 +118,13 @@ class DashboardApp(param.Parameterized):
         counts = np.exp(-(toa**2) / 2) + 0.05 * np.random.randn(self._num_edges)
         toa += 5
         self._monitor2_pipe.send({'toa': toa, 'counts': counts})
+
+    def _on_toa_edges_update(self, model) -> None:
+        """Callback for TOA edges config updates."""
+        kwargs = model.model_dump()
+        if 'num_edges' in kwargs:
+            self._num_edges = kwargs['num_edges']
+            self._update_monitor_streams()
 
     def _plot_monitor1(self, data) -> hv.Curve:
         """Create monitor 1 plot."""
