@@ -14,9 +14,9 @@ from ..handlers.config_handler import ConfigUpdate
 from ..kafka.message_adapter import RawConfigItem
 
 
-class KafkaAdapter:
+class KafkaBridge:
     """
-    Kafka adapter that runs in a background thread for non-blocking GUI operations.
+    Kafka bridge that runs in a background thread for non-blocking GUI operations.
 
     Handles both producing and consuming messages with internal queues for
     communication with the GUI thread. Implements the MessageBridge protocol.

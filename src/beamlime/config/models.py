@@ -15,6 +15,25 @@ from pydantic import BaseModel, Field, model_validator
 TimeUnit = Literal['ns', 'us', 'ms', 's']
 
 
+class TOAEdges(BaseModel):
+    """Time of arrival edges filter settings."""
+
+    low: float = Field(default=0.0, description="Lower bound of the time window.")
+    high: float = Field(default=72_000.0, description="Upper bound of the time window.")
+    num_edges: int = Field(
+        default=100, ge=1, description="Number of edges for the histogram."
+    )
+    unit: TimeUnit = Field(default="us", description="Physical unit for time values.")
+
+    @property
+    def edges_ns(self) -> tuple[sc.Variable, sc.Variable]:
+        """Time window edges in nanoseconds as scipp scalars."""
+        return (
+            sc.scalar(self.low, unit=self.unit).to(unit='ns'),
+            sc.scalar(self.high, unit=self.unit).to(unit='ns'),
+        )
+
+
 class TOARange(BaseModel):
     """Time of arrival range filter settings."""
 
