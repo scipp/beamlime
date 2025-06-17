@@ -7,6 +7,7 @@ import numpy as np
 import panel as pn
 import param
 import pydantic
+import scipp as sc
 from holoviews import streams
 
 from beamlime.config import config_names, models
@@ -19,7 +20,12 @@ from beamlime.dashboard.monitors_params import TOAEdgesParam
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.services.dashboard import DashboardApp as LegacyDashboard
 
+from .data_forwarder import DataForwarder
+from .data_key import MonitorDataKey
+from .data_service import DataService
+from .orchestrator import Orchestrator
 from .scipp_to_holoviews import to_holoviews
+from .subscribers import ComponentDataSubscriber
 
 pn.extension('holoviews', template='material')
 hv.extension('bokeh')
@@ -111,11 +117,28 @@ class DashboardApp(param.Parameterized):
         self._monitor1_pipe = streams.Pipe(data=None)
         self._monitor2_pipe = streams.Pipe(data=None)
 
+        monitor_data_service = DataService()
+        subscriber1 = ComponentDataSubscriber(
+            component_key=MonitorDataKey(component_name='monitor1', view_name=''),
+            pipe=self._monitor1_pipe,
+        )
+        subscriber2 = ComponentDataSubscriber(
+            component_key=MonitorDataKey(component_name='monitor2', view_name=''),
+            pipe=self._monitor2_pipe,
+        )
+        monitor_data_service.register_subscriber(subscriber1)
+        monitor_data_service.register_subscriber(subscriber2)
+        data_services = {'monitor_data': monitor_data_service}
+        forwarder = DataForwarder(data_services=data_services)
+        self._orchestrator = Orchestrator(legacy_app._source, forwarder)
+
         # Initialize with default data
         self._update_monitor_streams()
 
     def _update_monitor_streams(self):
         """Update the streams for monitor visualizations."""
+        self._orchestrator.update()
+        return
         toa = np.linspace(-4, 6, self._num_edges)
         counts = 1.5 * np.exp(-(toa**2) / 2) + 0.05 * np.random.randn(self._num_edges)
         toa += 4
@@ -128,10 +151,18 @@ class DashboardApp(param.Parameterized):
 
     def _plot_monitor1(self, data) -> hv.Curve:
         """Create monitor 1 plot."""
+        view_mode = 'Current'
         if not data:
             return hv.Curve([])
 
-        curve = hv.Curve((data['toa'], data['counts']), label='Monitor 1')
+        if isinstance(data, dict):
+            curve = hv.Curve((data['toa'], data['counts']), label='Monitor 1')
+        else:
+            data = data.cumulative if view_mode == 'Cumulative' else data.current
+            data = data.assign_coords(
+                time_of_arrival=sc.midpoints(data.coords['time_of_arrival'])
+            )
+            curve = to_holoviews(data)
         return curve.opts(
             title="Monitor 1",
             xlabel="TOA",
@@ -145,10 +176,18 @@ class DashboardApp(param.Parameterized):
 
     def _plot_monitor2(self, data) -> hv.Curve:
         """Create monitor 2 plot."""
+        view_mode = 'Current'
         if not data:
             return hv.Curve([])
 
-        curve = hv.Curve((data['toa'], data['counts']), label='Monitor 2')
+        if isinstance(data, dict):
+            curve = hv.Curve((data['toa'], data['counts']), label='Monitor 2')
+        else:
+            data = data.cumulative if view_mode == 'Cumulative' else data.current
+            data = data.assign_coords(
+                time_of_arrival=sc.midpoints(data.coords['time_of_arrival'])
+            )
+            curve = to_holoviews(data)
         return curve.opts(
             title="Monitor 2",
             xlabel="TOA",
@@ -174,8 +213,12 @@ class DashboardApp(param.Parameterized):
         if not monitor1 or not monitor2:
             return hv.Bars([])
 
-        monitor1_total = np.sum(monitor1['counts'])
-        monitor2_total = np.sum(monitor2['counts'])
+        if isinstance(monitor1, dict):
+            monitor1_total = np.sum(monitor1['counts'])
+            monitor2_total = np.sum(monitor2['counts'])
+        else:
+            monitor1_total = np.sum(monitor1.current.values)
+            monitor2_total = np.sum(monitor2.current.values)
 
         data = [('Monitor 1', monitor1_total), ('Monitor 2', monitor2_total)]
         bars = hv.Bars(reversed(data), kdims='Monitor', vdims='Total Counts')

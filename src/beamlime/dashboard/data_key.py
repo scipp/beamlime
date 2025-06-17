@@ -28,14 +28,14 @@ class ComponentDataKey(ABC):
         return DataKey(
             service_name=self.service_name,
             source_name=self.component_name,
-            key=f'{self.view_name}/cumulative',
+            key=f'{self.view_name}/cumulative' if self.view_name else 'cumulative',
         )
 
     def current_key(self) -> DataKey:
         return DataKey(
             service_name=self.service_name,
             source_name=self.component_name,
-            key=f'{self.view_name}/current',
+            key=f'{self.view_name}/current' if self.view_name else 'current',
         )
 
 
