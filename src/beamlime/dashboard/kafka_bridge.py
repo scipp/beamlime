@@ -82,10 +82,11 @@ class KafkaAdapter:
 
         self._outgoing_queue.put((key, value))
 
-    def pop_message(self) -> ConfigUpdate | None:
+    def pop_message(self) -> tuple[ConfigKey, dict[str, Any]] | None:
         """Pop a decoded message from the incoming queue (non-blocking)."""
         try:
-            return self._incoming_queue.get_nowait()
+            update = self._incoming_queue.get_nowait()
+            return (update.config_key, update.value)
         except Empty:
             return None
 
