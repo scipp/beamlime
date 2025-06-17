@@ -29,12 +29,14 @@ class KafkaBridge:
         consumer: Consumer,
         logger: logging.Logger | None = None,
         incoming_poll_interval: float = 1.0,
+        max_batch_size: int = 100,
     ):
         self._topic = topic
         self._logger = logger or logging.getLogger(__name__)
         self._producer = Producer(kafka_config)
         self._consumer = consumer
         self._incoming_poll_interval = incoming_poll_interval
+        self._max_batch_size = max_batch_size
 
         # Message queues
         self._outgoing_queue = Queue()
@@ -150,29 +152,30 @@ class KafkaBridge:
         return self._process_incoming_messages()
 
     def _process_incoming_messages(self) -> bool:
-        """Process incoming messages from Kafka."""
-        # Use non-blocking poll to avoid delaying outgoing messages
-        msg = self._consumer.poll(0.0)
-        if msg is None:
-            return False
+        """Process incoming messages from Kafka in batches."""
+        messages_processed = 0
 
-        if msg.error():
-            if msg.error().code() == KafkaError._PARTITION_EOF:
-                return False
-            else:
-                self._logger.error("Consumer error: %s", msg.error())
-                return False
+        # Consume up to max_batch_size messages in one batch
+        msgs = self._consumer.consume(num_messages=self._max_batch_size, timeout=0.1)
 
-        try:
-            decoded_update = self._decode_update(msg)
-            if decoded_update:
-                self._incoming_queue.put(decoded_update)
-                return True
+        for msg in msgs:
+            if msg.error():
+                if msg.error().code() == KafkaError._PARTITION_EOF:
+                    continue
+                else:
+                    self._logger.error("Consumer error: %s", msg.error())
+                    continue
 
-        except Exception as e:
-            self._logger.error("Failed to process incoming message: %s", e)
+            try:
+                decoded_update = self._decode_update(msg)
+                if decoded_update:
+                    self._incoming_queue.put(decoded_update)
+                    messages_processed += 1
 
-        return False
+            except Exception as e:
+                self._logger.error("Failed to process incoming message: %s", e)
+
+        return messages_processed > 0
 
     def _decode_update(self, msg) -> ConfigUpdate | None:
         """Decode a Kafka message into a ConfigUpdate."""

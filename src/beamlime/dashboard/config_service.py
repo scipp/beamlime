@@ -29,7 +29,7 @@ class ConfigSchemaValidator(Protocol, Generic[K, V]):
     def has_schema(self, key: K) -> bool:
         """Check if a schema is registered for the given key."""
 
-    def validate(self, key: K, data: V) -> V:
+    def validate(self, key: K, data: V) -> V | None:
         """Validate configuration data."""
 
 
@@ -46,11 +46,11 @@ class ConfigSchemaManager(ConfigSchemaValidator[K, dict[str, Any]]):
     def has_schema(self, key: K) -> bool:
         return key in self._registry
 
-    def validate(self, key: K, data: dict[str, Any]) -> dict[str, Any]:
+    def validate(self, key: K, data: dict[str, Any]) -> dict[str, Any] | None:
         """Validate configuration data."""
         model = self._registry.get(key)
         if model is None:
-            raise ValueError(f"No schema registered for key {key}")
+            return None
         return model.model_validate(data).model_dump()
 
 
@@ -100,6 +100,8 @@ class ConfigService(Generic[K, V]):
         if self._update_disabled:
             return
         validated_config = self._schema_validator.validate(key, kwargs)
+        if validated_config is None:
+            return  # No schema registered for this key
         self._config[key] = validated_config
         if self._message_bridge:
             self._message_bridge.publish(key, validated_config)
@@ -114,24 +116,30 @@ class ConfigService(Generic[K, V]):
         finally:
             self._update_disabled = old_state
 
-    def process_incoming_messages(self, num: int = 100) -> None:
+    def process_incoming_messages(self, num: int = 1000) -> None:
         """Process any available incoming messages from the message bridge."""
         if not self._message_bridge:
             return
 
         with self._disable_updates():
+            # Gather updates but only handle latest message for each key to avoid
+            # flooding subscribers with multiple updates or not fully compacted data.
+            # We would otherwise see a replay of the history of updates, e.g., in widget
+            # states. In practice this only really happens at startup.
+            updates = {}
             for _ in range(num):
                 if (update := self._message_bridge.pop_message()) is not None:
-                    self._handle_config_update(*update)
+                    updates[update[0]] = update[1]
                 else:
                     break
+            for key, value in updates.items():
+                self._handle_config_update(key, value)
 
     def _handle_config_update(self, key: K, value: V) -> None:
         """Handle a configuration update from the message bridge."""
         try:
             validated = self._schema_validator.validate(key, value)
-            if self._config.get(key) == validated:
-                self._logger.debug('No change in config for key %s, skipping.', key)
+            if validated is None:
                 return
             self._config[key] = validated
             self._notify_subscribers(key, validated)
