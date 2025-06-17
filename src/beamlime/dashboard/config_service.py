@@ -4,28 +4,46 @@ import logging
 from collections import defaultdict
 from collections.abc import Callable
 from functools import wraps
-from typing import Any, Protocol
+from typing import Any, Generic, Protocol, TypeVar
 
 import pydantic
 
 from ..config.models import ConfigKey
 from ..handlers.config_handler import ConfigUpdate
 
+K = TypeVar('K')
+V = TypeVar('V')
 
-class MessageBridge(Protocol):
+
+class MessageBridge(Protocol, Generic[K, V]):
     """Protocol for publishing and consuming configuration messages."""
 
-    def publish(self, key: ConfigKey, value: dict[str, Any]) -> None:
+    def publish(self, key: K, value: V) -> None:
         """Publish a configuration update message."""
 
     def pop_message(self) -> ConfigUpdate | None:
         """Pop the next available configuration update message."""
 
 
+class ConfigSchemaValidator(Protocol, Generic[K, V]):
+    """Protocol for validating configuration data against schemas."""
+
+    def has_schema(self, key: K) -> bool:
+        """Check if a schema is registered for the given key."""
+        ...
+
+    def validate_update(self, key: K, **kwargs) -> V:
+        """Validate and serialize configuration update."""
+        ...
+
+    def validate_raw(self, key: K, raw_data: dict[str, Any]) -> V | None:
+        """Validate raw configuration data."""
+
+
 ConfigSchemaRegistry = dict[ConfigKey, type[pydantic.BaseModel]]
 
 
-class ConfigSchemaManager:
+class ConfigSchemaManager(ConfigSchemaValidator[ConfigKey, dict[str, Any]]):
     """Manages configuration schemas and provides validation."""
 
     def __init__(self, schema_registry: ConfigSchemaRegistry):
@@ -54,21 +72,19 @@ class ConfigSchemaManager:
         return model.model_validate(raw_data).model_dump()
 
 
-class ConfigService:
+class ConfigService(Generic[K, V]):
     def __init__(
         self,
-        schema_manager: ConfigSchemaManager,
-        message_bridge: MessageBridge | None = None,
+        schema_validator: ConfigSchemaValidator[K, V],
+        message_bridge: MessageBridge[K, V] | None = None,
     ):
-        self._schema_manager = schema_manager
+        self._schema_validator = schema_validator
         self._message_bridge = message_bridge
-        self._subscribers: dict[ConfigKey, list[Callable[..., None]]] = defaultdict(
-            list
-        )
+        self._subscribers: dict[K, list[Callable[..., None]]] = defaultdict(list)
         self._logger = logging.getLogger(__name__)
-        self._config: dict[ConfigKey, dict[str, Any]] = {}
+        self._config: dict[K, V] = {}
 
-    def subscribe(self, key: ConfigKey, callback: Callable[..., None]) -> None:
+    def subscribe(self, key: K, callback: Callable[..., None]) -> None:
         """
         Subscribe to configuration updates for a specific key.
 
@@ -83,7 +99,7 @@ class ConfigService:
         if (data := self._config.get(key)) is not None:
             self._invoke(key, callback, data)
 
-    def get_setter(self, key: ConfigKey) -> Callable[..., None]:
+    def get_setter(self, key: K) -> Callable[..., None]:
         """
         Returns a callable that updates the configuration for the given key.
 
@@ -97,8 +113,8 @@ class ConfigService:
 
         return setter
 
-    def update_config(self, key: ConfigKey, **kwargs: Any) -> None:
-        validated_config = self._schema_manager.validate_update(key, **kwargs)
+    def update_config(self, key: K, **kwargs: Any) -> None:
+        validated_config = self._schema_validator.validate_update(key, **kwargs)
         self._config[key] = validated_config
         if self._message_bridge:
             self._message_bridge.publish(key, validated_config)
@@ -115,7 +131,7 @@ class ConfigService:
         """Handle a configuration update from the message bridge."""
         try:
             if (
-                validated := self._schema_manager.validate_raw(
+                validated := self._schema_validator.validate_raw(
                     update.config_key, update.value
                 )
             ) is not None:
@@ -131,30 +147,32 @@ class ConfigService:
                 'Invalid config data received for key %s: %s', update.key, e
             )
 
-    def _notify_subscribers(self, key: ConfigKey, data: dict) -> None:
+    def _notify_subscribers(self, key: K, data: V) -> None:
         """Notify all subscribers for a given config key."""
         for callback in self._subscribers.get(key, []):
             self._invoke(key, callback, data)
 
-    def _invoke(
-        self, key: ConfigKey, callback: Callable[..., None], data: dict[str, Any]
-    ) -> None:
+    def _invoke(self, key: K, callback: Callable[..., None], data: V) -> None:
         try:
-            callback(**data)
+            # Handle both dict-like and other value types
+            if isinstance(data, dict):
+                callback(**data)
+            else:
+                callback(data)
         except Exception as e:
             self._logger.error(
                 'Error in config subscriber callback for key %s: %s', key, e
             )
 
 
-class FakeMessageBridge:
+class FakeMessageBridge(MessageBridge[K, V], Generic[K, V]):
     """Fake message bridge for testing purposes."""
 
     def __init__(self):
-        self._published_messages: list[tuple[ConfigKey, dict[str, Any]]] = []
+        self._published_messages: list[tuple[K, V]] = []
         self._incoming_messages: list[ConfigUpdate] = []
 
-    def publish(self, key: ConfigKey, value: dict[str, Any]) -> None:
+    def publish(self, key: K, value: V) -> None:
         """Store published messages for inspection."""
         self._published_messages.append((key, value))
 
@@ -168,7 +186,7 @@ class FakeMessageBridge:
         """Add a message to the incoming queue for testing."""
         self._incoming_messages.append(update)
 
-    def get_published_messages(self) -> list[tuple[ConfigKey, dict[str, Any]]]:
+    def get_published_messages(self) -> list[tuple[K, V]]:
         """Get all published messages for inspection."""
         return self._published_messages.copy()
 
