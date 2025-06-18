@@ -1,4 +1,6 @@
 import logging
+import signal
+import sys
 import threading
 from contextlib import ExitStack
 
@@ -18,6 +20,7 @@ from beamlime.dashboard.monitors_params import TOAEdgesParam
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.services.dashboard import DashboardApp as LegacyDashboard
 
+from . import plots
 from .data_forwarder import DataForwarder
 from .data_service import DataService
 from .data_streams import MonitorStreamManager
@@ -57,6 +60,9 @@ class DashboardApp(param.Parameterized):
         self._exit_stack = ExitStack()
         self._exit_stack.__enter__()
         self._setup_config_service()
+        self._is_shutting_down = False
+        self._shutdown_lock = threading.Lock()
+        self._logger.info("DashboardApp initialized")
 
     def _setup_config_service(self) -> None:
         kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
@@ -78,7 +84,10 @@ class DashboardApp(param.Parameterized):
         #    key=self.toa_edges.config_key, callback=self._on_toa_edges_update
         # )
 
-        self._kafka_bridge_thread = threading.Thread(target=self._kafka_bridge.start)
+        self._kafka_bridge_thread = threading.Thread(
+            target=self._kafka_bridge.start, daemon=True
+        )
+        self._logger.info("Config service setup complete")
 
     def _setup_monitor_streams(self):
         """Initialize streams for monitor data."""
@@ -95,6 +104,7 @@ class DashboardApp(param.Parameterized):
 
         # Initialize with default data
         self._update_monitor_streams()
+        self._logger.info("Monitor streams setup complete")
 
     def _update_monitor_streams(self):
         """Update the streams for monitor visualizations."""
@@ -176,33 +186,6 @@ class DashboardApp(param.Parameterized):
         # find a different solution. Recreate the dmaps?
         return mons.opts(title="Monitors", logy=logscale)
 
-    def _plot_monitor_total_counts(self, monitor1, monitor2):
-        """Create status bar chart showing total counts from both monitors."""
-        if not monitor1 or not monitor2:
-            return hv.Bars([])
-
-        if isinstance(monitor1, dict):
-            monitor1_total = np.sum(monitor1['counts'])
-            monitor2_total = np.sum(monitor2['counts'])
-        else:
-            monitor1_total = np.sum(monitor1.current.values)
-            monitor2_total = np.sum(monitor2.current.values)
-
-        data = [('Monitor 1', monitor1_total), ('Monitor 2', monitor2_total)]
-        bars = hv.Bars(reversed(data), kdims='Monitor', vdims='Total Counts')
-
-        return bars.opts(
-            title="",
-            height=100,
-            color='lightblue',
-            ylabel="Total Counts",
-            xlabel="",
-            invert_axes=True,
-            show_legend=False,
-            toolbar=None,
-            responsive=True,
-        )
-
     def create_monitor_plots(self) -> list:
         """Create plots for the Monitors tab."""
         mon1 = hv.DynamicMap(self._plot_monitor1, streams=[self._monitor1_pipe]).opts(
@@ -229,7 +212,7 @@ class DashboardApp(param.Parameterized):
     def create_status_plot(self):
         """Create status plot for the sidebar."""
         status_dmap = hv.DynamicMap(
-            self._plot_monitor_total_counts,
+            plots.monitor_total_counts_bar_chart,
             streams={'monitor1': self._monitor1_pipe, 'monitor2': self._monitor2_pipe},
         ).opts(shared_axes=False)
 
@@ -237,19 +220,109 @@ class DashboardApp(param.Parameterized):
 
     def _step(self):
         """Step function for periodic updates."""
-        self._update_monitor_streams()
-        self._config_service.process_incoming_messages()
+        if self._is_shutting_down:
+            return
+
+        try:
+            self._update_monitor_streams()
+            self._config_service.process_incoming_messages()
+        except Exception as e:
+            if not self._is_shutting_down:
+                self._logger.error("Error in periodic update step: %s", e)
 
     def start_periodic_updates(self):
         """Start periodic updates for monitor streams."""
         if self._callback is None:
             self._callback = pn.state.add_periodic_callback(self._step, period=1000)
+            self._logger.info("Periodic updates started")
+
+    def shutdown(self) -> None:
+        """Shutdown the dashboard and all its components."""
+        with self._shutdown_lock:
+            if self._is_shutting_down:
+                self._logger.info("Shutdown already in progress, skipping")
+                return
+
+            self._is_shutting_down = True
+            self._logger.info("Starting DashboardApp shutdown...")
+
+        # Stop periodic callback
+        if self._callback is not None:
+            self._logger.info("Stopping periodic callback...")
+            try:
+                pn.state.remove_periodic_callback(self._callback)
+                self._callback = None
+                self._logger.info("Periodic callback stopped")
+            except Exception as e:
+                self._logger.error("Error stopping periodic callback: %s", e)
+
+        # Shutdown orchestrator
+        try:
+            self._orchestrator.shutdown()
+        except Exception as e:
+            self._logger.error("Error shutting down orchestrator: %s", e)
+
+        # Stop Kafka bridge
+        try:
+            self._kafka_bridge.stop()
+        except Exception as e:
+            self._logger.error("Error stopping Kafka bridge: %s", e)
+
+        # Wait for Kafka bridge thread to finish
+        if self._kafka_bridge_thread and self._kafka_bridge_thread.is_alive():
+            self._logger.info("Waiting for Kafka bridge thread to finish...")
+            self._kafka_bridge_thread.join(timeout=10.0)
+            if self._kafka_bridge_thread.is_alive():
+                self._logger.warning(
+                    "Kafka bridge thread did not finish within timeout"
+                )
+            else:
+                self._logger.info("Kafka bridge thread finished")
+
+        # Close exit stack (this will close all Kafka resources)
+        try:
+            self._logger.info("Closing exit stack...")
+            self._exit_stack.__exit__(None, None, None)
+            self._logger.info("Exit stack closed")
+        except Exception as e:
+            self._logger.error("Error closing exit stack: %s", e)
+
+        self._logger.info("DashboardApp shutdown complete")
+
+
+# Global reference to dashboard for signal handler
+_dashboard_instance = None
+
+
+def _signal_handler(signum, frame):
+    """Handle shutdown signals."""
+    logger = logging.getLogger(__name__)
+    logger.info("Received signal %s, initiating shutdown...", signum)
+
+    if _dashboard_instance:
+        _dashboard_instance.shutdown()
+
+    logger.info("Shutdown complete, exiting...")
+    sys.exit(0)
 
 
 def create_dashboard():
     """Create and configure the main dashboard."""
+    global _dashboard_instance
+
+    logger = logging.getLogger(__name__)
+    logger.info("Creating dashboard...")
+
     dashboard = DashboardApp()
+    _dashboard_instance = dashboard
+
+    # Set up signal handlers for graceful shutdown
+    signal.signal(signal.SIGINT, _signal_handler)
+    signal.signal(signal.SIGTERM, _signal_handler)
+    logger.info("Signal handlers registered")
+
     dashboard._kafka_bridge_thread.start()
+    logger.info("Kafka bridge thread started")
 
     monitor_plots = pn.FlexBox(*dashboard.create_monitor_plots())
 
@@ -276,9 +349,29 @@ def create_dashboard():
         header_background='#2596be',
     )
     dashboard.start_periodic_updates()
+    logger.info("Dashboard creation complete")
 
     return template
 
 
 if __name__ == "__main__":
-    pn.serve(create_dashboard, port=5007, show=False, autoreload=True, dev=True)
+    # Configure logging for better visibility
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    )
+
+    logger = logging.getLogger(__name__)
+    logger.info("Starting dashboard application...")
+
+    try:
+        pn.serve(create_dashboard, port=5007, show=False, autoreload=True, dev=True)
+    except KeyboardInterrupt:
+        logger.info("Keyboard interrupt received")
+        if _dashboard_instance:
+            _dashboard_instance.shutdown()
+    except Exception as e:
+        logger.exception("Unexpected error: %s", e)
+        if _dashboard_instance:
+            _dashboard_instance.shutdown()
+        sys.exit(1)

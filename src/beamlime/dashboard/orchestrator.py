@@ -2,6 +2,8 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+import logging
+
 from ..core.message import MessageSource
 from .data_forwarder import DataForwarder
 
@@ -14,6 +16,7 @@ class Orchestrator:
     ) -> None:
         self._message_source = message_source
         self._forwarder = forwarder
+        self._logger = logging.getLogger(__name__)
 
     def update(self) -> None:
         """
@@ -33,3 +36,17 @@ class Orchestrator:
                 self._forwarder.forward(
                     stream_name=message.stream.name, value=message.value
                 )
+
+    def shutdown(self) -> None:
+        """Shutdown the orchestrator and its dependencies."""
+        self._logger.info("Shutting down Orchestrator...")
+
+        try:
+            if hasattr(self._message_source, "close"):
+                self._logger.info("Closing message source...")
+                self._message_source.close()
+                self._logger.info("Message source closed successfully")
+        except Exception as e:
+            self._logger.error("Error closing message source: %s", e)
+
+        self._logger.info("Orchestrator shutdown complete")
