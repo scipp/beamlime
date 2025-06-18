@@ -129,7 +129,9 @@ class Service(ServiceBase):
         if self.is_running:
             self.stop()
         if self._resources is not None:
+            self._logger.info("Closing resources...")
             self._resources.close()
+            self._logger.info("Resources closed")
 
     def _start_impl(self) -> None:
         """Start the service and block until stopped"""

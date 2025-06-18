@@ -49,6 +49,7 @@ def make_bare_consumer(
             assign_partitions(consumer, topic)
         yield consumer
     finally:
+        consumer.unsubscribe()
         consumer.close()
 
 

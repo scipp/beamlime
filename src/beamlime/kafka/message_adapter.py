@@ -343,6 +343,3 @@ class AdaptingMessageSource(MessageSource[U]):
                 if self._raise_on_error:
                     raise
         return adapted
-
-    def close(self) -> None:
-        self._source.close()

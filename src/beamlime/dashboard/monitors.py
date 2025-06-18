@@ -267,7 +267,6 @@ class DashboardApp(ServiceBase):
         """Clean shutdown of all components."""
         self._kafka_bridge.stop()
         self._kafka_bridge_thread.join()
-        self._source.close()
         self._exit_stack.__exit__(None, None, None)
 
 
