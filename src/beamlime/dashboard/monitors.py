@@ -67,8 +67,6 @@ class DashboardApp(ServiceBase):
         )
         self._callback = None
         self._setup_config_service()
-        self._is_shutting_down = False
-        self._shutdown_lock = threading.Lock()
         self._logger.info("DashboardApp initialized")
 
     def _setup_config_service(self) -> None:
@@ -210,15 +208,11 @@ class DashboardApp(ServiceBase):
 
     def _step(self):
         """Step function for periodic updates."""
-        if self._is_shutting_down:
-            return
-
         try:
             self._update_monitor_streams()
             self._config_service.process_incoming_messages()
         except Exception as e:
-            if not self._is_shutting_down:
-                self._logger.error("Error in periodic update step: %s", e)
+            self._logger.error("Error in periodic update step: %s", e)
 
     def start_periodic_updates(self):
         """Start periodic updates for monitor streams."""
@@ -258,7 +252,16 @@ class DashboardApp(ServiceBase):
         self._kafka_bridge_thread.start()
 
     def run_forever(self) -> None:
-        pn.serve(self.create_layout, port=5007, show=False, autoreload=True, dev=True)
+        import atexit
+
+        atexit.register(self.stop)
+        try:
+            pn.serve(
+                self.create_layout, port=5007, show=False, autoreload=True, dev=True
+            )
+        except KeyboardInterrupt:
+            self._logger.info("Keyboard interrupt received, shutting down...")
+            self.stop()
 
     def _stop_impl(self) -> None:
         """Clean shutdown of all components."""

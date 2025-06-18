@@ -2,7 +2,6 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import json
 import logging
-import threading
 import time
 from queue import Empty, Queue
 from typing import Any
@@ -46,7 +45,6 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
         # Thread management
         self._thread = None
         self._running = False
-        self._lock = threading.Lock()
 
         # Timing control for incoming messages
         self._last_incoming_check = 0.0
@@ -55,57 +53,14 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
 
     def start(self) -> None:
         """Start the background thread for Kafka operations."""
-        with self._lock:
-            if self._running:
-                self._logger.warning(
-                    "KafkaBridge already running, ignoring start request"
-                )
-                return
-
-            self._running = True
-            self._thread = threading.Thread(target=self._run_loop, daemon=True)
-            self._thread.start()
-            self._logger.info("KafkaBridge started with thread: %s", self._thread.name)
+        self._logger.info("Starting KafkaBridge...")
+        self._running = True
+        self._run_loop()
 
     def stop(self) -> None:
         """Stop the background thread and cleanup resources."""
         self._logger.info("Stopping KafkaBridge...")
-
-        with self._lock:
-            if not self._running:
-                self._logger.info("KafkaBridge already stopped")
-                return
-
-            self._running = False
-            self._logger.info("Set running flag to False")
-
-        if self._thread and self._thread.is_alive():
-            self._logger.info(
-                "Waiting for background thread to finish (timeout: %s seconds)...",
-                self._shutdown_timeout,
-            )
-            self._thread.join(timeout=self._shutdown_timeout)
-
-            if self._thread.is_alive():
-                self._logger.warning("Background thread did not stop within timeout")
-            else:
-                self._logger.info("Background thread stopped successfully")
-
-        self._logger.info("Closing Kafka consumer...")
-        try:
-            self._consumer.close()
-            self._logger.info("Kafka consumer closed successfully")
-        except Exception as e:
-            self._logger.error("Error closing Kafka consumer: %s", e)
-
-        self._logger.info("Flushing Kafka producer...")
-        try:
-            self._producer.flush(timeout=self._shutdown_timeout)
-            self._logger.info("Kafka producer flushed successfully")
-        except Exception as e:
-            self._logger.error("Error flushing Kafka producer: %s", e)
-
-        self._logger.info("KafkaBridge stopped")
+        self._running = False
 
     def publish(self, key: ConfigKey, value: dict[str, Any]) -> None:
         """Queue a message for publishing to Kafka."""
@@ -144,12 +99,13 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
         except Exception as e:
             self._logger.exception("Error in KafkaAdapter run loop: %s", e)
         finally:
-            self._logger.info("Exiting KafkaBridge background thread loop")
+            self._logger.info("Exiting KafkaBridge...")
+            self._running = False
             try:
                 self._consumer.close()
-                self._logger.info("Consumer closed in background thread")
+                self._logger.info("KafkaBridge consumer closed.")
             except Exception as e:
-                self._logger.error("Error closing consumer in background thread: %s", e)
+                self._logger.error("Error closing consumer: %s", e)
 
     def _process_outgoing_messages(self) -> bool:
         """Process messages from outgoing queue and send to Kafka."""
