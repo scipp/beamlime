@@ -57,6 +57,16 @@ class DashboardBase(ServiceBase, ABC):
         self._setup_data_infrastructure()
         self._logger.info("%s initialized", self.__class__.__name__)
 
+    @abstractmethod
+    def create_sidebar_content(self) -> pn.viewable.Viewable:
+        """Override this method to create the sidebar content."""
+        pass
+
+    @abstractmethod
+    def create_main_content(self) -> pn.viewable.Viewable:
+        """Override this method to create the main dashboard content."""
+        pass
+
     def _setup_config_service(self) -> None:
         """Set up configuration service with Kafka bridge."""
         kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
@@ -120,16 +130,6 @@ class DashboardBase(ServiceBase, ABC):
     def _step(self):
         """Step function for periodic updates."""
         self._orchestrator.update()
-
-    @abstractmethod
-    def create_main_content(self) -> pn.viewable.Viewable:
-        """Override this method to create the main dashboard content."""
-        pass
-
-    @abstractmethod
-    def create_sidebar_content(self) -> pn.viewable.Viewable:
-        """Override this method to create the sidebar content."""
-        pass
 
     def get_dashboard_title(self) -> str:
         """Get the dashboard title. Override for custom titles."""
