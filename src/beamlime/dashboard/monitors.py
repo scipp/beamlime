@@ -1,14 +1,14 @@
+import argparse
 import logging
-import signal
-import sys
 import threading
+import time
 from contextlib import ExitStack
 
 import holoviews as hv
 import numpy as np
 import panel as pn
-import param
 
+from beamlime import Service, ServiceBase
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.config.streams import stream_kind_to_topic
@@ -31,19 +31,23 @@ hv.extension('bokeh')
 legacy_app = LegacyDashboard(instrument='dream', dev=True)
 
 
-def remove_bokeh_logo(plot, element):
-    plot.state.toolbar.logo = None
-
-
-class DashboardApp(param.Parameterized):
+class DashboardApp(ServiceBase):
     """Main dashboard application with tab-dependent sidebar controls."""
 
-    logscale = param.Boolean(default=False, doc="Enable log scale for monitor plots")
+    # logscale = param.Boolean(default=False, doc="Enable log scale for monitor plots")
 
-    def __init__(self, **params):
-        super().__init__(**params)
-        self._instrument = 'dream'
-        self._logger = logging.getLogger(__name__)
+    def __init__(
+        self,
+        *,
+        instrument: str = 'dummy',
+        dev: bool,
+        debug: bool = False,
+        log_level: int = logging.INFO,
+    ):
+        name = f'{instrument}_dashboard'
+        super().__init__(name=name, log_level=log_level)
+        self._instrument = instrument
+
         self.toa_edges = TOAEdgesParam()
         self._num_edges = self.toa_edges.num_edges
         self._setup_monitor_streams()
@@ -150,7 +154,8 @@ class DashboardApp(param.Parameterized):
         mon2 = hv.DynamicMap(self._plot_monitor2, streams=[self._monitor2_pipe]).opts(
             shared_axes=False
         )
-        plot_with_scale = pn.bind(self._plot_monitors, logscale=self.param.logscale)
+        # plot_with_scale = pn.bind(self._plot_monitors, logscale=self.param.logscale)
+        plot_with_scale = pn.bind(self._plot_monitors, logscale=False)
         mons = hv.DynamicMap(
             plot_with_scale,
             streams={
@@ -245,89 +250,64 @@ class DashboardApp(param.Parameterized):
 
         self._logger.info("DashboardApp shutdown complete")
 
+    def create_layout(self) -> pn.template.MaterialTemplate:
+        monitor_plots = pn.FlexBox(*self.create_monitor_plots())
+        sidebar = pn.Column(
+            pn.pane.Markdown("## Status"),
+            self.create_status_plot(),
+            pn.pane.Markdown("## Controls"),
+            pn.Param(self.toa_edges.panel()),
+            # pn.Param(
+            #    dashboard,
+            #    parameters=['logscale'],
+            #    show_name=False,
+            #    width=300,
+            #    margin=(10, 0),
+            # ),
+            pn.layout.Spacer(height=20),
+        )
 
-# Global reference to dashboard for signal handler
-_dashboard_instance = None
+        # Configure template with dynamic sidebar
+        template = pn.template.MaterialTemplate(
+            title="DREAM — Live Data",
+            sidebar=sidebar,
+            main=monitor_plots,
+            header_background='#2596be',
+        )
+        self.start_periodic_updates()
+
+        return template
+
+    def _start_impl(self) -> None:
+        self._kafka_bridge_thread.start()
+        # self._config_service_thread.start()
+        # Wait briefly to allow config service to fetch initial configs
+        time.sleep(0.5)
+
+    def run_forever(self) -> None:
+        """Only for development purposes."""
+        # self._app.run(debug=self._debug)
+        pn.serve(self.create_layout, port=5007, show=False, autoreload=True, dev=True)
+
+    def _stop_impl(self) -> None:
+        """Clean shutdown of all components."""
+        # self._config_service.stop()
+        # self._config_service_thread.join()
+        # self._source.close()
+        self._exit_stack.__exit__(None, None, None)
 
 
-def _signal_handler(signum, frame):
-    """Handle shutdown signals."""
-    logger = logging.getLogger(__name__)
-    logger.info("Received signal %s, initiating shutdown...", signum)
-
-    if _dashboard_instance:
-        _dashboard_instance.shutdown()
-
-    logger.info("Shutdown complete, exiting...")
-    sys.exit(0)
+def setup_arg_parser() -> argparse.ArgumentParser:
+    parser = Service.setup_arg_parser(description='Beamlime Dashboard')
+    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
+    return parser
 
 
-def create_dashboard():
-    """Create and configure the main dashboard."""
-    global _dashboard_instance
-
-    logger = logging.getLogger(__name__)
-    logger.info("Creating dashboard...")
-
-    dashboard = DashboardApp()
-    _dashboard_instance = dashboard
-
-    # Set up signal handlers for graceful shutdown
-    signal.signal(signal.SIGINT, _signal_handler)
-    signal.signal(signal.SIGTERM, _signal_handler)
-    logger.info("Signal handlers registered")
-
-    dashboard._kafka_bridge_thread.start()
-    logger.info("Kafka bridge thread started")
-
-    monitor_plots = pn.FlexBox(*dashboard.create_monitor_plots())
-
-    sidebar = pn.Column(
-        pn.pane.Markdown("## Status"),
-        dashboard.create_status_plot(),
-        pn.pane.Markdown("## Controls"),
-        pn.Param(dashboard.toa_edges.panel()),
-        pn.Param(
-            dashboard,
-            parameters=['logscale'],
-            show_name=False,
-            width=300,
-            margin=(10, 0),
-        ),
-        pn.layout.Spacer(height=20),
-    )
-
-    # Configure template with dynamic sidebar
-    template = pn.template.MaterialTemplate(
-        title="DREAM — Live Data",
-        sidebar=sidebar,
-        main=monitor_plots,
-        header_background='#2596be',
-    )
-    dashboard.start_periodic_updates()
-    logger.info("Dashboard creation complete")
-
-    return template
+def main() -> None:
+    parser = setup_arg_parser()
+    app = DashboardApp(**vars(parser.parse_args()))
+    app.start(blocking=True)
 
 
 if __name__ == "__main__":
-    # Configure logging for better visibility
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    )
-
-    logger = logging.getLogger(__name__)
-    logger.info("Starting dashboard application...")
-
-    try:
-        pn.serve(create_dashboard, port=5007, show=False, autoreload=True, dev=True)
-    except KeyboardInterrupt:
-        logger.info("Keyboard interrupt received")
-        if _dashboard_instance:
-            _dashboard_instance.shutdown()
-    except Exception as e:
-        logger.exception("Unexpected error: %s", e)
-        if _dashboard_instance:
-            _dashboard_instance.shutdown()
-        sys.exit(1)
+    main()
