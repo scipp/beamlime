@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-import logging
-
 import holoviews as hv
 import panel as pn
 
@@ -18,13 +16,7 @@ hv.extension('bokeh')
 class DashboardApp(DashboardBase):
     """Monitor dashboard application."""
 
-    def __init__(
-        self,
-        *,
-        instrument: str = 'dummy',
-        dev: bool = False,
-        log_level: int = logging.INFO,
-    ):
+    def __init__(self, *, instrument: str = 'dummy', dev: bool = False, log_level: int):
         super().__init__(
             instrument=instrument,
             dev=dev,
@@ -50,6 +42,22 @@ class DashboardApp(DashboardBase):
         self._monitor1_pipe = self._monitor_stream_manager.get_stream('monitor1')
         self._monitor2_pipe = self._monitor_stream_manager.get_stream('monitor2')
 
+    def create_sidebar_content(self) -> pn.viewable.Viewable:
+        """Create the sidebar content with status and controls."""
+        status_dmap = hv.DynamicMap(
+            plots.monitor_total_counts_bar_chart,
+            streams={'monitor1': self._monitor1_pipe, 'monitor2': self._monitor2_pipe},
+        ).opts(shared_axes=False)
+
+        return pn.Column(
+            pn.pane.Markdown("## Status"),
+            pn.pane.HoloViews(status_dmap),
+            pn.pane.Markdown("## Controls"),
+            self._view_toggle,
+            pn.Param(self.toa_edges.panel()),
+            pn.layout.Spacer(height=20),
+        )
+
     def create_main_content(self) -> pn.viewable.Viewable:
         """Create the main monitor plots content."""
 
@@ -71,22 +79,6 @@ class DashboardApp(DashboardBase):
             pn.pane.HoloViews(mons),
             pn.pane.HoloViews(mon1),
             pn.pane.HoloViews(mon2),
-        )
-
-    def create_sidebar_content(self) -> pn.viewable.Viewable:
-        """Create the sidebar content with status and controls."""
-        status_dmap = hv.DynamicMap(
-            plots.monitor_total_counts_bar_chart,
-            streams={'monitor1': self._monitor1_pipe, 'monitor2': self._monitor2_pipe},
-        ).opts(shared_axes=False)
-
-        return pn.Column(
-            pn.pane.Markdown("## Status"),
-            pn.pane.HoloViews(status_dmap),
-            pn.pane.Markdown("## Controls"),
-            self._view_toggle,
-            pn.Param(self.toa_edges.panel()),
-            pn.layout.Spacer(height=20),
         )
 
 
