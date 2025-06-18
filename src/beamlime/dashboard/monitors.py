@@ -8,7 +8,6 @@ import holoviews as hv
 import numpy as np
 import panel as pn
 import param
-import scipp as sc
 
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
@@ -25,7 +24,6 @@ from .data_forwarder import DataForwarder
 from .data_service import DataService
 from .data_streams import MonitorStreamManager
 from .orchestrator import Orchestrator
-from .scipp_to_holoviews import to_holoviews
 
 pn.extension('holoviews', template='material')
 hv.extension('bokeh')
@@ -129,62 +127,20 @@ class DashboardApp(param.Parameterized):
 
     def _plot_monitor1(self, data) -> hv.Curve:
         """Create monitor 1 plot."""
-        view_mode = 'Current'
-        if not data:
-            return hv.Curve([])
-
-        if isinstance(data, dict):
-            curve = hv.Curve((data['toa'], data['counts']), label='Monitor 1')
-        else:
-            data = data.cumulative if view_mode == 'Cumulative' else data.current
-            data = data.assign_coords(
-                time_of_arrival=sc.midpoints(data.coords['time_of_arrival'])
-            )
-            curve = to_holoviews(data)
-        return curve.opts(
-            title="Monitor 1",
-            xlabel="TOA",
-            ylabel="Counts",
-            color='blue',
-            line_width=2,
-            responsive=True,
-            height=400,
-            hooks=[remove_bokeh_logo],
-        )
+        view_mode = self._view_toggle.value
+        return plots.plot_monitor1(data, view_mode=view_mode)
 
     def _plot_monitor2(self, data) -> hv.Curve:
         """Create monitor 2 plot."""
-        view_mode = 'Current'
-        if not data:
-            return hv.Curve([])
-
-        if isinstance(data, dict):
-            curve = hv.Curve((data['toa'], data['counts']), label='Monitor 2')
-        else:
-            data = data.cumulative if view_mode == 'Cumulative' else data.current
-            data = data.assign_coords(
-                time_of_arrival=sc.midpoints(data.coords['time_of_arrival'])
-            )
-            curve = to_holoviews(data)
-        return curve.opts(
-            title="Monitor 2",
-            xlabel="TOA",
-            ylabel="Counts",
-            color='red',
-            line_width=2,
-            responsive=True,
-            height=400,
-            hooks=[remove_bokeh_logo],
-        )
+        view_mode = self._view_toggle.value
+        return plots.plot_monitor2(data, view_mode=view_mode)
 
     def _plot_monitors(self, monitor1, monitor2, logscale: bool = False):
         """Combined plot of monitor1 and 2."""
-        mon1 = self._plot_monitor1(monitor1)
-        mon2 = self._plot_monitor2(monitor2)
-        mons = mon1 * mon2
-        # DynamicMap does not support changes the scale after creation. Need to
-        # find a different solution. Recreate the dmaps?
-        return mons.opts(title="Monitors", logy=logscale)
+        view_mode = self._view_toggle.value
+        return plots.plot_monitors_combined(
+            monitor1, monitor2, logscale=logscale, view_mode=view_mode
+        )
 
     def create_monitor_plots(self) -> list:
         """Create plots for the Monitors tab."""
