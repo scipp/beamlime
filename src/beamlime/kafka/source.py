@@ -9,8 +9,6 @@ from .message_adapter import KafkaMessage
 class KafkaConsumer(Protocol):
     def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]: ...
 
-    def close(self) -> None: ...
-
 
 class MultiConsumer:
     """
@@ -29,10 +27,6 @@ class MultiConsumer:
         for consumer in self._consumers:
             messages.extend(consumer.consume(num_messages, timeout))
         return messages
-
-    def close(self) -> None:
-        for consumer in self._consumers:
-            consumer.close()
 
 
 class KafkaMessageSource(MessageSource[KafkaMessage]):
@@ -61,6 +55,3 @@ class KafkaMessageSource(MessageSource[KafkaMessage]):
         return self._consumer.consume(
             num_messages=self._num_messages, timeout=self._timeout
         )
-
-    def close(self) -> None:
-        self._consumer.close()

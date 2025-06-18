@@ -60,8 +60,6 @@ class MessageSource(Protocol, Generic[Tin]):
     # Note that Tin is often (but not always) Message[T]
     def get_messages(self) -> Sequence[Tin]: ...
 
-    def close(self) -> None: ...
-
 
 class MessageSink(Protocol, Generic[Tout]):
     def publish_messages(self, messages: list[Message[Tout]]) -> None:
