@@ -56,7 +56,10 @@ class FakeMonitorSource(MessageSource[sc.Variable]):
     def _make_message(
         self, name: str, size: int, timestamp: int
     ) -> Message[sc.Variable]:
-        time_of_flight = self._make_normal(mean=30_000_000, std=10_000_000, size=size)
+        pos = 1 if name == "monitor1" else 2
+        time_of_flight = self._make_normal(
+            mean=int(1e7) * pos, std=10_000_000, size=size
+        )
         var = sc.array(dims=['time_of_arrival'], values=time_of_flight, unit='ns')
         return Message(
             timestamp=timestamp,
