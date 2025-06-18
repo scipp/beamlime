@@ -8,13 +8,11 @@ import panel as pn
 
 from beamlime import Service
 from beamlime.dashboard.dashboard import DashboardBase
+from beamlime.dashboard.data_service import DataService
+from beamlime.dashboard.data_streams import MonitorStreamManager
 from beamlime.dashboard.monitors_params import TOAEdgesParam
 
 from . import plots
-from .data_forwarder import DataForwarder
-from .data_service import DataService
-from .data_streams import MonitorStreamManager
-from .orchestrator import Orchestrator
 
 pn.extension('holoviews', template='material')
 hv.extension('bokeh')
@@ -54,18 +52,19 @@ class DashboardApp(DashboardBase):
 
         self._logger.info("Monitor dashboard initialized")
 
+    def _create_data_services(self) -> dict[str, DataService]:
+        """Create data services for monitor dashboard."""
+        return {'monitor_data': DataService()}
+
     def _setup_monitor_streams(self):
         """Initialize streams for monitor data."""
-        monitor_data_service = DataService()
+        monitor_data_service = self._data_services['monitor_data']
         self._monitor_stream_manager = MonitorStreamManager(monitor_data_service)
 
         # Get streams for both monitors
         self._monitor1_pipe = self._monitor_stream_manager.get_stream('monitor1')
         self._monitor2_pipe = self._monitor_stream_manager.get_stream('monitor2')
 
-        data_services = {'monitor_data': monitor_data_service}
-        forwarder = DataForwarder(data_services=data_services)
-        self._orchestrator = Orchestrator(self._setup_kafka_consumer(), forwarder)
         self._logger.info("Monitor streams setup complete")
 
     def _step(self):
