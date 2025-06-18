@@ -14,11 +14,6 @@ from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
 from beamlime.config.streams import stream_kind_to_topic
 from beamlime.core.message import StreamKind
-from beamlime.dashboard.config_service import ConfigService
-from beamlime.dashboard.data_forwarder import DataForwarder
-from beamlime.dashboard.data_service import DataService
-from beamlime.dashboard.kafka_bridge import KafkaBridge
-from beamlime.dashboard.orchestrator import Orchestrator
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
@@ -27,6 +22,13 @@ from beamlime.kafka.message_adapter import (
     KafkaToDa00Adapter,
 )
 from beamlime.kafka.source import KafkaMessageSource
+
+from .config_service import ConfigService
+from .data_forwarder import DataForwarder
+from .data_service import DataService
+from .data_streams import MonitorStreamManager
+from .kafka_bridge import KafkaBridge
+from .orchestrator import Orchestrator
 
 
 class DashboardBase(ServiceBase, ABC):
@@ -37,7 +39,6 @@ class DashboardBase(ServiceBase, ABC):
         *,
         instrument: str = 'dummy',
         dev: bool = False,
-        debug: bool = False,
         log_level: int = logging.INFO,
         dashboard_name: str,
         port: int = 5007,
@@ -74,10 +75,17 @@ class DashboardBase(ServiceBase, ABC):
 
     def _setup_data_infrastructure(self) -> None:
         """Set up data services, forwarder, and orchestrator."""
-        self._data_services = self._create_data_services()
-        self._data_forwarder = DataForwarder(data_services=self._data_services)
+        data_services = {
+            'monitor_data': DataService(),
+            'detector_data': DataService(),
+            'data_reduction': DataService(),
+        }
+        self._monitor_stream_manager = MonitorStreamManager(
+            data_services['monitor_data']
+        )
+
         self._orchestrator = Orchestrator(
-            self._setup_kafka_consumer(), self._data_forwarder
+            self._setup_kafka_consumer(), DataForwarder(data_services=data_services)
         )
         self._logger.info("Data infrastructure setup complete")
 
@@ -109,10 +117,9 @@ class DashboardBase(ServiceBase, ABC):
             ),
         )
 
-    @abstractmethod
-    def _step(self) -> None:
-        """Override this method to implement dashboard-specific update logic."""
-        pass
+    def _step(self):
+        """Step function for periodic updates."""
+        self._orchestrator.update()
 
     @abstractmethod
     def create_main_content(self) -> pn.viewable.Viewable:
