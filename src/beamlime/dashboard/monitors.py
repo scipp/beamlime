@@ -75,12 +75,7 @@ class DashboardApp(ServiceBase):
             kafka_consumer.make_control_consumer(instrument=self._instrument)
         )
         self._kafka_bridge = KafkaBridge(
-            topic=stream_kind_to_topic(
-                instrument=self._instrument, kind=StreamKind.BEAMLIME_CONFIG
-            ),
-            kafka_config=kafka_downstream_config,
-            consumer=consumer,
-            logger=self._logger,
+            kafka_config=kafka_downstream_config, consumer=consumer, logger=self._logger
         )
         self._config_service = ConfigService(message_bridge=self._kafka_bridge)
         self.toa_edges.subscribe(self._config_service)
@@ -99,13 +94,12 @@ class DashboardApp(ServiceBase):
             namespace=config_names.reduced_data_consumer, env=''
         )
         kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
+        data_topic = stream_kind_to_topic(
+            instrument=self._instrument, kind=StreamKind.BEAMLIME_DATA
+        )
         consumer = self._exit_stack.enter_context(
             kafka_consumer.make_consumer_from_config(
-                topics=[
-                    stream_kind_to_topic(
-                        instrument=self._instrument, kind=StreamKind.BEAMLIME_DATA
-                    )
-                ],
+                topics=[data_topic],
                 config={**consumer_config, **kafka_downstream_config},
                 group='dashboard',
             )
