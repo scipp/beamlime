@@ -34,9 +34,7 @@ hv.extension('bokeh')
 
 
 class DashboardApp(ServiceBase):
-    """Main dashboard application with tab-dependent sidebar controls."""
-
-    # logscale = param.Boolean(default=False, doc="Enable log scale for monitor plots")
+    """Main dashboard application."""
 
     def __init__(
         self,
