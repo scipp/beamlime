@@ -48,7 +48,6 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
 
         # Timing control for incoming messages
         self._last_incoming_check = 0.0
-        self._shutdown_timeout = 5.0
         self._logger.info("KafkaBridge initialized for topic: %s", topic)
 
     def start(self) -> None:
@@ -59,8 +58,8 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
 
     def stop(self) -> None:
         """Stop the background thread and cleanup resources."""
-        self._logger.info("Stopping KafkaBridge...")
         self._running = False
+        self._logger.info("KafkaBridge stopped.")
 
     def publish(self, key: ConfigKey, value: dict[str, Any]) -> None:
         """Queue a message for publishing to Kafka."""
@@ -99,13 +98,7 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
         except Exception as e:
             self._logger.exception("Error in KafkaAdapter run loop: %s", e)
         finally:
-            self._logger.info("Exiting KafkaBridge...")
             self._running = False
-            try:
-                self._consumer.close()
-                self._logger.info("KafkaBridge consumer closed.")
-            except Exception as e:
-                self._logger.error("Error closing consumer: %s", e)
 
     def _process_outgoing_messages(self) -> bool:
         """Process messages from outgoing queue and send to Kafka."""
