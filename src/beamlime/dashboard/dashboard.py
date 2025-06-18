@@ -15,7 +15,10 @@ from beamlime.config.config_loader import load_config
 from beamlime.config.streams import stream_kind_to_topic
 from beamlime.core.message import StreamKind
 from beamlime.dashboard.config_service import ConfigService
+from beamlime.dashboard.data_forwarder import DataForwarder
+from beamlime.dashboard.data_service import DataService
 from beamlime.dashboard.kafka_bridge import KafkaBridge
+from beamlime.dashboard.orchestrator import Orchestrator
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
     AdaptingMessageSource,
@@ -50,6 +53,7 @@ class DashboardBase(ServiceBase, ABC):
 
         self._callback = None
         self._setup_config_service()
+        self._setup_data_infrastructure()
         self._logger.info("%s initialized", self.__class__.__name__)
 
     def _setup_config_service(self) -> None:
@@ -67,6 +71,19 @@ class DashboardBase(ServiceBase, ABC):
             target=self._kafka_bridge.start, daemon=True
         )
         self._logger.info("Config service setup complete")
+
+    def _setup_data_infrastructure(self) -> None:
+        """Set up data services, forwarder, and orchestrator."""
+        self._data_services = self._create_data_services()
+        self._data_forwarder = DataForwarder(data_services=self._data_services)
+        self._orchestrator = Orchestrator(
+            self._setup_kafka_consumer(), self._data_forwarder
+        )
+        self._logger.info("Data infrastructure setup complete")
+
+    def _create_data_services(self) -> dict[str, DataService]:
+        """Create data services. Override in subclasses for custom services."""
+        return {}
 
     def _setup_kafka_consumer(self) -> AdaptingMessageSource:
         """Set up Kafka consumer for data streams."""
