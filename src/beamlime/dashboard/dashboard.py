@@ -99,10 +99,6 @@ class DashboardBase(ServiceBase, ABC):
         )
         self._logger.info("Data infrastructure setup complete")
 
-    def _create_data_services(self) -> dict[str, DataService]:
-        """Create data services. Override in subclasses for custom services."""
-        return {}
-
     def _setup_kafka_consumer(self) -> AdaptingMessageSource:
         """Set up Kafka consumer for data streams."""
         consumer_config = load_config(
