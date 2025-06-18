@@ -24,14 +24,17 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
 
     def __init__(
         self,
-        topic: str,
         kafka_config: dict[str, Any],
         consumer: Consumer,
         logger: logging.Logger | None = None,
         incoming_poll_interval: float = 1.0,
         max_batch_size: int = 100,
     ):
-        self._topic = topic
+        if len(consumer.assignment()) != 1:
+            raise ValueError(
+                "KafkaBridge requires a single topic assignment for the consumer"
+            )
+        self._topic = next(iter(consumer.assignment())).topic
         self._logger = logger or logging.getLogger(__name__)
         self._producer = Producer(kafka_config)
         self._consumer = consumer
@@ -43,12 +46,11 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
         self._incoming_queue = Queue()
 
         # Thread management
-        self._thread = None
         self._running = False
 
         # Timing control for incoming messages
         self._last_incoming_check = 0.0
-        self._logger.info("KafkaBridge initialized for topic: %s", topic)
+        self._logger.info("KafkaBridge initialized for topic: %s", self._topic)
 
     def start(self) -> None:
         """Start the background thread for Kafka operations."""
@@ -107,7 +109,6 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
         try:
             while not self._outgoing_queue.empty():
                 key, value = self._outgoing_queue.get_nowait()
-
                 self._producer.produce(
                     self._topic,
                     key=str(key).encode("utf-8"),
