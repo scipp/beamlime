@@ -4,7 +4,6 @@ import threading
 from contextlib import ExitStack
 
 import holoviews as hv
-import numpy as np
 import panel as pn
 
 from beamlime import Service, ServiceBase
@@ -55,8 +54,6 @@ class DashboardApp(ServiceBase):
         self._exit_stack.__enter__()
 
         self.toa_edges = TOAEdgesParam()
-        self._num_edges = self.toa_edges.num_edges
-        self._source = self._setup_kafka_consumer()
         self._setup_monitor_streams()
         self._view_toggle = pn.widgets.RadioBoxGroup(
             name="View Mode",
@@ -79,10 +76,6 @@ class DashboardApp(ServiceBase):
         )
         self._config_service = ConfigService(message_bridge=self._kafka_bridge)
         self.toa_edges.subscribe(self._config_service)
-        # Second subscription for fake data creation
-        # self._config_service.subscribe(
-        #    key=self.toa_edges.config_key, callback=self._on_toa_edges_update
-        # )
 
         self._kafka_bridge_thread = threading.Thread(
             target=self._kafka_bridge.start, daemon=True
@@ -123,66 +116,24 @@ class DashboardApp(ServiceBase):
 
         data_services = {'monitor_data': monitor_data_service}
         forwarder = DataForwarder(data_services=data_services)
-        self._orchestrator = Orchestrator(self._source, forwarder)
-
-        # Initialize with default data
-        self._update_monitor_streams()
+        self._orchestrator = Orchestrator(self._setup_kafka_consumer(), forwarder)
         self._logger.info("Monitor streams setup complete")
-
-    def _update_monitor_streams(self):
-        """Update the streams for monitor visualizations."""
-        self._orchestrator.update()
-        return
-        toa = np.linspace(-4, 6, self._num_edges)
-        counts = 1.5 * np.exp(-(toa**2) / 2) + 0.05 * np.random.randn(self._num_edges)
-        toa += 4
-        self._monitor1_pipe.send({'toa': toa, 'counts': counts})
-
-        toa = np.linspace(-5, 5, self._num_edges)
-        counts = np.exp(-(toa**2) / 2) + 0.05 * np.random.randn(self._num_edges)
-        toa += 5
-        self._monitor2_pipe.send({'toa': toa, 'counts': counts})
-
-    def _on_toa_edges_update(self, model) -> None:
-        """Callback for TOA edges config updates."""
-        kwargs = model.model_dump()
-        if 'num_edges' in kwargs:
-            self._num_edges = kwargs['num_edges']
-            self._update_monitor_streams()
-
-    def _plot_monitor1(self, data) -> hv.Curve:
-        """Create monitor 1 plot."""
-        view_mode = self._view_toggle.value
-        return plots.plot_monitor1(data, view_mode=view_mode)
-
-    def _plot_monitor2(self, data) -> hv.Curve:
-        """Create monitor 2 plot."""
-        view_mode = self._view_toggle.value
-        return plots.plot_monitor2(data, view_mode=view_mode)
-
-    def _plot_monitors(self, monitor1, monitor2, logscale: bool = False):
-        """Combined plot of monitor1 and 2."""
-        view_mode = self._view_toggle.value
-        return plots.plot_monitors_combined(
-            monitor1, monitor2, logscale=logscale, view_mode=view_mode
-        )
 
     def create_monitor_plots(self) -> list:
         """Create plots for the Monitors tab."""
-        mon1 = hv.DynamicMap(self._plot_monitor1, streams=[self._monitor1_pipe]).opts(
-            shared_axes=False
-        )
-        mon2 = hv.DynamicMap(self._plot_monitor2, streams=[self._monitor2_pipe]).opts(
-            shared_axes=False
-        )
-        # plot_with_scale = pn.bind(self._plot_monitors, logscale=self.param.logscale)
-        plot_with_scale = pn.bind(self._plot_monitors, logscale=False)
+
+        def _with_toggle(plot_fn):
+            return pn.bind(plot_fn, view_mode=self._view_toggle.param.value)
+
+        mon1 = hv.DynamicMap(
+            _with_toggle(plots.plot_monitor1), streams=[self._monitor1_pipe]
+        ).opts(shared_axes=False)
+        mon2 = hv.DynamicMap(
+            _with_toggle(plots.plot_monitor2), streams=[self._monitor2_pipe]
+        ).opts(shared_axes=False)
         mons = hv.DynamicMap(
-            plot_with_scale,
-            streams={
-                'monitor1': self._monitor1_pipe,
-                'monitor2': self._monitor2_pipe,
-            },
+            _with_toggle(plots.plot_monitors_combined),
+            streams={'monitor1': self._monitor1_pipe, 'monitor2': self._monitor2_pipe},
         ).opts(shared_axes=False)
 
         return [
@@ -203,7 +154,7 @@ class DashboardApp(ServiceBase):
     def _step(self):
         """Step function for periodic updates."""
         try:
-            self._update_monitor_streams()
+            self._orchestrator.update()
             self._config_service.process_incoming_messages()
         except Exception as e:
             self._logger.error("Error in periodic update step: %s", e)
@@ -220,14 +171,8 @@ class DashboardApp(ServiceBase):
             pn.pane.Markdown("## Status"),
             self.create_status_plot(),
             pn.pane.Markdown("## Controls"),
+            self._view_toggle,
             pn.Param(self.toa_edges.panel()),
-            # pn.Param(
-            #    dashboard,
-            #    parameters=['logscale'],
-            #    show_name=False,
-            #    width=300,
-            #    margin=(10, 0),
-            # ),
             pn.layout.Spacer(height=20),
         )
 
