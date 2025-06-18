@@ -1,27 +1,14 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import argparse
 import logging
-import threading
-from contextlib import ExitStack
 
 import holoviews as hv
 import panel as pn
 
-from beamlime import Service, ServiceBase
-from beamlime.config import config_names
-from beamlime.config.config_loader import load_config
-from beamlime.config.streams import stream_kind_to_topic
-from beamlime.core.message import StreamKind
-from beamlime.dashboard.config_service import ConfigService
-from beamlime.dashboard.kafka_bridge import KafkaBridge
+from beamlime import Service
+from beamlime.dashboard.dashboard import DashboardBase
 from beamlime.dashboard.monitors_params import TOAEdgesParam
-from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.message_adapter import (
-    AdaptingMessageSource,
-    ChainedAdapter,
-    Da00ToScippAdapter,
-    KafkaToDa00Adapter,
-)
-from beamlime.kafka.source import KafkaMessageSource
 
 from . import plots
 from .data_forwarder import DataForwarder
@@ -33,23 +20,24 @@ pn.extension('holoviews', template='material')
 hv.extension('bokeh')
 
 
-class DashboardApp(ServiceBase):
-    """Main dashboard application."""
+class DashboardApp(DashboardBase):
+    """Monitor dashboard application."""
 
     def __init__(
         self,
         *,
         instrument: str = 'dummy',
-        dev: bool,
+        dev: bool = False,
         debug: bool = False,
         log_level: int = logging.INFO,
     ):
-        name = f'{instrument}_dashboard'
-        super().__init__(name=name, log_level=log_level)
-        self._instrument = instrument
-
-        self._exit_stack = ExitStack()
-        self._exit_stack.__enter__()
+        super().__init__(
+            instrument=instrument,
+            dev=dev,
+            debug=debug,
+            log_level=log_level,
+            dashboard_name='dashboard',
+        )
 
         self.toa_edges = TOAEdgesParam()
         self._setup_monitor_streams()
@@ -60,48 +48,11 @@ class DashboardApp(ServiceBase):
             inline=True,
             margin=(10, 0),
         )
-        self._callback = None
-        self._setup_config_service()
-        self._logger.info("DashboardApp initialized")
 
-    def _setup_config_service(self) -> None:
-        kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
-        _, consumer = self._exit_stack.enter_context(
-            kafka_consumer.make_control_consumer(instrument=self._instrument)
-        )
-        self._kafka_bridge = KafkaBridge(
-            kafka_config=kafka_downstream_config, consumer=consumer, logger=self._logger
-        )
-        self._config_service = ConfigService(message_bridge=self._kafka_bridge)
+        # Subscribe TOA edges to config service
         self.toa_edges.subscribe(self._config_service)
 
-        self._kafka_bridge_thread = threading.Thread(
-            target=self._kafka_bridge.start, daemon=True
-        )
-        self._logger.info("Config service setup complete")
-
-    def _setup_kafka_consumer(self) -> AdaptingMessageSource:
-        consumer_config = load_config(
-            namespace=config_names.reduced_data_consumer, env=''
-        )
-        kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
-        data_topic = stream_kind_to_topic(
-            instrument=self._instrument, kind=StreamKind.BEAMLIME_DATA
-        )
-        consumer = self._exit_stack.enter_context(
-            kafka_consumer.make_consumer_from_config(
-                topics=[data_topic],
-                config={**consumer_config, **kafka_downstream_config},
-                group='dashboard',
-            )
-        )
-        return AdaptingMessageSource(
-            source=KafkaMessageSource(consumer=consumer, num_messages=1000),
-            adapter=ChainedAdapter(
-                first=KafkaToDa00Adapter(stream_kind=StreamKind.BEAMLIME_DATA),
-                second=Da00ToScippAdapter(),
-            ),
-        )
+        self._logger.info("Monitor dashboard initialized")
 
     def _setup_monitor_streams(self):
         """Initialize streams for monitor data."""
@@ -117,8 +68,12 @@ class DashboardApp(ServiceBase):
         self._orchestrator = Orchestrator(self._setup_kafka_consumer(), forwarder)
         self._logger.info("Monitor streams setup complete")
 
-    def create_monitor_plots(self) -> list:
-        """Create plots for the Monitors tab."""
+    def _step(self):
+        """Step function for periodic updates."""
+        self._orchestrator.update()
+
+    def create_main_content(self) -> pn.viewable.Viewable:
+        """Create the main monitor plots content."""
 
         def _with_toggle(plot_fn):
             return pn.bind(plot_fn, view_mode=self._view_toggle.param.value)
@@ -134,77 +89,31 @@ class DashboardApp(ServiceBase):
             streams={'monitor1': self._monitor1_pipe, 'monitor2': self._monitor2_pipe},
         ).opts(shared_axes=False)
 
-        return [
+        return pn.FlexBox(
             pn.pane.HoloViews(mons),
             pn.pane.HoloViews(mon1),
             pn.pane.HoloViews(mon2),
-        ]
+        )
 
-    def create_status_plot(self):
-        """Create status plot for the sidebar."""
+    def create_sidebar_content(self) -> pn.viewable.Viewable:
+        """Create the sidebar content with status and controls."""
         status_dmap = hv.DynamicMap(
             plots.monitor_total_counts_bar_chart,
             streams={'monitor1': self._monitor1_pipe, 'monitor2': self._monitor2_pipe},
         ).opts(shared_axes=False)
 
-        return pn.pane.HoloViews(status_dmap)
-
-    def _step(self):
-        """Step function for periodic updates."""
-        try:
-            self._orchestrator.update()
-            self._config_service.process_incoming_messages()
-        except Exception as e:
-            self._logger.error("Error in periodic update step: %s", e)
-
-    def start_periodic_updates(self):
-        """Start periodic updates for monitor streams."""
-        if self._callback is None:
-            self._callback = pn.state.add_periodic_callback(self._step, period=1000)
-            self._logger.info("Periodic updates started")
-
-    def create_layout(self) -> pn.template.MaterialTemplate:
-        monitor_plots = pn.FlexBox(*self.create_monitor_plots())
-        sidebar = pn.Column(
+        return pn.Column(
             pn.pane.Markdown("## Status"),
-            self.create_status_plot(),
+            pn.pane.HoloViews(status_dmap),
             pn.pane.Markdown("## Controls"),
             self._view_toggle,
             pn.Param(self.toa_edges.panel()),
             pn.layout.Spacer(height=20),
         )
 
-        # Configure template with dynamic sidebar
-        template = pn.template.MaterialTemplate(
-            title="DREAM — Live Data",
-            sidebar=sidebar,
-            main=monitor_plots,
-            header_background='#2596be',
-        )
-        self.start_periodic_updates()
-
-        return template
-
-    def _start_impl(self) -> None:
-        self._kafka_bridge_thread.start()
-
-    def run_forever(self) -> None:
-        import atexit
-
-        atexit.register(self.stop)
-        try:
-            pn.serve(
-                self.create_layout, port=5007, show=False, autoreload=True, dev=True
-            )
-        except KeyboardInterrupt:
-            self._logger.info("Keyboard interrupt received, shutting down...")
-            self.stop()
-
-    def _stop_impl(self) -> None:
-        """Clean shutdown of all components."""
-        self._kafka_bridge.stop()
-        self._kafka_bridge_thread.join()
-        self._exit_stack.__exit__(None, None, None)
+    def get_dashboard_title(self) -> str:
+        """Get the dashboard title."""
+        return "DREAM — Live Data"
 
 
 def setup_arg_parser() -> argparse.ArgumentParser:
