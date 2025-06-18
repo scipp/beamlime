@@ -1,7 +1,6 @@
 import argparse
 import logging
 import threading
-import time
 from contextlib import ExitStack
 
 import holoviews as hv
@@ -17,7 +16,13 @@ from beamlime.dashboard.config_service import ConfigService
 from beamlime.dashboard.kafka_bridge import KafkaBridge
 from beamlime.dashboard.monitors_params import TOAEdgesParam
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.services.dashboard import DashboardApp as LegacyDashboard
+from beamlime.kafka.message_adapter import (
+    AdaptingMessageSource,
+    ChainedAdapter,
+    Da00ToScippAdapter,
+    KafkaToDa00Adapter,
+)
+from beamlime.kafka.source import KafkaMessageSource
 
 from . import plots
 from .data_forwarder import DataForwarder
@@ -27,8 +32,6 @@ from .orchestrator import Orchestrator
 
 pn.extension('holoviews', template='material')
 hv.extension('bokeh')
-
-legacy_app = LegacyDashboard(instrument='dream', dev=True)
 
 
 class DashboardApp(ServiceBase):
@@ -48,8 +51,12 @@ class DashboardApp(ServiceBase):
         super().__init__(name=name, log_level=log_level)
         self._instrument = instrument
 
+        self._exit_stack = ExitStack()
+        self._exit_stack.__enter__()
+
         self.toa_edges = TOAEdgesParam()
         self._num_edges = self.toa_edges.num_edges
+        self._source = self._setup_kafka_consumer()
         self._setup_monitor_streams()
         self._view_toggle = pn.widgets.RadioBoxGroup(
             name="View Mode",
@@ -59,8 +66,6 @@ class DashboardApp(ServiceBase):
             margin=(10, 0),
         )
         self._callback = None
-        self._exit_stack = ExitStack()
-        self._exit_stack.__enter__()
         self._setup_config_service()
         self._is_shutting_down = False
         self._shutdown_lock = threading.Lock()
@@ -91,6 +96,30 @@ class DashboardApp(ServiceBase):
         )
         self._logger.info("Config service setup complete")
 
+    def _setup_kafka_consumer(self) -> AdaptingMessageSource:
+        consumer_config = load_config(
+            namespace=config_names.reduced_data_consumer, env=''
+        )
+        kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
+        consumer = self._exit_stack.enter_context(
+            kafka_consumer.make_consumer_from_config(
+                topics=[
+                    stream_kind_to_topic(
+                        instrument=self._instrument, kind=StreamKind.BEAMLIME_DATA
+                    )
+                ],
+                config={**consumer_config, **kafka_downstream_config},
+                group='dashboard',
+            )
+        )
+        return AdaptingMessageSource(
+            source=KafkaMessageSource(consumer=consumer, num_messages=1000),
+            adapter=ChainedAdapter(
+                first=KafkaToDa00Adapter(stream_kind=StreamKind.BEAMLIME_DATA),
+                second=Da00ToScippAdapter(),
+            ),
+        )
+
     def _setup_monitor_streams(self):
         """Initialize streams for monitor data."""
         monitor_data_service = DataService()
@@ -102,7 +131,7 @@ class DashboardApp(ServiceBase):
 
         data_services = {'monitor_data': monitor_data_service}
         forwarder = DataForwarder(data_services=data_services)
-        self._orchestrator = Orchestrator(legacy_app._source, forwarder)
+        self._orchestrator = Orchestrator(self._source, forwarder)
 
         # Initialize with default data
         self._update_monitor_streams()
@@ -197,59 +226,6 @@ class DashboardApp(ServiceBase):
             self._callback = pn.state.add_periodic_callback(self._step, period=1000)
             self._logger.info("Periodic updates started")
 
-    def shutdown(self) -> None:
-        """Shutdown the dashboard and all its components."""
-        with self._shutdown_lock:
-            if self._is_shutting_down:
-                self._logger.info("Shutdown already in progress, skipping")
-                return
-
-            self._is_shutting_down = True
-            self._logger.info("Starting DashboardApp shutdown...")
-
-        # Stop periodic callback
-        if self._callback is not None:
-            self._logger.info("Stopping periodic callback...")
-            try:
-                pn.state.remove_periodic_callback(self._callback)
-                self._callback = None
-                self._logger.info("Periodic callback stopped")
-            except Exception as e:
-                self._logger.error("Error stopping periodic callback: %s", e)
-
-        # Shutdown orchestrator
-        try:
-            self._orchestrator.shutdown()
-        except Exception as e:
-            self._logger.error("Error shutting down orchestrator: %s", e)
-
-        # Stop Kafka bridge
-        try:
-            self._kafka_bridge.stop()
-        except Exception as e:
-            self._logger.error("Error stopping Kafka bridge: %s", e)
-
-        # Wait for Kafka bridge thread to finish
-        if self._kafka_bridge_thread and self._kafka_bridge_thread.is_alive():
-            self._logger.info("Waiting for Kafka bridge thread to finish...")
-            self._kafka_bridge_thread.join(timeout=10.0)
-            if self._kafka_bridge_thread.is_alive():
-                self._logger.warning(
-                    "Kafka bridge thread did not finish within timeout"
-                )
-            else:
-                self._logger.info("Kafka bridge thread finished")
-
-        # Close exit stack (this will close all Kafka resources)
-        try:
-            self._logger.info("Closing exit stack...")
-            self._exit_stack.__exit__(None, None, None)
-            self._logger.info("Exit stack closed")
-        except Exception as e:
-            self._logger.error("Error closing exit stack: %s", e)
-
-        self._logger.info("DashboardApp shutdown complete")
-
     def create_layout(self) -> pn.template.MaterialTemplate:
         monitor_plots = pn.FlexBox(*self.create_monitor_plots())
         sidebar = pn.Column(
@@ -280,20 +256,15 @@ class DashboardApp(ServiceBase):
 
     def _start_impl(self) -> None:
         self._kafka_bridge_thread.start()
-        # self._config_service_thread.start()
-        # Wait briefly to allow config service to fetch initial configs
-        time.sleep(0.5)
 
     def run_forever(self) -> None:
-        """Only for development purposes."""
-        # self._app.run(debug=self._debug)
         pn.serve(self.create_layout, port=5007, show=False, autoreload=True, dev=True)
 
     def _stop_impl(self) -> None:
         """Clean shutdown of all components."""
-        # self._config_service.stop()
-        # self._config_service_thread.join()
-        # self._source.close()
+        self._kafka_bridge.stop()
+        self._kafka_bridge_thread.join()
+        self._source.close()
         self._exit_stack.__exit__(None, None, None)
 
 
