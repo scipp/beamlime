@@ -233,6 +233,7 @@ class WorkflowSelectorWidget:
             Available workflow specifications
         """
         self._workflow_specs = workflow_specs
+        self.no_selection = object()
         self._selector = self._create_selector()
         self._description_pane = pn.pane.HTML(
             "Select a workflow to see its description"
@@ -242,7 +243,8 @@ class WorkflowSelectorWidget:
 
     def _create_selector(self) -> pn.widgets.Select:
         """Create workflow selection widget."""
-        options = {"(Select a workflow)": None}
+        select = "--- Click to select a workflow ---"
+        options = {select: self.no_selection}
         options.update(
             {
                 spec.name: workflow_id
@@ -252,7 +254,7 @@ class WorkflowSelectorWidget:
         return pn.widgets.Select(
             name="Workflow",
             options=options,
-            value=None,
+            value=self.no_selection,
         )
 
     def _create_widget(self) -> pn.Column:
@@ -268,7 +270,7 @@ class WorkflowSelectorWidget:
 
     def _on_workflow_selected(self, event) -> None:
         """Handle workflow selection change."""
-        if event.new is None:
+        if event.new is self.no_selection:
             self._description_pane.object = "Select a workflow to see its description"
         else:
             workflow_spec = self._workflow_specs.workflows[event.new]
@@ -302,7 +304,11 @@ class WorkflowSelectorWidget:
     @property
     def selected_workflow_id(self) -> WorkflowId | None:
         """Get the currently selected workflow ID."""
-        return self._selector.value
+        return (
+            self._selector.value
+            if self._selector.value is not self.no_selection
+            else None
+        )
 
     @property
     def selected_workflow_spec(self) -> WorkflowSpec | None:
@@ -655,7 +661,9 @@ class ReductionWidget:
     def _on_workflow_selected(self, event) -> None:
         """Handle workflow selection change."""
         workflow_id = event.new
-        self._configure_button.disabled = workflow_id is None
+        self._configure_button.disabled = (
+            workflow_id is self._workflow_selector.no_selection
+        )
 
     def _on_configure_workflow(self, event) -> None:
         """Handle configure workflow button click."""
