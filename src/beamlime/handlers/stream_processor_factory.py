@@ -7,7 +7,7 @@ from importlib import metadata
 
 from ess.reduce.streaming import StreamProcessor
 
-from beamlime.config.models import Parameter, WorkflowId, WorkflowSpec
+from beamlime.config.workflow_spec import Parameter, WorkflowId, WorkflowSpec
 
 
 class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
