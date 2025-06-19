@@ -515,13 +515,26 @@ class RunningWorkflowsWidget:
         </div>
         """  # noqa: E501
 
-        info_pane = pn.pane.HTML(info_html, width=250)
+        info_pane = pn.pane.HTML(info_html, width=220)
 
         # Create action button
         action_button = pn.widgets.Button(
             name=button_name,
             button_type=button_type,
-            width=50,
+            width=45,
+            height=25,
+            sizing_mode="fixed",
+            margin=(2, 2),
+            stylesheets=[
+                """
+            .bk-btn {
+                font-size: 10px !important;
+                text-align: center !important;
+                padding: 2px !important;
+                line-height: 1 !important;
+            }
+            """
+            ],
         )
 
         # Create callback based on status
@@ -545,8 +558,21 @@ class RunningWorkflowsWidget:
         inspect_button = pn.widgets.Button(
             name="Inspect",
             button_type="light",
-            width=50,
+            width=45,
+            height=25,
+            sizing_mode="fixed",
+            margin=(2, 2),
             disabled=True,  # Will be enabled in future versions
+            stylesheets=[
+                """
+            .bk-btn {
+                font-size: 10px !important;
+                text-align: center !important;
+                padding: 2px !important;
+                line-height: 1 !important;
+            }
+            """
+            ],
         )
 
         return pn.Row(
@@ -554,7 +580,7 @@ class RunningWorkflowsWidget:
             pn.Spacer(),
             inspect_button,
             action_button,
-            margin=(5, 0),
+            margin=(2, 0),
         )
 
     def refresh(self) -> None:
