@@ -21,7 +21,7 @@ from scippnexus import NXdetector
 
 from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
-from beamlime.config.models import Parameter, ParameterType
+from beamlime.config.workflow_spec import Parameter, ParameterType
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 

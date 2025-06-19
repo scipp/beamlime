@@ -10,7 +10,7 @@ from sciline.typing import Key
 
 from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 
-from ..config.models import WorkflowConfig, WorkflowSpecs
+from ..config.workflow_spec import WorkflowConfig, WorkflowSpecs
 from ..core.handler import Accumulator
 
 
