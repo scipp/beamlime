@@ -168,7 +168,9 @@ class ConfigService(Generic[K, Serialized, V]):
     def _handle_config_update(self, key: K, value: Serialized) -> None:
         """Handle a configuration update from the message bridge."""
         try:
+            self._logger.debug('Received config update for key %s: %s', key, value)
             validated = self._schema_validator.deserialize(key, value)
+            self._logger.debug('Validated config for key %s: %s', key, validated)
             if validated is None:
                 return
             self._config[key] = validated
@@ -178,6 +180,9 @@ class ConfigService(Generic[K, Serialized, V]):
 
     def _notify_subscribers(self, key: K, data: V) -> None:
         """Notify all subscribers for a given config key."""
+        self._logger.debug(
+            'Notifying %d subscribers for key %s', len(self._subscribers[key]), key
+        )
         for callback in self._subscribers.get(key, []):
             self._invoke(key, callback, data)
 
