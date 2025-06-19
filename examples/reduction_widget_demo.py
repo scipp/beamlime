@@ -225,14 +225,6 @@ def main():
 
     app.main.append(reduction_widget.widget)
 
-    # Add a refresh button for running workflows
-    refresh_button = pn.widgets.Button(
-        name="Refresh Running Workflows", button_type="light"
-    )
-    refresh_button.on_click(lambda event: reduction_widget.refresh_running_workflows())
-
-    app.main.append(pn.Row(refresh_button))
-
     return app
 
 
