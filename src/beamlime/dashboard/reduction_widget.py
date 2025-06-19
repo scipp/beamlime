@@ -227,15 +227,17 @@ class WorkflowSelectorWidget:
 
     def _create_selector(self) -> pn.widgets.Select:
         """Create workflow selection widget."""
-        options = {
-            spec.name: workflow_id
-            for workflow_id, spec in self._workflow_specs.workflows.items()
-        }
+        options = {"(Select a workflow)": None}
+        options.update(
+            {
+                spec.name: workflow_id
+                for workflow_id, spec in self._workflow_specs.workflows.items()
+            }
+        )
         return pn.widgets.Select(
             name="Workflow",
             options=options,
             value=None,
-            placeholder="Select a workflow",
         )
 
     def _create_widget(self) -> pn.Column:
