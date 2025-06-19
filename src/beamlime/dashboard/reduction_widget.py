@@ -273,6 +273,24 @@ class WorkflowSelectorWidget:
                 f"<p><strong>Description:</strong> {workflow_spec.description}</p>"
             )
 
+    def update_workflow_specs(self, workflow_specs: WorkflowSpecs) -> None:
+        """Update the available workflow specifications."""
+        self._workflow_specs = workflow_specs
+
+        # Update selector options
+        options = {
+            spec.name: workflow_id
+            for workflow_id, spec in self._workflow_specs.workflows.items()
+        }
+        self._selector.options = options
+
+        # Reset selection if current selection no longer exists
+        if (
+            self._selector.value is not None
+            and self._selector.value not in workflow_specs.workflows
+        ):
+            self._selector.value = None
+
     @property
     def widget(self) -> pn.Column:
         """Get the Panel widget."""
@@ -289,6 +307,159 @@ class WorkflowSelectorWidget:
         if self.selected_workflow_id is None:
             return None
         return self._workflow_specs.workflows[self.selected_workflow_id]
+
+
+class WorkflowConfigModal:
+    """Modal dialog for workflow configuration."""
+
+    def __init__(
+        self,
+        workflow_spec: WorkflowSpec,
+        workflow_specs: WorkflowSpecs,
+        controller: WorkflowController,
+        workflow_config: WorkflowConfig | None = None,
+        on_workflow_started: callable | None = None,
+    ) -> None:
+        """
+        Initialize workflow configuration modal.
+
+        Parameters
+        ----------
+        workflow_spec
+            Specification of the workflow to configure
+        workflow_specs
+            All available workflow specifications (for validation)
+        controller
+            Controller for workflow operations
+        workflow_config
+            Optional initial configuration values
+        on_workflow_started
+            Optional callback when workflow is started
+        """
+        self._workflow_spec = workflow_spec
+        self._workflow_specs = workflow_specs
+        self._controller = controller
+        self._workflow_config = workflow_config
+        self._on_workflow_started = on_workflow_started
+
+        self._config_widget = WorkflowConfigWidget(workflow_spec, workflow_config)
+        self._modal = self._create_modal()
+
+    def _create_modal(self) -> pn.Modal:
+        """Create the modal dialog."""
+        start_button = pn.widgets.Button(
+            name="Start Workflow",
+            button_type="primary",
+        )
+        start_button.on_click(self._on_start_workflow)
+
+        cancel_button = pn.widgets.Button(
+            name="Cancel",
+            button_type="light",
+        )
+        cancel_button.on_click(self._on_cancel)
+
+        content = pn.Column(
+            self._config_widget.widget,
+            pn.Row(
+                pn.Spacer(),
+                cancel_button,
+                start_button,
+                margin=(10, 0),
+            ),
+        )
+
+        modal = pn.Modal(
+            content,
+            name=f"Configure {self._workflow_spec.name}",
+            margin=20,
+            width=600,
+            height=500,
+        )
+
+        # Watch for modal close events to clean up
+        modal.param.watch(self._on_modal_closed, 'open')
+
+        return modal
+
+    def _on_cancel(self, event) -> None:
+        """Handle cancel button click."""
+        self._modal.open = False
+
+    def _on_modal_closed(self, event) -> None:
+        """Handle modal being closed (cleanup)."""
+        if not event.new:  # Modal was closed
+            # Remove modal from its parent container after a short delay
+            # to allow the close animation to complete
+            def cleanup():
+                try:
+                    if hasattr(self._modal, '_parent') and self._modal._parent:
+                        self._modal._parent.remove(self._modal)
+                except Exception:  # noqa: S110
+                    pass  # Ignore cleanup errors
+
+            pn.state.add_periodic_callback(cleanup, period=100, count=1)
+
+    def _on_start_workflow(self, event) -> None:
+        """Handle start workflow button click."""
+        # Validate that workflow still exists
+        workflow_id = None
+        for wf_id, spec in self._workflow_specs.workflows.items():
+            if spec.name == self._workflow_spec.name:
+                workflow_id = wf_id
+                break
+
+        if workflow_id is None:
+            self._show_error_modal(
+                f"Error: Workflow '{self._workflow_spec.name}' "
+                "is no longer available. Please select a different workflow."
+            )
+            return
+
+        if not self._config_widget.validate_configuration():
+            self._show_error_modal("Please select at least one source name.")
+            return
+
+        self._controller.start_workflow(
+            workflow_id,
+            self._config_widget.selected_sources,
+            self._config_widget.parameter_values,
+        )
+
+        self._modal.open = False
+
+        if self._on_workflow_started:
+            self._on_workflow_started()
+
+    def _show_error_modal(self, message: str) -> None:
+        """Show an error message in a modal."""
+        error_modal = pn.Modal(
+            pn.pane.HTML(f"<p style='color: red;'>{message}</p>"),
+            name="Error",
+            margin=20,
+            width=400,
+        )
+
+        # Add to the same parent as this modal if possible
+        if hasattr(self._modal, '_parent') and self._modal._parent:
+            self._modal._parent.append(error_modal)
+
+        error_modal.open = True
+
+        # Auto-close error modal after 3 seconds
+        def close_error():
+            error_modal.open = False
+
+        pn.state.add_periodic_callback(close_error, period=3000, count=1)
+
+    def show(self) -> None:
+        """Show the modal dialog."""
+        self._modal.open = True
+
+    @property
+    def modal(self) -> pn.Modal:
+        """Get the modal widget."""
+        return self._modal
 
 
 class RunningWorkflowsWidget:
@@ -439,15 +610,16 @@ class ReductionWidget:
         self._initial_config = initial_config
 
         self._workflow_selector = WorkflowSelectorWidget(workflow_specs)
-        self._config_widget: WorkflowConfigWidget | None = None
         self._running_workflows_widget = RunningWorkflowsWidget(controller)
 
-        self._config_panel = pn.Column()
-        self._start_button = pn.widgets.Button(
-            name="Start Workflow",
+        self._configure_button = pn.widgets.Button(
+            name="Configure & Start",
             button_type="primary",
             disabled=True,
         )
+
+        # Container for modals - they need to be part of the served structure
+        self._modal_container = pn.Column()
 
         self._widget = self._create_widget()
         self._setup_callbacks()
@@ -459,8 +631,7 @@ class ReductionWidget:
             pn.Row(
                 pn.Column(
                     self._workflow_selector.widget,
-                    self._config_panel,
-                    self._start_button,
+                    self._configure_button,
                     width=500,
                 ),
                 pn.Column(
@@ -468,6 +639,7 @@ class ReductionWidget:
                     width=400,
                 ),
             ),
+            self._modal_container,  # Add modal container to main structure
         )
 
     def _setup_callbacks(self) -> None:
@@ -475,15 +647,17 @@ class ReductionWidget:
         self._workflow_selector._selector.param.watch(
             self._on_workflow_selected, "value"
         )
-        self._start_button.on_click(self._on_start_workflow)
+        self._configure_button.on_click(self._on_configure_workflow)
 
     def _on_workflow_selected(self, event) -> None:
         """Handle workflow selection change."""
         workflow_id = event.new
+        self._configure_button.disabled = workflow_id is None
+
+    def _on_configure_workflow(self, event) -> None:
+        """Handle configure workflow button click."""
+        workflow_id = self._workflow_selector.selected_workflow_id
         if workflow_id is None:
-            self._config_panel.objects = []
-            self._start_button.disabled = True
-            self._config_widget = None
             return
 
         workflow_spec = self._workflow_specs.workflows[workflow_id]
@@ -493,31 +667,22 @@ class ReductionWidget:
         if self._initial_config and self._initial_config.identifier == workflow_id:
             config = self._initial_config
 
-        self._config_widget = WorkflowConfigWidget(workflow_spec, config)
-        self._config_panel.objects = [self._config_widget.widget]
-        self._start_button.disabled = False
-
-    def _on_start_workflow(self, event) -> None:
-        """Handle start workflow button click."""
-        if self._config_widget is None:
-            return
-
-        if not self._config_widget.validate_configuration():
-            # In a real implementation, you might want to show an error message
-            return
-
-        workflow_id = self._workflow_selector.selected_workflow_id
-        if workflow_id is None:
-            return
-
-        self._controller.start_workflow(
-            workflow_id,
-            self._config_widget.selected_sources,
-            self._config_widget.parameter_values,
+        modal = WorkflowConfigModal(
+            workflow_spec=workflow_spec,
+            workflow_specs=self._workflow_specs,
+            controller=self._controller,
+            workflow_config=config,
+            on_workflow_started=self.refresh_running_workflows,
         )
 
-        # Refresh running workflows display
-        self.refresh_running_workflows()
+        # Add modal to container and show it
+        self._modal_container.append(modal.modal)
+        modal.show()
+
+    def update_workflow_specs(self, workflow_specs: WorkflowSpecs) -> None:
+        """Update the available workflow specifications."""
+        self._workflow_specs = workflow_specs
+        self._workflow_selector.update_workflow_specs(workflow_specs)
 
     def refresh_running_workflows(self) -> None:
         """Refresh the display of running workflows."""

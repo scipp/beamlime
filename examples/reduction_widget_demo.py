@@ -208,7 +208,7 @@ def create_sample_config() -> WorkflowConfig:
 def main():
     """Main function to create and serve the demo application."""
     # Enable Panel extensions
-    pn.extension('tabulator')
+    pn.extension('tabulator', 'modal')
 
     # Create sample data
     workflow_specs = create_sample_workflow_specs()
@@ -222,6 +222,33 @@ def main():
         initial_config=initial_config,
     )
 
+    # Create button to simulate updating workflow specs
+    def update_specs(event):
+        """Simulate receiving new workflow specifications."""
+        new_specs = create_sample_workflow_specs()
+        del new_specs.workflows["powder_diffraction"]  # Remove one existing workflow
+        # Add a new workflow to demonstrate updating
+        new_specs.workflows["test_workflow"] = WorkflowSpec(
+            name="Test Workflow",
+            description="A test workflow added dynamically",
+            source_names=["test_source"],
+            parameters=[
+                Parameter[int](
+                    name="test_param",
+                    description="A test parameter",
+                    param_type=ParameterType.INT,
+                    default=42,
+                )
+            ],
+        )
+        reduction_widget.update_workflow_specs(new_specs)
+
+    update_button = pn.widgets.Button(
+        name="Update Workflow Specs",
+        button_type="light",
+    )
+    update_button.on_click(update_specs)
+
     # Create the main application layout
     app = pn.template.MaterialTemplate(
         title="Beamlime Reduction Widget Demo",
@@ -231,13 +258,16 @@ def main():
             <p>This is a demonstration of the Beamlime reduction widget.</p>
             <ul>
                 <li>Select a workflow from the dropdown</li>
-                <li>Configure parameters and select sources</li>
+                <li>Click "Configure & Start" to open configuration modal</li>
+                <li>Configure parameters and select sources in the modal</li>
                 <li>Click "Start Workflow" to simulate running</li>
                 <li>Use "Stop" to stop running workflows (they become grayed out)</li>
                 <li>Use "Remove" to remove stopped workflows from the list</li>
+                <li>Use "Update Workflow Specs" to simulate receiving new specifications</li>
             </ul>
             <p><strong>Note:</strong> This is a demo with fake data - no actual processing occurs.</p>
-            """)  # noqa: E501
+            """),  # noqa: E501
+            update_button,
         ],
     )
 
