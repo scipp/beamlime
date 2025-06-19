@@ -515,13 +515,13 @@ class RunningWorkflowsWidget:
         </div>
         """  # noqa: E501
 
-        info_pane = pn.pane.HTML(info_html, width=300)
+        info_pane = pn.pane.HTML(info_html, width=250)
 
         # Create action button
         action_button = pn.widgets.Button(
             name=button_name,
             button_type=button_type,
-            width=80,
+            width=50,
         )
 
         # Create callback based on status
@@ -545,7 +545,7 @@ class RunningWorkflowsWidget:
         inspect_button = pn.widgets.Button(
             name="Inspect",
             button_type="light",
-            width=80,
+            width=50,
             disabled=True,  # Will be enabled in future versions
         )
 
@@ -630,16 +630,14 @@ class ReductionWidget:
         """Create the main widget layout."""
         return pn.Column(
             pn.pane.HTML("<h3>Data Reduction Workflows</h3>"),
-            pn.Row(
-                pn.Column(
-                    self._workflow_selector.widget,
-                    self._configure_button,
-                    width=500,
-                ),
-                pn.Column(
-                    self._running_workflows_widget.widget,
-                    width=400,
-                ),
+            pn.Column(
+                self._workflow_selector.widget,
+                self._configure_button,
+                width=500,
+            ),
+            pn.Column(
+                self._running_workflows_widget.widget,
+                width=400,
             ),
             self._modal_container,  # Add modal container to main structure
         )
