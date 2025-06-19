@@ -15,8 +15,9 @@ from beamlime import Service, ServiceBase
 from beamlime.config import config_names, models
 from beamlime.config.config_loader import load_config
 from beamlime.config.instruments import get_config
-from beamlime.config.models import ConfigKey, WorkflowConfig
+from beamlime.config.models import ConfigKey
 from beamlime.config.streams import stream_kind_to_topic
+from beamlime.config.workflow_spec import WorkflowConfig
 from beamlime.core.config_service import ConfigService
 from beamlime.core.message import StreamKind, compact_messages
 from beamlime.dashboard_dash.dash_app import make_dash_app
