@@ -75,6 +75,37 @@ class WorkflowController(Protocol):
         ...
 
 
+class WorkflowSpecsManager:
+    """Centralized manager for workflow specifications."""
+
+    def __init__(self, workflow_specs: WorkflowSpecs) -> None:
+        """
+        Initialize workflow specs manager.
+
+        Parameters
+        ----------
+        workflow_specs
+            Initial workflow specifications
+        """
+        self._workflow_specs = workflow_specs
+        self._subscribers: list[callable] = []
+
+    def update_workflow_specs(self, workflow_specs: WorkflowSpecs) -> None:
+        """Update workflow specs and notify subscribers."""
+        self._workflow_specs = workflow_specs
+        for callback in self._subscribers:
+            callback(workflow_specs)
+
+    def subscribe_to_updates(self, callback: callable) -> None:
+        """Subscribe to workflow specs updates."""
+        self._subscribers.append(callback)
+
+    @property
+    def workflow_specs(self) -> WorkflowSpecs:
+        """Get current workflow specifications."""
+        return self._workflow_specs
+
+
 class ParameterWidget:
     """Widget for configuring a single workflow parameter."""
 
@@ -227,16 +258,16 @@ class WorkflowConfigWidget:
 class WorkflowSelectorWidget:
     """Widget for selecting workflows from available specifications."""
 
-    def __init__(self, workflow_specs: WorkflowSpecs) -> None:
+    def __init__(self, specs_manager: WorkflowSpecsManager) -> None:
         """
         Initialize workflow selector.
 
         Parameters
         ----------
-        workflow_specs
-            Available workflow specifications
+        specs_manager
+            Manager for workflow specifications
         """
-        self._workflow_specs = workflow_specs
+        self._specs_manager = specs_manager
         self.no_selection = object()
         self._selector = self._create_selector()
         self._description_pane = pn.pane.HTML(
@@ -244,6 +275,9 @@ class WorkflowSelectorWidget:
         )
         self._widget = self._create_widget()
         self._setup_callbacks()
+
+        # Subscribe to specs updates
+        self._specs_manager.subscribe_to_updates(self._on_workflow_specs_updated)
 
     def _create_options(self, specs: WorkflowSpecs) -> dict[str, WorkflowId | object]:
         """Create options dictionary for the selector."""
@@ -258,7 +292,7 @@ class WorkflowSelectorWidget:
         """Create workflow selection widget."""
         return pn.widgets.Select(
             name="Workflow",
-            options=self._create_options(self._workflow_specs),
+            options=self._create_options(self._specs_manager.workflow_specs),
             value=self.no_selection,
         )
 
@@ -278,14 +312,13 @@ class WorkflowSelectorWidget:
         if event.new is self.no_selection:
             self._description_pane.object = "Select a workflow to see its description"
         else:
-            workflow_spec = self._workflow_specs.workflows[event.new]
+            workflow_spec = self._specs_manager.workflow_specs.workflows[event.new]
             self._description_pane.object = (
                 f"<p><strong>Description:</strong> {workflow_spec.description}</p>"
             )
 
-    def update_workflow_specs(self, workflow_specs: WorkflowSpecs) -> None:
-        """Update the available workflow specifications."""
-        self._workflow_specs = workflow_specs
+    def _on_workflow_specs_updated(self, workflow_specs: WorkflowSpecs) -> None:
+        """Handle workflow specs updates."""
         self._selector.options = self._create_options(workflow_specs)
         self._selector.value = self.no_selection
 
@@ -308,7 +341,7 @@ class WorkflowSelectorWidget:
         """Get the currently selected workflow specification."""
         if self.selected_workflow_id is None:
             return None
-        return self._workflow_specs.workflows[self.selected_workflow_id]
+        return self._specs_manager.workflow_specs.workflows[self.selected_workflow_id]
 
 
 class WorkflowConfigModal:
@@ -467,7 +500,9 @@ class WorkflowConfigModal:
 class RunningWorkflowsWidget:
     """Widget for displaying and controlling running workflows."""
 
-    def __init__(self, controller: WorkflowController) -> None:
+    def __init__(
+        self, controller: WorkflowController, specs_manager: WorkflowSpecsManager
+    ) -> None:
         """
         Initialize running workflows widget.
 
@@ -475,8 +510,11 @@ class RunningWorkflowsWidget:
         ----------
         controller
             Controller for workflow operations
+        specs_manager
+            Manager for workflow specifications
         """
         self._controller = controller
+        self._specs_manager = specs_manager
         self._workflow_list = pn.Column()
         self._widget = self._create_widget()
 
@@ -505,13 +543,20 @@ class RunningWorkflowsWidget:
             button_type = "light"
             opacity_style = "opacity: 0.7;"
 
+        # Get workflow name from specs, fallback to ID if not found
+        workflow_specs = self._specs_manager.workflow_specs
+        if workflow_id in workflow_specs.workflows:
+            workflow_name = workflow_specs.workflows[workflow_id].name
+        else:
+            workflow_name = workflow_id
+
         # Create info panel with status indicator
         info_html = f"""
         <div style="{opacity_style}">
             <strong>{source_name}</strong>
             <span style="color: {status_color}; font-size: 0.8em; margin-left: 8px;">● {status_text}</span>
             <br>
-            <small>Workflow: {workflow_id}</small>
+            <small>Workflow: {workflow_name}</small>
         </div>
         """  # noqa: E501
 
@@ -633,12 +678,14 @@ class ReductionWidget:
         initial_config
             Optional initial workflow configuration
         """
-        self._workflow_specs = workflow_specs
         self._controller = controller
         self._initial_config = initial_config
 
-        self._workflow_selector = WorkflowSelectorWidget(workflow_specs)
-        self._running_workflows_widget = RunningWorkflowsWidget(controller)
+        self._specs_manager = WorkflowSpecsManager(workflow_specs)
+        self._workflow_selector = WorkflowSelectorWidget(self._specs_manager)
+        self._running_workflows_widget = RunningWorkflowsWidget(
+            controller, self._specs_manager
+        )
 
         self._configure_button = pn.widgets.Button(
             name="Configure & Start",
@@ -688,7 +735,7 @@ class ReductionWidget:
         if workflow_id is None:
             return
 
-        workflow_spec = self._workflow_specs.workflows[workflow_id]
+        workflow_spec = self._specs_manager.workflow_specs.workflows[workflow_id]
 
         # Use initial config if it matches the selected workflow
         config = None
@@ -697,7 +744,7 @@ class ReductionWidget:
 
         modal = WorkflowConfigModal(
             workflow_spec=workflow_spec,
-            workflow_specs=self._workflow_specs,
+            workflow_specs=self._specs_manager.workflow_specs,
             controller=self._controller,
             workflow_config=config,
             on_workflow_started=self.refresh_running_workflows,
@@ -709,8 +756,7 @@ class ReductionWidget:
 
     def update_workflow_specs(self, workflow_specs: WorkflowSpecs) -> None:
         """Update the available workflow specifications."""
-        self._workflow_specs = workflow_specs
-        self._workflow_selector.update_workflow_specs(workflow_specs)
+        self._specs_manager.update_workflow_specs(workflow_specs)
 
     def refresh_running_workflows(self) -> None:
         """Refresh the display of running workflows."""
