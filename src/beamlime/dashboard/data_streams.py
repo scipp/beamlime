@@ -4,7 +4,7 @@ from holoviews import streams
 
 from .data_key import ComponentDataKey, DataKey, MonitorDataKey
 from .data_service import DataService
-from .subscribers import ComponentDataSubscriber
+from .subscribers import ComponentDataSubscriber, MergingDataSubscriber
 
 
 class DataStream:
@@ -24,6 +24,15 @@ class ComponentDataStream:
         )
 
 
+class MergingDataStream:
+    """A data stream that merges multiple data sources into a single pipe."""
+
+    def __init__(self, keys: set[DataKey]):
+        self.pipe = streams.Pipe(data=None)
+        self.keys = keys
+        self.subscriber = MergingDataSubscriber(keys=keys, pipe=self.pipe)
+
+
 class MonitorStreamManager:
     """A manager for monitor data streams."""
 
@@ -40,3 +49,28 @@ class MonitorStreamManager:
             self.data_service.register_subscriber(stream.subscriber)
             self.streams[data_key] = stream
         return self.streams[data_key].pipe
+
+
+class ReductionStreamManager:
+    """A manager for reduction data streams."""
+
+    def __init__(self, data_service: DataService):
+        self.data_service = data_service
+        self.streams: dict[tuple[tuple[str, ...], str], MergingDataStream] = {}
+
+    def get_stream(self, source_names: set[str], view_name: str) -> streams.Pipe:
+        """Get or create a data stream for the given component key and view."""
+        data_keys = {
+            DataKey(
+                service_name='data_reduction',
+                source_name=source_name,
+                key=f'reduced/{source_name}/{view_name}',
+            )
+            for source_name in source_names
+        }
+        key = (tuple(source_names), view_name)
+        if key not in self.streams:
+            stream = MergingDataStream(data_keys)
+            self.data_service.register_subscriber(stream.subscriber)
+            self.streams[key] = stream
+        return self.streams[key].pipe

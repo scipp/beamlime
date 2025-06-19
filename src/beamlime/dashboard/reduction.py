@@ -6,6 +6,7 @@ import panel as pn
 from beamlime import Service
 from beamlime.config.workflow_spec import WorkflowSpecs
 
+from . import plots
 from .dashboard import DashboardBase
 from .reduction_widget import ReductionWidget
 from .workflow_controller import ConfigServiceWorkflowController
@@ -26,6 +27,7 @@ class ReductionApp(DashboardBase):
         )
 
         self._setup_workflow_management()
+        self._setup_reduction_streams()
         self._logger.info("Reduction dashboard initialized")
 
     def _setup_workflow_management(self) -> None:
@@ -49,6 +51,18 @@ class ReductionApp(DashboardBase):
             self._on_workflow_specs_updated
         )
 
+    def _setup_reduction_streams(self) -> None:
+        """Initialize streams for reduction data."""
+        self._iofd_pipe = self._reduction_stream_manager.get_stream(
+            source_names={
+                'mantle_detector',
+                'endcap_forward_detector',
+                'endcap_backward_detector',
+                'high_resolution_detector',
+            },
+            view_name='ess.powder.types.FocussedDataDspacing[ess.reduce.nexus.types.SampleRun]',
+        )
+
     def _on_workflow_specs_updated(self, workflow_specs: WorkflowSpecs) -> None:
         """Handle workflow specs updates from the controller."""
         self._logger.info(
@@ -68,14 +82,12 @@ class ReductionApp(DashboardBase):
 
     def create_main_content(self) -> pn.viewable.Viewable:
         """Create the main content area (empty for now)."""
+        self._iofd_plot = plots.AutoscalingPlot()
+        iofd = hv.DynamicMap(
+            self._iofd_plot.plot_lines, streams=[self._iofd_pipe]
+        ).opts(shared_axes=False)
         return pn.Column(
-            pn.pane.HTML(
-                "<div style='text-align: center; padding: 50px;'>"
-                "<h3>Reduction Results</h3>"
-                "<p style='color: #6c757d;'>Reduction plots will appear here once "
-                "workflows are configured and running.</p>"
-                "</div>"
-            )
+            pn.pane.HoloViews(iofd),
         )
 
     def _step(self):
