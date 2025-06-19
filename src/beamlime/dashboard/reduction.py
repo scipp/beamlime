@@ -81,9 +81,6 @@ class ReductionApp(DashboardBase):
         super()._step()
         # Process workflow configuration updates
         self._workflow_controller.process_config_updates()
-        # Refresh running workflows display
-        # TODO Do we need this call?
-        self._reduction_widget.refresh_running_workflows()
 
 
 def main() -> None:
