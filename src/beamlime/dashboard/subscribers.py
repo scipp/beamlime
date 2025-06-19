@@ -37,3 +37,19 @@ class ComponentDataSubscriber(DataSubscriber):
             cumulative=data[self._cumulative_key], current=data[self._current_key]
         )
         self._pipe.send(detector_data)
+
+
+class MergingDataSubscriber(DataSubscriber):
+    """
+    Subscriber for merging data from multiple sources.
+
+    This subscriber merges data from multiple keys into a single data structure.
+    """
+
+    def __init__(self, keys: set[DataKey], pipe: Pipe) -> None:
+        super().__init__(keys)
+        self._pipe = pipe
+
+    def send(self, data: dict[DataKey, Any]) -> None:
+        merged_data = {key: data[key] for key in self.keys if key in data}
+        self._pipe.send(merged_data)
