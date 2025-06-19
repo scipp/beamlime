@@ -38,6 +38,9 @@ class ConfigServiceWorkflowController(WorkflowController):
         self._workflow_status: dict[str, WorkflowStatus] = {}
         self._workflow_specs: WorkflowSpecs = WorkflowSpecs()
 
+        # Callback for workflow specs updates
+        self._workflow_specs_callbacks: list[callable] = []
+
         # Subscribe to workflow specs updates
         self._setup_subscriptions()
 
@@ -63,6 +66,13 @@ class ConfigServiceWorkflowController(WorkflowController):
             len(workflow_specs.workflows),
         )
         self._workflow_specs = workflow_specs
+
+        # Notify all subscribers
+        for callback in self._workflow_specs_callbacks:
+            try:
+                callback(workflow_specs)
+            except Exception as e:  # noqa: PERF203
+                self._logger.error('Error in workflow specs update callback: %s', e)
 
     def start_workflow(
         self, workflow_id: WorkflowId, source_names: list[str], config: dict[str, Any]
@@ -145,6 +155,10 @@ class ConfigServiceWorkflowController(WorkflowController):
     def get_workflow_specs(self) -> WorkflowSpecs:
         """Get the current workflow specifications."""
         return self._workflow_specs
+
+    def subscribe_to_workflow_specs_updates(self, callback: callable) -> None:
+        """Subscribe to workflow specs updates."""
+        self._workflow_specs_callbacks.append(callback)
 
     def process_config_updates(self) -> None:
         """Process any pending configuration updates from the config service."""
