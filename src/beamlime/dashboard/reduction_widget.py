@@ -245,19 +245,20 @@ class WorkflowSelectorWidget:
         self._widget = self._create_widget()
         self._setup_callbacks()
 
-    def _create_selector(self) -> pn.widgets.Select:
-        """Create workflow selection widget."""
+    def _create_options(self, specs: WorkflowSpecs) -> dict[str, WorkflowId | object]:
+        """Create options dictionary for the selector."""
         select = "--- Click to select a workflow ---"
         options = {select: self.no_selection}
         options.update(
-            {
-                spec.name: workflow_id
-                for workflow_id, spec in self._workflow_specs.workflows.items()
-            }
+            {spec.name: workflow_id for workflow_id, spec in specs.workflows.items()}
         )
+        return options
+
+    def _create_selector(self) -> pn.widgets.Select:
+        """Create workflow selection widget."""
         return pn.widgets.Select(
             name="Workflow",
-            options=options,
+            options=self._create_options(self._workflow_specs),
             value=self.no_selection,
         )
 
@@ -285,20 +286,8 @@ class WorkflowSelectorWidget:
     def update_workflow_specs(self, workflow_specs: WorkflowSpecs) -> None:
         """Update the available workflow specifications."""
         self._workflow_specs = workflow_specs
-
-        # Update selector options
-        options = {
-            spec.name: workflow_id
-            for workflow_id, spec in self._workflow_specs.workflows.items()
-        }
-        self._selector.options = options
-
-        # Reset selection if current selection no longer exists
-        if (
-            self._selector.value is not None
-            and self._selector.value not in workflow_specs.workflows
-        ):
-            self._selector.value = None
+        self._selector.options = self._create_options(workflow_specs)
+        self._selector.value = self.no_selection
 
     @property
     def widget(self) -> pn.Column:
@@ -386,8 +375,8 @@ class WorkflowConfigModal:
             content,
             name=f"Configure {self._workflow_spec.name}",
             margin=20,
-            width=600,
-            height=500,
+            width=800,
+            height=600,
         )
 
         # Watch for modal close events to clean up
