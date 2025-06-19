@@ -70,6 +70,10 @@ class WorkflowController(Protocol):
         """Get the status of a workflow for a specific source."""
         ...
 
+    def subscribe_to_workflow_specs_updates(self, callback: callable) -> None:
+        """Subscribe to workflow specs updates."""
+        ...
+
 
 class ParameterWidget:
     """Widget for configuring a single workflow parameter."""
