@@ -27,7 +27,6 @@ class FakeMonitorSource(MessageSource[sc.Variable]):
 
     def __init__(self, *, interval_ns: int = int(1e9 / 14), instrument: str):
         self._rng = np.random.default_rng()
-        self._tof = sc.linspace('tof', 0, 71_000_000, num=50, unit='ns')
         self._interval_ns = interval_ns
         self._last_message_time = {
             "monitor1": time.time_ns(),
@@ -57,10 +56,7 @@ class FakeMonitorSource(MessageSource[sc.Variable]):
     def _make_message(
         self, name: str, size: int, timestamp: int
     ) -> Message[sc.Variable]:
-        pos = 1 if name == "monitor1" else 2
-        time_of_flight = self._make_normal(
-            mean=int(1e7) * pos, std=10_000_000, size=size
-        )
+        time_of_flight = self._make_normal(mean=30_000_000, std=10_000_000, size=size)
         var = sc.array(dims=['time_of_arrival'], values=time_of_flight, unit='ns')
         return Message(
             timestamp=timestamp,
@@ -78,7 +74,7 @@ class EventsToHistogramAdapter(
     def adapt(self, message: Message[sc.Variable]) -> Message[sc.DataArray]:
         return replace(
             message,
-            key=replace(message.stream, kind=StreamKind.MONITOR_COUNTS),
+            stream=replace(message.stream, kind=StreamKind.MONITOR_COUNTS),
             value=message.value.hist({self._toa.dim: self._toa}),
         )
 
@@ -118,7 +114,7 @@ def run_service(
         serializer = serialize_variable_to_monitor_ev44
     else:
         adapter = EventsToHistogramAdapter(
-            toa=sc.linspace('toa', 0, 71_000_000, num=100, unit='ns')
+            toa=sc.linspace('toa', 0, 71_000_000, num=140, unit='ns')
         )
         serializer = serialize_dataarray_to_da00
     builder = DataServiceBuilder(
