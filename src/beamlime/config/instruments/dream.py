@@ -181,6 +181,7 @@ geometry_file_param = Parameter(
 
 @instrument.register_workflow(
     name='Powder reduction',
+    description='Powder reduction without vanadium normalization.',
     source_names=_source_names,
     parameters=[geometry_file_param],
 )
