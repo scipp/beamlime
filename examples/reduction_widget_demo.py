@@ -23,7 +23,7 @@ class FakeWorkflowController(WorkflowController):
     """Fake workflow controller for demonstration purposes."""
 
     def __init__(self) -> None:
-        self._running_workflows: dict[WorkflowId, list[str]] = {}
+        self._running_workflows: dict[str, WorkflowId] = {}
 
     def start_workflow(
         self, workflow_id: WorkflowId, source_names: list[str], config: dict[str, Any]
@@ -31,16 +31,19 @@ class FakeWorkflowController(WorkflowController):
         """Start a workflow with given configuration."""
         print(f"Starting workflow '{workflow_id}' on sources {source_names}")  # noqa: T201
         print(f"Configuration: {config}")  # noqa: T201
-        self._running_workflows[workflow_id] = source_names
 
-    def stop_workflow(self, workflow_id: WorkflowId) -> None:
-        """Stop a running workflow."""
-        print(f"Stopping workflow '{workflow_id}'")  # noqa: T201
-        if workflow_id in self._running_workflows:
-            del self._running_workflows[workflow_id]
+        # Start workflow for each source name individually
+        for source_name in source_names:
+            self._running_workflows[source_name] = workflow_id
 
-    def get_running_workflows(self) -> dict[WorkflowId, list[str]]:
-        """Get currently running workflows and their source names."""
+    def stop_workflow_for_source(self, source_name: str) -> None:
+        """Stop a running workflow for a specific source."""
+        print(f"Stopping workflow for source '{source_name}'")  # noqa: T201
+        if source_name in self._running_workflows:
+            del self._running_workflows[source_name]
+
+    def get_running_workflows(self) -> dict[str, WorkflowId]:
+        """Get currently running workflows mapped by source name."""
         return self._running_workflows.copy()
 
 

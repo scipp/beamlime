@@ -47,12 +47,12 @@ class WorkflowController(Protocol):
         """Start a workflow with given configuration."""
         ...
 
-    def stop_workflow(self, workflow_id: WorkflowId) -> None:
-        """Stop a running workflow."""
+    def stop_workflow_for_source(self, source_name: str) -> None:
+        """Stop a running workflow for a specific source."""
         ...
 
-    def get_running_workflows(self) -> dict[WorkflowId, list[str]]:
-        """Get currently running workflows and their source names."""
+    def get_running_workflows(self) -> dict[str, WorkflowId]:
+        """Get currently running workflows mapped by source name."""
         ...
 
 
@@ -311,23 +311,22 @@ class RunningWorkflowsWidget:
             return
 
         workflow_items = []
-        for workflow_id, source_names in running_workflows.items():
-            sources_text = ", ".join(source_names)
+        for source_name, workflow_id in running_workflows.items():
             stop_button = pn.widgets.Button(
                 name="Stop",
                 button_type="primary",
                 width=80,
             )
 
-            # Create closure to capture workflow_id
-            def create_stop_callback(wf_id: WorkflowId) -> Callable:
-                return lambda event: self._controller.stop_workflow(wf_id)
+            # Create closure to capture source_name
+            def create_stop_callback(src_name: str) -> Callable:
+                return lambda event: self._controller.stop_workflow_for_source(src_name)
 
-            stop_button.on_click(create_stop_callback(workflow_id))
+            stop_button.on_click(create_stop_callback(source_name))
 
             workflow_row = pn.Row(
                 pn.pane.HTML(
-                    f"<strong>{workflow_id}</strong><br>Sources: {sources_text}"
+                    f"<strong>{source_name}</strong><br>Workflow: {workflow_id}"
                 ),
                 stop_button,
             )
