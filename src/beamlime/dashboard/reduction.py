@@ -56,6 +56,8 @@ class ReductionApp(DashboardBase):
             len(workflow_specs.workflows),
         )
         self._reduction_widget.update_workflow_specs(workflow_specs)
+        # Also refresh running workflows to ensure they show updated names
+        self._reduction_widget.refresh_running_workflows()
 
     def create_sidebar_content(self) -> pn.viewable.Viewable:
         """Create the sidebar content with workflow controls."""
