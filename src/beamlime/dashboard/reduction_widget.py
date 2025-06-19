@@ -23,7 +23,7 @@ Concretely we have:
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from enum import Enum
 from typing import Any, Protocol
 
 import panel as pn
@@ -36,6 +36,13 @@ from beamlime.config.workflow_spec import (
     WorkflowSpec,
     WorkflowSpecs,
 )
+
+
+class WorkflowStatus(Enum):
+    """Status of a workflow."""
+
+    RUNNING = "running"
+    STOPPED = "stopped"
 
 
 class WorkflowController(Protocol):
@@ -51,8 +58,16 @@ class WorkflowController(Protocol):
         """Stop a running workflow for a specific source."""
         ...
 
+    def remove_workflow_for_source(self, source_name: str) -> None:
+        """Remove a stopped workflow from tracking."""
+        ...
+
     def get_running_workflows(self) -> dict[str, WorkflowId]:
         """Get currently running workflows mapped by source name."""
+        ...
+
+    def get_workflow_status(self, source_name: str) -> WorkflowStatus | None:
+        """Get the status of a workflow for a specific source."""
         ...
 
 
@@ -298,39 +313,100 @@ class RunningWorkflowsWidget:
     def _create_widget(self) -> pn.Column:
         """Create the main widget."""
         return pn.Column(
-            pn.pane.HTML("<h4>Running Workflows</h4>"),
+            pn.pane.HTML("<h4>Workflows</h4>"),
             self._workflow_list,
         )
 
+    def _create_workflow_row(
+        self, source_name: str, workflow_id: WorkflowId, status: WorkflowStatus
+    ) -> pn.Row:
+        """Create a row widget for a single workflow."""
+        # Style based on status
+        if status == WorkflowStatus.RUNNING:
+            status_color = "#28a745"  # Green
+            status_text = "Running"
+            button_name = "Stop"
+            button_type = "primary"
+            opacity_style = ""
+        else:  # STOPPED
+            status_color = "#6c757d"  # Gray
+            status_text = "Stopped"
+            button_name = "Remove"
+            button_type = "light"
+            opacity_style = "opacity: 0.7;"
+
+        # Create info panel with status indicator
+        info_html = f"""
+        <div style="{opacity_style}">
+            <strong>{source_name}</strong>
+            <span style="color: {status_color}; font-size: 0.8em; margin-left: 8px;">● {status_text}</span>
+            <br>
+            <small>Workflow: {workflow_id}</small>
+        </div>
+        """  # noqa: E501
+
+        info_pane = pn.pane.HTML(info_html, width=300)
+
+        # Create action button
+        action_button = pn.widgets.Button(
+            name=button_name,
+            button_type=button_type,
+            width=80,
+        )
+
+        # Create callback based on status
+        if status == WorkflowStatus.RUNNING:
+
+            def stop_callback(event):
+                self._controller.stop_workflow_for_source(source_name)
+                self.refresh()
+        else:
+
+            def remove_callback(event):
+                self._controller.remove_workflow_for_source(source_name)
+                self.refresh()
+
+        callback = (
+            stop_callback if status == WorkflowStatus.RUNNING else remove_callback
+        )
+        action_button.on_click(callback)
+
+        # Create placeholder for future features (inspection, outputs)
+        inspect_button = pn.widgets.Button(
+            name="Inspect",
+            button_type="light",
+            width=80,
+            disabled=True,  # Will be enabled in future versions
+        )
+
+        return pn.Row(
+            info_pane,
+            pn.Spacer(),
+            inspect_button,
+            action_button,
+            margin=(5, 0),
+        )
+
     def refresh(self) -> None:
-        """Refresh the list of running workflows."""
+        """Refresh the list of workflows."""
         running_workflows = self._controller.get_running_workflows()
 
         if not running_workflows:
-            self._workflow_list.objects = [pn.pane.HTML("<p>No running workflows</p>")]
+            self._workflow_list.objects = [
+                pn.pane.HTML(
+                    "<p style='color: #6c757d; font-style: italic;'>No workflows</p>"
+                )
+            ]
             return
 
         workflow_items = []
         for source_name, workflow_id in running_workflows.items():
-            stop_button = pn.widgets.Button(
-                name="Stop",
-                button_type="primary",
-                width=80,
-            )
-
-            # Create closure to capture source_name
-            def create_stop_callback(src_name: str) -> Callable:
-                return lambda event: self._controller.stop_workflow_for_source(src_name)
-
-            stop_button.on_click(create_stop_callback(source_name))
-
-            workflow_row = pn.Row(
-                pn.pane.HTML(
-                    f"<strong>{source_name}</strong><br>Workflow: {workflow_id}"
-                ),
-                stop_button,
-            )
-            workflow_items.append(workflow_row)
+            status = self._controller.get_workflow_status(source_name)
+            if status is not None:
+                workflow_row = self._create_workflow_row(
+                    source_name, workflow_id, status
+                )
+                workflow_items.append(workflow_row)
 
         self._workflow_list.objects = workflow_items
 
@@ -444,7 +520,7 @@ class ReductionWidget:
         )
 
         # Refresh running workflows display
-        self._running_workflows_widget.refresh()
+        self.refresh_running_workflows()
 
     def refresh_running_workflows(self) -> None:
         """Refresh the display of running workflows."""

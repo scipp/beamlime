@@ -16,7 +16,11 @@ from beamlime.config.workflow_spec import (
     WorkflowSpec,
     WorkflowSpecs,
 )
-from beamlime.dashboard.reduction_widget import ReductionWidget, WorkflowController
+from beamlime.dashboard.reduction_widget import (
+    ReductionWidget,
+    WorkflowController,
+    WorkflowStatus,
+)
 
 
 class FakeWorkflowController(WorkflowController):
@@ -24,6 +28,7 @@ class FakeWorkflowController(WorkflowController):
 
     def __init__(self) -> None:
         self._running_workflows: dict[str, WorkflowId] = {}
+        self._workflow_status: dict[str, WorkflowStatus] = {}
 
     def start_workflow(
         self, workflow_id: WorkflowId, source_names: list[str], config: dict[str, Any]
@@ -35,16 +40,28 @@ class FakeWorkflowController(WorkflowController):
         # Start workflow for each source name individually
         for source_name in source_names:
             self._running_workflows[source_name] = workflow_id
+            self._workflow_status[source_name] = WorkflowStatus.RUNNING
 
     def stop_workflow_for_source(self, source_name: str) -> None:
         """Stop a running workflow for a specific source."""
         print(f"Stopping workflow for source '{source_name}'")  # noqa: T201
         if source_name in self._running_workflows:
+            self._workflow_status[source_name] = WorkflowStatus.STOPPED
+
+    def remove_workflow_for_source(self, source_name: str) -> None:
+        """Remove a stopped workflow from tracking."""
+        print(f"Removing workflow for source '{source_name}'")  # noqa: T201
+        if source_name in self._running_workflows:
             del self._running_workflows[source_name]
+            del self._workflow_status[source_name]
 
     def get_running_workflows(self) -> dict[str, WorkflowId]:
         """Get currently running workflows mapped by source name."""
         return self._running_workflows.copy()
+
+    def get_workflow_status(self, source_name: str) -> WorkflowStatus | None:
+        """Get the status of a workflow for a specific source."""
+        return self._workflow_status.get(source_name)
 
 
 def create_sample_workflow_specs() -> WorkflowSpecs:
@@ -216,7 +233,8 @@ def main():
                 <li>Select a workflow from the dropdown</li>
                 <li>Configure parameters and select sources</li>
                 <li>Click "Start Workflow" to simulate running</li>
-                <li>Use the "Stop" button to stop running workflows</li>
+                <li>Use "Stop" to stop running workflows (they become grayed out)</li>
+                <li>Use "Remove" to remove stopped workflows from the list</li>
             </ul>
             <p><strong>Note:</strong> This is a demo with fake data - no actual processing occurs.</p>
             """)  # noqa: E501
