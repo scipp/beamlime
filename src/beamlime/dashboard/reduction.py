@@ -53,14 +53,19 @@ class ReductionApp(DashboardBase):
 
     def _setup_reduction_streams(self) -> None:
         """Initialize streams for reduction data."""
+        source_names = {
+            'mantle_detector',
+            'endcap_forward_detector',
+            'endcap_backward_detector',
+            'high_resolution_detector',
+        }
         self._iofd_pipe = self._reduction_stream_manager.get_stream(
-            source_names={
-                'mantle_detector',
-                'endcap_forward_detector',
-                'endcap_backward_detector',
-                'high_resolution_detector',
-            },
+            source_names=source_names,
             view_name='ess.powder.types.FocussedDataDspacing[ess.reduce.nexus.types.SampleRun]',
+        )
+        self._iofd2theta_pipe = self._reduction_stream_manager.get_stream(
+            source_names=source_names,
+            view_name='ess.powder.types.FocussedDataDspacingTwoTheta[ess.reduce.nexus.types.SampleRun]',
         )
 
     def _on_workflow_specs_updated(self, workflow_specs: WorkflowSpecs) -> None:
@@ -86,8 +91,13 @@ class ReductionApp(DashboardBase):
         iofd = hv.DynamicMap(
             self._iofd_plot.plot_lines, streams=[self._iofd_pipe]
         ).opts(shared_axes=False)
+        self._iofd2theta_plot = plots.AutoscalingPlot()
+        iofd2theta = hv.DynamicMap(
+            self._iofd2theta_plot.plot_sum_of_2d, streams=[self._iofd2theta_pipe]
+        ).opts(shared_axes=False)
         return pn.Column(
             pn.pane.HoloViews(iofd),
+            pn.pane.HoloViews(iofd2theta),
         )
 
     def _step(self):

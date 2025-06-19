@@ -105,6 +105,25 @@ class AutoscalingPlot:
             hv.Overlay(curves).opts(options).opts(opts.Curve(framewise=bounds_changed))
         )
 
+    def plot_sum_of_2d(self, data: dict[DataKey, sc.DataArray]) -> hv.Histogram:
+        """Create a 2D plot from a dictionary of scipp DataArrays."""
+        options = opts.Image(
+            responsive=True,
+            height=400,
+            framewise=False,
+            logz=True,
+            clim=(0.0001, None),
+            colorbar=True,
+            cmap='viridis',
+            hooks=[remove_bokeh_logo],
+        )
+        if data is None:
+            return hv.Image([]).opts(options)
+        combined = sc.reduce(list(data.values())).sum()
+        bounds_changed = self.update_bounds(combined)
+        histogram = to_holoviews(combined)
+        return histogram.opts(options).opts(framewise=bounds_changed)
+
 
 def monitor_total_counts_bar_chart(**monitors: RawData | None) -> hv.Bars:
     """Create bar chart showing total counts from all monitors."""

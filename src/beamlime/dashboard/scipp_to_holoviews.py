@@ -71,7 +71,48 @@ def convert_quadmesh_2d(data: sc.DataArray) -> hv.QuadMesh:
     return hv.QuadMesh(data=(*coords, data.values), kdims=kdims, vdims=vdims)
 
 
-def to_holoviews(data: sc.DataArray) -> hv.Histogram | hv.Curve | hv.QuadMesh:
+def convert_image_2d(data: sc.DataArray) -> hv.Image:
+    """
+    Convert a 2D scipp DataArray to a Holoviews Image.
+
+    This is used when all coordinates are evenly spaced.
+
+    Returns
+    -------
+    hv.Image
+        A Holoviews Image object.
+    """
+    kdims = [_coord_to_dimension(data.coords[dim]) for dim in reversed(data.dims)]
+    vdims = [_create_value_dimension(data)]
+
+    # For Image, we need the bounds (start, end) for each dimension
+    bounds = []
+    for dim in reversed(data.dims):
+        coord = data.coords[dim]
+        if data.coords.is_edges(dim):
+            bounds.extend([coord.values[0], coord.values[-1]])
+        else:
+            # For point coordinates, estimate bounds
+            spacing = coord.values[1] - coord.values[0]
+            bounds.extend(
+                [coord.values[0] - spacing / 2, coord.values[-1] + spacing / 2]
+            )
+
+    return hv.Image(data=data.values[::-1], bounds=bounds, kdims=kdims, vdims=vdims)
+
+
+def _all_coords_evenly_spaced(data: sc.DataArray) -> bool:
+    """Check if all coordinates in the DataArray are evenly spaced."""
+    for dim in data.dims:
+        coord = data.coords[dim]
+        if not sc.islinspace(coord):
+            return False
+    return True
+
+
+def to_holoviews(
+    data: sc.DataArray,
+) -> hv.Histogram | hv.Curve | hv.QuadMesh | hv.Image:
     """
     Convert a scipp DataArray to a Holoviews object.
 
@@ -82,8 +123,8 @@ def to_holoviews(data: sc.DataArray) -> hv.Histogram | hv.Curve | hv.QuadMesh:
 
     Returns
     -------
-    hv.Histogram | hv.Curve | hv.QuadMesh
-        A Holoviews Histogram, Curve, or QuadMesh object.
+    hv.Histogram | hv.Curve | hv.QuadMesh | hv.Image
+        A Holoviews Histogram, Curve, QuadMesh, or Image object.
     """
     if data.dims == ():
         raise ValueError("Input DataArray must have at least one dimension.")
@@ -94,6 +135,9 @@ def to_holoviews(data: sc.DataArray) -> hv.Histogram | hv.Curve | hv.QuadMesh:
         else:
             return convert_curve_1d(data)
     elif len(data.dims) == 2:
-        return convert_quadmesh_2d(data)
+        if _all_coords_evenly_spaced(data):
+            return convert_image_2d(data)
+        else:
+            return convert_quadmesh_2d(data)
     else:
         raise ValueError("Only 1D and 2D data are supported.")
