@@ -2,6 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 """This file contains utilities for creating plots in the dashboard."""
 
+from collections import defaultdict
 from math import prod
 
 import holoviews as hv
@@ -9,6 +10,7 @@ import numpy as np
 import scipp as sc
 from holoviews import opts
 
+from .data_key import DataKey
 from .scipp_to_holoviews import to_holoviews
 from .subscribers import RawData
 
@@ -16,6 +18,92 @@ from .subscribers import RawData
 def remove_bokeh_logo(plot, element):
     """Remove Bokeh logo from plots."""
     plot.state.toolbar.logo = None
+
+
+class AutoscalingPlot:
+    """
+    A plot that automatically adjusts its bounds based on the data.
+
+    Maybe I missed something in the Holoviews docs, but looking, e.g., at
+    https://holoviews.org/FAQ.html we need framewise=True to autoscale for streaming
+    data. However, this leads to losing the current pan/zoom state when new data
+    arrives, making it unusable for interactive exploration.
+    Instead, we use this class to track the bounds of the data and update the plot with
+    framewise=True only when the bounds *increase*, i.e., new data extends the
+    existing bounds. This way, we keep the current pan/zoom state most of the time while
+    still allowing the plot to grow as new data comes in. This is especially important
+    since there seems to be no way of initializing holoviews.streams.Pipe without
+    initial dummy data (such as `None`), i.e., we need to return an empty plot with no
+    good starting guess of bounds.
+    """
+
+    def __init__(self):
+        self.coord_bounds: dict[str, tuple[float | None, float | None]] = defaultdict(
+            lambda: (None, None)
+        )
+        self.value_bounds = (None, None)
+
+    def update_bounds(self, data: sc.DataArray) -> bool:
+        """Update bounds based on the data, return True if bounds changed."""
+        coords = [data.coords[dim] for dim in data.dims]
+        changed = False
+        for coord in coords:
+            changed |= self._update_coord_bounds(coord)
+        changed |= self._update_value_bounds(data.data)
+        return changed
+
+    def _update_coord_bounds(self, coord: sc.Variable) -> bool:
+        """Update bounds for a single coordinate."""
+        name = coord.dim
+        low = coord[0].value
+        high = coord[-1].value
+        changed = False
+
+        if self.coord_bounds[name][0] is None or low < self.coord_bounds[name][0]:
+            self.coord_bounds[name] = (low, self.coord_bounds[name][1])
+            changed = True
+        if self.coord_bounds[name][1] is None or high > self.coord_bounds[name][1]:
+            self.coord_bounds[name] = (self.coord_bounds[name][0], high)
+            changed = True
+
+        return changed
+
+    def _update_value_bounds(self, data: sc.Variable) -> bool:
+        """Update value bounds based on the data, return True if bounds changed."""
+        low = data.nanmin().value
+        high = data.nanmax().value
+        changed = False
+
+        if self.value_bounds[0] is None or low < self.value_bounds[0]:
+            self.value_bounds = (low, self.value_bounds[1])
+            changed = True
+        if self.value_bounds[1] is None or high > self.value_bounds[1]:
+            self.value_bounds = (self.value_bounds[0], high)
+            changed = True
+
+        return changed
+
+    def plot_lines(self, data: dict[DataKey, sc.DataArray]) -> hv.Overlay:
+        """Create a line plot from a dictionary of scipp DataArrays."""
+        options = opts.Curve(
+            responsive=True,
+            height=400,
+            framewise=False,
+            ylim=(0, None),
+            hooks=[remove_bokeh_logo],
+        )
+        if data is None:
+            return hv.Overlay([hv.Curve([])]).opts(options)
+        curves = []
+        bounds_changed = False
+        for data_key, da in data.items():
+            name = data_key.source_name
+            da = da.assign_coords(dspacing=sc.midpoints(da.coords['dspacing']))
+            bounds_changed |= self.update_bounds(da)
+            curves.append(to_holoviews(da).relabel(name))
+        return (
+            hv.Overlay(curves).opts(options).opts(opts.Curve(framewise=bounds_changed))
+        )
 
 
 def monitor_total_counts_bar_chart(**monitors: RawData | None) -> hv.Bars:

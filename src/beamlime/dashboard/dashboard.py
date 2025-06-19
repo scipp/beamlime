@@ -26,7 +26,7 @@ from beamlime.kafka.source import KafkaMessageSource
 from .config_service import ConfigService
 from .data_forwarder import DataForwarder
 from .data_service import DataService
-from .data_streams import MonitorStreamManager
+from .data_streams import MonitorStreamManager, ReductionStreamManager
 from .kafka_bridge import KafkaBridge
 from .orchestrator import Orchestrator
 
@@ -93,6 +93,9 @@ class DashboardBase(ServiceBase, ABC):
         self._monitor_stream_manager = MonitorStreamManager(
             data_services['monitor_data']
         )
+        self._reduction_stream_manager = ReductionStreamManager(
+            data_services['data_reduction']
+        )
 
         self._orchestrator = Orchestrator(
             self._setup_kafka_consumer(), DataForwarder(data_services=data_services)
@@ -143,8 +146,8 @@ class DashboardBase(ServiceBase, ABC):
                 try:
                     self._step()
                     self._config_service.process_incoming_messages()
-                except Exception as e:
-                    self._logger.error("Error in periodic update step: %s", e)
+                except Exception:
+                    self._logger.exception("Error in periodic update step: %s")
 
             self._callback = pn.state.add_periodic_callback(_safe_step, period=period)
             self._logger.info("Periodic updates started")
