@@ -149,19 +149,16 @@ def _total_counts(data: DetectorData[SampleRun]) -> TotalCounts:
 _reduction_workflow.insert(_total_counts)
 _reduction_workflow[powder.types.DspacingBins] = sc.linspace(
     dim='dspacing',
-    start=0.1,
-    stop=5.0,
+    start=0.4,
+    stop=3.5,
     num=2000,
     unit='angstrom',
 )
 _reduction_workflow[powder.types.TwoThetaBins] = sc.linspace(
-    dim="two_theta", unit="rad", start=0.0, stop=3.1416, num=201
+    dim="two_theta", unit="rad", start=0.4, stop=3.1415, num=201
 )
 _reduction_workflow[powder.types.CalibrationData] = None
 _reduction_workflow = powder.with_pixel_mask_filenames(_reduction_workflow, [])
-_reduction_workflow[dream.InstrumentConfiguration] = (
-    dream.InstrumentConfiguration.high_flux
-)
 _reduction_workflow[powder.types.UncertaintyBroadcastMode] = (
     powder.types.UncertaintyBroadcastMode.drop
 )
@@ -177,18 +174,60 @@ geometry_file_param = Parameter(
     param_type=ParameterType.STRING,
     default=str(get_nexus_geometry_filename('dream-no-shape')),
 )
+wavelength_mask_low_param = Parameter(
+    name='WavelengthMaskLow',
+    description='Wavelengths below this will be excluded.',
+    param_type=ParameterType.FLOAT,
+    default=1.0,
+    unit='angstrom',
+)
+wavelength_mask_high_param = Parameter(
+    name='WavelengthMaskHigh',
+    description='Wavelengths above this will be excluded.',
+    param_type=ParameterType.FLOAT,
+    default=5.0,
+    unit='angstrom',
+)
+instrument_configuration_param = Parameter(
+    name='InstrumentConfiguration',
+    description='Chopper settings determining TOA to TOF conversion.',
+    param_type=ParameterType.OPTIONS,
+    default='High-flux (BC=240)',
+    options=('High-flux (BC=215)', 'High-flux (BC=240)', 'High-resolution'),
+)
 
 
 @instrument.register_workflow(
     name='Powder reduction',
     description='Powder reduction without vanadium normalization.',
     source_names=_source_names,
-    parameters=[geometry_file_param],
+    parameters=[
+        geometry_file_param,
+        wavelength_mask_low_param,
+        wavelength_mask_high_param,
+        instrument_configuration_param,
+    ],
 )
-def _powder_workflow(source_name: str, GeometryFile: str) -> StreamProcessor:
+def _powder_workflow(
+    source_name: str,
+    GeometryFile: str,
+    WavelengthMaskLow: float,
+    WavelengthMaskHigh: float,
+    InstrumentConfiguration: Literal[
+        'High-flux (BC=215)', 'High-flux (BC=240)', 'High-resolution'
+    ],
+) -> StreamProcessor:
     wf = _reduction_workflow.copy()
     wf[NeXusName[NXdetector]] = source_name
     wf[Filename[SampleRun]] = GeometryFile
+    wf[dream.InstrumentConfiguration] = {
+        'High-flux (BC=215)': dream.InstrumentConfiguration.high_flux_BC215,
+        'High-flux (BC=240)': dream.InstrumentConfiguration.high_flux_BC240,
+        'High-resolution': dream.InstrumentConfiguration.high_resolution,
+    }[InstrumentConfiguration]
+    wmin = sc.scalar(WavelengthMaskLow, unit=wavelength_mask_low_param.unit)
+    wmax = sc.scalar(WavelengthMaskHigh, unit=wavelength_mask_high_param.unit)
+    wf[powder.types.WavelengthMask] = lambda w: (w < wmin) | (w > wmax)
     return StreamProcessor(
         wf,
         dynamic_keys=(
