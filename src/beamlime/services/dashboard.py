@@ -455,7 +455,6 @@ class DashboardApp(ServiceBase):
         """Clean shutdown of all components."""
         self._config_service.stop()
         self._config_service_thread.join()
-        self._source.close()
         self._exit_stack.__exit__(None, None, None)
 
 
