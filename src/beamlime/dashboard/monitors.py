@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+"""
+Preliminary example of a monitor dashboard application using Beamlime.
+"""
+
 import holoviews as hv
 import panel as pn
 
