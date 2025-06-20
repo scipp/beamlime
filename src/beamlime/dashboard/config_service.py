@@ -45,7 +45,12 @@ class ConfigSchemaManager(
     UserDict[K, type[pydantic.BaseModel]],
     ConfigSchemaValidator[K, JSONSerialized, pydantic.BaseModel],
 ):
-    """Manages configuration schemas and provides validation."""
+    """
+    Manages configuration schemas.
+
+    Schemas are used to deserialize and validate configuration data, as well as to
+    serialize pydantic models to JSON-compatible dictionaries.
+    """
 
     def validate(self, key: K, value: V) -> bool:
         model = self.get(key)
@@ -66,6 +71,18 @@ class ConfigSchemaManager(
 
 
 class ConfigService(Generic[K, Serialized, V]):
+    """
+    Service for configuration data with schema validation and message publishing.
+
+    This service initializes from Beamlime's Kafka config topic into a local dictionary
+    of the latest state. The connection to Kafka is implemented via an implementation of
+    :py:class:`MessageBridge`.
+
+    Local producers of new config values, in particular user changes to widget values,
+    are set in this service and published to the message bridge, which in turn
+    communicates with the Kafka topic.
+    """
+
     def __init__(
         self,
         schema_validator: ConfigSchemaValidator[K, Serialized, V] | None = None,
@@ -205,7 +222,7 @@ class FakeMessageBridge(MessageBridge[K, V], Generic[K, V]):
 
 
 class LoopbackMessageBridge(MessageBridge[K, V], Generic[K, V]):
-    """Message bridge that loops back published messages to incoming."""
+    """Message bridge that loops back published messages to incoming. For testing."""
 
     def __init__(self):
         self.messages: list[tuple[K, V]] = []

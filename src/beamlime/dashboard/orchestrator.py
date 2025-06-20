@@ -9,6 +9,15 @@ from .data_forwarder import DataForwarder
 
 
 class Orchestrator:
+    """
+    Orchestrates the flow of data from Kafka to the GUI layer of the dashboard.
+
+    This class consumes messages from a message source and forwards them to a data
+    forwarder, which caches them in a local data service. A transaction mechanism
+    isolates the potentially frequent updates from Kafka, ensuring that the GUI
+    receives a consistent and current view of the data.
+    """
+
     def __init__(
         self,
         message_source: MessageSource,
