@@ -37,7 +37,19 @@ class AutoscalingPlot:
     good starting guess of bounds.
     """
 
-    def __init__(self):
+    def __init__(self, value_margin_factor: float = 0.01):
+        """
+        Initialize the plot with empty bounds.
+
+        Parameters
+        ----------
+        value_margin_factor:
+            Factor by which to extend the value bounds when updating, by default 0.01.
+            This prevents the plot from jumping around when new data arrives that only
+            slightly extends the bounds. The value bounds are updated to be 99% of the
+            new minimum and 101% of the new maximum when set to 0.01, for example.
+        """
+        self._value_margin_factor = value_margin_factor
         self.coord_bounds: dict[str, tuple[float | None, float | None]] = defaultdict(
             lambda: (None, None)
         )
@@ -75,10 +87,16 @@ class AutoscalingPlot:
         changed = False
 
         if self.value_bounds[0] is None or low < self.value_bounds[0]:
-            self.value_bounds = (low, self.value_bounds[1])
+            self.value_bounds = (
+                low * (1 - self._value_margin_factor),
+                self.value_bounds[1],
+            )
             changed = True
         if self.value_bounds[1] is None or high > self.value_bounds[1]:
-            self.value_bounds = (self.value_bounds[0], high)
+            self.value_bounds = (
+                self.value_bounds[0],
+                high * (1 + self._value_margin_factor),
+            )
             changed = True
 
         return changed
@@ -112,17 +130,42 @@ class AutoscalingPlot:
             height=400,
             framewise=False,
             logz=True,
-            clim=(0.0001, None),
             colorbar=True,
             cmap='viridis',
             hooks=[remove_bokeh_logo],
         )
         if data is None:
-            return hv.Image([]).opts(options)
+            # Explicit clim required for initial empty plot with logz=True. Changing to
+            # logz=True only when we have data is not supported by Holoviews.
+            return hv.Image([]).opts(options).opts(clim=(0.1, None))
         combined = sc.reduce(list(data.values())).sum()
-        bounds_changed = self.update_bounds(combined)
-        histogram = to_holoviews(combined)
-        return histogram.opts(options).opts(framewise=bounds_changed)
+        # With logz=True we need to exclude zero values for two reasons:
+        # 1. The value bounds calculation should properly adjust the color limits. Since
+        #    zeros can never be included we want to adjust to the lowest positive value.
+        # 2. Holoviews does not seem to all empty `clim` when `logz=True` for empty
+        #    data, which we are forced to return above since Holoviews does not appear
+        #    to support empty holoviews.streams.Pipe, i.e., we some "empty" image needs
+        #    to be returned. Since at that time we cannot guess the true limits this
+        #    will always be too low or too high. Once set, it seems it cannot be unset,
+        #    i.e., we cannot rely on the autoscale enabled by `framewise=True` but have
+        #    to set the limits manually. This is ok since they are computed anyway.
+        masked = combined.assign(
+            sc.where(
+                combined.data <= sc.scalar(0.0, unit=combined.unit),
+                sc.scalar(np.nan, unit=combined.unit),
+                combined.data,
+            )
+        )
+        bounds_changed = self.update_bounds(masked)
+        # We are using the masked data here since Holoviews (at least with the Bokeh
+        # backend) show values below the color limits with the same color as the lowest
+        # value in the colormap, which is not what we want for, e.g., zeros on a log
+        # scale plot. The nan values will be shown as transparent.
+        histogram = to_holoviews(masked)
+        return histogram.opts(options).opts(
+            framewise=bounds_changed,
+            clim=(self.value_bounds[0], self.value_bounds[1]),
+        )
 
 
 def monitor_total_counts_bar_chart(**monitors: RawData | None) -> hv.Bars:
