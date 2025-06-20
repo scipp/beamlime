@@ -71,6 +71,13 @@ def convert_quadmesh_2d(data: sc.DataArray) -> hv.QuadMesh:
     return hv.QuadMesh(data=(*coords, data.values), kdims=kdims, vdims=vdims)
 
 
+def _get_midpoints(data: sc.DataArray, dim: str) -> sc.Variable:
+    coord = data.coords[dim]
+    if data.coords.is_edges(dim):
+        return sc.midpoints(coord, dim)
+    return coord
+
+
 def convert_image_2d(data: sc.DataArray) -> hv.Image:
     """
     Convert a 2D scipp DataArray to a Holoviews Image.
@@ -84,21 +91,15 @@ def convert_image_2d(data: sc.DataArray) -> hv.Image:
     """
     kdims = [_coord_to_dimension(data.coords[dim]) for dim in reversed(data.dims)]
     vdims = [_create_value_dimension(data)]
-
-    # For Image, we need the bounds (start, end) for each dimension
-    bounds = []
-    for dim in reversed(data.dims):
-        coord = data.coords[dim]
-        if data.coords.is_edges(dim):
-            bounds.extend([coord.values[0], coord.values[-1]])
-        else:
-            # For point coordinates, estimate bounds
-            spacing = coord.values[1] - coord.values[0]
-            bounds.extend(
-                [coord.values[0] - spacing / 2, coord.values[-1] + spacing / 2]
-            )
-
-    return hv.Image(data=data.values[::-1], bounds=bounds, kdims=kdims, vdims=vdims)
+    return hv.Image(
+        data=(
+            _get_midpoints(data, data.dims[1]).values,
+            _get_midpoints(data, data.dims[0]).values,
+            data.values,
+        ),
+        kdims=kdims,
+        vdims=vdims,
+    )
 
 
 def _all_coords_evenly_spaced(data: sc.DataArray) -> bool:
