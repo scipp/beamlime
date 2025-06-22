@@ -12,9 +12,8 @@
 8. [MVC Pattern Analysis](#mvc-pattern-analysis)
 9. [Background Threading Architecture](#background-threading-architecture)
 10. [Key Architectural Principles](#key-architectural-principles)
-11. [Testing Strategy](#testing-strategy)
-12. [Extension Points](#extension-points)
-13. [Development Principles and Technologies](#development-principles-and-technologies)
+11. [Extension Points](#extension-points)
+12. [Development Principles and Technologies](#development-principles-and-technologies)
 
 ## Overview
 
@@ -22,7 +21,7 @@ The Beamlime dashboard is a real-time data visualization system that follows a l
 
 A key architectural principle is the separation between **Pydantic models** (used for Kafka message validation and backend communication) and **Param models** (used for GUI widgets and user interaction). This separation ensures type safety across the system boundary while providing rich interactive controls.
 
-The dashboard processes 1-D and 2-D data displayed using Plotly with update rates on the order of 1Hz. Data updates are received via Kafka streams, and user controls result in configuration updates published to Kafka topics for backend consumption.
+The dashboard processes 1-D and 2-D data displayed using Holoviews with update rates on the order of 1Hz. Data updates are received via Kafka streams, and user controls result in configuration updates published to Kafka topics for backend consumption.
 
 ## System Context: Dashboard and Kafka Integration
 
@@ -591,45 +590,6 @@ graph LR
 
     style DS fill:#f9f,stroke:#333,stroke-width:2px
 ```
-
-## Testing Strategy
-
-### Architecture for Testability
-
-```mermaid
-graph TB
-    subgraph "Production"
-        P1[KafkaBridge]
-        P2[Real MessageSource]
-        P3[ConfigSchemaManager]
-    end
-
-    subgraph "Testing"
-        T1[FakeMessageBridge]
-        T2[Fake MessageSource]
-        T3[Mock SchemaValidator]
-    end
-
-    subgraph "Application Logic"
-        CS[ConfigService]
-        O[Orchestrator]
-    end
-
-    P1 -.-> CS
-    T1 -.-> CS
-    P2 -.-> O
-    T2 -.-> O
-    P3 -.-> CS
-    T3 -.-> CS
-```
-
-The architecture allows easy substitution of infrastructure components:
-
-- `FakeMessageBridge` and `LoopbackMessageBridge` for testing configuration flow
-- Mock `MessageSource` for testing data processing  
-- `DataService` can be tested with mock subscribers
-- Pydantic validation can be tested independently of Param widgets
-
 ## Extension Points
 
 ### Adding New Configuration Parameters
@@ -678,16 +638,13 @@ widget.subscribe(config_service)
 - Separation of Kafka integration and GUI presentation from application logic
 - Architecture designed for easy testing using fakes rather than mocks
 - Layered architecture with clear distinction between presentation, application service, and infrastructure layers
-- Support for multiple app versions while reusing core components
+- Support for multiple app versions (for different ESS instruments) while reusing core components
 
 ### Technology Stack
 
 - **Kafka Integration**: `confluence_kafka` for message streaming
 - **Serialization**: `pydantic` for message validation and type safety
 - **GUI Framework**: `panel` and `holoviews` for interactive dashboards
-- **Data Visualization**: Plotly for 1-D and 2-D data display
-- **Testing**: `pytest` for comprehensive test coverage
-- **Type System**: Modern Python with type hints using `list`/`dict` and `A | B` syntax
 
 ### Architectural Patterns
 
