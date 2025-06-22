@@ -70,52 +70,41 @@ flowchart TD
 ## High-Level Architecture
 
 ```mermaid
-graph TB
+graph TD
     subgraph "External Systems"
         K1[Kafka Data Streams]
         K2[Kafka Config Topic]
-        BE[Backend Services]
     end
 
-    subgraph "Dashboard Application"
-        subgraph "Presentation Layer"
-            UI[Panel/Holoviews GUI]
-            W1[Monitor Plots]
-            W2[Parameter Widgets]
-            W3[Status Displays]
-        end
-
-        subgraph "Application Layer"
-            O[Orchestrator]
-            DF[DataForwarder]
-            CS[ConfigService]
-            DS[DataServices]
-            WC[WorkflowController]
-            PM[Param Models]
-            PD[Pydantic Models]
-        end
-
-        subgraph "Infrastructure Layer"
-            KB[KafkaBridge]
-            MS[MessageSource]
-        end
+    subgraph "Infrastructure Layer"
+        KB[KafkaBridge]
+        MS[MessageSource]
     end
 
+    subgraph "Application Layer"
+        CS[ConfigService]
+        DS[DataServices]
+        PM[Param Models]
+        WC[WorkflowController]
+    end
+
+    subgraph "Presentation Layer"
+        W1[Plots]
+        UI[Workflow Widgets]
+        W2[Config Widgets]
+    end
+
+    CS <--> WC
+    DS <--> WC
+    WC --> UI
     K1 --> MS
     K2 <--> KB
-    KB <--> BE
-    MS --> O
+    MS --> DS
+    DS --> W1
     KB --> CS
-    O --> DF
-    DF --> DS
-    DS --> UI
     CS <--> PM
-    CS <--> PD
     PM --> W2
     W2 --> PM
-    WC <--> CS
-    WC <--> DS
-    WC <--> UI
 ```
 
 ### Component Overview
@@ -130,7 +119,7 @@ The architecture is structured in three main layers:
 
 ## Configuration Architecture - Pydantic vs Param Separation
 
-The dashboard implements a sophisticated configuration system that bridges the gap between backend services (using Pydantic for validation) and frontend widgets (using Param for interactive controls).
+The dashboard implements a configuration system that bridges the gap between backend services (using Pydantic for validation) and frontend widgets (using Param for interactive controls).
 
 ### Configuration Flow Overview
 
