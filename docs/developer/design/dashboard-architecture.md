@@ -1,15 +1,31 @@
-# Beamlime Dashboard Architecture Design Document
+# Beamlime Dashboard Architecture
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [System Context: Dashboard and Kafka Integration](#system-context-dashboard-and-kafka-integration)
+3. [High-Level Architecture](#high-level-architecture)
+4. [Configuration Architecture - Pydantic vs Param Separation](#configuration-architecture---pydantic-vs-param-separation)
+5. [Data Flow Architecture](#data-flow-architecture)
+6. [Component Architecture](#component-architecture)
+7. [The BaseParamModel Mechanism](#the-baseparammodel-mechanism)
+8. [MVC Pattern Analysis](#mvc-pattern-analysis)
+9. [Background Threading Architecture](#background-threading-architecture)
+10. [Key Architectural Principles](#key-architectural-principles)
+11. [Extension Points](#extension-points)
+12. [Development Principles and Technologies](#development-principles-and-technologies)
 
 ## Overview
 
-This document describes the architecture of the Beamlime dashboard, focusing on the separation of concerns between configuration, data management, and presentation. It also analyzes the alignment of the implementation with the Model-View-Controller (MVC) pattern, including future plans for controller interaction with both configuration and data services.
+The Beamlime dashboard is a real-time data visualization system that follows a layered architecture with clear separation of concerns between presentation, application logic, and infrastructure. The system is designed for live display of raw and processed detector data with configurable processing parameters, using dependency injection patterns for testability and maintainability.
 
----
+A key architectural principle is the separation between **Pydantic models** (used for Kafka message validation and backend communication) and **Param models** (used for GUI widgets and user interaction). This separation ensures type safety across the system boundary while providing rich interactive controls.
 
-## 0. System Context: Dashboard and Kafka Integration
+The dashboard processes 1-D and 2-D data displayed using Holoviews with update rates on the order of 1Hz. Data updates are received via Kafka streams, and user controls result in configuration updates published to Kafka topics for backend consumption.
+
+## System Context: Dashboard and Kafka Integration
 
 The Beamlime dashboard operates within a Kafka-based system, interacting with multiple backend services via Kafka topics for both data and configuration.
-The following diagram illustrates the high-level context and message flows:
 
 ```mermaid
 flowchart TD
@@ -43,58 +59,388 @@ flowchart TD
     DataReduction -- Publishes config (workflow specs) --> ConfigTopic
 ```
 
-**Explanation:**
+**Key Points:**
+- Backend Services publish data streams to a single Kafka topic
+- The Dashboard consumes this data topic, feeding into internal `DataService` components
+- The Dashboard both publishes to and consumes from the config topic
+- All backend services consume the config topic for configuration updates
+- The `data_reduction` service can publish configuration messages (workflow specs, status)
 
-- **Backend Services** (`monitor_data`, `detector_data`, `data_reduction`) each publish their respective data streams to a single Kafka topic.
-- The **Dashboard** consumes this data topic, feeding into its internal `DataService` components.
-- The **Dashboard** both publishes to and consumes from the `config` topic, allowing user-driven configuration changes and reflecting updates from other sources as well as past runs of the dashboard.
-- All backend services consume the `config` topic to receive configuration updates.
-- The `data_reduction` service can also produce configuration messages (e.g., specs of available workflow and workflow status), which are published to the `config` topic.
----
-
-## 1. Architecture Description
-
-### 1.1. High-Level Structure
-
-The Beamlime dashboard is architected with clear separation between infrastructure, application logic, and presentation. The main components are:
-
-- **ConfigService**: Manages configuration state, schema validation, and message passing (e.g., via Kafka).
-- **DataService**: Manages detector and reduction data, provides subscription mechanisms for data updates.
-- **WorkflowController**: Orchestrates workflow operations, mediates between services, and exposes a clean API for the UI.
-- **Panel Widgets**: Present data and controls to the user, interact only with the controller.
-- **BaseParamModel**: Acts as a translation layer and per-widget controller for simple configuration widgets, bridging Param (GUI) and Pydantic (backend/config).
-
-#### Mermaid Diagram: Component Overview
+## High-Level Architecture
 
 ```mermaid
-flowchart TD
-    subgraph Infrastructure
-        ConfigService
-        DataService
-    end
-    subgraph Application
-        WorkflowController
-        BaseParamModel
-    end
-    subgraph Presentation
-        PanelWidgets["Panel Widgets"]
+graph TD
+    subgraph "External Systems"
+        K1[Kafka Data Streams]
+        K2[Kafka Config Topic]
     end
 
-    PanelWidgets <--> WorkflowController
-    PanelWidgets <--> BaseParamModel
-    BaseParamModel <--> ConfigService
-    WorkflowController <--> ConfigService
-    WorkflowController <--> DataService
+    subgraph "Infrastructure Layer"
+        KB[KafkaBridge]
+        MS[MessageSource]
+    end
+
+    subgraph "Application Layer"
+        CS[ConfigService]
+        DS[DataServices]
+        PM[Param Models]
+        WC[WorkflowController]
+    end
+
+    subgraph "Presentation Layer"
+        W1[Plots]
+        UI[Workflow Widgets]
+        W2[Config Widgets]
+    end
+
+    CS <--> WC
+    DS <--> WC
+    WC --> UI
+    K1 --> MS
+    K2 <--> KB
+    MS --> DS
+    DS --> W1
+    KB --> CS
+    CS <--> PM
+    PM --> W2
+    W2 --> PM
 ```
 
-### 1.2. Subscription and Notification Flow
+### Component Overview
 
-- **ConfigService** and **DataService** both provide subscription mechanisms for change notifications.
-- **WorkflowController** subscribes to updates from these services and maintains local state as needed.
-- **Panel Widgets** subscribe to the controller for updates, remaining decoupled from service details.
-- **Panel Widgets** for simple configuration controls can also interact with **BaseParamModel**, which handles subscription and update propagation for its associated config key.
+The architecture is structured in three main layers:
 
-#### Mermaid Diagram: Subscription Flow
+- **Infrastructure Layer**: Manages Kafka integration and external message sources
+- **Application Layer**: Contains business logic, orchestration, and data management
+- **Presentation Layer**: Handles GUI components and user interaction
+
+<!-- TODO: Verify if WorkflowController is implemented and how it interacts with existing components -->
+
+## Configuration Architecture - Pydantic vs Param Separation
+
+The dashboard implements a configuration system that maintains a clear separation between frontend widgets (using Param for interactive controls) and backend validation/communication (using Pydantic models throughout). The `ConfigService` operates entirely with Pydantic models, ensuring type safety and validation consistency.
+
+### Configuration Flow Overview
+
+```mermaid
+graph TB
+    subgraph "GUI Layer"
+        PW[Param Widgets]
+        PM[Param Models<br/>TOAEdgesParam]
+    end
+
+    subgraph "Configuration Service Layer"
+        CS[ConfigService<br/>Pydantic-only]
+        SV[Schema Validator<br/>Pydantic Models]
+        MB[Message Bridge]
+    end
+
+    subgraph "Infrastructure"
+        KB[KafkaBridge]
+        KT[Kafka Topic]
+    end
+
+    subgraph "Backend"
+        BE[Backend Services]
+        PD[Pydantic Models<br/>TOAEdges]
+    end
+
+    PW <--> PM
+    PM -.->|"Creates Pydantic<br/>from Param state"| CS
+    CS -.->|"Validates only<br/>Pydantic models"| SV
+    CS <--> MB
+    MB <--> KB
+    KB <--> KT
+    KT <--> BE
+    CS -.->|"Callbacks with<br/>Pydantic models"| PM
+
+    classDef pydantic fill:#e1f5fe
+    classDef param fill:#f3e5f5
+
+    class PD,CS,SV pydantic
+    class PM,PW param
+```
+
+### Key Architectural Design
+
+The implementation enforces **Pydantic models throughout the ConfigService**:
+
+1. **ConfigService Validation**: Only accepts `pydantic.BaseModel` instances via `update_config()`
+2. **Schema Registration**: Requires `type[pydantic.BaseModel]` for schema registration
+3. **Message Serialization**: Uses Pydantic's `model_dump(mode='json')` for Kafka messages
+4. **Callback Data**: Subscribers receive validated Pydantic model instances
+
+### Two-Way Configuration Flow
+
+```mermaid
+sequenceDiagram
+    participant PW as Param Widget
+    participant PM as Param Model
+    participant CS as ConfigService
+    participant SV as Schema Validator
+    participant KB as KafkaBridge
+    participant KT as Kafka Topic
+    participant BE as Backend Services
+
+    Note over PW,BE: User Changes Parameter
+    PW->>PM: User input (num_edges=150)
+    PM->>PM: Create Pydantic model from Param state
+    PM->>CS: update_config(key, pydantic_model)
+    CS->>CS: Validate isinstance(value, BaseModel)
+    CS->>SV: validate(key, pydantic_model)
+    CS->>KB: publish(key, model.model_dump(mode='json'))
+    KB->>KT: JSON message
+    KT->>BE: Backend consumes
+
+    Note over PW,BE: Backend/Remote Updates Configuration
+    BE->>KT: Updated config (JSON)
+    KT->>KB: JSON message
+    KB->>CS: incoming JSON message
+    CS->>SV: deserialize(key, json_data) -> Pydantic model
+    CS->>PM: callback(pydantic_model)
+    PM->>PM: Extract dict from Pydantic model
+    PM->>PW: param.update(**model.model_dump())
+    PW->>PW: Widget reflects new state
+```
+
+### BaseParamModel Translation Mechanism
+
+The `BaseParamModel` serves as a **translation layer** that:
+
+1. **Outbound (Param → Pydantic)**: Creates Pydantic models from Param state using `self.schema.model_validate(kwargs)`
+2. **Inbound (Pydantic → Param)**: Extracts data from Pydantic models using `model.model_dump()`
+3. **Schema Binding**: Connects each Param model to its corresponding Pydantic schema
+4. **Validation**: Ensures all data flowing through ConfigService is properly validated
+
+```python
+# BaseParamModel's key methods
+def from_pydantic(self) -> Callable[..., None]:
+    def update_callback(model: pydantic.BaseModel) -> None:
+        self.param.update(**model.model_dump())  # Pydantic → Param
+    return update_callback
+
+# In the param.bind callback:
+def set_as_pydantic(**kwargs) -> None:
+    model = self.schema.model_validate(kwargs)  # Param → Pydantic
+    config_service.update_config(key, model)
+```
+
+### Architectural Benefits
+
+1. **Type Safety**: All configuration data is validated through Pydantic schemas
+2. **Serialization Consistency**: Single serialization path via `model_dump(mode='json')`
+3. **Backend Compatibility**: JSON messages match Pydantic model structure
+4. **Frontend Flexibility**: Rich Param widgets with bounds, selectors, and validation
+5. **Clear Boundaries**: Translation happens only at the BaseParamModel layer
+
+## Data Flow Architecture
+
+### Real-Time Data Flow
+
+```mermaid
+sequenceDiagram
+    participant K as Kafka Stream
+    participant MS as MessageSource
+    participant O as Orchestrator
+    participant DF as DataForwarder
+    participant DS as DataService
+    participant S as Subscribers
+    participant UI as GUI Components
+
+    K->>MS: Raw detector/monitor data
+    MS->>O: Batch messages
+    O->>DF: Forward with stream name
+    Note over O,DF: Transaction batching
+    DF->>DS: Store by DataKey
+    DS->>S: Notify subscribers
+    S->>UI: Update visualizations
+```
+
+<!-- TODO: Reconcile differences between subscription models in the two documents -->
+
+## Component Architecture
+
+### Configuration Management Layer
+
+```mermaid
+classDiagram
+    class ConfigService {
+        +register_schema(key, schema)
+        +subscribe(key, callback)
+        +update_config(key, **kwargs)
+        +get_setter(key) Callable
+        +process_incoming_messages()
+        -MessageBridge message_bridge
+        -ConfigSchemaValidator schema_validator
+        -dict[K, list[Callable]] subscribers
+    }
+
+    class ConfigSchemaManager {
+        +has_schema(key) bool
+        +validate(key, data) dict | None
+        +dict[K, type[BaseModel]] schemas
+    }
+
+    class KafkaBridge {
+        +publish(key, value)
+        +pop_message() tuple | None
+        +start()
+        +stop()
+        -Queue outgoing_queue
+        -Queue incoming_queue
+        -Consumer consumer
+        -Producer producer
+    }
+
+    class BaseParamModel {
+        <<abstract>>
+        +str service_name*
+        +str config_key_name*
+        +type[BaseModel] schema*
+        +subscribe(config_service)
+        +panel()*
+        +param_updater() Callable
+    }
+
+    class TOAEdgesParam {
+        +Number low
+        +Number high
+        +Integer num_edges
+        +Selector unit
+        +TOAEdges schema
+    }
+
+    class TOAEdges {
+        <<Pydantic>>
+        +float low
+        +float high
+        +int num_edges
+        +str unit
+    }
+
+    ConfigService --> ConfigSchemaManager : uses
+    ConfigService --> KafkaBridge : uses
+    BaseParamModel --> ConfigService : subscribes to
+    TOAEdgesParam --|> BaseParamModel
+    ConfigSchemaManager --> TOAEdges : validates with
+    TOAEdgesParam --> TOAEdges : references schema
+```
+
+### Data Management Layer
+
+```mermaid
+classDiagram
+    class DataService {
+        +dict[DataKey, DataArray] data
+        +register_subscriber(subscriber)
+        +transaction() context
+        -notify_subscribers(keys)
+        -list[DataSubscriber] subscribers
+        -set[DataKey] pending_updates
+        -int transaction_depth
+    }
+
+    class DataForwarder {
+        +dict[str, DataService] data_services
+        +forward(stream_name, value)
+        +transaction() context
+    }
+
+    class DataSubscriber {
+        <<abstract>>
+        +set[DataKey] keys
+        +trigger(store)
+        +send(data)*
+    }
+
+    class ComponentDataSubscriber {
+        +ComponentDataKey component_key
+        +Pipe pipe
+        +send(data)
+    }
+
+    class DataKey {
+        +str service_name
+        +str source_name
+        +str key
+    }
+
+    class ComponentDataKey {
+        <<abstract>>
+        +str component_name
+        +str view_name
+        +str service_name*
+        +cumulative_key() DataKey
+        +current_key() DataKey
+    }
+
+    DataService --> DataSubscriber : notifies
+    DataForwarder --> DataService : forwards to
+    ComponentDataSubscriber --|> DataSubscriber
+    DataSubscriber --> DataKey : depends on
+    DataService --> DataKey : indexed by
+    ComponentDataSubscriber --> ComponentDataKey : uses
+```
+
+## The BaseParamModel Mechanism
+
+### Purpose and Role
+
+`BaseParamModel` is a key architectural component for simple configuration widgets. It serves as a dedicated translation layer and per-widget controller, bridging the gap between:
+
+- **Param models** (`param.Parameterized`): Used for GUI widgets and user interaction
+- **Pydantic models**: Used for backend validation, serialization, and communication
+
+This mechanism enables a clean, testable, and maintainable way to synchronize widget state with configuration state, without leaking infrastructure details into the presentation layer.
+
+### How It Works
+
+- Each simple configuration widget is backed by a `BaseParamModel` subclass
+- The `BaseParamModel`:
+  - Registers the relevant Pydantic schema with `ConfigService`
+  - Subscribes to config updates for its key, updating the widget state when changes arrive
+  - Propagates user changes from the widget to `ConfigService` by translating Param state to a Pydantic model
+
+```mermaid
+sequenceDiagram
+    participant ConfigService
+    participant BaseParamModel
+    participant PanelWidget
+
+    ConfigService->>BaseParamModel: Notify config update
+    BaseParamModel->>PanelWidget: Update widget state
+    PanelWidget->>BaseParamModel: User changes widget
+    BaseParamModel->>ConfigService: Update config
+```
+
+### Architectural Implications
+
+- **Localized Coupling**: `BaseParamModel` knows about both Param and Pydantic models, but this coupling is intentional and limited to the translation layer
+- **No Architectural Problem**: This is not problematic coupling, but a necessary and well-encapsulated translation between two distinct model types
+- **Testability**: The translation logic is isolated and can be tested independently
+- **Extensibility**: More complex workflows can use a centralized controller, while simple controls benefit from this lightweight mechanism
+
+## MVC Pattern Analysis
+
+### Mapping to MVC
+
+| MVC Component | Beamlime Implementation |
+|---------------|------------------------|
+| Model         | ConfigService, DataService |
+| View          | Panel Widgets              |
+| Controller    | WorkflowController, BaseParamModel (for simple controls) |
+
+```mermaid
+flowchart LR
+    Model["Model<br/>(ConfigService, DataService)"]
+    Controller["Controller<br/>(WorkflowController, BaseParamModel)"]
+    View["View<br/>(Panel Widgets)"]
+
+    View <--> Controller
+    Controller <--> Model
+```
+
+### Subscription and Notification Flow
 
 ```mermaid
 sequenceDiagram
@@ -117,133 +463,197 @@ sequenceDiagram
     BaseParamModel->>ConfigService: Update config (simple controls)
 ```
 
-### 1.3. Future Interaction: Controller and DataService
+### Analysis
 
-- The controller will be responsible for coordinating actions that affect both configuration and data.
-- Example: When a workflow is removed, the controller will update the configuration (via ConfigService) and remove associated data (via DataService).
-- This centralizes business logic and keeps the UI and services decoupled.
+**Strengths:**
+- Clear separation of concerns with well-defined responsibilities
+- Testability through controller and widget isolation using fakes
+- Maintainability with centralized business logic
+- Extensibility for future requirements
+- Efficient handling of simple controls via `BaseParamModel`
 
----
+**Potential Pitfalls:**
+- Controller bloat as it mediates more services
+- State synchronization challenges between controller and services
+- Subscription complexity with multiple layers
 
-## 2. The `BaseParamModel` Mechanism
+**Anti-Patterns Avoided:**
+- No leaky abstractions between views and services
+- No tight coupling between controllers and specific GUI frameworks
+- No direct service access from views
 
-### 2.1. Purpose and Role
+## Background Threading Architecture
 
-`BaseParamModel` is a key architectural component for simple configuration widgets. It serves as a dedicated translation layer and per-widget controller, bridging the gap between:
-
-- **Param models** (`param.Parameterized`): Used for GUI widgets and user interaction.
-- **Pydantic models**: Used for backend validation, serialization, and communication.
-
-This mechanism enables a clean, testable, and maintainable way to synchronize widget state with configuration state, without leaking infrastructure details into the presentation layer.
-
-### 2.2. How It Works
-
-- Each simple configuration widget is backed by a `BaseParamModel` subclass.
-- The `BaseParamModel`:
-  - Registers the relevant Pydantic schema with `ConfigService`.
-  - Subscribes to config updates for its key, updating the widget state when changes arrive.
-  - Propagates user changes from the widget to `ConfigService` by translating Param state to a Pydantic model.
-- This pattern allows for direct, robust two-way binding between the GUI and configuration for simple controls, without requiring a centralized controller for each widget.
-
-#### Mermaid Diagram: BaseParamModel Flow
+### KafkaBridge Threading Model
 
 ```mermaid
 sequenceDiagram
-    participant ConfigService
-    participant BaseParamModel
-    participant PanelWidget
+    participant GUI as GUI Thread
+    participant KB as KafkaBridge
+    participant BT as Background Thread
+    participant K as Kafka
 
-    ConfigService->>BaseParamModel: Notify config update
-    BaseParamModel->>PanelWidget: Update widget state
-    PanelWidget->>BaseParamModel: User changes widget
-    BaseParamModel->>ConfigService: Update config
+    Note over GUI,K: Startup
+    GUI->>KB: start()
+    KB->>BT: spawn thread
+    BT->>K: subscribe to topic
+
+    Note over GUI,K: Publishing (Non-blocking)
+    GUI->>KB: publish(key, value)
+    KB->>KB: queue.put()
+    BT->>KB: queue.get()
+    BT->>K: produce message
+
+    Note over GUI,K: Consuming (Batched)
+    K->>BT: poll messages
+    BT->>KB: incoming_queue.put()
+    GUI->>KB: process_incoming_messages()
+    KB->>GUI: pop_message() × N
 ```
 
-### 2.3. Architectural Implications
+### Message Processing Strategy
 
-- **Localized Coupling**: `BaseParamModel` knows about both Param and Pydantic models, but this coupling is intentional and limited to the translation layer.
-- **No Architectural Problem**: This is not problematic coupling, but a necessary and well-encapsulated translation between two distinct model types.
-- **Testability**: The translation logic is isolated and can be tested independently.
-- **Extensibility**: More complex workflows or controls can use a centralized controller (`WorkflowController`), while simple controls benefit from this lightweight mechanism.
+The KafkaBridge implements several optimizations:
 
----
+1. **Batched Processing**: Consumes up to `max_batch_size` messages per poll
+2. **Timed Polling**: Only checks for incoming messages at specified intervals
+3. **Queue-based Communication**: Non-blocking queues between GUI and background threads
+4. **Smart Idle Handling**: Minimal CPU usage when no messages are available
 
-## 3. MVC Pattern Description and Analysis
+## Key Architectural Principles
 
-### 3.1. Mapping to MVC
+### 1. Pydantic/Param Separation
 
-| MVC Component | Beamlime Implementation |
-|---------------|------------------------|
-| Model         | ConfigService, DataService |
-| View          | Panel Widgets              |
-| Controller    | WorkflowController, BaseParamModel (for simple controls) |
+**Pydantic Models** (Backend/Validation):
+```python
+class TOAEdges(BaseModel):
+    low: float
+    high: float  
+    num_edges: int
+    unit: str
+```
 
-- **Model**: Encapsulates state and provides subscription mechanisms.
-- **View**: Presents data and controls, does not access model or service internals.
-- **Controller**: Mediates between model and view, handles user actions, coordinates updates.
+**Param Models** (Frontend/GUI):
+```python
+class TOAEdgesParam(BaseParamModel):
+    low = param.Number(default=0.0)
+    high = param.Number(default=72_000.0)
+    num_edges = param.Integer(default=100, bounds=(1, 1000))
+    unit = param.Selector(default='us', objects=['ns', 'us', 'ms', 's'])
 
-#### Mermaid Diagram: MVC Mapping
+    @property
+    def schema(self) -> type[TOAEdges]:
+        return TOAEdges
+```
+
+### 2. Two-Way Configuration Binding
+
+- **GUI → Backend**: User changes widget → Param model → ConfigService → Kafka → Backend
+- **Backend → GUI**: Backend update → Kafka → ConfigService → Param model → Widget
+
+### 3. Transaction Support and Message Batching
+
+```python
+with data_service.transaction():
+    # Multiple updates batched together
+    data_service[key1] = value1
+    data_service[key2] = value2
+    # Subscribers notified only once at end
+```
+
+### 4. Dependency Injection
+
+```python
+# Configuration dependencies
+config_service = ConfigService(
+    message_bridge=kafka_bridge,
+    schema_validator=schema_manager
+)
+
+# Data flow dependencies  
+orchestrator = Orchestrator(
+    message_source=message_source,
+    forwarder=data_forwarder
+)
+```
+
+### 5. Publisher-Subscriber with Transaction Support
 
 ```mermaid
-flowchart LR
-    Model["Model<br/>(ConfigService, DataService)"]
-    Controller["Controller<br/>(WorkflowController, BaseParamModel)"]
-    View["View<br/>(Panel Widgets)"]
+graph LR
+    DS[DataService] --> S1[Monitor1 Subscriber]
+    DS --> S2[Monitor2 Subscriber]  
+    DS --> S3[Status Subscriber]
+    S1 --> P1[Monitor1 Plot]
+    S2 --> P2[Monitor2 Plot]
+    S3 --> P3[Status Bar]
 
-    View <--> Controller
-    Controller <--> Model
+    style DS fill:#f9f,stroke:#333,stroke-width:2px
+```
+## Extension Points
+
+### Adding New Configuration Parameters
+
+1. **Create Pydantic Model** (Backend validation):
+```python
+class NewParam(BaseModel):
+    value: float
+    enabled: bool
 ```
 
-### 3.2. Analysis
+2. **Create Param Model** (GUI widget):
+```python  
+class NewParamWidget(BaseParamModel):
+    value = param.Number(default=1.0)
+    enabled = param.Boolean(default=True)
 
-#### Strengths
+    @property
+    def schema(self) -> type[NewParam]:
+        return NewParam
+```
 
-- **Clear Separation of Concerns**: Each layer has a well-defined responsibility.
-- **Testability**: Controller and widgets can be tested in isolation using fakes for services.
-- **Maintainability**: Business logic is centralized in the controller, reducing duplication and coupling.
-- **Extensibility**: Future requirements (e.g., controller interacting with multiple services) are easily accommodated.
-- **Efficient for Simple Controls**: The `BaseParamModel` mechanism avoids unnecessary boilerplate for simple, stateless controls.
+3. **Subscribe to ConfigService**:
+```python
+widget.subscribe(config_service)
+```
 
-#### Potential Pitfalls
+### Adding New Data Types
 
-- **Controller Bloat**: As the controller mediates more services, it may accumulate too many responsibilities. Mitigate by delegating service-specific logic and splitting controllers if needed.
-- **State Synchronization**: The controller must ensure its local state is always synchronized with the services. Always treat services as the source of truth.
-- **Subscription Complexity**: Multiple layers of subscriptions can become hard to manage. Use clear naming and documentation for callbacks.
+1. Create new `DataKey` subclass
+2. Implement corresponding `DataSubscriber`
+3. Register subscriber with appropriate `DataService`
 
-#### Anti-Patterns Avoided
+### Adding New Visualizations
 
-- **No Leaky Abstractions**: Views do not know about service internals.
-- **No Tight Coupling**: Controller is independent of Panel, allowing for easy testing and reuse.
-- **No Direct Service Access from Views**: All business logic flows through the controller or a dedicated translation layer.
+1. Create new subscriber implementing `DataSubscriber`
+2. Register with appropriate `DataService`  
+3. Implement visualization using Holoviews/Panel
+
+## Development Principles and Technologies
+
+### Core Principles
+
+- Well architected, maintainable, and testable code using modern Python
+- Dependency injection patterns implemented by hand for better testability
+- Separation of Kafka integration and GUI presentation from application logic
+- Architecture designed for easy testing using fakes rather than mocks
+- Layered architecture with clear distinction between presentation, application service, and infrastructure layers
+- Support for multiple app versions (for different ESS instruments) while reusing core components
+
+### Technology Stack
+
+- **Kafka Integration**: `confluence_kafka` for message streaming
+- **Serialization**: `pydantic` for message validation and type safety
+- **GUI Framework**: `panel` and `holoviews` for interactive dashboards
+
+### Architectural Patterns
+
+- Publisher-subscriber pattern for data and configuration updates
+- Transaction pattern for batched operations
+- Adapter pattern for Pydantic/Param translation
+- Dependency injection for testability and modularity
+- Layered architecture for separation of concerns
 
 ---
 
-## 4. On the Coupling Between Param and Pydantic in `BaseParamModel`
-
-### 4.1. Is This Coupling a Problem?
-
-The direct coupling between `param.Parameterized` (Param models) and specific Pydantic models in `BaseParamModel` implementations is not an architectural problem. Instead, it is a necessary and intentional translation layer:
-
-- **Purposeful Translation**: `BaseParamModel` is responsible for converting between the GUI’s editable state (Param) and the validated, serializable config object (Pydantic).
-- **Localized Responsibility**: The coupling is limited to this translation layer, keeping the rest of the codebase agnostic to Param or Pydantic details.
-- **Analogous to Adapters**: This is similar to a Data Transfer Object (DTO) assembler or adapter in other architectures.
-
-### 4.2. Would a Canonical Controller Help?
-
-- A more canonical, centralized controller would still need to perform this translation between GUI and backend models.
-- Moving the logic to a controller would not remove the need for translation; it would only relocate it.
-- Keeping the translation close to the widget, where the mapping is 1:1, is pragmatic and keeps the code simple.
-
-### 4.3. Best Practice
-
-- As long as the translation logic is well-encapsulated (as in `BaseParamModel`), this is not an anti-pattern.
-- If more complex mappings or further decoupling are needed, the translation logic can be refactored into a separate adapter or service.
-- For most cases, the current approach is idiomatic, robust, and maintainable.
-
----
-
-## 5. Summary
-
-The Beamlime dashboard architecture is robust, maintainable, and well-aligned with the MVC pattern. The deliberate separation of controller logic from Panel ensures testability and flexibility. The design is future-proofed for additional coordination between configuration and data management, with clear boundaries between infrastructure, application logic, and presentation.
-
-The `BaseParamModel` mechanism provides an efficient, maintainable solution for simple configuration controls, acting as a per-widget controller and translation layer between Param and Pydantic models. This approach
+This architecture provides a robust foundation for the live data dashboard while maintaining clear separation of concerns, comprehensive validation, and extensive testability. The Pydantic/Param separation ensures type safety across system boundaries while enabling rich interactive controls.
