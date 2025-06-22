@@ -6,6 +6,52 @@ This document describes the architecture of the Beamlime dashboard, focusing on 
 
 ---
 
+## 0. System Context: Dashboard and Kafka Integration
+
+The Beamlime dashboard operates within a Kafka-based system, interacting with multiple backend services via Kafka topics for both data and configuration.
+The following diagram illustrates the high-level context and message flows:
+
+```mermaid
+flowchart TD
+    ConfigTopic["Beamlime Config Kafka Topic"]
+    DataTopic["Beamlime Data Kafka Topic"]
+
+    subgraph BackendServices
+        MonitorData["monitor_data service"]
+        DetectorData["detector_data service"]
+        DataReduction["data_reduction service"]
+    end
+
+    DashboardApp["Beamlime Dashboard"]
+
+    %% Data publishing
+    MonitorData -- Publishes --> DataTopic
+    DetectorData -- Publishes --> DataTopic
+    DataReduction -- Publishes --> DataTopic
+
+    %% Data consumption by dashboard
+    DataTopic -- Feeds --> DashboardApp
+
+    %% Config flows
+    DashboardApp -- Publishes config --> ConfigTopic
+    DashboardApp -- Consumes config --> ConfigTopic
+
+    ConfigTopic -- Consumed by --> MonitorData
+    ConfigTopic -- Consumed by --> DetectorData
+    ConfigTopic -- Consumed by --> DataReduction
+
+    DataReduction -- Publishes config (workflow specs) --> ConfigTopic
+```
+
+**Explanation:**
+
+- **Backend Services** (`monitor_data`, `detector_data`, `data_reduction`) each publish their respective data streams to a single Kafka topic.
+- The **Dashboard** consumes this data topic, feeding into its internal `DataService` components.
+- The **Dashboard** both publishes to and consumes from the `config` topic, allowing user-driven configuration changes and reflecting updates from other sources as well as past runs of the dashboard.
+- All backend services consume the `config` topic to receive configuration updates.
+- The `data_reduction` service can also produce configuration messages (e.g., specs of available workflow and workflow status), which are published to the `config` topic.
+---
+
 ## 1. Architecture Description
 
 ### 1.1. High-Level Structure
