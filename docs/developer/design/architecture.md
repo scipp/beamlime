@@ -119,7 +119,7 @@ The architecture is structured in three main layers:
 
 ## Configuration Architecture - Pydantic vs Param Separation
 
-The dashboard implements a configuration system that bridges the gap between backend services (using Pydantic for validation) and frontend widgets (using Param for interactive controls).
+The dashboard implements a configuration system that maintains a clear separation between frontend widgets (using Param for interactive controls) and backend validation/communication (using Pydantic models throughout). The `ConfigService` operates entirely with Pydantic models, ensuring type safety and validation consistency.
 
 ### Configuration Flow Overview
 
@@ -130,9 +130,9 @@ graph TB
         PM[Param Models<br/>TOAEdgesParam]
     end
 
-    subgraph "Configuration Service"
-        CS[ConfigService]
-        SV[Schema Validator]
+    subgraph "Configuration Service Layer"
+        CS[ConfigService<br/>Pydantic-only]
+        SV[Schema Validator<br/>Pydantic Models]
         MB[Message Bridge]
     end
 
@@ -147,20 +147,29 @@ graph TB
     end
 
     PW <--> PM
-    PM <--> CS
-    CS --> SV
+    PM -.->|"Creates Pydantic<br/>from Param state"| CS
+    CS -.->|"Validates only<br/>Pydantic models"| SV
     CS <--> MB
     MB <--> KB
     KB <--> KT
     KT <--> BE
-    SV -.-> PD
+    CS -.->|"Callbacks with<br/>Pydantic models"| PM
 
     classDef pydantic fill:#e1f5fe
     classDef param fill:#f3e5f5
 
-    class PD pydantic
-    class PM param
+    class PD,CS,SV pydantic
+    class PM,PW param
 ```
+
+### Key Architectural Design
+
+The implementation enforces **Pydantic models throughout the ConfigService**:
+
+1. **ConfigService Validation**: Only accepts `pydantic.BaseModel` instances via `update_config()`
+2. **Schema Registration**: Requires `type[pydantic.BaseModel]` for schema registration
+3. **Message Serialization**: Uses Pydantic's `model_dump(mode='json')` for Kafka messages
+4. **Callback Data**: Subscribers receive validated Pydantic model instances
 
 ### Two-Way Configuration Flow
 
@@ -176,22 +185,54 @@ sequenceDiagram
 
     Note over PW,BE: User Changes Parameter
     PW->>PM: User input (num_edges=150)
-    PM->>CS: update_config(key, num_edges=150)
-    CS->>SV: validate(key, {num_edges: 150})
-    SV->>CS: validated Pydantic dict
-    CS->>KB: publish(key, validated_data)
+    PM->>PM: Create Pydantic model from Param state
+    PM->>CS: update_config(key, pydantic_model)
+    CS->>CS: Validate isinstance(value, BaseModel)
+    CS->>SV: validate(key, pydantic_model)
+    CS->>KB: publish(key, model.model_dump(mode='json'))
     KB->>KT: JSON message
     KT->>BE: Backend consumes
 
-    Note over PW,BE: Backend Updates Configuration
-    BE->>KT: Updated config
+    Note over PW,BE: Backend/Remote Updates Configuration
+    BE->>KT: Updated config (JSON)
     KT->>KB: JSON message
-    KB->>CS: incoming message
-    CS->>SV: validate(key, incoming_data)
-    CS->>PM: callback(**validated_data)
-    PM->>PW: param.update(**kwargs)
+    KB->>CS: incoming JSON message
+    CS->>SV: deserialize(key, json_data) -> Pydantic model
+    CS->>PM: callback(pydantic_model)
+    PM->>PM: Extract dict from Pydantic model
+    PM->>PW: param.update(**model.model_dump())
     PW->>PW: Widget reflects new state
 ```
+
+### BaseParamModel Translation Mechanism
+
+The `BaseParamModel` serves as a **translation layer** that:
+
+1. **Outbound (Param → Pydantic)**: Creates Pydantic models from Param state using `self.schema.model_validate(kwargs)`
+2. **Inbound (Pydantic → Param)**: Extracts data from Pydantic models using `model.model_dump()`
+3. **Schema Binding**: Connects each Param model to its corresponding Pydantic schema
+4. **Validation**: Ensures all data flowing through ConfigService is properly validated
+
+```python
+# BaseParamModel's key methods
+def from_pydantic(self) -> Callable[..., None]:
+    def update_callback(model: pydantic.BaseModel) -> None:
+        self.param.update(**model.model_dump())  # Pydantic → Param
+    return update_callback
+
+# In the param.bind callback:
+def set_as_pydantic(**kwargs) -> None:
+    model = self.schema.model_validate(kwargs)  # Param → Pydantic
+    config_service.update_config(key, model)
+```
+
+### Architectural Benefits
+
+1. **Type Safety**: All configuration data is validated through Pydantic schemas
+2. **Serialization Consistency**: Single serialization path via `model_dump(mode='json')`
+3. **Backend Compatibility**: JSON messages match Pydantic model structure
+4. **Frontend Flexibility**: Rich Param widgets with bounds, selectors, and validation
+5. **Clear Boundaries**: Translation happens only at the BaseParamModel layer
 
 ## Data Flow Architecture
 
