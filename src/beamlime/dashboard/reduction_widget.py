@@ -35,6 +35,7 @@ from beamlime.config.workflow_spec import (
     WorkflowSpec,
     WorkflowSpecs,
     WorkflowStatus,
+    WorkflowStatusType,
 )
 
 
@@ -61,6 +62,10 @@ class WorkflowController(Protocol):
 
     def get_workflow_status(self, source_name: str) -> WorkflowStatus | None:
         """Get the status of a workflow for a specific source."""
+        ...
+
+    def get_all_workflow_status(self) -> dict[str, WorkflowStatus]:
+        """Get workflow status for all tracked sources."""
         ...
 
     def subscribe_to_workflow_specs_updates(self, callback: callable) -> None:
@@ -362,7 +367,6 @@ class WorkflowConfigModal:
         workflow_spec: WorkflowSpec,
         workflow_specs: WorkflowSpecs,
         controller: WorkflowController,
-        on_workflow_started: callable | None = None,
     ) -> None:
         """
         Initialize workflow configuration modal.
@@ -375,13 +379,10 @@ class WorkflowConfigModal:
             All available workflow specifications (for validation)
         controller
             Controller for workflow operations
-        on_workflow_started
-            Optional callback when workflow is started
         """
         self._workflow_spec = workflow_spec
         self._workflow_specs = workflow_specs
         self._controller = controller
-        self._on_workflow_started = on_workflow_started
 
         # Load persistent config from controller
         workflow_id = self._find_workflow_id()
@@ -478,9 +479,6 @@ class WorkflowConfigModal:
 
         self._modal.open = False
 
-        if self._on_workflow_started:
-            self._on_workflow_started()
-
     def _show_error_modal(self, message: str) -> None:
         """Show an error message in a modal."""
         error_modal = pn.Modal(
@@ -536,6 +534,11 @@ class RunningWorkflowsWidget:
         # Subscribe to status updates for automatic refresh
         self._controller.subscribe_to_workflow_status_updates(self.refresh)
 
+        # Subscribe to workflow specs updates to refresh workflow names
+        self._controller.subscribe_to_workflow_specs_updates(
+            lambda workflow_specs: self.refresh()
+        )
+
     def _create_widget(self) -> pn.Column:
         """Create the main widget."""
         return pn.Column(
@@ -543,30 +546,28 @@ class RunningWorkflowsWidget:
             self._workflow_list,
         )
 
-    def _create_workflow_row(
-        self, source_name: str, workflow_id: WorkflowId, status: WorkflowStatus
-    ) -> pn.Row:
+    def _create_workflow_row(self, source_name: str, status: WorkflowStatus) -> pn.Row:
         """Create a row widget for a single workflow."""
         # Style based on status
-        if status == WorkflowStatus.STARTING:
+        if status.status == WorkflowStatusType.STARTING:
             status_color = "#ffc107"  # Yellow
             status_text = "Starting..."
             button_name = "Stop"
             button_type = "primary"
             opacity_style = ""
-        elif status == WorkflowStatus.RUNNING:
+        elif status.status == WorkflowStatusType.RUNNING:
             status_color = "#28a745"  # Green
             status_text = "Running"
             button_name = "Stop"
             button_type = "primary"
             opacity_style = ""
-        elif status == WorkflowStatus.STARTUP_ERROR:
+        elif status.status == WorkflowStatusType.STARTUP_ERROR:
             status_color = "#dc3545"  # Red
             status_text = "Error"
             button_name = "Remove"
             button_type = "light"
             opacity_style = "opacity: 0.7;"
-        elif status == WorkflowStatus.STOPPED:
+        elif status.status == WorkflowStatusType.STOPPED:
             status_color = "#6c757d"  # Gray
             status_text = "Stopped"
             button_name = "Remove"
@@ -581,10 +582,10 @@ class RunningWorkflowsWidget:
 
         # Get workflow name from specs, fallback to ID if not found
         workflow_specs = self._specs_manager.workflow_specs
-        if workflow_id in workflow_specs.workflows:
-            workflow_name = workflow_specs.workflows[workflow_id].name
+        if status.workflow_id in workflow_specs.workflows:
+            workflow_name = workflow_specs.workflows[status.workflow_id].name
         else:
-            workflow_name = workflow_id
+            workflow_name = status.workflow_id
 
         # Create info panel with status indicator
         info_html = f"""
@@ -619,22 +620,19 @@ class RunningWorkflowsWidget:
         )
 
         # Create callback based on status
-        if status in (WorkflowStatus.STARTING, WorkflowStatus.RUNNING):
+        if status.status in (WorkflowStatusType.STARTING, WorkflowStatusType.RUNNING):
 
             def stop_callback(event):
                 self._controller.stop_workflow_for_source(source_name)
+
+            action_button.on_click(stop_callback)
         else:
 
             def remove_callback(event):
                 self._controller.remove_workflow_for_source(source_name)
                 self.refresh()
 
-        callback = (
-            stop_callback
-            if status in (WorkflowStatus.STARTING, WorkflowStatus.RUNNING)
-            else remove_callback
-        )
-        action_button.on_click(callback)
+            action_button.on_click(remove_callback)
 
         # Create placeholder for future features (inspection, outputs)
         inspect_button = pn.widgets.Button(
@@ -667,9 +665,9 @@ class RunningWorkflowsWidget:
 
     def refresh(self) -> None:
         """Refresh the list of workflows."""
-        running_workflows = self._controller.get_running_workflows()
+        all_status = self._controller.get_all_workflow_status()
 
-        if not running_workflows:
+        if not all_status:
             self._workflow_list.objects = [
                 pn.pane.HTML(
                     "<p style='color: #6c757d; font-style: italic;'>No workflows</p>"
@@ -678,13 +676,9 @@ class RunningWorkflowsWidget:
             return
 
         workflow_items = []
-        for source_name, workflow_id in running_workflows.items():
-            status = self._controller.get_workflow_status(source_name)
-            if status is not None:
-                workflow_row = self._create_workflow_row(
-                    source_name, workflow_id, status
-                )
-                workflow_items.append(workflow_row)
+        for source_name, status in all_status.items():
+            workflow_row = self._create_workflow_row(source_name, status)
+            workflow_items.append(workflow_row)
 
         self._workflow_list.objects = workflow_items
 
@@ -774,7 +768,6 @@ class ReductionWidget:
             workflow_spec=workflow_spec,
             workflow_specs=self._specs_manager.workflow_specs,
             controller=self._controller,
-            on_workflow_started=self.refresh_running_workflows,
         )
 
         # Add modal to container and show it
@@ -784,10 +777,6 @@ class ReductionWidget:
     def update_workflow_specs(self, workflow_specs: WorkflowSpecs) -> None:
         """Update the available workflow specifications."""
         self._specs_manager.update_workflow_specs(workflow_specs)
-
-    def refresh_running_workflows(self) -> None:
-        """Refresh the display of running workflows."""
-        self._running_workflows_widget.refresh()
 
     @property
     def widget(self) -> pn.Column:
