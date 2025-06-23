@@ -70,7 +70,7 @@ flowchart TD
 
 ```mermaid
 graph TD
-    subgraph "External Systems"
+    subgraph "Beamlime Backend Services"
         K1[Kafka Data Streams]
         K2[Kafka Config Topic]
     end
@@ -95,15 +95,14 @@ graph TD
 
     CS <--> WC
     DS <--> WC
-    WC --> UI
+    WC <--> UI
     K1 --> MS
     K2 <--> KB
     MS --> DS
     DS --> W1
     KB --> CS
     CS <--> PM
-    PM --> W2
-    W2 --> PM
+    PM <--> W2
 ```
 
 ### Component Overview
@@ -257,132 +256,6 @@ sequenceDiagram
     S->>UI: Update visualizations
 ```
 
-<!-- TODO: Reconcile differences between subscription models in the two documents -->
-
-## Component Architecture
-
-### Configuration Management Layer
-
-```mermaid
-classDiagram
-    class ConfigService {
-        +register_schema(key, schema)
-        +subscribe(key, callback)
-        +update_config(key, **kwargs)
-        +get_setter(key) Callable
-        +process_incoming_messages()
-        -MessageBridge message_bridge
-        -ConfigSchemaValidator schema_validator
-        -dict[K, list[Callable]] subscribers
-    }
-
-    class ConfigSchemaManager {
-        +has_schema(key) bool
-        +validate(key, data) dict | None
-        +dict[K, type[BaseModel]] schemas
-    }
-
-    class KafkaBridge {
-        +publish(key, value)
-        +pop_message() tuple | None
-        +start()
-        +stop()
-        -Queue outgoing_queue
-        -Queue incoming_queue
-        -Consumer consumer
-        -Producer producer
-    }
-
-    class BaseParamModel {
-        <<abstract>>
-        +str service_name*
-        +str config_key_name*
-        +type[BaseModel] schema*
-        +subscribe(config_service)
-        +panel()*
-        +param_updater() Callable
-    }
-
-    class TOAEdgesParam {
-        +Number low
-        +Number high
-        +Integer num_edges
-        +Selector unit
-        +TOAEdges schema
-    }
-
-    class TOAEdges {
-        <<Pydantic>>
-        +float low
-        +float high
-        +int num_edges
-        +str unit
-    }
-
-    ConfigService --> ConfigSchemaManager : uses
-    ConfigService --> KafkaBridge : uses
-    BaseParamModel --> ConfigService : subscribes to
-    TOAEdgesParam --|> BaseParamModel
-    ConfigSchemaManager --> TOAEdges : validates with
-    TOAEdgesParam --> TOAEdges : references schema
-```
-
-### Data Management Layer
-
-```mermaid
-classDiagram
-    class DataService {
-        +dict[DataKey, DataArray] data
-        +register_subscriber(subscriber)
-        +transaction() context
-        -notify_subscribers(keys)
-        -list[DataSubscriber] subscribers
-        -set[DataKey] pending_updates
-        -int transaction_depth
-    }
-
-    class DataForwarder {
-        +dict[str, DataService] data_services
-        +forward(stream_name, value)
-        +transaction() context
-    }
-
-    class DataSubscriber {
-        <<abstract>>
-        +set[DataKey] keys
-        +trigger(store)
-        +send(data)*
-    }
-
-    class ComponentDataSubscriber {
-        +ComponentDataKey component_key
-        +Pipe pipe
-        +send(data)
-    }
-
-    class DataKey {
-        +str service_name
-        +str source_name
-        +str key
-    }
-
-    class ComponentDataKey {
-        <<abstract>>
-        +str component_name
-        +str view_name
-        +str service_name*
-        +cumulative_key() DataKey
-        +current_key() DataKey
-    }
-
-    DataService --> DataSubscriber : notifies
-    DataForwarder --> DataService : forwards to
-    ComponentDataSubscriber --|> DataSubscriber
-    DataSubscriber --> DataKey : depends on
-    DataService --> DataKey : indexed by
-    ComponentDataSubscriber --> ComponentDataKey : uses
-```
-
 ## The BaseParamModel Mechanism
 
 ### Purpose and Role
@@ -422,24 +295,6 @@ sequenceDiagram
 - **Extensibility**: More complex workflows can use a centralized controller, while simple controls benefit from this lightweight mechanism
 
 ## MVC Pattern Analysis
-
-### Mapping to MVC
-
-| MVC Component | Beamlime Implementation |
-|---------------|------------------------|
-| Model         | ConfigService, DataService |
-| View          | Panel Widgets              |
-| Controller    | WorkflowController, BaseParamModel (for simple controls) |
-
-```mermaid
-flowchart LR
-    Model["Model<br/>(ConfigService, DataService)"]
-    Controller["Controller<br/>(WorkflowController, BaseParamModel)"]
-    View["View<br/>(Panel Widgets)"]
-
-    View <--> Controller
-    Controller <--> Model
-```
 
 ### Subscription and Notification Flow
 
@@ -521,76 +376,6 @@ The KafkaBridge implements several optimizations:
 3. **Queue-based Communication**: Non-blocking queues between GUI and background threads
 4. **Smart Idle Handling**: Minimal CPU usage when no messages are available
 
-## Key Architectural Principles
-
-### 1. Pydantic/Param Separation
-
-**Pydantic Models** (Backend/Validation):
-```python
-class TOAEdges(BaseModel):
-    low: float
-    high: float  
-    num_edges: int
-    unit: str
-```
-
-**Param Models** (Frontend/GUI):
-```python
-class TOAEdgesParam(BaseParamModel):
-    low = param.Number(default=0.0)
-    high = param.Number(default=72_000.0)
-    num_edges = param.Integer(default=100, bounds=(1, 1000))
-    unit = param.Selector(default='us', objects=['ns', 'us', 'ms', 's'])
-
-    @property
-    def schema(self) -> type[TOAEdges]:
-        return TOAEdges
-```
-
-### 2. Two-Way Configuration Binding
-
-- **GUI → Backend**: User changes widget → Param model → ConfigService → Kafka → Backend
-- **Backend → GUI**: Backend update → Kafka → ConfigService → Param model → Widget
-
-### 3. Transaction Support and Message Batching
-
-```python
-with data_service.transaction():
-    # Multiple updates batched together
-    data_service[key1] = value1
-    data_service[key2] = value2
-    # Subscribers notified only once at end
-```
-
-### 4. Dependency Injection
-
-```python
-# Configuration dependencies
-config_service = ConfigService(
-    message_bridge=kafka_bridge,
-    schema_validator=schema_manager
-)
-
-# Data flow dependencies  
-orchestrator = Orchestrator(
-    message_source=message_source,
-    forwarder=data_forwarder
-)
-```
-
-### 5. Publisher-Subscriber with Transaction Support
-
-```mermaid
-graph LR
-    DS[DataService] --> S1[Monitor1 Subscriber]
-    DS --> S2[Monitor2 Subscriber]  
-    DS --> S3[Status Subscriber]
-    S1 --> P1[Monitor1 Plot]
-    S2 --> P2[Monitor2 Plot]
-    S3 --> P3[Status Bar]
-
-    style DS fill:#f9f,stroke:#333,stroke-width:2px
-```
 ## Extension Points
 
 ### Adding New Configuration Parameters
@@ -629,32 +414,3 @@ widget.subscribe(config_service)
 1. Create new subscriber implementing `DataSubscriber`
 2. Register with appropriate `DataService`  
 3. Implement visualization using Holoviews/Panel
-
-## Development Principles and Technologies
-
-### Core Principles
-
-- Well architected, maintainable, and testable code using modern Python
-- Dependency injection patterns implemented by hand for better testability
-- Separation of Kafka integration and GUI presentation from application logic
-- Architecture designed for easy testing using fakes rather than mocks
-- Layered architecture with clear distinction between presentation, application service, and infrastructure layers
-- Support for multiple app versions (for different ESS instruments) while reusing core components
-
-### Technology Stack
-
-- **Kafka Integration**: `confluence_kafka` for message streaming
-- **Serialization**: `pydantic` for message validation and type safety
-- **GUI Framework**: `panel` and `holoviews` for interactive dashboards
-
-### Architectural Patterns
-
-- Publisher-subscriber pattern for data and configuration updates
-- Transaction pattern for batched operations
-- Adapter pattern for Pydantic/Param translation
-- Dependency injection for testability and modularity
-- Layered architecture for separation of concerns
-
----
-
-This architecture provides a robust foundation for the live data dashboard while maintaining clear separation of concerns, comprehensive validation, and extensive testability. The Pydantic/Param separation ensures type safety across system boundaries while enabling rich interactive controls.
