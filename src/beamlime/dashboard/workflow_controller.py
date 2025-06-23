@@ -222,9 +222,8 @@ class ConfigServiceWorkflowController(WorkflowController):
 
         # Update the config for this workflow
         persistent_config = PersistentWorkflowConfig(
-            workflow_id=workflow_id,
             source_names=source_names,
-            parameter_values=parameter_values,
+            config=WorkflowConfig(identifier=workflow_id, values=parameter_values),
         )
         current_configs.configs[workflow_id] = persistent_config
 

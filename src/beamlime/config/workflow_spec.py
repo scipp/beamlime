@@ -124,16 +124,12 @@ class PersistentWorkflowConfig(BaseModel):
     for a workflow, allowing the UI to restore the last-used configuration.
     """
 
-    workflow_id: WorkflowId = Field(
-        description="Identifier of the workflow this config belongs to"
-    )
     source_names: list[str] = Field(
         default_factory=list,
         description="Selected source names for this workflow",
     )
-    parameter_values: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Parameter values configured for this workflow",
+    config: WorkflowConfig = Field(
+        description="Configuration for the workflow, including parameter values",
     )
 
 
