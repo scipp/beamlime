@@ -31,6 +31,7 @@ import panel as pn
 from beamlime.config.workflow_spec import (
     Parameter,
     ParameterType,
+    PersistentWorkflowConfig,
     WorkflowConfig,
     WorkflowId,
     WorkflowSpec,
@@ -72,6 +73,21 @@ class WorkflowController(Protocol):
 
     def subscribe_to_workflow_specs_updates(self, callback: callable) -> None:
         """Subscribe to workflow specs updates."""
+        ...
+
+    def save_workflow_config(
+        self,
+        workflow_id: WorkflowId,
+        source_names: list[str],
+        parameter_values: dict[str, Any],
+    ) -> None:
+        """Save workflow configuration for later restoration."""
+        ...
+
+    def load_workflow_config(
+        self, workflow_id: WorkflowId
+    ) -> PersistentWorkflowConfig | None:
+        """Load saved workflow configuration."""
         ...
 
 
@@ -177,6 +193,7 @@ class WorkflowConfigWidget:
     def __init__(
         self,
         workflow_spec: WorkflowSpec,
+        persistent_config: PersistentWorkflowConfig | None = None,
         workflow_config: WorkflowConfig | None = None,
     ) -> None:
         """
@@ -186,10 +203,13 @@ class WorkflowConfigWidget:
         ----------
         workflow_spec
             Specification of the workflow
+        persistent_config
+            Previously saved configuration including source names and parameters
         workflow_config
-            Optional initial configuration values
+            Optional initial configuration values (lower priority than persistent_config)
         """
         self._workflow_spec = workflow_spec
+        self._persistent_config = persistent_config
         self._workflow_config = workflow_config
         self._parameter_widgets: dict[str, ParameterWidget] = {}
         self._source_selector = self._create_source_selector()
@@ -198,10 +218,15 @@ class WorkflowConfigWidget:
 
     def _create_source_selector(self) -> pn.widgets.MultiChoice:
         """Create source selection widget."""
+        # Use persistent config source names if available
+        initial_sources = []
+        if self._persistent_config:
+            initial_sources = self._persistent_config.source_names
+
         return pn.widgets.MultiChoice(
             name="Source Names",
             options=self._workflow_spec.source_names,
-            value=[],
+            value=initial_sources,
             placeholder="Select source names to apply workflow to",
         )
 
@@ -211,7 +236,11 @@ class WorkflowConfigWidget:
 
         for param in self._workflow_spec.parameters:
             initial_value = None
-            if self._workflow_config:
+
+            # Priority: persistent_config > workflow_config > parameter default
+            if self._persistent_config:
+                initial_value = self._persistent_config.parameter_values.get(param.name)
+            elif self._workflow_config:
                 initial_value = self._workflow_config.values.get(param.name)
 
             param_widget = ParameterWidget(param, initial_value)
@@ -352,6 +381,7 @@ class WorkflowConfigModal:
         workflow_spec: WorkflowSpec,
         workflow_specs: WorkflowSpecs,
         controller: WorkflowController,
+        persistent_config: PersistentWorkflowConfig | None = None,
         workflow_config: WorkflowConfig | None = None,
         on_workflow_started: callable | None = None,
     ) -> None:
@@ -366,18 +396,23 @@ class WorkflowConfigModal:
             All available workflow specifications (for validation)
         controller
             Controller for workflow operations
+        persistent_config
+            Previously saved configuration including source names and parameters
         workflow_config
-            Optional initial configuration values
+            Optional initial configuration values (lower priority than persistent_config)
         on_workflow_started
             Optional callback when workflow is started
         """
         self._workflow_spec = workflow_spec
         self._workflow_specs = workflow_specs
         self._controller = controller
+        self._persistent_config = persistent_config
         self._workflow_config = workflow_config
         self._on_workflow_started = on_workflow_started
 
-        self._config_widget = WorkflowConfigWidget(workflow_spec, workflow_config)
+        self._config_widget = WorkflowConfigWidget(
+            workflow_spec, persistent_config, workflow_config
+        )
         self._modal = self._create_modal()
 
     def _create_modal(self) -> pn.Modal:
@@ -454,6 +489,13 @@ class WorkflowConfigModal:
         if not self._config_widget.validate_configuration():
             self._show_error_modal("Please select at least one source name.")
             return
+
+        # Save configuration before starting workflow
+        self._controller.save_workflow_config(
+            workflow_id,
+            self._config_widget.selected_sources,
+            self._config_widget.parameter_values,
+        )
 
         self._controller.start_workflow(
             workflow_id,
@@ -737,7 +779,10 @@ class ReductionWidget:
 
         workflow_spec = self._specs_manager.workflow_specs.workflows[workflow_id]
 
-        # Use initial config if it matches the selected workflow
+        # Load persistent configuration first
+        persistent_config = self._controller.load_workflow_config(workflow_id)
+
+        # Use initial config as fallback if it matches the selected workflow
         config = None
         if self._initial_config and self._initial_config.identifier == workflow_id:
             config = self._initial_config
@@ -746,6 +791,7 @@ class ReductionWidget:
             workflow_spec=workflow_spec,
             workflow_specs=self._specs_manager.workflow_specs,
             controller=self._controller,
+            persistent_config=persistent_config,
             workflow_config=config,
             on_workflow_started=self.refresh_running_workflows,
         )
