@@ -155,7 +155,13 @@ class PersistentWorkflowConfigs(BaseModel):
 
 
 class WorkflowStatusType(str, Enum):
-    """Status of a workflow execution."""
+    """
+    Status of a workflow execution.
+
+    The idea of the "stopped" status is to have the option of still displaying the data
+    in the UI. The UI may then remove the workflow entirely in a separate step. This is
+    not implemented yet.
+    """
 
     STARTING = "starting"
     STOPPING = "stopping"

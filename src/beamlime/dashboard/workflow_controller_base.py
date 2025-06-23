@@ -29,6 +29,10 @@ class WorkflowController(Protocol):
         """Get workflow status for all tracked sources."""
         ...
 
+    def get_workflow_specs(self) -> WorkflowSpecs:
+        """Get the current workflow specifications."""
+        ...
+
     def subscribe_to_workflow_specs_updates(self, callback: callable) -> None:
         """Subscribe to workflow specs updates."""
         ...
@@ -42,34 +46,3 @@ class WorkflowController(Protocol):
     ) -> PersistentWorkflowConfig | None:
         """Load saved workflow configuration."""
         ...
-
-
-class WorkflowSpecsManager:
-    """Centralized manager for workflow specifications."""
-
-    def __init__(self, workflow_specs: WorkflowSpecs) -> None:
-        """
-        Initialize workflow specs manager.
-
-        Parameters
-        ----------
-        workflow_specs
-            Initial workflow specifications
-        """
-        self._workflow_specs = workflow_specs
-        self._subscribers: list[callable] = []
-
-    def update_workflow_specs(self, workflow_specs: WorkflowSpecs) -> None:
-        """Update workflow specs and notify subscribers."""
-        self._workflow_specs = workflow_specs
-        for callback in self._subscribers:
-            callback(workflow_specs)
-
-    def subscribe_to_updates(self, callback: callable) -> None:
-        """Subscribe to workflow specs updates."""
-        self._subscribers.append(callback)
-
-    @property
-    def workflow_specs(self) -> WorkflowSpecs:
-        """Get current workflow specifications."""
-        return self._workflow_specs

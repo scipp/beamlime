@@ -4,15 +4,13 @@ import panel as pn
 
 from beamlime.config.workflow_spec import WorkflowStatus, WorkflowStatusType
 
-from .workflow_controller_base import WorkflowController, WorkflowSpecsManager
+from .workflow_controller_base import WorkflowController
 
 
 class WorkflowStatusListWidget:
     """Widget for displaying and controlling running workflows."""
 
-    def __init__(
-        self, controller: WorkflowController, specs_manager: WorkflowSpecsManager
-    ) -> None:
+    def __init__(self, controller: WorkflowController) -> None:
         """
         Initialize running workflows widget.
 
@@ -20,11 +18,8 @@ class WorkflowStatusListWidget:
         ----------
         controller
             Controller for workflow operations
-        specs_manager
-            Manager for workflow specifications
         """
         self._controller = controller
-        self._specs_manager = specs_manager
         self._workflow_list = pn.Column()
         self._workflow_rows: dict[str, dict[str, Any]] = {}  # Track persistent widgets
         self._widget = self._create_widget()
@@ -49,7 +44,7 @@ class WorkflowStatusListWidget:
     ) -> dict[str, Any]:
         """Create a row widget data structure for a single workflow."""
         # Get workflow name from specs, fallback to ID if not found
-        workflow_specs = self._specs_manager.workflow_specs
+        workflow_specs = self._controller.get_workflow_specs()
         if status.workflow_id in workflow_specs.workflows:
             workflow_name = workflow_specs.workflows[status.workflow_id].name
         else:
@@ -242,7 +237,7 @@ class WorkflowStatusListWidget:
         workflow_widgets = []
         for source_name, status in all_status.items():
             # Get workflow name
-            workflow_specs = self._specs_manager.workflow_specs
+            workflow_specs = self._controller.get_workflow_specs()
             if status.workflow_id in workflow_specs.workflows:
                 workflow_name = workflow_specs.workflows[status.workflow_id].name
             else:

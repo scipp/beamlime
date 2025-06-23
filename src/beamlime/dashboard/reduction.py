@@ -4,7 +4,6 @@ import holoviews as hv
 import panel as pn
 
 from beamlime import Service
-from beamlime.config.workflow_spec import WorkflowSpecs
 
 from . import plots
 from .dashboard import DashboardBase
@@ -30,43 +29,27 @@ class ReductionApp(DashboardBase):
         self._setup_reduction_streams()
         self._logger.info("Reduction dashboard initialized")
 
+    def source_names(self) -> list[str]:
+        """Return the set of source names that this dashboard monitors."""
+        return sorted(
+            [
+                'mantle_detector',
+                'endcap_forward_detector',
+                'endcap_backward_detector',
+                'high_resolution_detector',
+            ]
+        )
+
     def _setup_workflow_management(self) -> None:
         """Initialize workflow controller and reduction widget."""
-        # Define source names that we want to monitor
-        source_names = [
-            'mantle_detector',
-            'endcap_forward_detector',
-            'endcap_backward_detector',
-            'high_resolution_detector',
-        ]
-
-        # Create workflow controller backed by config service
         self._workflow_controller = ConfigServiceWorkflowController(
-            self._config_service, source_names=source_names
+            self._config_service, source_names=list(self.source_names())
         )
-
-        # Initialize with empty workflow specs, will be updated via config service
-        initial_specs = WorkflowSpecs()
-
-        # Create reduction widget
-        self._reduction_widget = ReductionWidget(
-            workflow_specs=initial_specs,
-            controller=self._workflow_controller,
-        )
-
-        # Subscribe to workflow specs updates
-        self._workflow_controller.subscribe_to_workflow_specs_updates(
-            self._on_workflow_specs_updated
-        )
+        self._reduction_widget = ReductionWidget(controller=self._workflow_controller)
 
     def _setup_reduction_streams(self) -> None:
         """Initialize streams for reduction data."""
-        source_names = {
-            'mantle_detector',
-            'endcap_forward_detector',
-            'endcap_backward_detector',
-            'high_resolution_detector',
-        }
+        source_names = set(self.source_names())
         self._iofd_pipe = self._reduction_stream_manager.get_stream(
             source_names=source_names,
             view_name='ess.powder.types.FocussedDataDspacing[ess.reduce.nexus.types.SampleRun]',
@@ -75,16 +58,6 @@ class ReductionApp(DashboardBase):
             source_names=source_names,
             view_name='ess.powder.types.FocussedDataDspacingTwoTheta[ess.reduce.nexus.types.SampleRun]',
         )
-
-    def _on_workflow_specs_updated(self, workflow_specs: WorkflowSpecs) -> None:
-        """Handle workflow specs updates from the controller."""
-        self._logger.info(
-            'Updating reduction widget with %d workflow specs',
-            len(workflow_specs.workflows),
-        )
-        self._reduction_widget.update_workflow_specs(workflow_specs)
-        # Also refresh running workflows to ensure they show updated names
-        self._reduction_widget.refresh_running_workflows()
 
     def create_sidebar_content(self) -> pn.viewable.Viewable:
         """Create the sidebar content with workflow controls."""
