@@ -154,7 +154,6 @@ class ConfigHandler(Handler[bytes, None]):
         # Delay action calls until all messages are processed to reduce triggering
         # multiple calls for the same key in case of multiple messages with same key.
         messages: list[Message[ConfigUpdate]] = []
-        # TODO append message with return value from action calls
         for config_key, source_updates in updated.items():
             for action in self._actions.get(config_key, []):
                 for source_name, update in source_updates.items():
