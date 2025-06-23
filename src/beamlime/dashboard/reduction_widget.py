@@ -37,7 +37,7 @@ from beamlime.config.workflow_spec import (
 )
 from beamlime.dashboard.workflow_status_list_widget import WorkflowStatusListWidget
 
-from .workflow_controller_base import WorkflowController, WorkflowSpecsManager
+from .workflow_controller_base import WorkflowController
 
 
 class ParameterWidget:
@@ -199,16 +199,16 @@ class WorkflowConfigWidget:
 class WorkflowSelectorWidget:
     """Widget for selecting workflows from available specifications."""
 
-    def __init__(self, specs_manager: WorkflowSpecsManager) -> None:
+    def __init__(self, controller: WorkflowController) -> None:
         """
         Initialize workflow selector.
 
         Parameters
         ----------
-        specs_manager
-            Manager for workflow specifications
+        controller
+            Controller for workflow operations
         """
-        self._specs_manager = specs_manager
+        self._controller = controller
         self.no_selection = object()
         self._selector = self._create_selector()
         self._description_pane = pn.pane.HTML(
@@ -218,7 +218,9 @@ class WorkflowSelectorWidget:
         self._setup_callbacks()
 
         # Subscribe to specs updates
-        self._specs_manager.subscribe_to_updates(self._on_workflow_specs_updated)
+        self._controller.subscribe_to_workflow_specs_updates(
+            self._on_workflow_specs_updated
+        )
 
     def _create_options(self, specs: WorkflowSpecs) -> dict[str, WorkflowId | object]:
         """Create options dictionary for the selector."""
@@ -233,7 +235,7 @@ class WorkflowSelectorWidget:
         """Create workflow selection widget."""
         return pn.widgets.Select(
             name="Workflow",
-            options=self._create_options(self._specs_manager.workflow_specs),
+            options=self._create_options(self._controller.get_workflow_specs()),
             value=self.no_selection,
         )
 
@@ -253,7 +255,7 @@ class WorkflowSelectorWidget:
         if event.new is self.no_selection:
             self._description_pane.object = "Select a workflow to see its description"
         else:
-            workflow_spec = self._specs_manager.workflow_specs.workflows[event.new]
+            workflow_spec = self._controller.get_workflow_specs().workflows[event.new]
             self._description_pane.object = (
                 f"<p><strong>Description:</strong> {workflow_spec.description}</p>"
             )
@@ -282,7 +284,9 @@ class WorkflowSelectorWidget:
         """Get the currently selected workflow specification."""
         if self.selected_workflow_id is None:
             return None
-        return self._specs_manager.workflow_specs.workflows[self.selected_workflow_id]
+        return self._controller.get_workflow_specs().workflows[
+            self.selected_workflow_id
+        ]
 
 
 class WorkflowConfigModal:
@@ -291,7 +295,6 @@ class WorkflowConfigModal:
     def __init__(
         self,
         workflow_spec: WorkflowSpec,
-        workflow_specs: WorkflowSpecs,
         controller: WorkflowController,
     ) -> None:
         """
@@ -301,13 +304,10 @@ class WorkflowConfigModal:
         ----------
         workflow_spec
             Specification of the workflow to configure
-        workflow_specs
-            All available workflow specifications (for validation)
         controller
             Controller for workflow operations
         """
         self._workflow_spec = workflow_spec
-        self._workflow_specs = workflow_specs
         self._controller = controller
 
         # Load persistent config from controller
@@ -321,7 +321,8 @@ class WorkflowConfigModal:
 
     def _find_workflow_id(self) -> WorkflowId | None:
         """Find the workflow ID for the current spec."""
-        for workflow_id, spec in self._workflow_specs.workflows.items():
+        workflow_specs = self._controller.get_workflow_specs()
+        for workflow_id, spec in workflow_specs.workflows.items():
             if spec.name == self._workflow_spec.name:
                 return workflow_id
         return None
@@ -441,7 +442,6 @@ class ReductionWidget:
 
     def __init__(
         self,
-        workflow_specs: WorkflowSpecs,
         controller: WorkflowController,
     ) -> None:
         """
@@ -449,18 +449,13 @@ class ReductionWidget:
 
         Parameters
         ----------
-        workflow_specs
-            Available workflow specifications
         controller
             Controller for workflow operations
         """
         self._controller = controller
 
-        self._specs_manager = WorkflowSpecsManager(workflow_specs)
-        self._workflow_selector = WorkflowSelectorWidget(self._specs_manager)
-        self._running_workflows_widget = WorkflowStatusListWidget(
-            controller, self._specs_manager
-        )
+        self._workflow_selector = WorkflowSelectorWidget(controller)
+        self._running_workflows_widget = WorkflowStatusListWidget(controller)
 
         self._configure_button = pn.widgets.Button(
             name="Configure & Start",
@@ -510,21 +505,16 @@ class ReductionWidget:
         if workflow_id is None:
             return
 
-        workflow_spec = self._specs_manager.workflow_specs.workflows[workflow_id]
+        workflow_spec = self._controller.get_workflow_specs().workflows[workflow_id]
 
         modal = WorkflowConfigModal(
             workflow_spec=workflow_spec,
-            workflow_specs=self._specs_manager.workflow_specs,
             controller=self._controller,
         )
 
         # Add modal to container and show it
         self._modal_container.append(modal.modal)
         modal.show()
-
-    def update_workflow_specs(self, workflow_specs: WorkflowSpecs) -> None:
-        """Update the available workflow specifications."""
-        self._specs_manager.update_workflow_specs(workflow_specs)
 
     @property
     def widget(self) -> pn.Column:
