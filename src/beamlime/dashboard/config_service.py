@@ -36,8 +36,6 @@ class ConfigSchemaValidator(Protocol, Generic[K, Serialized, V]):
         """Serialize a pydantic model to a dictionary."""
 
 
-ConfigSchemaRegistry = dict[K, type[pydantic.BaseModel]]
-
 JSONSerialized = dict[str, Any]
 
 

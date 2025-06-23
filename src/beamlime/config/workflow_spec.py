@@ -114,3 +114,44 @@ class WorkflowConfig(BaseModel):
     values: dict[str, Any] = Field(
         default_factory=dict, description="Parameter values for the workflow."
     )
+
+
+class PersistentWorkflowConfig(BaseModel):
+    """
+    Persistent storage for workflow configuration including source selection.
+
+    This model stores both the source names selection and the parameter values
+    for a workflow, allowing the UI to restore the last-used configuration.
+    """
+
+    workflow_id: WorkflowId = Field(
+        description="Identifier of the workflow this config belongs to"
+    )
+    source_names: list[str] = Field(
+        default_factory=list,
+        description="Selected source names for this workflow",
+    )
+    parameter_values: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Parameter values configured for this workflow",
+    )
+
+
+class PersistentWorkflowConfigs(BaseModel):
+    """
+    Collection of all persistent workflow configurations.
+
+    This model stores persistent configurations for multiple workflows in a single
+    config item, making it easy to manage and clean up old configurations.
+    """
+
+    configs: dict[WorkflowId, PersistentWorkflowConfig] = Field(
+        default_factory=dict,
+        description="Persistent configurations indexed by workflow ID",
+    )
+
+    def cleanup_missing_workflows(self, current_workflow_ids: set[WorkflowId]) -> None:
+        """Remove configurations for workflows that no longer exist."""
+        missing_ids = set(self.configs.keys()) - current_workflow_ids
+        for workflow_id in missing_ids:
+            del self.configs[workflow_id]

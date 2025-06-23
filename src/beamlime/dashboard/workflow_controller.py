@@ -8,7 +8,13 @@ import logging
 from typing import Any
 
 from beamlime.config.models import ConfigKey
-from beamlime.config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpecs
+from beamlime.config.workflow_spec import (
+    PersistentWorkflowConfig,
+    PersistentWorkflowConfigs,
+    WorkflowConfig,
+    WorkflowId,
+    WorkflowSpecs,
+)
 from beamlime.dashboard.config_service import ConfigService
 from beamlime.dashboard.reduction_widget import WorkflowController, WorkflowStatus
 
@@ -54,6 +60,14 @@ class ConfigServiceWorkflowController(WorkflowController):
         # Register schema for workflow specs
         self._config_service.register_schema(workflow_specs_key, WorkflowSpecs)
 
+        # Register schema for persistent workflow configs
+        persistent_configs_key = ConfigKey(
+            service_name='dashboard', key='persistent_workflow_configs'
+        )
+        self._config_service.register_schema(
+            persistent_configs_key, PersistentWorkflowConfigs
+        )
+
         # Subscribe to updates
         self._config_service.subscribe(
             workflow_specs_key, self._on_workflow_specs_updated
@@ -67,12 +81,38 @@ class ConfigServiceWorkflowController(WorkflowController):
         )
         self._workflow_specs = workflow_specs
 
+        # Clean up old persistent configs for workflows that no longer exist
+        self._cleanup_persistent_configs(set(workflow_specs.workflows.keys()))
+
         # Notify all subscribers
         for callback in self._workflow_specs_callbacks:
             try:
                 callback(workflow_specs)
             except Exception as e:  # noqa: PERF203
                 self._logger.error('Error in workflow specs update callback: %s', e)
+
+    def _cleanup_persistent_configs(
+        self, current_workflow_ids: set[WorkflowId]
+    ) -> None:
+        """Clean up persistent configs for workflows that no longer exist."""
+        persistent_configs_key = ConfigKey(
+            service_name='dashboard', key='persistent_workflow_configs'
+        )
+
+        current_configs = self._config_service._config.get(persistent_configs_key)
+        if current_configs is None:
+            return
+
+        # Clean up and save back if there were changes
+        original_count = len(current_configs.configs)
+        current_configs.cleanup_missing_workflows(current_workflow_ids)
+
+        if len(current_configs.configs) != original_count:
+            self._logger.info(
+                'Cleaned up %d obsolete persistent workflow configs',
+                original_count - len(current_configs.configs),
+            )
+            self._config_service.update_config(persistent_configs_key, current_configs)
 
     def start_workflow(
         self, workflow_id: WorkflowId, source_names: list[str], config: dict[str, Any]
@@ -163,3 +203,45 @@ class ConfigServiceWorkflowController(WorkflowController):
     def process_config_updates(self) -> None:
         """Process any pending configuration updates from the config service."""
         self._config_service.process_incoming_messages()
+
+    def save_workflow_config(
+        self,
+        workflow_id: WorkflowId,
+        source_names: list[str],
+        parameter_values: dict[str, Any],
+    ) -> None:
+        """Save workflow configuration for later restoration."""
+        persistent_configs_key = ConfigKey(
+            service_name='dashboard', key='persistent_workflow_configs'
+        )
+
+        # Get existing configs or create new collection
+        current_configs = self._config_service._config.get(persistent_configs_key)
+        if current_configs is None:
+            current_configs = PersistentWorkflowConfigs()
+
+        # Update the config for this workflow
+        persistent_config = PersistentWorkflowConfig(
+            workflow_id=workflow_id,
+            source_names=source_names,
+            parameter_values=parameter_values,
+        )
+        current_configs.configs[workflow_id] = persistent_config
+
+        # Save back to config service
+        self._config_service.update_config(persistent_configs_key, current_configs)
+
+    def load_workflow_config(
+        self, workflow_id: WorkflowId
+    ) -> PersistentWorkflowConfig | None:
+        """Load saved workflow configuration."""
+        persistent_configs_key = ConfigKey(
+            service_name='dashboard', key='persistent_workflow_configs'
+        )
+
+        # Get all persistent configs
+        all_configs = self._config_service._config.get(persistent_configs_key)
+        if all_configs is None:
+            return None
+
+        return all_configs.configs.get(workflow_id)
