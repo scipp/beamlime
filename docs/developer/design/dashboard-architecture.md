@@ -19,7 +19,7 @@
 
 The Beamlime dashboard is a real-time data visualization system that follows a layered architecture with clear separation of concerns between presentation, application logic, and infrastructure. The system is designed for live display of raw and processed detector data with configurable processing parameters, using dependency injection patterns for testability and maintainability.
 
-A key architectural principle is the separation between **Pydantic models** (used for Kafka message validation and backend communication) and **Param models** (used for GUI widgets and user interaction). This separation ensures type safety across the system boundary while providing rich interactive controls.
+A key architectural principle is the separation between **Pydantic models** (used for Kafka message validation and backend communication) and **Param models** (used for GUI widgets and user interaction).
 
 The dashboard processes 1-D and 2-D data displayed using Holoviews with update rates on the order of 1Hz. Data updates are received via Kafka streams, and user controls result in configuration updates published to Kafka topics for backend consumption.
 
@@ -132,15 +132,14 @@ graph TB
     subgraph "Configuration Service Layer"
         CS[ConfigService<br/>Pydantic-only]
         SV[Schema Validator<br/>Pydantic Models]
-        MB[Message Bridge]
+        MB[MessageBridge<br/>KafkaBridge]
     end
 
-    subgraph "Infrastructure"
-        KB[KafkaBridge]
-        KT[Kafka Topic]
+    subgraph "Kafka"
+        KT[Beamlime Config Kafka Topic]
     end
 
-    subgraph "Backend"
+    subgraph "Backend (simplified)"
         BE[Backend Services]
         PD[Pydantic Models<br/>TOAEdges]
     end
@@ -148,11 +147,13 @@ graph TB
     PW <--> PM
     PM -.->|"Creates Pydantic<br/>from Param state"| CS
     CS -.->|"Validates only<br/>Pydantic models"| SV
-    CS <--> MB
-    MB <--> KB
-    KB <--> KT
-    KT <--> BE
+    CS -- JSON --> MB
+    MB  --> KT
+    KT  --> MB
+    MB -- JSON --> CS
     CS -.->|"Callbacks with<br/>Pydantic models"| PM
+    KT --> PD
+    PD --> KT
 
     classDef pydantic fill:#e1f5fe
     classDef param fill:#f3e5f5
