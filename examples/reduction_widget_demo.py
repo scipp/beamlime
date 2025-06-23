@@ -18,9 +18,9 @@ from beamlime.config.workflow_spec import (
 )
 from beamlime.dashboard.reduction_widget import (
     ReductionWidget,
-    WorkflowController,
     WorkflowStatus,
 )
+from beamlime.dashboard.WorkflowController import WorkflowController
 
 
 class FakeWorkflowController(WorkflowController):
