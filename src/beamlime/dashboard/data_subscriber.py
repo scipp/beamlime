@@ -53,13 +53,7 @@ class DataSubscriber(ABC):
             The complete data store containing all keys this pipe depends on.
         """
         data = {key: store[key] for key in self.keys if key in store}
-        if set(data.keys()) == self.keys:
-            self.send(data)
-        else:
-            raise ValueError(
-                f"Pipe {self.__class__.__name__} is missing data for keys: "
-                f"{self.keys - set(data.keys())}"
-            )
+        self.send(data)
 
     @abstractmethod
     def send(self, data: dict[DataKey, Any]) -> None:
