@@ -45,6 +45,7 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 test = [
+    "essdiffraction>=25.06.0",
     "esssans",
     "essspectroscopy>=25.05.0",
     "pytest",
@@ -52,6 +53,9 @@ test = [
 ]
 bifrost = [
     "essspectroscopy",
+]
+dream = [
+    "essdiffraction>=25.06.0",
 ]
 loki = [
     "esssans",

@@ -7,11 +7,11 @@
 #
 annotated-types==0.7.0
     # via pydantic
-certifi==2025.4.26
+certifi==2025.6.15
     # via requests
 charset-normalizer==3.4.2
     # via requests
-confluent-kafka==2.10.0
+confluent-kafka==2.10.1
     # via -r base.in
 contourpy==1.3.2
     # via matplotlib
@@ -25,13 +25,13 @@ email-validator==2.2.0
     # via scippneutron
 ess-streaming-data-types==0.27.0
     # via -r base.in
-essreduce==25.5.1
+essreduce==25.5.3
     # via -r base.in
 flatbuffers==25.2.10
     # via ess-streaming-data-types
-fonttools==4.58.0
+fonttools==4.58.4
     # via matplotlib
-h5py==3.13.0
+h5py==3.14.0
     # via
     #   scippneutron
     #   scippnexus
@@ -53,7 +53,7 @@ matplotlib==3.10.3
     # via
     #   mpltoolbox
     #   plopp
-mpltoolbox==25.4.0
+mpltoolbox==25.5.0
     # via scippneutron
 networkx==3.4.2
     # via cyclebane
@@ -75,11 +75,11 @@ pillow==11.2.1
     # via matplotlib
 platformdirs==4.3.8
     # via pooch
-plopp==25.4.1
+plopp==25.6.1
     # via scippneutron
 pooch==1.8.2
     # via -r base.in
-pydantic==2.11.4
+pydantic==2.11.7
     # via
     #   -r base.in
     #   scippneutron
@@ -94,9 +94,9 @@ python-dateutil==2.9.0.post0
     #   scippnexus
 pyyaml==6.0.2
     # via -r base.in
-requests==2.32.3
+requests==2.32.4
     # via pooch
-sciline==25.5.1
+sciline==25.5.2
     # via essreduce
 scipp==25.5.1
     # via
@@ -106,7 +106,7 @@ scipp==25.5.1
     #   scippnexus
 scippneutron==25.5.0
     # via essreduce
-scippnexus==25.4.0
+scippnexus==25.6.0
     # via
     #   essreduce
     #   scippneutron
@@ -116,13 +116,13 @@ scipy==1.15.3
     #   scippnexus
 six==1.17.0
     # via python-dateutil
-typing-extensions==4.13.2
+typing-extensions==4.14.0
     # via
     #   pydantic
     #   pydantic-core
     #   sciline
     #   typing-inspection
-typing-inspection==0.4.0
+typing-inspection==0.4.1
     # via pydantic
-urllib3==2.4.0
+urllib3==2.5.0
     # via requests
