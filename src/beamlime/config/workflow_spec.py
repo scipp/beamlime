@@ -108,7 +108,7 @@ class WorkflowConfig(BaseModel):
     :py:class:`WorkflowSpec`.
     """
 
-    identifier: WorkflowId = Field(
+    identifier: WorkflowId | None = Field(
         description="Hash of the workflow, used to identify the workflow."
     )
     values: dict[str, Any] = Field(

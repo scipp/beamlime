@@ -94,10 +94,13 @@ class WorkflowManager:
             for name in self._processor_factory.source_names:
                 self.set_workflow_with_config(name, value)
             return
-        if value is None:
+        if value is None:  # Legacy way to stop/remove a workflow.
             self.set_workflow(source_name, None)
             return
         config = WorkflowConfig.model_validate(value)
+        if config.identifier is None:  # New way to stop/remove a workflow.
+            self.set_workflow(source_name, None)
+            return
         self.set_workflow(
             source_name,
             processor=self._processor_factory.create(

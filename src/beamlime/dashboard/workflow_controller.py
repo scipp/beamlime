@@ -170,20 +170,12 @@ class ConfigServiceWorkflowController(WorkflowController):
             service_name="data_reduction",
             key="workflow_config",
         )
-
-        # We need to send None, but config service expects pydantic models
-        # For stopping workflows, we'll create a special "empty" config
-        # or handle this case in the backend
-        # For now, we'll update local state and let the backend handle None values
-        # through a different mechanism if needed
-        _ = config_key  # To avoid unused variable warning
+        # Register schema and update config
+        self._config_service.register_schema(config_key, WorkflowConfig)
+        self._config_service.update_config(config_key, WorkflowConfig(identifier=None))
 
         # Update local state to stopped
         self._workflow_status[source_name] = WorkflowStatus.STOPPED
-
-        # Note: Actual stopping mechanism would depend on how the backend
-        # handles workflow termination. This might require a separate
-        # stop command or setting a special flag in the config.
 
     def remove_workflow_for_source(self, source_name: str) -> None:
         """Remove a stopped workflow from tracking."""
