@@ -5,7 +5,7 @@
 1. [Overview](#overview)
 2. [System Context: Dashboard and Kafka Integration](#system-context-dashboard-and-kafka-integration)
 3. [High-Level Architecture](#high-level-architecture)
-4. [Configuration Architecture - Pydantic vs Param Separation](#configuration-architecture---pydantic-vs-param-separation)
+4. [Configuration Architecture](#configuration-architecture)
 5. [Data Flow Architecture](#data-flow-architecture)
 6. [The BaseParamModel Mechanism](#the-baseparammodel-mechanism)
 7. [Background Threading Architecture](#background-threading-architecture)
@@ -109,9 +109,7 @@ The architecture is structured in three main layers:
 - **Application Layer**: Contains business logic, orchestration, and data management
 - **Presentation Layer**: Handles GUI components and user interaction
 
-<!-- TODO: Verify if WorkflowController is implemented and how it interacts with existing components -->
-
-## Configuration Architecture - Pydantic vs Param Separation
+## Configuration Architecture
 
 The dashboard implements a configuration system that maintains a clear separation between frontend widgets (using Param for interactive controls) and backend validation/communication (using Pydantic models throughout). The `ConfigService` operates entirely with Pydantic models, ensuring type safety and validation consistency.
 
