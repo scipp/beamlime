@@ -7,13 +7,9 @@
 3. [High-Level Architecture](#high-level-architecture)
 4. [Configuration Architecture - Pydantic vs Param Separation](#configuration-architecture---pydantic-vs-param-separation)
 5. [Data Flow Architecture](#data-flow-architecture)
-6. [Component Architecture](#component-architecture)
-7. [The BaseParamModel Mechanism](#the-baseparammodel-mechanism)
-8. [MVC Pattern Analysis](#mvc-pattern-analysis)
-9. [Background Threading Architecture](#background-threading-architecture)
-10. [Key Architectural Principles](#key-architectural-principles)
-11. [Extension Points](#extension-points)
-12. [Development Principles and Technologies](#development-principles-and-technologies)
+6. [The BaseParamModel Mechanism](#the-baseparammodel-mechanism)
+7. [Background Threading Architecture](#background-threading-architecture)
+8. [Extension Points](#extension-points)
 
 ## Overview
 
