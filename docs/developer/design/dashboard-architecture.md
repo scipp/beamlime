@@ -123,24 +123,19 @@ The dashboard implements a configuration system that maintains a clear separatio
 
 ```mermaid
 graph TB
-    subgraph "GUI Layer"
+    subgraph "Presentation Layer"
         PW[Param Widgets]
         PM[Param Models<br/>TOAEdgesParam]
     end
 
-    subgraph "Configuration Service Layer"
+    subgraph "Application Layer"
         CS[ConfigService<br/>Pydantic-only]
         SV[Schema Validator<br/>Pydantic Models]
         MB[MessageBridge<br/>KafkaBridge]
     end
 
     subgraph "Kafka"
-        KT[Beamlime Config Kafka Topic]
-    end
-
-    subgraph "Backend (simplified)"
-        BE[Backend Services]
-        PD[Pydantic Models<br/>TOAEdges]
+        KT[Beamlime Config Topic]
     end
 
     PW <--> PM
@@ -151,24 +146,13 @@ graph TB
     KT  --> MB
     MB -- JSON --> CS
     CS -.->|"Callbacks with<br/>Pydantic models"| PM
-    KT --> PD
-    PD --> KT
 
     classDef pydantic fill:#e1f5fe
     classDef param fill:#f3e5f5
 
-    class PD,CS,SV pydantic
+    class CS,SV pydantic
     class PM,PW param
 ```
-
-### Key Architectural Design
-
-The implementation enforces **Pydantic models throughout the ConfigService**:
-
-1. **ConfigService Validation**: Only accepts `pydantic.BaseModel` instances via `update_config()`
-2. **Schema Registration**: Requires `type[pydantic.BaseModel]` for schema registration
-3. **Message Serialization**: Uses Pydantic's `model_dump(mode='json')` for Kafka messages
-4. **Callback Data**: Subscribers receive validated Pydantic model instances
 
 ### Two-Way Configuration Flow
 
