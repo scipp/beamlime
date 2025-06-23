@@ -158,6 +158,7 @@ class WorkflowStatusType(str, Enum):
     """Status of a workflow execution."""
 
     STARTING = "starting"
+    STOPPING = "stopping"
     RUNNING = "running"
     STARTUP_ERROR = "startup_error"
     STOPPED = "stopped"

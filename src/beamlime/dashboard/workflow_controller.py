@@ -216,6 +216,9 @@ class ConfigServiceWorkflowController(WorkflowController):
         # Register schema and update config
         self._config_service.register_schema(config_key, WorkflowConfig)
         self._config_service.update_config(config_key, WorkflowConfig(identifier=None))
+        self._on_workflow_status_updated(
+            WorkflowStatus(source_name=source_name, status=WorkflowStatusType.STOPPING)
+        )
 
     def remove_workflow_for_source(self, source_name: str) -> None:
         """Remove a stopped workflow from tracking."""
