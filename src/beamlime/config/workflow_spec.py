@@ -6,7 +6,7 @@ Models for data reduction workflow widget creation and configuration.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import time
 from enum import Enum
 from typing import Any, Generic, TypeVar
 
@@ -155,12 +155,13 @@ class PersistentWorkflowConfigs(BaseModel):
 
 
 class WorkflowStatusType(str, Enum):
-    """Enum for workflow status."""
+    """Status of a workflow execution."""
 
-    STARTING = 'starting'
-    RUNNING = 'running'
-    STARTUP_ERROR = 'startup_error'
-    STOPPED = 'stopped'
+    STARTING = "starting"
+    RUNNING = "running"
+    STARTUP_ERROR = "startup_error"
+    STOPPED = "stopped"
+    UNKNOWN = "unknown"
 
 
 class WorkflowStatus(BaseModel):
@@ -178,7 +179,7 @@ class WorkflowStatus(BaseModel):
     message: str = Field(
         default='', description="Optional message providing additional information."
     )
-    timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        description="Timestamp when the status was created or updated.",
+    timestamp: int = Field(
+        default_factory=lambda: int(time.time()),
+        description="Unix timestamp when the status was created or updated.",
     )

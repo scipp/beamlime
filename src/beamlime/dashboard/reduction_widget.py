@@ -23,7 +23,6 @@ Concretely we have:
 
 from __future__ import annotations
 
-from enum import Enum
 from typing import Any, Protocol
 
 import panel as pn
@@ -35,14 +34,8 @@ from beamlime.config.workflow_spec import (
     WorkflowId,
     WorkflowSpec,
     WorkflowSpecs,
+    WorkflowStatus,
 )
-
-
-class WorkflowStatus(Enum):
-    """Status of a workflow."""
-
-    RUNNING = "running"
-    STOPPED = "stopped"
 
 
 class WorkflowController(Protocol):
@@ -72,6 +65,10 @@ class WorkflowController(Protocol):
 
     def subscribe_to_workflow_specs_updates(self, callback: callable) -> None:
         """Subscribe to workflow specs updates."""
+        ...
+
+    def subscribe_to_workflow_status_updates(self, callback: callable) -> None:
+        """Subscribe to workflow status updates."""
         ...
 
     def load_workflow_config(
@@ -536,6 +533,9 @@ class RunningWorkflowsWidget:
         self._workflow_list = pn.Column()
         self._widget = self._create_widget()
 
+        # Subscribe to status updates for automatic refresh
+        self._controller.subscribe_to_workflow_status_updates(self.refresh)
+
     def _create_widget(self) -> pn.Column:
         """Create the main widget."""
         return pn.Column(
@@ -548,15 +548,33 @@ class RunningWorkflowsWidget:
     ) -> pn.Row:
         """Create a row widget for a single workflow."""
         # Style based on status
-        if status == WorkflowStatus.RUNNING:
+        if status == WorkflowStatus.STARTING:
+            status_color = "#ffc107"  # Yellow
+            status_text = "Starting..."
+            button_name = "Stop"
+            button_type = "primary"
+            opacity_style = ""
+        elif status == WorkflowStatus.RUNNING:
             status_color = "#28a745"  # Green
             status_text = "Running"
             button_name = "Stop"
             button_type = "primary"
             opacity_style = ""
-        else:  # STOPPED
+        elif status == WorkflowStatus.STARTUP_ERROR:
+            status_color = "#dc3545"  # Red
+            status_text = "Error"
+            button_name = "Remove"
+            button_type = "light"
+            opacity_style = "opacity: 0.7;"
+        elif status == WorkflowStatus.STOPPED:
             status_color = "#6c757d"  # Gray
             status_text = "Stopped"
+            button_name = "Remove"
+            button_type = "light"
+            opacity_style = "opacity: 0.7;"
+        else:  # UNKNOWN
+            status_color = "#6c757d"  # Gray
+            status_text = "Unknown"
             button_name = "Remove"
             button_type = "light"
             opacity_style = "opacity: 0.7;"
@@ -601,11 +619,10 @@ class RunningWorkflowsWidget:
         )
 
         # Create callback based on status
-        if status == WorkflowStatus.RUNNING:
+        if status in (WorkflowStatus.STARTING, WorkflowStatus.RUNNING):
 
             def stop_callback(event):
                 self._controller.stop_workflow_for_source(source_name)
-                self.refresh()
         else:
 
             def remove_callback(event):
@@ -613,7 +630,9 @@ class RunningWorkflowsWidget:
                 self.refresh()
 
         callback = (
-            stop_callback if status == WorkflowStatus.RUNNING else remove_callback
+            stop_callback
+            if status in (WorkflowStatus.STARTING, WorkflowStatus.RUNNING)
+            else remove_callback
         )
         action_button.on_click(callback)
 

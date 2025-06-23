@@ -32,9 +32,17 @@ class ReductionApp(DashboardBase):
 
     def _setup_workflow_management(self) -> None:
         """Initialize workflow controller and reduction widget."""
+        # Define source names that we want to monitor
+        source_names = [
+            'mantle_detector',
+            'endcap_forward_detector',
+            'endcap_backward_detector',
+            'high_resolution_detector',
+        ]
+
         # Create workflow controller backed by config service
         self._workflow_controller = ConfigServiceWorkflowController(
-            self._config_service
+            self._config_service, source_names=source_names
         )
 
         # Initialize with empty workflow specs, will be updated via config service
