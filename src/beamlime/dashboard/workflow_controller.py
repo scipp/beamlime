@@ -18,7 +18,8 @@ from beamlime.config.workflow_spec import (
     WorkflowStatusType,
 )
 from beamlime.dashboard.config_service import ConfigService
-from beamlime.dashboard.reduction_widget import WorkflowController
+
+from .workflow_controller_base import WorkflowController
 
 _persistent_configs_key = ConfigKey(
     service_name='dashboard', key='persistent_workflow_configs'
@@ -225,16 +226,6 @@ class ConfigServiceWorkflowController(WorkflowController):
         self._logger.info('Removing workflow for source %s', source_name)
         # Reset status to UNKNOWN (back to initial state)
         self._on_workflow_status_updated(WorkflowStatus(source_name=source_name))
-
-    def get_running_workflows(self) -> dict[str, WorkflowId]:
-        """Get currently running workflows mapped by source name."""
-        # This method is no longer accurate since we don't track workflow IDs
-        # Keep for compatibility but consider deprecating
-        return {}
-
-    def get_workflow_status(self, source_name: str) -> WorkflowStatus | None:
-        """Get the status of a workflow for a specific source."""
-        return self._workflow_status.get(source_name)
 
     def get_all_workflow_status(self) -> dict[str, WorkflowStatus]:
         """Get workflow status for all tracked sources."""
