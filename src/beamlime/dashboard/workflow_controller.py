@@ -18,6 +18,10 @@ from beamlime.config.workflow_spec import (
 from beamlime.dashboard.config_service import ConfigService
 from beamlime.dashboard.reduction_widget import WorkflowController, WorkflowStatus
 
+_persistent_configs_key = ConfigKey(
+    service_name='dashboard', key='persistent_workflow_configs'
+)
+
 
 class ConfigServiceWorkflowController(WorkflowController):
     """
@@ -125,12 +129,19 @@ class ConfigServiceWorkflowController(WorkflowController):
             config,
         )
 
-        # Create and send workflow config for each source
-        for source_name in source_names:
-            # Create WorkflowConfig
-            workflow_config = WorkflowConfig(identifier=workflow_id, values=config)
+        workflow_config = WorkflowConfig(identifier=workflow_id, values=config)
 
-            # Send workflow config
+        # Update the config for this workflow, used for restoring widget state
+        current_configs = self._config_service._config.get(
+            _persistent_configs_key, PersistentWorkflowConfigs()
+        )
+        current_configs.configs[workflow_id] = PersistentWorkflowConfig(
+            source_names=source_names, config=workflow_config
+        )
+        self._config_service.update_config(_persistent_configs_key, current_configs)
+
+        # Send workflow config to each source
+        for source_name in source_names:
             config_key = ConfigKey(
                 source_name=source_name,
                 service_name="data_reduction",
@@ -204,42 +215,13 @@ class ConfigServiceWorkflowController(WorkflowController):
         """Process any pending configuration updates from the config service."""
         self._config_service.process_incoming_messages()
 
-    def save_workflow_config(
-        self,
-        workflow_id: WorkflowId,
-        source_names: list[str],
-        parameter_values: dict[str, Any],
-    ) -> None:
-        """Save workflow configuration for later restoration."""
-        persistent_configs_key = ConfigKey(
-            service_name='dashboard', key='persistent_workflow_configs'
-        )
-
-        # Get existing configs or create new collection
-        current_configs = self._config_service._config.get(persistent_configs_key)
-        if current_configs is None:
-            current_configs = PersistentWorkflowConfigs()
-
-        # Update the config for this workflow
-        persistent_config = PersistentWorkflowConfig(
-            source_names=source_names,
-            config=WorkflowConfig(identifier=workflow_id, values=parameter_values),
-        )
-        current_configs.configs[workflow_id] = persistent_config
-
-        # Save back to config service
-        self._config_service.update_config(persistent_configs_key, current_configs)
-
     def load_workflow_config(
         self, workflow_id: WorkflowId
     ) -> PersistentWorkflowConfig | None:
         """Load saved workflow configuration."""
-        persistent_configs_key = ConfigKey(
-            service_name='dashboard', key='persistent_workflow_configs'
-        )
 
         # Get all persistent configs
-        all_configs = self._config_service._config.get(persistent_configs_key)
+        all_configs = self._config_service._config.get(_persistent_configs_key)
         if all_configs is None:
             return None
 

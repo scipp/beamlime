@@ -74,15 +74,6 @@ class WorkflowController(Protocol):
         """Subscribe to workflow specs updates."""
         ...
 
-    def save_workflow_config(
-        self,
-        workflow_id: WorkflowId,
-        source_names: list[str],
-        parameter_values: dict[str, Any],
-    ) -> None:
-        """Save workflow configuration for later restoration."""
-        ...
-
     def load_workflow_config(
         self, workflow_id: WorkflowId
     ) -> PersistentWorkflowConfig | None:
@@ -374,7 +365,6 @@ class WorkflowConfigModal:
         workflow_spec: WorkflowSpec,
         workflow_specs: WorkflowSpecs,
         controller: WorkflowController,
-        persistent_config: PersistentWorkflowConfig | None = None,
         on_workflow_started: callable | None = None,
     ) -> None:
         """
@@ -388,19 +378,29 @@ class WorkflowConfigModal:
             All available workflow specifications (for validation)
         controller
             Controller for workflow operations
-        persistent_config
-            Previously saved configuration including source names and parameters
         on_workflow_started
             Optional callback when workflow is started
         """
         self._workflow_spec = workflow_spec
         self._workflow_specs = workflow_specs
         self._controller = controller
-        self._persistent_config = persistent_config
         self._on_workflow_started = on_workflow_started
+
+        # Load persistent config from controller
+        workflow_id = self._find_workflow_id()
+        persistent_config = None
+        if workflow_id:
+            persistent_config = self._controller.load_workflow_config(workflow_id)
 
         self._config_widget = WorkflowConfigWidget(workflow_spec, persistent_config)
         self._modal = self._create_modal()
+
+    def _find_workflow_id(self) -> WorkflowId | None:
+        """Find the workflow ID for the current spec."""
+        for workflow_id, spec in self._workflow_specs.workflows.items():
+            if spec.name == self._workflow_spec.name:
+                return workflow_id
+        return None
 
     def _create_modal(self) -> pn.Modal:
         """Create the modal dialog."""
@@ -460,11 +460,7 @@ class WorkflowConfigModal:
     def _on_start_workflow(self, event) -> None:
         """Handle start workflow button click."""
         # Validate that workflow still exists
-        workflow_id = None
-        for wf_id, spec in self._workflow_specs.workflows.items():
-            if spec.name == self._workflow_spec.name:
-                workflow_id = wf_id
-                break
+        workflow_id = self._find_workflow_id()
 
         if workflow_id is None:
             self._show_error_modal(
@@ -476,13 +472,6 @@ class WorkflowConfigModal:
         if not self._config_widget.validate_configuration():
             self._show_error_modal("Please select at least one source name.")
             return
-
-        # Save configuration before starting workflow
-        self._controller.save_workflow_config(
-            workflow_id,
-            self._config_widget.selected_sources,
-            self._config_widget.parameter_values,
-        )
 
         self._controller.start_workflow(
             workflow_id,
@@ -762,14 +751,10 @@ class ReductionWidget:
 
         workflow_spec = self._specs_manager.workflow_specs.workflows[workflow_id]
 
-        # Load persistent configuration
-        persistent_config = self._controller.load_workflow_config(workflow_id)
-
         modal = WorkflowConfigModal(
             workflow_spec=workflow_spec,
             workflow_specs=self._specs_manager.workflow_specs,
             controller=self._controller,
-            persistent_config=persistent_config,
             on_workflow_started=self.refresh_running_workflows,
         )
 
