@@ -11,7 +11,7 @@ from typing import Any
 
 from ..config.models import ConfigKey
 from ..core.handler import Config, Handler
-from ..core.message import Message
+from ..core.message import CONFIG_STREAM_ID, Message
 from ..kafka.message_adapter import RawConfigItem
 
 
@@ -153,17 +153,33 @@ class ConfigHandler(Handler[bytes, None]):
 
         # Delay action calls until all messages are processed to reduce triggering
         # multiple calls for the same key in case of multiple messages with same key.
+        messages: list[Message[ConfigUpdate]] = []
+        # TODO append message with return value from action calls
         for config_key, source_updates in updated.items():
             for action in self._actions.get(config_key, []):
                 for source_name, update in source_updates.items():
                     try:
                         # Note: Not update.source_name, as it is None for global updates
-                        action(source_name=source_name, value=update.value)
+                        result = action(source_name=source_name, value=update.value)
                         self._logger.info(
                             'Action %s called for source name %s', action, source_name
+                        )
+                        messages.append(
+                            Message(
+                                timestamp=0,
+                                stream=CONFIG_STREAM_ID,
+                                value=ConfigUpdate(
+                                    config_key=ConfigKey(
+                                        service_name=self._service_name,
+                                        source_name=source_name,
+                                        key='workflow_status',
+                                    ),
+                                    value=result,
+                                ),
+                            )
                         )
                     except Exception:  # noqa: PERF203
                         self._logger.exception(
                             'Error processing config action for %s:', config_key
                         )
-        return []
+        return messages
