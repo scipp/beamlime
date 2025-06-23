@@ -10,7 +10,12 @@ from sciline.typing import Key
 
 from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 
-from ..config.workflow_spec import WorkflowConfig, WorkflowSpecs
+from ..config.workflow_spec import (
+    WorkflowConfig,
+    WorkflowSpecs,
+    WorkflowStatus,
+    WorkflowStatusType,
+)
 from ..core.handler import Accumulator
 
 
@@ -89,25 +94,39 @@ class WorkflowManager:
 
     def set_workflow_with_config(
         self, source_name: str | None, value: dict | None
-    ) -> None:
+    ) -> WorkflowStatus:
         if source_name is None:
-            for name in self._processor_factory.source_names:
-                self.set_workflow_with_config(name, value)
-            return
+            raise ValueError(
+                "Source name must be provided to set a workflow configuration."
+            )
         if value is None:  # Legacy way to stop/remove a workflow.
             self.set_workflow(source_name, None)
-            return
+            return WorkflowStatus(
+                source_name=source_name, status=WorkflowStatusType.STOPPED
+            )
         config = WorkflowConfig.model_validate(value)
         if config.identifier is None:  # New way to stop/remove a workflow.
             self.set_workflow(source_name, None)
-            return
-        self.set_workflow(
-            source_name,
-            processor=self._processor_factory.create(
+            return WorkflowStatus(
+                source_name=source_name, status=WorkflowStatusType.STOPPED
+            )
+        try:
+            processor = self._processor_factory.create(
                 workflow_id=config.identifier,
                 source_name=source_name,
                 workflow_params=config.values,
-            ),
+            )
+        except Exception as e:
+            return WorkflowStatus(
+                source_name=source_name,
+                status=WorkflowStatusType.STARTUP_ERROR,
+                message=str(e),
+            )
+        self.set_workflow(source_name, processor=processor)
+        return WorkflowStatus(
+            source_name=source_name,
+            status=WorkflowStatusType.RUNNING,
+            workflow_id=config.identifier,
         )
 
     def get_accumulator(
