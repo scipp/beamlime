@@ -630,7 +630,6 @@ class RunningWorkflowsWidget:
 
             def remove_callback(event):
                 self._controller.remove_workflow_for_source(source_name)
-                self.refresh()
 
             action_button.on_click(remove_callback)
 

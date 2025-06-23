@@ -108,10 +108,7 @@ class ConfigServiceWorkflowController(WorkflowController):
             )
             self._config_service.register_schema(workflow_status_key, WorkflowStatus)
             self._config_service.subscribe(
-                workflow_status_key,
-                lambda status, src=source_name: self._on_workflow_status_updated(
-                    src, status
-                ),
+                workflow_status_key, self._on_workflow_status_updated
             )
 
     def _on_workflow_specs_updated(self, workflow_specs: WorkflowSpecs) -> None:
@@ -155,18 +152,10 @@ class ConfigServiceWorkflowController(WorkflowController):
             )
             self._config_service.update_config(persistent_configs_key, current_configs)
 
-    def _on_workflow_status_updated(
-        self, source_name: str, status: WorkflowStatus
-    ) -> None:
+    def _on_workflow_status_updated(self, status: WorkflowStatus) -> None:
         """Handle workflow status updates from config service."""
-        self._logger.info(
-            'Received workflow status update for source %s: %s',
-            source_name,
-            status,
-        )
-
-        # Update status and notify subscribers
-        self._workflow_status[source_name] = status
+        self._logger.info('Received workflow status update: %s', status)
+        self._workflow_status[status.source_name] = status
         for callback in self._workflow_status_callbacks:
             self._notify_workflow_status_update(callback)
 
@@ -231,9 +220,8 @@ class ConfigServiceWorkflowController(WorkflowController):
     def remove_workflow_for_source(self, source_name: str) -> None:
         """Remove a stopped workflow from tracking."""
         self._logger.info('Removing workflow for source %s', source_name)
-
         # Reset status to UNKNOWN (back to initial state)
-        self._workflow_status[source_name] = WorkflowStatus.UNKNOWN
+        self._on_workflow_status_updated(WorkflowStatus(source_name=source_name))
 
     def get_running_workflows(self) -> dict[str, WorkflowId]:
         """Get currently running workflows mapped by source name."""
