@@ -175,7 +175,9 @@ class WorkflowStatus(BaseModel):
     workflow_id: WorkflowId | None = Field(
         default=None, description="ID of the workflow."
     )
-    status: WorkflowStatusType = Field(description="Status of the workflow.")
+    status: WorkflowStatusType = Field(
+        default=WorkflowStatusType.UNKNOWN, description="Status of the workflow."
+    )
     message: str = Field(
         default='', description="Optional message providing additional information."
     )

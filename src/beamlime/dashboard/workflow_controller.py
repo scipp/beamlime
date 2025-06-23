@@ -15,6 +15,7 @@ from beamlime.config.workflow_spec import (
     WorkflowId,
     WorkflowSpecs,
     WorkflowStatus,
+    WorkflowStatusType,
 )
 from beamlime.dashboard.config_service import ConfigService
 from beamlime.dashboard.reduction_widget import WorkflowController
@@ -59,12 +60,12 @@ class ConfigServiceWorkflowController(WorkflowController):
             'high_resolution_detector',
         ]
 
-        # Local state tracking - simplified to only track workflows we've started
-        self._started_workflows: dict[str, WorkflowId] = {}
-        # Temporary status for "Starting..." state before backend responds
-        self._starting_workflows: dict[str, WorkflowId] = {}
-        # Backend workflow status cache
-        self._workflow_status: dict[str, WorkflowStatus] = {}
+        # Single dict to track workflow status for all sources
+        # Initialize all sources with UNKNOWN status
+        self._workflow_status: dict[str, WorkflowStatus] = {
+            source_name: WorkflowStatus(source_name=source_name)
+            for source_name in self._source_names
+        }
 
         self._workflow_specs: WorkflowSpecs = WorkflowSpecs()
 
@@ -164,27 +165,10 @@ class ConfigServiceWorkflowController(WorkflowController):
             status,
         )
 
-        # Update status cache
+        # Update status and notify subscribers
         self._workflow_status[source_name] = status
-
-        # Remove from starting state if backend has responded
-        if source_name in self._starting_workflows:
-            del self._starting_workflows[source_name]
-
-        # Update started workflows tracking based on status
-        if status in (WorkflowStatus.STARTING, WorkflowStatus.RUNNING):
-            # For now, we don't have workflow_id in status, so keep existing mapping
-            pass
-        elif status in (WorkflowStatus.STOPPED, WorkflowStatus.STARTUP_ERROR):
-            # Keep tracking for UI display but workflow is no longer active
-            pass
-
-        # Notify all subscribers
         for callback in self._workflow_status_callbacks:
-            try:
-                callback()
-            except Exception as e:  # noqa: PERF203
-                self._logger.error('Error in workflow status update callback: %s', e)
+            self._notify_workflow_status_update(callback)
 
     def start_workflow(
         self, workflow_id: WorkflowId, source_names: list[str], config: dict[str, Any]
@@ -220,17 +204,19 @@ class ConfigServiceWorkflowController(WorkflowController):
             self._config_service.register_schema(config_key, WorkflowConfig)
             self._config_service.update_config(config_key, workflow_config)
 
-            # Update local state - mark as starting
-            self._started_workflows[source_name] = workflow_id
-            self._starting_workflows[source_name] = workflow_id
+            # Set status to STARTING for immediate UI feedback
+            self._workflow_status[source_name] = WorkflowStatus(
+                source_name=source_name,
+                workflow_id=workflow_id,
+                status=WorkflowStatusType.STARTING,
+            )
+        # Notify once, will update whole list of source names
+        for callback in self._workflow_status_callbacks:
+            self._notify_workflow_status_update(callback)
 
     def stop_workflow_for_source(self, source_name: str) -> None:
         """Stop a running workflow for a specific source."""
         self._logger.info('Stopping workflow for source %s', source_name)
-
-        if source_name not in self._started_workflows:
-            self._logger.warning('No running workflow found for source %s', source_name)
-            return
 
         # Send None to stop the workflow
         config_key = ConfigKey(
@@ -246,34 +232,22 @@ class ConfigServiceWorkflowController(WorkflowController):
         """Remove a stopped workflow from tracking."""
         self._logger.info('Removing workflow for source %s', source_name)
 
-        if source_name in self._started_workflows:
-            del self._started_workflows[source_name]
-
-        if source_name in self._workflow_status:
-            del self._workflow_status[source_name]
-
-        if source_name in self._starting_workflows:
-            del self._starting_workflows[source_name]
+        # Reset status to UNKNOWN (back to initial state)
+        self._workflow_status[source_name] = WorkflowStatus.UNKNOWN
 
     def get_running_workflows(self) -> dict[str, WorkflowId]:
         """Get currently running workflows mapped by source name."""
-        return self._started_workflows.copy()
+        # This method is no longer accurate since we don't track workflow IDs
+        # Keep for compatibility but consider deprecating
+        return {}
 
     def get_workflow_status(self, source_name: str) -> WorkflowStatus | None:
         """Get the status of a workflow for a specific source."""
-        # Check if we're in starting state (before backend responds)
-        if source_name in self._starting_workflows:
-            return WorkflowStatus.STARTING
+        return self._workflow_status.get(source_name)
 
-        # Get status from backend
-        backend_status = self._workflow_status.get(source_name)
-        if backend_status is None:
-            # Return UNKNOWN if we have a tracked workflow but no status
-            if source_name in self._started_workflows:
-                return WorkflowStatus.UNKNOWN
-            return None
-
-        return backend_status
+    def get_all_workflow_status(self) -> dict[str, WorkflowStatus]:
+        """Get workflow status for all tracked sources."""
+        return self._workflow_status.copy()
 
     def get_workflow_specs(self) -> WorkflowSpecs:
         """Get the current workflow specifications."""
@@ -283,9 +257,16 @@ class ConfigServiceWorkflowController(WorkflowController):
         """Subscribe to workflow specs updates."""
         self._workflow_specs_callbacks.append(callback)
 
+    def _notify_workflow_status_update(self, callback: callable):
+        try:
+            callback()
+        except Exception as e:
+            self._logger.error('Error in workflow status update callback: %s', e)
+
     def subscribe_to_workflow_status_updates(self, callback: callable) -> None:
         """Subscribe to workflow status updates."""
         self._workflow_status_callbacks.append(callback)
+        self._notify_workflow_status_update(callback)
 
     def process_config_updates(self) -> None:
         """Process any pending configuration updates from the config service."""
