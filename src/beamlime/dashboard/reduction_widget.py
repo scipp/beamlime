@@ -32,7 +32,6 @@ from beamlime.config.workflow_spec import (
     Parameter,
     ParameterType,
     PersistentWorkflowConfig,
-    WorkflowConfig,
     WorkflowId,
     WorkflowSpec,
     WorkflowSpecs,
@@ -194,7 +193,6 @@ class WorkflowConfigWidget:
         self,
         workflow_spec: WorkflowSpec,
         persistent_config: PersistentWorkflowConfig | None = None,
-        workflow_config: WorkflowConfig | None = None,
     ) -> None:
         """
         Initialize workflow configuration widget.
@@ -205,12 +203,9 @@ class WorkflowConfigWidget:
             Specification of the workflow
         persistent_config
             Previously saved configuration including source names and parameters
-        workflow_config
-            Optional initial configuration values (lower priority than persistent_config)
         """
         self._workflow_spec = workflow_spec
         self._persistent_config = persistent_config
-        self._workflow_config = workflow_config
         self._parameter_widgets: dict[str, ParameterWidget] = {}
         self._source_selector = self._create_source_selector()
         self._parameter_panel = self._create_parameter_panel()
@@ -237,11 +232,9 @@ class WorkflowConfigWidget:
         for param in self._workflow_spec.parameters:
             initial_value = None
 
-            # Priority: persistent_config > workflow_config > parameter default
+            # Use persistent config if available, otherwise parameter default
             if self._persistent_config:
-                initial_value = self._persistent_config.parameter_values.get(param.name)
-            elif self._workflow_config:
-                initial_value = self._workflow_config.values.get(param.name)
+                initial_value = self._persistent_config.config.values.get(param.name)
 
             param_widget = ParameterWidget(param, initial_value)
             self._parameter_widgets[param.name] = param_widget
@@ -382,7 +375,6 @@ class WorkflowConfigModal:
         workflow_specs: WorkflowSpecs,
         controller: WorkflowController,
         persistent_config: PersistentWorkflowConfig | None = None,
-        workflow_config: WorkflowConfig | None = None,
         on_workflow_started: callable | None = None,
     ) -> None:
         """
@@ -398,8 +390,6 @@ class WorkflowConfigModal:
             Controller for workflow operations
         persistent_config
             Previously saved configuration including source names and parameters
-        workflow_config
-            Optional initial configuration values (lower priority than persistent_config)
         on_workflow_started
             Optional callback when workflow is started
         """
@@ -407,12 +397,9 @@ class WorkflowConfigModal:
         self._workflow_specs = workflow_specs
         self._controller = controller
         self._persistent_config = persistent_config
-        self._workflow_config = workflow_config
         self._on_workflow_started = on_workflow_started
 
-        self._config_widget = WorkflowConfigWidget(
-            workflow_spec, persistent_config, workflow_config
-        )
+        self._config_widget = WorkflowConfigWidget(workflow_spec, persistent_config)
         self._modal = self._create_modal()
 
     def _create_modal(self) -> pn.Modal:
@@ -706,7 +693,6 @@ class ReductionWidget:
         self,
         workflow_specs: WorkflowSpecs,
         controller: WorkflowController,
-        initial_config: WorkflowConfig | None = None,
     ) -> None:
         """
         Initialize reduction widget.
@@ -717,11 +703,8 @@ class ReductionWidget:
             Available workflow specifications
         controller
             Controller for workflow operations
-        initial_config
-            Optional initial workflow configuration
         """
         self._controller = controller
-        self._initial_config = initial_config
 
         self._specs_manager = WorkflowSpecsManager(workflow_specs)
         self._workflow_selector = WorkflowSelectorWidget(self._specs_manager)
@@ -779,20 +762,14 @@ class ReductionWidget:
 
         workflow_spec = self._specs_manager.workflow_specs.workflows[workflow_id]
 
-        # Load persistent configuration first
+        # Load persistent configuration
         persistent_config = self._controller.load_workflow_config(workflow_id)
-
-        # Use initial config as fallback if it matches the selected workflow
-        config = None
-        if self._initial_config and self._initial_config.identifier == workflow_id:
-            config = self._initial_config
 
         modal = WorkflowConfigModal(
             workflow_spec=workflow_spec,
             workflow_specs=self._specs_manager.workflow_specs,
             controller=self._controller,
             persistent_config=persistent_config,
-            workflow_config=config,
             on_workflow_started=self.refresh_running_workflows,
         )
 
