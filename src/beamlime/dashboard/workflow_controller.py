@@ -168,7 +168,7 @@ class WorkflowController(WorkflowControllerBase):
         workflow_config = WorkflowConfig(identifier=workflow_id, values=config)
 
         # Update the config for this workflow, used for restoring widget state
-        current_configs = self._config_service._config.get(
+        current_configs = self._config_service.get(
             _persistent_configs_key, PersistentWorkflowConfigs()
         )
         current_configs.configs[workflow_id] = PersistentWorkflowConfig(
