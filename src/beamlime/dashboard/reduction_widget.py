@@ -30,7 +30,7 @@ import panel as pn
 from beamlime.config.workflow_spec import Parameter, ParameterType, WorkflowId
 from beamlime.dashboard.workflow_status_list_widget import WorkflowStatusListWidget
 
-from .workflow_controller_base import WorkflowController
+from .workflow_controller_base import WorkflowControllerBase
 
 
 class ParameterWidget:
@@ -104,7 +104,7 @@ class WorkflowConfigWidget:
     def __init__(
         self,
         workflow_id: WorkflowId,
-        controller: WorkflowController,
+        controller: WorkflowControllerBase,
     ) -> None:
         """
         Initialize workflow configuration widget.
@@ -190,7 +190,7 @@ class WorkflowConfigWidget:
 class WorkflowSelectorWidget:
     """Widget for selecting workflows from available specifications."""
 
-    def __init__(self, controller: WorkflowController) -> None:
+    def __init__(self, controller: WorkflowControllerBase) -> None:
         """
         Initialize workflow selector.
 
@@ -256,7 +256,7 @@ class WorkflowConfigModal:
     def __init__(
         self,
         workflow_id: WorkflowId,
-        controller: WorkflowController,
+        controller: WorkflowControllerBase,
     ) -> None:
         """
         Initialize workflow configuration modal.
@@ -376,7 +376,7 @@ class WorkflowConfigModal:
 class ReductionWidget:
     """Main widget for data reduction workflow configuration and control."""
 
-    def __init__(self, controller: WorkflowController) -> None:
+    def __init__(self, controller: WorkflowControllerBase) -> None:
         """
         Initialize reduction widget.
 

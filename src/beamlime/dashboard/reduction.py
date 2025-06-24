@@ -8,7 +8,7 @@ from beamlime import Service
 from . import plots
 from .dashboard import DashboardBase
 from .reduction_widget import ReductionWidget
-from .workflow_controller import ConfigServiceWorkflowController
+from .workflow_controller import WorkflowController
 
 pn.extension('holoviews', 'modal', template='material')
 hv.extension('bokeh')
@@ -42,7 +42,7 @@ class ReductionApp(DashboardBase):
 
     def _setup_workflow_management(self) -> None:
         """Initialize workflow controller and reduction widget."""
-        self._workflow_controller = ConfigServiceWorkflowController(
+        self._workflow_controller = WorkflowController(
             self._config_service, source_names=list(self.source_names())
         )
         self._reduction_widget = ReductionWidget(controller=self._workflow_controller)

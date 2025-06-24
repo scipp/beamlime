@@ -4,13 +4,13 @@ import panel as pn
 
 from beamlime.config.workflow_spec import WorkflowStatus, WorkflowStatusType
 
-from .workflow_controller_base import WorkflowController
+from .workflow_controller_base import WorkflowControllerBase
 
 
 class WorkflowStatusListWidget:
     """Widget for displaying and controlling running workflows."""
 
-    def __init__(self, controller: WorkflowController) -> None:
+    def __init__(self, controller: WorkflowControllerBase) -> None:
         """
         Initialize running workflows widget.
 

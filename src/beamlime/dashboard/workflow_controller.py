@@ -20,14 +20,14 @@ from beamlime.config.workflow_spec import (
 )
 from beamlime.dashboard.config_service import ConfigService
 
-from .workflow_controller_base import WorkflowController
+from .workflow_controller_base import WorkflowControllerBase
 
 _persistent_configs_key = ConfigKey(
     service_name='dashboard', key='persistent_workflow_configs'
 )
 
 
-class ConfigServiceWorkflowController(WorkflowController):
+class WorkflowController(WorkflowControllerBase):
     """
     Workflow controller backed by a config service.
 

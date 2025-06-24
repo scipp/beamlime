@@ -3,7 +3,7 @@ from typing import Any, Protocol
 from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec, WorkflowStatus
 
 
-class WorkflowController(Protocol):
+class WorkflowControllerBase(Protocol):
     """Protocol for workflow control operations."""
 
     def start_workflow(
