@@ -17,7 +17,10 @@ DerivedGetter = Callable[['DataService', Hashable], Any | None]
 
 class DataService(UserDict[DataKey, sc.DataArray]):
     """
-    A service for managing and retrieving data and derivaed data.
+    A service for managing and retrieving data and derived data.
+
+    New data is set from upstream Kafka topics. Subscribers are typically plots that
+    provide a live view of the data.
     """
 
     def __init__(self) -> None:
