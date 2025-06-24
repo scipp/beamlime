@@ -43,12 +43,8 @@ class WorkflowStatusListWidget:
         self, source_name: str, status: WorkflowStatus
     ) -> dict[str, Any]:
         """Create a row widget data structure for a single workflow."""
-        # Get workflow name from specs, fallback to ID if not found
-        workflow_specs = self._controller.get_workflow_specs()
-        if status.workflow_id in workflow_specs.workflows:
-            workflow_name = workflow_specs.workflows[status.workflow_id].name
-        else:
-            workflow_name = status.workflow_id
+        # Get workflow name from controller
+        workflow_name = self._controller.get_workflow_name(status.workflow_id)
 
         # Create info panel
         info_pane = pn.pane.HTML("", width=220)
@@ -133,49 +129,14 @@ class WorkflowStatusListWidget:
         ):
             return
 
-        # Style based on status
-        if status.status == WorkflowStatusType.STARTING:
-            status_color = "#ffc107"  # Yellow
-            status_text = "Starting..."
-            button_name = "Stop"
-            button_type = "primary"
-            opacity_style = ""
-        elif status.status == WorkflowStatusType.RUNNING:
-            status_color = "#28a745"  # Green
-            status_text = "Running"
-            button_name = "Stop"
-            button_type = "primary"
-            opacity_style = ""
-        elif status.status == WorkflowStatusType.STOPPING:
-            status_color = "#b87817"  # Orange
-            status_text = "Stopping..."
-            button_name = "Stop"
-            button_type = "primary"
-            opacity_style = ""
-        elif status.status == WorkflowStatusType.STARTUP_ERROR:
-            status_color = "#dc3545"  # Red
-            status_text = "Error"
-            button_name = "Remove"
-            button_type = "light"
-            opacity_style = "opacity: 0.7;"
-        elif status.status == WorkflowStatusType.STOPPED:
-            status_color = "#6c757d"  # Gray
-            status_text = "Stopped"
-            button_name = "Remove"
-            button_type = "light"
-            opacity_style = "opacity: 0.7;"
-        else:  # UNKNOWN
-            status_color = "#6c757d"  # Gray
-            status_text = "Unknown"
-            button_name = "Remove"
-            button_type = "light"
-            opacity_style = "opacity: 0.7;"
+        # Get display info from controller
+        display_info = self._controller.get_status_display_info(status)
 
         # Update info panel HTML
         info_html = f"""
-        <div style="{opacity_style}">
+        <div style="{display_info['opacity_style']}">
             <strong>{source_name}</strong>
-            <span style="color: {status_color}; font-size: 0.8em; margin-left: 8px;">● {status_text}</span>
+            <span style="color: {display_info['color']}; font-size: 0.8em; margin-left: 8px;">● {display_info['text']}</span>
             <br>
             <small>Workflow: {workflow_name}</small>
         </div>
@@ -183,9 +144,9 @@ class WorkflowStatusListWidget:
         row_data['info_pane'].object = info_html
 
         # Update button if needed
-        if row_data['action_button'].name != button_name:
-            row_data['action_button'].name = button_name
-            row_data['action_button'].button_type = button_type
+        if row_data['action_button'].name != display_info['button_name']:
+            row_data['action_button'].name = display_info['button_name']
+            row_data['action_button'].button_type = display_info['button_type']
 
             # Clear existing callbacks
             row_data['action_button']._callbacks = {}
@@ -236,12 +197,8 @@ class WorkflowStatusListWidget:
         # Update or create rows for current sources
         workflow_widgets = []
         for source_name, status in all_status.items():
-            # Get workflow name
-            workflow_specs = self._controller.get_workflow_specs()
-            if status.workflow_id in workflow_specs.workflows:
-                workflow_name = workflow_specs.workflows[status.workflow_id].name
-            else:
-                workflow_name = status.workflow_id
+            # Get workflow name from controller
+            workflow_name = self._controller.get_workflow_name(status.workflow_id)
 
             if source_name in self._workflow_rows:
                 # Update existing row
