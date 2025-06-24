@@ -5,7 +5,6 @@ from beamlime.config.workflow_spec import (
     WorkflowId,
     WorkflowSpec,
     WorkflowStatus,
-    WorkflowStatusType,
 )
 
 
@@ -121,59 +120,3 @@ class WorkflowUIHelper:
         """Get initial source names for a workflow."""
         persistent_config = self._controller.load_workflow_config(workflow_id)
         return persistent_config.source_names if persistent_config else []
-
-
-class WorkflowStatusUIHelper:
-    """Helper class for workflow status display."""
-
-    @staticmethod
-    def get_status_display_info(status: WorkflowStatus) -> dict[str, str]:
-        """Get display information for a workflow status."""
-        if status.status == WorkflowStatusType.STARTING:
-            return {
-                'color': '#ffc107',  # Yellow
-                'text': 'Starting...',
-                'button_name': 'Stop',
-                'button_type': 'primary',
-                'opacity_style': '',
-            }
-        elif status.status == WorkflowStatusType.RUNNING:
-            return {
-                'color': '#28a745',  # Green
-                'text': 'Running',
-                'button_name': 'Stop',
-                'button_type': 'primary',
-                'opacity_style': '',
-            }
-        elif status.status == WorkflowStatusType.STOPPING:
-            return {
-                'color': '#b87817',  # Orange
-                'text': 'Stopping...',
-                'button_name': 'Stop',
-                'button_type': 'primary',
-                'opacity_style': '',
-            }
-        elif status.status == WorkflowStatusType.STARTUP_ERROR:
-            return {
-                'color': '#dc3545',  # Red
-                'text': 'Error',
-                'button_name': 'Remove',
-                'button_type': 'light',
-                'opacity_style': 'opacity: 0.7;',
-            }
-        elif status.status == WorkflowStatusType.STOPPED:
-            return {
-                'color': '#6c757d',  # Gray
-                'text': 'Stopped',
-                'button_name': 'Remove',
-                'button_type': 'light',
-                'opacity_style': 'opacity: 0.7;',
-            }
-        else:  # UNKNOWN
-            return {
-                'color': '#6c757d',  # Gray
-                'text': 'Unknown',
-                'button_name': 'Remove',
-                'button_type': 'light',
-                'opacity_style': 'opacity: 0.7;',
-            }
