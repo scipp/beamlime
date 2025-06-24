@@ -81,12 +81,6 @@ class ReductionApp(DashboardBase):
             pn.pane.HoloViews(iofd2theta),
         )
 
-    def _step(self):
-        """Override step function to include workflow updates."""
-        super()._step()
-        # Process workflow configuration updates
-        self._workflow_controller.process_config_updates()
-
 
 def main() -> None:
     parser = Service.setup_arg_parser(description='Beamlime Reduction Dashboard')

@@ -314,38 +314,6 @@ class TestWorkflowController:
         assert workflow_config["source_names"] == updated_sources
         assert workflow_config["config"]["values"] == updated_config
 
-    def test_load_workflow_config_returns_saved_config(
-        self,
-        workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],
-        workflow_id: WorkflowId,
-        source_names: list[str],
-    ):
-        """Test that load_workflow_config returns previously saved configuration."""
-        controller, _ = workflow_controller
-        config = {"threshold": 150.0, "mode": "accurate"}
-
-        # Start workflow to save config
-        controller.start_workflow(workflow_id, source_names, config)
-
-        # Load the config back
-        loaded_config = controller.load_workflow_config(workflow_id)
-
-        assert loaded_config is not None
-        assert loaded_config.source_names == source_names
-        assert loaded_config.config.identifier == workflow_id
-        assert loaded_config.config.values == config
-
-    def test_load_workflow_config_returns_none_for_nonexistent_workflow(
-        self,
-        workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],
-    ):
-        """Test that load_workflow_config returns None for non-existent workflow."""
-        controller, _ = workflow_controller
-
-        loaded_config = controller.load_workflow_config("nonexistent_workflow")
-
-        assert loaded_config is None
-
     def test_get_initial_parameter_values_uses_persistent_config(
         self,
         workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],

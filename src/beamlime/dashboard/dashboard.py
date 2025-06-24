@@ -23,7 +23,7 @@ from beamlime.kafka.message_adapter import (
 )
 from beamlime.kafka.source import KafkaMessageSource
 
-from .config_service import ConfigService
+from .config_service import ConfigSchemaManager, ConfigService
 from .data_forwarder import DataForwarder
 from .data_service import DataService
 from .data_streams import MonitorStreamManager, ReductionStreamManager
@@ -76,7 +76,9 @@ class DashboardBase(ServiceBase, ABC):
         self._kafka_bridge = KafkaBridge(
             kafka_config=kafka_downstream_config, consumer=consumer, logger=self._logger
         )
-        self._config_service = ConfigService(message_bridge=self._kafka_bridge)
+        self._config_service = ConfigService(
+            message_bridge=self._kafka_bridge, schema_validator=ConfigSchemaManager()
+        )
 
         self._kafka_bridge_thread = threading.Thread(
             target=self._kafka_bridge.start, daemon=True

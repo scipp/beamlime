@@ -82,11 +82,8 @@ class WorkflowController(WorkflowControllerBase):
         self._config_service.register_schema(workflow_specs_key, WorkflowSpecs)
 
         # Register schema for persistent workflow configs
-        persistent_configs_key = ConfigKey(
-            service_name='dashboard', key='persistent_workflow_configs'
-        )
         self._config_service.register_schema(
-            persistent_configs_key, PersistentWorkflowConfigs
+            _persistent_configs_key, PersistentWorkflowConfigs
         )
 
         # Subscribe to workflow specs
@@ -94,14 +91,24 @@ class WorkflowController(WorkflowControllerBase):
             workflow_specs_key, self._on_workflow_specs_updated
         )
 
-        # Subscribe to workflow status for each source
+        # Subscribe to workflow status and register workflow config schemas
         for source_name in self._source_names:
             workflow_status_key = ConfigKey(
                 source_name=source_name,
                 service_name='data_reduction',
                 key='workflow_status',
             )
+            workflow_config_key = ConfigKey(
+                source_name=source_name,
+                service_name="data_reduction",
+                key="workflow_config",
+            )
+
+            # Register schemas
             self._config_service.register_schema(workflow_status_key, WorkflowStatus)
+            self._config_service.register_schema(workflow_config_key, WorkflowConfig)
+
+            # Subscribe to status updates
             self._config_service.subscribe(
                 workflow_status_key, self._on_workflow_status_updated
             )
@@ -183,9 +190,6 @@ class WorkflowController(WorkflowControllerBase):
                 service_name="data_reduction",
                 key="workflow_config",
             )
-
-            # Register schema and update config
-            self._config_service.register_schema(config_key, WorkflowConfig)
             self._config_service.update_config(config_key, workflow_config)
 
             # Set status to STARTING for immediate UI feedback
@@ -208,8 +212,6 @@ class WorkflowController(WorkflowControllerBase):
             service_name="data_reduction",
             key="workflow_config",
         )
-        # Register schema and update config
-        self._config_service.register_schema(config_key, WorkflowConfig)
         self._config_service.update_config(config_key, WorkflowConfig(identifier=None))
         self._on_workflow_status_updated(
             WorkflowStatus(source_name=source_name, status=WorkflowStatusType.STOPPING)
@@ -243,10 +245,6 @@ class WorkflowController(WorkflowControllerBase):
         """Subscribe to workflow status updates."""
         self._workflow_status_callbacks.append(callback)
         self._notify_workflow_status_update(callback)
-
-    def process_config_updates(self) -> None:
-        """Process any pending configuration updates from the config service."""
-        self._config_service.process_incoming_messages()
 
     def load_workflow_config(
         self, workflow_id: WorkflowId
