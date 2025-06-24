@@ -246,7 +246,8 @@ class WorkflowSelectorWidget:
     @property
     def selected_workflow_id(self) -> WorkflowId | None:
         """Get the currently selected workflow ID."""
-        return self._controller.get_selected_workflow_id(self._selector.value)
+        value = self._selector.value
+        return None if self._controller.is_no_selection(value) else value
 
 
 class WorkflowConfigModal:

@@ -385,9 +385,3 @@ class ConfigServiceWorkflowController(WorkflowController):
         if (spec := self.get_workflow_spec(workflow_id)) is None:
             return None
         return spec.description
-
-    def get_selected_workflow_id(self, value: WorkflowId | object) -> WorkflowId | None:
-        """
-        Return the workflow ID if the value is a valid selection, else None.
-        """
-        return value if not self.is_no_selection(value) else None

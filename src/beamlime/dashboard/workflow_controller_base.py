@@ -1,11 +1,6 @@
 from typing import Any, Protocol
 
-from beamlime.config.workflow_spec import (
-    PersistentWorkflowConfig,
-    WorkflowId,
-    WorkflowSpec,
-    WorkflowStatus,
-)
+from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec, WorkflowStatus
 
 
 class WorkflowController(Protocol):
@@ -41,12 +36,6 @@ class WorkflowController(Protocol):
         """Subscribe to workflow status updates."""
         ...
 
-    def load_workflow_config(
-        self, workflow_id: WorkflowId
-    ) -> PersistentWorkflowConfig | None:
-        """Load saved workflow configuration."""
-        ...
-
     def get_workflow_name(self, workflow_id: WorkflowId | None) -> str:
         """Get workflow name from ID, fallback to ID if not found."""
         ...
@@ -77,10 +66,6 @@ class WorkflowController(Protocol):
 
     def get_workflow_description(self, workflow_id: WorkflowId | object) -> str | None:
         """Get the description for a workflow ID or selection value."""
-        ...
-
-    def get_selected_workflow_id(self, value: WorkflowId | object) -> WorkflowId | None:
-        """Return the workflow ID if the value is a valid selection, else None."""
         ...
 
     def workflow_exists(self, workflow_id: WorkflowId) -> bool:
