@@ -434,3 +434,401 @@ class TestWorkflowController:
         all_status = controller.get_all_workflow_status()
         assert all_status["detector_1"].status == WorkflowStatusType.RUNNING
         assert all_status["detector_1"].workflow_id == workflow_id
+
+    def test_stop_workflow_for_source_sends_none_config(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+    ):
+        """Test that stop_workflow_for_source sends None workflow config."""
+        controller, service = workflow_controller
+        source_name = "detector_1"
+
+        # Act
+        controller.stop_workflow_for_source(source_name)
+
+        # Assert
+        sent_configs = service.get_sent_configs()
+        assert len(sent_configs) == 1
+        assert sent_configs[0][0] == source_name
+        assert sent_configs[0][1].identifier is None
+
+    def test_stop_workflow_for_source_updates_status_to_stopping(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+    ):
+        """Test that stop_workflow_for_source updates status to STOPPING."""
+        controller, service = workflow_controller
+        source_name = "detector_1"
+
+        # Act
+        controller.stop_workflow_for_source(source_name)
+
+        # Assert
+        all_status = controller.get_all_workflow_status()
+        assert all_status[source_name].status == WorkflowStatusType.STOPPING
+        assert all_status[source_name].source_name == source_name
+
+    def test_remove_workflow_for_source_resets_status(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_id: WorkflowId,
+    ):
+        """Test that remove_workflow_for_source resets status to UNKNOWN."""
+        controller, service = workflow_controller
+        source_name = "detector_1"
+
+        # Set up initial status
+        initial_status = WorkflowStatus(
+            source_name=source_name,
+            workflow_id=workflow_id,
+            status=WorkflowStatusType.STOPPED,
+        )
+        service.simulate_status_update(initial_status)
+
+        # Act
+        controller.remove_workflow_for_source(source_name)
+
+        # Assert
+        all_status = controller.get_all_workflow_status()
+        assert all_status[source_name].status == WorkflowStatusType.UNKNOWN
+        assert all_status[source_name].workflow_id is None
+
+    def test_get_workflow_spec_returns_correct_spec(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_id: WorkflowId,
+        workflow_spec: WorkflowSpec,
+        workflow_specs: WorkflowSpecs,
+    ):
+        """Test that get_workflow_spec returns the correct specification."""
+        controller, service = workflow_controller
+        service.set_workflow_specs(workflow_specs)
+
+        # Act
+        result = controller.get_workflow_spec(workflow_id)
+
+        # Assert
+        assert result == workflow_spec
+        assert result.name == "Test Workflow"
+        assert result.description == "A test workflow for unit testing"
+
+    def test_get_workflow_spec_returns_none_for_nonexistent(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+    ):
+        """Test that get_workflow_spec returns None for non-existent workflow."""
+        controller, service = workflow_controller
+
+        # Act
+        result = controller.get_workflow_spec("nonexistent_workflow")
+
+        # Assert
+        assert result is None
+
+    def test_get_workflow_specs_returns_copy_of_specs(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_specs: WorkflowSpecs,
+    ):
+        """Test that get_workflow_specs returns a copy of specifications."""
+        controller, service = workflow_controller
+        service.set_workflow_specs(workflow_specs)
+
+        # Act
+        result = controller.get_workflow_specs()
+
+        # Assert
+        assert result == workflow_specs.workflows
+        # Verify it's a copy (modifications don't affect original)
+        result["new_workflow"] = WorkflowSpec(name="New", description="New workflow")
+        original_specs = controller.get_workflow_specs()
+        assert "new_workflow" not in original_specs
+
+    def test_get_workflow_config_returns_persistent_config(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_id: WorkflowId,
+        workflow_specs: WorkflowSpecs,
+        source_names: list[str],
+    ):
+        """Test that get_workflow_config returns saved persistent configuration."""
+        controller, service = workflow_controller
+        service.set_workflow_specs(workflow_specs)
+        config = {"threshold": 150.0, "mode": "accurate"}
+
+        # Start workflow to create persistent config
+        controller.start_workflow(workflow_id, source_names, config)
+
+        # Act
+        result = controller.get_workflow_config(workflow_id)
+
+        # Assert
+        assert result is not None
+        assert result.source_names == source_names
+        assert result.config.identifier == workflow_id
+        assert result.config.values == config
+
+    def test_get_workflow_config_returns_none_for_nonexistent(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+    ):
+        """Test that get_workflow_config returns None for non-existent workflow."""
+        controller, service = workflow_controller
+
+        # Act
+        result = controller.get_workflow_config("nonexistent_workflow")
+
+        # Assert
+        assert result is None
+
+    def test_workflow_exists_returns_true_for_existing_workflow(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_id: WorkflowId,
+        workflow_specs: WorkflowSpecs,
+    ):
+        """Test that workflow_exists returns True for existing workflow."""
+        controller, service = workflow_controller
+        service.set_workflow_specs(workflow_specs)
+
+        # Act
+        result = controller.workflow_exists(workflow_id)
+
+        # Assert
+        assert result is True
+
+    def test_workflow_exists_returns_false_for_nonexistent_workflow(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+    ):
+        """Test that workflow_exists returns False for non-existent workflow."""
+        controller, service = workflow_controller
+
+        # Act
+        result = controller.workflow_exists("nonexistent_workflow")
+
+        # Assert
+        assert result is False
+
+    def test_subscribe_to_workflow_updates_calls_callback_on_specs_change(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_specs: WorkflowSpecs,
+    ):
+        """Test that workflow updates subscription works correctly."""
+        controller, service = workflow_controller
+        callback_called = []
+
+        def test_callback():
+            callback_called.append(True)
+
+        # Subscribe
+        controller.subscribe_to_workflow_updates(test_callback)
+
+        # Trigger update
+        service.set_workflow_specs(workflow_specs)
+
+        # Assert
+        assert len(callback_called) == 1
+
+    def test_subscribe_to_workflow_status_updates_calls_callback_immediately(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+    ):
+        """Test that status updates subscription calls callback immediately."""
+        controller, service = workflow_controller
+        callback_called = []
+
+        def test_callback():
+            callback_called.append(True)
+
+        # Act - subscribe should trigger immediate callback
+        controller.subscribe_to_workflow_status_updates(test_callback)
+
+        # Assert
+        assert len(callback_called) == 1
+
+    def test_subscribe_to_workflow_status_updates_calls_callback_on_status_change(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_id: WorkflowId,
+    ):
+        """Test that status updates subscription works correctly."""
+        controller, service = workflow_controller
+        callback_called = []
+
+        def test_callback():
+            callback_called.append(True)
+
+        # Subscribe (will trigger immediate callback)
+        controller.subscribe_to_workflow_status_updates(test_callback)
+        initial_calls = len(callback_called)
+
+        # Trigger status update
+        status = WorkflowStatus(
+            source_name="detector_1",
+            workflow_id=workflow_id,
+            status=WorkflowStatusType.RUNNING,
+        )
+        service.simulate_status_update(status)
+
+        # Assert
+        assert len(callback_called) == initial_calls + 1
+
+    def test_controller_initializes_all_sources_with_unknown_status(
+        self,
+        fake_service: FakeWorkflowConfigService,
+    ):
+        """Test that controller initializes all sources with UNKNOWN status."""
+        source_names = ["detector_1", "detector_2", "detector_3"]
+        controller = WorkflowController(fake_service, source_names)
+
+        # Act
+        all_status = controller.get_all_workflow_status()
+
+        # Assert
+        assert len(all_status) == 3
+        for source_name in source_names:
+            assert source_name in all_status
+            assert all_status[source_name].status == WorkflowStatusType.UNKNOWN
+            assert all_status[source_name].source_name == source_name
+            assert all_status[source_name].workflow_id is None
+
+    def test_get_all_workflow_status_returns_copy(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+    ):
+        """Test that get_all_workflow_status returns a copy of status dict."""
+        controller, service = workflow_controller
+
+        # Act
+        result = controller.get_all_workflow_status()
+
+        # Modify the returned dict
+        result["new_source"] = WorkflowStatus(source_name="new_source")
+
+        # Get status again
+        second_result = controller.get_all_workflow_status()
+
+        # Assert original is unchanged
+        assert "new_source" not in second_result
+
+    def test_workflow_specs_callback_exception_handling(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_specs: WorkflowSpecs,
+    ):
+        """Test that exceptions in workflow specs callbacks are handled gracefully."""
+        controller, service = workflow_controller
+
+        def failing_callback():
+            raise Exception("Test exception")
+
+        def working_callback():
+            working_callback.called = True
+
+        working_callback.called = False
+
+        # Subscribe both callbacks
+        controller.subscribe_to_workflow_updates(failing_callback)
+        controller.subscribe_to_workflow_updates(working_callback)
+
+        # Trigger update - should not crash and should call working callback
+        service.set_workflow_specs(workflow_specs)
+
+        # Assert working callback was still called despite exception in failing one
+        assert working_callback.called is True
+
+    def test_workflow_status_callback_exception_handling(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_id: WorkflowId,
+    ):
+        """Test that exceptions in workflow status callbacks are handled gracefully."""
+        controller, service = workflow_controller
+
+        def failing_callback():
+            raise Exception("Test exception")
+
+        def working_callback():
+            working_callback.called = True
+
+        working_callback.called = False
+
+        # Subscribe both callbacks
+        controller.subscribe_to_workflow_status_updates(failing_callback)
+        controller.subscribe_to_workflow_status_updates(working_callback)
+
+        # Reset call count after initial subscription calls
+        working_callback.called = False
+
+        # Trigger status update - should not crash and should call working callback
+        status = WorkflowStatus(
+            source_name="detector_1",
+            workflow_id=workflow_id,
+            status=WorkflowStatusType.RUNNING,
+        )
+        service.simulate_status_update(status)
+
+        # Assert working callback was still called despite exception in failing one
+        assert working_callback.called is True
+
+    def test_multiple_status_subscriptions_work_correctly(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_id: WorkflowId,
+    ):
+        """Test that multiple status update subscriptions work correctly."""
+        controller, service = workflow_controller
+        callback1_calls = []
+        callback2_calls = []
+
+        def callback1():
+            callback1_calls.append(True)
+
+        def callback2():
+            callback2_calls.append(True)
+
+        # Subscribe both
+        controller.subscribe_to_workflow_status_updates(callback1)
+        controller.subscribe_to_workflow_status_updates(callback2)
+
+        # Clear initial calls
+        callback1_calls.clear()
+        callback2_calls.clear()
+
+        # Trigger update
+        status = WorkflowStatus(
+            source_name="detector_1",
+            workflow_id=workflow_id,
+            status=WorkflowStatusType.RUNNING,
+        )
+        service.simulate_status_update(status)
+
+        # Assert both were called
+        assert len(callback1_calls) == 1
+        assert len(callback2_calls) == 1
+
+    def test_start_workflow_with_empty_source_names_list(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_id: WorkflowId,
+        workflow_specs: WorkflowSpecs,
+    ):
+        """Test that start_workflow works with empty source names list."""
+        controller, service = workflow_controller
+        service.set_workflow_specs(workflow_specs)
+        config = {"threshold": 100.0}
+
+        # Act
+        result = controller.start_workflow(workflow_id, [], config)
+
+        # Assert
+        assert result is True
+        sent_configs = service.get_sent_configs()
+        assert len(sent_configs) == 0  # No configs sent to sources
+
+        # Should still save persistent config
+        persistent_configs = service.get_persistent_configs()
+        assert workflow_id in persistent_configs.configs
+        assert persistent_configs.configs[workflow_id].source_names == []
