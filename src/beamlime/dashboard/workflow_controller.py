@@ -5,6 +5,7 @@ Workflow controller implementation backed by a config service.
 """
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from beamlime.config.workflow_spec import (
@@ -72,7 +73,9 @@ class WorkflowController(WorkflowControllerBase):
 
         # Callbacks
         self._workflow_specs_callbacks: list[callable] = []
-        self._workflow_status_callbacks: list[callable] = []
+        self._workflow_status_callbacks: list[
+            Callable[[dict[str, WorkflowStatus]], None]
+        ] = []
 
         # Subscribe to updates
         self._setup_subscriptions()
@@ -203,10 +206,6 @@ class WorkflowController(WorkflowControllerBase):
         # Reset status to UNKNOWN (back to initial state)
         self._on_workflow_status_updated(WorkflowStatus(source_name=source_name))
 
-    def get_all_workflow_status(self) -> dict[str, WorkflowStatus]:
-        """Get workflow status for all tracked sources."""
-        return self._workflow_status.copy()
-
     def get_workflow_spec(self, workflow_id: WorkflowId) -> WorkflowSpec | None:
         """Get the current workflow specification for the given Id."""
         return self._workflow_specs.workflows.get(workflow_id)
@@ -219,13 +218,17 @@ class WorkflowController(WorkflowControllerBase):
         """Subscribe to workflow updates."""
         self._workflow_specs_callbacks.append(callback)
 
-    def _notify_workflow_status_update(self, callback: callable):
+    def _notify_workflow_status_update(
+        self, callback: Callable[[dict[str, WorkflowStatus]], None]
+    ):
         try:
-            callback()
+            callback(self._workflow_status.copy())
         except Exception as e:
             self._logger.error('Error in workflow status update callback: %s', e)
 
-    def subscribe_to_workflow_status_updates(self, callback: callable) -> None:
+    def subscribe_to_workflow_status_updates(
+        self, callback: Callable[[dict[str, WorkflowStatus]], None]
+    ) -> None:
         """Subscribe to workflow status updates."""
         self._workflow_status_callbacks.append(callback)
         self._notify_workflow_status_update(callback)

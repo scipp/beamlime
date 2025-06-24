@@ -84,12 +84,7 @@ class WorkflowStatusListWidget:
         self._widget = self._create_widget()
 
         # Subscribe to status updates for automatic refresh
-        self._controller.subscribe_to_workflow_status_updates(self.refresh)
-
-        # Subscribe to workflow specs updates to refresh workflow names
-        self._controller.subscribe_to_workflow_updates(
-            lambda workflow_specs: self.refresh()
-        )
+        self._controller.subscribe_to_workflow_status_updates(self._on_status_update)
 
     def _create_widget(self) -> pn.Column:
         """Create the main widget."""
@@ -231,10 +226,8 @@ class WorkflowStatusListWidget:
         row_data['last_status'] = status.status
         row_data['last_workflow_name'] = workflow_name
 
-    def refresh(self) -> None:
-        """Refresh the list of workflows."""
-        all_status = self._controller.get_all_workflow_status()
-
+    def _on_status_update(self, all_status: dict[str, WorkflowStatus]) -> None:
+        """Handle workflow status updates from controller."""
         if not all_status:
             self._workflow_rows.clear()
             self._workflow_list.objects = [

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+from collections.abc import Callable
 from typing import Any, Protocol
 
 from beamlime.config.workflow_spec import (
@@ -30,10 +31,6 @@ class WorkflowControllerBase(Protocol):
         """Remove a stopped workflow from tracking."""
         ...
 
-    def get_all_workflow_status(self) -> dict[str, WorkflowStatus]:
-        """Get workflow status for all tracked sources."""
-        ...
-
     def get_workflow_spec(self, workflow_id: WorkflowId) -> WorkflowSpec | None:
         """Get the current workflow specification for the given Id."""
         ...
@@ -52,6 +49,8 @@ class WorkflowControllerBase(Protocol):
         """Subscribe to workflow updates."""
         ...
 
-    def subscribe_to_workflow_status_updates(self, callback: callable) -> None:
+    def subscribe_to_workflow_status_updates(
+        self, callback: Callable[[dict[str, WorkflowStatus]], None]
+    ) -> None:
         """Subscribe to workflow status updates."""
         ...

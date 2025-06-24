@@ -197,15 +197,22 @@ class TestWorkflowController:
         service.set_workflow_specs(workflow_specs)
         config = {"threshold": 75.0}
 
+        # Set up callback to capture status
+        captured_status = {}
+
+        def capture_status(all_status):
+            captured_status.update(all_status)
+
+        controller.subscribe_to_workflow_status_updates(capture_status)
+        captured_status.clear()  # Clear initial callback
+
         # Act
         result = controller.start_workflow(workflow_id, source_names, config)
 
         # Assert
         assert result is True
-        all_status = controller.get_all_workflow_status()
-
         for source_name in source_names:
-            status = all_status[source_name]
+            status = captured_status[source_name]
             assert status.source_name == source_name
             assert status.workflow_id == workflow_id
             assert status.status == WorkflowStatusType.STARTING
@@ -244,6 +251,15 @@ class TestWorkflowController:
         single_source = ["detector_1"]
         config = {"threshold": 300.0}
 
+        # Set up callback to capture status
+        captured_status = {}
+
+        def capture_status(all_status):
+            captured_status.update(all_status)
+
+        controller.subscribe_to_workflow_status_updates(capture_status)
+        captured_status.clear()  # Clear initial callback
+
         # Act
         result = controller.start_workflow(workflow_id, single_source, config)
 
@@ -254,9 +270,8 @@ class TestWorkflowController:
         assert sent_configs[0][0] == "detector_1"
 
         # Check status
-        all_status = controller.get_all_workflow_status()
-        assert all_status["detector_1"].status == WorkflowStatusType.STARTING
-        assert all_status["detector_1"].workflow_id == workflow_id
+        assert captured_status["detector_1"].status == WorkflowStatusType.STARTING
+        assert captured_status["detector_1"].workflow_id == workflow_id
 
     def test_start_workflow_returns_false_for_nonexistent_workflow(
         self,
@@ -422,6 +437,14 @@ class TestWorkflowController:
         """Test that controller handles status updates from service."""
         controller, service = workflow_controller
 
+        # Set up callback to capture status
+        captured_status = {}
+
+        def capture_status(all_status):
+            captured_status.update(all_status)
+
+        controller.subscribe_to_workflow_status_updates(capture_status)
+
         # Simulate status update from service
         new_status = WorkflowStatus(
             source_name="detector_1",
@@ -431,9 +454,8 @@ class TestWorkflowController:
         service.simulate_status_update(new_status)
 
         # Check that controller received the update
-        all_status = controller.get_all_workflow_status()
-        assert all_status["detector_1"].status == WorkflowStatusType.RUNNING
-        assert all_status["detector_1"].workflow_id == workflow_id
+        assert captured_status["detector_1"].status == WorkflowStatusType.RUNNING
+        assert captured_status["detector_1"].workflow_id == workflow_id
 
     def test_stop_workflow_for_source_sends_none_config(
         self,
@@ -460,13 +482,21 @@ class TestWorkflowController:
         controller, service = workflow_controller
         source_name = "detector_1"
 
+        # Set up callback to capture status
+        captured_status = {}
+
+        def capture_status(all_status):
+            captured_status.update(all_status)
+
+        controller.subscribe_to_workflow_status_updates(capture_status)
+        captured_status.clear()  # Clear initial callback
+
         # Act
         controller.stop_workflow_for_source(source_name)
 
         # Assert
-        all_status = controller.get_all_workflow_status()
-        assert all_status[source_name].status == WorkflowStatusType.STOPPING
-        assert all_status[source_name].source_name == source_name
+        assert captured_status[source_name].status == WorkflowStatusType.STOPPING
+        assert captured_status[source_name].source_name == source_name
 
     def test_remove_workflow_for_source_resets_status(
         self,
@@ -485,13 +515,21 @@ class TestWorkflowController:
         )
         service.simulate_status_update(initial_status)
 
+        # Set up callback to capture status
+        captured_status = {}
+
+        def capture_status(all_status):
+            captured_status.update(all_status)
+
+        controller.subscribe_to_workflow_status_updates(capture_status)
+        captured_status.clear()  # Clear initial callback
+
         # Act
         controller.remove_workflow_for_source(source_name)
 
         # Assert
-        all_status = controller.get_all_workflow_status()
-        assert all_status[source_name].status == WorkflowStatusType.UNKNOWN
-        assert all_status[source_name].workflow_id is None
+        assert captured_status[source_name].status == WorkflowStatusType.UNKNOWN
+        assert captured_status[source_name].workflow_id is None
 
     def test_get_workflow_spec_returns_correct_spec(
         self,
@@ -639,14 +677,16 @@ class TestWorkflowController:
         controller, service = workflow_controller
         callback_called = []
 
-        def test_callback():
-            callback_called.append(True)
+        def test_callback(all_status):
+            callback_called.append(all_status)
 
         # Act - subscribe should trigger immediate callback
         controller.subscribe_to_workflow_status_updates(test_callback)
 
         # Assert
         assert len(callback_called) == 1
+        # Should contain initial status for all sources
+        assert len(callback_called[0]) == 2  # detector_1, detector_2
 
     def test_subscribe_to_workflow_status_updates_calls_callback_on_status_change(
         self,
@@ -657,8 +697,8 @@ class TestWorkflowController:
         controller, service = workflow_controller
         callback_called = []
 
-        def test_callback():
-            callback_called.append(True)
+        def test_callback(all_status):
+            callback_called.append(all_status)
 
         # Subscribe (will trigger immediate callback)
         controller.subscribe_to_workflow_status_updates(test_callback)
@@ -674,6 +714,9 @@ class TestWorkflowController:
 
         # Assert
         assert len(callback_called) == initial_calls + 1
+        # Check that the status was updated
+        latest_status = callback_called[-1]
+        assert latest_status["detector_1"].status == WorkflowStatusType.RUNNING
 
     def test_controller_initializes_all_sources_with_unknown_status(
         self,
@@ -683,35 +726,21 @@ class TestWorkflowController:
         source_names = ["detector_1", "detector_2", "detector_3"]
         controller = WorkflowController(fake_service, source_names)
 
-        # Act
-        all_status = controller.get_all_workflow_status()
+        # Set up callback to capture initial status
+        captured_status = {}
+
+        def capture_status(all_status):
+            captured_status.update(all_status)
+
+        controller.subscribe_to_workflow_status_updates(capture_status)
 
         # Assert
-        assert len(all_status) == 3
+        assert len(captured_status) == 3
         for source_name in source_names:
-            assert source_name in all_status
-            assert all_status[source_name].status == WorkflowStatusType.UNKNOWN
-            assert all_status[source_name].source_name == source_name
-            assert all_status[source_name].workflow_id is None
-
-    def test_get_all_workflow_status_returns_copy(
-        self,
-        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
-    ):
-        """Test that get_all_workflow_status returns a copy of status dict."""
-        controller, service = workflow_controller
-
-        # Act
-        result = controller.get_all_workflow_status()
-
-        # Modify the returned dict
-        result["new_source"] = WorkflowStatus(source_name="new_source")
-
-        # Get status again
-        second_result = controller.get_all_workflow_status()
-
-        # Assert original is unchanged
-        assert "new_source" not in second_result
+            assert source_name in captured_status
+            assert captured_status[source_name].status == WorkflowStatusType.UNKNOWN
+            assert captured_status[source_name].source_name == source_name
+            assert captured_status[source_name].workflow_id is None
 
     def test_workflow_specs_callback_exception_handling(
         self,
@@ -747,10 +776,10 @@ class TestWorkflowController:
         """Test that exceptions in workflow status callbacks are handled gracefully."""
         controller, service = workflow_controller
 
-        def failing_callback():
+        def failing_callback(all_status):
             raise Exception("Test exception")
 
-        def working_callback():
+        def working_callback(all_status):
             working_callback.called = True
 
         working_callback.called = False
@@ -783,11 +812,11 @@ class TestWorkflowController:
         callback1_calls = []
         callback2_calls = []
 
-        def callback1():
-            callback1_calls.append(True)
+        def callback1(all_status):
+            callback1_calls.append(all_status)
 
-        def callback2():
-            callback2_calls.append(True)
+        def callback2(all_status):
+            callback2_calls.append(all_status)
 
         # Subscribe both
         controller.subscribe_to_workflow_status_updates(callback1)
@@ -808,6 +837,9 @@ class TestWorkflowController:
         # Assert both were called
         assert len(callback1_calls) == 1
         assert len(callback2_calls) == 1
+        # Check that both received the same status
+        assert callback1_calls[0]["detector_1"].status == WorkflowStatusType.RUNNING
+        assert callback2_calls[0]["detector_1"].status == WorkflowStatusType.RUNNING
 
     def test_start_workflow_with_empty_source_names_list(
         self,
