@@ -83,10 +83,10 @@ class ConfigService(Generic[K, Serialized, V]):
 
     def __init__(
         self,
-        schema_validator: ConfigSchemaValidator[K, Serialized, V] | None = None,
+        schema_validator: ConfigSchemaValidator[K, Serialized, V],
         message_bridge: MessageBridge[K, Serialized] | None = None,
     ):
-        self._schema_validator = schema_validator or ConfigSchemaManager()
+        self._schema_validator = schema_validator
         self._message_bridge = message_bridge
         self._subscribers: dict[K, list[Callable[..., None]]] = defaultdict(list)
         self._logger = logging.getLogger(__name__)
