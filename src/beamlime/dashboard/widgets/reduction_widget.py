@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import panel as pn
 
-from beamlime.config.workflow_spec import WorkflowId
+from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec
 from beamlime.dashboard.workflow_controller_base import WorkflowControllerBase
 
 from .workflow_config_modal import WorkflowConfigModal
@@ -47,21 +47,13 @@ class WorkflowSelectorWidget:
         """
         self._controller = controller
         self._ui_helper = WorkflowUIHelper(controller)
-        self._selector = self._create_selector()
+        self._selector = pn.widgets.Select(name="Workflow")
         self._description_pane = pn.pane.HTML(
             "Select a workflow to see its description"
         )
         self._widget = self._create_widget()
         self._setup_callbacks()
         self._controller.subscribe_to_workflow_updates(self._on_workflows_updated)
-
-    def _create_selector(self) -> pn.widgets.Select:
-        """Create workflow selection widget."""
-        return pn.widgets.Select(
-            name="Workflow",
-            options=self._ui_helper.get_workflow_options(),
-            value=self._ui_helper.get_default_workflow_selection(),
-        )
 
     def _create_widget(self) -> pn.Column:
         """Create the main selector widget."""
@@ -80,9 +72,9 @@ class WorkflowSelectorWidget:
             text = f"<p><strong>Description:</strong> {description}</p>"
         self._description_pane.object = text
 
-    def _on_workflows_updated(self) -> None:
+    def _on_workflows_updated(self, specs: dict[WorkflowId, WorkflowSpec]) -> None:
         """Handle workflow specs updates."""
-        self._selector.options = self._ui_helper.get_workflow_options()
+        self._selector.options = self._ui_helper.make_workflow_options(specs)
         self._selector.value = self._ui_helper.get_default_workflow_selection()
 
     @property

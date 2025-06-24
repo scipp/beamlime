@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+from typing import Any
+
 import pytest
 
 from beamlime.config.workflow_spec import (
@@ -657,17 +659,13 @@ class TestWorkflowController:
         controller, service = workflow_controller
         callback_called = []
 
-        def test_callback():
-            callback_called.append(True)
+        def test_callback(value: Any):
+            callback_called.append(value)
 
-        # Subscribe
         controller.subscribe_to_workflow_updates(test_callback)
-
-        # Trigger update
-        service.set_workflow_specs(workflow_specs)
-
-        # Assert
         assert len(callback_called) == 1
+        service.set_workflow_specs(workflow_specs)
+        assert len(callback_called) == 2
 
     def test_subscribe_to_workflow_status_updates_calls_callback_immediately(
         self,
@@ -750,10 +748,10 @@ class TestWorkflowController:
         """Test that exceptions in workflow specs callbacks are handled gracefully."""
         controller, service = workflow_controller
 
-        def failing_callback():
+        def failing_callback(_: Any):
             raise Exception("Test exception")
 
-        def working_callback():
+        def working_callback(_: Any):
             working_callback.called = True
 
         working_callback.called = False

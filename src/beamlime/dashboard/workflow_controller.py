@@ -72,7 +72,9 @@ class WorkflowController(WorkflowControllerBase):
         self._workflow_specs: WorkflowSpecs = WorkflowSpecs()
 
         # Callbacks
-        self._workflow_specs_callbacks: list[callable] = []
+        self._workflow_specs_callbacks: list[
+            Callable[[dict[WorkflowId, WorkflowSpec]], None]
+        ] = []
         self._workflow_status_callbacks: list[
             Callable[[dict[str, WorkflowStatus]], None]
         ] = []
@@ -113,12 +115,16 @@ class WorkflowController(WorkflowControllerBase):
         # Clean up old persistent configs for workflows that no longer exist
         self._cleanup_persistent_configs(set(workflow_specs.workflows.keys()))
 
-        # Notify all subscribers
+        # Notify all subscribers with the specs
         for callback in self._workflow_specs_callbacks:
-            try:
-                callback()
-            except Exception as e:  # noqa: PERF203
-                self._logger.error('Error in workflow specs update callback: %s', e)
+            self._notify_workflow_specs_update(callback)
+
+    def _on_workflow_status_updated(self, status: WorkflowStatus) -> None:
+        """Handle workflow status updates from service."""
+        self._logger.info('Received workflow status update: %s', status)
+        self._workflow_status[status.source_name] = status
+        for callback in self._workflow_status_callbacks:
+            self._notify_workflow_status_update(callback)
 
     def _cleanup_persistent_configs(
         self, current_workflow_ids: set[WorkflowId]
@@ -136,13 +142,6 @@ class WorkflowController(WorkflowControllerBase):
                 original_count - len(current_configs.configs),
             )
             self._service.save_persistent_configs(current_configs)
-
-    def _on_workflow_status_updated(self, status: WorkflowStatus) -> None:
-        """Handle workflow status updates from service."""
-        self._logger.info('Received workflow status update: %s', status)
-        self._workflow_status[status.source_name] = status
-        for callback in self._workflow_status_callbacks:
-            self._notify_workflow_status_update(callback)
 
     def start_workflow(
         self, workflow_id: WorkflowId, source_names: list[str], config: dict[str, Any]
@@ -214,25 +213,6 @@ class WorkflowController(WorkflowControllerBase):
         """Get all available workflow specifications."""
         return self._workflow_specs.workflows.copy()
 
-    def subscribe_to_workflow_updates(self, callback: callable) -> None:
-        """Subscribe to workflow updates."""
-        self._workflow_specs_callbacks.append(callback)
-
-    def _notify_workflow_status_update(
-        self, callback: Callable[[dict[str, WorkflowStatus]], None]
-    ):
-        try:
-            callback(self._workflow_status.copy())
-        except Exception as e:
-            self._logger.error('Error in workflow status update callback: %s', e)
-
-    def subscribe_to_workflow_status_updates(
-        self, callback: Callable[[dict[str, WorkflowStatus]], None]
-    ) -> None:
-        """Subscribe to workflow status updates."""
-        self._workflow_status_callbacks.append(callback)
-        self._notify_workflow_status_update(callback)
-
     def get_workflow_config(
         self, workflow_id: WorkflowId
     ) -> PersistentWorkflowConfig | None:
@@ -243,3 +223,34 @@ class WorkflowController(WorkflowControllerBase):
     def workflow_exists(self, workflow_id: WorkflowId) -> bool:
         """Check if a workflow ID exists in current specs."""
         return workflow_id in self._workflow_specs.workflows
+
+    def subscribe_to_workflow_updates(
+        self, callback: Callable[[dict[WorkflowId, WorkflowSpec]], None]
+    ) -> None:
+        """Subscribe to workflow updates."""
+        self._workflow_specs_callbacks.append(callback)
+        self._notify_workflow_specs_update(callback)
+
+    def subscribe_to_workflow_status_updates(
+        self, callback: Callable[[dict[str, WorkflowStatus]], None]
+    ) -> None:
+        """Subscribe to workflow status updates."""
+        self._workflow_status_callbacks.append(callback)
+        self._notify_workflow_status_update(callback)
+
+    def _notify_workflow_specs_update(
+        self, callback: Callable[[dict[WorkflowId, WorkflowSpec]], None]
+    ) -> None:
+        """Notify a single subscriber about workflow specs update."""
+        try:
+            callback(self._workflow_specs.workflows.copy())
+        except Exception as e:
+            self._logger.error('Error in workflow specs update callback: %s', e)
+
+    def _notify_workflow_status_update(
+        self, callback: Callable[[dict[str, WorkflowStatus]], None]
+    ):
+        try:
+            callback(self._workflow_status.copy())
+        except Exception as e:
+            self._logger.error('Error in workflow status update callback: %s', e)

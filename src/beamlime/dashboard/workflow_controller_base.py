@@ -35,17 +35,15 @@ class WorkflowControllerBase(Protocol):
         """Get the current workflow specification for the given Id."""
         ...
 
-    def get_workflow_specs(self) -> dict[WorkflowId, WorkflowSpec]:
-        """Get all available workflow specifications."""
-        ...
-
     def get_workflow_config(
         self, workflow_id: WorkflowId
     ) -> PersistentWorkflowConfig | None:
         """Get saved workflow configuration."""
         ...
 
-    def subscribe_to_workflow_updates(self, callback: callable) -> None:
+    def subscribe_to_workflow_updates(
+        self, callback: Callable[[dict[WorkflowId, WorkflowSpec]], None]
+    ) -> None:
         """Subscribe to workflow updates."""
         ...
 

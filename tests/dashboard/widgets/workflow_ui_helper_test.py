@@ -109,7 +109,7 @@ class TestWorkflowUIHelper:
 
     def test_get_workflow_options_with_empty_specs(self, ui_helper: WorkflowUIHelper):
         """Test get_workflow_options with no workflow specs."""
-        options = ui_helper.get_workflow_options()
+        options = ui_helper.make_workflow_options()
 
         assert len(options) == 1
         assert "--- Click to select a workflow ---" in options
@@ -118,17 +118,11 @@ class TestWorkflowUIHelper:
             is WorkflowUIHelper.no_selection
         )
 
-    def test_get_workflow_options_with_single_spec(
-        self,
-        ui_helper: WorkflowUIHelper,
-        mock_controller: MockWorkflowController,
-        workflow_spec: WorkflowSpec,
-    ):
+    def test_make_workflow_options_with_single_spec(self, workflow_spec: WorkflowSpec):
         """Test get_workflow_options with a single workflow spec."""
         workflow_id = "test_workflow"
-        mock_controller.set_workflow_spec(workflow_id, workflow_spec)
 
-        options = ui_helper.get_workflow_options()
+        options = WorkflowUIHelper.make_workflow_options({workflow_id: workflow_spec})
 
         assert len(options) == 2
         assert "--- Click to select a workflow ---" in options
@@ -139,21 +133,16 @@ class TestWorkflowUIHelper:
             is WorkflowUIHelper.no_selection
         )
 
-    def test_get_workflow_options_with_multiple_specs(
+    def test_make_workflow_options_with_multiple_specs(
         self,
-        ui_helper: WorkflowUIHelper,
-        mock_controller: MockWorkflowController,
     ):
         """Test get_workflow_options with multiple workflow specs."""
         spec1 = WorkflowSpec(name="Workflow One", description="First workflow")
         spec2 = WorkflowSpec(name="Workflow Two", description="Second workflow")
         spec3 = WorkflowSpec(name="Another Workflow", description="Third workflow")
 
-        mock_controller.set_workflow_spec("workflow_1", spec1)
-        mock_controller.set_workflow_spec("workflow_2", spec2)
-        mock_controller.set_workflow_spec("workflow_3", spec3)
-
-        options = ui_helper.get_workflow_options()
+        specs = {"workflow_1": spec1, "workflow_2": spec2, "workflow_3": spec3}
+        options = WorkflowUIHelper.make_workflow_options(specs)
 
         assert len(options) == 4
         assert "--- Click to select a workflow ---" in options
@@ -435,8 +424,8 @@ class TestWorkflowUIHelper:
         helper1 = WorkflowUIHelper(mock_controller)
         helper2 = WorkflowUIHelper(mock_controller)
 
-        options1 = helper1.get_workflow_options()
-        options2 = helper2.get_workflow_options()
+        options1 = helper1.make_workflow_options()
+        options2 = helper2.make_workflow_options()
 
         # Options should be equal
         assert options1 == options2

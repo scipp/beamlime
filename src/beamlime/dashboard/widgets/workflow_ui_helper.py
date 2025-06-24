@@ -2,7 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from typing import Any
 
-from beamlime.config.workflow_spec import WorkflowId
+from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec
 from beamlime.dashboard.workflow_controller_base import WorkflowControllerBase
 
 
@@ -15,12 +15,19 @@ class WorkflowUIHelper:
         """Initialize UI helper with controller reference."""
         self._controller = controller
 
-    def get_workflow_options(self) -> dict[str, WorkflowId | object]:
-        """Get workflow options for selector widget."""
-        select_text = "--- Click to select a workflow ---"
-        options = {select_text: self.no_selection}
+    @staticmethod
+    def make_workflow_options(
+        specs: dict[WorkflowId, WorkflowSpec] | None = None,
+    ) -> dict[str, WorkflowId | object]:
+        """
+        Get workflow options for selector widget.
 
-        specs = self._controller.get_workflow_specs()
+        Note that is uses the specs passed as an argument and not the ones from the
+        controller.
+        """
+        specs = specs or {}
+        select_text = "--- Click to select a workflow ---"
+        options = {select_text: WorkflowUIHelper.no_selection}
         options.update({spec.name: workflow_id for workflow_id, spec in specs.items()})
         return options
 
