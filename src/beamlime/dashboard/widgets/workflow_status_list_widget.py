@@ -3,8 +3,9 @@ from typing import Any
 import panel as pn
 
 from beamlime.config.workflow_spec import WorkflowStatus, WorkflowStatusType
+from beamlime.dashboard.workflow_controller_base import WorkflowControllerBase
 
-from ..workflow_controller_base import WorkflowControllerBase, WorkflowUIHelper
+from .workflow_ui_helper import WorkflowUIHelper
 
 
 class WorkflowStatusUIHelper:

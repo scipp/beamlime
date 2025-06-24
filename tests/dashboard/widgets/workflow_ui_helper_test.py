@@ -10,7 +10,7 @@ from beamlime.config.workflow_spec import (
     WorkflowId,
     WorkflowSpec,
 )
-from beamlime.dashboard.workflow_controller_base import WorkflowUIHelper
+from beamlime.dashboard.widgets.workflow_ui_helper import WorkflowUIHelper
 
 
 class MockWorkflowController:

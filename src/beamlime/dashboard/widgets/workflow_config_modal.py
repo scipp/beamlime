@@ -7,12 +7,10 @@ from typing import Any
 import panel as pn
 
 from beamlime.config.workflow_spec import WorkflowId
-from beamlime.dashboard.workflow_controller_base import (
-    WorkflowControllerBase,
-    WorkflowUIHelper,
-)
+from beamlime.dashboard.workflow_controller_base import WorkflowControllerBase
 
 from .parameter_widget import ParameterWidget
+from .workflow_ui_helper import WorkflowUIHelper
 
 
 class WorkflowConfigWidget:
