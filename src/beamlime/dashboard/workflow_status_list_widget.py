@@ -4,7 +4,11 @@ import panel as pn
 
 from beamlime.config.workflow_spec import WorkflowStatus, WorkflowStatusType
 
-from .workflow_controller_base import WorkflowControllerBase
+from .workflow_controller_base import (
+    WorkflowControllerBase,
+    WorkflowStatusUIHelper,
+    WorkflowUIHelper,
+)
 
 
 class WorkflowStatusListWidget:
@@ -20,6 +24,8 @@ class WorkflowStatusListWidget:
             Controller for workflow operations
         """
         self._controller = controller
+        self._ui_helper = WorkflowUIHelper(controller)
+        self._status_ui_helper = WorkflowStatusUIHelper()
         self._workflow_list = pn.Column()
         self._workflow_rows: dict[str, dict[str, Any]] = {}  # Track persistent widgets
         self._widget = self._create_widget()
@@ -43,8 +49,8 @@ class WorkflowStatusListWidget:
         self, source_name: str, status: WorkflowStatus
     ) -> dict[str, Any]:
         """Create a row widget data structure for a single workflow."""
-        # Get workflow name from controller
-        workflow_name = self._controller.get_workflow_name(status.workflow_id)
+        # Get workflow name from UI helper
+        workflow_name = self._ui_helper.get_workflow_name(status.workflow_id)
 
         # Create info panel
         info_pane = pn.pane.HTML("", width=220)
@@ -129,8 +135,8 @@ class WorkflowStatusListWidget:
         ):
             return
 
-        # Get display info from controller
-        display_info = self._controller.get_status_display_info(status)
+        # Get display info from UI helper
+        display_info = self._status_ui_helper.get_status_display_info(status)
 
         # Update info panel HTML
         info_html = f"""
@@ -197,8 +203,8 @@ class WorkflowStatusListWidget:
         # Update or create rows for current sources
         workflow_widgets = []
         for source_name, status in all_status.items():
-            # Get workflow name from controller
-            workflow_name = self._controller.get_workflow_name(status.workflow_id)
+            # Get workflow name from UI helper
+            workflow_name = self._ui_helper.get_workflow_name(status.workflow_id)
 
             if source_name in self._workflow_rows:
                 # Update existing row

@@ -30,7 +30,7 @@ import panel as pn
 from beamlime.config.workflow_spec import Parameter, ParameterType, WorkflowId
 from beamlime.dashboard.workflow_status_list_widget import WorkflowStatusListWidget
 
-from .workflow_controller_base import WorkflowControllerBase
+from .workflow_controller_base import WorkflowControllerBase, WorkflowUIHelper
 
 
 class ParameterWidget:
@@ -118,6 +118,7 @@ class WorkflowConfigWidget:
         """
         self._workflow_id = workflow_id
         self._controller = controller
+        self._ui_helper = WorkflowUIHelper(controller)
         if (spec := controller.get_workflow_spec(workflow_id)) is None:
             raise ValueError(f"Workflow with ID '{workflow_id}' does not exist.")
         self._workflow_spec = spec
@@ -128,7 +129,7 @@ class WorkflowConfigWidget:
 
     def _create_source_selector(self) -> pn.widgets.MultiChoice:
         """Create source selection widget."""
-        initial_sources = self._controller.get_initial_source_names(self._workflow_id)
+        initial_sources = self._ui_helper.get_initial_source_names(self._workflow_id)
         return pn.widgets.MultiChoice(
             name="Source Names",
             options=self._workflow_spec.source_names,
@@ -140,9 +141,7 @@ class WorkflowConfigWidget:
         """Create panel containing all parameter widgets."""
         parameter_widgets = []
 
-        initial_values = self._controller.get_initial_parameter_values(
-            self._workflow_id
-        )
+        initial_values = self._ui_helper.get_initial_parameter_values(self._workflow_id)
 
         for param in self._workflow_spec.parameters:
             initial_value = initial_values.get(param.name)
@@ -200,6 +199,7 @@ class WorkflowSelectorWidget:
             Controller for workflow operations
         """
         self._controller = controller
+        self._ui_helper = WorkflowUIHelper(controller)
         self._selector = self._create_selector()
         self._description_pane = pn.pane.HTML(
             "Select a workflow to see its description"
@@ -212,8 +212,8 @@ class WorkflowSelectorWidget:
         """Create workflow selection widget."""
         return pn.widgets.Select(
             name="Workflow",
-            options=self._controller.get_workflow_options(),
-            value=self._controller.get_default_workflow_selection(),
+            options=self._ui_helper.get_workflow_options(),
+            value=self._ui_helper.get_default_workflow_selection(),
         )
 
     def _create_widget(self) -> pn.Column:
@@ -226,7 +226,7 @@ class WorkflowSelectorWidget:
 
     def _on_workflow_selected(self, event) -> None:
         """Handle workflow selection change."""
-        description = self._controller.get_workflow_description(event.new)
+        description = self._ui_helper.get_workflow_description(event.new)
         if not description:
             text = "Select a workflow to see its description"
         else:
@@ -235,8 +235,8 @@ class WorkflowSelectorWidget:
 
     def _on_workflows_updated(self) -> None:
         """Handle workflow specs updates."""
-        self._selector.options = self._controller.get_workflow_options()
-        self._selector.value = self._controller.get_default_workflow_selection()
+        self._selector.options = self._ui_helper.get_workflow_options()
+        self._selector.value = self._ui_helper.get_default_workflow_selection()
 
     @property
     def widget(self) -> pn.Column:
@@ -247,7 +247,7 @@ class WorkflowSelectorWidget:
     def selected_workflow_id(self) -> WorkflowId | None:
         """Get the currently selected workflow ID."""
         value = self._selector.value
-        return None if self._controller.is_no_selection(value) else value
+        return None if self._ui_helper.is_no_selection(value) else value
 
 
 class WorkflowConfigModal:
@@ -386,6 +386,7 @@ class ReductionWidget:
             Controller for workflow operations
         """
         self._controller = controller
+        self._ui_helper = WorkflowUIHelper(controller)
         self._workflow_selector = WorkflowSelectorWidget(controller)
         self._running_workflows_widget = WorkflowStatusListWidget(controller)
         self._configure_button = pn.widgets.Button(
@@ -417,7 +418,7 @@ class ReductionWidget:
     def _on_workflow_selected(self, event) -> None:
         """Handle workflow selection change."""
         workflow_id = event.new
-        self._configure_button.disabled = self._controller.is_no_selection(workflow_id)
+        self._configure_button.disabled = self._ui_helper.is_no_selection(workflow_id)
 
     def _on_configure_workflow(self, event) -> None:
         """Handle configure workflow button click."""
