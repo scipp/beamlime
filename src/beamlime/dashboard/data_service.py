@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import UserDict
-from collections.abc import Callable, Hashable, Mapping, Sequence
+from collections.abc import Callable, Hashable
 from contextlib import contextmanager
 from typing import Any
 
@@ -75,16 +75,6 @@ class DataService(UserDict[DataKey, sc.DataArray]):
         if not self._in_transaction:
             self._notify_subscribers({key})
             self._pending_updates.clear()
-
-
-class TotalCountsGetter:
-    def __init__(self, keys: Sequence[DataKey]) -> None:
-        self.keys = keys
-
-    def __call__(self, store: Mapping[DataKey, sc.DataArray]) -> dict[DataKey, int]:
-        return {
-            key: int(store[key].sum().value) if key in store else 0 for key in self.keys
-        }
 
 
 class MonitorDataService(DataService): ...
