@@ -27,10 +27,9 @@ The Beamlime dashboard operates within a Kafka-based system, interacting with mu
 flowchart TD
     ConfigTopic(["Beamlime Config Topic"])
     DataTopic(["Beamlime Data Topic"])
-    DetectorTopic(["ECDC Detector Topic"])
-    MonitorTopic(["ECDC Monitor Topic"])
+    ECDCTopic(["ECDC Topics"])
 
-    subgraph "Beamlime Backend Services"
+    subgraph BackendServices["Beamlime Backend Services"]
         MonitorData["monitor_data service"]
         DetectorData["detector_data service"]
         DataReduction["data_reduction service"]
@@ -39,10 +38,7 @@ flowchart TD
     DashboardApp["Beamlime Dashboard"]
 
     %% Raw data from ECDC topics
-    DetectorTopic --> DetectorData
-    MonitorTopic --> MonitorData
-    DetectorTopic --> DataReduction
-    MonitorTopic --> DataReduction
+    ECDCTopic --> BackendServices
 
     %% Data publishing
     MonitorData -- Publishes --> DataTopic
