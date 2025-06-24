@@ -16,7 +16,7 @@ from beamlime.config.workflow_spec import (
     WorkflowSpec,
     WorkflowSpecs,
 )
-from beamlime.dashboard.reduction_widget import (
+from beamlime.dashboard.widgets.reduction_widget import (
     ReductionWidget,
     WorkflowStatus,
 )

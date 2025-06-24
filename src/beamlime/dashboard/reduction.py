@@ -7,7 +7,7 @@ from beamlime import Service
 
 from . import plots
 from .dashboard import DashboardBase
-from .reduction_widget import ReductionWidget
+from .widgets.reduction_widget import ReductionWidget
 from .workflow_controller import WorkflowController
 
 pn.extension('holoviews', 'modal', template='material')

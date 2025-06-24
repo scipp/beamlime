@@ -26,10 +26,12 @@ from __future__ import annotations
 import panel as pn
 
 from beamlime.config.workflow_spec import WorkflowId
-from beamlime.dashboard.workflow_status_list_widget import WorkflowStatusListWidget
+from beamlime.dashboard.widgets.workflow_status_list_widget import (
+    WorkflowStatusListWidget,
+)
 
+from ..workflow_controller_base import WorkflowControllerBase, WorkflowUIHelper
 from .workflow_config_modal import WorkflowConfigModal
-from .workflow_controller_base import WorkflowControllerBase, WorkflowUIHelper
 
 
 class WorkflowSelectorWidget:

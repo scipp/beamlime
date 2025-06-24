@@ -4,7 +4,7 @@ import panel as pn
 
 from beamlime.config.workflow_spec import WorkflowStatus, WorkflowStatusType
 
-from .workflow_controller_base import WorkflowControllerBase, WorkflowUIHelper
+from ..workflow_controller_base import WorkflowControllerBase, WorkflowUIHelper
 
 
 class WorkflowStatusUIHelper:
