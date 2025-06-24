@@ -135,16 +135,19 @@ class TestWorkflowController:
         self,
         workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_id: WorkflowId,
+        workflow_specs: WorkflowSpecs,
         source_names: list[str],
     ):
         """Test that start_workflow sends configuration to all specified sources."""
         controller, service = workflow_controller
+        service.set_workflow_specs(workflow_specs)
         config = {"threshold": 150.0, "mode": "accurate"}
 
         # Act
-        controller.start_workflow(workflow_id, source_names, config)
+        result = controller.start_workflow(workflow_id, source_names, config)
 
         # Assert
+        assert result is True
         sent_configs = service.get_sent_configs()
         assert len(sent_configs) == len(source_names)
 
@@ -161,16 +164,19 @@ class TestWorkflowController:
         self,
         workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_id: WorkflowId,
+        workflow_specs: WorkflowSpecs,
         source_names: list[str],
     ):
         """Test that start_workflow saves persistent configuration."""
         controller, service = workflow_controller
+        service.set_workflow_specs(workflow_specs)
         config = {"threshold": 200.0, "mode": "fast"}
 
         # Act
-        controller.start_workflow(workflow_id, source_names, config)
+        result = controller.start_workflow(workflow_id, source_names, config)
 
         # Assert
+        assert result is True
         persistent_configs = service.get_persistent_configs()
         assert workflow_id in persistent_configs.configs
 
@@ -183,16 +189,19 @@ class TestWorkflowController:
         self,
         workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_id: WorkflowId,
+        workflow_specs: WorkflowSpecs,
         source_names: list[str],
     ):
         """Test that start_workflow immediately updates status to STARTING."""
         controller, service = workflow_controller
+        service.set_workflow_specs(workflow_specs)
         config = {"threshold": 75.0}
 
         # Act
-        controller.start_workflow(workflow_id, source_names, config)
+        result = controller.start_workflow(workflow_id, source_names, config)
 
         # Assert
+        assert result is True
         all_status = controller.get_all_workflow_status()
 
         for source_name in source_names:
@@ -205,16 +214,19 @@ class TestWorkflowController:
         self,
         workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_id: WorkflowId,
+        workflow_specs: WorkflowSpecs,
         source_names: list[str],
     ):
         """Test that start_workflow works with empty configuration."""
         controller, service = workflow_controller
+        service.set_workflow_specs(workflow_specs)
         config = {}
 
         # Act
-        controller.start_workflow(workflow_id, source_names, config)
+        result = controller.start_workflow(workflow_id, source_names, config)
 
         # Assert
+        assert result is True
         sent_configs = service.get_sent_configs()
         for _, workflow_config in sent_configs:
             assert workflow_config.identifier == workflow_id
@@ -224,16 +236,19 @@ class TestWorkflowController:
         self,
         workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_id: WorkflowId,
+        workflow_specs: WorkflowSpecs,
     ):
         """Test that start_workflow works with a single source."""
         controller, service = workflow_controller
+        service.set_workflow_specs(workflow_specs)
         single_source = ["detector_1"]
         config = {"threshold": 300.0}
 
         # Act
-        controller.start_workflow(workflow_id, single_source, config)
+        result = controller.start_workflow(workflow_id, single_source, config)
 
         # Assert
+        assert result is True
         sent_configs = service.get_sent_configs()
         assert len(sent_configs) == 1
         assert sent_configs[0][0] == "detector_1"
@@ -243,13 +258,36 @@ class TestWorkflowController:
         assert all_status["detector_1"].status == WorkflowStatusType.STARTING
         assert all_status["detector_1"].workflow_id == workflow_id
 
-    def test_persistent_config_stores_multiple_workflows(
+    def test_start_workflow_returns_false_for_nonexistent_workflow(
         self,
         workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         source_names: list[str],
     ):
+        """Test that start_workflow returns False for non-existent workflow."""
+        controller, service = workflow_controller
+        nonexistent_workflow_id = "nonexistent_workflow"
+        config = {"threshold": 100.0}
+
+        # Act
+        result = controller.start_workflow(
+            nonexistent_workflow_id, source_names, config
+        )
+
+        # Assert
+        assert result is False
+        # Should not have sent any configs
+        sent_configs = service.get_sent_configs()
+        assert len(sent_configs) == 0
+
+    def test_persistent_config_stores_multiple_workflows(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_specs: WorkflowSpecs,
+        source_names: list[str],
+    ):
         """Test that multiple workflow configurations can be stored persistently."""
         controller, service = workflow_controller
+        service.set_workflow_specs(workflow_specs)
 
         workflow_id_1 = "workflow_1"
         workflow_id_2 = "workflow_2"
@@ -258,11 +296,31 @@ class TestWorkflowController:
         sources_1 = ["detector_1"]
         sources_2 = ["detector_2"]
 
+        # Add specs for both workflows
+        extended_specs = WorkflowSpecs(
+            workflows={
+                **workflow_specs.workflows,
+                workflow_id_1: WorkflowSpec(
+                    name="Workflow 1",
+                    description="First workflow",
+                    source_names=sources_1,
+                ),
+                workflow_id_2: WorkflowSpec(
+                    name="Workflow 2",
+                    description="Second workflow",
+                    source_names=sources_2,
+                ),
+            }
+        )
+        service.set_workflow_specs(extended_specs)
+
         # Start both workflows
-        controller.start_workflow(workflow_id_1, sources_1, config_1)
-        controller.start_workflow(workflow_id_2, sources_2, config_2)
+        result1 = controller.start_workflow(workflow_id_1, sources_1, config_1)
+        result2 = controller.start_workflow(workflow_id_2, sources_2, config_2)
 
         # Assert
+        assert result1 is True
+        assert result2 is True
         persistent_configs = service.get_persistent_configs()
         assert len(persistent_configs.configs) == 2
 
@@ -280,21 +338,29 @@ class TestWorkflowController:
         self,
         workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_id: WorkflowId,
+        workflow_specs: WorkflowSpecs,
     ):
         """Test that starting a workflow replaces existing persistent configuration."""
         controller, service = workflow_controller
+        service.set_workflow_specs(workflow_specs)
 
         # Start workflow with initial config
         initial_config = {"threshold": 100.0, "mode": "fast"}
         initial_sources = ["detector_1"]
-        controller.start_workflow(workflow_id, initial_sources, initial_config)
+        result1 = controller.start_workflow(
+            workflow_id, initial_sources, initial_config
+        )
 
         # Start same workflow with different config
         updated_config = {"threshold": 300.0, "mode": "accurate"}
         updated_sources = ["detector_1", "detector_2"]
-        controller.start_workflow(workflow_id, updated_sources, updated_config)
+        result2 = controller.start_workflow(
+            workflow_id, updated_sources, updated_config
+        )
 
         # Assert
+        assert result1 is True
+        assert result2 is True
         persistent_configs = service.get_persistent_configs()
         assert len(persistent_configs.configs) == 1
 
@@ -309,10 +375,26 @@ class TestWorkflowController:
     ):
         """Test that cleanup removes configs for workflows that no longer exist."""
         controller, service = workflow_controller
+        service.set_workflow_specs(
+            WorkflowSpecs(
+                workflows={
+                    "workflow_1": WorkflowSpec(
+                        name="Workflow 1",
+                        description="First workflow",
+                        source_names=["detector_1"],
+                    ),
+                    "workflow_2": WorkflowSpec(
+                        name="Workflow 2",
+                        description="Second workflow",
+                        source_names=["detector_2"],
+                    ),
+                }
+            )
+        )
 
         # Start workflows to create persistent configs
-        controller.start_workflow("workflow_1", ["detector_1"], {"param": "value1"})
-        controller.start_workflow("workflow_2", ["detector_2"], {"param": "value2"})
+        controller.start_workflow("workflow_1", ["detector_1"], {})
+        controller.start_workflow("workflow_2", ["detector_2"], {})
 
         # Simulate workflow specs update with only one workflow remaining
         remaining_workflows = WorkflowSpecs(

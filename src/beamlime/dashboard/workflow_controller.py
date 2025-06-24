@@ -143,8 +143,18 @@ class WorkflowController(WorkflowControllerBase):
 
     def start_workflow(
         self, workflow_id: WorkflowId, source_names: list[str], config: dict[str, Any]
-    ) -> None:
-        """Start a workflow with given configuration."""
+    ) -> bool:
+        """Start a workflow with given configuration.
+
+        Returns True if the workflow was started successfully, False otherwise.
+        """
+        # Check if workflow exists
+        if workflow_id not in self._workflow_specs.workflows:
+            self._logger.warning(
+                'Cannot start workflow %s: workflow does not exist', workflow_id
+            )
+            return False
+
         self._logger.info(
             'Starting workflow %s on sources %s with config %s',
             workflow_id,
@@ -174,6 +184,8 @@ class WorkflowController(WorkflowControllerBase):
         # Notify once, will update whole list of source names
         for callback in self._workflow_status_callbacks:
             self._notify_workflow_status_update(callback)
+
+        return True
 
     def stop_workflow_for_source(self, source_name: str) -> None:
         """Stop a running workflow for a specific source."""

@@ -172,23 +172,22 @@ class WorkflowConfigModal:
 
     def _on_start_workflow(self, event) -> None:
         """Handle start workflow button click."""
-        # Validate that workflow still exists using direct ID check
-        if not self._controller.workflow_exists(self._workflow_id):
+        if not self._config_widget.validate_configuration():
+            self._show_error_modal("Please select at least one source name.")
+            return
+
+        success = self._controller.start_workflow(
+            self._workflow_id,
+            self._config_widget.selected_sources,
+            self._config_widget.parameter_values,
+        )
+
+        if not success:
             self._show_error_modal(
                 f"Error: Workflow '{self._workflow_spec.name}' "
                 "is no longer available. Please select a different workflow."
             )
             return
-
-        if not self._config_widget.validate_configuration():
-            self._show_error_modal("Please select at least one source name.")
-            return
-
-        self._controller.start_workflow(
-            self._workflow_id,
-            self._config_widget.selected_sources,
-            self._config_widget.parameter_values,
-        )
 
         self._modal.open = False
 

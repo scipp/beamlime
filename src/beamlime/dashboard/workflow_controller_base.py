@@ -13,8 +13,11 @@ class WorkflowControllerBase(Protocol):
 
     def start_workflow(
         self, workflow_id: WorkflowId, source_names: list[str], config: dict[str, Any]
-    ) -> None:
-        """Start a workflow with given configuration."""
+    ) -> bool:
+        """Start a workflow with given configuration.
+
+        Returns True if the workflow was started successfully, False otherwise.
+        """
         ...
 
     def stop_workflow_for_source(self, source_name: str) -> None:
@@ -41,10 +44,6 @@ class WorkflowControllerBase(Protocol):
         self, workflow_id: WorkflowId
     ) -> PersistentWorkflowConfig | None:
         """Load saved workflow configuration."""
-        ...
-
-    def workflow_exists(self, workflow_id: WorkflowId) -> bool:
-        """Check if a workflow ID exists in current specs."""
         ...
 
     def subscribe_to_workflow_updates(self, callback: callable) -> None:
