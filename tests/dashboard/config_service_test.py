@@ -29,19 +29,19 @@ class ComplexConfig(pydantic.BaseModel):
 
 # Simple fake callback for testing
 class FakeCallback:
-    def __init__(self):
+    def __init__(self) -> None:
         self.called = False
         self.call_count = 0
-        self.call_args = []
+        self.call_args: list = []
         self.data = None
 
-    def __call__(self, data):
+    def __call__(self, data) -> None:
         self.called = True
         self.call_count += 1
         self.call_args.append(data)
         self.data = data
 
-    def reset(self):
+    def reset(self) -> None:
         self.called = False
         self.call_count = 0
         self.call_args.clear()
@@ -49,19 +49,19 @@ class FakeCallback:
 
 
 class FailingCallback:
-    def __init__(self, exception=None):
+    def __init__(self, exception: Exception | None = None) -> None:
         self.exception = exception or ValueError("Callback failed")
         self.call_count = 0
 
-    def __call__(self, data):
+    def __call__(self, data) -> None:
         self.call_count += 1
         raise self.exception
 
 
 # Context manager to capture log messages
 @contextmanager
-def capture_logs(logger, level='error'):
-    captured = []
+def capture_logs(logger, level: str = 'error') -> list:
+    captured: list[str] = []
     original_level_method = getattr(logger, level)
 
     def capture_method(msg, *args):
@@ -75,22 +75,22 @@ def capture_logs(logger, level='error'):
 
 
 @pytest.fixture
-def config_key():
+def config_key() -> str:
     return "toa_range"
 
 
 @pytest.fixture
-def simple_key():
+def simple_key() -> str:
     return "simple_config"
 
 
 @pytest.fixture
-def complex_key():
+def complex_key() -> str:
     return "complex_config"
 
 
 @pytest.fixture
-def schemas(config_key: str, simple_key: str, complex_key: str):
+def schemas(config_key: str, simple_key: str, complex_key: str) -> ConfigSchemaManager:
     return ConfigSchemaManager(
         {
             config_key: TOARange,
@@ -101,24 +101,32 @@ def schemas(config_key: str, simple_key: str, complex_key: str):
 
 
 @pytest.fixture
-def service(schemas):
+def service(schemas: ConfigSchemaManager) -> ConfigService:
     return ConfigService(schema_validator=schemas)
 
 
 @pytest.fixture
-def service_with_bridge(schemas):
+def service_with_bridge(
+    schemas: ConfigSchemaManager,
+) -> tuple[ConfigService, FakeMessageBridge]:
     bridge = FakeMessageBridge()
     return ConfigService(schema_validator=schemas, message_bridge=bridge), bridge
 
 
 @pytest.fixture
-def service_with_loopback(schemas):
+def service_with_loopback(
+    schemas: ConfigSchemaManager,
+) -> tuple[ConfigService, LoopbackMessageBridge]:
     bridge = LoopbackMessageBridge()
     return ConfigService(schema_validator=schemas, message_bridge=bridge), bridge
 
 
 class TestConfigService:
-    def test_subscriber(self, service_with_bridge, config_key: str):
+    def test_subscriber(
+        self,
+        service_with_bridge: tuple[ConfigService, FakeMessageBridge],
+        config_key: str,
+    ) -> None:
         service, bridge = service_with_bridge
         toa_range = TOARangeParam()
         service.subscribe(key=config_key, callback=toa_range.from_pydantic())
@@ -135,7 +143,9 @@ class TestConfigService:
         assert toa_range.high == 2000.0
         assert toa_range.unit == 'us'
 
-    def test_bidirectional_param_binding_no_infinite_cycle(self, service_with_loopback):
+    def test_bidirectional_param_binding_no_infinite_cycle(
+        self, service_with_loopback: tuple[ConfigService, LoopbackMessageBridge]
+    ) -> None:
         """Test that bidirectional param binding doesn't cause infinite cycles."""
         service, bridge = service_with_loopback
 
@@ -166,13 +176,15 @@ class TestConfigService:
         assert toa_range.low == 1500.0
         assert len(bridge.messages) == 0
 
-    def test_get_nonexistent_key_returns_default(self, service):
+    def test_get_nonexistent_key_returns_default(self, service: ConfigService) -> None:
         """Test getting a non-existent key returns the default value."""
         assert service.get("nonexistent") is None
         assert service.get("nonexistent", "default_value") == "default_value"
         assert service.get("nonexistent", 42) == 42
 
-    def test_get_existing_key_returns_value(self, service, simple_key: str):
+    def test_get_existing_key_returns_value(
+        self, service: ConfigService, simple_key: str
+    ) -> None:
         """Test getting an existing key returns the stored value."""
         config = SimpleConfig(value=123, name="test")
         service._config[simple_key] = config
@@ -182,35 +194,43 @@ class TestConfigService:
         assert result.value == 123
         assert result.name == "test"
 
-    def test_update_config_valid_data(self, service, simple_key: str):
+    def test_update_config_valid_data(
+        self, service: ConfigService, simple_key: str
+    ) -> None:
         """Test updating config with valid pydantic model."""
         config = SimpleConfig(value=456, name="updated")
         service.update_config(simple_key, config)
 
         assert service.get(simple_key) == config
 
-    def test_update_config_invalid_type_raises_error(self, service, simple_key: str):
+    def test_update_config_invalid_type_raises_error(
+        self, service: ConfigService, simple_key: str
+    ) -> None:
         """Test updating config with non-pydantic model raises TypeError."""
         with pytest.raises(TypeError, match="must be a pydantic model"):
             service.update_config(simple_key, {"value": 123})
 
-    def test_update_config_unregistered_schema_raises_error(self, service):
+    def test_update_config_unregistered_schema_raises_error(
+        self, service: ConfigService
+    ) -> None:
         """Test updating config with unregistered schema raises ValueError."""
         config = SimpleConfig(value=123)
         with pytest.raises(ValueError, match="No schema registered"):
             service.update_config("unregistered_key", config)
 
     def test_update_config_wrong_schema_type_raises_error(
-        self, service, simple_key: str
-    ):
+        self, service: ConfigService, simple_key: str
+    ) -> None:
         """Test updating config with wrong schema type raises ValueError."""
         config = TOARange(enabled=True, low=100.0, high=200.0, unit="us")
         with pytest.raises(ValueError, match="No schema registered"):
             service.update_config(simple_key, config)
 
     def test_update_config_publishes_to_bridge(
-        self, service_with_bridge, simple_key: str
-    ):
+        self,
+        service_with_bridge: tuple[ConfigService, FakeMessageBridge],
+        simple_key: str,
+    ) -> None:
         """Test that config updates are published to the message bridge."""
         service, bridge = service_with_bridge
         config = SimpleConfig(value=789, name="bridge_test")
@@ -223,8 +243,8 @@ class TestConfigService:
         assert published[0][1] == {"value": 789, "name": "bridge_test"}
 
     def test_subscribe_immediate_callback_with_existing_data(
-        self, service, simple_key: str
-    ):
+        self, service: ConfigService, simple_key: str
+    ) -> None:
         """Test that subscribe immediately calls callback if data exists."""
         config = SimpleConfig(value=100, name="immediate")
         service._config[simple_key] = config
@@ -236,15 +256,17 @@ class TestConfigService:
         assert callback.data == config
 
     def test_subscribe_no_immediate_callback_without_data(
-        self, service, simple_key: str
-    ):
+        self, service: ConfigService, simple_key: str
+    ) -> None:
         """Test that subscribe doesn't call callback if no data exists."""
         callback = FakeCallback()
         service.subscribe(simple_key, callback)
 
         assert callback.called is False
 
-    def test_subscribe_multiple_callbacks(self, service, simple_key: str):
+    def test_subscribe_multiple_callbacks(
+        self, service: ConfigService, simple_key: str
+    ) -> None:
         """Test that multiple callbacks can be registered for the same key."""
         callback1 = FakeCallback()
         callback2 = FakeCallback()
@@ -266,8 +288,8 @@ class TestConfigService:
         assert callback3.data == config
 
     def test_subscribe_different_keys_independent(
-        self, service, simple_key: str, complex_key: str
-    ):
+        self, service: ConfigService, simple_key: str, complex_key: str
+    ) -> None:
         """Test that subscribers for different keys are independent."""
         callback1 = FakeCallback()
         callback2 = FakeCallback()
@@ -283,11 +305,13 @@ class TestConfigService:
         assert callback1.data == simple_config
         assert callback2.called is False
 
-    def test_process_incoming_messages_no_bridge(self, service):
+    def test_process_incoming_messages_no_bridge(self, service: ConfigService) -> None:
         """Test that process_incoming_messages handles missing bridge gracefully."""
         service.process_incoming_messages()
 
-    def test_process_incoming_messages_empty_queue(self, service_with_bridge):
+    def test_process_incoming_messages_empty_queue(
+        self, service_with_bridge: tuple[ConfigService, FakeMessageBridge]
+    ) -> None:
         """Test processing messages when queue is empty."""
         service, bridge = service_with_bridge
 
@@ -296,8 +320,10 @@ class TestConfigService:
         assert len(bridge.get_published_messages()) == 0
 
     def test_process_incoming_messages_valid_data(
-        self, service_with_bridge, simple_key: str
-    ):
+        self,
+        service_with_bridge: tuple[ConfigService, FakeMessageBridge],
+        simple_key: str,
+    ) -> None:
         """Test processing incoming messages with valid data."""
         service, bridge = service_with_bridge
         callback = FakeCallback()
@@ -315,8 +341,10 @@ class TestConfigService:
         assert callback.data == config
 
     def test_process_incoming_messages_invalid_data_logged(
-        self, service_with_bridge, simple_key: str
-    ):
+        self,
+        service_with_bridge: tuple[ConfigService, FakeMessageBridge],
+        simple_key: str,
+    ) -> None:
         """Test that invalid incoming data is logged and ignored."""
         service, bridge = service_with_bridge
         callback = FakeCallback()
@@ -333,7 +361,9 @@ class TestConfigService:
         assert service.get(simple_key) is None
         assert callback.called is False
 
-    def test_process_incoming_messages_unknown_key_ignored(self, service_with_bridge):
+    def test_process_incoming_messages_unknown_key_ignored(
+        self, service_with_bridge: tuple[ConfigService, FakeMessageBridge]
+    ) -> None:
         """Test that messages for unknown keys are ignored."""
         service, bridge = service_with_bridge
 
@@ -344,8 +374,10 @@ class TestConfigService:
         assert service.get("unknown_key") is None
 
     def test_process_incoming_messages_batching(
-        self, service_with_bridge, simple_key: str
-    ):
+        self,
+        service_with_bridge: tuple[ConfigService, FakeMessageBridge],
+        simple_key: str,
+    ) -> None:
         """Test that message processing respects the num parameter."""
         service, bridge = service_with_bridge
         callback = FakeCallback()
@@ -362,8 +394,10 @@ class TestConfigService:
         assert config.value == 2
 
     def test_process_incoming_messages_deduplication(
-        self, service_with_bridge, simple_key: str
-    ):
+        self,
+        service_with_bridge: tuple[ConfigService, FakeMessageBridge],
+        simple_key: str,
+    ) -> None:
         """Test that only the latest message per key is processed."""
         service, bridge = service_with_bridge
         callback = FakeCallback()
@@ -382,7 +416,9 @@ class TestConfigService:
         assert callback.call_count == 1
         assert callback.data == config
 
-    def test_callback_exception_handling(self, service, simple_key: str):
+    def test_callback_exception_handling(
+        self, service: ConfigService, simple_key: str
+    ) -> None:
         """Test that exceptions in callbacks are handled gracefully."""
         failing_callback = FailingCallback()
         working_callback = FakeCallback()
@@ -403,8 +439,10 @@ class TestConfigService:
         assert working_callback.data == config
 
     def test_disable_updates_context_manager(
-        self, service_with_bridge, simple_key: str
-    ):
+        self,
+        service_with_bridge: tuple[ConfigService, FakeMessageBridge],
+        simple_key: str,
+    ) -> None:
         """Test that the disable updates context manager works correctly."""
         service, bridge = service_with_bridge
         config = SimpleConfig(value=600, name="disabled")
@@ -421,7 +459,7 @@ class TestConfigService:
         service.update_config(simple_key, config3)
         assert len(bridge.get_published_messages()) == 2
 
-    def test_register_schema_with_manager(self, service):
+    def test_register_schema_with_manager(self, service: ConfigService) -> None:
         """Test registering a new schema with ConfigSchemaManager."""
         new_key = "new_config"
 
@@ -432,7 +470,7 @@ class TestConfigService:
 
         assert service.get(new_key) == config
 
-    def test_register_schema_with_non_manager_raises_error(self):
+    def test_register_schema_with_non_manager_raises_error(self) -> None:
         """Test that registering schema with non-ConfigSchemaManager raises error."""
 
         class FakeValidator:
@@ -445,8 +483,10 @@ class TestConfigService:
             service.register_schema("key", SimpleConfig)
 
     def test_complex_config_serialization_deserialization(
-        self, service_with_bridge, complex_key: str
-    ):
+        self,
+        service_with_bridge: tuple[ConfigService, FakeMessageBridge],
+        complex_key: str,
+    ) -> None:
         """Test complex config with nested data structures."""
         service, bridge = service_with_bridge
         callback = FakeCallback()
@@ -479,7 +519,11 @@ class TestConfigService:
         assert received_config.metadata == {"count": 10, "priority": 5}
         assert received_config.threshold == 0.75
 
-    def test_logging_configuration(self, service_with_bridge, simple_key: str):
+    def test_logging_configuration(
+        self,
+        service_with_bridge: tuple[ConfigService, FakeMessageBridge],
+        simple_key: str,
+    ) -> None:
         """Test that debug logging works correctly."""
         service, bridge = service_with_bridge
 
@@ -495,8 +539,8 @@ class TestConfigService:
         assert len(captured) >= 2
 
     def test_update_config_during_disabled_updates_ignored(
-        self, service, simple_key: str
-    ):
+        self, service: ConfigService, simple_key: str
+    ) -> None:
         """Test that config updates are ignored when updates are disabled."""
         config1 = SimpleConfig(value=100, name="initial")
         service.update_config(simple_key, config1)
@@ -513,7 +557,9 @@ class TestConfigService:
         service.update_config(simple_key, config3)
         assert service.get(simple_key) == config3
 
-    def test_callback_receives_exact_data_object(self, service, simple_key: str):
+    def test_callback_receives_exact_data_object(
+        self, service: ConfigService, simple_key: str
+    ) -> None:
         """Test that callbacks receive the exact same object instance."""
         callback = FakeCallback()
         service.subscribe(simple_key, callback)
@@ -525,8 +571,10 @@ class TestConfigService:
         assert callback.data is config
 
     def test_multiple_process_calls_handle_remaining_messages(
-        self, service_with_bridge, simple_key: str
-    ):
+        self,
+        service_with_bridge: tuple[ConfigService, FakeMessageBridge],
+        simple_key: str,
+    ) -> None:
         """Test that multiple process calls handle all messages."""
         service, bridge = service_with_bridge
         callback = FakeCallback()
