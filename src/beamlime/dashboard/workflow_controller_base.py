@@ -40,10 +40,10 @@ class WorkflowControllerBase(Protocol):
         """Get all available workflow specifications."""
         ...
 
-    def load_workflow_config(
+    def get_workflow_config(
         self, workflow_id: WorkflowId
     ) -> PersistentWorkflowConfig | None:
-        """Load saved workflow configuration."""
+        """Get saved workflow configuration."""
         ...
 
     def subscribe_to_workflow_updates(self, callback: callable) -> None:
@@ -110,7 +110,7 @@ class WorkflowUIHelper:
         values = {param.name: param.default for param in spec.parameters}
 
         # Override with persistent config if available
-        persistent_config = self._controller.load_workflow_config(workflow_id)
+        persistent_config = self._controller.get_workflow_config(workflow_id)
         if persistent_config:
             values.update(persistent_config.config.values)
 
@@ -118,5 +118,5 @@ class WorkflowUIHelper:
 
     def get_initial_source_names(self, workflow_id: WorkflowId) -> list[str]:
         """Get initial source names for a workflow."""
-        persistent_config = self._controller.load_workflow_config(workflow_id)
+        persistent_config = self._controller.get_workflow_config(workflow_id)
         return persistent_config.source_names if persistent_config else []

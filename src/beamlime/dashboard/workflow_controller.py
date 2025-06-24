@@ -230,7 +230,7 @@ class WorkflowController(WorkflowControllerBase):
         self._workflow_status_callbacks.append(callback)
         self._notify_workflow_status_update(callback)
 
-    def load_workflow_config(
+    def get_workflow_config(
         self, workflow_id: WorkflowId
     ) -> PersistentWorkflowConfig | None:
         """Load saved workflow configuration."""
