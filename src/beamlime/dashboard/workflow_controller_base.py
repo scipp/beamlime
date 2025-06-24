@@ -59,10 +59,11 @@ class WorkflowControllerBase(Protocol):
 class WorkflowUIHelper:
     """Helper class for workflow UI operations."""
 
+    no_selection = object()
+
     def __init__(self, controller: WorkflowControllerBase):
         """Initialize UI helper with controller reference."""
         self._controller = controller
-        self.no_selection = object()
 
     def get_workflow_options(self) -> dict[str, WorkflowId | object]:
         """Get workflow options for selector widget."""
