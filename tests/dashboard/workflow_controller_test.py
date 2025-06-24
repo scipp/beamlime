@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from collections.abc import Callable
-from typing import Any
 
 import pytest
 
@@ -609,18 +608,27 @@ class TestWorkflowController:
         self,
         workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_specs: WorkflowSpecs,
+        workflow_id: WorkflowId,
+        workflow_spec: WorkflowSpec,
     ):
         """Test that workflow updates subscription works correctly."""
         controller, service = workflow_controller
         callback_called = []
 
-        def test_callback(value: Any):
-            callback_called.append(value)
+        def test_callback(workflows: dict[WorkflowId, WorkflowSpec]):
+            callback_called.append(workflows)
 
         controller.subscribe_to_workflow_updates(test_callback)
         assert len(callback_called) == 1
+        # Initial callback should have empty workflows dict
+        assert callback_called[0] == {}
+
         service.set_workflow_specs(workflow_specs)
         assert len(callback_called) == 2
+        # Second callback should have the workflow specs
+        assert len(callback_called[1]) == 1
+        assert workflow_id in callback_called[1]
+        assert callback_called[1][workflow_id] == workflow_spec
 
     def test_subscribe_to_workflow_status_updates_calls_callback_immediately(
         self,
@@ -703,23 +711,29 @@ class TestWorkflowController:
         """Test that exceptions in workflow specs callbacks are handled gracefully."""
         controller, service = workflow_controller
 
-        def failing_callback(_: Any):
+        def failing_callback(workflows: dict[WorkflowId, WorkflowSpec]):
             raise Exception("Test exception")
 
-        def working_callback(_: Any):
+        def working_callback(workflows: dict[WorkflowId, WorkflowSpec]):
             working_callback.called = True
+            working_callback.received_workflows = workflows
 
         working_callback.called = False
+        working_callback.received_workflows = {}
 
         # Subscribe both callbacks
         controller.subscribe_to_workflow_updates(failing_callback)
         controller.subscribe_to_workflow_updates(working_callback)
+
+        # Reset after initial subscription calls
+        working_callback.called = False
 
         # Trigger update - should not crash and should call working callback
         service.set_workflow_specs(workflow_specs)
 
         # Assert working callback was still called despite exception in failing one
         assert working_callback.called is True
+        assert len(working_callback.received_workflows) == 1
 
     def test_workflow_status_callback_exception_handling(
         self,
@@ -729,13 +743,15 @@ class TestWorkflowController:
         """Test that exceptions in workflow status callbacks are handled gracefully."""
         controller, service = workflow_controller
 
-        def failing_callback(all_status):
+        def failing_callback(all_status: dict[str, WorkflowStatus]):
             raise Exception("Test exception")
 
-        def working_callback(all_status):
+        def working_callback(all_status: dict[str, WorkflowStatus]):
             working_callback.called = True
+            working_callback.received_status = all_status
 
         working_callback.called = False
+        working_callback.received_status = {}
 
         # Subscribe both callbacks
         controller.subscribe_to_workflow_status_updates(failing_callback)
@@ -754,6 +770,11 @@ class TestWorkflowController:
 
         # Assert working callback was still called despite exception in failing one
         assert working_callback.called is True
+        assert "detector_1" in working_callback.received_status
+        assert (
+            working_callback.received_status["detector_1"].status
+            == WorkflowStatusType.RUNNING
+        )
 
     def test_multiple_status_subscriptions_work_correctly(
         self,
@@ -765,10 +786,10 @@ class TestWorkflowController:
         callback1_calls = []
         callback2_calls = []
 
-        def callback1(all_status):
+        def callback1(all_status: dict[str, WorkflowStatus]):
             callback1_calls.append(all_status)
 
-        def callback2(all_status):
+        def callback2(all_status: dict[str, WorkflowStatus]):
             callback2_calls.append(all_status)
 
         # Subscribe both
@@ -790,9 +811,13 @@ class TestWorkflowController:
         # Assert both were called
         assert len(callback1_calls) == 1
         assert len(callback2_calls) == 1
-        # Check that both received the same status
+        # Check that both received the same status and validate structure
+        assert "detector_1" in callback1_calls[0]
+        assert "detector_2" in callback1_calls[0]  # Should contain all sources
         assert callback1_calls[0]["detector_1"].status == WorkflowStatusType.RUNNING
         assert callback2_calls[0]["detector_1"].status == WorkflowStatusType.RUNNING
+        # Verify the callbacks receive copies (not the same dict instance)
+        assert callback1_calls[0] is not callback2_calls[0]
 
     def test_start_workflow_with_empty_source_names_list(
         self,
@@ -817,3 +842,72 @@ class TestWorkflowController:
         persistent_configs = service.get_persistent_configs()
         assert workflow_id in persistent_configs.configs
         assert persistent_configs.configs[workflow_id].source_names == []
+
+    def test_callback_receives_complete_workflow_status_dict(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_id: WorkflowId,
+        source_names: list[str],
+    ):
+        """Test that status callbacks receive complete status dict for all sources."""
+        controller, service = workflow_controller
+        received_status = {}
+
+        def capture_status(all_status: dict[str, WorkflowStatus]):
+            received_status.update(all_status)
+
+        controller.subscribe_to_workflow_status_updates(capture_status)
+
+        # Verify initial state contains all sources
+        assert len(received_status) == len(source_names)
+        for source_name in source_names:
+            assert source_name in received_status
+            assert received_status[source_name].status == WorkflowStatusType.UNKNOWN
+
+        # Clear and trigger update for one source
+        received_status.clear()
+        status = WorkflowStatus(
+            source_name="detector_1",
+            workflow_id=workflow_id,
+            status=WorkflowStatusType.RUNNING,
+        )
+        service.simulate_status_update(status)
+
+        # Should still receive status for all sources, not just the updated one
+        assert len(received_status) == len(source_names)
+        assert received_status["detector_1"].status == WorkflowStatusType.RUNNING
+        assert received_status["detector_2"].status == WorkflowStatusType.UNKNOWN
+
+    def test_callback_receives_workflow_specs_copy(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_specs: WorkflowSpecs,
+        workflow_id: WorkflowId,
+    ):
+        """Test that workflow specs callbacks receive a copy of the workflows dict."""
+        controller, service = workflow_controller
+        received_workflows = []
+
+        def capture_workflows(workflows: dict[WorkflowId, WorkflowSpec]):
+            received_workflows.append(workflows)
+
+        controller.subscribe_to_workflow_updates(capture_workflows)
+        service.set_workflow_specs(workflow_specs)
+
+        # Should have received two callbacks (initial empty + update)
+        assert len(received_workflows) == 2
+
+        # Verify the second callback contains the expected workflow
+        final_workflows = received_workflows[1]
+        assert workflow_id in final_workflows
+
+        # Verify it's a copy by modifying the received dict
+        original_count = len(final_workflows)
+        final_workflows["test_modification"] = workflow_specs.workflows[workflow_id]
+
+        # Trigger another update to verify the modification didn't affect the controller
+        service.set_workflow_specs(workflow_specs)
+        assert len(received_workflows) == 3
+        # The new callback should not contain our test modification
+        assert "test_modification" not in received_workflows[2]
+        assert len(received_workflows[2]) == original_count
