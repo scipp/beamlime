@@ -27,6 +27,19 @@ class WorkflowController(WorkflowControllerBase):
 
     This controller manages workflow operations by interacting with a config service
     for starting/stopping workflows and maintaining local state for tracking.
+
+    Brief overview of what this controller does in the wider context of the "data
+    reduction" service Kafka:
+
+    - Workflow specs are available/updated from Kafka via the config service.
+    - Workflow specs define list of available workflows, their parameters, and
+      descriptions.
+    - GUI displays available workflows and allows configuring and starting them via
+      the controller.
+    - Controller persists configs for workflows to allow restoring widget state across
+      sessions.
+    - Reduction services publish workflow status updates to Kafka.
+    - Controller listens for these updates and maintains local state for UI display.
     """
 
     def __init__(
