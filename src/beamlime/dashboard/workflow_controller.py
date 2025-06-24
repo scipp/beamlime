@@ -132,7 +132,7 @@ class WorkflowController(WorkflowControllerBase):
             service_name='dashboard', key='persistent_workflow_configs'
         )
 
-        current_configs = self._config_service._config.get(persistent_configs_key)
+        current_configs = self._config_service.get(persistent_configs_key)
         if current_configs is None:
             return
 
@@ -252,12 +252,9 @@ class WorkflowController(WorkflowControllerBase):
         self, workflow_id: WorkflowId
     ) -> PersistentWorkflowConfig | None:
         """Load saved workflow configuration."""
-
-        # Get all persistent configs
-        all_configs = self._config_service._config.get(_persistent_configs_key)
+        all_configs = self._config_service.get(_persistent_configs_key)
         if all_configs is None:
             return None
-
         return all_configs.configs.get(workflow_id)
 
     def get_workflow_name(self, workflow_id: WorkflowId | None) -> str:
