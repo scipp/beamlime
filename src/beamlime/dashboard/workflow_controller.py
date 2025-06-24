@@ -38,7 +38,7 @@ class WorkflowController(WorkflowControllerBase):
     def __init__(
         self,
         config_service: ConfigService[ConfigKey, dict, Any],
-        source_names: list[str] | None = None,
+        source_names: list[str],
     ) -> None:
         """
         Initialize the workflow controller.
@@ -49,22 +49,13 @@ class WorkflowController(WorkflowControllerBase):
             Config service for managing workflow configurations
         source_names
             List of source names to monitor for workflow status updates.
-            If None, will use a default set of source names.
         """
         self._config_service = config_service
         self._logger = logging.getLogger(__name__)
 
-        # Use provided source names or default set
-        self._source_names = source_names or [
-            'mantle_detector',
-            'endcap_forward_detector',
-            'endcap_backward_detector',
-            'high_resolution_detector',
-        ]
-
+        self._source_names = source_names
         self.no_selection = object()
 
-        # Single dict to track workflow status for all sources
         # Initialize all sources with UNKNOWN status
         self._workflow_status: dict[str, WorkflowStatus] = {
             source_name: WorkflowStatus(source_name=source_name)
