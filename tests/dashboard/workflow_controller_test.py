@@ -15,6 +15,7 @@ from beamlime.dashboard.config_service import (
     ConfigSchemaManager,
     ConfigService,
     FakeMessageBridge,
+    LoopbackMessageBridge,
 )
 from beamlime.dashboard.workflow_controller import WorkflowController
 from beamlime.dashboard.workflow_controller_base import WorkflowControllerBase
@@ -76,24 +77,35 @@ def config_service_with_bridge():
 
 
 @pytest.fixture
+def config_service_with_loopback():
+    """Config service with loopback message bridge for testing message flow."""
+    schemas = ConfigSchemaManager()
+    bridge = LoopbackMessageBridge()
+    service = ConfigService(schema_validator=schemas, message_bridge=bridge)
+    return service, bridge
+
+
+@pytest.fixture
 def workflow_controller(
     config_service_with_bridge, source_names: list[str]
-) -> tuple[WorkflowControllerBase, FakeMessageBridge]:
+) -> tuple[WorkflowControllerBase, FakeMessageBridge, ConfigService]:
     """Workflow controller instance for testing."""
     service, bridge = config_service_with_bridge
     controller = WorkflowController(service, source_names)
-    return controller, bridge
+    return controller, bridge, service
 
 
 class TestWorkflowController:
     def test_start_workflow_publishes_config_to_sources(
         self,
-        workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],
+        workflow_controller: tuple[
+            WorkflowControllerBase, FakeMessageBridge, ConfigService
+        ],
         workflow_id: WorkflowId,
         source_names: list[str],
     ):
         """Test that start_workflow publishes configuration to all specified sources."""
-        controller, bridge = workflow_controller
+        controller, bridge, _ = workflow_controller
         config = {"threshold": 150.0, "mode": "accurate"}
 
         # Act
@@ -124,12 +136,14 @@ class TestWorkflowController:
 
     def test_start_workflow_saves_persistent_config(
         self,
-        workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],
+        workflow_controller: tuple[
+            WorkflowControllerBase, FakeMessageBridge, ConfigService
+        ],
         workflow_id: WorkflowId,
         source_names: list[str],
     ):
         """Test that start_workflow saves persistent configuration."""
-        controller, bridge = workflow_controller
+        controller, bridge, _ = workflow_controller
         config = {"threshold": 200.0, "mode": "fast"}
 
         # Act
@@ -156,12 +170,14 @@ class TestWorkflowController:
 
     def test_start_workflow_updates_status_to_starting(
         self,
-        workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],
+        workflow_controller: tuple[
+            WorkflowControllerBase, FakeMessageBridge, ConfigService
+        ],
         workflow_id: WorkflowId,
         source_names: list[str],
     ):
         """Test that start_workflow immediately updates status to STARTING."""
-        controller, _ = workflow_controller
+        controller, _, _ = workflow_controller
         config = {"threshold": 75.0}
 
         # Act
@@ -178,12 +194,14 @@ class TestWorkflowController:
 
     def test_start_workflow_with_empty_config(
         self,
-        workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],
+        workflow_controller: tuple[
+            WorkflowControllerBase, FakeMessageBridge, ConfigService
+        ],
         workflow_id: WorkflowId,
         source_names: list[str],
     ):
         """Test that start_workflow works with empty configuration."""
-        controller, bridge = workflow_controller
+        controller, bridge, _ = workflow_controller
         config = {}
 
         # Act
@@ -204,11 +222,13 @@ class TestWorkflowController:
 
     def test_start_workflow_with_single_source(
         self,
-        workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],
+        workflow_controller: tuple[
+            WorkflowControllerBase, FakeMessageBridge, ConfigService
+        ],
         workflow_id: WorkflowId,
     ):
         """Test that start_workflow works with a single source."""
-        controller, bridge = workflow_controller
+        controller, bridge, _ = workflow_controller
         single_source = ["detector_1"]
         config = {"threshold": 300.0}
 
@@ -233,11 +253,13 @@ class TestWorkflowController:
 
     def test_persistent_config_stores_multiple_workflows(
         self,
-        workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],
+        workflow_controller: tuple[
+            WorkflowControllerBase, FakeMessageBridge, ConfigService
+        ],
         source_names: list[str],
     ):
         """Test that multiple workflow configurations can be stored persistently."""
-        controller, bridge = workflow_controller
+        controller, bridge, _ = workflow_controller
 
         workflow_id_1 = "workflow_1"
         workflow_id_2 = "workflow_2"
@@ -279,11 +301,13 @@ class TestWorkflowController:
 
     def test_persistent_config_replaces_existing_workflow(
         self,
-        workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],
+        workflow_controller: tuple[
+            WorkflowControllerBase, FakeMessageBridge, ConfigService
+        ],
         workflow_id: WorkflowId,
     ):
         """Test that starting a workflow replaces existing persistent configuration."""
-        controller, bridge = workflow_controller
+        controller, bridge, _ = workflow_controller
 
         # Start workflow with initial config
         initial_config = {"threshold": 100.0, "mode": "fast"}
@@ -316,16 +340,21 @@ class TestWorkflowController:
 
     def test_get_initial_parameter_values_uses_persistent_config(
         self,
-        workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],
+        config_service_with_loopback,
         workflow_specs: WorkflowSpecs,
         workflow_id: WorkflowId,
         source_names: list[str],
     ):
         """Test that get_initial_parameter_values uses saved persistent config."""
-        controller, bridge = workflow_controller
+        service, bridge = config_service_with_loopback
+        controller = WorkflowController(service, source_names)
 
-        # Set up workflow specs in controller
-        controller._on_workflow_specs_updated(workflow_specs)
+        # Set up workflow specs through config service and process messages
+        workflow_specs_key = ConfigKey(
+            service_name='data_reduction', key='workflow_specs'
+        )
+        service.update_config(workflow_specs_key, workflow_specs)
+        service.process_incoming_messages()
 
         # Start workflow with custom config
         custom_config = {"threshold": 250.0, "mode": "accurate"}
@@ -339,15 +368,21 @@ class TestWorkflowController:
 
     def test_get_initial_parameter_values_uses_defaults_when_no_persistent_config(
         self,
-        workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],
+        config_service_with_loopback,
         workflow_specs: WorkflowSpecs,
         workflow_id: WorkflowId,
+        source_names: list[str],
     ):
         """Test that get_initial_parameter_values uses defaults when no saved config."""
-        controller, _ = workflow_controller
+        service, bridge = config_service_with_loopback
+        controller = WorkflowController(service, source_names)
 
-        # Set up workflow specs in controller
-        controller._on_workflow_specs_updated(workflow_specs)
+        # Set up workflow specs through config service and process messages
+        workflow_specs_key = ConfigKey(
+            service_name='data_reduction', key='workflow_specs'
+        )
+        service.update_config(workflow_specs_key, workflow_specs)
+        service.process_incoming_messages()
 
         # Get initial values without starting workflow first
         initial_values = controller.get_initial_parameter_values(workflow_id)
@@ -358,11 +393,13 @@ class TestWorkflowController:
 
     def test_get_initial_source_names_uses_persistent_config(
         self,
-        workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],
+        workflow_controller: tuple[
+            WorkflowControllerBase, FakeMessageBridge, ConfigService
+        ],
         workflow_id: WorkflowId,
     ):
         """Test that get_initial_source_names returns saved source names."""
-        controller, _ = workflow_controller
+        controller, _, _ = workflow_controller
         saved_sources = ["detector_2"]
         config = {"threshold": 100.0}
 
@@ -376,11 +413,13 @@ class TestWorkflowController:
 
     def test_get_initial_source_names_returns_empty_when_no_persistent_config(
         self,
-        workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],
+        workflow_controller: tuple[
+            WorkflowControllerBase, FakeMessageBridge, ConfigService
+        ],
         workflow_id: WorkflowId,
     ):
         """Test get_initial_source_names returns empty list when no saved config."""
-        controller, _ = workflow_controller
+        controller, _, _ = workflow_controller
 
         # Get initial source names without starting workflow first
         initial_sources = controller.get_initial_source_names(workflow_id)
@@ -389,18 +428,20 @@ class TestWorkflowController:
 
     def test_cleanup_persistent_configs_removes_obsolete_workflows(
         self,
-        workflow_controller: tuple[WorkflowControllerBase, FakeMessageBridge],
+        config_service_with_loopback,
     ):
         """Test that cleanup removes configs for workflows that no longer exist."""
-        controller, bridge = workflow_controller
+        service, bridge = config_service_with_loopback
+        controller = WorkflowController(service, ["detector_1", "detector_2"])
 
         # Start workflows to create persistent configs
         controller.start_workflow("workflow_1", ["detector_1"], {"param": "value1"})
         controller.start_workflow("workflow_2", ["detector_2"], {"param": "value2"})
 
-        bridge.clear()
+        # Clear bridge messages to isolate cleanup test
+        bridge.messages.clear()
 
-        # Simulate workflow specs update with only one workflow remaining
+        # Simulate workflow specs update through config service
         remaining_workflows = WorkflowSpecs(
             workflows={
                 "workflow_1": WorkflowSpec(
@@ -411,22 +452,19 @@ class TestWorkflowController:
             }
         )
 
-        controller._on_workflow_specs_updated(remaining_workflows)
+        workflow_specs_key = ConfigKey(
+            service_name='data_reduction', key='workflow_specs'
+        )
+        service.update_config(workflow_specs_key, remaining_workflows)
+        service.process_incoming_messages()
 
-        # Should have published updated persistent config without workflow_2
-        published_messages = bridge.get_published_messages()
-        persistent_config_msgs = [
-            msg
-            for msg in published_messages
-            if isinstance(msg[0], ConfigKey)
-            and msg[0].key == "persistent_workflow_configs"
-        ]
+        # Check that cleanup occurred by looking at current persistent configs
+        persistent_configs_key = ConfigKey(
+            service_name='dashboard', key='persistent_workflow_configs'
+        )
+        current_configs = service.get(persistent_configs_key)
 
-        # Should have exactly one cleanup message
-        assert len(persistent_config_msgs) == 1
-        persistent_data = persistent_config_msgs[0][1]
-
-        # Should only contain workflow_1, workflow_2 should be cleaned up
-        assert "workflow_1" in persistent_data["configs"]
-        assert "workflow_2" not in persistent_data["configs"]
-        assert len(persistent_data["configs"]) == 1
+        assert current_configs is not None
+        assert "workflow_1" in current_configs.configs
+        assert "workflow_2" not in current_configs.configs
+        assert len(current_configs.configs) == 1
