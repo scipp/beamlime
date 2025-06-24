@@ -86,7 +86,7 @@ class ConfigService(Generic[K, Serialized, V]):
         schema_validator: ConfigSchemaValidator[K, Serialized, V],
         message_bridge: MessageBridge[K, Serialized] | None = None,
     ):
-        self._schema_validator = schema_validator
+        self.schema_validator = schema_validator
         self._message_bridge = message_bridge
         self._subscribers: dict[K, list[Callable[..., None]]] = defaultdict(list)
         self._logger = logging.getLogger(__name__)
@@ -95,8 +95,8 @@ class ConfigService(Generic[K, Serialized, V]):
 
     def register_schema(self, key: K, schema: type[pydantic.BaseModel]) -> None:
         """Register a schema for a configuration key."""
-        if isinstance(self._schema_validator, ConfigSchemaManager):
-            self._schema_validator[key] = schema
+        if isinstance(self.schema_validator, ConfigSchemaManager):
+            self.schema_validator[key] = schema
         else:
             raise TypeError(
                 'Schema validator must be an instance of ConfigSchemaManager for late '
@@ -150,14 +150,14 @@ class ConfigService(Generic[K, Serialized, V]):
             raise TypeError(
                 f'Value for key {key} must be a pydantic model, got {type(value)}'
             )
-        if not self._schema_validator.validate(key, value):
+        if not self.schema_validator.validate(key, value):
             raise ValueError(
                 f'No schema registered for key {key} or value does not match schema'
             )
         self._config[key] = value
         if self._message_bridge:
             # Communication with message bridge is using raw JSON.
-            self._message_bridge.publish(key, self._schema_validator.serialize(value))
+            self._message_bridge.publish(key, self.schema_validator.serialize(value))
 
     @contextmanager
     def _disable_updates(self):
@@ -192,7 +192,7 @@ class ConfigService(Generic[K, Serialized, V]):
         """Handle a configuration update from the message bridge."""
         try:
             self._logger.debug('Received config update for key %s: %s', key, value)
-            validated = self._schema_validator.deserialize(key, value)
+            validated = self.schema_validator.deserialize(key, value)
             self._logger.debug('Validated config for key %s: %s', key, validated)
             if validated is None:
                 return
