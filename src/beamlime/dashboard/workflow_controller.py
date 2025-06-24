@@ -13,6 +13,7 @@ from beamlime.config.workflow_spec import (
     PersistentWorkflowConfigs,
     WorkflowConfig,
     WorkflowId,
+    WorkflowSpec,
     WorkflowSpecs,
     WorkflowStatus,
     WorkflowStatusType,
@@ -233,12 +234,12 @@ class ConfigServiceWorkflowController(WorkflowController):
         """Get workflow status for all tracked sources."""
         return self._workflow_status.copy()
 
-    def get_workflow_specs(self) -> WorkflowSpecs:
-        """Get the current workflow specifications."""
-        return self._workflow_specs
+    def get_workflow_spec(self, workflow_id: WorkflowId) -> WorkflowSpec | None:
+        """Get the current workflow specification for the given Id."""
+        return self._workflow_specs.workflows.get(workflow_id)
 
-    def subscribe_to_workflow_specs_updates(self, callback: callable) -> None:
-        """Subscribe to workflow specs updates."""
+    def subscribe_to_workflow_updates(self, callback: callable) -> None:
+        """Subscribe to workflow updates."""
         self._workflow_specs_callbacks.append(callback)
 
     def _notify_workflow_status_update(self, callback: callable):
@@ -272,10 +273,8 @@ class ConfigServiceWorkflowController(WorkflowController):
         """Get workflow name from ID, fallback to ID if not found."""
         if workflow_id is None:
             return "None"
-
-        specs = self.get_workflow_specs()
-        if workflow_id in specs.workflows:
-            return specs.workflows[workflow_id].name
+        if (spec := self.get_workflow_spec(workflow_id)) is not None:
+            return spec.name
         return str(workflow_id)
 
     def get_status_display_info(self, status: WorkflowStatus) -> dict[str, str]:
@@ -341,28 +340,22 @@ class ConfigServiceWorkflowController(WorkflowController):
         """Get workflow options for selector widget."""
         select_text = "--- Click to select a workflow ---"
         options = {select_text: self.get_default_workflow_selection()}
-
-        specs = self.get_workflow_specs()
         options.update(
-            {spec.name: workflow_id for workflow_id, spec in specs.workflows.items()}
+            {
+                spec.name: workflow_id
+                for workflow_id, spec in self._workflow_specs.workflows.items()
+            }
         )
         return options
 
-    def get_workflow_id_by_name(self, workflow_name: str) -> WorkflowId | None:
-        """Find workflow ID by workflow name."""
-        specs = self.get_workflow_specs()
-        for workflow_id, spec in specs.workflows.items():
-            if spec.name == workflow_name:
-                return workflow_id
-        return None
+    def workflow_exists(self, workflow_id: WorkflowId) -> bool:
+        """Check if a workflow ID exists in current specs."""
+        return workflow_id in self._workflow_specs.workflows
 
     def get_initial_parameter_values(self, workflow_id: WorkflowId) -> dict[str, Any]:
         """Get initial parameter values for a workflow."""
-        specs = self.get_workflow_specs()
-        if workflow_id not in specs.workflows:
+        if (workflow_spec := self.get_workflow_spec(workflow_id)) is None:
             return {}
-
-        workflow_spec = specs.workflows[workflow_id]
         values = {}
 
         # Start with defaults
@@ -389,7 +382,7 @@ class ConfigServiceWorkflowController(WorkflowController):
 
         Returns `None` if no workflow is selected.
         """
-        if (spec := self.get_workflow_specs().workflows.get(workflow_id)) is None:
+        if (spec := self.get_workflow_spec(workflow_id)) is None:
             return None
         return spec.description
 

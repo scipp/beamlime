@@ -3,7 +3,7 @@ from typing import Any, Protocol
 from beamlime.config.workflow_spec import (
     PersistentWorkflowConfig,
     WorkflowId,
-    WorkflowSpecs,
+    WorkflowSpec,
     WorkflowStatus,
 )
 
@@ -29,12 +29,12 @@ class WorkflowController(Protocol):
         """Get workflow status for all tracked sources."""
         ...
 
-    def get_workflow_specs(self) -> WorkflowSpecs:
-        """Get the current workflow specifications."""
+    def get_workflow_spec(self, workflow_id: WorkflowId) -> WorkflowSpec | None:
+        """Get the current workflow specification for the given Id."""
         ...
 
-    def subscribe_to_workflow_specs_updates(self, callback: callable) -> None:
-        """Subscribe to workflow specs updates."""
+    def subscribe_to_workflow_updates(self, callback: callable) -> None:
+        """Subscribe to workflow updates."""
         ...
 
     def subscribe_to_workflow_status_updates(self, callback: callable) -> None:
@@ -59,10 +59,6 @@ class WorkflowController(Protocol):
         """Get workflow options for selector widget."""
         ...
 
-    def get_workflow_id_by_name(self, workflow_name: str) -> WorkflowId | None:
-        """Find workflow ID by workflow name."""
-        ...
-
     def get_initial_parameter_values(self, workflow_id: WorkflowId) -> dict[str, Any]:
         """Get initial parameter values for a workflow."""
         ...
@@ -85,4 +81,8 @@ class WorkflowController(Protocol):
 
     def get_selected_workflow_id(self, value: WorkflowId | object) -> WorkflowId | None:
         """Return the workflow ID if the value is a valid selection, else None."""
+        ...
+
+    def workflow_exists(self, workflow_id: WorkflowId) -> bool:
+        """Check if a workflow ID exists in current specs."""
         ...

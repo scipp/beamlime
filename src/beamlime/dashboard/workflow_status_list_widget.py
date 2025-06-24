@@ -28,7 +28,7 @@ class WorkflowStatusListWidget:
         self._controller.subscribe_to_workflow_status_updates(self.refresh)
 
         # Subscribe to workflow specs updates to refresh workflow names
-        self._controller.subscribe_to_workflow_specs_updates(
+        self._controller.subscribe_to_workflow_updates(
             lambda workflow_specs: self.refresh()
         )
 

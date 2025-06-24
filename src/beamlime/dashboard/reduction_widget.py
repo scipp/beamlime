@@ -27,12 +27,7 @@ from typing import Any
 
 import panel as pn
 
-from beamlime.config.workflow_spec import (
-    Parameter,
-    ParameterType,
-    WorkflowId,
-    WorkflowSpec,
-)
+from beamlime.config.workflow_spec import Parameter, ParameterType, WorkflowId
 from beamlime.dashboard.workflow_status_list_widget import WorkflowStatusListWidget
 
 from .workflow_controller_base import WorkflowController
@@ -108,7 +103,6 @@ class WorkflowConfigWidget:
 
     def __init__(
         self,
-        workflow_spec: WorkflowSpec,
         workflow_id: WorkflowId,
         controller: WorkflowController,
     ) -> None:
@@ -117,16 +111,16 @@ class WorkflowConfigWidget:
 
         Parameters
         ----------
-        workflow_spec
-            Specification of the workflow
         workflow_id
             ID of the workflow
         controller
             Controller for workflow operations
         """
-        self._workflow_spec = workflow_spec
         self._workflow_id = workflow_id
         self._controller = controller
+        if (spec := controller.get_workflow_spec(workflow_id)) is None:
+            raise ValueError(f"Workflow with ID '{workflow_id}' does not exist.")
+        self._workflow_spec = spec
         self._parameter_widgets: dict[str, ParameterWidget] = {}
         self._source_selector = self._create_source_selector()
         self._parameter_panel = self._create_parameter_panel()
@@ -134,9 +128,7 @@ class WorkflowConfigWidget:
 
     def _create_source_selector(self) -> pn.widgets.MultiChoice:
         """Create source selection widget."""
-        # Get initial sources from controller
         initial_sources = self._controller.get_initial_source_names(self._workflow_id)
-
         return pn.widgets.MultiChoice(
             name="Source Names",
             options=self._workflow_spec.source_names,
@@ -148,7 +140,6 @@ class WorkflowConfigWidget:
         """Create panel containing all parameter widgets."""
         parameter_widgets = []
 
-        # Get initial parameter values from controller
         initial_values = self._controller.get_initial_parameter_values(
             self._workflow_id
         )
@@ -215,11 +206,7 @@ class WorkflowSelectorWidget:
         )
         self._widget = self._create_widget()
         self._setup_callbacks()
-
-        # Subscribe to specs updates
-        self._controller.subscribe_to_workflow_specs_updates(
-            self._on_workflow_specs_updated
-        )
+        self._controller.subscribe_to_workflow_updates(self._on_workflows_updated)
 
     def _create_selector(self) -> pn.widgets.Select:
         """Create workflow selection widget."""
@@ -231,10 +218,7 @@ class WorkflowSelectorWidget:
 
     def _create_widget(self) -> pn.Column:
         """Create the main selector widget."""
-        return pn.Column(
-            self._selector,
-            self._description_pane,
-        )
+        return pn.Column(self._selector, self._description_pane)
 
     def _setup_callbacks(self) -> None:
         """Setup callbacks for widget interactions."""
@@ -249,7 +233,7 @@ class WorkflowSelectorWidget:
             text = f"<p><strong>Description:</strong> {description}</p>"
         self._description_pane.object = text
 
-    def _on_workflow_specs_updated(self) -> None:
+    def _on_workflows_updated(self) -> None:
         """Handle workflow specs updates."""
         self._selector.options = self._controller.get_workflow_options()
         self._selector.value = self._controller.get_default_workflow_selection()
@@ -270,7 +254,6 @@ class WorkflowConfigModal:
 
     def __init__(
         self,
-        workflow_spec: WorkflowSpec,
         workflow_id: WorkflowId,
         controller: WorkflowController,
     ) -> None:
@@ -279,44 +262,30 @@ class WorkflowConfigModal:
 
         Parameters
         ----------
-        workflow_spec
-            Specification of the workflow to configure
         workflow_id
             ID of the workflow
         controller
             Controller for workflow operations
         """
-        self._workflow_spec = workflow_spec
         self._workflow_id = workflow_id
         self._controller = controller
-
-        self._config_widget = WorkflowConfigWidget(
-            workflow_spec, workflow_id, controller
-        )
+        if (spec := controller.get_workflow_spec(workflow_id)) is None:
+            raise ValueError(f"Workflow with ID '{workflow_id}' does not exist.")
+        self._workflow_spec = spec
+        self._config_widget = WorkflowConfigWidget(workflow_id, controller)
         self._modal = self._create_modal()
 
     def _create_modal(self) -> pn.Modal:
         """Create the modal dialog."""
-        start_button = pn.widgets.Button(
-            name="Start Workflow",
-            button_type="primary",
-        )
+        start_button = pn.widgets.Button(name="Start Workflow", button_type="primary")
         start_button.on_click(self._on_start_workflow)
 
-        cancel_button = pn.widgets.Button(
-            name="Cancel",
-            button_type="light",
-        )
+        cancel_button = pn.widgets.Button(name="Cancel", button_type="light")
         cancel_button.on_click(self._on_cancel)
 
         content = pn.Column(
             self._config_widget.widget,
-            pn.Row(
-                pn.Spacer(),
-                cancel_button,
-                start_button,
-                margin=(10, 0),
-            ),
+            pn.Row(pn.Spacer(), cancel_button, start_button, margin=(10, 0)),
         )
 
         modal = pn.Modal(
@@ -352,12 +321,8 @@ class WorkflowConfigModal:
 
     def _on_start_workflow(self, event) -> None:
         """Handle start workflow button click."""
-        # Validate that workflow still exists using controller
-        current_workflow_id = self._controller.get_workflow_id_by_name(
-            self._workflow_spec.name
-        )
-
-        if current_workflow_id is None or current_workflow_id != self._workflow_id:
+        # Validate that workflow still exists using direct ID check
+        if not self._controller.workflow_exists(self._workflow_id):
             self._show_error_modal(
                 f"Error: Workflow '{self._workflow_spec.name}' "
                 "is no longer available. Please select a different workflow."
@@ -410,10 +375,7 @@ class WorkflowConfigModal:
 class ReductionWidget:
     """Main widget for data reduction workflow configuration and control."""
 
-    def __init__(
-        self,
-        controller: WorkflowController,
-    ) -> None:
+    def __init__(self, controller: WorkflowController) -> None:
         """
         Initialize reduction widget.
 
@@ -423,19 +385,13 @@ class ReductionWidget:
             Controller for workflow operations
         """
         self._controller = controller
-
         self._workflow_selector = WorkflowSelectorWidget(controller)
         self._running_workflows_widget = WorkflowStatusListWidget(controller)
-
         self._configure_button = pn.widgets.Button(
-            name="Configure & Start",
-            button_type="primary",
-            disabled=True,
+            name="Configure & Start", button_type="primary", disabled=True
         )
-
         # Container for modals - they need to be part of the served structure
         self._modal_container = pn.Column()
-
         self._widget = self._create_widget()
         self._setup_callbacks()
 
@@ -444,14 +400,9 @@ class ReductionWidget:
         return pn.Column(
             pn.pane.HTML("<h3>Data Reduction Workflows</h3>"),
             pn.Column(
-                self._workflow_selector.widget,
-                self._configure_button,
-                width=500,
+                self._workflow_selector.widget, self._configure_button, width=500
             ),
-            pn.Column(
-                self._running_workflows_widget.widget,
-                width=400,
-            ),
+            pn.Column(self._running_workflows_widget.widget, width=400),
             self._modal_container,  # Add modal container to main structure
         )
 
@@ -473,12 +424,8 @@ class ReductionWidget:
         if workflow_id is None:
             return
 
-        workflow_spec = self._controller.get_workflow_specs().workflows[workflow_id]
-
         modal = WorkflowConfigModal(
-            workflow_spec=workflow_spec,
-            workflow_id=workflow_id,
-            controller=self._controller,
+            workflow_id=workflow_id, controller=self._controller
         )
 
         # Add modal to container and show it
