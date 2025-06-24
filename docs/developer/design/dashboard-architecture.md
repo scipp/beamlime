@@ -55,6 +55,13 @@ flowchart TD
     ConfigTopic -- Consumed by --> DashboardApp
     DashboardApp -- Publishes config --> ConfigTopic
     DataReduction -- Publishes config (workflow specs) --> ConfigTopic
+
+    classDef kafka fill:#fff3e0,stroke:#ef6c00,color:#e65100;
+    classDef backend fill:#e3f2fd,stroke:#1976d2,color:#0d47a1;
+    classDef dashboard fill:#ede7f6,stroke:#7b1fa2,color:#4a148c;
+    class ConfigTopic,DataTopic,ECDCTopic kafka;
+    class BackendServices,MonitorData,DetectorData,DataReduction backend;
+    class DashboardApp dashboard;
 ```
 
 **Key Points:**
@@ -101,6 +108,15 @@ graph TD
     KB --> CS
     CS <--> PM
     PM <--> W2
+
+    classDef kafka fill:#fff3e0,stroke:#ef6c00,color:#e65100;
+    classDef infra fill:#e3f2fd,stroke:#1976d2,color:#0d47a1;
+    classDef app fill:#ede7f6,stroke:#7b1fa2,color:#4a148c;
+    classDef prese fill:#ede7f6,stroke:#7b1fa2,color:#4a148c;
+    class K1,K2 kafka;
+    class KB,MS infra;
+    class CS,DS,PM,WC app;
+    class W1,UI,W2 prese;
 ```
 
 ### Component Overview
@@ -143,11 +159,12 @@ graph TB
     MB -- JSON --> CS
     CS -.->|"Callbacks with<br/>Pydantic models"| PM
 
-    classDef pydantic fill:#e1f5fe
-    classDef param fill:#f3e5f5
-
+    classDef pydantic fill:#e3f2fd,stroke:#1976d2,color:#0d47a1;
+    classDef param fill:#ede7f6,stroke:#7b1fa2,color:#4a148c;
+    classDef kafka fill:#fff3e0,stroke:#ef6c00,color:#e65100;
     class CS,SV pydantic
     class PM,PW param
+    class KT kafka
 ```
 
 ### Two-Way Configuration Flow
