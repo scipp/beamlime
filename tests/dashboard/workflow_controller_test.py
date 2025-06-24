@@ -13,10 +13,8 @@ from beamlime.config.workflow_spec import (
     WorkflowStatus,
     WorkflowStatusType,
 )
-from beamlime.dashboard.workflow_controller import (
-    WorkflowConfigService,
-    WorkflowController,
-)
+from beamlime.dashboard.workflow_config_service import WorkflowConfigService
+from beamlime.dashboard.workflow_controller import WorkflowController
 
 
 class FakeWorkflowConfigService(WorkflowConfigService):
