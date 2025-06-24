@@ -217,6 +217,23 @@ class TestWorkflowUIHelper:
         description = ui_helper.get_workflow_description(workflow_id)
         assert description == "A test workflow for unit testing"
 
+    def test_get_workflow_description_with_empty_workflow_description_returns_empty(
+        self,
+        ui_helper: WorkflowUIHelper,
+        mock_controller: MockWorkflowController,
+        workflow_spec: WorkflowSpec,
+    ):
+        workflow_id = "empty_desc_workflow"
+        empty_spec = WorkflowSpec(
+            name="Empty Description Workflow",
+            description="",
+            parameters=workflow_spec.parameters,
+        )
+        mock_controller.set_workflow_spec(workflow_id, empty_spec)
+
+        description = ui_helper.get_workflow_description(workflow_id)
+        assert description == ""  # not None, but empty string
+
     def test_get_workflow_description_with_nonexistent_workflow(
         self, ui_helper: WorkflowUIHelper
     ):

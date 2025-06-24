@@ -66,7 +66,7 @@ class WorkflowSelectorWidget:
     def _on_workflow_selected(self, event) -> None:
         """Handle workflow selection change."""
         description = self._ui_helper.get_workflow_description(event.new)
-        if not description:
+        if description is None:
             text = "Select a workflow to see its description"
         else:
             text = f"<p><strong>Description:</strong> {description}</p>"
