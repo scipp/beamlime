@@ -136,6 +136,14 @@ class ConfigService(Generic[K, Serialized, V]):
         return self._config.get(key, default)
 
     def update_config(self, key: K, value: V) -> None:
+        """
+        Update the configuration for a specific key.
+
+        This does not trigger callbacks directly. After publishing the update it makes
+        it back into the service via :py:meth:`process_incoming_messages`, which will
+        then notify all subscribers. This ensures a consistent ordering of updates,
+        enforced by Kafka, and avoids potential infinite loops.
+        """
         if self._update_disabled:
             return
         if not isinstance(value, pydantic.BaseModel):
