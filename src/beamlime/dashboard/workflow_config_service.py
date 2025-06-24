@@ -8,6 +8,7 @@ make it compatible with the :py:class:`WorkflowConfigService` protocol. This sim
 the implementation and testing of :py:class:`WorkflowController`.
 """
 
+from collections.abc import Callable
 from typing import Protocol
 
 from beamlime.config.models import ConfigKey
@@ -42,12 +43,14 @@ class WorkflowConfigService(Protocol):
         """Send workflow configuration to a source."""
         ...
 
-    def subscribe_to_workflow_specs(self, callback: callable) -> None:
+    def subscribe_to_workflow_specs(
+        self, callback: Callable[[WorkflowSpecs], None]
+    ) -> None:
         """Subscribe to workflow specs updates."""
         ...
 
     def subscribe_to_workflow_status(
-        self, source_name: str, callback: callable
+        self, source_name: str, callback: Callable[[WorkflowStatus], None]
     ) -> None:
         """Subscribe to workflow status updates for a source."""
         ...
@@ -113,7 +116,9 @@ class ConfigServiceAdapter(WorkflowConfigService):
         )
         self._config_service.update_config(config_key, config)
 
-    def subscribe_to_workflow_specs(self, callback: callable) -> None:
+    def subscribe_to_workflow_specs(
+        self, callback: Callable[[WorkflowSpecs], None]
+    ) -> None:
         """Subscribe to workflow specs updates."""
         workflow_specs_key = ConfigKey(
             service_name='data_reduction', key='workflow_specs'
@@ -121,7 +126,7 @@ class ConfigServiceAdapter(WorkflowConfigService):
         self._config_service.subscribe(workflow_specs_key, callback)
 
     def subscribe_to_workflow_status(
-        self, source_name: str, callback: callable
+        self, source_name: str, callback: Callable[[WorkflowStatus], None]
     ) -> None:
         """Subscribe to workflow status updates for a source."""
         workflow_status_key = ConfigKey(

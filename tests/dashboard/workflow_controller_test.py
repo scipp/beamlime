@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -26,8 +27,8 @@ class FakeWorkflowConfigService(WorkflowConfigService):
         self._workflow_specs = WorkflowSpecs()
         self._persistent_configs = PersistentWorkflowConfigs()
         self._sent_configs: list[tuple[str, WorkflowConfig]] = []
-        self._workflow_specs_callbacks: list[callable] = []
-        self._status_callbacks: dict[str, list[callable]] = {}
+        self._workflow_specs_callbacks: list[Callable[[WorkflowSpecs], None]] = []
+        self._status_callbacks: dict[str, list[Callable[[WorkflowStatus], None]]] = {}
 
     def get_workflow_specs(self) -> WorkflowSpecs:
         return self._workflow_specs
@@ -47,11 +48,13 @@ class FakeWorkflowConfigService(WorkflowConfigService):
     def send_workflow_config(self, source_name: str, config: WorkflowConfig) -> None:
         self._sent_configs.append((source_name, config))
 
-    def subscribe_to_workflow_specs(self, callback: callable) -> None:
+    def subscribe_to_workflow_specs(
+        self, callback: Callable[[WorkflowSpecs], None]
+    ) -> None:
         self._workflow_specs_callbacks.append(callback)
 
     def subscribe_to_workflow_status(
-        self, source_name: str, callback: callable
+        self, source_name: str, callback: Callable[[WorkflowStatus], None]
     ) -> None:
         if source_name not in self._status_callbacks:
             self._status_callbacks[source_name] = []
