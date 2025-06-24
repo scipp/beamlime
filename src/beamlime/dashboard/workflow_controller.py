@@ -96,15 +96,15 @@ class WorkflowController(WorkflowControllerBase):
     def _setup_subscriptions(self) -> None:
         """Setup subscriptions to service updates."""
         # Subscribe to workflow specs
-        self._service.subscribe_to_workflow_specs(self._on_workflow_specs_updated)
+        self._service.subscribe_to_workflow_specs(self._update_workflow_specs)
 
         # Subscribe to workflow status for each source
         for source_name in self._source_names:
             self._service.subscribe_to_workflow_status(
-                source_name, self._on_workflow_status_updated
+                source_name, self._update_workflow_status
             )
 
-    def _on_workflow_specs_updated(self, workflow_specs: WorkflowSpecs) -> None:
+    def _update_workflow_specs(self, workflow_specs: WorkflowSpecs) -> None:
         """Handle workflow specs updates from service."""
         self._logger.info(
             'Received workflow specs update with %d workflows',
@@ -119,7 +119,7 @@ class WorkflowController(WorkflowControllerBase):
         for callback in self._workflow_specs_callbacks:
             self._notify_workflow_specs_update(callback)
 
-    def _on_workflow_status_updated(self, status: WorkflowStatus) -> None:
+    def _update_workflow_status(self, status: WorkflowStatus) -> None:
         """Handle workflow status updates from service."""
         self._logger.info('Received workflow status update: %s', status)
         self._workflow_status[status.source_name] = status
@@ -195,7 +195,8 @@ class WorkflowController(WorkflowControllerBase):
 
         # Send None to stop the workflow
         self._service.send_workflow_config(source_name, WorkflowConfig(identifier=None))
-        self._on_workflow_status_updated(
+        # Update status to STOPPING for immediate UI feedback
+        self._update_workflow_status(
             WorkflowStatus(source_name=source_name, status=WorkflowStatusType.STOPPING)
         )
 
@@ -203,15 +204,11 @@ class WorkflowController(WorkflowControllerBase):
         """Remove a stopped workflow from tracking."""
         self._logger.info('Removing workflow for source %s', source_name)
         # Reset status to UNKNOWN (back to initial state)
-        self._on_workflow_status_updated(WorkflowStatus(source_name=source_name))
+        self._update_workflow_status(WorkflowStatus(source_name=source_name))
 
     def get_workflow_spec(self, workflow_id: WorkflowId) -> WorkflowSpec | None:
         """Get the current workflow specification for the given Id."""
         return self._workflow_specs.workflows.get(workflow_id)
-
-    def get_workflow_specs(self) -> dict[WorkflowId, WorkflowSpec]:
-        """Get all available workflow specifications."""
-        return self._workflow_specs.workflows.copy()
 
     def get_workflow_config(
         self, workflow_id: WorkflowId
@@ -219,10 +216,6 @@ class WorkflowController(WorkflowControllerBase):
         """Load saved workflow configuration."""
         all_configs = self._service.get_persistent_configs()
         return all_configs.configs.get(workflow_id)
-
-    def workflow_exists(self, workflow_id: WorkflowId) -> bool:
-        """Check if a workflow ID exists in current specs."""
-        return workflow_id in self._workflow_specs.workflows
 
     def subscribe_to_workflow_updates(
         self, callback: Callable[[dict[WorkflowId, WorkflowSpec]], None]

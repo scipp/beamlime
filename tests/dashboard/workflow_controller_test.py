@@ -568,25 +568,6 @@ class TestWorkflowController:
         # Assert
         assert result is None
 
-    def test_get_workflow_specs_returns_copy_of_specs(
-        self,
-        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
-        workflow_specs: WorkflowSpecs,
-    ):
-        """Test that get_workflow_specs returns a copy of specifications."""
-        controller, service = workflow_controller
-        service.set_workflow_specs(workflow_specs)
-
-        # Act
-        result = controller.get_workflow_specs()
-
-        # Assert
-        assert result == workflow_specs.workflows
-        # Verify it's a copy (modifications don't affect original)
-        result["new_workflow"] = WorkflowSpec(name="New", description="New workflow")
-        original_specs = controller.get_workflow_specs()
-        assert "new_workflow" not in original_specs
-
     def test_get_workflow_config_returns_persistent_config(
         self,
         workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
@@ -623,35 +604,6 @@ class TestWorkflowController:
 
         # Assert
         assert result is None
-
-    def test_workflow_exists_returns_true_for_existing_workflow(
-        self,
-        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
-        workflow_id: WorkflowId,
-        workflow_specs: WorkflowSpecs,
-    ):
-        """Test that workflow_exists returns True for existing workflow."""
-        controller, service = workflow_controller
-        service.set_workflow_specs(workflow_specs)
-
-        # Act
-        result = controller.workflow_exists(workflow_id)
-
-        # Assert
-        assert result is True
-
-    def test_workflow_exists_returns_false_for_nonexistent_workflow(
-        self,
-        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
-    ):
-        """Test that workflow_exists returns False for non-existent workflow."""
-        controller, service = workflow_controller
-
-        # Act
-        result = controller.workflow_exists("nonexistent_workflow")
-
-        # Assert
-        assert result is False
 
     def test_subscribe_to_workflow_updates_calls_callback_on_specs_change(
         self,

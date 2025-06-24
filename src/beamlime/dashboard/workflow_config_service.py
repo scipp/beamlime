@@ -27,10 +27,6 @@ _persistent_configs_key = ConfigKey(
 class WorkflowConfigService(Protocol):
     """Protocol for workflow controller dependencies."""
 
-    def get_workflow_specs(self) -> WorkflowSpecs:
-        """Get current workflow specifications."""
-        ...
-
     def get_persistent_configs(self) -> PersistentWorkflowConfigs:
         """Get persistent workflow configurations."""
         ...
@@ -57,7 +53,11 @@ class WorkflowConfigService(Protocol):
 
 
 class ConfigServiceAdapter(WorkflowConfigService):
-    """Adapter to make ConfigService compatible with WorkflowConfigService protocol."""
+    """
+    Adapter to make ConfigService compatible with WorkflowConfigService protocol.
+
+    This also registers necessary schemas for workflow management.
+    """
 
     def __init__(self, config_service, source_names: list[str]):
         self._config_service = config_service
@@ -89,13 +89,6 @@ class ConfigServiceAdapter(WorkflowConfigService):
 
             self._config_service.register_schema(workflow_status_key, WorkflowStatus)
             self._config_service.register_schema(workflow_config_key, WorkflowConfig)
-
-    def get_workflow_specs(self) -> WorkflowSpecs:
-        """Get current workflow specifications."""
-        workflow_specs_key = ConfigKey(
-            service_name='data_reduction', key='workflow_specs'
-        )
-        return self._config_service.get(workflow_specs_key, WorkflowSpecs())
 
     def get_persistent_configs(self) -> PersistentWorkflowConfigs:
         """Get persistent workflow configurations."""
