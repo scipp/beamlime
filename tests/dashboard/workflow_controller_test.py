@@ -2,23 +2,73 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import pytest
 
-from beamlime.config.models import ConfigKey
 from beamlime.config.workflow_spec import (
     Parameter,
     ParameterType,
+    PersistentWorkflowConfigs,
+    WorkflowConfig,
     WorkflowId,
     WorkflowSpec,
     WorkflowSpecs,
+    WorkflowStatus,
     WorkflowStatusType,
 )
-from beamlime.dashboard.config_service import (
-    ConfigSchemaManager,
-    ConfigService,
-    FakeMessageBridge,
-    LoopbackMessageBridge,
+from beamlime.dashboard.workflow_controller import (
+    WorkflowConfigService,
+    WorkflowController,
 )
-from beamlime.dashboard.workflow_controller import WorkflowController
-from beamlime.dashboard.workflow_controller_base import WorkflowControllerBase
+
+
+class FakeWorkflowConfigService(WorkflowConfigService):
+    """Fake service for testing WorkflowController."""
+
+    def __init__(self):
+        self._workflow_specs = WorkflowSpecs()
+        self._persistent_configs = PersistentWorkflowConfigs()
+        self._sent_configs: list[tuple[str, WorkflowConfig]] = []
+        self._workflow_specs_callbacks: list[callable] = []
+        self._status_callbacks: dict[str, list[callable]] = {}
+
+    def get_workflow_specs(self) -> WorkflowSpecs:
+        return self._workflow_specs
+
+    def set_workflow_specs(self, specs: WorkflowSpecs) -> None:
+        """Test helper to set workflow specs."""
+        self._workflow_specs = specs
+        for callback in self._workflow_specs_callbacks:
+            callback(specs)
+
+    def get_persistent_configs(self) -> PersistentWorkflowConfigs:
+        return self._persistent_configs
+
+    def save_persistent_configs(self, configs: PersistentWorkflowConfigs) -> None:
+        self._persistent_configs = configs
+
+    def send_workflow_config(self, source_name: str, config: WorkflowConfig) -> None:
+        self._sent_configs.append((source_name, config))
+
+    def subscribe_to_workflow_specs(self, callback: callable) -> None:
+        self._workflow_specs_callbacks.append(callback)
+
+    def subscribe_to_workflow_status(
+        self, source_name: str, callback: callable
+    ) -> None:
+        if source_name not in self._status_callbacks:
+            self._status_callbacks[source_name] = []
+        self._status_callbacks[source_name].append(callback)
+
+    def simulate_status_update(self, status: WorkflowStatus) -> None:
+        """Test helper to simulate status updates."""
+        for callback in self._status_callbacks.get(status.source_name, []):
+            callback(status)
+
+    def get_sent_configs(self) -> list[tuple[str, WorkflowConfig]]:
+        """Test helper to get sent configs."""
+        return self._sent_configs.copy()
+
+    def clear_sent_configs(self) -> None:
+        """Test helper to clear sent configs."""
+        self._sent_configs.clear()
 
 
 @pytest.fixture
@@ -68,122 +118,83 @@ def workflow_specs(
 
 
 @pytest.fixture
-def config_service_with_bridge():
-    """Config service with fake message bridge for testing."""
-    schemas = ConfigSchemaManager()
-    bridge = FakeMessageBridge()
-    service = ConfigService(schema_validator=schemas, message_bridge=bridge)
-    return service, bridge
-
-
-@pytest.fixture
-def config_service_with_loopback():
-    """Config service with loopback message bridge for testing message flow."""
-    schemas = ConfigSchemaManager()
-    bridge = LoopbackMessageBridge()
-    service = ConfigService(schema_validator=schemas, message_bridge=bridge)
-    return service, bridge
+def fake_service() -> FakeWorkflowConfigService:
+    """Fake service for testing."""
+    return FakeWorkflowConfigService()
 
 
 @pytest.fixture
 def workflow_controller(
-    config_service_with_bridge, source_names: list[str]
-) -> tuple[WorkflowControllerBase, FakeMessageBridge, ConfigService]:
+    fake_service: FakeWorkflowConfigService, source_names: list[str]
+) -> tuple[WorkflowController, FakeWorkflowConfigService]:
     """Workflow controller instance for testing."""
-    service, bridge = config_service_with_bridge
-    controller = WorkflowController(service, source_names)
-    return controller, bridge, service
+    controller = WorkflowController(fake_service, source_names)
+    return controller, fake_service
 
 
 class TestWorkflowController:
-    def test_start_workflow_publishes_config_to_sources(
+    def test_start_workflow_sends_config_to_sources(
         self,
-        workflow_controller: tuple[
-            WorkflowControllerBase, FakeMessageBridge, ConfigService
-        ],
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_id: WorkflowId,
         source_names: list[str],
     ):
-        """Test that start_workflow publishes configuration to all specified sources."""
-        controller, bridge, _ = workflow_controller
+        """Test that start_workflow sends configuration to all specified sources."""
+        controller, service = workflow_controller
         config = {"threshold": 150.0, "mode": "accurate"}
 
         # Act
         controller.start_workflow(workflow_id, source_names, config)
 
-        # Assert - should have published WorkflowConfig to each source
-        published_messages = bridge.get_published_messages()
-
-        # Should have messages for each source plus persistent config
-        assert len(published_messages) >= len(source_names)
-
-        # Check that workflow config was sent to each source
-        source_configs = [
-            msg
-            for msg in published_messages
-            if isinstance(msg[0], ConfigKey) and msg[0].key == "workflow_config"
-        ]
-        assert len(source_configs) == len(source_names)
+        # Assert
+        sent_configs = service.get_sent_configs()
+        assert len(sent_configs) == len(source_names)
 
         for source_name in source_names:
-            # Find the config message for this source
+            # Find the config for this source
             source_config = next(
-                msg for msg in source_configs if msg[0].source_name == source_name
+                (sc for sc in sent_configs if sc[0] == source_name), None
             )
-            config_data = source_config[1]
-            assert config_data["identifier"] == workflow_id
-            assert config_data["values"] == config
+            assert source_config is not None
+            assert source_config[1].identifier == workflow_id
+            assert source_config[1].values == config
 
     def test_start_workflow_saves_persistent_config(
         self,
-        workflow_controller: tuple[
-            WorkflowControllerBase, FakeMessageBridge, ConfigService
-        ],
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_id: WorkflowId,
         source_names: list[str],
     ):
         """Test that start_workflow saves persistent configuration."""
-        controller, bridge, _ = workflow_controller
+        controller, service = workflow_controller
         config = {"threshold": 200.0, "mode": "fast"}
 
         # Act
         controller.start_workflow(workflow_id, source_names, config)
 
-        # Assert - should have published persistent config
-        published_messages = bridge.get_published_messages()
+        # Assert
+        persistent_configs = service.get_persistent_configs()
+        assert workflow_id in persistent_configs.configs
 
-        # Find persistent config message
-        persistent_config_msg = next(
-            msg
-            for msg in published_messages
-            if isinstance(msg[0], ConfigKey)
-            and msg[0].key == "persistent_workflow_configs"
-        )
-
-        persistent_data = persistent_config_msg[1]
-        assert workflow_id in persistent_data["configs"]
-
-        workflow_config = persistent_data["configs"][workflow_id]
-        assert workflow_config["source_names"] == source_names
-        assert workflow_config["config"]["identifier"] == workflow_id
-        assert workflow_config["config"]["values"] == config
+        workflow_config = persistent_configs.configs[workflow_id]
+        assert workflow_config.source_names == source_names
+        assert workflow_config.config.identifier == workflow_id
+        assert workflow_config.config.values == config
 
     def test_start_workflow_updates_status_to_starting(
         self,
-        workflow_controller: tuple[
-            WorkflowControllerBase, FakeMessageBridge, ConfigService
-        ],
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_id: WorkflowId,
         source_names: list[str],
     ):
         """Test that start_workflow immediately updates status to STARTING."""
-        controller, _, _ = workflow_controller
+        controller, service = workflow_controller
         config = {"threshold": 75.0}
 
         # Act
         controller.start_workflow(workflow_id, source_names, config)
 
-        # Assert - check status through the protocol interface
+        # Assert
         all_status = controller.get_all_workflow_status()
 
         for source_name in source_names:
@@ -194,41 +205,30 @@ class TestWorkflowController:
 
     def test_start_workflow_with_empty_config(
         self,
-        workflow_controller: tuple[
-            WorkflowControllerBase, FakeMessageBridge, ConfigService
-        ],
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_id: WorkflowId,
         source_names: list[str],
     ):
         """Test that start_workflow works with empty configuration."""
-        controller, bridge, _ = workflow_controller
+        controller, service = workflow_controller
         config = {}
 
         # Act
         controller.start_workflow(workflow_id, source_names, config)
 
         # Assert
-        published_messages = bridge.get_published_messages()
-        source_configs = [
-            msg
-            for msg in published_messages
-            if isinstance(msg[0], ConfigKey) and msg[0].key == "workflow_config"
-        ]
-
-        for source_config in source_configs:
-            config_data = source_config[1]
-            assert config_data["identifier"] == workflow_id
-            assert config_data["values"] == {}
+        sent_configs = service.get_sent_configs()
+        for _, workflow_config in sent_configs:
+            assert workflow_config.identifier == workflow_id
+            assert workflow_config.values == {}
 
     def test_start_workflow_with_single_source(
         self,
-        workflow_controller: tuple[
-            WorkflowControllerBase, FakeMessageBridge, ConfigService
-        ],
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_id: WorkflowId,
     ):
         """Test that start_workflow works with a single source."""
-        controller, bridge, _ = workflow_controller
+        controller, service = workflow_controller
         single_source = ["detector_1"]
         config = {"threshold": 300.0}
 
@@ -236,15 +236,9 @@ class TestWorkflowController:
         controller.start_workflow(workflow_id, single_source, config)
 
         # Assert
-        published_messages = bridge.get_published_messages()
-        source_configs = [
-            msg
-            for msg in published_messages
-            if isinstance(msg[0], ConfigKey) and msg[0].key == "workflow_config"
-        ]
-
-        assert len(source_configs) == 1
-        assert source_configs[0][0].source_name == "detector_1"
+        sent_configs = service.get_sent_configs()
+        assert len(sent_configs) == 1
+        assert sent_configs[0][0] == "detector_1"
 
         # Check status
         all_status = controller.get_all_workflow_status()
@@ -253,13 +247,11 @@ class TestWorkflowController:
 
     def test_persistent_config_stores_multiple_workflows(
         self,
-        workflow_controller: tuple[
-            WorkflowControllerBase, FakeMessageBridge, ConfigService
-        ],
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         source_names: list[str],
     ):
         """Test that multiple workflow configurations can be stored persistently."""
-        controller, bridge, _ = workflow_controller
+        controller, service = workflow_controller
 
         workflow_id_1 = "workflow_1"
         workflow_id_2 = "workflow_2"
@@ -268,93 +260,63 @@ class TestWorkflowController:
         sources_1 = ["detector_1"]
         sources_2 = ["detector_2"]
 
-        # Start first workflow
+        # Start both workflows
         controller.start_workflow(workflow_id_1, sources_1, config_1)
-        bridge.clear()  # Clear to isolate second workflow messages
-
-        # Start second workflow
         controller.start_workflow(workflow_id_2, sources_2, config_2)
 
-        # Get the latest persistent config message
-        published_messages = bridge.get_published_messages()
-        persistent_config_msg = next(
-            msg
-            for msg in published_messages
-            if isinstance(msg[0], ConfigKey)
-            and msg[0].key == "persistent_workflow_configs"
-        )
-
-        persistent_data = persistent_config_msg[1]
-        assert len(persistent_data["configs"]) == 2
+        # Assert
+        persistent_configs = service.get_persistent_configs()
+        assert len(persistent_configs.configs) == 2
 
         # Check first workflow config
-        assert workflow_id_1 in persistent_data["configs"]
-        config_1_data = persistent_data["configs"][workflow_id_1]
-        assert config_1_data["source_names"] == sources_1
-        assert config_1_data["config"]["values"] == config_1
+        config_1_data = persistent_configs.configs[workflow_id_1]
+        assert config_1_data.source_names == sources_1
+        assert config_1_data.config.values == config_1
 
         # Check second workflow config
-        assert workflow_id_2 in persistent_data["configs"]
-        config_2_data = persistent_data["configs"][workflow_id_2]
-        assert config_2_data["source_names"] == sources_2
-        assert config_2_data["config"]["values"] == config_2
+        config_2_data = persistent_configs.configs[workflow_id_2]
+        assert config_2_data.source_names == sources_2
+        assert config_2_data.config.values == config_2
 
     def test_persistent_config_replaces_existing_workflow(
         self,
-        workflow_controller: tuple[
-            WorkflowControllerBase, FakeMessageBridge, ConfigService
-        ],
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_id: WorkflowId,
     ):
         """Test that starting a workflow replaces existing persistent configuration."""
-        controller, bridge, _ = workflow_controller
+        controller, service = workflow_controller
 
         # Start workflow with initial config
         initial_config = {"threshold": 100.0, "mode": "fast"}
         initial_sources = ["detector_1"]
         controller.start_workflow(workflow_id, initial_sources, initial_config)
 
-        bridge.clear()
-
         # Start same workflow with different config
         updated_config = {"threshold": 300.0, "mode": "accurate"}
         updated_sources = ["detector_1", "detector_2"]
         controller.start_workflow(workflow_id, updated_sources, updated_config)
 
-        # Get the latest persistent config
-        published_messages = bridge.get_published_messages()
-        persistent_config_msg = next(
-            msg
-            for msg in published_messages
-            if isinstance(msg[0], ConfigKey)
-            and msg[0].key == "persistent_workflow_configs"
-        )
-
-        persistent_data = persistent_config_msg[1]
-        assert len(persistent_data["configs"]) == 1  # Only one config for this workflow
+        # Assert
+        persistent_configs = service.get_persistent_configs()
+        assert len(persistent_configs.configs) == 1
 
         # Should have the updated values
-        workflow_config = persistent_data["configs"][workflow_id]
-        assert workflow_config["source_names"] == updated_sources
-        assert workflow_config["config"]["values"] == updated_config
+        workflow_config = persistent_configs.configs[workflow_id]
+        assert workflow_config.source_names == updated_sources
+        assert workflow_config.config.values == updated_config
 
     def test_get_initial_parameter_values_uses_persistent_config(
         self,
-        config_service_with_loopback,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_specs: WorkflowSpecs,
         workflow_id: WorkflowId,
         source_names: list[str],
     ):
         """Test that get_initial_parameter_values uses saved persistent config."""
-        service, bridge = config_service_with_loopback
-        controller = WorkflowController(service, source_names)
+        controller, service = workflow_controller
 
-        # Set up workflow specs through config service and process messages
-        workflow_specs_key = ConfigKey(
-            service_name='data_reduction', key='workflow_specs'
-        )
-        service.update_config(workflow_specs_key, workflow_specs)
-        service.process_incoming_messages()
+        # Set up workflow specs
+        service.set_workflow_specs(workflow_specs)
 
         # Start workflow with custom config
         custom_config = {"threshold": 250.0, "mode": "accurate"}
@@ -368,21 +330,15 @@ class TestWorkflowController:
 
     def test_get_initial_parameter_values_uses_defaults_when_no_persistent_config(
         self,
-        config_service_with_loopback,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_specs: WorkflowSpecs,
         workflow_id: WorkflowId,
-        source_names: list[str],
     ):
         """Test that get_initial_parameter_values uses defaults when no saved config."""
-        service, bridge = config_service_with_loopback
-        controller = WorkflowController(service, source_names)
+        controller, service = workflow_controller
 
-        # Set up workflow specs through config service and process messages
-        workflow_specs_key = ConfigKey(
-            service_name='data_reduction', key='workflow_specs'
-        )
-        service.update_config(workflow_specs_key, workflow_specs)
-        service.process_incoming_messages()
+        # Set up workflow specs
+        service.set_workflow_specs(workflow_specs)
 
         # Get initial values without starting workflow first
         initial_values = controller.get_initial_parameter_values(workflow_id)
@@ -393,13 +349,11 @@ class TestWorkflowController:
 
     def test_get_initial_source_names_uses_persistent_config(
         self,
-        workflow_controller: tuple[
-            WorkflowControllerBase, FakeMessageBridge, ConfigService
-        ],
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_id: WorkflowId,
     ):
         """Test that get_initial_source_names returns saved source names."""
-        controller, _, _ = workflow_controller
+        controller, service = workflow_controller
         saved_sources = ["detector_2"]
         config = {"threshold": 100.0}
 
@@ -413,13 +367,11 @@ class TestWorkflowController:
 
     def test_get_initial_source_names_returns_empty_when_no_persistent_config(
         self,
-        workflow_controller: tuple[
-            WorkflowControllerBase, FakeMessageBridge, ConfigService
-        ],
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
         workflow_id: WorkflowId,
     ):
         """Test get_initial_source_names returns empty list when no saved config."""
-        controller, _, _ = workflow_controller
+        controller, service = workflow_controller
 
         # Get initial source names without starting workflow first
         initial_sources = controller.get_initial_source_names(workflow_id)
@@ -428,20 +380,16 @@ class TestWorkflowController:
 
     def test_cleanup_persistent_configs_removes_obsolete_workflows(
         self,
-        config_service_with_loopback,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
     ):
         """Test that cleanup removes configs for workflows that no longer exist."""
-        service, bridge = config_service_with_loopback
-        controller = WorkflowController(service, ["detector_1", "detector_2"])
+        controller, service = workflow_controller
 
         # Start workflows to create persistent configs
         controller.start_workflow("workflow_1", ["detector_1"], {"param": "value1"})
         controller.start_workflow("workflow_2", ["detector_2"], {"param": "value2"})
 
-        # Clear bridge messages to isolate cleanup test
-        bridge.messages.clear()
-
-        # Simulate workflow specs update through config service
+        # Simulate workflow specs update with only one workflow remaining
         remaining_workflows = WorkflowSpecs(
             workflows={
                 "workflow_1": WorkflowSpec(
@@ -451,20 +399,31 @@ class TestWorkflowController:
                 )
             }
         )
+        service.set_workflow_specs(remaining_workflows)
 
-        workflow_specs_key = ConfigKey(
-            service_name='data_reduction', key='workflow_specs'
+        # Check that cleanup occurred
+        persistent_configs = service.get_persistent_configs()
+        assert "workflow_1" in persistent_configs.configs
+        assert "workflow_2" not in persistent_configs.configs
+        assert len(persistent_configs.configs) == 1
+
+    def test_status_updates_from_service(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_id: WorkflowId,
+    ):
+        """Test that controller handles status updates from service."""
+        controller, service = workflow_controller
+
+        # Simulate status update from service
+        new_status = WorkflowStatus(
+            source_name="detector_1",
+            workflow_id=workflow_id,
+            status=WorkflowStatusType.RUNNING,
         )
-        service.update_config(workflow_specs_key, remaining_workflows)
-        service.process_incoming_messages()
+        service.simulate_status_update(new_status)
 
-        # Check that cleanup occurred by looking at current persistent configs
-        persistent_configs_key = ConfigKey(
-            service_name='dashboard', key='persistent_workflow_configs'
-        )
-        current_configs = service.get(persistent_configs_key)
-
-        assert current_configs is not None
-        assert "workflow_1" in current_configs.configs
-        assert "workflow_2" not in current_configs.configs
-        assert len(current_configs.configs) == 1
+        # Check that controller received the update
+        all_status = controller.get_all_workflow_status()
+        assert all_status["detector_1"].status == WorkflowStatusType.RUNNING
+        assert all_status["detector_1"].workflow_id == workflow_id

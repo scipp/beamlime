@@ -5,7 +5,7 @@ Workflow controller implementation backed by a config service.
 """
 
 import logging
-from typing import Any
+from typing import Any, Protocol
 
 from beamlime.config.models import ConfigKey
 from beamlime.config.workflow_spec import (
@@ -18,13 +18,121 @@ from beamlime.config.workflow_spec import (
     WorkflowStatus,
     WorkflowStatusType,
 )
-from beamlime.dashboard.config_service import ConfigService
 
 from .workflow_controller_base import WorkflowControllerBase
 
 _persistent_configs_key = ConfigKey(
     service_name='dashboard', key='persistent_workflow_configs'
 )
+
+
+class WorkflowConfigService(Protocol):
+    """Protocol for workflow controller dependencies."""
+
+    def get_workflow_specs(self) -> WorkflowSpecs:
+        """Get current workflow specifications."""
+        ...
+
+    def get_persistent_configs(self) -> PersistentWorkflowConfigs:
+        """Get persistent workflow configurations."""
+        ...
+
+    def save_persistent_configs(self, configs: PersistentWorkflowConfigs) -> None:
+        """Save persistent workflow configurations."""
+        ...
+
+    def send_workflow_config(self, source_name: str, config: WorkflowConfig) -> None:
+        """Send workflow configuration to a source."""
+        ...
+
+    def subscribe_to_workflow_specs(self, callback: callable) -> None:
+        """Subscribe to workflow specs updates."""
+        ...
+
+    def subscribe_to_workflow_status(
+        self, source_name: str, callback: callable
+    ) -> None:
+        """Subscribe to workflow status updates for a source."""
+        ...
+
+
+class ConfigServiceAdapter:
+    """Adapter to make ConfigService compatible with WorkflowConfigService protocol."""
+
+    def __init__(self, config_service, source_names: list[str]):
+        self._config_service = config_service
+        self._source_names = source_names
+        self._setup_schemas()
+
+    def _setup_schemas(self) -> None:
+        """Register necessary schemas with the config service."""
+        workflow_specs_key = ConfigKey(
+            service_name='data_reduction', key='workflow_specs'
+        )
+
+        self._config_service.register_schema(workflow_specs_key, WorkflowSpecs)
+        self._config_service.register_schema(
+            _persistent_configs_key, PersistentWorkflowConfigs
+        )
+
+        for source_name in self._source_names:
+            workflow_status_key = ConfigKey(
+                source_name=source_name,
+                service_name='data_reduction',
+                key='workflow_status',
+            )
+            workflow_config_key = ConfigKey(
+                source_name=source_name,
+                service_name="data_reduction",
+                key="workflow_config",
+            )
+
+            self._config_service.register_schema(workflow_status_key, WorkflowStatus)
+            self._config_service.register_schema(workflow_config_key, WorkflowConfig)
+
+    def get_workflow_specs(self) -> WorkflowSpecs:
+        """Get current workflow specifications."""
+        workflow_specs_key = ConfigKey(
+            service_name='data_reduction', key='workflow_specs'
+        )
+        return self._config_service.get(workflow_specs_key, WorkflowSpecs())
+
+    def get_persistent_configs(self) -> PersistentWorkflowConfigs:
+        """Get persistent workflow configurations."""
+        return self._config_service.get(
+            _persistent_configs_key, PersistentWorkflowConfigs()
+        )
+
+    def save_persistent_configs(self, configs: PersistentWorkflowConfigs) -> None:
+        """Save persistent workflow configurations."""
+        self._config_service.update_config(_persistent_configs_key, configs)
+
+    def send_workflow_config(self, source_name: str, config: WorkflowConfig) -> None:
+        """Send workflow configuration to a source."""
+        config_key = ConfigKey(
+            source_name=source_name,
+            service_name="data_reduction",
+            key="workflow_config",
+        )
+        self._config_service.update_config(config_key, config)
+
+    def subscribe_to_workflow_specs(self, callback: callable) -> None:
+        """Subscribe to workflow specs updates."""
+        workflow_specs_key = ConfigKey(
+            service_name='data_reduction', key='workflow_specs'
+        )
+        self._config_service.subscribe(workflow_specs_key, callback)
+
+    def subscribe_to_workflow_status(
+        self, source_name: str, callback: callable
+    ) -> None:
+        """Subscribe to workflow status updates for a source."""
+        workflow_status_key = ConfigKey(
+            source_name=source_name,
+            service_name='data_reduction',
+            key='workflow_status',
+        )
+        self._config_service.subscribe(workflow_status_key, callback)
 
 
 class WorkflowController(WorkflowControllerBase):
@@ -37,7 +145,7 @@ class WorkflowController(WorkflowControllerBase):
 
     def __init__(
         self,
-        config_service: ConfigService[ConfigKey, dict, Any],
+        service: WorkflowConfigService,
         source_names: list[str],
     ) -> None:
         """
@@ -45,12 +153,12 @@ class WorkflowController(WorkflowControllerBase):
 
         Parameters
         ----------
-        config_service
-            Config service for managing workflow configurations
+        service
+            Service for managing workflow configurations
         source_names
             List of source names to monitor for workflow status updates.
         """
-        self._config_service = config_service
+        self._service = service
         self._logger = logging.getLogger(__name__)
 
         self._source_names = source_names
@@ -71,50 +179,30 @@ class WorkflowController(WorkflowControllerBase):
         # Subscribe to updates
         self._setup_subscriptions()
 
+    @classmethod
+    def from_config_service(
+        cls,
+        *,
+        config_service,
+        source_names: list[str],
+    ) -> 'WorkflowController':
+        """Create WorkflowController from ConfigService."""
+        adapter = ConfigServiceAdapter(config_service, source_names)
+        return cls(adapter, source_names)
+
     def _setup_subscriptions(self) -> None:
-        """Setup subscriptions to config service updates."""
-        # Subscribe to workflow specs updates
-        workflow_specs_key = ConfigKey(
-            service_name='data_reduction', key='workflow_specs'
-        )
-
-        # Register schema for workflow specs
-        self._config_service.register_schema(workflow_specs_key, WorkflowSpecs)
-
-        # Register schema for persistent workflow configs
-        self._config_service.register_schema(
-            _persistent_configs_key, PersistentWorkflowConfigs
-        )
-
+        """Setup subscriptions to service updates."""
         # Subscribe to workflow specs
-        self._config_service.subscribe(
-            workflow_specs_key, self._on_workflow_specs_updated
-        )
+        self._service.subscribe_to_workflow_specs(self._on_workflow_specs_updated)
 
-        # Subscribe to workflow status and register workflow config schemas
+        # Subscribe to workflow status for each source
         for source_name in self._source_names:
-            workflow_status_key = ConfigKey(
-                source_name=source_name,
-                service_name='data_reduction',
-                key='workflow_status',
-            )
-            workflow_config_key = ConfigKey(
-                source_name=source_name,
-                service_name="data_reduction",
-                key="workflow_config",
-            )
-
-            # Register schemas
-            self._config_service.register_schema(workflow_status_key, WorkflowStatus)
-            self._config_service.register_schema(workflow_config_key, WorkflowConfig)
-
-            # Subscribe to status updates
-            self._config_service.subscribe(
-                workflow_status_key, self._on_workflow_status_updated
+            self._service.subscribe_to_workflow_status(
+                source_name, self._on_workflow_status_updated
             )
 
     def _on_workflow_specs_updated(self, workflow_specs: WorkflowSpecs) -> None:
-        """Handle workflow specs updates from config service."""
+        """Handle workflow specs updates from service."""
         self._logger.info(
             'Received workflow specs update with %d workflows',
             len(workflow_specs.workflows),
@@ -135,13 +223,7 @@ class WorkflowController(WorkflowControllerBase):
         self, current_workflow_ids: set[WorkflowId]
     ) -> None:
         """Clean up persistent configs for workflows that no longer exist."""
-        persistent_configs_key = ConfigKey(
-            service_name='dashboard', key='persistent_workflow_configs'
-        )
-
-        current_configs = self._config_service.get(persistent_configs_key)
-        if current_configs is None:
-            return
+        current_configs = self._service.get_persistent_configs()
 
         # Clean up and save back if there were changes
         original_count = len(current_configs.configs)
@@ -152,10 +234,10 @@ class WorkflowController(WorkflowControllerBase):
                 'Cleaned up %d obsolete persistent workflow configs',
                 original_count - len(current_configs.configs),
             )
-            self._config_service.update_config(persistent_configs_key, current_configs)
+            self._service.save_persistent_configs(current_configs)
 
     def _on_workflow_status_updated(self, status: WorkflowStatus) -> None:
-        """Handle workflow status updates from config service."""
+        """Handle workflow status updates from service."""
         self._logger.info('Received workflow status update: %s', status)
         self._workflow_status[status.source_name] = status
         for callback in self._workflow_status_callbacks:
@@ -175,22 +257,15 @@ class WorkflowController(WorkflowControllerBase):
         workflow_config = WorkflowConfig(identifier=workflow_id, values=config)
 
         # Update the config for this workflow, used for restoring widget state
-        current_configs = self._config_service.get(
-            _persistent_configs_key, PersistentWorkflowConfigs()
-        )
+        current_configs = self._service.get_persistent_configs()
         current_configs.configs[workflow_id] = PersistentWorkflowConfig(
             source_names=source_names, config=workflow_config
         )
-        self._config_service.update_config(_persistent_configs_key, current_configs)
+        self._service.save_persistent_configs(current_configs)
 
         # Send workflow config to each source
         for source_name in source_names:
-            config_key = ConfigKey(
-                source_name=source_name,
-                service_name="data_reduction",
-                key="workflow_config",
-            )
-            self._config_service.update_config(config_key, workflow_config)
+            self._service.send_workflow_config(source_name, workflow_config)
 
             # Set status to STARTING for immediate UI feedback
             self._workflow_status[source_name] = WorkflowStatus(
@@ -207,12 +282,7 @@ class WorkflowController(WorkflowControllerBase):
         self._logger.info('Stopping workflow for source %s', source_name)
 
         # Send None to stop the workflow
-        config_key = ConfigKey(
-            source_name=source_name,
-            service_name="data_reduction",
-            key="workflow_config",
-        )
-        self._config_service.update_config(config_key, WorkflowConfig(identifier=None))
+        self._service.send_workflow_config(source_name, WorkflowConfig(identifier=None))
         self._on_workflow_status_updated(
             WorkflowStatus(source_name=source_name, status=WorkflowStatusType.STOPPING)
         )
@@ -250,9 +320,7 @@ class WorkflowController(WorkflowControllerBase):
         self, workflow_id: WorkflowId
     ) -> PersistentWorkflowConfig | None:
         """Load saved workflow configuration."""
-        all_configs = self._config_service.get(_persistent_configs_key)
-        if all_configs is None:
-            return None
+        all_configs = self._service.get_persistent_configs()
         return all_configs.configs.get(workflow_id)
 
     def get_workflow_name(self, workflow_id: WorkflowId | None) -> str:

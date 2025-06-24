@@ -42,8 +42,8 @@ class ReductionApp(DashboardBase):
 
     def _setup_workflow_management(self) -> None:
         """Initialize workflow controller and reduction widget."""
-        self._workflow_controller = WorkflowController(
-            self._config_service, source_names=list(self.source_names())
+        self._workflow_controller = WorkflowController.from_config_service(
+            config_service=self._config_service, source_names=list(self.source_names())
         )
         self._reduction_widget = ReductionWidget(controller=self._workflow_controller)
 
