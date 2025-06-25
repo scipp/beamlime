@@ -7,7 +7,7 @@
 3. [High-Level Architecture](#high-level-architecture)
 4. [Configuration Architecture](#configuration-architecture)
 5. [Data Flow Architecture](#data-flow-architecture)
-6. [The BaseParamModel Mechanism](#the-baseparammodel-mechanism)
+6. [The ConfigBackedParam Mechanism](#the-configbackedparam-mechanism)
 7. [Background Threading Architecture](#background-threading-architecture)
 8. [Extension Points](#extension-points)
 
@@ -81,41 +81,52 @@ graph TD
     end
 
     subgraph "Infrastructure Layer"
-        KB[KafkaBridge]
+        KT[KafkaTransport]
+        TMH["ThrottlingMessageHandler<br>(prevents flooding Kafka)"]
+        MB["BackgroundMessageBridge<br>(prevents blocking UI)"]
         MS[MessageSource]
     end
 
     subgraph "Application Layer"
         CS[ConfigService]
+        WCS["WorkflowConfigService<br>(adapts ConfigService)"]
         DS[DataServices]
-        PM[Param Models]
+        DSU[["DataSubscriber(s)"]]
+        PM[["ConfigBackedParam(s)<br>(param.Parameterized)"]]
         WC[WorkflowController]
     end
 
     subgraph "Presentation Layer"
-        W1[Plots]
-        UI[Workflow Widgets]
-        W2[Config Widgets]
+        W1[["Plot(s)<br>(Holoviews)"]]
+        UI["Workflow Widgets<br>(Panel)"]
+        W2[["Config Widgets<br>(Panel)"]]
     end
 
-    CS <--> WC
-    DS <--> WC
+    DSU -- holoviews.streams.Pipe --> W1
+    WCS <--> WC
+    CS <--> WCS
+    DS <-.-> WC
     WC <--> UI
     K1 --> MS
-    K2 <--> KB
+    K2 <--> KT
     MS --> DS
-    DS --> W1
-    KB --> CS
-    CS <--> PM
+    DS --> DSU
+    DSU -.->|subscribes|DS
+    PM -.->|subscribes|CS
+    WCS -.->|subscribes|CS
+    MB --> CS
+    CS <-- Pydantic --> PM
     PM <--> W2
+    KT <--> TMH
+    TMH <--> MB
 
     classDef kafka fill:#fff3e0,stroke:#ef6c00,color:#e65100;
     classDef infra fill:#e3f2fd,stroke:#1976d2,color:#0d47a1;
     classDef app fill:#ede7f6,stroke:#7b1fa2,color:#4a148c;
     classDef prese fill:#ede7f6,stroke:#7b1fa2,color:#4a148c;
     class K1,K2 kafka;
-    class KB,MS infra;
-    class CS,DS,PM,WC app;
+    class KT,KT,TMH,MB,MS infra;
+    class CS,WCS,DS,DSU,PM,WC app;
     class W1,UI,W2 prese;
 ```
 
@@ -130,42 +141,6 @@ The architecture is structured in three main layers:
 ## Configuration Architecture
 
 The dashboard implements a configuration system that maintains a clear separation between frontend widgets (using Param for interactive controls) and backend validation/communication (using Pydantic models throughout). The `ConfigService` operates entirely with Pydantic models, ensuring type safety and validation consistency.
-
-### Configuration Flow Overview
-
-```mermaid
-graph TB
-    subgraph "Presentation Layer"
-        PW[Param Widgets]
-        PM[Param Models<br/>TOAEdgesParam]
-    end
-
-    subgraph "Application Layer"
-        CS[ConfigService<br/>Pydantic-only]
-        SV[Schema Validator<br/>Pydantic Models]
-        MB[MessageBridge<br/>KafkaBridge]
-    end
-
-    subgraph "Kafka"
-        KT[Beamlime Config Topic]
-    end
-
-    PW <--> PM
-    PM -.->|"Creates Pydantic<br/>from Param state"| CS
-    CS -.->|"Validates only<br/>Pydantic models"| SV
-    CS -- JSON --> MB
-    MB  --> KT
-    KT  --> MB
-    MB -- JSON --> CS
-    CS -.->|"Callbacks with<br/>Pydantic models"| PM
-
-    classDef pydantic fill:#e3f2fd,stroke:#1976d2,color:#0d47a1;
-    classDef param fill:#ede7f6,stroke:#7b1fa2,color:#4a148c;
-    classDef kafka fill:#fff3e0,stroke:#ef6c00,color:#e65100;
-    class CS,SV pydantic
-    class PM,PW param
-    class KT kafka
-```
 
 ### Two-Way Configuration Flow
 
@@ -200,35 +175,14 @@ sequenceDiagram
     PW->>PW: Widget reflects new state
 ```
 
-### BaseParamModel Translation Mechanism
+### ConfigBackedParam Translation Mechanism
 
-The `BaseParamModel` serves as a **translation layer** that:
+The `ConfigBackedParam` serves as a **translation layer** that:
 
 1. **Outbound (Param → Pydantic)**: Creates Pydantic models from Param state using `self.schema.model_validate(kwargs)`
 2. **Inbound (Pydantic → Param)**: Extracts data from Pydantic models using `model.model_dump()`
 3. **Schema Binding**: Connects each Param model to its corresponding Pydantic schema
 4. **Validation**: Ensures all data flowing through ConfigService is properly validated
-
-```python
-# BaseParamModel's key methods
-def from_pydantic(self) -> Callable[..., None]:
-    def update_callback(model: pydantic.BaseModel) -> None:
-        self.param.update(**model.model_dump())  # Pydantic → Param
-    return update_callback
-
-# In the param.bind callback:
-def set_as_pydantic(**kwargs) -> None:
-    model = self.schema.model_validate(kwargs)  # Param → Pydantic
-    config_service.update_config(key, model)
-```
-
-### Architectural Benefits
-
-1. **Type Safety**: All configuration data is validated through Pydantic schemas
-2. **Serialization Consistency**: Single serialization path via `model_dump(mode='json')`
-3. **Backend Compatibility**: JSON messages match Pydantic model structure
-4. **Frontend Flexibility**: Rich Param widgets with bounds, selectors, and validation
-5. **Clear Boundaries**: Translation happens only at the BaseParamModel layer
 
 ## Data Flow Architecture
 
@@ -253,11 +207,11 @@ sequenceDiagram
     S->>UI: Update visualizations
 ```
 
-## The BaseParamModel Mechanism
+## The ConfigBackedParam Mechanism
 
 ### Purpose and Role
 
-`BaseParamModel` is a key architectural component for simple configuration widgets. It serves as a dedicated translation layer and per-widget controller, bridging the gap between:
+`ConfigBackedParam` is a key architectural component for simple configuration widgets. It serves as a dedicated translation layer and per-widget controller, bridging the gap between:
 
 - **Param models** (`param.Parameterized`): Used for GUI widgets and user interaction
 - **Pydantic models**: Used for backend validation, serialization, and communication
@@ -266,8 +220,8 @@ This mechanism enables a clean, testable, and maintainable way to synchronize wi
 
 ### How It Works
 
-- Each simple configuration widget is backed by a `BaseParamModel` subclass
-- The `BaseParamModel`:
+- Each simple configuration widget is backed by a `ConfigBackedParam` subclass
+- The `ConfigBackedParam`:
   - Registers the relevant Pydantic schema with `ConfigService`
   - Subscribes to config updates for its key, updating the widget state when changes arrive
   - Propagates user changes from the widget to `ConfigService` by translating Param state to a Pydantic model
@@ -275,18 +229,18 @@ This mechanism enables a clean, testable, and maintainable way to synchronize wi
 ```mermaid
 sequenceDiagram
     participant ConfigService
-    participant BaseParamModel
+    participant ConfigBackedParam
     participant PanelWidget
 
-    ConfigService->>BaseParamModel: Notify config update
-    BaseParamModel->>PanelWidget: Update widget state
-    PanelWidget->>BaseParamModel: User changes widget
-    BaseParamModel->>ConfigService: Update config
+    ConfigService->>ConfigBackedParam: Notify config update
+    ConfigBackedParam->>PanelWidget: Update widget state
+    PanelWidget->>ConfigBackedParam: User changes widget
+    ConfigBackedParam->>ConfigService: Update config
 ```
 
 ### Architectural Implications
 
-- **Localized Coupling**: `BaseParamModel` knows about both Param and Pydantic models, but this coupling is intentional and limited to the translation layer
+- **Localized Coupling**: `ConfigBackedParam` knows about both Param and Pydantic models, but this coupling is intentional and limited to the translation layer
 - **No Architectural Problem**: This is not problematic coupling, but a necessary and well-encapsulated translation between two distinct model types
 - **Testability**: The translation logic is isolated and can be tested independently
 - **Extensibility**: More complex workflows can use a centralized controller, while simple controls benefit from this lightweight mechanism
@@ -300,7 +254,7 @@ sequenceDiagram
     participant ConfigService
     participant DataService
     participant WorkflowController
-    participant BaseParamModel
+    participant ConfigBackedParam
     participant PanelWidgets
 
     ConfigService->>WorkflowController: Notify config update
@@ -310,10 +264,10 @@ sequenceDiagram
     WorkflowController->>ConfigService: Update config
     WorkflowController->>DataService: Update data (e.g., cleanup)
 
-    ConfigService->>BaseParamModel: Notify config update (simple controls)
-    BaseParamModel->>PanelWidgets: Notify widget update
-    PanelWidgets->>BaseParamModel: User changes widget (simple controls)
-    BaseParamModel->>ConfigService: Update config (simple controls)
+    ConfigService->>ConfigBackedParam: Notify config update (simple controls)
+    ConfigBackedParam->>PanelWidgets: Notify widget update
+    PanelWidgets->>ConfigBackedParam: User changes widget (simple controls)
+    ConfigBackedParam->>ConfigService: Update config (simple controls)
 ```
 
 ### Analysis
@@ -323,7 +277,7 @@ sequenceDiagram
 - Testability through controller and widget isolation using fakes
 - Maintainability with centralized business logic
 - Extensibility for future requirements
-- Efficient handling of simple controls via `BaseParamModel`
+- Efficient handling of simple controls via `ConfigBackedParam`
 
 **Potential Pitfalls:**
 - Controller bloat as it mediates more services
@@ -386,7 +340,7 @@ class NewParam(BaseModel):
 
 2. **Create Param Model** (GUI widget):
 ```python  
-class NewParamWidget(BaseParamModel):
+class NewParamWidget(ConfigBackedParam):
     value = param.Number(default=1.0)
     enabled = param.Boolean(default=True)
 
