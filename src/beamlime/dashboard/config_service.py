@@ -88,7 +88,7 @@ class ConfigService(Generic[K, Serialized, V]):
     ):
         self.schema_validator = schema_validator
         self._message_bridge = message_bridge
-        self._subscribers: dict[K, list[Callable[..., None]]] = defaultdict(list)
+        self._subscribers: dict[K, list[Callable[[V], None]]] = defaultdict(list)
         self._logger = logging.getLogger(__name__)
         self._config: dict[K, V] = {}
         self._update_disabled = False
@@ -103,7 +103,7 @@ class ConfigService(Generic[K, Serialized, V]):
                 'schema registration.'
             )
 
-    def subscribe(self, key: K, callback: Callable[..., None]) -> None:
+    def subscribe(self, key: K, callback: Callable[[V], None]) -> None:
         """
         Subscribe to configuration updates for a specific key.
 
@@ -209,7 +209,7 @@ class ConfigService(Generic[K, Serialized, V]):
         for callback in self._subscribers.get(key, []):
             self._invoke(key, callback, data)
 
-    def _invoke(self, key: K, callback: Callable[..., None], data: V) -> None:
+    def _invoke(self, key: K, callback: Callable[[V], None], data: V) -> None:
         try:
             callback(data)
         except Exception as e:
