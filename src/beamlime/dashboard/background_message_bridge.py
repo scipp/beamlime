@@ -6,7 +6,7 @@ from typing import Any
 
 from ..config.models import ConfigKey
 from .config_service import MessageBridge
-from .deduplicating_message_handler import DeduplicatingMessageHandler, MessageTransport
+from .throttling_message_handler import MessageTransport, ThrottlingMessageHandler
 
 
 class BackgroundMessageBridge(MessageBridge[ConfigKey, dict[str, Any]]):
@@ -27,7 +27,7 @@ class BackgroundMessageBridge(MessageBridge[ConfigKey, dict[str, Any]]):
         self._logger = logger or logging.getLogger(__name__)
 
         # Create processor with injected transport
-        self._processor = DeduplicatingMessageHandler(
+        self._processor = ThrottlingMessageHandler(
             transport=transport,
             outgoing_poll_interval=outgoing_poll_interval,
             incoming_poll_interval=incoming_poll_interval,

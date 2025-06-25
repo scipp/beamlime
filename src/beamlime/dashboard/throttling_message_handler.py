@@ -21,7 +21,7 @@ class MessageTransport(Protocol, Generic[K, V]):
         ...
 
 
-class DeduplicatingMessageHandler(Generic[K, V]):
+class ThrottlingMessageHandler(Generic[K, V]):
     """
     Handles message processing logic with deduplication and timing control.
 

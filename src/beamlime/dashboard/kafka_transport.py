@@ -9,7 +9,7 @@ from confluent_kafka import Consumer, KafkaError, Producer
 from ..config.models import ConfigKey
 from ..handlers.config_handler import ConfigUpdate
 from ..kafka.message_adapter import RawConfigItem
-from .deduplicating_message_handler import MessageTransport
+from .throttling_message_handler import MessageTransport
 
 
 class KafkaTransport(MessageTransport[ConfigKey, dict[str, Any]]):
