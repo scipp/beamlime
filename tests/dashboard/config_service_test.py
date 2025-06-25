@@ -9,10 +9,9 @@ from beamlime.config.models import TOARange
 from beamlime.dashboard.config_service import (
     ConfigSchemaManager,
     ConfigService,
-    FakeMessageBridge,
-    LoopbackMessageBridge,
 )
 from beamlime.dashboard.detector_params import TOARangeParam
+from beamlime.dashboard.message_bridge import FakeMessageBridge, LoopbackMessageBridge
 
 
 # Test models for more comprehensive testing

@@ -12,11 +12,8 @@ from beamlime.config.workflow_spec import (
     WorkflowStatus,
     WorkflowStatusType,
 )
-from beamlime.dashboard.config_service import (
-    ConfigSchemaManager,
-    ConfigService,
-    FakeMessageBridge,
-)
+from beamlime.dashboard.config_service import ConfigSchemaManager, ConfigService
+from beamlime.dashboard.message_bridge import FakeMessageBridge
 from beamlime.dashboard.workflow_config_service import (
     ConfigServiceAdapter,
     WorkflowConfigService,

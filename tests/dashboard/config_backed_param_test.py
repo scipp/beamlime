@@ -14,8 +14,8 @@ from beamlime.dashboard.config_backed_param import (
 from beamlime.dashboard.config_service import (
     ConfigSchemaManager,
     ConfigService,
-    LoopbackMessageBridge,
 )
+from beamlime.dashboard.message_bridge import LoopbackMessageBridge
 
 
 class MySchema(pydantic.BaseModel):
