@@ -83,7 +83,10 @@ class ConfigHandler(Handler[bytes, None]):
         return self._stores.setdefault(source_name, dict(self._global_store))
 
     def register_action(
-        self, *, key: str, action: Callable[[str | None, Any], None]
+        self,
+        *,
+        key: str,
+        action: Callable[[str | None, Any], list[tuple[ConfigKey, Any]]],
     ) -> None:
         """
         Register an action to be called when a specific key is updated.
@@ -97,6 +100,7 @@ class ConfigHandler(Handler[bytes, None]):
             with the source_name and the new value as keyword arguments, e.g.,
             ``action(source_name=source_name, value=value)``.
             Note: The source_name may be None for global updates.
+            The function should return a list of (ConfigKey, value) tuples.
         """
         self._actions.setdefault(key, []).append(action)
 
@@ -153,7 +157,7 @@ class ConfigHandler(Handler[bytes, None]):
 
         # Delay action calls until all messages are processed to reduce triggering
         # multiple calls for the same key in case of multiple messages with same key.
-        messages: list[Message[ConfigUpdate]] = []
+        results: list[tuple[ConfigKey, Any]] = []
         for config_key, source_updates in updated.items():
             for action in self._actions.get(config_key, []):
                 for source_name, update in source_updates.items():
@@ -163,22 +167,24 @@ class ConfigHandler(Handler[bytes, None]):
                         self._logger.info(
                             'Action %s called for source name %s', action, source_name
                         )
-                        messages.append(
-                            Message(
-                                timestamp=0,
-                                stream=CONFIG_STREAM_ID,
-                                value=ConfigUpdate(
-                                    config_key=ConfigKey(
-                                        service_name=self._service_name,
-                                        source_name=source_name,
-                                        key='workflow_status',
-                                    ),
-                                    value=result,
-                                ),
-                            )
-                        )
+                        results.extend(result)
                     except Exception:  # noqa: PERF203
                         self._logger.exception(
                             'Error processing config action for %s:', config_key
                         )
+        messages: list[Message[Any]] = []
+        for config_key, value in results:
+            # Fill in the service name if not provided
+            final_config_key = ConfigKey(
+                source_name=config_key.source_name,
+                service_name=config_key.service_name or self._service_name,
+                key=config_key.key,
+            )
+            messages.append(
+                Message(
+                    timestamp=0,
+                    stream=CONFIG_STREAM_ID,
+                    value=ConfigUpdate(config_key=final_config_key, value=value),
+                )
+            )
         return messages

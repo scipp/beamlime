@@ -10,6 +10,7 @@ from sciline.typing import Key
 
 from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 
+from ..config.models import ConfigKey
 from ..config.workflow_spec import (
     WorkflowConfig,
     WorkflowSpecs,
@@ -94,22 +95,29 @@ class WorkflowManager:
 
     def set_workflow_with_config(
         self, source_name: str | None, value: dict | None
-    ) -> WorkflowStatus:
+    ) -> list[tuple[ConfigKey, WorkflowStatus]]:
         if source_name is None:
-            raise ValueError(
-                "Source name must be provided to set a workflow configuration."
-            )
+            results = []
+            for name in self._processor_factory.source_names:
+                results.extend(self.set_workflow_with_config(name, value))
+            return results
+
+        config_key = ConfigKey(source_name=source_name, key="workflow_config")
         if value is None:  # Legacy way to stop/remove a workflow.
             self.set_workflow(source_name, None)
-            return WorkflowStatus(
+            status = WorkflowStatus(
                 source_name=source_name, status=WorkflowStatusType.STOPPED
             )
+            return [(config_key, status)]
+
         config = WorkflowConfig.model_validate(value)
         if config.identifier is None:  # New way to stop/remove a workflow.
             self.set_workflow(source_name, None)
-            return WorkflowStatus(
+            status = WorkflowStatus(
                 source_name=source_name, status=WorkflowStatusType.STOPPED
             )
+            return [(config_key, status)]
+
         try:
             processor = self._processor_factory.create(
                 workflow_id=config.identifier,
@@ -117,17 +125,24 @@ class WorkflowManager:
                 workflow_params=config.values,
             )
         except Exception as e:
-            return WorkflowStatus(
+            # TODO This system is a bit flawed: If we have a workflow running already
+            # it will keep running, but we need to notify about startup errors. Frontend
+            # will not be able to display the correct workflow status. Need to come up
+            # with a better way to handle this.
+            status = WorkflowStatus(
                 source_name=source_name,
                 status=WorkflowStatusType.STARTUP_ERROR,
                 message=str(e),
             )
+            return [(config_key, status)]
+
         self.set_workflow(source_name, processor=processor)
-        return WorkflowStatus(
+        status = WorkflowStatus(
             source_name=source_name,
             status=WorkflowStatusType.RUNNING,
             workflow_id=config.identifier,
         )
+        return [(config_key, status)]
 
     def get_accumulator(
         self, source_name: str

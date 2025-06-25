@@ -68,6 +68,9 @@ def test_can_configure_and_stop_workflow_with_detector(
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
+    service.step()
+    assert len(sink.messages) == 1  # Workflow status message
+    sink.messages.clear()
 
     app.publish_events(size=2000, time=2)
     service.step()
@@ -98,7 +101,7 @@ def test_can_configure_and_stop_workflow_with_detector(
     service.step()
     app.publish_events(size=1000, time=20)
     service.step()
-    assert len(sink.messages) == 3
+    assert len(sink.messages) == 3 + 1  # + 1 for the stop message
 
 
 @pytest.mark.parametrize("instrument", ['dream', 'loki'])
@@ -129,6 +132,9 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
+    service.step()
+    n_source = len(sink.messages)
+    sink.messages.clear()  # Clear the workflow status message(s), one per source name.
 
     app.publish_events(size=2000, time=2)
     service.step()
@@ -168,7 +174,7 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     service.step()
     app.publish_events(size=1000, time=20)
     service.step()
-    assert len(sink.messages) == 3 * n_target
+    assert len(sink.messages) == 3 * n_target + n_source  # + n_source for stop message
 
 
 def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None:
@@ -195,7 +201,7 @@ def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None
     app.publish_events(size=2000, time=1)
     app.publish_events(size=3000, time=2)
     service.step()
-    assert len(sink.messages) == 2
+    assert len(sink.messages) == 2 + 1  # + 1 for the workflow start message
     assert sink.messages[-1].value.values.sum() == 5000
 
     config_key = ConfigKey(key="start_time")
@@ -248,7 +254,11 @@ def test_service_can_recover_after_bad_workflow_id_was_set(
     service.step()
     app.publish_events(size=3000, time=4)
     service.step()
-    assert len(sink.messages) == 0  # Workflow not started
+
+    assert len(sink.messages) == 1  # Workflow not started, just an error message
+    status = sink.messages[0].value.value
+    assert status.status == workflow_spec.WorkflowStatusType.STARTUP_ERROR
+    sink.messages.clear()  # Clear the error message
 
     bad_param_value = workflow_spec.WorkflowConfig(
         identifier=workflow_id,
@@ -258,7 +268,8 @@ def test_service_can_recover_after_bad_workflow_id_was_set(
     app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
     app.publish_events(size=1000, time=5)
     service.step()
-    assert len(sink.messages) == 1  # Service recovered and started the workflow
+    # Service recovered and started the workflow, get status and data
+    assert len(sink.messages) == 2
 
 
 def test_service_can_recover_after_bad_workflow_param_was_set(
@@ -289,7 +300,7 @@ def test_service_can_recover_after_bad_workflow_param_was_set(
     service.step()
     app.publish_events(size=3000, time=4)
     service.step()
-    assert len(sink.messages) == 0  # Workflow not started
+    assert len(sink.messages) == 1  # Workflow not started, just an error message
 
     bad_param_value = workflow_spec.WorkflowConfig(
         identifier=workflow_id,
@@ -299,7 +310,8 @@ def test_service_can_recover_after_bad_workflow_param_was_set(
     app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
     app.publish_events(size=1000, time=5)
     service.step()
-    assert len(sink.messages) == 1  # Service recovered and started the workflow
+    # Service recovered and started the workflow, get 2*status and data
+    assert len(sink.messages) == 3
 
 
 def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
@@ -323,6 +335,7 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
     )
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
     service.step()
+    sink.messages.clear()  # Clear the workflow status message
 
     # Add events and verify workflow is running
     app.publish_events(size=2000, time=2)
@@ -340,8 +353,8 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
     # Add more events and verify the original workflow is still running
     app.publish_events(size=3000, time=4)
     service.step()
-    assert len(sink.messages) == 2
-    assert sink.messages[1].value.values.sum() == 5000
+    assert len(sink.messages) == 2 + 1  # + 1 for the workflow status message
+    assert sink.messages[2].value.values.sum() == 5000
 
     # Try to set a workflow with invalid parameters
     defaults = {param.name: param.default for param in spec.parameters}
@@ -354,8 +367,8 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
     # Add more events and verify the original workflow is still running
     app.publish_events(size=1000, time=6)
     service.step()
-    assert len(sink.messages) == 3
-    assert sink.messages[2].value.values.sum() == 6000
+    assert len(sink.messages) == 3 + 2  # + 2 for the workflow status messages
+    assert sink.messages[4].value.values.sum() == 6000
 
 
 @pytest.mark.parametrize(
@@ -399,6 +412,7 @@ def test_workflow_starts_with_specific_or_global_source_name(
     # Process config message before data arrives. Without calling step() the order of
     # processing of config vs data messages is not guaranteed.
     service.step()
+    sink.messages.clear()  # Clear workflow status message
 
     app.publish_events(size=2000, time=2)
     service.step()
@@ -428,6 +442,7 @@ def configured_dummy_reduction() -> BeamlimeApp:
     # Process config message before data arrives. Without calling step() the order of
     # processing of config vs data messages is not guaranteed.
     service.step()
+    sink.messages.clear()  # Clear workflow start message
     return app
 
 
