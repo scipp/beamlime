@@ -9,4 +9,5 @@ essreduce>=25.03.1
 jinja2
 pydantic>=2
 scipp>=25.02.0
+scippneutron>=25.06.0
 pooch
