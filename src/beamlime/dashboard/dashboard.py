@@ -30,6 +30,9 @@ from .data_streams import MonitorStreamManager, ReductionStreamManager
 from .kafka_bridge import KafkaBridge
 from .orchestrator import Orchestrator
 
+# Global throttling for sliders, etc.
+pn.config.throttled = True
+
 
 class DashboardBase(ServiceBase, ABC):
     """Base class for dashboard applications providing common functionality."""
@@ -130,7 +133,13 @@ class DashboardBase(ServiceBase, ABC):
 
     def _step(self):
         """Step function for periodic updates."""
-        self._orchestrator.update()
+        # We use hold() to ensure that the UI does not update repeatedly when multiple
+        # messages are processed in a single step. This is important to avoid, e.g.,
+        # multiple lines in the same plot, or different plots updating in short
+        # succession, which is visually distracting.
+        # Furthermore, this improves performance by reducing the number of re-renders.
+        with pn.io.hold():
+            self._orchestrator.update()
 
     def get_dashboard_title(self) -> str:
         """Get the dashboard title. Override for custom titles."""
