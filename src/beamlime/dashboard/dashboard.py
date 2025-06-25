@@ -162,7 +162,7 @@ class DashboardBase(ServiceBase, ABC):
                     self._step()
                     self._config_service.process_incoming_messages()
                 except Exception:
-                    self._logger.exception("Error in periodic update step: %s")
+                    self._logger.exception("Error in periodic update step.")
 
             self._callback = pn.state.add_periodic_callback(_safe_step, period=period)
             self._logger.info("Periodic updates started")
