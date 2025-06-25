@@ -34,6 +34,7 @@ extensions = [
     "sphinx_design",
     "nbsphinx",
     "myst_parser",
+    "sphinxcontrib.mermaid",
 ]
 
 try:
@@ -62,6 +63,7 @@ myst_enable_extensions = [
 ]
 
 myst_heading_anchors = 3
+myst_fence_as_directive = ['mermaid']  # Enable "```mermaid" to start mermaid blocks
 
 autodoc_type_aliases = {
     "array_like": "array_like",

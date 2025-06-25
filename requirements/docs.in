@@ -9,6 +9,7 @@ sphinx
 sphinx-autodoc-typehints
 sphinx-copybutton
 sphinx-design
+sphinxcontrib-mermaid
 ipympl
 pythreejs
 pandas
