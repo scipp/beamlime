@@ -47,10 +47,14 @@ class DataSubscriber(ABC):
         """
         Trigger the pipe with the current data store.
 
+        Extracts the relevant data from the store based on the keys this pipe depends on
+        and sends it to the pipe.
+
         Parameters
         ----------
         store:
-            The complete data store containing all keys this pipe depends on.
+            The complete data store containing all keys this pipe depends on. In
+            practice this is the data dict of the :py:class:`DataService` instance.
         """
         data = {key: store[key] for key in self.keys if key in store}
         self.send(data)
@@ -63,5 +67,5 @@ class DataSubscriber(ABC):
         Parameters
         ----------
         data:
-            Complete data for all keys this pipe depends on.
+            Data of any available keys the pipe depends on. May be a subset of the keys.
         """
