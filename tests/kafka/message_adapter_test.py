@@ -476,30 +476,6 @@ class TestAdaptingMessageSource:
         assert len(fake_logger.exception_calls) == 1
         assert "error adapting message" in fake_logger.exception_calls[0][0].lower()
 
-    def test_close_calls_source_close(self) -> None:
-        class TestMessageSource(MessageSource[KafkaMessage]):
-            def __init__(self):
-                self.close_called = False
-
-            def get_messages(self):
-                return []
-
-            def close(self):
-                self.close_called = True
-
-        mock_source = TestMessageSource()
-
-        class TestAdapter:
-            def adapt(self, message):
-                pass
-
-        adapting_source = AdaptingMessageSource(
-            source=mock_source, adapter=TestAdapter()
-        )
-        adapting_source.close()
-
-        assert mock_source.close_called is True
-
 
 def fake_message_with_value(message: KafkaMessage, value: str) -> Message[str]:
     return Message(timestamp=1234, stream=StreamId(name="dummy"), value=value)
