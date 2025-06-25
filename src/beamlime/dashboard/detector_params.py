@@ -3,7 +3,7 @@
 import param
 
 from ..config import models
-from .params import DetectorDataParam
+from .config_backed_param import DetectorDataParam
 
 
 class TOARangeParam(DetectorDataParam):

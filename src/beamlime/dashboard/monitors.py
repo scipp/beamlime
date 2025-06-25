@@ -11,7 +11,7 @@ from beamlime import Service
 
 from . import plots
 from .dashboard import DashboardBase
-from .monitors_params import TOAEdgesParam
+from .monitor_params import TOAEdgesParam
 
 pn.extension('holoviews', template='material')
 hv.extension('bokeh')

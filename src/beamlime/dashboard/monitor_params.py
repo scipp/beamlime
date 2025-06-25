@@ -3,7 +3,7 @@
 import param
 
 from ..config import models
-from .params import MonitorDataParam
+from .config_backed_param import MonitorDataParam
 
 
 class TOAEdgesParam(MonitorDataParam):

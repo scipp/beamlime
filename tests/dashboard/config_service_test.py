@@ -12,7 +12,7 @@ from beamlime.dashboard.config_service import (
     FakeMessageBridge,
     LoopbackMessageBridge,
 )
-from beamlime.dashboard.detector_config import TOARangeParam
+from beamlime.dashboard.detector_params import TOARangeParam
 
 
 # Test models for more comprehensive testing

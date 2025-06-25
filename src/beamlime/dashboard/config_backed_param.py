@@ -10,7 +10,7 @@ from ..config import models
 from .config_service import ConfigService
 
 
-class BaseParamModel(param.Parameterized):
+class ConfigBackedParam(param.Parameterized):
     """Base class for parameter models with config service integration."""
 
     def from_pydantic(self) -> Callable[..., None]:
@@ -68,7 +68,7 @@ class BaseParamModel(param.Parameterized):
         param.bind(set_as_pydantic, **param_kwargs, watch=True)
 
 
-class MonitorDataParam(BaseParamModel):
+class MonitorDataParam(ConfigBackedParam):
     """Base class for monitor data parameters."""
 
     @property
@@ -76,7 +76,7 @@ class MonitorDataParam(BaseParamModel):
         return 'monitor_data'
 
 
-class DetectorDataParam(BaseParamModel):
+class DetectorDataParam(ConfigBackedParam):
     """Base class for detector data parameters."""
 
     @property
@@ -84,7 +84,7 @@ class DetectorDataParam(BaseParamModel):
         return 'detector_data'
 
 
-class DataReductionParam(BaseParamModel):
+class DataReductionParam(ConfigBackedParam):
     """Base class for data reduction parameters."""
 
     @property
