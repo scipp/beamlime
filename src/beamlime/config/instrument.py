@@ -9,7 +9,7 @@ from typing import Any
 
 from ess.reduce.streaming import StreamProcessor
 
-from beamlime.config.models import Parameter
+from beamlime.config.workflow_spec import Parameter
 from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 
 

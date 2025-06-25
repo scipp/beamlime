@@ -1,19 +1,40 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 
-from typing import NewType
+from typing import Literal, NewType
 
-import sciline
+import ess.powder.types  # noqa: F401
 import scipp as sc
+from ess import dream, powder
+from ess.dream.workflow import DreamPowderWorkflow
+from ess.reduce.nexus.types import (
+    DetectorData,
+    Filename,
+    NeXusData,
+    NeXusName,
+    SampleRun,
+)
 from ess.reduce.streaming import StreamProcessor
+from scippnexus import NXdetector
 
 from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
+from beamlime.config.workflow_spec import Parameter, ParameterType
+from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
-instrument = Instrument(name='dream')
+instrument = Instrument(
+    name='dream',
+    source_to_key={
+        'mantle_detector': NeXusData[NXdetector, SampleRun],
+        'endcap_backward_detector': NeXusData[NXdetector, SampleRun],
+        'endcap_forward_detector': NeXusData[NXdetector, SampleRun],
+        'high_resolution_detector': NeXusData[NXdetector, SampleRun],
+        'monitor1': NeXusData[powder.types.CaveMonitor, SampleRun],
+    },
+)
 
 
 def _get_mantle_front_layer(da: sc.DataArray) -> sc.DataArray:
@@ -72,76 +93,8 @@ detectors_config = {
         'endcap_backward_detector': (71618, 229376),
         'endcap_forward_detector': (1, 71680),
         'high_resolution_detector': (1122337, 1523680),  # Note: Not consecutive!
+        'sans_detector': (0, 0),  # TODO
     },
-}
-
-
-# Below is a dummy workflow for early dev and testing purposes.
-# This will be replaced by a real workflow provided by the ess.dream package.
-RawDetectorData = NewType('RawDetectorData', sc.DataArray)
-DetectorData = NewType('DetectorData', sc.DataArray)
-RawMon1 = NewType('RawMon1', sc.DataArray)
-RawMon2 = NewType('RawMon2', sc.DataArray)
-Mon1 = NewType('Mon1', sc.DataArray)
-Mon2 = NewType('Mon2', sc.DataArray)
-TransmissionFraction = NewType('TransmissionFraction', sc.DataArray)
-IofQ = NewType('IofQ', sc.DataArray)
-
-
-def process_detector_data(raw_detector_data: RawDetectorData) -> DetectorData:
-    return raw_detector_data.bins.concat().hist(
-        event_time_offset=sc.linspace(
-            'event_time_offset', 0, 71_000_000, num=100, unit='ns'
-        )
-    )
-
-
-def process_mon1(raw_mon1: RawMon1) -> Mon1:
-    return raw_mon1.sum()
-
-
-def process_mon2(raw_mon2: RawMon2) -> Mon2:
-    return raw_mon2.sum()
-
-
-def transmission_fraction(mon1: Mon1, mon2: Mon2) -> TransmissionFraction:
-    return mon2 / mon1
-
-
-def iofq(data: DetectorData, transmission_fraction: TransmissionFraction) -> IofQ:
-    return data / transmission_fraction
-
-
-wf = sciline.Pipeline(
-    (process_detector_data, process_mon1, process_mon2, transmission_fraction, iofq)
-)
-
-
-def _make_processor():
-    return StreamProcessor(
-        wf,
-        dynamic_keys=(RawMon1, RawMon2, RawDetectorData),
-        accumulators=(Mon1, Mon2, DetectorData),
-        target_keys=(IofQ,),
-    )
-
-
-def make_stream_processors():
-    return {
-        'mantle_detector': _make_processor(),
-        'endcap_backward_detector': _make_processor(),
-        'endcap_forward_detector': _make_processor(),
-        'high_resolution_detector': _make_processor(),
-    }
-
-
-source_to_key = {
-    'mantle_detector': RawDetectorData,
-    'endcap_backward_detector': RawDetectorData,
-    'endcap_forward_detector': RawDetectorData,
-    'high_resolution_detector': RawDetectorData,
-    'monitor1': RawMon1,
-    'monitor2': RawMon2,
 }
 
 
@@ -165,6 +118,130 @@ def _make_dream_detectors() -> StreamLUT:
         ): f'{value}_detector'
         for key, value in mapping.items()
     }
+
+
+_reduction_workflow = DreamPowderWorkflow(
+    run_norm=powder.RunNormalization.monitor_integrated
+)
+
+_source_names = [
+    'mantle_detector',
+    'endcap_backward_detector',
+    'endcap_forward_detector',
+    'high_resolution_detector',
+]
+
+TotalCounts = NewType('TotalCounts', sc.DataArray)
+
+
+def _total_counts(data: DetectorData[SampleRun]) -> TotalCounts:
+    """Dummy provider for some plottable result of total counts."""
+    return TotalCounts(
+        data.hist(
+            event_time_offset=sc.linspace(
+                'event_time_offset', 0, 71_000_000, num=1000, unit='ns'
+            ),
+            dim=data.dims,
+        )
+    )
+
+
+_reduction_workflow.insert(_total_counts)
+_reduction_workflow[powder.types.DspacingBins] = sc.linspace(
+    dim='dspacing',
+    start=0.1,
+    stop=5.0,
+    num=2000,
+    unit='angstrom',
+)
+_reduction_workflow[powder.types.TwoThetaBins] = sc.linspace(
+    dim="two_theta", unit="rad", start=0.4, stop=3.1415, num=201
+)
+_reduction_workflow[powder.types.CalibrationData] = None
+_reduction_workflow = powder.with_pixel_mask_filenames(_reduction_workflow, [])
+_reduction_workflow[powder.types.UncertaintyBroadcastMode] = (
+    powder.types.UncertaintyBroadcastMode.drop
+)
+_reduction_workflow[powder.types.KeepEvents[SampleRun]] = powder.types.KeepEvents[
+    SampleRun
+](False)
+
+# dream-no-shape is a much smaller file without pixel_shape, which is not needed for
+# data reduction.
+geometry_file_param = Parameter(
+    name='GeometryFile',
+    description='NeXus file containing instrument geometry and other static data.',
+    param_type=ParameterType.STRING,
+    default=str(get_nexus_geometry_filename('dream-no-shape')),
+)
+wavelength_mask_low_param = Parameter(
+    name='WavelengthMaskLow',
+    description='Wavelengths below this will be excluded.',
+    param_type=ParameterType.FLOAT,
+    default=1.0,
+    unit='angstrom',
+)
+wavelength_mask_high_param = Parameter(
+    name='WavelengthMaskHigh',
+    description='Wavelengths above this will be excluded.',
+    param_type=ParameterType.FLOAT,
+    default=5.0,
+    unit='angstrom',
+)
+instrument_configuration_param = Parameter(
+    name='InstrumentConfiguration',
+    description='Chopper settings determining TOA to TOF conversion.',
+    param_type=ParameterType.OPTIONS,
+    default='High-flux (BC=240)',
+    options=('High-flux (BC=215)', 'High-flux (BC=240)', 'High-resolution'),
+)
+
+
+@instrument.register_workflow(
+    name='Powder reduction',
+    source_names=_source_names,
+    parameters=[
+        geometry_file_param,
+        wavelength_mask_low_param,
+        wavelength_mask_high_param,
+        instrument_configuration_param,
+    ],
+)
+def _powder_workflow(
+    source_name: str,
+    GeometryFile: str,
+    WavelengthMaskLow: float,
+    WavelengthMaskHigh: float,
+    InstrumentConfiguration: Literal[
+        'High-flux (BC=215)', 'High-flux (BC=240)', 'High-resolution'
+    ],
+) -> StreamProcessor:
+    wf = _reduction_workflow.copy()
+    wf[NeXusName[NXdetector]] = source_name
+    wf[Filename[SampleRun]] = GeometryFile
+    wf[dream.InstrumentConfiguration] = {
+        'High-flux (BC=215)': dream.InstrumentConfiguration.high_flux_BC215,
+        'High-flux (BC=240)': dream.InstrumentConfiguration.high_flux_BC240,
+        'High-resolution': dream.InstrumentConfiguration.high_resolution,
+    }[InstrumentConfiguration]
+    wmin = sc.scalar(WavelengthMaskLow, unit=wavelength_mask_low_param.unit)
+    wmax = sc.scalar(WavelengthMaskHigh, unit=wavelength_mask_high_param.unit)
+    wf[powder.types.WavelengthMask] = lambda w: (w < wmin) | (w > wmax)
+    return StreamProcessor(
+        wf,
+        dynamic_keys=(
+            NeXusData[NXdetector, SampleRun],
+            NeXusData[powder.types.CaveMonitor, SampleRun],
+        ),
+        target_keys=(
+            powder.types.FocussedDataDspacing[SampleRun],
+            powder.types.FocussedDataDspacingTwoTheta[SampleRun],
+        ),
+        accumulators=(
+            powder.types.ReducedCountsDspacing[SampleRun],
+            powder.types.WavelengthMonitor[SampleRun, powder.types.CaveMonitor],
+        ),
+    )
 
 
 stream_mapping = {

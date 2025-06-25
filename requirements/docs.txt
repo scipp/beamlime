@@ -43,7 +43,7 @@ ipykernel==6.29.5
     # via -r docs.in
 ipympl==0.9.7
     # via -r docs.in
-jsonschema==4.23.0
+jsonschema==4.24.0
     # via nbformat
 jsonschema-specifications==2025.4.1
     # via jsonschema
@@ -51,7 +51,7 @@ jupyter-client==8.6.3
     # via
     #   ipykernel
     #   nbclient
-jupyter-core==5.7.2
+jupyter-core==5.8.1
     # via
     #   ipykernel
     #   jupyter-client
@@ -95,7 +95,7 @@ pyarrow==20.0.0
     # via -r docs.in
 pydata-sphinx-theme==0.16.1
     # via -r docs.in
-pyzmq==26.4.0
+pyzmq==27.0.0
     # via
     #   ipykernel
     #   jupyter-client
@@ -103,7 +103,7 @@ referencing==0.36.2
     # via
     #   jsonschema
     #   jsonschema-specifications
-rpds-py==0.25.0
+rpds-py==0.25.1
     # via
     #   jsonschema
     #   referencing
@@ -140,7 +140,7 @@ sphinxcontrib-serializinghtml==2.0.0
     # via sphinx
 tinycss2==1.4.0
     # via bleach
-tornado==6.5
+tornado==6.5.1
     # via
     #   ipykernel
     #   jupyter-client
