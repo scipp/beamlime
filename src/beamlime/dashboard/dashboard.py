@@ -23,11 +23,12 @@ from beamlime.kafka.message_adapter import (
 )
 from beamlime.kafka.source import KafkaMessageSource
 
+from .background_message_bridge import BackgroundMessageBridge
 from .config_service import ConfigSchemaManager, ConfigService
 from .data_forwarder import DataForwarder
 from .data_service import DataService
 from .data_streams import MonitorStreamManager, ReductionStreamManager
-from .kafka_bridge import KafkaBridge
+from .kafka_transport import KafkaTransport
 from .orchestrator import Orchestrator
 
 # Global throttling for sliders, etc.
@@ -76,8 +77,11 @@ class DashboardBase(ServiceBase, ABC):
         _, consumer = self._exit_stack.enter_context(
             kafka_consumer.make_control_consumer(instrument=self._instrument)
         )
-        self._kafka_bridge = KafkaBridge(
+        kafka_transport = KafkaTransport(
             kafka_config=kafka_downstream_config, consumer=consumer, logger=self._logger
+        )
+        self._kafka_bridge = BackgroundMessageBridge(
+            transport=kafka_transport, logger=self._logger
         )
         self._config_service = ConfigService(
             message_bridge=self._kafka_bridge, schema_validator=ConfigSchemaManager()
