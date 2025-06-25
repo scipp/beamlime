@@ -3,7 +3,6 @@
 import json
 import logging
 import time
-from queue import Empty, Queue
 from typing import Any
 
 from confluent_kafka import Consumer, KafkaError, Producer
@@ -12,6 +11,7 @@ from ..config.models import ConfigKey
 from ..handlers.config_handler import ConfigUpdate
 from ..kafka.message_adapter import RawConfigItem
 from .config_service import MessageBridge
+from .deduplicating_message_store import DeduplicatingMessageStore
 
 
 class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
@@ -42,8 +42,8 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
         self._max_batch_size = max_batch_size
 
         # Message queues
-        self._outgoing_queue = Queue()
-        self._incoming_queue = Queue()
+        self._outgoing_queue = DeduplicatingMessageStore[ConfigKey, Any]()
+        self._incoming_queue = DeduplicatingMessageStore[ConfigKey, Any]()
 
         # Thread management
         self._running = False
@@ -69,15 +69,11 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
             self._logger.warning("Cannot publish - adapter not running")
             return
 
-        self._outgoing_queue.put((key, value))
+        self._outgoing_queue.put(key, value)
 
-    def pop_message(self) -> tuple[ConfigKey, dict[str, Any]] | None:
+    def pop_all(self) -> dict[ConfigKey, dict[str, Any]]:
         """Pop a decoded message from the incoming queue (non-blocking)."""
-        try:
-            update = self._incoming_queue.get_nowait()
-            return (update.config_key, update.value)
-        except Empty:
-            return None
+        return self._incoming_queue.pop_all()
 
     def _run_loop(self) -> None:
         """Main loop running in background thread."""
@@ -107,22 +103,19 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
         messages_processed = False
 
         try:
-            while not self._outgoing_queue.empty():
-                key, value = self._outgoing_queue.get_nowait()
+            for key, value in self._outgoing_queue.pop_all().items():
                 self._producer.produce(
                     self._topic,
                     key=str(key).encode("utf-8"),
                     value=json.dumps(value).encode("utf-8"),
                     callback=self._delivery_callback,
                 )
-                self._outgoing_queue.task_done()
                 messages_processed = True
 
             # Poll producer for delivery reports (non-blocking)
-            self._producer.poll(0)
+            if messages_processed:
+                self._producer.poll(0)
 
-        except Empty:
-            pass
         except Exception as e:
             self._logger.error("Error processing outgoing messages: %s", e)
 
@@ -157,7 +150,9 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
             try:
                 decoded_update = self._decode_update(msg)
                 if decoded_update:
-                    self._incoming_queue.put(decoded_update)
+                    self._incoming_queue.put(
+                        decoded_update.config_key, decoded_update.value
+                    )
                     messages_processed += 1
 
             except Exception as e:

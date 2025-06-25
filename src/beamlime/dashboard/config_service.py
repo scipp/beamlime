@@ -3,7 +3,6 @@
 import logging
 from collections import UserDict, defaultdict
 from collections.abc import Callable
-from contextlib import contextmanager
 from typing import Any, Generic, Protocol, TypeVar
 
 import pydantic
@@ -19,8 +18,8 @@ class MessageBridge(Protocol, Generic[K, Serialized]):
     def publish(self, key: K, value: Serialized) -> None:
         """Publish a configuration update message."""
 
-    def pop_message(self) -> tuple[K, Serialized] | None:
-        """Pop the next available configuration update message."""
+    def pop_all(self) -> dict[K, Serialized]:
+        """Pop all available configuration update messages."""
 
 
 class ConfigSchemaValidator(Protocol, Generic[K, Serialized, V]):
@@ -159,34 +158,16 @@ class ConfigService(Generic[K, Serialized, V]):
             # Communication with message bridge is using raw JSON.
             self._message_bridge.publish(key, self.schema_validator.serialize(value))
 
-    @contextmanager
-    def _disable_updates(self):
-        """Context manager to temporarily disable update_config."""
-        old_state = self._update_disabled
-        self._update_disabled = True
-        try:
-            yield
-        finally:
-            self._update_disabled = old_state
-
-    def process_incoming_messages(self, num: int = 1000) -> None:
+    def process_incoming_messages(self) -> None:
         """Process any available incoming messages from the message bridge."""
         if not self._message_bridge:
             return
 
-        with self._disable_updates():
-            # Gather updates but only handle latest message for each key to avoid
-            # flooding subscribers with multiple updates or not fully compacted data.
-            # We would otherwise see a replay of the history of updates, e.g., in widget
-            # states. In practice this only really happens at startup.
-            updates = {}
-            for _ in range(num):
-                if (update := self._message_bridge.pop_message()) is not None:
-                    updates[update[0]] = update[1]
-                else:
-                    break
-            for key, value in updates.items():
-                self._handle_config_update(key, value)
+        # The message bridge should deal with key-based deduplication. To be sure, we
+        # convert the messages to a dict, which will overwrite any duplicates.
+        messages = dict(self._message_bridge.pop_all())
+        for key, value in messages.items():
+            self._handle_config_update(key, value)
 
     def _handle_config_update(self, key: K, value: Serialized) -> None:
         """Handle a configuration update from the message bridge."""
@@ -229,11 +210,11 @@ class FakeMessageBridge(MessageBridge[K, V], Generic[K, V]):
         """Store published messages for inspection."""
         self._published_messages.append((key, value))
 
-    def pop_message(self) -> tuple[K, V] | None:
+    def pop_all(self) -> dict[K, V]:
         """Pop the next message from the incoming queue."""
-        if self._incoming_messages:
-            return self._incoming_messages.pop(0)
-        return None
+        messages = self._incoming_messages.copy()
+        self._incoming_messages.clear()
+        return dict(messages)
 
     def add_incoming_message(self, update: tuple[K, V]) -> None:
         """Add a message to the incoming queue for testing."""
@@ -259,11 +240,11 @@ class LoopbackMessageBridge(MessageBridge[K, V], Generic[K, V]):
         """Store messages and loop them back to incoming."""
         self.messages.append((key, value))
 
-    def pop_message(self) -> tuple[K, V] | None:
+    def pop_all(self) -> dict[K, V]:
         """Pop the next message from the queue."""
-        if self.messages:
-            return self.messages.pop(0)
-        return None
+        messages = self.messages.copy()
+        self.messages.clear()
+        return dict(messages)
 
     def add_incoming_message(self, update: tuple[K, V]) -> None:
         """Add a message to the incoming queue."""

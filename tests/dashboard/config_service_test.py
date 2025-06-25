@@ -166,13 +166,10 @@ class TestConfigService:
         toa_range.low = 1500.0
         assert len(bridge.messages) == 2
 
-        # Process the external message. Should NOT trigger another update to the bridge
-        service.process_incoming_messages(num=1)
-        assert toa_range.low == 1000.0
-        assert len(bridge.messages) == 1
-
-        # Process our own update. Should NOT trigger another update to the bridge
-        service.process_incoming_messages(num=1)
+        # Process all messages - deduplication ensures only latest value per key
+        service.process_incoming_messages()
+        # After processing, toa_range should have the external value (1000.0)
+        # then our update (1500.0), but deduplication means only our update remains
         assert toa_range.low == 1500.0
         assert len(bridge.messages) == 0
 
@@ -378,7 +375,7 @@ class TestConfigService:
         service_with_bridge: tuple[ConfigService, FakeMessageBridge],
         simple_key: str,
     ) -> None:
-        """Test that message processing respects the num parameter."""
+        """Test that all messages are processed with deduplication."""
         service, bridge = service_with_bridge
         callback = FakeCallback()
         service.subscribe(simple_key, callback)
@@ -386,12 +383,15 @@ class TestConfigService:
         for i in range(5):
             bridge.add_incoming_message((simple_key, {"value": i, "name": f"msg{i}"}))
 
-        service.process_incoming_messages(num=3)
+        # Process all messages - deduplication ensures only the last value
+        service.process_incoming_messages()
 
-        assert len(bridge._incoming_messages) == 2
+        # All messages should be processed, no remaining messages
+        assert len(bridge._incoming_messages) == 0
 
+        # Only the last message should be applied due to deduplication
         config = service.get(simple_key)
-        assert config.value == 2
+        assert config.value == 4
 
     def test_process_incoming_messages_deduplication(
         self,
@@ -437,27 +437,6 @@ class TestConfigService:
         assert failing_callback.call_count == 1
         assert working_callback.called is True
         assert working_callback.data == config
-
-    def test_disable_updates_context_manager(
-        self,
-        service_with_bridge: tuple[ConfigService, FakeMessageBridge],
-        simple_key: str,
-    ) -> None:
-        """Test that the disable updates context manager works correctly."""
-        service, bridge = service_with_bridge
-        config = SimpleConfig(value=600, name="disabled")
-
-        service.update_config(simple_key, config)
-        assert len(bridge.get_published_messages()) == 1
-
-        with service._disable_updates():
-            config2 = SimpleConfig(value=700, name="should_not_publish")
-            service.update_config(simple_key, config2)
-            assert len(bridge.get_published_messages()) == 1
-
-        config3 = SimpleConfig(value=800, name="enabled_again")
-        service.update_config(simple_key, config3)
-        assert len(bridge.get_published_messages()) == 2
 
     def test_register_schema_with_manager(self, service: ConfigService) -> None:
         """Test registering a new schema with ConfigSchemaManager."""
@@ -538,25 +517,6 @@ class TestConfigService:
 
         assert len(captured) >= 2
 
-    def test_update_config_during_disabled_updates_ignored(
-        self, service: ConfigService, simple_key: str
-    ) -> None:
-        """Test that config updates are ignored when updates are disabled."""
-        config1 = SimpleConfig(value=100, name="initial")
-        service.update_config(simple_key, config1)
-
-        with service._disable_updates():
-            config2 = SimpleConfig(value=200, name="ignored")
-            service.update_config(simple_key, config2)
-            # Config should remain unchanged in local state
-            # Note: This tests the internal state, the actual behavior
-            # may depend on the implementation details
-
-        # After context, updates should work again
-        config3 = SimpleConfig(value=300, name="works_again")
-        service.update_config(simple_key, config3)
-        assert service.get(simple_key) == config3
-
     def test_callback_receives_exact_data_object(
         self, service: ConfigService, simple_key: str
     ) -> None:
@@ -570,12 +530,11 @@ class TestConfigService:
 
         assert callback.data is config
 
-    def test_multiple_process_calls_handle_remaining_messages(
+    def test_multiple_process_calls_handle_all_messages(
         self,
         service_with_bridge: tuple[ConfigService, FakeMessageBridge],
         simple_key: str,
     ) -> None:
-        """Test that multiple process calls handle all messages."""
         service, bridge = service_with_bridge
         callback = FakeCallback()
         service.subscribe(simple_key, callback)
@@ -584,10 +543,8 @@ class TestConfigService:
         for i in range(10):
             bridge.add_incoming_message((simple_key, {"value": i, "name": f"msg{i}"}))
 
-        # Process in batches
-        service.process_incoming_messages(num=4)
-        service.process_incoming_messages(num=4)
-        service.process_incoming_messages(num=4)
+        # Process all messages at once
+        service.process_incoming_messages()
 
         # Should have processed all messages (deduplication means only last value)
         config = service.get(simple_key)
