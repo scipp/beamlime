@@ -23,12 +23,12 @@ from beamlime.kafka.message_adapter import (
 )
 from beamlime.kafka.source import KafkaMessageSource
 
-from .background_message_bridge import BackgroundMessageBridge
 from .config_service import ConfigSchemaManager, ConfigService
 from .data_forwarder import DataForwarder
 from .data_service import DataService
 from .data_streams import MonitorStreamManager, ReductionStreamManager
 from .kafka_transport import KafkaTransport
+from .message_bridge import BackgroundMessageBridge
 from .orchestrator import Orchestrator
 
 # Global throttling for sliders, etc.

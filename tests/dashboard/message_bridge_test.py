@@ -5,7 +5,7 @@ import time
 from typing import Any
 
 from beamlime.config.models import ConfigKey
-from beamlime.dashboard.background_message_bridge import BackgroundMessageBridge
+from beamlime.dashboard.message_bridge import BackgroundMessageBridge
 from beamlime.dashboard.message_transport import FakeTransport
 
 
