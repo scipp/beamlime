@@ -1,17 +1,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-import json
 import logging
 import time
 from typing import Any
 
-from confluent_kafka import Consumer, KafkaError, Producer
+from confluent_kafka import Consumer
 
 from ..config.models import ConfigKey
-from ..handlers.config_handler import ConfigUpdate
-from ..kafka.message_adapter import RawConfigItem
 from .config_service import MessageBridge
-from .deduplicating_message_store import DeduplicatingMessageStore
+from .kafka_transport import KafkaTransport
+from .message_processor import MessageProcessor
 
 
 class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
@@ -30,27 +28,26 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
         incoming_poll_interval: float = 1.0,
         max_batch_size: int = 100,
     ):
-        if len(consumer.assignment()) != 1:
-            raise ValueError(
-                "KafkaBridge requires a single topic assignment for the consumer"
-            )
-        self._topic = next(iter(consumer.assignment())).topic
         self._logger = logger or logging.getLogger(__name__)
-        self._producer = Producer(kafka_config)
-        self._consumer = consumer
-        self._incoming_poll_interval = incoming_poll_interval
-        self._max_batch_size = max_batch_size
 
-        # Message queues
-        self._outgoing_queue = DeduplicatingMessageStore[ConfigKey, Any]()
-        self._incoming_queue = DeduplicatingMessageStore[ConfigKey, Any]()
+        # Create transport and processor
+        transport = KafkaTransport(
+            kafka_config=kafka_config,
+            consumer=consumer,
+            logger=self._logger,
+            max_batch_size=max_batch_size,
+        )
+
+        self._processor = MessageProcessor(
+            transport=transport,
+            incoming_poll_interval=incoming_poll_interval,
+        )
 
         # Thread management
         self._running = False
 
-        # Timing control for incoming messages
-        self._last_incoming_check = 0.0
-        self._logger.info("KafkaBridge initialized for topic: %s", self._topic)
+        topic = next(iter(consumer.assignment())).topic
+        self._logger.info("KafkaBridge initialized for topic: %s", topic)
 
     def start(self) -> None:
         """Start the background thread for Kafka operations."""
@@ -69,113 +66,26 @@ class KafkaBridge(MessageBridge[ConfigKey, dict[str, Any]]):
             self._logger.warning("Cannot publish - adapter not running")
             return
 
-        self._outgoing_queue.put(key, value)
+        self._processor.publish(key, value)
 
     def pop_all(self) -> dict[ConfigKey, dict[str, Any]]:
         """Pop a decoded message from the incoming queue (non-blocking)."""
-        return self._incoming_queue.pop_all()
+        return self._processor.pop_all()
 
     def _run_loop(self) -> None:
         """Main loop running in background thread."""
         self._logger.info("Starting KafkaBridge background thread loop")
-        self._consumer.subscribe([self._topic])
-        self._logger.info("Subscribed to topic: %s", self._topic)
 
         try:
             while self._running:
-                # Process outgoing messages immediately when available
-                has_outgoing = self._process_outgoing_messages()
-
-                # Process incoming messages only after interval has passed
-                has_incoming = self._process_incoming_messages_timed()
+                # Process one cycle of messages
+                has_messages = self._processor.process_cycle()
 
                 # If no messages were processed, sleep briefly to avoid busy waiting
-                if not (has_outgoing or has_incoming):
+                if not has_messages:
                     time.sleep(0.001)  # 1ms sleep when idle
 
         except Exception as e:
             self._logger.exception("Error in KafkaAdapter run loop: %s", e)
         finally:
             self._running = False
-
-    def _process_outgoing_messages(self) -> bool:
-        """Process messages from outgoing queue and send to Kafka."""
-        messages_processed = False
-
-        try:
-            for key, value in self._outgoing_queue.pop_all().items():
-                self._producer.produce(
-                    self._topic,
-                    key=str(key).encode("utf-8"),
-                    value=json.dumps(value).encode("utf-8"),
-                    callback=self._delivery_callback,
-                )
-                messages_processed = True
-
-            # Poll producer for delivery reports (non-blocking)
-            if messages_processed:
-                self._producer.poll(0)
-
-        except Exception as e:
-            self._logger.error("Error processing outgoing messages: %s", e)
-
-        return messages_processed
-
-    def _process_incoming_messages_timed(self) -> bool:
-        """Process incoming messages from Kafka with time-based control."""
-        current_time = time.time()
-
-        # Only check for incoming messages after the interval has passed
-        if current_time - self._last_incoming_check < self._incoming_poll_interval:
-            return False
-
-        self._last_incoming_check = current_time
-        return self._process_incoming_messages()
-
-    def _process_incoming_messages(self) -> bool:
-        """Process incoming messages from Kafka in batches."""
-        messages_processed = 0
-
-        # Consume up to max_batch_size messages in one batch
-        msgs = self._consumer.consume(num_messages=self._max_batch_size, timeout=0.1)
-
-        for msg in msgs:
-            if msg.error():
-                if msg.error().code() == KafkaError._PARTITION_EOF:
-                    continue
-                else:
-                    self._logger.error("Consumer error: %s", msg.error())
-                    continue
-
-            try:
-                decoded_update = self._decode_update(msg)
-                if decoded_update:
-                    self._incoming_queue.put(
-                        decoded_update.config_key, decoded_update.value
-                    )
-                    messages_processed += 1
-
-            except Exception as e:
-                self._logger.error("Failed to process incoming message: %s", e)
-
-        return messages_processed > 0
-
-    def _decode_update(self, msg) -> ConfigUpdate | None:
-        """Decode a Kafka message into a ConfigUpdate."""
-        try:
-            return ConfigUpdate.from_raw(
-                RawConfigItem(key=msg.key(), value=msg.value())
-            )
-
-        except Exception as e:
-            self._logger.exception("Failed to decode config message: %s", e)
-            return None
-
-    def _delivery_callback(self, err, msg) -> None:
-        """Callback for message delivery confirmation."""
-        if err:
-            self._logger.error("Message delivery failed: %s", err)
-        else:
-            self._logger.debug(
-                "Message delivered to %s [%s]", msg.topic(), msg.partition()
-            )
