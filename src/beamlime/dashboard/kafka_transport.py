@@ -32,10 +32,10 @@ class KafkaTransport(MessageTransport[ConfigKey, dict[str, Any]]):
         self._consumer = consumer
         self._max_batch_size = max_batch_size
 
-    def send_messages(self, messages: dict[ConfigKey, dict[str, Any]]) -> None:
+    def send_messages(self, messages: list[tuple[ConfigKey, dict[str, Any]]]) -> None:
         """Send messages to Kafka."""
         try:
-            for key, value in messages.items():
+            for key, value in messages:
                 self._producer.produce(
                     self._topic,
                     key=str(key).encode("utf-8"),
@@ -50,9 +50,9 @@ class KafkaTransport(MessageTransport[ConfigKey, dict[str, Any]]):
         except Exception as e:
             self._logger.error("Error sending messages: %s", e)
 
-    def receive_messages(self) -> dict[ConfigKey, dict[str, Any]]:
+    def receive_messages(self) -> list[tuple[ConfigKey, dict[str, Any]]]:
         """Receive messages from Kafka."""
-        received = {}
+        received = []
 
         try:
             msgs = self._consumer.consume(
@@ -70,7 +70,9 @@ class KafkaTransport(MessageTransport[ConfigKey, dict[str, Any]]):
                 try:
                     decoded_update = self._decode_update(msg)
                     if decoded_update:
-                        received[decoded_update.config_key] = decoded_update.value
+                        received.append(
+                            (decoded_update.config_key, decoded_update.value)
+                        )
                 except Exception as e:
                     self._logger.error("Failed to process incoming message: %s", e)
 
