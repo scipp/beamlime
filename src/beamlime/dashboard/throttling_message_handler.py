@@ -1,24 +1,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import time
-from typing import Generic, Protocol, TypeVar
+from typing import Generic, TypeVar
 
 from .deduplicating_message_store import DeduplicatingMessageStore
+from .message_transport import MessageTransport
 
 K = TypeVar('K')
 V = TypeVar('V')
-
-
-class MessageTransport(Protocol, Generic[K, V]):
-    """Protocol for transporting messages to/from external systems."""
-
-    def send_messages(self, messages: dict[K, V]) -> None:
-        """Send messages to external system."""
-        ...
-
-    def receive_messages(self) -> dict[K, V]:
-        """Receive messages from external system."""
-        ...
 
 
 class ThrottlingMessageHandler(Generic[K, V]):

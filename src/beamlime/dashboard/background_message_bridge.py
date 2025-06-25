@@ -6,7 +6,8 @@ from typing import Any
 
 from ..config.models import ConfigKey
 from .config_service import MessageBridge
-from .throttling_message_handler import MessageTransport, ThrottlingMessageHandler
+from .message_transport import MessageTransport
+from .throttling_message_handler import ThrottlingMessageHandler
 
 
 class BackgroundMessageBridge(MessageBridge[ConfigKey, dict[str, Any]]):

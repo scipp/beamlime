@@ -4,52 +4,8 @@ import time
 
 import pytest
 
-from beamlime.dashboard.throttling_message_handler import (
-    MessageTransport,
-    ThrottlingMessageHandler,
-)
-
-
-class FakeTransport(MessageTransport[str, str]):
-    """Fake transport for testing that tracks all interactions."""
-
-    def __init__(self):
-        self.sent_messages: list[dict[str, str]] = []
-        self.received_messages: list[dict[str, str]] = []
-        self.send_call_count = 0
-        self.receive_call_count = 0
-        self.should_fail_send = False
-        self.should_fail_receive = False
-
-    def send_messages(self, messages: dict[str, str]) -> None:
-        """Send messages to external system."""
-        self.send_call_count += 1
-        if self.should_fail_send:
-            raise RuntimeError("Transport send failed")
-        self.sent_messages.append(messages.copy())
-
-    def receive_messages(self) -> dict[str, str]:
-        """Receive messages from external system."""
-        self.receive_call_count += 1
-        if self.should_fail_receive:
-            raise RuntimeError("Transport receive failed")
-
-        if self.received_messages:
-            return self.received_messages.pop(0)
-        return {}
-
-    def add_incoming_messages(self, messages: dict[str, str]) -> None:
-        """Add messages to be returned by receive_messages."""
-        self.received_messages.append(messages)
-
-    def reset(self) -> None:
-        """Reset all tracking state."""
-        self.sent_messages.clear()
-        self.received_messages.clear()
-        self.send_call_count = 0
-        self.receive_call_count = 0
-        self.should_fail_send = False
-        self.should_fail_receive = False
+from beamlime.dashboard.message_transport import FakeTransport
+from beamlime.dashboard.throttling_message_handler import ThrottlingMessageHandler
 
 
 class TestThrottlingMessageHandler:
@@ -57,7 +13,7 @@ class TestThrottlingMessageHandler:
 
     def test_publish_stores_message_in_outgoing_queue(self):
         """Test that publish stores messages in the outgoing queue."""
-        transport = FakeTransport()
+        transport = FakeTransport[str, str]()
         handler = ThrottlingMessageHandler(transport)
 
         handler.publish("key1", "value1")
