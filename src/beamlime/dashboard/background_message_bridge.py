@@ -21,6 +21,7 @@ class BackgroundMessageBridge(MessageBridge[ConfigKey, dict[str, Any]]):
         self,
         transport: MessageTransport[ConfigKey, dict[str, Any]],
         logger: logging.Logger | None = None,
+        outgoing_poll_interval: float = 0.1,
         incoming_poll_interval: float = 1.0,
     ):
         self._logger = logger or logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class BackgroundMessageBridge(MessageBridge[ConfigKey, dict[str, Any]]):
         # Create processor with injected transport
         self._processor = DeduplicatingMessageHandler(
             transport=transport,
+            outgoing_poll_interval=outgoing_poll_interval,
             incoming_poll_interval=incoming_poll_interval,
         )
 
