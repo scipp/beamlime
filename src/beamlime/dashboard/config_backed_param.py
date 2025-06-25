@@ -13,7 +13,7 @@ from .config_service import ConfigService
 class ConfigBackedParam(param.Parameterized):
     """Base class for parameter models with config service integration."""
 
-    def from_pydantic(self) -> Callable[..., None]:
+    def from_pydantic(self) -> Callable[[pydantic.BaseModel], None]:
         """Wrapper to make linters/mypy happy with the callback signature."""
 
         def update_callback(model: pydantic.BaseModel) -> None:
