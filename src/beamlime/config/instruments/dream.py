@@ -149,8 +149,8 @@ def _total_counts(data: DetectorData[SampleRun]) -> TotalCounts:
 _reduction_workflow.insert(_total_counts)
 _reduction_workflow[powder.types.DspacingBins] = sc.linspace(
     dim='dspacing',
-    start=0.4,
-    stop=3.5,
+    start=0.1,
+    stop=5.0,
     num=2000,
     unit='angstrom',
 )
