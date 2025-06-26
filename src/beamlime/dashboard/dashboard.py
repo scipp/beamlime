@@ -27,10 +27,10 @@ from beamlime.kafka.source import KafkaMessageSource
 from .config_service import ConfigSchemaManager, ConfigService
 from .data_forwarder import DataForwarder
 from .data_service import DataService
-from .stream_manager import MonitorStreamManager, ReductionStreamManager
 from .kafka_transport import KafkaTransport
 from .message_bridge import BackgroundMessageBridge
 from .orchestrator import Orchestrator
+from .stream_manager import MonitorStreamManager, ReductionStreamManager
 
 # Global throttling for sliders, etc.
 pn.config.throttled = True

@@ -224,6 +224,37 @@ class TestReductionStreamManager:
         assert pipe4 is not pipe1
         assert fake_pipe_factory.call_count == 3
 
+    def test_data_flow_with_single_source(
+        self,
+        data_service: DataService,
+        fake_pipe_factory: FakePipeFactory,
+        sample_data: sc.DataArray,
+    ) -> None:
+        """Test data flow through reduction stream with single source."""
+        manager = ReductionStreamManager(
+            data_service=data_service, pipe_factory=fake_pipe_factory
+        )
+        source_names = {'source1'}
+        view_name = 'test_view'
+
+        pipe = manager.get_stream(source_names, view_name)
+        data_key = DataKey(
+            service_name='data_reduction',
+            source_name='source1',
+            key='reduced/source1/test_view',
+        )
+
+        # Set data in the service
+        data_service[data_key] = sample_data
+
+        # Verify data was sent through the pipe
+        assert len(pipe.send_calls) == 1
+        # The assembler merges data, so it should be a dict
+        sent_data = pipe.send_calls[0]
+        assert isinstance(sent_data, dict)
+        assert data_key in sent_data
+        assert sc.identical(sent_data[data_key], sample_data)
+
     def test_data_flow_with_multiple_sources(
         self,
         data_service: DataService,
@@ -401,54 +432,26 @@ class TestReductionStreamManager:
         assert len(pipe_single.send_calls) == 1  # Still 1 from before
         assert len(pipe_empty.send_calls) == 0  # Still 0
 
-    def test_get_stream_different_source_names_order_same_pipe(
-        self, data_service: DataService, fake_pipe_factory: FakePipeFactory
-    ) -> None:
-        """Test that different order of source names returns same pipe."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-
-        pipe1 = manager.get_stream({'source1', 'source2'}, 'test_view')
-        pipe2 = manager.get_stream({'source2', 'source1'}, 'test_view')
-
-        assert pipe1 is pipe2
-        assert fake_pipe_factory.call_count == 1
-
-    def test_get_stream_different_view_names_create_different_pipes(
-        self, data_service: DataService, fake_pipe_factory: FakePipeFactory
-    ) -> None:
-        """Test that different view names create different pipes."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-        source_names = {'source1', 'source2'}
-
-        pipe1 = manager.get_stream(source_names, 'view1')
-        pipe2 = manager.get_stream(source_names, 'view2')
-
-        assert pipe1 is not pipe2
-        assert fake_pipe_factory.call_count == 2
-
-    def test_get_stream_different_source_sets_create_different_pipes(
+    def test_streams_with_shared_source_are_both_triggered(
         self,
         data_service: DataService,
         fake_pipe_factory: FakePipeFactory,
         sample_data: sc.DataArray,
     ) -> None:
-        """Test that different source sets create different pipes."""
+        """Test that streams with a shared source are both triggered by an update."""
         manager = ReductionStreamManager(
             data_service=data_service, pipe_factory=fake_pipe_factory
         )
         view_name = 'test_view'
 
+        # Two streams with one source in common
         pipe1 = manager.get_stream({'source1', 'source2'}, view_name)
         pipe2 = manager.get_stream({'source1', 'source3'}, view_name)
 
         assert pipe1 is not pipe2
         assert fake_pipe_factory.call_count == 2
 
-        # Test that updating source1 triggers both pipes since both include source1
+        # Test that updating the shared source triggers both pipes
         data_key = DataKey(
             service_name='data_reduction',
             source_name='source1',
@@ -467,262 +470,7 @@ class TestReductionStreamManager:
         assert sc.identical(pipe1.send_calls[0][data_key], sample_data)
         assert sc.identical(pipe2.send_calls[0][data_key], sample_data)
 
-    def test_data_flow_through_reduction_stream_single_source(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test data flow through reduction stream with single source."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-        source_names = {'source1'}
-        view_name = 'test_view'
-
-        pipe = manager.get_stream(source_names, view_name)
-        data_key = DataKey(
-            service_name='data_reduction',
-            source_name='source1',
-            key='reduced/source1/test_view',
-        )
-
-        # Set data in the service
-        data_service[data_key] = sample_data
-
-        # Verify data was sent through the pipe
-        assert len(pipe.send_calls) == 1
-        # The assembler merges data, so it should be a dict
-        sent_data = pipe.send_calls[0]
-        assert isinstance(sent_data, dict)
-        assert data_key in sent_data
-        assert sc.identical(sent_data[data_key], sample_data)
-
-    def test_data_flow_through_reduction_stream_multiple_sources(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test data flow through reduction stream with multiple sources."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-        source_names = {'source1', 'source2'}
-        view_name = 'test_view'
-
-        pipe = manager.get_stream(source_names, view_name)
-
-        data_key1 = DataKey(
-            service_name='data_reduction',
-            source_name='source1',
-            key='reduced/source1/test_view',
-        )
-        data_key2 = DataKey(
-            service_name='data_reduction',
-            source_name='source2',
-            key='reduced/source2/test_view',
-        )
-
-        # Set data for both sources using transaction for atomic update
-        with data_service.transaction():
-            data_service[data_key1] = sample_data
-            data_service[data_key2] = sample_data * 2
-
-        # Verify merged data was sent through the pipe
-        assert len(pipe.send_calls) == 1
-        sent_data = pipe.send_calls[0]
-        assert isinstance(sent_data, dict)
-        assert data_key1 in sent_data
-        assert data_key2 in sent_data
-        assert sc.identical(sent_data[data_key1], sample_data)
-        assert sc.identical(sent_data[data_key2], sample_data * 2)
-
-    def test_partial_data_updates_in_reduction_stream(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test partial data updates in reduction stream."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-        source_names = {'source1', 'source2'}
-        view_name = 'test_view'
-
-        pipe = manager.get_stream(source_names, view_name)
-
-        data_key1 = DataKey(
-            service_name='data_reduction',
-            source_name='source1',
-            key='reduced/source1/test_view',
-        )
-        data_key2 = DataKey(
-            service_name='data_reduction',
-            source_name='source2',
-            key='reduced/source2/test_view',
-        )
-
-        # Set data for first source only
-        data_service[data_key1] = sample_data
-
-        # Verify partial data was sent
-        assert len(pipe.send_calls) == 1
-        sent_data = pipe.send_calls[0]
-        assert isinstance(sent_data, dict)
-        assert data_key1 in sent_data
-        assert data_key2 not in sent_data
-
-        # Add second source data
-        data_service[data_key2] = sample_data * 2
-
-        # Verify complete data was sent
-        assert len(pipe.send_calls) == 2
-        sent_data = pipe.send_calls[1]
-        assert data_key1 in sent_data
-        assert data_key2 in sent_data
-
-    def test_reduction_stream_triggered_on_individual_source_updates(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test that reduction stream is triggered on each individual source update."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-        source_names = {'source1', 'source2', 'source3'}
-        view_name = 'test_view'
-
-        pipe = manager.get_stream(source_names, view_name)
-
-        data_key1 = DataKey(
-            service_name='data_reduction',
-            source_name='source1',
-            key='reduced/source1/test_view',
-        )
-        data_key2 = DataKey(
-            service_name='data_reduction',
-            source_name='source2',
-            key='reduced/source2/test_view',
-        )
-        data_key3 = DataKey(
-            service_name='data_reduction',
-            source_name='source3',
-            key='reduced/source3/test_view',
-        )
-
-        # Update each source separately and verify triggering
-        data_service[data_key1] = sample_data
-        assert len(pipe.send_calls) == 1
-        sent_data = pipe.send_calls[0]
-        assert data_key1 in sent_data
-        assert data_key2 not in sent_data
-        assert data_key3 not in sent_data
-
-        data_service[data_key2] = sample_data * 2
-        assert len(pipe.send_calls) == 2
-        sent_data = pipe.send_calls[1]
-        assert data_key1 in sent_data
-        assert data_key2 in sent_data
-        assert data_key3 not in sent_data
-
-        data_service[data_key3] = sample_data * 3
-        assert len(pipe.send_calls) == 3
-        sent_data = pipe.send_calls[2]
-        assert data_key1 in sent_data
-        assert data_key2 in sent_data
-        assert data_key3 in sent_data
-
-    def test_reduction_stream_partial_updates_preserve_existing_data(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test that partial updates preserve existing data in reduction stream."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-        source_names = {'source1', 'source2'}
-        view_name = 'test_view'
-
-        pipe = manager.get_stream(source_names, view_name)
-
-        data_key1 = DataKey(
-            service_name='data_reduction',
-            source_name='source1',
-            key='reduced/source1/test_view',
-        )
-        data_key2 = DataKey(
-            service_name='data_reduction',
-            source_name='source2',
-            key='reduced/source2/test_view',
-        )
-
-        # Set both sources initially
-        with data_service.transaction():
-            data_service[data_key1] = sample_data
-            data_service[data_key2] = sample_data * 2
-
-        assert len(pipe.send_calls) == 1
-        initial_data = pipe.send_calls[0]
-        assert data_key1 in initial_data
-        assert data_key2 in initial_data
-
-        # Update only source1
-        data_service[data_key1] = sample_data * 3
-
-        # Verify both sources are still in the sent data
-        assert len(pipe.send_calls) == 2
-        updated_data = pipe.send_calls[1]
-        assert data_key1 in updated_data
-        assert data_key2 in updated_data
-        assert sc.identical(updated_data[data_key1], sample_data * 3)
-        assert sc.identical(updated_data[data_key2], sample_data * 2)
-
-    def test_multiple_reduction_streams_independent_triggering(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test that multiple reduction streams are triggered independently."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-
-        pipe1 = manager.get_stream({'source1'}, 'view1')
-        pipe2 = manager.get_stream({'source2'}, 'view2')
-
-        data_key1 = DataKey(
-            service_name='data_reduction',
-            source_name='source1',
-            key='reduced/source1/view1',
-        )
-        data_key2 = DataKey(
-            service_name='data_reduction',
-            source_name='source2',
-            key='reduced/source2/view2',
-        )
-
-        # Update source1/view1
-        data_service[data_key1] = sample_data
-
-        # Only pipe1 should be triggered
-        assert len(pipe1.send_calls) == 1
-        assert len(pipe2.send_calls) == 0
-
-        # Update source2/view2
-        data_service[data_key2] = sample_data * 2
-
-        # Only pipe2 should be triggered
-        assert len(pipe1.send_calls) == 1
-        assert len(pipe2.send_calls) == 1
-
-    def test_reduction_stream_unrelated_key_updates_dont_trigger(
+    def test_unrelated_key_updates_dont_trigger(
         self,
         data_service: DataService,
         fake_pipe_factory: FakePipeFactory,
