@@ -14,8 +14,8 @@ from .data_subscriber import StreamAssembler
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class RawData:
-    cumulative: sc.DataArray
-    current: sc.DataArray
+    cumulative: sc.DataArray | None = None
+    current: sc.DataArray | None = None
 
 
 class ComponentStreamAssembler(StreamAssembler):
@@ -32,7 +32,8 @@ class ComponentStreamAssembler(StreamAssembler):
 
     def assemble(self, data: dict[DataKey, Any]) -> RawData:
         return RawData(
-            cumulative=data[self._cumulative_key], current=data[self._current_key]
+            cumulative=data.get(self._cumulative_key),
+            current=data.get(self._current_key),
         )
 
 

@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from contextlib import ExitStack
 
 import panel as pn
+from holoviews import streams
 
 from beamlime import ServiceBase
 from beamlime.config import config_names
@@ -100,10 +101,10 @@ class DashboardBase(ServiceBase, ABC):
             'data_reduction': DataService(),
         }
         self._monitor_stream_manager = MonitorStreamManager(
-            data_services['monitor_data']
+            data_service=data_services['monitor_data'], pipe_factory=streams.Pipe
         )
         self._reduction_stream_manager = ReductionStreamManager(
-            data_services['data_reduction']
+            data_service=data_services['data_reduction'], pipe_factory=streams.Pipe
         )
 
         self._orchestrator = Orchestrator(
