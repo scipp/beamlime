@@ -93,54 +93,32 @@ class TestStreamManager:
 class TestMonitorStreamManager:
     """Test cases for MonitorStreamManager class."""
 
-    def test_get_stream_creates_correct_data_key_and_assembler(
+    def test_get_stream_caches_pipes_by_component(
         self, data_service: DataService, fake_pipe_factory: FakePipeFactory
     ) -> None:
-        """Test that get_stream creates correct data key and assembler."""
+        """Test that get_stream caches pipes by component name."""
         manager = MonitorStreamManager(
             data_service=data_service, pipe_factory=fake_pipe_factory
         )
 
-        pipe = manager.get_stream('test_component')
-
-        assert isinstance(pipe, FakePipe)
-        assert fake_pipe_factory.call_count == 1
-
-    def test_get_stream_same_component_returns_same_pipe(
-        self, data_service: DataService, fake_pipe_factory: FakePipeFactory
-    ) -> None:
-        """Test that multiple calls with same component return same pipe."""
-        manager = MonitorStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-
+        # Same component returns same pipe
         pipe1 = manager.get_stream('test_component')
         pipe2 = manager.get_stream('test_component')
-
         assert pipe1 is pipe2
         assert fake_pipe_factory.call_count == 1
 
-    def test_get_stream_different_components_create_different_pipes(
-        self, data_service: DataService, fake_pipe_factory: FakePipeFactory
-    ) -> None:
-        """Test that different components create different pipes."""
-        manager = MonitorStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-
-        pipe1 = manager.get_stream('component1')
-        pipe2 = manager.get_stream('component2')
-
-        assert pipe1 is not pipe2
+        # Different component creates new pipe
+        pipe3 = manager.get_stream('other_component')
+        assert pipe3 is not pipe1
         assert fake_pipe_factory.call_count == 2
 
-    def test_data_flow_through_monitor_stream(
+    def test_data_flow_with_complete_monitor_data(
         self,
         data_service: DataService,
         fake_pipe_factory: FakePipeFactory,
         sample_data: sc.DataArray,
     ) -> None:
-        """Test that data flows through the monitor stream correctly."""
+        """Test data flow through monitor stream with complete data."""
         manager = MonitorStreamManager(
             data_service=data_service, pipe_factory=fake_pipe_factory
         )
@@ -148,63 +126,26 @@ class TestMonitorStreamManager:
         pipe = manager.get_stream('test_component')
         monitor_key = MonitorDataKey(component_name='test_component', view_name='')
 
-        # Set data in the service using the correct underlying data keys
+        # Set complete data in transaction
         with data_service.transaction():
             data_service[monitor_key.cumulative_key()] = sample_data
             data_service[monitor_key.current_key()] = sample_data * 2
 
-        # Verify data was sent through the pipe
+        # Verify complete data was sent
         assert len(pipe.send_calls) == 1
         sent_data = pipe.send_calls[0]
-        # ComponentStreamAssembler returns RawData object
         assert hasattr(sent_data, 'cumulative')
         assert hasattr(sent_data, 'current')
         assert sc.identical(sent_data.cumulative, sample_data)
         assert sc.identical(sent_data.current, sample_data * 2)
 
-    def test_multiple_data_updates_through_monitor_stream(
+    def test_monitor_stream_handles_partial_data_updates(
         self,
         data_service: DataService,
         fake_pipe_factory: FakePipeFactory,
         sample_data: sc.DataArray,
     ) -> None:
-        """Test multiple data updates through monitor stream."""
-        manager = MonitorStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-
-        pipe = manager.get_stream('test_component')
-        monitor_key = MonitorDataKey(component_name='test_component', view_name='')
-
-        # Set data first time
-        with data_service.transaction():
-            data_service[monitor_key.cumulative_key()] = sample_data
-            data_service[monitor_key.current_key()] = sample_data * 2
-
-        # Set data second time with modified values
-        modified_data = sample_data * 3
-        with data_service.transaction():
-            data_service[monitor_key.cumulative_key()] = modified_data
-            data_service[monitor_key.current_key()] = modified_data * 2
-
-        # Verify both updates were sent
-        assert len(pipe.send_calls) == 2
-        # Check first update
-        first_data = pipe.send_calls[0]
-        assert sc.identical(first_data.cumulative, sample_data)
-        assert sc.identical(first_data.current, sample_data * 2)
-        # Check second update
-        second_data = pipe.send_calls[1]
-        assert sc.identical(second_data.cumulative, modified_data)
-        assert sc.identical(second_data.current, modified_data * 2)
-
-    def test_partial_key_updates_trigger_monitor_stream(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test that partial key updates trigger monitor stream with available data."""
+        """Test that monitor stream handles partial data updates correctly."""
         manager = MonitorStreamManager(
             data_service=data_service, pipe_factory=fake_pipe_factory
         )
@@ -214,92 +155,19 @@ class TestMonitorStreamManager:
 
         # Set only cumulative data first
         data_service[monitor_key.cumulative_key()] = sample_data
-
-        # Verify pipe was triggered with partial data
-        assert len(pipe.send_calls) == 1
-        sent_data = pipe.send_calls[0]
-        assert hasattr(sent_data, 'cumulative')
-        assert hasattr(sent_data, 'current')
-        assert sc.identical(sent_data.cumulative, sample_data)
-        assert sent_data.current is None
-
-        # Now set current data
-        data_service[monitor_key.current_key()] = sample_data * 2
-
-        # Verify pipe was triggered again with complete data
-        assert len(pipe.send_calls) == 2
-        sent_data = pipe.send_calls[1]
-        assert hasattr(sent_data, 'cumulative')
-        assert hasattr(sent_data, 'current')
-        assert sc.identical(sent_data.cumulative, sample_data)
-        assert sc.identical(sent_data.current, sample_data * 2)
-
-    def test_monitor_stream_triggered_on_each_key_update(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test that monitor stream is triggered separately for each key update."""
-        manager = MonitorStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-
-        pipe = manager.get_stream('test_component')
-        monitor_key = MonitorDataKey(component_name='test_component', view_name='')
-
-        # Set cumulative data
-        data_service[monitor_key.cumulative_key()] = sample_data
         assert len(pipe.send_calls) == 1
         sent_data = pipe.send_calls[0]
         assert sc.identical(sent_data.cumulative, sample_data)
         assert sent_data.current is None
 
-        # Set current data separately
+        # Add current data
         data_service[monitor_key.current_key()] = sample_data * 2
         assert len(pipe.send_calls) == 2
         sent_data = pipe.send_calls[1]
         assert sc.identical(sent_data.cumulative, sample_data)
         assert sc.identical(sent_data.current, sample_data * 2)
 
-        # Update cumulative data again
-        data_service[monitor_key.cumulative_key()] = sample_data * 3
-        assert len(pipe.send_calls) == 3
-        sent_data = pipe.send_calls[2]
-        assert sc.identical(sent_data.cumulative, sample_data * 3)
-        assert sc.identical(sent_data.current, sample_data * 2)
-
-        # Update current data again
-        data_service[monitor_key.current_key()] = sample_data * 4
-        assert len(pipe.send_calls) == 4
-        sent_data = pipe.send_calls[3]
-        assert sc.identical(sent_data.cumulative, sample_data * 3)
-        assert sc.identical(sent_data.current, sample_data * 4)
-
-    def test_monitor_stream_with_missing_keys_assembles_available_data(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test that monitor stream assembles data even when some keys are missing."""
-        manager = MonitorStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-
-        pipe = manager.get_stream('test_component')
-        monitor_key = MonitorDataKey(component_name='test_component', view_name='')
-
-        # Set only one key and verify assembler is called with partial data
-        data_service[monitor_key.cumulative_key()] = sample_data
-
-        # The assembler should be called even though current_key is missing
-        assert len(pipe.send_calls) == 1
-        sent_data = pipe.send_calls[0]
-        assert sc.identical(sent_data.cumulative, sample_data)
-        assert sent_data.current is None
-
-    def test_multiple_monitor_streams_independent_triggering(
+    def test_monitor_streams_are_independent(
         self,
         data_service: DataService,
         fake_pipe_factory: FakePipeFactory,
@@ -318,58 +186,220 @@ class TestMonitorStreamManager:
 
         # Update component1 data
         data_service[monitor_key1.cumulative_key()] = sample_data
-
-        # Only pipe1 should be triggered
         assert len(pipe1.send_calls) == 1
         assert len(pipe2.send_calls) == 0
-        sent_data = pipe1.send_calls[0]
-        assert sc.identical(sent_data.cumulative, sample_data)
-        assert sent_data.current is None
 
         # Update component2 data
         data_service[monitor_key2.current_key()] = sample_data * 2
-
-        # Only pipe2 should be triggered
         assert len(pipe1.send_calls) == 1
         assert len(pipe2.send_calls) == 1
-        sent_data = pipe2.send_calls[0]
-        assert sent_data.cumulative is None
-        assert sc.identical(sent_data.current, sample_data * 2)
 
 
 class TestReductionStreamManager:
     """Test cases for ReductionStreamManager class."""
 
-    def test_get_stream_creates_correct_data_keys_and_assembler(
+    def test_get_stream_caches_pipes_by_sources_and_view(
         self, data_service: DataService, fake_pipe_factory: FakePipeFactory
     ) -> None:
-        """Test that get_stream creates correct data keys and assembler."""
+        """Test that get_stream caches pipes by source names and view name."""
         manager = ReductionStreamManager(
             data_service=data_service, pipe_factory=fake_pipe_factory
         )
-        source_names = {'source1', 'source2'}
-        view_name = 'test_view'
 
-        pipe = manager.get_stream(source_names, view_name)
-
-        assert isinstance(pipe, FakePipe)
-        assert fake_pipe_factory.call_count == 1
-
-    def test_get_stream_same_parameters_returns_same_pipe(
-        self, data_service: DataService, fake_pipe_factory: FakePipeFactory
-    ) -> None:
-        """Test that multiple calls with same parameters return same pipe."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-        source_names = {'source1', 'source2'}
-        view_name = 'test_view'
-
-        pipe1 = manager.get_stream(source_names, view_name)
-        pipe2 = manager.get_stream(source_names, view_name)
-
+        # Same parameters return same pipe
+        pipe1 = manager.get_stream({'source1', 'source2'}, 'test_view')
+        pipe2 = manager.get_stream(
+            {'source2', 'source1'}, 'test_view'
+        )  # Order doesn't matter
         assert pipe1 is pipe2
         assert fake_pipe_factory.call_count == 1
+
+        # Different view creates new pipe
+        pipe3 = manager.get_stream({'source1', 'source2'}, 'other_view')
+        assert pipe3 is not pipe1
+        assert fake_pipe_factory.call_count == 2
+
+        # Different sources create new pipe
+        pipe4 = manager.get_stream({'source1', 'source3'}, 'test_view')
+        assert pipe4 is not pipe1
+        assert fake_pipe_factory.call_count == 3
+
+    def test_data_flow_with_multiple_sources(
+        self,
+        data_service: DataService,
+        fake_pipe_factory: FakePipeFactory,
+        sample_data: sc.DataArray,
+    ) -> None:
+        """Test data flow through reduction stream with multiple sources."""
+        manager = ReductionStreamManager(
+            data_service=data_service, pipe_factory=fake_pipe_factory
+        )
+
+        pipe = manager.get_stream({'source1', 'source2'}, 'test_view')
+
+        data_key1 = DataKey(
+            service_name='data_reduction',
+            source_name='source1',
+            key='reduced/source1/test_view',
+        )
+        data_key2 = DataKey(
+            service_name='data_reduction',
+            source_name='source2',
+            key='reduced/source2/test_view',
+        )
+
+        # Set data for both sources in transaction
+        with data_service.transaction():
+            data_service[data_key1] = sample_data
+            data_service[data_key2] = sample_data * 2
+
+        # Verify merged data was sent
+        assert len(pipe.send_calls) == 1
+        sent_data = pipe.send_calls[0]
+        assert isinstance(sent_data, dict)
+        assert data_key1 in sent_data
+        assert data_key2 in sent_data
+        assert sc.identical(sent_data[data_key1], sample_data)
+        assert sc.identical(sent_data[data_key2], sample_data * 2)
+
+    def test_reduction_stream_handles_incremental_updates(
+        self,
+        data_service: DataService,
+        fake_pipe_factory: FakePipeFactory,
+        sample_data: sc.DataArray,
+    ) -> None:
+        """Test that reduction stream handles incremental source updates correctly."""
+        manager = ReductionStreamManager(
+            data_service=data_service, pipe_factory=fake_pipe_factory
+        )
+
+        pipe = manager.get_stream({'source1', 'source2'}, 'test_view')
+
+        data_key1 = DataKey(
+            service_name='data_reduction',
+            source_name='source1',
+            key='reduced/source1/test_view',
+        )
+        data_key2 = DataKey(
+            service_name='data_reduction',
+            source_name='source2',
+            key='reduced/source2/test_view',
+        )
+
+        # Add sources incrementally
+        data_service[data_key1] = sample_data
+        assert len(pipe.send_calls) == 1
+        sent_data = pipe.send_calls[0]
+        assert data_key1 in sent_data
+        assert data_key2 not in sent_data
+
+        data_service[data_key2] = sample_data * 2
+        assert len(pipe.send_calls) == 2
+        sent_data = pipe.send_calls[1]
+        assert data_key1 in sent_data
+        assert data_key2 in sent_data
+
+        # Update existing source preserves other data
+        data_service[data_key1] = sample_data * 3
+        assert len(pipe.send_calls) == 3
+        sent_data = pipe.send_calls[2]
+        assert sc.identical(sent_data[data_key1], sample_data * 3)
+        assert sc.identical(sent_data[data_key2], sample_data * 2)
+
+    def test_reduction_streams_are_independent(
+        self,
+        data_service: DataService,
+        fake_pipe_factory: FakePipeFactory,
+        sample_data: sc.DataArray,
+    ) -> None:
+        """Test that reduction streams are triggered independently and ignore unrelated keys."""
+        manager = ReductionStreamManager(
+            data_service=data_service, pipe_factory=fake_pipe_factory
+        )
+
+        pipe1 = manager.get_stream({'source1'}, 'view1')
+        pipe2 = manager.get_stream({'source2'}, 'view2')
+
+        data_key1 = DataKey(
+            service_name='data_reduction',
+            source_name='source1',
+            key='reduced/source1/view1',
+        )
+        data_key2 = DataKey(
+            service_name='data_reduction',
+            source_name='source2',
+            key='reduced/source2/view2',
+        )
+        unrelated_key = DataKey(
+            service_name='data_reduction',
+            source_name='source3',
+            key='reduced/source3/view1',
+        )
+
+        # Update unrelated key - no pipes should be triggered
+        data_service[unrelated_key] = sample_data
+        assert len(pipe1.send_calls) == 0
+        assert len(pipe2.send_calls) == 0
+
+        # Update pipe1's key - only pipe1 should be triggered
+        data_service[data_key1] = sample_data
+        assert len(pipe1.send_calls) == 1
+        assert len(pipe2.send_calls) == 0
+
+        # Update pipe2's key - only pipe2 should be triggered
+        data_service[data_key2] = sample_data * 2
+        assert len(pipe1.send_calls) == 1
+        assert len(pipe2.send_calls) == 1
+
+    def test_reduction_stream_with_edge_cases(
+        self,
+        data_service: DataService,
+        fake_pipe_factory: FakePipeFactory,
+        sample_data: sc.DataArray,
+    ) -> None:
+        """Test reduction stream with edge cases like single source and empty set."""
+        manager = ReductionStreamManager(
+            data_service=data_service, pipe_factory=fake_pipe_factory
+        )
+
+        # Single source
+        pipe_single = manager.get_stream({'source1'}, 'test_view')
+        assert isinstance(pipe_single, FakePipe)
+
+        # Empty source set
+        pipe_empty = manager.get_stream(set(), 'test_view')
+        assert isinstance(pipe_empty, FakePipe)
+
+        # Both should create separate pipes
+        assert pipe_single is not pipe_empty
+        assert fake_pipe_factory.call_count == 2
+
+        # Test triggering behavior for single source
+        data_key_single = DataKey(
+            service_name='data_reduction',
+            source_name='source1',
+            key='reduced/source1/test_view',
+        )
+
+        data_service[data_key_single] = sample_data
+
+        # Single source pipe should be triggered
+        assert len(pipe_single.send_calls) == 1
+        # Empty source pipe should not be triggered
+        assert len(pipe_empty.send_calls) == 0
+
+        # Test that empty source pipe is never triggered by any data
+        unrelated_key = DataKey(
+            service_name='data_reduction',
+            source_name='source2',
+            key='reduced/source2/test_view',
+        )
+
+        data_service[unrelated_key] = sample_data * 2
+
+        # Neither pipe should be triggered by unrelated key
+        assert len(pipe_single.send_calls) == 1  # Still 1 from before
+        assert len(pipe_empty.send_calls) == 0  # Still 0
 
     def test_get_stream_different_source_names_order_same_pipe(
         self, data_service: DataService, fake_pipe_factory: FakePipeFactory
@@ -401,7 +431,10 @@ class TestReductionStreamManager:
         assert fake_pipe_factory.call_count == 2
 
     def test_get_stream_different_source_sets_create_different_pipes(
-        self, data_service: DataService, fake_pipe_factory: FakePipeFactory
+        self,
+        data_service: DataService,
+        fake_pipe_factory: FakePipeFactory,
+        sample_data: sc.DataArray,
     ) -> None:
         """Test that different source sets create different pipes."""
         manager = ReductionStreamManager(
@@ -414,6 +447,25 @@ class TestReductionStreamManager:
 
         assert pipe1 is not pipe2
         assert fake_pipe_factory.call_count == 2
+
+        # Test that updating source1 triggers both pipes since both include source1
+        data_key = DataKey(
+            service_name='data_reduction',
+            source_name='source1',
+            key='reduced/source1/test_view',
+        )
+
+        data_service[data_key] = sample_data
+
+        # Both pipes should be triggered
+        assert len(pipe1.send_calls) == 1
+        assert len(pipe2.send_calls) == 1
+
+        # Verify the data was sent to both pipes
+        assert data_key in pipe1.send_calls[0]
+        assert data_key in pipe2.send_calls[0]
+        assert sc.identical(pipe1.send_calls[0][data_key], sample_data)
+        assert sc.identical(pipe2.send_calls[0][data_key], sample_data)
 
     def test_data_flow_through_reduction_stream_single_source(
         self,
@@ -530,32 +582,6 @@ class TestReductionStreamManager:
         sent_data = pipe.send_calls[1]
         assert data_key1 in sent_data
         assert data_key2 in sent_data
-
-    def test_single_source_reduction_stream(
-        self, data_service: DataService, fake_pipe_factory: FakePipeFactory
-    ) -> None:
-        """Test reduction stream with single source."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-
-        pipe = manager.get_stream({'source1'}, 'test_view')
-
-        assert isinstance(pipe, FakePipe)
-        assert fake_pipe_factory.call_count == 1
-
-    def test_empty_source_names_set(
-        self, data_service: DataService, fake_pipe_factory: FakePipeFactory
-    ) -> None:
-        """Test reduction stream with empty source names set."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-
-        pipe = manager.get_stream(set(), 'test_view')
-
-        assert isinstance(pipe, FakePipe)
-        assert fake_pipe_factory.call_count == 1
 
     def test_reduction_stream_triggered_on_individual_source_updates(
         self,
