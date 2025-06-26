@@ -50,11 +50,11 @@ class ReductionApp(DashboardBase):
     def _setup_reduction_streams(self) -> None:
         """Initialize streams for reduction data."""
         source_names = set(self.source_names())
-        self._iofd_pipe = self._reduction_stream_manager.get_stream(
+        self._iofd_pipe = self._stream_manager.get_reduction(
             source_names=source_names,
             view_name='ess.powder.types.FocussedDataDspacing[ess.reduce.nexus.types.SampleRun]',
         )
-        self._iofd2theta_pipe = self._reduction_stream_manager.get_stream(
+        self._iofd2theta_pipe = self._stream_manager.get_reduction(
             source_names=source_names,
             view_name='ess.powder.types.FocussedDataDspacingTwoTheta[ess.reduce.nexus.types.SampleRun]',
         )
