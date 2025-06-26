@@ -102,7 +102,7 @@ class WorkflowManager:
                 results.extend(self.set_workflow_with_config(name, value))
             return results
 
-        config_key = ConfigKey(source_name=source_name, key="workflow_config")
+        config_key = ConfigKey(source_name=source_name, key="workflow_status")
         if value is None:  # Legacy way to stop/remove a workflow.
             self.set_workflow(source_name, None)
             status = WorkflowStatus(
