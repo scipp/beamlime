@@ -10,9 +10,9 @@ import numpy as np
 import scipp as sc
 from holoviews import opts
 
+from .assemblers import RawData
 from .data_key import DataKey
 from .scipp_to_holoviews import to_holoviews
-from .subscribers import RawData
 
 
 def remove_bokeh_logo(plot, element):

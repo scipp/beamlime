@@ -9,10 +9,10 @@ from typing import Any
 
 from holoviews import streams
 
+from .assemblers import ComponentStreamAssembler, MergingStreamAssembler
 from .data_key import DataKey, MonitorDataKey
 from .data_service import DataService
 from .data_subscriber import DataSubscriber, StreamAssembler
-from .subscribers import ComponentStreamAssembler, MergingStreamAssembler
 
 
 class StreamManager:
