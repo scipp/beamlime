@@ -36,7 +36,7 @@ class TestThrottlingMessageHandler:
         assert has_messages is True
         assert transport.send_call_count == 1
         assert len(transport.sent_messages) == 1
-        assert transport.sent_messages[0] == {"key1": "value2", "key2": "value3"}
+        assert transport.sent_messages[0] == [("key1", "value2"), ("key2", "value3")]
 
     def test_publish_deduplicates_messages_across_batches(self):
         """Test that duplicate messages across batches are deduplicated."""
@@ -52,8 +52,8 @@ class TestThrottlingMessageHandler:
         handler.process_cycle()
 
         assert transport.send_call_count == 2
-        assert transport.sent_messages[0] == {"key1": "value1"}
-        assert transport.sent_messages[1] == {"key1": "value2"}
+        assert transport.sent_messages[0] == [("key1", "value1")]
+        assert transport.sent_messages[1] == [("key1", "value2")]
 
     def test_publish_no_deduplication_after_pop_all(self):
         """Test that messages are not deduplicated after pop_all clears the queue."""
@@ -321,11 +321,11 @@ class TestThrottlingMessageHandler:
 
         assert has_messages is True
         assert transport.send_call_count == 1
-        assert transport.sent_messages[0] == {
-            "key1": "value1",
-            "key2": "value2",
-            "key3": "value3",
-        }
+        assert transport.sent_messages[0] == [
+            ("key1", "value1"),
+            ("key2", "value2"),
+            ("key3", "value3"),
+        ]
 
     def test_concurrent_outgoing_and_incoming_processing(self):
         """Test that outgoing and incoming messages are processed in same cycle."""
@@ -343,8 +343,11 @@ class TestThrottlingMessageHandler:
         assert has_messages is True
         assert transport.send_call_count == 1
         assert transport.receive_call_count == 1
-        assert transport.sent_messages[0] == {"out_key": "out_value"}
-        assert handler.pop_all() == {"in_key": "in_value"}
+        assert transport.sent_messages[0] == [("out_key", "out_value")]
+
+        # Check incoming messages were processed
+        incoming = handler.pop_all()
+        assert incoming == {"in_key": "in_value"}
 
     def test_zero_poll_intervals(self):
         """Test behavior with zero poll intervals (no throttling)."""

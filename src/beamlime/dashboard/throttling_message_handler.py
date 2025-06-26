@@ -75,7 +75,7 @@ class ThrottlingMessageHandler(Generic[K, V]):
         """Process messages from outgoing queue and send via transport."""
         outgoing = self._outgoing_queue.pop_all()
         if outgoing:
-            self._transport.send_messages(outgoing)
+            self._transport.send_messages(list(outgoing.items()))
             return True
         return False
 
@@ -95,7 +95,7 @@ class ThrottlingMessageHandler(Generic[K, V]):
         """Process incoming messages from transport."""
         incoming = self._transport.receive_messages()
         if incoming:
-            for key, value in incoming.items():
+            for key, value in incoming:
                 self._incoming_queue.put(key, value)
             return True
         return False

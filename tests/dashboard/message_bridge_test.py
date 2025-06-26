@@ -60,7 +60,9 @@ class TestBackgroundMessageBridge:
             send_count, _ = transport.get_stats()
             assert send_count > 0
             assert len(transport.sent_messages) > 0
-            assert key in transport.sent_messages[-1]
+            # Check that the key exists in the last sent batch (list of tuples)
+            last_batch = dict(transport.sent_messages[-1])
+            assert key in last_batch
 
         finally:
             bridge.stop()
@@ -118,7 +120,7 @@ class TestBackgroundMessageBridge:
 
             # Should only have latest value
             assert len(transport.sent_messages) >= 1
-            last_batch = transport.sent_messages[-1]
+            last_batch = dict(transport.sent_messages[-1])
             assert last_batch[key]["value"] == 3
 
         finally:
@@ -283,7 +285,7 @@ class TestBackgroundMessageBridge:
 
             # Verify latest value was preserved despite flooding
             if transport.sent_messages:
-                last_batch = transport.sent_messages[-1]
+                last_batch = dict(transport.sent_messages[-1])
                 assert last_batch[key1]["flood_msg"] == flood_count - 1
                 assert last_batch[key2]["flood_msg"] == flood_count - 1
 
@@ -392,7 +394,7 @@ class TestBackgroundMessageBridge:
             assert send_count > 0
 
             if transport.sent_messages:
-                last_batch = transport.sent_messages[-1]
+                last_batch = dict(transport.sent_messages[-1])
                 assert key1 in last_batch
                 assert key2 in last_batch
                 assert key3 in last_batch
