@@ -79,3 +79,12 @@ class DataService(UserDict[K, V]):
         if not self._in_transaction:
             self._notify_subscribers({key})
             self._pending_updates.clear()
+
+    def __delitem__(self, key: K) -> None:
+        super().__delitem__(key)
+        self._pending_updates.add(key)
+
+        # If not in transaction, immediately notify
+        if not self._in_transaction:
+            self._notify_subscribers({key})
+            self._pending_updates.clear()
