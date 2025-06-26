@@ -3,16 +3,12 @@
 from __future__ import annotations
 
 from collections import UserDict
-from collections.abc import Callable, Hashable
 from contextlib import contextmanager
-from typing import Any
 
 import scipp as sc
 
 from .data_key import DataKey
 from .data_subscriber import DataSubscriber
-
-DerivedGetter = Callable[['DataService', Hashable], Any | None]
 
 
 class DataService(UserDict[DataKey, sc.DataArray]):
@@ -25,7 +21,6 @@ class DataService(UserDict[DataKey, sc.DataArray]):
 
     def __init__(self) -> None:
         super().__init__()
-        self._derived_getters: dict[Hashable, DerivedGetter] = {}
         self._subscribers: list[DataSubscriber[DataKey]] = []
         self._pending_updates: set[DataKey] = set()
         self._transaction_depth = 0
@@ -78,12 +73,3 @@ class DataService(UserDict[DataKey, sc.DataArray]):
         if not self._in_transaction:
             self._notify_subscribers({key})
             self._pending_updates.clear()
-
-
-class MonitorDataService(DataService): ...
-
-
-class DetectorDataService(DataService): ...
-
-
-class ReducedDataService(DataService): ...
