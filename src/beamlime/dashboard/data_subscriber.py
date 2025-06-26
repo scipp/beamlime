@@ -67,48 +67,38 @@ class StreamAssembler(ABC):
         """
 
 
-class DataSubscriber(ABC):
-    """Base class for pipes that define their data dependencies."""
+class DataSubscriber:
+    """Unified subscriber that uses a StreamAssembler to process data."""
 
-    def __init__(self, keys: set[DataKey]) -> None:
+    def __init__(self, assembler: StreamAssembler, pipe: Pipe) -> None:
         """
-        Initialize the pipe with its data dependencies.
+        Initialize the subscriber with an assembler and pipe.
 
         Parameters
         ----------
-        keys:
-            The set of data keys this pipe depends on.
+        assembler:
+            The assembler responsible for processing the data.
+        pipe:
+            The pipe to send assembled data to.
         """
-        self._keys = keys
+        self._assembler = assembler
+        self._pipe = pipe
 
     @property
     def keys(self) -> set[DataKey]:
-        """Return the set of data keys this pipe depends on."""
-        return self._keys
+        """Return the set of data keys this subscriber depends on."""
+        return self._assembler.keys
 
     def trigger(self, store: dict[DataKey, Any]) -> None:
         """
-        Trigger the pipe with the current data store.
-
-        Extracts the relevant data from the store based on the keys this pipe depends on
-        and sends it to the pipe.
+        Trigger the subscriber with the current data store.
 
         Parameters
         ----------
         store:
-            The complete data store containing all keys this pipe depends on. In
-            practice this is the data dict of the :py:class:`DataService` instance.
+            The complete data store containing all available data.
         """
         data = {key: store[key] for key in self.keys if key in store}
-        self.send(data)
-
-    @abstractmethod
-    def send(self, data: dict[DataKey, Any]) -> None:
-        """
-        Send data. Must be implemented by subclasses.
-
-        Parameters
-        ----------
-        data:
-            Data of any available keys the pipe depends on. May be a subset of the keys.
-        """
+        if data:  # Only assemble and send if we have some data
+            assembled_data = self._assembler.assemble(data)
+            self._pipe.send(assembled_data)
