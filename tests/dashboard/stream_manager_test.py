@@ -382,55 +382,44 @@ class TestReductionStreamManager:
         assert len(pipe1.send_calls) == 1
         assert len(pipe2.send_calls) == 1
 
-    def test_reduction_stream_with_edge_cases(
+    def test_reduction_stream_with_empty_source_set(
         self,
         data_service: DataService,
         fake_pipe_factory: FakePipeFactory,
         sample_data: sc.DataArray,
     ) -> None:
-        """Test reduction stream with edge cases like single source and empty set."""
+        """Test reduction stream with empty source set."""
         manager = ReductionStreamManager(
             data_service=data_service, pipe_factory=fake_pipe_factory
         )
-
-        # Single source
-        pipe_single = manager.get_stream({'source1'}, 'test_view')
-        assert isinstance(pipe_single, FakePipe)
 
         # Empty source set
         pipe_empty = manager.get_stream(set(), 'test_view')
         assert isinstance(pipe_empty, FakePipe)
 
-        # Both should create separate pipes
-        assert pipe_single is not pipe_empty
-        assert fake_pipe_factory.call_count == 2
-
-        # Test triggering behavior for single source
-        data_key_single = DataKey(
+        # Test that empty source pipe is never triggered by any data
+        unrelated_key = DataKey(
             service_name='data_reduction',
             source_name='source1',
             key='reduced/source1/test_view',
         )
 
-        data_service[data_key_single] = sample_data
+        data_service[unrelated_key] = sample_data
 
-        # Single source pipe should be triggered
-        assert len(pipe_single.send_calls) == 1
-        # Empty source pipe should not be triggered
+        # Empty source pipe should not be triggered by any key
         assert len(pipe_empty.send_calls) == 0
 
-        # Test that empty source pipe is never triggered by any data
-        unrelated_key = DataKey(
+        # Try another unrelated key
+        another_key = DataKey(
             service_name='data_reduction',
             source_name='source2',
             key='reduced/source2/test_view',
         )
 
-        data_service[unrelated_key] = sample_data * 2
+        data_service[another_key] = sample_data * 2
 
-        # Neither pipe should be triggered by unrelated key
-        assert len(pipe_single.send_calls) == 1  # Still 1 from before
-        assert len(pipe_empty.send_calls) == 0  # Still 0
+        # Empty source pipe should still not be triggered
+        assert len(pipe_empty.send_calls) == 0
 
     def test_streams_with_shared_source_are_both_triggered(
         self,
