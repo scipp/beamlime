@@ -188,11 +188,19 @@ class TestMonitorStreamManager:
         data_service[monitor_key1.cumulative_key()] = sample_data
         assert len(pipe1.send_calls) == 1
         assert len(pipe2.send_calls) == 0
+        # Verify the correct data was sent to pipe1
+        sent_data = pipe1.send_calls[0]
+        assert sc.identical(sent_data.cumulative, sample_data)
+        assert sent_data.current is None
 
         # Update component2 data
         data_service[monitor_key2.current_key()] = sample_data * 2
         assert len(pipe1.send_calls) == 1
         assert len(pipe2.send_calls) == 1
+        # Verify the correct data was sent to pipe2
+        sent_data = pipe2.send_calls[0]
+        assert sent_data.cumulative is None
+        assert sc.identical(sent_data.current, sample_data * 2)
 
 
 class TestReductionStreamManager:
@@ -293,7 +301,7 @@ class TestReductionStreamManager:
         assert sc.identical(sent_data[data_key1], sample_data)
         assert sc.identical(sent_data[data_key2], sample_data * 2)
 
-    def test_reduction_stream_handles_incremental_updates(
+    def test_handles_incremental_updates(
         self,
         data_service: DataService,
         fake_pipe_factory: FakePipeFactory,
@@ -321,19 +329,27 @@ class TestReductionStreamManager:
         data_service[data_key1] = sample_data
         assert len(pipe.send_calls) == 1
         sent_data = pipe.send_calls[0]
+        assert isinstance(sent_data, dict)
         assert data_key1 in sent_data
         assert data_key2 not in sent_data
+        assert sc.identical(sent_data[data_key1], sample_data)
 
         data_service[data_key2] = sample_data * 2
         assert len(pipe.send_calls) == 2
         sent_data = pipe.send_calls[1]
+        assert isinstance(sent_data, dict)
         assert data_key1 in sent_data
         assert data_key2 in sent_data
+        assert sc.identical(sent_data[data_key1], sample_data)
+        assert sc.identical(sent_data[data_key2], sample_data * 2)
 
         # Update existing source preserves other data
         data_service[data_key1] = sample_data * 3
         assert len(pipe.send_calls) == 3
         sent_data = pipe.send_calls[2]
+        assert isinstance(sent_data, dict)
+        assert data_key1 in sent_data
+        assert data_key2 in sent_data
         assert sc.identical(sent_data[data_key1], sample_data * 3)
         assert sc.identical(sent_data[data_key2], sample_data * 2)
 
@@ -343,7 +359,6 @@ class TestReductionStreamManager:
         fake_pipe_factory: FakePipeFactory,
         sample_data: sc.DataArray,
     ) -> None:
-        """Test that reduction streams are triggered independently and ignore unrelated keys."""
         manager = ReductionStreamManager(
             data_service=data_service, pipe_factory=fake_pipe_factory
         )
@@ -376,13 +391,23 @@ class TestReductionStreamManager:
         data_service[data_key1] = sample_data
         assert len(pipe1.send_calls) == 1
         assert len(pipe2.send_calls) == 0
+        # Verify pipe1 received the correct data
+        sent_data = pipe1.send_calls[0]
+        assert isinstance(sent_data, dict)
+        assert data_key1 in sent_data
+        assert sc.identical(sent_data[data_key1], sample_data)
 
         # Update pipe2's key - only pipe2 should be triggered
         data_service[data_key2] = sample_data * 2
         assert len(pipe1.send_calls) == 1
         assert len(pipe2.send_calls) == 1
+        # Verify pipe2 received the correct data
+        sent_data = pipe2.send_calls[0]
+        assert isinstance(sent_data, dict)
+        assert data_key2 in sent_data
+        assert sc.identical(sent_data[data_key2], sample_data * 2)
 
-    def test_reduction_stream_with_empty_source_set(
+    def test_empty_source_set_never_triggered(
         self,
         data_service: DataService,
         fake_pipe_factory: FakePipeFactory,
@@ -494,3 +519,8 @@ class TestReductionStreamManager:
 
         # Now pipe should be triggered
         assert len(pipe.send_calls) == 1
+        # Verify the correct data was sent
+        sent_data = pipe.send_calls[0]
+        assert isinstance(sent_data, dict)
+        assert correct_key in sent_data
+        assert sc.identical(sent_data[correct_key], sample_data)
