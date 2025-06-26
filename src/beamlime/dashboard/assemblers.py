@@ -7,8 +7,7 @@ from typing import Any
 
 import scipp as sc
 
-from .data_key import ComponentDataKey
-from .data_service import DataKey
+from .data_key import ComponentDataKey, DataKey
 from .data_subscriber import StreamAssembler
 
 

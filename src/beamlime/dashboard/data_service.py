@@ -65,7 +65,11 @@ class DataService(UserDict[K, V]):
         """
         for subscriber in self._subscribers:
             if updated_keys & subscriber.keys:
-                subscriber.trigger(self.data)
+                # Pass only the data that the subscriber is interested in
+                subscriber_data = {
+                    key: self.data[key] for key in subscriber.keys if key in self.data
+                }
+                subscriber.trigger(subscriber_data)
 
     def __setitem__(self, key: K, value: V) -> None:
         super().__setitem__(key, value)

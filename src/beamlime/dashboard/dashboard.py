@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from contextlib import ExitStack
 
 import panel as pn
+import scipp as sc
 from holoviews import streams
 
 from beamlime import ServiceBase
@@ -26,6 +27,7 @@ from beamlime.kafka.source import KafkaMessageSource
 
 from .config_service import ConfigSchemaManager, ConfigService
 from .data_forwarder import DataForwarder
+from .data_key import DataKey
 from .data_service import DataService
 from .kafka_transport import KafkaTransport
 from .message_bridge import BackgroundMessageBridge
@@ -95,10 +97,12 @@ class DashboardBase(ServiceBase, ABC):
 
     def _setup_data_infrastructure(self) -> None:
         """Set up data services, forwarder, and orchestrator."""
+        # da00 of backend services converted to scipp.DataArray
+        ScippDataService = DataService[DataKey, sc.DataArray]
         data_services = {
-            'monitor_data': DataService(),
-            'detector_data': DataService(),
-            'data_reduction': DataService(),
+            'monitor_data': ScippDataService(),
+            'detector_data': ScippDataService(),
+            'data_reduction': ScippDataService(),
         }
         self._monitor_stream_manager = MonitorStreamManager(
             data_service=data_services['monitor_data'], pipe_factory=streams.Pipe
