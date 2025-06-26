@@ -43,8 +43,8 @@ class DashboardApp(DashboardBase):
 
     def _setup_monitor_streams(self):
         """Initialize streams for monitor data."""
-        self._monitor1_pipe = self._stream_manager.get_monitor('monitor1')
-        self._monitor2_pipe = self._stream_manager.get_monitor('monitor2')
+        self._monitor1_pipe = self._monitor_stream_manager.get_stream('monitor1')
+        self._monitor2_pipe = self._monitor_stream_manager.get_stream('monitor2')
 
     def create_sidebar_content(self) -> pn.viewable.Viewable:
         """Create the sidebar content with status and controls."""

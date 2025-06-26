@@ -26,7 +26,7 @@ from beamlime.kafka.source import KafkaMessageSource
 from .config_service import ConfigSchemaManager, ConfigService
 from .data_forwarder import DataForwarder
 from .data_service import DataService
-from .data_streams import StreamManager
+from .data_streams import MonitorStreamManager, ReductionStreamManager
 from .kafka_transport import KafkaTransport
 from .message_bridge import BackgroundMessageBridge
 from .orchestrator import Orchestrator
@@ -94,17 +94,18 @@ class DashboardBase(ServiceBase, ABC):
 
     def _setup_data_infrastructure(self) -> None:
         """Set up data services, forwarder, and orchestrator."""
-        data_service = DataService()
-        # Currently we share the same data service for all backend data sources. The
-        # data forwarder is thus currently redundant, but it allows for future
-        # expansion where different data services might be used for different data
-        # sources.
         data_services = {
-            'monitor_data': data_service,
-            'detector_data': data_service,
-            'data_reduction': data_service,
+            'monitor_data': DataService(),
+            'detector_data': DataService(),
+            'data_reduction': DataService(),
         }
-        self._stream_manager = StreamManager(data_service)
+        self._monitor_stream_manager = MonitorStreamManager(
+            data_services['monitor_data']
+        )
+        self._reduction_stream_manager = ReductionStreamManager(
+            data_services['data_reduction']
+        )
+
         self._orchestrator = Orchestrator(
             self._setup_kafka_consumer(), DataForwarder(data_services=data_services)
         )

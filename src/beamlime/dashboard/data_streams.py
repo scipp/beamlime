@@ -16,7 +16,7 @@ from .subscribers import ComponentStreamAssembler, MergingStreamAssembler
 
 
 class StreamManager:
-    """Manager for all data streams."""
+    """Base class for managing data streams."""
 
     def __init__(self, data_service: DataService):
         self.data_service = data_service
@@ -33,14 +33,22 @@ class StreamManager:
             self.pipes[key] = pipe
         return self.pipes[key]
 
-    def get_monitor(self, component_name: str) -> streams.Pipe:
-        """Get or create a monitor data stream."""
+
+class MonitorStreamManager(StreamManager):
+    """A manager for monitor data streams."""
+
+    def get_stream(self, component_name: str) -> streams.Pipe:
+        """Get or create a data stream for the given component key."""
         data_key = MonitorDataKey(component_name=component_name, view_name='')
         assembler = ComponentStreamAssembler(data_key)
         return self._get_or_create_stream(data_key, assembler)
 
-    def get_reduction(self, source_names: set[str], view_name: str) -> streams.Pipe:
-        """Get or create a reduction data stream."""
+
+class ReductionStreamManager(StreamManager):
+    """A manager for reduction data streams."""
+
+    def get_stream(self, source_names: set[str], view_name: str) -> streams.Pipe:
+        """Get or create a data stream for the given component key and view."""
         data_keys = {
             DataKey(
                 service_name='data_reduction',
