@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 from collections import UserDict
+from collections.abc import Hashable
 from contextlib import contextmanager
+from typing import TypeVar
 
-import scipp as sc
-
-from .data_key import DataKey
 from .data_subscriber import DataSubscriber
 
+K = TypeVar('K', bound=Hashable)
+V = TypeVar('V')
 
-class DataService(UserDict[DataKey, sc.DataArray]):
+
+class DataService(UserDict[K, V]):
     """
     A service for managing and retrieving data and derived data.
 
@@ -21,8 +23,8 @@ class DataService(UserDict[DataKey, sc.DataArray]):
 
     def __init__(self) -> None:
         super().__init__()
-        self._subscribers: list[DataSubscriber[DataKey]] = []
-        self._pending_updates: set[DataKey] = set()
+        self._subscribers: list[DataSubscriber[K]] = []
+        self._pending_updates: set[K] = set()
         self._transaction_depth = 0
 
     @contextmanager
@@ -41,7 +43,7 @@ class DataService(UserDict[DataKey, sc.DataArray]):
     def _in_transaction(self) -> bool:
         return self._transaction_depth > 0
 
-    def register_subscriber(self, subscriber: DataSubscriber[DataKey]) -> None:
+    def register_subscriber(self, subscriber: DataSubscriber[K]) -> None:
         """
         Register a subscriber for updates.
 
@@ -52,7 +54,7 @@ class DataService(UserDict[DataKey, sc.DataArray]):
         """
         self._subscribers.append(subscriber)
 
-    def _notify_subscribers(self, updated_keys: set[DataKey]) -> None:
+    def _notify_subscribers(self, updated_keys: set[K]) -> None:
         """
         Notify relevant subscribers about data updates.
 
@@ -65,7 +67,7 @@ class DataService(UserDict[DataKey, sc.DataArray]):
             if updated_keys & subscriber.keys:
                 subscriber.trigger(self.data)
 
-    def __setitem__(self, key: DataKey, value: sc.DataArray) -> None:
+    def __setitem__(self, key: K, value: V) -> None:
         super().__setitem__(key, value)
         self._pending_updates.add(key)
 
