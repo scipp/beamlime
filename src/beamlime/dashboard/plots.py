@@ -218,13 +218,14 @@ def plot_monitor(
         return hv.Curve([]).opts(options)
 
     da = data.cumulative if view_mode == 'Cumulative' else data.current
+    dim = da.dim
     if normalize:
-        coord = da.coords['time_of_arrival'].to(unit='s')
+        coord = da.coords[dim].to(unit='s')
         bin_width = coord[1:] - coord[:-1]
         total_counts = sc.sum(da.data)
         da = da / total_counts
         da = da / bin_width  # Convert to distribution
-    da = da.assign_coords(time_of_arrival=sc.midpoints(da.coords['time_of_arrival']))
+    da = da.assign_coords({dim: sc.midpoints(da.coords[dim])})
     return to_holoviews(da).opts(options)
 
 
