@@ -24,6 +24,49 @@ class Pipe(Protocol):
         """
 
 
+class StreamAssembler(ABC):
+    """
+    Base class for assembling data from a data store.
+
+    This class defines the interface for assembling data from a data store based on
+    specific keys. Subclasses must implement the `assemble` method.
+    """
+
+    def __init__(self, keys: set[DataKey]) -> None:
+        """
+        Initialize the assembler with its data dependencies.
+
+        Parameters
+        ----------
+        keys:
+            The set of data keys this assembler depends on. This is used to determine
+            when the assembler will be triggered to assemble data, i.e., updates to
+            which keys in :py:class:`DataService` will trigger the assembler to run.
+        """
+        self._keys = keys
+
+    @property
+    def keys(self) -> set[DataKey]:
+        """Return the set of data keys this assembler depends on."""
+        return self._keys
+
+    @abstractmethod
+    def assemble(self, data: dict[DataKey, Any]) -> Any:
+        """
+        Assemble data from the provided dictionary.
+
+        Parameters
+        ----------
+        data:
+            A dictionary containing data keyed by DataKey.
+
+        Returns
+        -------
+        :
+            The assembled data.
+        """
+
+
 class DataSubscriber(ABC):
     """Base class for pipes that define their data dependencies."""
 

@@ -1,16 +1,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+"""
+Utilities for connecting subscribers to :py:class:`DataService`
+"""
+
 from holoviews import streams
 
 from .data_key import ComponentDataKey, DataKey, MonitorDataKey
 from .data_service import DataService
 from .subscribers import ComponentDataSubscriber, MergingDataSubscriber
-
-
-class DataStream:
-    def __init__(self, data_key: DataKey):
-        self.pipe = streams.Pipe(data=None)
-        self.data_key = data_key
 
 
 class ComponentDataStream:
