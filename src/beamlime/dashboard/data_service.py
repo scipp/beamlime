@@ -26,7 +26,7 @@ class DataService(UserDict[DataKey, sc.DataArray]):
     def __init__(self) -> None:
         super().__init__()
         self._derived_getters: dict[Hashable, DerivedGetter] = {}
-        self._subscribers: list[DataSubscriber] = []
+        self._subscribers: list[DataSubscriber[DataKey]] = []
         self._pending_updates: set[DataKey] = set()
         self._transaction_depth = 0
 
@@ -46,7 +46,7 @@ class DataService(UserDict[DataKey, sc.DataArray]):
     def _in_transaction(self) -> bool:
         return self._transaction_depth > 0
 
-    def register_subscriber(self, subscriber: DataSubscriber) -> None:
+    def register_subscriber(self, subscriber: DataSubscriber[DataKey]) -> None:
         """
         Register a subscriber for updates.
 

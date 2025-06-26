@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Protocol
-
-from .data_service import DataKey
+from collections.abc import Hashable
+from typing import Any, Generic, Protocol, TypeVar
 
 
 class Pipe(Protocol):
@@ -24,7 +23,10 @@ class Pipe(Protocol):
         """
 
 
-class StreamAssembler(ABC):
+Key = TypeVar('Key', bound=Hashable)
+
+
+class StreamAssembler(ABC, Generic[Key]):
     """
     Base class for assembling data from a data store.
 
@@ -32,7 +34,7 @@ class StreamAssembler(ABC):
     specific keys. Subclasses must implement the `assemble` method.
     """
 
-    def __init__(self, keys: set[DataKey]) -> None:
+    def __init__(self, keys: set[Key]) -> None:
         """
         Initialize the assembler with its data dependencies.
 
@@ -46,12 +48,12 @@ class StreamAssembler(ABC):
         self._keys = keys
 
     @property
-    def keys(self) -> set[DataKey]:
+    def keys(self) -> set[Key]:
         """Return the set of data keys this assembler depends on."""
         return self._keys
 
     @abstractmethod
-    def assemble(self, data: dict[DataKey, Any]) -> Any:
+    def assemble(self, data: dict[Key, Any]) -> Any:
         """
         Assemble data from the provided dictionary.
 
@@ -67,10 +69,10 @@ class StreamAssembler(ABC):
         """
 
 
-class DataSubscriber:
+class DataSubscriber(Generic[Key]):
     """Unified subscriber that uses a StreamAssembler to process data."""
 
-    def __init__(self, assembler: StreamAssembler, pipe: Pipe) -> None:
+    def __init__(self, assembler: StreamAssembler[Key], pipe: Pipe) -> None:
         """
         Initialize the subscriber with an assembler and pipe.
 
@@ -85,11 +87,11 @@ class DataSubscriber:
         self._pipe = pipe
 
     @property
-    def keys(self) -> set[DataKey]:
+    def keys(self) -> set[Key]:
         """Return the set of data keys this subscriber depends on."""
         return self._assembler.keys
 
-    def trigger(self, store: dict[DataKey, Any]) -> None:
+    def trigger(self, store: dict[Key, Any]) -> None:
         """
         Trigger the subscriber with the current data store.
 
@@ -99,6 +101,5 @@ class DataSubscriber:
             The complete data store containing all available data.
         """
         data = {key: store[key] for key in self.keys if key in store}
-        if data:  # Only assemble and send if we have some data
-            assembled_data = self._assembler.assemble(data)
-            self._pipe.send(assembled_data)
+        assembled_data = self._assembler.assemble(data)
+        self._pipe.send(assembled_data)
