@@ -85,15 +85,17 @@ graph TD
         TMH["ThrottlingMessageHandler<br>(prevents flooding Kafka)"]
         MB["BackgroundMessageBridge<br>(prevents blocking UI)"]
         MS[MessageSource]
+        DF[DataForwarder]
     end
 
     subgraph "Application Layer"
         CS[ConfigService]
         WCS["WorkflowConfigService<br>(adapts ConfigService)"]
-        DS[DataServices]
+        DS[["DataService(s)"]]
         DSU[["DataSubscriber(s)"]]
         PM[["ConfigBackedParam(s)<br>(param.Parameterized)"]]
         WC[WorkflowController]
+        SM[["StreamManager(s)"]]
     end
 
     subgraph "Presentation Layer"
@@ -109,8 +111,10 @@ graph TD
     WC <--> UI
     K1 --> MS
     K2 <--> KT
-    MS --> DS
+    MS --> DF
+    DF --> DS
     DS --> DSU
+    SM -.->|creates|DSU
     DSU -.->|subscribes|DS
     PM -.->|subscribes|CS
     WCS -.->|subscribes|CS
@@ -125,8 +129,8 @@ graph TD
     classDef app fill:#ede7f6,stroke:#7b1fa2,color:#4a148c;
     classDef prese fill:#ede7f6,stroke:#7b1fa2,color:#4a148c;
     class K1,K2 kafka;
-    class KT,KT,TMH,MB,MS infra;
-    class CS,WCS,DS,DSU,PM,WC app;
+    class KT,KT,TMH,MB,MS,DF infra;
+    class CS,WCS,DS,DSU,PM,WC,SM app;
     class W1,UI,W2 prese;
 ```
 
