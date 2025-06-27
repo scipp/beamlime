@@ -3,15 +3,16 @@
 """Central definition of all configuration keys."""
 
 from beamlime.config.workflow_spec import (
+    PersistentWorkflowConfigs,
+    WorkflowConfig,
     WorkflowSpecs,
     WorkflowStatus,
-    WorkflowConfig,
-    PersistentWorkflowConfigs,
 )
-from .key_registry import register_key
+
+from .key_registry import ConfigKeySpec
 
 # Data reduction service keys
-WORKFLOW_SPECS = register_key(
+WORKFLOW_SPECS = ConfigKeySpec(
     key="workflow_specs",
     service_name="data_reduction",
     model=WorkflowSpecs,
@@ -20,7 +21,7 @@ WORKFLOW_SPECS = register_key(
     consumed_by={"dashboard"},
 )
 
-WORKFLOW_STATUS = register_key(
+WORKFLOW_STATUS = ConfigKeySpec(
     key="workflow_status",
     service_name="data_reduction",
     model=WorkflowStatus,
@@ -29,7 +30,7 @@ WORKFLOW_STATUS = register_key(
     consumed_by={"dashboard"},
 )
 
-WORKFLOW_CONFIG = register_key(
+WORKFLOW_CONFIG = ConfigKeySpec(
     key="workflow_config",
     service_name="data_reduction",
     model=WorkflowConfig,
@@ -39,7 +40,7 @@ WORKFLOW_CONFIG = register_key(
 )
 
 # Dashboard service keys
-PERSISTENT_WORKFLOW_CONFIGS = register_key(
+PERSISTENT_WORKFLOW_CONFIGS = ConfigKeySpec(
     key="persistent_workflow_configs",
     service_name="dashboard",
     model=PersistentWorkflowConfigs,
@@ -47,3 +48,14 @@ PERSISTENT_WORKFLOW_CONFIGS = register_key(
     produced_by={"dashboard"},
     consumed_by={"dashboard"},
 )
+
+# Usage patterns:
+#
+# Getting model type: WORKFLOW_CONFIG.model
+# Getting key name: WORKFLOW_CONFIG.key
+# Getting service name: WORKFLOW_CONFIG.service_name
+# Creating ConfigKey: WORKFLOW_CONFIG.create_key(source_name="my_source")
+#
+# For dynamic lookup by model type:
+# from .key_registry import get_registry
+# spec = get_registry().get_spec_by_model(WorkflowConfig)
