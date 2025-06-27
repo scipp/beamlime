@@ -118,7 +118,7 @@ graph TD
     DSU -.->|subscribes|DS
     PM -.->|subscribes|CS
     WCS -.->|subscribes|CS
-    MB --> CS
+    MB <--> CS
     CS <-- Pydantic --> PM
     PM <--> W2
     KT <--> TMH
