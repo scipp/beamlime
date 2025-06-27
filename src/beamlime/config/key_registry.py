@@ -24,7 +24,7 @@ class TypedConfigKey(Generic[T]):
 
     key: str
     service_name: str
-    value_type: type[T]
+    model: type[T]
     description: str = ""
     produced_by: set[str] = field(default_factory=set)
     consumed_by: set[str] = field(default_factory=set)
@@ -50,10 +50,10 @@ class ConfigKeyRegistry:
         key_id = f"{typed_key.service_name}/{typed_key.key}"
         if key_id in self._keys:
             existing = self._keys[key_id]
-            if existing.value_type != typed_key.value_type:
+            if existing.model != typed_key.model:
                 raise ValueError(
                     f"Key {key_id} already registered with different type: "
-                    f"{existing.value_type} vs {typed_key.value_type}"
+                    f"{existing.model} vs {typed_key.model}"
                 )
         self._keys[key_id] = typed_key
         return typed_key
@@ -84,7 +84,7 @@ _registry = ConfigKeyRegistry()
 def register_key(
     key: str,
     service_name: str,
-    value_type: type[T],
+    model: type[T],
     *,
     description: str = "",
     produced_by: set[str] | None = None,
@@ -94,7 +94,7 @@ def register_key(
     typed_key = TypedConfigKey(
         key=key,
         service_name=service_name,
-        value_type=value_type,
+        model=model,
         description=description,
         produced_by=produced_by or set(),
         consumed_by=consumed_by or set(),
