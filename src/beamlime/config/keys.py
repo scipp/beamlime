@@ -55,7 +55,3 @@ PERSISTENT_WORKFLOW_CONFIGS = ConfigKeySpec(
 # Getting key name: WORKFLOW_CONFIG.key
 # Getting service name: WORKFLOW_CONFIG.service_name
 # Creating ConfigKey: WORKFLOW_CONFIG.create_key(source_name="my_source")
-#
-# For dynamic lookup by model type:
-# from .key_registry import get_registry
-# spec = get_registry().get_spec_by_model(WorkflowConfig)

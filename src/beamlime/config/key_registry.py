@@ -89,10 +89,6 @@ class ConfigKeyRegistry:
         """Get a registered key specification."""
         return self._keys.get(f"{service_name}/{key}")
 
-    def get_spec_by_model(self, model: type) -> ConfigKeySpec | None:
-        """Get the key specification for a given model type."""
-        return self._model_to_spec.get(model)
-
     def list_specs(self, service_name: str | None = None) -> list[ConfigKeySpec]:
         """List all registered key specifications, optionally filtered by service."""
         if service_name is None:
@@ -101,13 +97,13 @@ class ConfigKeyRegistry:
             spec for spec in self._keys.values() if spec.service_name == service_name
         ]
 
-    def get_producers(self, service_name: str) -> list[ConfigKeySpec]:
+    def get_produced_keys(self, service_name: str) -> list[ConfigKeySpec]:
         """Get all key specifications for keys produced by a service."""
         return [
             spec for spec in self._keys.values() if service_name in spec.produced_by
         ]
 
-    def get_consumers(self, service_name: str) -> list[ConfigKeySpec]:
+    def get_consumed_keys(self, service_name: str) -> list[ConfigKeySpec]:
         """Get all key specifications for keys consumed by a service."""
         return [
             spec for spec in self._keys.values() if service_name in spec.consumed_by
