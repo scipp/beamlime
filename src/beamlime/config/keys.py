@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2025 Scipp contributors (https://github.com/scipp)
 # SPDX-License-Identifier: BSD-3-Clause
-"""Central definition of all configuration keys."""
+"""Example of a central definition of all configuration keys."""
 
 from beamlime.config.workflow_spec import (
     PersistentWorkflowConfigs,
@@ -9,10 +9,10 @@ from beamlime.config.workflow_spec import (
     WorkflowStatus,
 )
 
-from .key_registry import ConfigKeySpec
+from .key_registry import ConfigItemSpec
 
 # Data reduction service keys
-WORKFLOW_SPECS = ConfigKeySpec(
+WORKFLOW_SPECS = ConfigItemSpec(
     key="workflow_specs",
     service_name="data_reduction",
     model=WorkflowSpecs,
@@ -21,7 +21,7 @@ WORKFLOW_SPECS = ConfigKeySpec(
     consumed_by={"dashboard"},
 )
 
-WORKFLOW_STATUS = ConfigKeySpec(
+WORKFLOW_STATUS = ConfigItemSpec(
     key="workflow_status",
     service_name="data_reduction",
     model=WorkflowStatus,
@@ -30,7 +30,7 @@ WORKFLOW_STATUS = ConfigKeySpec(
     consumed_by={"dashboard"},
 )
 
-WORKFLOW_CONFIG = ConfigKeySpec(
+WORKFLOW_CONFIG = ConfigItemSpec(
     key="workflow_config",
     service_name="data_reduction",
     model=WorkflowConfig,
@@ -40,7 +40,7 @@ WORKFLOW_CONFIG = ConfigKeySpec(
 )
 
 # Dashboard service keys
-PERSISTENT_WORKFLOW_CONFIGS = ConfigKeySpec(
+PERSISTENT_WORKFLOW_CONFIGS = ConfigItemSpec(
     key="persistent_workflow_configs",
     service_name="dashboard",
     model=PersistentWorkflowConfigs,
@@ -52,6 +52,4 @@ PERSISTENT_WORKFLOW_CONFIGS = ConfigKeySpec(
 # Usage patterns:
 #
 # Getting model type: WORKFLOW_CONFIG.model
-# Getting key name: WORKFLOW_CONFIG.key
-# Getting service name: WORKFLOW_CONFIG.service_name
 # Creating ConfigKey: WORKFLOW_CONFIG.create_key(source_name="my_source")
