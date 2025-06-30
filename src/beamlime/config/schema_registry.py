@@ -1,71 +1,38 @@
 # SPDX-FileCopyrightText: 2025 Scipp contributors (https://github.com/scipp)
 # SPDX-License-Identifier: BSD-3-Clause
-"""Schema registry optimized for Pydantic model inheritance."""
+
+"""Registry for configuration keys with type safety and documentation."""
 
 from __future__ import annotations
 
-from collections import defaultdict
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Generic, TypeVar
-
-from pydantic import BaseModel, Field, ValidationError
 
 from .models import ConfigKey
 
-T = TypeVar('T', bound=BaseModel)
-
-
-class CompatibilityMode(Enum):
-    """Schema compatibility modes."""
-
-    NONE = "none"
-    BACKWARD = "backward"  # New schema can read old data
-    FORWARD = "forward"  # Old schema can read new data
-    FULL = "full"  # Both backward and forward compatible
+T = TypeVar('T')
 
 
 @dataclass(frozen=True)
-class SchemaVersion:
-    """A versioned Pydantic schema definition."""
+class ConfigItemSpec(Generic[T]):
+    """
+    A configuration key specification with associated type and metadata.
 
-    version: int
-    model_class: type[BaseModel]
-    compatibility_mode: CompatibilityMode = CompatibilityMode.BACKWARD
-    deprecated: bool = False
-
-    def validate_data(self, data: dict) -> BaseModel:
-        """Validate data against this schema version."""
-        return self.model_class.model_validate(data)
-
-    def is_compatible_with(self, other: SchemaVersion) -> bool:
-        """Check if this schema is compatible with another."""
-        if self.compatibility_mode == CompatibilityMode.NONE:
-            return False
-
-        # With inheritance, newer versions should be backward compatible
-        # by design if they only add optional fields
-        if self.version > other.version:
-            return issubclass(self.model_class, other.model_class)
-        elif self.version < other.version:
-            return issubclass(other.model_class, self.model_class)
-
-        return True
-
-
-SchemaId = tuple[str, str]
-
-
-@dataclass(frozen=True)
-class TypedConfigKey(Generic[T]):
-    """A configuration key with versioned Pydantic schema support."""
+    Instances automatically register themselves with the global registry
+    upon creation, ensuring all specs are discoverable and preventing
+    duplicate registrations.
+    """
 
     key: str
-    service_name: str
-    current_model: type[T]
+    service_name: str | None
+    model: type[T]
     description: str = ""
     produced_by: set[str] = field(default_factory=set)
     consumed_by: set[str] = field(default_factory=set)
+
+    def __post_init__(self) -> None:
+        """Register this spec with the global registry after creation."""
+        _registry.register(self)
 
     def create_key(self, source_name: str | None = None) -> ConfigKey:
         """Create a ConfigKey instance for a specific source."""
@@ -74,195 +41,85 @@ class TypedConfigKey(Generic[T]):
         )
 
     @property
-    def schema_id(self) -> SchemaId:
-        """Unique identifier for this schema."""
-        return (self.service_name, self.key)
+    def full_name(self) -> str:
+        """Get the full key name in service/key format."""
+        return f"{self.service_name}/{self.key}"
+
+    def __str__(self) -> str:
+        return f"*/{self.service_name}/{self.key}"
 
 
-class SchemaRegistry:
-    """Registry for versioned Pydantic configuration schemas."""
+class ConfigKeyRegistry:
+    """Central registry for all configuration keys in the application."""
 
     def __init__(self) -> None:
-        self._schemas: dict[SchemaId, dict[int, SchemaVersion]] = defaultdict(dict)
-        self._keys: dict[SchemaId, TypedConfigKey] = {}
+        self._keys: dict[tuple[str | None, str], ConfigItemSpec] = {}
+        self._model_to_spec: dict[type, ConfigItemSpec] = {}
 
-    def register_schema_version(
-        self,
-        key: TypedConfigKey,
-        version: int,
-        model_class: type[BaseModel],
-        *,
-        compatibility_mode: CompatibilityMode = CompatibilityMode.BACKWARD,
-        deprecated: bool = False,
-    ) -> None:
-        """Register a new version of a Pydantic schema."""
-        schema_id = key.schema_id
+    def register(self, spec: ConfigItemSpec) -> ConfigItemSpec:
+        """
+        Register a configuration key specification.
 
-        schema_version = SchemaVersion(
-            version=version,
-            model_class=model_class,
-            compatibility_mode=compatibility_mode,
-            deprecated=deprecated,
-        )
+        This is typically called automatically by ConfigKeySpec.__post_init__,
+        but can be used directly for testing or special cases.
+        """
+        key_id = (spec.service_name, spec.key)
+        if key_id in self._keys:
+            existing = self._keys[key_id]
+            if existing.model != spec.model:
+                raise ValueError(
+                    f"Key {spec.service_name}/{spec.key} already registered with "
+                    f"different type: {existing.model} vs {spec.model}"
+                )
 
-        # Validate inheritance chain
-        existing_versions = self._schemas[schema_id]
-        if existing_versions:
-            self._validate_inheritance(schema_id, schema_version, existing_versions)
+        if spec.model in self._model_to_spec:
+            existing_spec = self._model_to_spec[spec.model]
+            existing_key_id = (existing_spec.service_name, existing_spec.key)
+            if existing_key_id != key_id:
+                raise ValueError(
+                    f"Model {spec.model} already registered for key "
+                    f"{existing_spec.service_name}/{existing_spec.key}, "
+                    f"cannot register for {spec.service_name}/{spec.key}"
+                )
 
-        self._schemas[schema_id][version] = schema_version
+        self._keys[key_id] = spec
+        self._model_to_spec[spec.model] = spec
+        return spec
 
-        # Update key with latest version
-        if not existing_versions or version > max(existing_versions.keys()):
-            updated_key = TypedConfigKey(
-                key=key.key,
-                service_name=key.service_name,
-                current_model=model_class,
-                description=key.description,
-                produced_by=key.produced_by,
-                consumed_by=key.consumed_by,
-            )
-            self._keys[schema_id] = updated_key
+    def get_spec(self, service_name: str | None, key: str) -> ConfigItemSpec | None:
+        """Get a registered key specification."""
+        return self._keys.get((service_name, key))
 
-    def _validate_inheritance(
-        self,
-        schema_id: SchemaId,
-        new_version: SchemaVersion,
-        existing_versions: dict[int, SchemaVersion],
-    ) -> None:
-        """Validate that new schema follows inheritance pattern."""
-        latest_version = max(existing_versions.keys())
+    def get_model(self, config_key: ConfigKey) -> type | None:
+        """Get the model type for a given configuration key."""
+        spec = self.get_spec(config_key.service_name, config_key.key)
+        return spec.model if spec else None
 
-        if new_version.version <= latest_version:
-            raise ValueError(
-                f"Schema version {new_version.version} for {schema_id} "
-                f"must be greater than existing version {latest_version}"
-            )
+    def list_specs(self, service_name: str | None = None) -> list[ConfigItemSpec]:
+        """List all registered key specifications, optionally filtered by service."""
+        if service_name is None:
+            return list(self._keys.values())
+        return [
+            spec for spec in self._keys.values() if spec.service_name == service_name
+        ]
 
-        # Check inheritance relationship
-        latest_schema = existing_versions[latest_version]
-        if not issubclass(new_version.model_class, latest_schema.model_class):
-            raise ValueError(
-                f"Schema version {new_version.version} for {schema_id} "
-                f"must inherit from version {latest_version}"
-            )
+    def get_produced_keys(self, service_name: str) -> list[ConfigItemSpec]:
+        """Get all key specifications for keys produced by a service."""
+        return [
+            spec for spec in self._keys.values() if service_name in spec.produced_by
+        ]
 
-    def get_schema(
-        self, schema_id: str, version: int | None = None
-    ) -> SchemaVersion | None:
-        """Get a specific schema version."""
-        if schema_id not in self._schemas:
-            return None
-
-        versions = self._schemas[schema_id]
-        if version is None:
-            version = max(versions.keys())
-
-        return versions.get(version)
-
-    def get_key(self, service_name: str, key: str) -> TypedConfigKey | None:
-        """Get a registered key."""
-        schema_id = f"{service_name}/{key}"
-        return self._keys.get(schema_id)
-
-    def validate_and_upgrade(
-        self, schema_id: str, data: dict, target_version: int | None = None
-    ) -> BaseModel:
-        """Validate data and upgrade to target version."""
-        if schema_id not in self._schemas:
-            raise ValueError(f"Unknown schema: {schema_id}")
-
-        versions = self._schemas[schema_id]
-        if target_version is None:
-            target_version = max(versions.keys())
-
-        target_schema = versions[target_version]
-
-        # Try to validate with target version first (most common case)
-        try:
-            return target_schema.validate_data(data)
-        except ValidationError:
-            pass
-
-        # Try older versions and upgrade
-        for version in sorted(versions.keys(), reverse=True):
-            if version >= target_version:
-                continue
-
-            schema = versions[version]
-            try:
-                validated_data = schema.validate_data(data)
-                # Convert to dict and re-validate with target schema
-                # Pydantic inheritance handles the upgrade automatically
-                return target_schema.validate_data(validated_data.model_dump())
-            except ValidationError:
-                continue
-
-        # If all else fails, try direct validation one more time
-        # This will raise the appropriate ValidationError
-        return target_schema.validate_data(data)
+    def get_consumed_keys(self, service_name: str) -> list[ConfigItemSpec]:
+        """Get all key specifications for keys consumed by a service."""
+        return [
+            spec for spec in self._keys.values() if service_name in spec.consumed_by
+        ]
 
 
 # Global registry instance
-_registry = SchemaRegistry()
+_registry = ConfigKeyRegistry()
 
 
-def register_schema_version(
-    key: TypedConfigKey,
-    version: int,
-    model_class: type[BaseModel],
-    *,
-    compatibility_mode: CompatibilityMode = CompatibilityMode.BACKWARD,
-    deprecated: bool = False,
-) -> None:
-    """Register a schema version with the global registry."""
-    _registry.register_schema_version(
-        key=key,
-        version=version,
-        model_class=model_class,
-        compatibility_mode=compatibility_mode,
-        deprecated=deprecated,
-    )
-
-
-def get_schema_registry() -> SchemaRegistry:
-    """Get the global schema registry."""
+def get_registry() -> ConfigKeyRegistry:
+    """Get the global configuration key registry."""
     return _registry
-
-
-# Usage example
-class WorkflowConfigV1(BaseModel):
-    """Version 1 of workflow configuration."""
-
-    identifier: str | None = None
-    values: dict[str, str] = Field(default_factory=dict)
-
-
-class WorkflowConfigV2(WorkflowConfigV1):
-    """Version 2 adds validation and timeout settings."""
-
-    validation_enabled: bool = Field(default=True)
-    timeout_seconds: int = Field(default=300)
-
-
-class WorkflowConfigV3(WorkflowConfigV2):
-    """Version 3 adds retry configuration."""
-
-    max_retries: int = Field(default=3)
-    retry_delay_seconds: int = Field(default=5)
-
-
-# Define the key
-WORKFLOW_CONFIG = TypedConfigKey(
-    key="workflow_config",
-    service_name="data_reduction",
-    current_model=WorkflowConfigV3,
-    description="Configuration for a workflow",
-    produced_by={"dashboard"},
-    consumed_by={"data_reduction"},
-)
-
-# Register all versions
-register_schema_version(WORKFLOW_CONFIG, version=1, model_class=WorkflowConfigV1)
-register_schema_version(WORKFLOW_CONFIG, version=2, model_class=WorkflowConfigV2)
-register_schema_version(WORKFLOW_CONFIG, version=3, model_class=WorkflowConfigV3)
