@@ -13,7 +13,7 @@ from .config_service import ConfigService
 class ConfigBackedParam(param.Parameterized):
     """Base class for parameter models with config service integration."""
 
-    def from_pydantic(self) -> Callable[[pydantic.BaseModel], None]:
+    def from_pydantic_updater(self) -> Callable[[pydantic.BaseModel], None]:
         """Wrapper to make linters/mypy happy with the callback signature."""
 
         def update_callback(model: pydantic.BaseModel) -> None:
@@ -51,7 +51,7 @@ class ConfigBackedParam(param.Parameterized):
         """Subscribe to config service updates and register callbacks."""
         key = self.config_key
         config_service.register_schema(key, self.schema)
-        config_service.subscribe(key=key, callback=self.from_pydantic())
+        config_service.subscribe(key=key, callback=self.from_pydantic_updater())
 
         def set_as_pydantic(**kwargs) -> None:
             model = self.schema.model_validate(kwargs)

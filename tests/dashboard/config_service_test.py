@@ -128,7 +128,7 @@ class TestConfigService:
     ) -> None:
         service, bridge = service_with_bridge
         toa_range = TOARangeParam()
-        service.subscribe(key=config_key, callback=toa_range.from_pydantic())
+        service.subscribe(key=config_key, callback=toa_range.from_pydantic_updater())
 
         # Create a config update and add it to the bridge
         config_data = {'enabled': False, 'low': 1000.0, 'high': 2000.0, 'unit': 'us'}

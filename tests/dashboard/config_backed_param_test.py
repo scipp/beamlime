@@ -50,12 +50,12 @@ class AbstractConfigBackedParam(ConfigBackedParam):
 class TestConfigBackedParam:
     def test_from_pydantic_returns_callable(self):
         param_obj = ConcreteConfigBackedParam()
-        callback = param_obj.from_pydantic()
+        callback = param_obj.from_pydantic_updater()
         assert callable(callback)
 
     def test_from_pydantic_callback_updates_params(self):
         param_obj = ConcreteConfigBackedParam()
-        callback = param_obj.from_pydantic()
+        callback = param_obj.from_pydantic_updater()
 
         model = MySchema(value=100, name="updated")
         callback(model)
@@ -150,7 +150,7 @@ class TestConfigBackedParam:
 
     def test_from_pydantic_with_partial_model_data(self):
         param_obj = ConcreteConfigBackedParam()
-        callback = param_obj.from_pydantic()
+        callback = param_obj.from_pydantic_updater()
 
         # Model with only some fields (using default for name)
         model = MySchema(value=50)
@@ -322,7 +322,7 @@ class TestConfigBackedParamIntegration:
                 return "panel"
 
         param_obj = ErrorProneParam()
-        callback = param_obj.from_pydantic()
+        callback = param_obj.from_pydantic_updater()
 
         # This should not raise, even with invalid data
         # The validation happens at the pydantic level before reaching callback
