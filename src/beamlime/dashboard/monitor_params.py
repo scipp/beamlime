@@ -3,6 +3,8 @@
 import param
 
 from ..config import models
+from beamlime.config import keys
+from beamlime.config.schema_registry import ConfigItemSpec
 from .config_backed_param import MonitorDataParam
 
 
@@ -25,12 +27,8 @@ class TOAEdgesParam(MonitorDataParam):
     )
 
     @property
-    def config_key_name(self) -> str:
-        return 'toa_edges'
-
-    @property
-    def schema(self) -> type[models.TOAEdges]:
-        return models.TOAEdges
+    def spec(self) -> ConfigItemSpec:
+        return keys.MONITOR_TOA_EDGES
 
     def panel(self):
         return self.param.num_edges

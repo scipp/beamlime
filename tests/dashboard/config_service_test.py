@@ -5,7 +5,8 @@ from contextlib import contextmanager
 import pydantic
 import pytest
 
-from beamlime.config.models import TOARange
+from beamlime.config.models import ConfigKey, TOARange
+from beamlime.config import keys
 from beamlime.dashboard.config_service import (
     ConfigSchemaManager,
     ConfigService,
@@ -74,8 +75,8 @@ def capture_logs(logger, level: str = 'error') -> list:
 
 
 @pytest.fixture
-def config_key() -> str:
-    return "toa_range"
+def config_key() -> ConfigKey:
+    return keys.DETECTOR_TOA_RANGE.create_key()
 
 
 @pytest.fixture
@@ -89,7 +90,9 @@ def complex_key() -> str:
 
 
 @pytest.fixture
-def schemas(config_key: str, simple_key: str, complex_key: str) -> ConfigSchemaManager:
+def schemas(
+    config_key: ConfigKey, simple_key: str, complex_key: str
+) -> ConfigSchemaManager:
     return ConfigSchemaManager(
         {
             config_key: TOARange,
@@ -154,7 +157,7 @@ class TestConfigService:
         # Init bridge with a single message
         bridge.add_incoming_message(
             (
-                toa_range.config_key,
+                toa_range.spec.create_key(),
                 {'enabled': True, 'low': 1000.0, 'high': 2000.0, 'unit': 'us'},
             )
         )
@@ -436,29 +439,6 @@ class TestConfigService:
         assert failing_callback.call_count == 1
         assert working_callback.called is True
         assert working_callback.data == config
-
-    def test_register_schema_with_manager(self, service: ConfigService) -> None:
-        """Test registering a new schema with ConfigSchemaManager."""
-        new_key = "new_config"
-
-        service.register_schema(new_key, SimpleConfig)
-
-        config = SimpleConfig(value=900, name="new_schema")
-        service.update_config(new_key, config)
-
-        assert service.get(new_key) == config
-
-    def test_register_schema_with_non_manager_raises_error(self) -> None:
-        """Test that registering schema with non-ConfigSchemaManager raises error."""
-
-        class FakeValidator:
-            pass
-
-        validator = FakeValidator()
-        service = ConfigService(schema_validator=validator)
-
-        with pytest.raises(TypeError, match="Schema validator must be an instance"):
-            service.register_schema("key", SimpleConfig)
 
     def test_complex_config_serialization_deserialization(
         self,

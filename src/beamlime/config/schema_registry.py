@@ -12,6 +12,14 @@ from .models import ConfigKey
 
 T = TypeVar('T')
 
+# - Remove wildcard "service_name" form ConfigKey? Simplifies things!
+# - Specific MONITOR_TOA_EDGES, ROI_HISTOGRAM_TOA_EDGES, etc.?
+#   Thus, multiple are using same model.
+# - Remove ConfigService.register_schema
+# - Remove ConfigBackedParam.service_name and subclasses
+# - Remove ConfigSchemaManager, use new SchemaValidator.
+#   Base: SchemaValidator, sub: PydanticSchemaValidator
+
 
 @dataclass(frozen=True)
 class ConfigItemSpec(Generic[T]):
@@ -49,7 +57,7 @@ class ConfigItemSpec(Generic[T]):
         return f"*/{self.service_name}/{self.key}"
 
 
-class ConfigKeyRegistry:
+class SchemaRegistry:
     """Central registry for all configuration keys in the application."""
 
     def __init__(self) -> None:
@@ -117,9 +125,9 @@ class ConfigKeyRegistry:
 
 
 # Global registry instance
-_registry = ConfigKeyRegistry()
+_registry = SchemaRegistry()
 
 
-def get_registry() -> ConfigKeyRegistry:
+def get_schema_registry() -> SchemaRegistry:
     """Get the global configuration key registry."""
     return _registry

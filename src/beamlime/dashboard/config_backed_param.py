@@ -6,7 +6,7 @@ from typing import Any
 import param
 import pydantic
 
-from ..config import models
+from beamlime.config.schema_registry import ConfigItemSpec
 from .config_service import ConfigService
 
 
@@ -27,34 +27,21 @@ class ConfigBackedParam(param.Parameterized):
         raise NotImplementedError("Subclasses must implement service_name")
 
     @property
-    def config_key_name(self) -> str:
-        """The specific key name within the service."""
-        raise NotImplementedError("Subclasses must implement config_key_name")
-
-    @property
-    def schema(self) -> type[models.BaseModel]:
-        """The pydantic schema for this parameter model."""
-        raise NotImplementedError("Subclasses must implement schema")
+    def spec(self) -> ConfigItemSpec:
+        """Return config spec."""
+        raise NotImplementedError("Subclasses must implement spec")
 
     def panel(self) -> Any:
         """Return widget for displaying this parameter in the dashboard."""
         raise NotImplementedError("Subclasses must implement panel")
 
-    @property
-    def config_key(self) -> models.ConfigKey:
-        """Generate the config key for this parameter model."""
-        return models.ConfigKey(
-            service_name=self.service_name, key=self.config_key_name
-        )
-
     def subscribe(self, config_service: ConfigService) -> None:
         """Subscribe to config service updates and register callbacks."""
-        key = self.config_key
-        config_service.register_schema(key, self.schema)
+        key = self.spec.create_key()
         config_service.subscribe(key=key, callback=self.from_pydantic())
 
         def set_as_pydantic(**kwargs) -> None:
-            model = self.schema.model_validate(kwargs)
+            model = self.spec.model.model_validate(kwargs)
             config_service.update_config(key, model)
 
         # Get all param names that aren't methods/properties

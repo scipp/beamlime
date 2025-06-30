@@ -2,7 +2,8 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import param
 
-from ..config import models
+from beamlime.config import keys
+from beamlime.config.schema_registry import ConfigItemSpec
 from .config_backed_param import DetectorDataParam
 
 
@@ -23,9 +24,5 @@ class TOARangeParam(DetectorDataParam):
     )
 
     @property
-    def config_key_name(self) -> str:
-        return 'toa_range'
-
-    @property
-    def schema(self) -> type[models.TOARange]:
-        return models.TOARange
+    def spec(self) -> ConfigItemSpec:
+        return keys.DETECTOR_TOA_RANGE

@@ -3,7 +3,7 @@
 import logging
 from collections import UserDict, defaultdict
 from collections.abc import Callable
-from typing import Any, Generic, Protocol, TypeVar
+from typing import Any, Generic, Hashable, TypeVar
 
 import pydantic
 
@@ -11,58 +11,39 @@ from beamlime.config.models import ConfigKey
 from beamlime.config.schema_registry import SchemaRegistry
 from beamlime.dashboard.message_bridge import MessageBridge
 
-K = TypeVar('K')
-V = TypeVar('V')
-Serialized = TypeVar('Serialized')
-
-
-class ConfigSchemaValidator(Protocol, Generic[K, Serialized, V]):
-    """Protocol for validating configuration data against schemas."""
-
-    def validate(self, key: K, value: V) -> bool:
-        """Check if a schema is registered for the given key."""
-
-    def deserialize(self, key: K, data: Serialized) -> V | None:
-        """Validate configuration data."""
-
-    def serialize(self, data: V) -> Serialized:
-        """Serialize a pydantic model to a dictionary."""
-
+K = TypeVar('K', bound=Hashable)
 
 JSONSerialized = dict[str, Any]
+ConfigValue = pydantic.BaseModel
 
 
 class ConfigValidatorMixin(Generic[K]):
     """Mixin class providing common validation functionality."""
 
-    def get_model(self, key: K) -> type[pydantic.BaseModel] | None:
+    def get_model(self, key: K) -> type[ConfigValue] | None:
         """Get the model class for a given key."""
         raise NotImplementedError('Subclasses must implement get_model method')
 
-    def validate(self, key: K, value: Any) -> bool:
+    def validate(self, key: K, value: ConfigValue) -> bool:
         """Check if a schema is registered for the given key."""
         model = self.get_model(key)
         if model is None:
             return False
         return isinstance(value, model)
 
-    def deserialize(self, key: K, data: JSONSerialized) -> pydantic.BaseModel | None:
+    def deserialize(self, key: K, data: JSONSerialized) -> ConfigValue | None:
         """Validate configuration data."""
         model = self.get_model(key)
         if model is None:
             return None
         return model.model_validate(data)
 
-    def serialize(self, data: pydantic.BaseModel) -> JSONSerialized:
+    def serialize(self, data: ConfigValue) -> JSONSerialized:
         """Serialize a pydantic model to a dictionary."""
         return data.model_dump(mode='json')
 
 
-class ConfigSchemaManager(
-    UserDict[K, type[pydantic.BaseModel]],
-    ConfigValidatorMixin[K],
-    ConfigSchemaValidator[K, JSONSerialized, pydantic.BaseModel],
-):
+class ConfigSchemaManager(UserDict[K, type[ConfigValue]], ConfigValidatorMixin[K]):
     """
     Manages configuration schemas.
 
@@ -70,14 +51,11 @@ class ConfigSchemaManager(
     serialize pydantic models to JSON-compatible dictionaries.
     """
 
-    def get_model(self, key: K) -> type[pydantic.BaseModel] | None:
+    def get_model(self, key: K) -> type[ConfigValue] | None:
         return self.get(key)
 
 
-class SchemaValidator(
-    ConfigValidatorMixin[ConfigKey],
-    ConfigSchemaValidator[ConfigKey, JSONSerialized, pydantic.BaseModel],
-):
+class SchemaValidator(ConfigValidatorMixin[ConfigKey]):
     """
     Manages configuration schemas.
 
@@ -88,12 +66,12 @@ class SchemaValidator(
     def __init__(self, schema_registry: SchemaRegistry):
         self._schema_registry = schema_registry
 
-    def get_model(self, key: ConfigKey) -> type[pydantic.BaseModel] | None:
+    def get_model(self, key: ConfigKey) -> type[ConfigValue] | None:
         """Get the model class for a given key."""
         return self._schema_registry.get_model(key)
 
 
-class ConfigService(Generic[K, Serialized, V]):
+class ConfigService(Generic[K]):
     """
     Service for configuration data with schema validation and message publishing.
 
@@ -108,17 +86,19 @@ class ConfigService(Generic[K, Serialized, V]):
 
     def __init__(
         self,
-        schema_validator: ConfigSchemaValidator[K, Serialized, V],
-        message_bridge: MessageBridge[K, Serialized] | None = None,
+        schema_validator: ConfigValidatorMixin[K],
+        message_bridge: MessageBridge[K, JSONSerialized] | None = None,
     ):
         self.schema_validator = schema_validator
         self._message_bridge = message_bridge
-        self._subscribers: dict[K, list[Callable[[V], None]]] = defaultdict(list)
+        self._subscribers: dict[K, list[Callable[[ConfigValue], None]]] = defaultdict(
+            list
+        )
         self._logger = logging.getLogger(__name__)
-        self._config: dict[K, V] = {}
+        self._config: dict[K, ConfigValue] = {}
         self._update_disabled = False
 
-    def subscribe(self, key: K, callback: Callable[[V], None]) -> None:
+    def subscribe(self, key: K, callback: Callable[[ConfigValue], None]) -> None:
         """
         Subscribe to configuration updates for a specific key.
 
@@ -133,7 +113,7 @@ class ConfigService(Generic[K, Serialized, V]):
         if (data := self._config.get(key)) is not None:
             self._invoke(key, callback, data)
 
-    def get(self, key: K, default: Any = None) -> V | Any:
+    def get(self, key: K, default: Any = None) -> ConfigValue | Any:
         """
         Get the current configuration value for a specific key.
 
@@ -150,7 +130,7 @@ class ConfigService(Generic[K, Serialized, V]):
         """
         return self._config.get(key, default)
 
-    def update_config(self, key: K, value: V) -> None:
+    def update_config(self, key: K, value: Any) -> None:
         """
         Update the configuration for a specific key.
 
@@ -161,7 +141,7 @@ class ConfigService(Generic[K, Serialized, V]):
         """
         if self._update_disabled:
             return
-        if not isinstance(value, pydantic.BaseModel):
+        if not isinstance(value, ConfigValue):
             raise TypeError(
                 f'Value for key {key} must be a pydantic model, got {type(value)}'
             )
@@ -185,7 +165,7 @@ class ConfigService(Generic[K, Serialized, V]):
         for key, value in messages.items():
             self._handle_config_update(key, value)
 
-    def _handle_config_update(self, key: K, value: Serialized) -> None:
+    def _handle_config_update(self, key: K, value: JSONSerialized) -> None:
         """Handle a configuration update from the message bridge."""
         try:
             self._logger.debug('Received config update for key %s: %s', key, value)
@@ -198,7 +178,7 @@ class ConfigService(Generic[K, Serialized, V]):
         except pydantic.ValidationError as e:
             self._logger.error('Invalid config data received for key %s: %s', key, e)
 
-    def _notify_subscribers(self, key: K, data: V) -> None:
+    def _notify_subscribers(self, key: K, data: ConfigValue) -> None:
         """Notify all subscribers for a given config key."""
         self._logger.debug(
             'Notifying %d subscribers for key %s', len(self._subscribers[key]), key
@@ -206,7 +186,9 @@ class ConfigService(Generic[K, Serialized, V]):
         for callback in self._subscribers.get(key, []):
             self._invoke(key, callback, data)
 
-    def _invoke(self, key: K, callback: Callable[[V], None], data: V) -> None:
+    def _invoke(
+        self, key: K, callback: Callable[[ConfigValue], None], data: ConfigValue
+    ) -> None:
         try:
             callback(data)
         except Exception as e:

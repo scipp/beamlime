@@ -3,6 +3,7 @@
 import pytest
 
 from beamlime.config.models import ConfigKey
+from beamlime.config.schema_registry import get_schema_registry
 from beamlime.config.workflow_spec import (
     PersistentWorkflowConfig,
     PersistentWorkflowConfigs,
@@ -12,7 +13,7 @@ from beamlime.config.workflow_spec import (
     WorkflowStatus,
     WorkflowStatusType,
 )
-from beamlime.dashboard.config_service import ConfigSchemaManager, ConfigService
+from beamlime.dashboard.config_service import SchemaValidator, ConfigService
 from beamlime.dashboard.message_bridge import FakeMessageBridge
 from beamlime.dashboard.workflow_config_service import (
     ConfigServiceAdapter,
@@ -29,8 +30,10 @@ def fake_message_bridge():
 @pytest.fixture
 def config_service(fake_message_bridge):
     """Create a ConfigService with fake message bridge."""
-    schema_manager = ConfigSchemaManager[ConfigKey]()
-    return ConfigService(schema_manager, fake_message_bridge)
+    return ConfigService(
+        schema_validator=SchemaValidator(get_schema_registry()),
+        message_bridge=fake_message_bridge,
+    )
 
 
 @pytest.fixture
@@ -106,6 +109,7 @@ def test_adapter_registers_schemas(config_service):
 
     schema_manager = config_service.schema_validator
 
+    # TODO In a sense I liked this, but why? Getting doubts about the refactoring
     # Bare ConfigService should not have these keys registered
     for key in expected_keys:
         assert key not in schema_manager.data

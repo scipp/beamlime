@@ -8,8 +8,27 @@ from beamlime.config.workflow_spec import (
     WorkflowSpecs,
     WorkflowStatus,
 )
+from beamlime.config.models import TOAEdges, TOARange
 
-from .key_registry import ConfigItemSpec
+from .schema_registry import ConfigItemSpec
+
+MONITOR_TOA_EDGES = ConfigItemSpec(
+    key="toa_edges",
+    service_name="monitor_data",
+    model=TOAEdges,
+    description="Time of Arrival edges for a TOA histogram",
+    produced_by={"dashboard"},
+    consumed_by={"monitor_data"},
+)
+
+DETECTOR_TOA_RANGE = ConfigItemSpec(
+    key="toa_range",
+    service_name="detector_data",
+    model=TOARange,
+    description="Limit the time-of-arrival range when computing counts/pixel",
+    produced_by={"dashboard"},
+    consumed_by={"detector_data"},
+)
 
 # Data reduction service keys
 WORKFLOW_SPECS = ConfigItemSpec(
