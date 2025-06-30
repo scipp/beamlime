@@ -89,7 +89,7 @@ def test_accumulator_clears_when_data_sizes_changes(
 
 
 def test_histogrammer_returns_zeros_if_no_chunks_added() -> None:
-    histogrammer = TOAHistogrammer(config={'time_of_arrival_bins': 7})
+    histogrammer = TOAHistogrammer(config={'time_of_arrival_bins': 6})
     da = histogrammer.get()
     dim = 'time_of_arrival'
     bins = sc.linspace(dim, 0.0, 1000 / 14, num=7, unit='ms')
