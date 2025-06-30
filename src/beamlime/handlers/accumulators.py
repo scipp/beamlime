@@ -145,8 +145,16 @@ class GroupIntoPixels(Accumulator[DetectorEvents, sc.DataArray]):
     def get(self) -> sc.DataArray:
         # Could optimize the concatenate by reusing a buffer (directly write to it in
         # self.add).
-        pixel_ids = np.concatenate([c.pixel_id for c in self._chunks])
-        time_of_arrival = np.concatenate([c.time_of_arrival for c in self._chunks])
+        pixel_ids = (
+            np.concatenate([c.pixel_id for c in self._chunks])
+            if self._chunks
+            else np.array([], dtype=np.int32)
+        )
+        time_of_arrival = (
+            np.concatenate([c.time_of_arrival for c in self._chunks])
+            if self._chunks
+            else np.array([], dtype=np.int32)
+        )
         da = sc.DataArray(
             data=sc.array(dims=['event'], values=time_of_arrival, unit=self._toa_unit),
             coords={self._dim: sc.array(dims=['event'], values=pixel_ids, unit=None)},
