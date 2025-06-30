@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+import logging
 from contextlib import ExitStack, contextmanager
 
 import scipp as sc
@@ -13,6 +14,7 @@ class DataForwarder:
 
     def __init__(self, data_services: dict[str, DataService]) -> None:
         self._data_services = data_services
+        self._logger = logging.getLogger(__name__)
 
     def __contains__(self, data_service_name: str) -> bool:
         """
@@ -62,3 +64,7 @@ class DataForwarder:
                 service_name=service_name, source_name=source_name, key=key
             )
             service[data_key] = value
+        else:
+            self._logger.debug(
+                "Service '%s' not found for stream '%s'", service_name, stream_name
+            )
