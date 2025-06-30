@@ -1,7 +1,40 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 
-from beamlime import Message, compact_messages
+import time
+
+from beamlime import Message, StreamId, StreamKind, compact_messages
+
+
+class TestMessage:
+    def test_auto_generates_timestamp_when_not_provided(self) -> None:
+        before = time.time_ns()
+        msg = Message(stream=StreamId(kind=StreamKind.LOG, name="test"), value="data")
+        after = time.time_ns()
+
+        assert before <= msg.timestamp <= after
+
+    def test_preserves_explicitly_provided_timestamp(self) -> None:
+        explicit_timestamp = 12345
+        msg = Message(
+            timestamp=explicit_timestamp,
+            stream=StreamId(kind=StreamKind.LOG, name="test"),
+            value="data",
+        )
+
+        assert msg.timestamp == explicit_timestamp
+
+    def test_multiple_messages_have_different_auto_timestamps(self) -> None:
+        msg1 = Message(
+            stream=StreamId(kind=StreamKind.LOG, name="test1"), value="data1"
+        )
+        time.sleep(0.001)  # Small delay to ensure different timestamps
+        msg2 = Message(
+            stream=StreamId(kind=StreamKind.LOG, name="test2"), value="data2"
+        )
+
+        assert msg1.timestamp != msg2.timestamp
+        assert msg1.timestamp < msg2.timestamp
 
 
 def test_comparison_compares_timestamps() -> None:
