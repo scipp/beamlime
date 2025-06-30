@@ -79,7 +79,13 @@ class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
         _ = timestamp
-        if self._cumulative is None or data.sizes != self._cumulative.sizes:
+        if (
+            self._cumulative is None
+            or data.sizes != self._cumulative.sizes
+            or not sc.identical(
+                data.coords[data.dim], self._cumulative.coords[data.dim]
+            )
+        ):
             self._cumulative = data.copy()
         else:
             self._cumulative += data
@@ -215,7 +221,7 @@ class TOAHistogrammer(Accumulator[MonitorEvents, sc.DataArray]):
 
     def __init__(self, config: Config):
         self._config = config
-        self._nbin = -1
+        self._params: dict[str, Any] = {}
         self._chunks: list[np.ndarray] = []
         self._edges: sc.Variable | None = None
         self._edges_ns: sc.Variable | None = None
@@ -224,15 +230,19 @@ class TOAHistogrammer(Accumulator[MonitorEvents, sc.DataArray]):
         if (edges := self._config.get('toa_edges')) is None:
             # Used by legacy dashboard, we still support this as fallback for now.
             nbin = self._config.get('time_of_arrival_bins', 100)
+            params = {'start': 0.0, 'stop': 1000 / 14, 'num': nbin + 1, 'unit': 'ms'}
         else:
-            # TODO Using bounds was requested in #387, not implemented yet.
-            nbin = edges['num_edges']
-        if self._edges is None or nbin != self._nbin:
-            self._nbin = nbin
-            self._edges = sc.linspace(
-                'time_of_arrival', 0.0, 1000 / 14, num=nbin, unit='ms'
-            )
+            params = {
+                'start': edges['low'],
+                'stop': edges['high'],
+                'num': edges['num_bins'] + 1,
+                'unit': edges['unit'],
+            }
+        if self._edges is None or params != self._params:
+            self._params = params
+            self._edges = sc.linspace('time_of_arrival', **params)
             self._edges_ns = self._edges.to(unit='ns')
+            self.clear()
 
     def add(self, timestamp: int, data: DetectorEvents | MonitorEvents) -> None:
         _ = timestamp
