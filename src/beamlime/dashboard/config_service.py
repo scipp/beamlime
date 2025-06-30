@@ -82,7 +82,6 @@ class ConfigService(Generic[K, Serialized, V]):
         self._subscribers: dict[K, list[Callable[[V], None]]] = defaultdict(list)
         self._logger = logging.getLogger(__name__)
         self._config: dict[K, V] = {}
-        self._update_disabled = False
 
     def register_schema(self, key: K, schema: type[pydantic.BaseModel]) -> None:
         """Register a schema for a configuration key."""
@@ -135,8 +134,6 @@ class ConfigService(Generic[K, Serialized, V]):
         then notify all subscribers. This ensures a consistent ordering of updates,
         enforced by Kafka, and avoids potential infinite loops.
         """
-        if self._update_disabled:
-            return
         if not isinstance(value, pydantic.BaseModel):
             raise TypeError(
                 f'Value for key {key} must be a pydantic model, got {type(value)}'
