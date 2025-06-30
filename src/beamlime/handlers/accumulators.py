@@ -8,7 +8,6 @@ from typing import Any, TypeVar
 import numpy as np
 import scipp as sc
 from ess.reduce.live.roi import ROIFilter
-from scipp._scipp.core import _bins_no_validate
 from streaming_data_types import logdata_f144
 
 from ..config import models
@@ -71,14 +70,15 @@ class ForwardingAccumulator(Accumulator[T, T]):
         pass
 
 
-class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
-    def __init__(self, config: Config | None = None, clear_on_get: bool = False):
-        self._config = config or {}
+class _CumulativeAccumulationMixin:
+    """Mixin providing cumulative data accumulation functionality."""
+
+    def __init__(self, clear_on_get: bool = False):
         self._clear_on_get = clear_on_get
         self._cumulative: sc.DataArray | None = None
 
-    def add(self, timestamp: int, data: sc.DataArray) -> None:
-        _ = timestamp
+    def _add_cumulative(self, data: sc.DataArray) -> None:
+        """Add data to the cumulative accumulation."""
         if (
             self._cumulative is None
             or data.sizes != self._cumulative.sizes
@@ -90,16 +90,37 @@ class Cumulative(Accumulator[sc.DataArray, sc.DataArray]):
         else:
             self._cumulative += data
 
-    def get(self) -> sc.DataArray:
+    def _get_cumulative(self) -> sc.DataArray:
+        """Get the current cumulative data."""
         if self._cumulative is None:
             raise ValueError("No data has been added")
-        value = self._cumulative
-        if self._clear_on_get:
-            self._cumulative = None
-        return value
+        return self._cumulative
 
     def clear(self) -> None:
+        """Clear the cumulative data."""
         self._cumulative = None
+
+    def _compute_result(self, cumulative: sc.DataArray) -> sc.DataArray:
+        """Compute the final result from cumulative data. Override in subclasses."""
+        return cumulative
+
+    def get(self) -> sc.DataArray:
+        """Get the accumulated result, optionally clearing data if configured."""
+        cumulative = self._get_cumulative()
+        result = self._compute_result(cumulative)
+        if self._clear_on_get:
+            self.clear()
+        return result
+
+
+class Cumulative(_CumulativeAccumulationMixin, Accumulator[sc.DataArray, sc.DataArray]):
+    def __init__(self, config: Config | None = None, clear_on_get: bool = False):
+        super().__init__(clear_on_get=clear_on_get)
+        self._config = config or {}
+
+    def add(self, timestamp: int, data: sc.DataArray) -> None:
+        _ = timestamp
+        self._add_cumulative(data)
 
 
 class GroupIntoPixels(Accumulator[DetectorEvents, sc.DataArray]):
@@ -189,7 +210,7 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
         content.data = sc.ones(
             dims=content.dims, shape=content.shape, dtype='float32', unit='counts'
         )
-        data.data = _bins_no_validate(**constituents)
+        data.data = sc.bins(**constituents, validate_indices=False)
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
         self._check_for_config_updates()
@@ -211,18 +232,12 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
         self._chunks.clear()
 
 
-class TOAHistogrammer(Accumulator[MonitorEvents, sc.DataArray]):
-    """
-    Accumulator that bins time of arrival data into a histogram.
-
-    Monitor data handlers use this as a preprocessor before actual accumulation. For
-    detector data it could be used to produce a histogram for a selected ROI.
-    """
+class _TOAMixin:
+    """Mixing class for accumulators that create time-of-arrival histograms."""
 
     def __init__(self, config: Config):
         self._config = config
         self._params: dict[str, Any] = {}
-        self._chunks: list[np.ndarray] = []
         self._edges: sc.Variable | None = None
         self._edges_ns: sc.Variable | None = None
 
@@ -242,7 +257,19 @@ class TOAHistogrammer(Accumulator[MonitorEvents, sc.DataArray]):
             self._params = params
             self._edges = sc.linspace('time_of_arrival', **params)
             self._edges_ns = self._edges.to(unit='ns')
-            self.clear()
+
+
+class TOAHistogrammer(_TOAMixin, Accumulator[MonitorEvents, sc.DataArray]):
+    """
+    Accumulator that bins time of arrival data into a histogram.
+
+    Monitor data handlers use this as a preprocessor before actual accumulation. For
+    detector data it could be used to produce a histogram for a selected ROI.
+    """
+
+    def __init__(self, config: Config):
+        super().__init__(config)
+        self._chunks: list[np.ndarray] = []
 
     def add(self, timestamp: int, data: DetectorEvents | MonitorEvents) -> None:
         _ = timestamp
@@ -268,11 +295,31 @@ class TOAHistogrammer(Accumulator[MonitorEvents, sc.DataArray]):
         self._chunks.clear()
 
 
-class Rebinner:
-    def __init__(self):
-        self._arrays: list[sc.DataArray] = []
+class TOARebinner(
+    _TOAMixin,
+    _CumulativeAccumulationMixin,
+    Accumulator[sc.DataArray, sc.DataArray],
+):
+    """
+    Accumulator that cumulatively adds data arrays and rebins them to histogram edges.
 
-    def histogram(self, edges: sc.Variable) -> sc.DataArray:
-        da = sc.reduce(self._arrays).sum()
-        self._arrays.clear()
-        return da.rebin({edges.dim: edges})
+    Similar to Cumulative but provides histogram functionality for time-of-arrival data.
+    """
+
+    def __init__(self, config: Config, clear_on_get: bool = False):
+        _TOAMixin.__init__(self, config)
+        _CumulativeAccumulationMixin.__init__(self, clear_on_get=clear_on_get)
+
+    def add(self, timestamp: int, data: sc.DataArray) -> None:
+        _ = timestamp
+        self._add_cumulative(data)
+
+    def _compute_result(self, cumulative: sc.DataArray) -> sc.DataArray:
+        """Rebin the cumulative data to histogram edges."""
+        self._check_for_config_updates()
+        if cumulative.dim != 'time_of_arrival':
+            cumulative = cumulative.rename({cumulative.dim: 'time_of_arrival'})
+        coord = cumulative.coords.get(self._edges.dim).to(unit=self._edges.unit)
+        return cumulative.assign_coords({self._edges.dim: coord}).rebin(
+            {self._edges.dim: self._edges}
+        )
