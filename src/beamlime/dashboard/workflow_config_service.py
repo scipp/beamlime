@@ -19,6 +19,8 @@ from beamlime.config.workflow_spec import (
     WorkflowStatus,
 )
 
+from .config_service import ConfigService
+
 _persistent_configs_key = ConfigKey(
     service_name='dashboard', key='persistent_workflow_configs'
 )
@@ -59,7 +61,7 @@ class ConfigServiceAdapter(WorkflowConfigService):
     This also registers necessary schemas for workflow management.
     """
 
-    def __init__(self, config_service, source_names: list[str]):
+    def __init__(self, config_service: ConfigService, source_names: list[str]):
         self._config_service = config_service
         self._source_names = source_names
         self._setup_schemas()
@@ -92,7 +94,7 @@ class ConfigServiceAdapter(WorkflowConfigService):
 
     def get_persistent_configs(self) -> PersistentWorkflowConfigs:
         """Get persistent workflow configurations."""
-        return self._config_service.get(
+        return self._config_service.get_config(
             _persistent_configs_key, PersistentWorkflowConfigs()
         )
 

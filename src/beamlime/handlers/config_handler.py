@@ -182,7 +182,6 @@ class ConfigHandler(Handler[bytes, None]):
             )
             messages.append(
                 Message(
-                    timestamp=0,
                     stream=CONFIG_STREAM_ID,
                     value=ConfigUpdate(config_key=final_config_key, value=value),
                 )

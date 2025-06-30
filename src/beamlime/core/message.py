@@ -2,8 +2,9 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+import time
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Generic, Protocol, TypeVar
 
@@ -41,6 +42,7 @@ class Message(Generic[T]):
     ----------
     timestamp:
         The timestamp of the message in nanoseconds since the epoch.
+        If not provided, the current time is used.
     stream:
         The stream key of the message. Identifies which stream the message belongs to.
         This can be used to distinguish messages from different sources or types.
@@ -48,7 +50,7 @@ class Message(Generic[T]):
         The value of the message.
     """
 
-    timestamp: int
+    timestamp: int = field(default_factory=lambda: int(time.time_ns()))
     stream: StreamId
     value: T
 
