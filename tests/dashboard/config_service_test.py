@@ -174,9 +174,9 @@ class TestConfigService:
 
     def test_get_nonexistent_key_returns_default(self, service: ConfigService) -> None:
         """Test getting a non-existent key returns the default value."""
-        assert service.get("nonexistent") is None
-        assert service.get("nonexistent", "default_value") == "default_value"
-        assert service.get("nonexistent", 42) == 42
+        assert service.get_config("nonexistent") is None
+        assert service.get_config("nonexistent", "default_value") == "default_value"
+        assert service.get_config("nonexistent", 42) == 42
 
     def test_get_existing_key_returns_value(
         self, service: ConfigService, simple_key: str
@@ -185,7 +185,7 @@ class TestConfigService:
         config = SimpleConfig(value=123, name="test")
         service._config[simple_key] = config
 
-        result = service.get(simple_key)
+        result = service.get_config(simple_key)
         assert result == config
         assert result.value == 123
         assert result.name == "test"
@@ -197,7 +197,7 @@ class TestConfigService:
         config = SimpleConfig(value=456, name="updated")
         service.update_config(simple_key, config)
 
-        assert service.get(simple_key) == config
+        assert service.get_config(simple_key) == config
 
     def test_update_config_invalid_type_raises_error(
         self, service: ConfigService, simple_key: str
@@ -329,7 +329,7 @@ class TestConfigService:
 
         service.process_incoming_messages()
 
-        config = service.get(simple_key)
+        config = service.get_config(simple_key)
         assert config.value == 400
         assert config.name == "incoming"
 
@@ -354,7 +354,7 @@ class TestConfigService:
         assert len(captured) == 1
         assert "Invalid config data received" in captured[0]
 
-        assert service.get(simple_key) is None
+        assert service.get_config(simple_key) is None
         assert callback.called is False
 
     def test_process_incoming_messages_unknown_key_ignored(
@@ -367,7 +367,7 @@ class TestConfigService:
 
         service.process_incoming_messages()
 
-        assert service.get("unknown_key") is None
+        assert service.get_config("unknown_key") is None
 
     def test_process_incoming_messages_batching(
         self,
@@ -389,7 +389,7 @@ class TestConfigService:
         assert len(bridge._incoming_messages) == 0
 
         # Only the last message should be applied due to deduplication
-        config = service.get(simple_key)
+        config = service.get_config(simple_key)
         assert config.value == 4
 
     def test_process_incoming_messages_deduplication(
@@ -408,7 +408,7 @@ class TestConfigService:
 
         service.process_incoming_messages()
 
-        config = service.get(simple_key)
+        config = service.get_config(simple_key)
         assert config.value == 3
         assert config.name == "third"
 
@@ -446,7 +446,7 @@ class TestConfigService:
         config = SimpleConfig(value=900, name="new_schema")
         service.update_config(new_key, config)
 
-        assert service.get(new_key) == config
+        assert service.get_config(new_key) == config
 
     def test_register_schema_with_non_manager_raises_error(self) -> None:
         """Test that registering schema with non-ConfigSchemaManager raises error."""
@@ -546,6 +546,6 @@ class TestConfigService:
         service.process_incoming_messages()
 
         # Should have processed all messages (deduplication means only last value)
-        config = service.get(simple_key)
+        config = service.get_config(simple_key)
         assert config.value == 9
         assert len(bridge._incoming_messages) == 0

@@ -127,7 +127,7 @@ class TestConfigBackedParam:
 
         # Check config service was updated
         key = param_obj.config_key
-        stored_config = config_service.get(key)
+        stored_config = config_service.get_config(key)
         assert stored_config is not None
         assert stored_config.value == 300
         assert stored_config.name == "changed"
@@ -174,7 +174,7 @@ class TestConfigBackedParam:
 
         # Should have the latest values
         key = param_obj.config_key
-        stored_config = config_service.get(key)
+        stored_config = config_service.get_config(key)
         assert stored_config.value == 222
         assert stored_config.name == "second"
 
@@ -246,7 +246,7 @@ class TestConfigBackedParamIntegration:
 
         # Change param -> should update config service
         param_obj.value = 500
-        stored = config_service.get(key)
+        stored = config_service.get_config(key)
         assert stored.value == 500
 
         # Change config service -> should update param

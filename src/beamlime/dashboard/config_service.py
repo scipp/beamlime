@@ -108,7 +108,7 @@ class ConfigService(Generic[K, Serialized, V]):
         if (data := self._config.get(key)) is not None:
             self._invoke(key, callback, data)
 
-    def get(self, key: K, default: Any = None) -> V | Any:
+    def get_config(self, key: K, default: Any = None) -> V | Any:
         """
         Get the current configuration value for a specific key.
 
