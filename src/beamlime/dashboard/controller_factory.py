@@ -2,22 +2,15 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from dataclasses import dataclass
 from typing import Any
 
 import pydantic
 import scipp as sc
 
+from beamlime.config.models import ConfigKey
+from beamlime.config.schema_registry import SchemaRegistry
+
 from .config_service import ConfigService
-
-
-@dataclass(frozen=True)
-class ConfigKey:
-    key: str
-    source_name: str | None = None
-
-
-SchemaRegistry = dict[ConfigKey, type[pydantic.BaseModel]]
 
 
 class Controller:
@@ -25,6 +18,7 @@ class Controller:
 
     def __init__(
         self,
+        *,
         config_key: ConfigKey,
         config_service: ConfigService,
         schema: type[pydantic.BaseModel],
@@ -89,11 +83,14 @@ class Controller:
 class BinEdgeController(Controller):
     def __init__(
         self,
+        *,
         config_key: ConfigKey,
         config_service: ConfigService,
         schema: type[pydantic.BaseModel],
     ) -> None:
-        super().__init__(config_key, config_service, schema)
+        super().__init__(
+            config_key=config_key, config_service=config_service, schema=schema
+        )
         self._old_unit: str = ''
 
     def _preprocesses_config(self, value: dict[str, Any]) -> dict[str, Any]:
@@ -110,7 +107,12 @@ class BinEdgeController(Controller):
         return value
 
     def _to_unit(self, value: float, old_unit: str, new_unit: str) -> float:
-        return sc.scalar(value, unit=old_unit).to(unit=new_unit).value
+        # We round the result to avoid floating-point precision issues when switching
+        # units. Otherwise, the value might not match the original value when converted
+        # back to the old unit.
+        return round(
+            sc.scalar(value, unit=old_unit).to(unit=new_unit).value, ndigits=12
+        )
 
 
 class ControllerFactory:
@@ -139,7 +141,7 @@ class ControllerFactory:
         self._schema_registry = schema_registry
 
     def create(
-        self, config_key: ConfigKey, controller: type[Controller] | None = None
+        self, *, config_key: ConfigKey, controller_cls: type[Controller] | None = None
     ) -> Controller:
         """
         Create a controller for the given configuration key.
@@ -148,6 +150,8 @@ class ControllerFactory:
         ----------
         config_key:
             The configuration key to create a controller for.
+        controller_cls:
+            Optional custom controller class to use instead of the default `Controller`.
 
         Returns
         -------
@@ -158,10 +162,8 @@ class ControllerFactory:
         KeyError:
             If no schema is registered for the given key.
         """
-        if config_key not in self._schema_registry:
-            raise KeyError(f"No schema registered for config key: {config_key}")
-
         schema = self._schema_registry[config_key]
-        if controller is None:
-            controller = Controller
-        return controller(config_key, self._config_service, schema)
+        self._config_service.register_schema(config_key, schema)
+        return (controller_cls or Controller)(
+            config_key=config_key, config_service=self._config_service, schema=schema
+        )

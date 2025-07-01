@@ -15,26 +15,25 @@ class TOAEdgesWidget(ConfigWidget):
 
     def __init__(self, controller: Controller) -> None:
         """Initialize the TOA edges widget."""
-        # Create input widgets with compact sizing
-        self._low_input = pn.widgets.FloatInput(name="Low", value=0.0, width=80)
+        self._low_input = pn.widgets.FloatInput(name="Low", value=0.0, width=100)
         self._high_input = pn.widgets.FloatInput(
-            name="High", value=1000.0 / 14, width=80
+            name="High", value=1000.0 / 14, width=100
         )
-        self._num_bins_input = pn.widgets.IntInput(
-            name="Bins", value=100, start=1, width=60
+        self._num_bins_input = pn.widgets.EditableIntSlider(
+            name="Bins", value=100, start=1
         )
         self._unit_select = pn.widgets.Select(
             name="Unit", options=["ns", "us", "ms", "s"], value="ms", width=60
         )
 
-        # Create compact row layout
-        self._panel = pn.Row(
-            self._low_input,
-            self._high_input,
+        self._panel = pn.Column(
+            pn.Row(
+                self._low_input,
+                self._high_input,
+                self._unit_select,
+                sizing_mode="stretch_width",
+            ),
             self._num_bins_input,
-            self._unit_select,
-            margin=(5, 5),
-            sizing_mode="stretch_width",
         )
 
         super().__init__(controller)

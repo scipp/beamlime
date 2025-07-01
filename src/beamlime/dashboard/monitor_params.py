@@ -20,7 +20,7 @@ class TOAEdgesParam(MonitorDataParam):
     )
     unit = param.Selector(
         default='ms',
-        objects=['ms'],
+        objects=['ns', 'us', 'ms', 's'],
         doc="Physical unit for time values.",
     )
 
