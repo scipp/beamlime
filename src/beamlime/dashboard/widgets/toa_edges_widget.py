@@ -41,10 +41,10 @@ class TOAEdgesWidget(ConfigWidget):
 
     def _on_config_change(self, value: dict[str, Any]) -> None:
         """Handle configuration value changes from the service."""
-        self._low_input.value = value.get("low", 0.0)
-        self._high_input.value = value.get("high", 1000.0 / 14)
-        self._num_bins_input.value = value.get("num_bins", 100)
-        self._unit_select.value = value.get("unit", "ms")
+        self._low_input.value = value['low']
+        self._high_input.value = value['high']
+        self._num_bins_input.value = value['num_bins']
+        self._unit_select.value = value['unit']
 
     def _setup_widget_handlers(self) -> None:
         pn.bind(
