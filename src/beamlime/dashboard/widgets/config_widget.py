@@ -32,23 +32,25 @@ class ConfigWidget(ABC):
         self._controller.subscribe(self._on_config_change)
         pn.bind(controller.set_value, **self._get_widgets(), watch=True)
 
-    @abstractmethod
     def _on_config_change(self, value: dict[str, Any]) -> None:
         """
         Handle configuration value changes from the service.
 
-        This method should update the widget's display to reflect the new value. The
-        controller disables updates to the config service before calling this method,
-        so it is safe to update the widget without triggering an infinite loop.
+        This method update the widget's display to reflect the new value. The controller
+        disables updates to the config service before calling this method,
+        so it is should safe to update the widget without triggering an redundant
+        updates or infinite loops.
 
         Parameters
         ----------
         value:
             The new configuration value as a dictionary.
         """
+        for name, widget in self._get_widgets().items():
+            widget.value = value[name]
 
     @abstractmethod
-    def _get_widgets(self) -> dict[str, pn.viewable.Viewable]:
+    def _get_widgets(self) -> dict[str, pn.widgets.Widget]:
         """Return a dictionary of widgets for the configuration fields."""
 
     @property

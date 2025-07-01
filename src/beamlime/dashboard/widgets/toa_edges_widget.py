@@ -2,8 +2,6 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-from typing import Any
-
 import panel as pn
 
 from beamlime.dashboard.controller_factory import Controller
@@ -45,6 +43,13 @@ class TOAEdgesWidget(ConfigWidget):
             width=60,
         )
 
+        self._widgets = {
+            'low': self._low_input,
+            'high': self._high_input,
+            'num_bins': self._num_bins_input,
+            'unit': self._unit_select,
+        }
+
         self._panel = pn.Column(
             pn.pane.Markdown("### Time-of-arrival bin edges"),
             pn.Row(
@@ -58,21 +63,9 @@ class TOAEdgesWidget(ConfigWidget):
 
         super().__init__(controller)
 
-    def _on_config_change(self, value: dict[str, Any]) -> None:
-        """Handle configuration value changes from the service."""
-        self._low_input.value = value['low']
-        self._high_input.value = value['high']
-        self._num_bins_input.value = value['num_bins']
-        self._unit_select.value = value['unit']
-
-    def _get_widgets(self) -> dict[str, pn.viewable.Viewable]:
+    def _get_widgets(self) -> dict[str, pn.widgets.Widget]:
         """Set up handlers for widget value changes."""
-        return {
-            'low': self._low_input,
-            'high': self._high_input,
-            'num_bins': self._num_bins_input,
-            'unit': self._unit_select,
-        }
+        return self._widgets
 
     @property
     def panel(self) -> pn.viewable.Viewable:
