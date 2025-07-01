@@ -65,15 +65,14 @@ class TOAEdgesWidget(ConfigWidget):
         self._num_bins_input.value = value['num_bins']
         self._unit_select.value = value['unit']
 
-    def _setup_widget_handlers(self) -> None:
-        pn.bind(
-            self._on_widget_change,
-            low=self._low_input,
-            high=self._high_input,
-            num_bins=self._num_bins_input,
-            unit=self._unit_select,
-            watch=True,
-        )
+    def _get_widgets(self) -> dict[str, pn.viewable.Viewable]:
+        """Set up handlers for widget value changes."""
+        return {
+            'low': self._low_input,
+            'high': self._high_input,
+            'num_bins': self._num_bins_input,
+            'unit': self._unit_select,
+        }
 
     @property
     def panel(self) -> pn.viewable.Viewable:

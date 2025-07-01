@@ -30,14 +30,16 @@ class ConfigWidget(ABC):
         """
         self._controller = controller
         self._controller.subscribe(self._on_config_change)
-        self._setup_widget_handlers()
+        pn.bind(controller.set_value, **self._get_widgets(), watch=True)
 
     @abstractmethod
     def _on_config_change(self, value: dict[str, Any]) -> None:
         """
         Handle configuration value changes from the service.
 
-        This method should update the widget's display to reflect the new value.
+        This method should update the widget's display to reflect the new value. The
+        controller disables updates to the config service before calling this method,
+        so it is safe to update the widget without triggering an infinite loop.
 
         Parameters
         ----------
@@ -46,26 +48,8 @@ class ConfigWidget(ABC):
         """
 
     @abstractmethod
-    def _setup_widget_handlers(self) -> None:
-        """
-        Set up handlers for widget value changes.
-
-        This method should connect widget change events to call
-        self._on_widget_change() when the user modifies the widget.
-        """
-
-    def _on_widget_change(self, **value: Any) -> None:
-        """
-        Handle widget value changes from user interaction.
-
-        This method updates the configuration service with the new value.
-
-        Parameters
-        ----------
-        value:
-            The new value from the widget as a dictionary.
-        """
-        self._controller.set_value(value)
+    def _get_widgets(self) -> dict[str, pn.viewable.Viewable]:
+        """Return a dictionary of widgets for the configuration fields."""
 
     @property
     @abstractmethod
@@ -77,4 +61,3 @@ class ConfigWidget(ABC):
         -------
         The Panel component that can be displayed in a dashboard.
         """
-        ...
