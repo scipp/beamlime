@@ -12,7 +12,7 @@ from typing import Any, Literal
 import scipp as sc
 from pydantic import BaseModel, Field, model_validator
 
-TimeUnit = Literal['ns', 'us', 'ms', 's']
+TimeUnit = Literal['ns', 'us', 'μs', 'ms', 's']
 
 
 class TOAEdges(BaseModel):

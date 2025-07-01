@@ -67,6 +67,13 @@ class Controller:
             self._trigger_callback(model_instance)
         self._config_service.update_config(self._config_key, model_instance)
 
+    def get_descriptions(self) -> dict[str, str | None]:
+        """Get descriptions for the configuration fields."""
+        return {
+            field: field_info.description
+            for field, field_info in self._schema.model_fields.items()
+        }
+
     def _trigger_callback(self, model: pydantic.BaseModel) -> None:
         """Trigger the callback with the model's data."""
         if self._callback:
@@ -91,7 +98,7 @@ class BinEdgeController(Controller):
         super().__init__(
             config_key=config_key, config_service=config_service, schema=schema
         )
-        self._old_unit: str = ''
+        self._old_unit: str | None = None
 
     def _preprocesses_config(self, value: dict[str, Any]) -> dict[str, Any]:
         self._old_unit = value['unit']
@@ -99,7 +106,9 @@ class BinEdgeController(Controller):
 
     def _preprocess_value(self, value: dict[str, Any]) -> dict[str, Any]:
         unit = value['unit']
-        if unit != self._old_unit:
+        if self._old_unit is None:
+            self._old_unit = unit
+        elif unit != self._old_unit:
             preprocessed = value.copy()
             preprocessed['low'] = self._to_unit(value['low'], self._old_unit, unit)
             preprocessed['high'] = self._to_unit(value['high'], self._old_unit, unit)
