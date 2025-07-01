@@ -11,7 +11,7 @@ from beamlime.dashboard.config_service import (
     ConfigService,
 )
 from beamlime.dashboard.detector_params import TOARangeParam
-from beamlime.dashboard.message_bridge import FakeMessageBridge, LoopbackMessageBridge
+from beamlime.dashboard.message_bridge import FakeMessageBridge
 
 
 # Test models for more comprehensive testing
@@ -112,14 +112,6 @@ def service_with_bridge(
     return ConfigService(schema_validator=schemas, message_bridge=bridge), bridge
 
 
-@pytest.fixture
-def service_with_loopback(
-    schemas: ConfigSchemaManager,
-) -> tuple[ConfigService, LoopbackMessageBridge]:
-    bridge = LoopbackMessageBridge()
-    return ConfigService(schema_validator=schemas, message_bridge=bridge), bridge
-
-
 class TestConfigService:
     def test_subscriber(
         self,
@@ -143,10 +135,10 @@ class TestConfigService:
         assert toa_range.unit == 'us'
 
     def test_bidirectional_param_binding_no_infinite_cycle(
-        self, service_with_loopback: tuple[ConfigService, LoopbackMessageBridge]
+        self, service_with_bridge: tuple[ConfigService, FakeMessageBridge]
     ) -> None:
         """Test that bidirectional param binding doesn't cause infinite cycles."""
-        service, bridge = service_with_loopback
+        service, bridge = service_with_bridge
 
         toa_range = TOARangeParam()
         toa_range.subscribe(service)
@@ -159,18 +151,24 @@ class TestConfigService:
             )
         )
 
-        assert len(bridge.messages) == 1
-
         # Simulate GUI change (should publish to bridge)
         toa_range.low = 1500.0
-        assert len(bridge.messages) == 2
+        assert len(bridge.get_published_messages()) == 1
 
-        # Process all messages - deduplication ensures only latest value per key
+        # Process the external message. Should NOT trigger another update to the bridge
         service.process_incoming_messages()
-        # After processing, toa_range should have the external value (1000.0)
-        # then our update (1500.0), but deduplication means only our update remains
+        assert toa_range.low == 1000.0
+        published = list(bridge.get_published_messages())
+        assert len(published) == 1
+
+        # Simulate our own updating making it back to the bridge
+        bridge.clear()
+        bridge.add_incoming_message(published[0])
+
+        # Process our own update. Should NOT trigger another update to the bridge
+        service.process_incoming_messages()
         assert toa_range.low == 1500.0
-        assert len(bridge.messages) == 0
+        assert len(bridge.get_published_messages()) == 0
 
     def test_get_nonexistent_key_returns_default(self, service: ConfigService) -> None:
         """Test getting a non-existent key returns the default value."""

@@ -3,6 +3,7 @@
 import logging
 from collections import UserDict, defaultdict
 from collections.abc import Callable
+from contextlib import contextmanager
 from typing import Any, Generic, Protocol, TypeVar
 
 import pydantic
@@ -82,6 +83,7 @@ class ConfigService(Generic[K, Serialized, V]):
         self._subscribers: dict[K, list[Callable[[V], None]]] = defaultdict(list)
         self._logger = logging.getLogger(__name__)
         self._config: dict[K, V] = {}
+        self._update_disabled = False
 
     def register_schema(self, key: K, schema: type[pydantic.BaseModel]) -> None:
         """Register a schema for a configuration key."""
@@ -134,6 +136,8 @@ class ConfigService(Generic[K, Serialized, V]):
         then notify all subscribers. This ensures a consistent ordering of updates,
         enforced by Kafka, and avoids potential infinite loops.
         """
+        if self._update_disabled:
+            return
         if not isinstance(value, pydantic.BaseModel):
             raise TypeError(
                 f'Value for key {key} must be a pydantic model, got {type(value)}'
@@ -147,6 +151,16 @@ class ConfigService(Generic[K, Serialized, V]):
             # Communication with message bridge is using raw JSON.
             self._message_bridge.publish(key, self.schema_validator.serialize(value))
 
+    @contextmanager
+    def _disable_updates(self):
+        """Context manager to temporarily disable update_config."""
+        old_state = self._update_disabled
+        self._update_disabled = True
+        try:
+            yield
+        finally:
+            self._update_disabled = old_state
+
     def process_incoming_messages(self) -> None:
         """Process any available incoming messages from the message bridge."""
         if not self._message_bridge:
@@ -155,8 +169,11 @@ class ConfigService(Generic[K, Serialized, V]):
         # The message bridge should deal with key-based deduplication. To be sure, we
         # convert the messages to a dict, which will overwrite any duplicates.
         messages = dict(self._message_bridge.pop_all())
-        for key, value in messages.items():
-            self._handle_config_update(key, value)
+        # Disable updates while processing incoming messages to avoid callbacks that set
+        # widget values, which would otherwise trigger another update to the bridge.
+        with self._disable_updates():
+            for key, value in messages.items():
+                self._handle_config_update(key, value)
 
     def _handle_config_update(self, key: K, value: Serialized) -> None:
         """Handle a configuration update from the message bridge."""
