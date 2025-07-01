@@ -29,6 +29,25 @@ class Controller:
         self._updating = False
         self._callback: Callable[[dict[str, Any]], None] | None = None
 
+    def get_defaults(self) -> dict[str, Any]:
+        """Get the default values for the configuration fields."""
+        defaults = {}
+        for field, field_info in self._schema.model_fields.items():
+            if field_info.default is not None:
+                defaults[field] = field_info.default
+            elif field_info.default_factory is not None:
+                defaults[field] = field_info.default_factory()
+            else:
+                defaults[field] = None
+        return defaults
+
+    def get_descriptions(self) -> dict[str, str | None]:
+        """Get descriptions for the configuration fields."""
+        return {
+            field: field_info.description
+            for field, field_info in self._schema.model_fields.items()
+        }
+
     @contextmanager
     def _disable_updates(self) -> Generator[None, None, None]:
         """Context manager to disable set_value calls during config updates."""
@@ -66,13 +85,6 @@ class Controller:
         if preprocessed != value:
             self._trigger_callback(model_instance)
         self._config_service.update_config(self._config_key, model_instance)
-
-    def get_descriptions(self) -> dict[str, str | None]:
-        """Get descriptions for the configuration fields."""
-        return {
-            field: field_info.description
-            for field, field_info in self._schema.model_fields.items()
-        }
 
     def _trigger_callback(self, model: pydantic.BaseModel) -> None:
         """Trigger the callback with the model's data."""
