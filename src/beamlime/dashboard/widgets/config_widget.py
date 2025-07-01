@@ -54,7 +54,7 @@ class ConfigWidget(ABC):
         self._on_widget_change() when the user modifies the widget.
         """
 
-    def _on_widget_change(self, value: dict[str, Any]) -> None:
+    def _on_widget_change(self, **value: Any) -> None:
         """
         Handle widget value changes from user interaction.
 
