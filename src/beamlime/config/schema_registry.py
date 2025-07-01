@@ -103,11 +103,6 @@ class SchemaRegistry:
         spec = self.get_spec(config_key.service_name, config_key.key)
         return spec.model if spec else None
 
-    def __getitem__(self, config_key: ConfigKey) -> type:
-        if (model := self.get_model(config_key)) is None:
-            raise KeyError(f"No schema registered for {config_key}.")
-        return model
-
     def list_specs(self, service_name: str | None = None) -> list[ConfigItemSpec]:
         """List all registered key specifications, optionally filtered by service."""
         if service_name is None:
