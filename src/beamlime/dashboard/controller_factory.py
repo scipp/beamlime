@@ -76,8 +76,9 @@ class Controller:
         """
         return value
 
-    def set_value(self, value: dict[str, Any]) -> None:
+    def set_value(self, **value: Any) -> None:
         """Set the configuration value from a dictionary."""
+
         if self._updating:
             return
         preprocessed = self._preprocess_value(value)
