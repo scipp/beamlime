@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -30,9 +31,22 @@ class Controller:
         self._config_key = config_key
         self._config_service = config_service
         self._schema = schema
+        self._updating = False
+
+    @contextmanager
+    def _disable_updates(self) -> Generator[None, None, None]:
+        """Context manager to disable set_value calls during config updates."""
+        old_updating = self._updating
+        self._updating = True
+        try:
+            yield
+        finally:
+            self._updating = old_updating
 
     def set_value(self, value: dict[str, Any]) -> None:
         """Set the configuration value from a dictionary."""
+        if self._updating:
+            return
         model_instance = self._schema.model_validate(value)
         self._config_service.update_config(self._config_key, model_instance)
 
@@ -40,7 +54,8 @@ class Controller:
         """Subscribe to configuration value changes."""
 
         def _wrapped_callback(model: pydantic.BaseModel) -> None:
-            callback(model.model_dump())
+            with self._disable_updates():
+                callback(model.model_dump())
 
         self._config_service.subscribe(self._config_key, _wrapped_callback)
 
