@@ -19,10 +19,9 @@ from beamlime.config.workflow_spec import (
 )
 
 from .workflow_config_service import ConfigServiceAdapter, WorkflowConfigService
-from .workflow_controller_base import WorkflowControllerBase
 
 
-class WorkflowController(WorkflowControllerBase):
+class WorkflowController:
     """
     Workflow controller backed by a config service.
 

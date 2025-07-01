@@ -26,7 +26,7 @@ from __future__ import annotations
 import panel as pn
 
 from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec
-from beamlime.dashboard.workflow_controller_base import WorkflowControllerBase
+from beamlime.dashboard.workflow_controller import WorkflowController
 
 from .workflow_config_modal import WorkflowConfigModal
 from .workflow_status_list_widget import WorkflowStatusListWidget
@@ -36,7 +36,7 @@ from .workflow_ui_helper import WorkflowUIHelper
 class WorkflowSelectorWidget:
     """Widget for selecting workflows from available specifications."""
 
-    def __init__(self, controller: WorkflowControllerBase) -> None:
+    def __init__(self, controller: WorkflowController) -> None:
         """
         Initialize workflow selector.
 
@@ -92,7 +92,7 @@ class WorkflowSelectorWidget:
 class ReductionWidget:
     """Main widget for data reduction workflow configuration and control."""
 
-    def __init__(self, controller: WorkflowControllerBase) -> None:
+    def __init__(self, controller: WorkflowController) -> None:
         """
         Initialize reduction widget.
 

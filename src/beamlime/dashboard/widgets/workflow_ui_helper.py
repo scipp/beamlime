@@ -3,7 +3,7 @@
 from typing import Any
 
 from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec
-from beamlime.dashboard.workflow_controller_base import WorkflowControllerBase
+from beamlime.dashboard.workflow_controller import WorkflowController
 
 
 class WorkflowUIHelper:
@@ -11,7 +11,7 @@ class WorkflowUIHelper:
 
     no_selection = object()
 
-    def __init__(self, controller: WorkflowControllerBase):
+    def __init__(self, controller: WorkflowController):
         """Initialize UI helper with controller reference."""
         self._controller = controller
 

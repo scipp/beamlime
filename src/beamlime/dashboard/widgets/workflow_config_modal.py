@@ -7,7 +7,7 @@ from typing import Any
 import panel as pn
 
 from beamlime.config.workflow_spec import WorkflowId
-from beamlime.dashboard.workflow_controller_base import WorkflowControllerBase
+from beamlime.dashboard.workflow_controller import WorkflowController
 
 from .parameter_widget import ParameterWidget
 from .workflow_ui_helper import WorkflowUIHelper
@@ -19,7 +19,7 @@ class WorkflowConfigWidget:
     def __init__(
         self,
         workflow_id: WorkflowId,
-        controller: WorkflowControllerBase,
+        controller: WorkflowController,
     ) -> None:
         """
         Initialize workflow configuration widget.
@@ -107,7 +107,7 @@ class WorkflowConfigModal:
     def __init__(
         self,
         workflow_id: WorkflowId,
-        controller: WorkflowControllerBase,
+        controller: WorkflowController,
     ) -> None:
         """
         Initialize workflow configuration modal.

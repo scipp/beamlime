@@ -3,7 +3,7 @@ from typing import Any
 import panel as pn
 
 from beamlime.config.workflow_spec import WorkflowStatus, WorkflowStatusType
-from beamlime.dashboard.workflow_controller_base import WorkflowControllerBase
+from beamlime.dashboard.workflow_controller import WorkflowController
 
 from .workflow_ui_helper import WorkflowUIHelper
 
@@ -67,7 +67,7 @@ class WorkflowStatusUIHelper:
 class WorkflowStatusListWidget:
     """Widget for displaying and controlling running workflows."""
 
-    def __init__(self, controller: WorkflowControllerBase) -> None:
+    def __init__(self, controller: WorkflowController) -> None:
         """
         Initialize running workflows widget.
 
