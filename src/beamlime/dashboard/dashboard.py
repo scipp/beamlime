@@ -14,6 +14,7 @@ from holoviews import streams
 from beamlime import ServiceBase
 from beamlime.config import config_names
 from beamlime.config.config_loader import load_config
+from beamlime.config.schema_registry import get_schema_registry
 from beamlime.config.streams import stream_kind_to_topic
 from beamlime.core.message import StreamKind
 from beamlime.kafka import consumer as kafka_consumer
@@ -26,6 +27,7 @@ from beamlime.kafka.message_adapter import (
 from beamlime.kafka.source import KafkaMessageSource
 
 from .config_service import ConfigSchemaManager, ConfigService
+from .controller_factory import ControllerFactory
 from .data_forwarder import DataForwarder
 from .data_key import DataKey
 from .data_service import DataService
@@ -88,6 +90,10 @@ class DashboardBase(ServiceBase, ABC):
         )
         self._config_service = ConfigService(
             message_bridge=self._kafka_bridge, schema_validator=ConfigSchemaManager()
+        )
+        self._controller_factory = ControllerFactory(
+            config_service=self._config_service,
+            schema_registry=get_schema_registry(),
         )
 
         self._kafka_bridge_thread = threading.Thread(
