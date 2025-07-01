@@ -138,10 +138,6 @@ class ConfigService(Generic[K, Serialized, V]):
         """
         if self._update_disabled:
             return
-        if not isinstance(value, pydantic.BaseModel):
-            raise TypeError(
-                f'Value for key {key} must be a pydantic model, got {type(value)}'
-            )
         if not self.schema_validator.validate(key, value):
             raise ValueError(
                 f'No schema registered for key {key} or value does not match schema'
