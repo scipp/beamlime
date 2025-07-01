@@ -15,26 +15,34 @@ class TOAEdgesWidget(ConfigWidget):
 
     def __init__(self, controller: Controller) -> None:
         """Initialize the TOA edges widget."""
+        defaults = controller.get_defaults()
         descriptions = controller.get_descriptions()
         self._low_input = pn.widgets.FloatInput(
-            name="Low", value=0.0, width=100, description=descriptions['low']
+            name="Low",
+            value=defaults['low'],
+            description=descriptions['low'],
+            width=100,
         )
         self._high_input = pn.widgets.FloatInput(
             name="High",
-            value=1000.0 / 14,
-            width=100,
+            value=defaults['high'],
             description=descriptions['high'],
+            width=100,
         )
-        # Panel sliders do not support descriptions, see https://github.com/holoviz/panel/issues/7499.
+        # Panel sliders do not support descriptions, see
+        # https://github.com/holoviz/panel/issues/7499.
         self._num_bins_input = pn.widgets.EditableIntSlider(
-            name="Number of histogram bins", value=500, start=1, end=2000
+            name="Number of histogram bins",
+            value=defaults['num_bins'],
+            start=1,
+            end=2000,
         )
         self._unit_select = pn.widgets.Select(
             name="Unit",
             options=["ns", "μs", "ms", "s"],
-            value="ms",
-            width=60,
+            value=defaults['unit'],
             description=descriptions['unit'],
+            width=60,
         )
 
         self._panel = pn.Column(
