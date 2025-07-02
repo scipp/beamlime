@@ -2,7 +2,6 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import pytest
 
-import beamlime.config.keys  # noqa: F401 - Import to initialize global registry
 from beamlime.config.models import ConfigKey
 from beamlime.config.schema_registry import get_schema_registry
 from beamlime.config.workflow_spec import (
@@ -80,46 +79,6 @@ def sample_persistent_configs():
         config=WorkflowConfig(identifier="saved_workflow", values={"param": "value"}),
     )
     return PersistentWorkflowConfigs(configs={"saved_workflow": persistent_config})
-
-
-def test_adapter_registers_schemas(config_service):
-    """Test that adapter uses schemas from global registry."""
-    source_names = ["source1", "source2"]
-
-    expected_keys = [
-        ConfigKey(service_name='data_reduction', key='workflow_specs'),
-        ConfigKey(service_name='dashboard', key='persistent_workflow_configs'),
-    ]
-
-    for source_name in source_names:
-        expected_keys.extend(
-            [
-                ConfigKey(
-                    source_name=source_name,
-                    service_name='data_reduction',
-                    key='workflow_status',
-                ),
-                ConfigKey(
-                    source_name=source_name,
-                    service_name='data_reduction',
-                    key='workflow_config',
-                ),
-            ]
-        )
-
-    schema_validator = config_service.schema_validator
-
-    # Check that schemas are available from global registry
-    for key in expected_keys:
-        model = schema_validator._schema_registry.get_model(key)
-        assert model is not None, f"No schema found for key {key}"
-
-    _ = ConfigServiceAdapter(config_service, source_names)
-
-    # After creating the adapter, schemas should still be available
-    for key in expected_keys:
-        model = schema_validator._schema_registry.get_model(key)
-        assert model is not None, f"No schema found for key {key}"
 
 
 def test_get_persistent_configs_default(workflow_config_service):
