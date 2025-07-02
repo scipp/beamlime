@@ -67,7 +67,7 @@ class Controller:
         """
         return value
 
-    def _preprocesses_config(self, value: dict[str, Any]) -> dict[str, Any]:
+    def _preprocess_config(self, value: dict[str, Any]) -> dict[str, Any]:
         """
         Preprocess the value from the configuration service before using it.
 
@@ -91,7 +91,7 @@ class Controller:
         """Trigger the callback with the model's data."""
         if self._callback:
             with self._disable_updates():
-                value = self._preprocesses_config(model.model_dump())
+                value = self._preprocess_config(model.model_dump())
                 self._callback(value)
 
     def subscribe(self, callback: Callable[[dict[str, Any]], None]) -> None:
@@ -113,7 +113,7 @@ class BinEdgeController(Controller):
         )
         self._old_unit: str | None = None
 
-    def _preprocesses_config(self, value: dict[str, Any]) -> dict[str, Any]:
+    def _preprocess_config(self, value: dict[str, Any]) -> dict[str, Any]:
         self._old_unit = value['unit']
         return value
 
