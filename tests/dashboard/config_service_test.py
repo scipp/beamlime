@@ -1,12 +1,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-from collections import UserDict
 
 import pydantic
 import pytest
 
 from beamlime.config.models import TOARange
-from beamlime.config.schema_registry import SchemaRegistryBase
+from beamlime.config.schema_registry import FakeSchemaRegistry
 from beamlime.dashboard.config_service import ConfigService
 from beamlime.dashboard.detector_params import TOARangeParam
 from beamlime.dashboard.message_bridge import FakeMessageBridge
@@ -69,15 +68,6 @@ def simple_key() -> str:
 @pytest.fixture
 def complex_key() -> str:
     return "complex_config"
-
-
-class FakeSchemaRegistry(
-    UserDict[str, type[pydantic.BaseModel]], SchemaRegistryBase[str, pydantic.BaseModel]
-):
-    """A fake schema registry for testing purposes."""
-
-    def get_model(self, config_key: str) -> type[pydantic.BaseModel] | None:
-        return self.get(config_key)
 
 
 @pytest.fixture
