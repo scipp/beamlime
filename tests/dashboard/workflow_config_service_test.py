@@ -2,7 +2,9 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import pytest
 
+import beamlime.config.keys  # noqa: F401 - Import to initialize global registry
 from beamlime.config.models import ConfigKey
+from beamlime.config.schema_registry import get_schema_registry
 from beamlime.config.workflow_spec import (
     PersistentWorkflowConfig,
     PersistentWorkflowConfigs,
@@ -12,8 +14,9 @@ from beamlime.config.workflow_spec import (
     WorkflowStatus,
     WorkflowStatusType,
 )
-from beamlime.dashboard.config_service import ConfigSchemaManager, ConfigService
+from beamlime.dashboard.config_service import ConfigService
 from beamlime.dashboard.message_bridge import FakeMessageBridge
+from beamlime.dashboard.schema_validator import SchemaValidator
 from beamlime.dashboard.workflow_config_service import (
     ConfigServiceAdapter,
     WorkflowConfigService,
@@ -29,8 +32,8 @@ def fake_message_bridge():
 @pytest.fixture
 def config_service(fake_message_bridge):
     """Create a ConfigService with fake message bridge."""
-    schema_manager = ConfigSchemaManager[ConfigKey]()
-    return ConfigService(schema_manager, fake_message_bridge)
+    schema_validator = SchemaValidator(get_schema_registry())
+    return ConfigService(schema_validator, fake_message_bridge)
 
 
 @pytest.fixture
@@ -80,7 +83,7 @@ def sample_persistent_configs():
 
 
 def test_adapter_registers_schemas(config_service):
-    """Test that adapter registers all necessary schemas."""
+    """Test that adapter uses schemas from global registry."""
     source_names = ["source1", "source2"]
 
     expected_keys = [
@@ -104,17 +107,19 @@ def test_adapter_registers_schemas(config_service):
             ]
         )
 
-    schema_manager = config_service.schema_validator
+    schema_validator = config_service.schema_validator
 
-    # Bare ConfigService should not have these keys registered
+    # Check that schemas are available from global registry
     for key in expected_keys:
-        assert key not in schema_manager.data
+        model = schema_validator._schema_registry.get_model(key)
+        assert model is not None, f"No schema found for key {key}"
 
     _ = ConfigServiceAdapter(config_service, source_names)
 
-    # After creating the adapter, all expected keys should be registered
+    # After creating the adapter, schemas should still be available
     for key in expected_keys:
-        assert key in schema_manager.data
+        model = schema_validator._schema_registry.get_model(key)
+        assert model is not None, f"No schema found for key {key}"
 
 
 def test_get_persistent_configs_default(workflow_config_service):
