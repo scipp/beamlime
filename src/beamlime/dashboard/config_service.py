@@ -195,7 +195,7 @@ class ConfigService(Generic[K, Serialized, V]):
     def _invoke(self, key: K, callback: Callable[[V], None], data: V) -> None:
         try:
             callback(data)
-        except Exception as e:
-            self._logger.error(
-                'Error in config subscriber callback for key %s: %s', key, e
+        except Exception:
+            self._logger.exception(
+                'Error in config subscriber callback for key %s.', key
             )
