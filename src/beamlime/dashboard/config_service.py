@@ -8,7 +8,7 @@ from typing import Any, Generic, Protocol, TypeVar
 
 import pydantic
 
-from beamlime.dashboard.message_bridge import MessageBridge
+from .message_bridge import MessageBridge
 
 K = TypeVar('K')
 V = TypeVar('V')

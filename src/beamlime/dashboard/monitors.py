@@ -41,10 +41,6 @@ class DashboardApp(DashboardBase):
         )
 
         self._logger.info("Monitor dashboard initialized")
-        self._config_service.register_schema(
-            keys.MONITOR_TOA_EDGES.create_key(),
-            keys.MONITOR_TOA_EDGES.model,
-        )
         self._toa_controller = self._controller_factory.create(
             config_key=keys.MONITOR_TOA_EDGES.create_key(),
             controller_cls=BinEdgeController,

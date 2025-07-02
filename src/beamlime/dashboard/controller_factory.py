@@ -187,7 +187,6 @@ class ControllerFactory:
         schema = self._schema_registry.get_model(config_key)
         if schema is None:
             raise KeyError(f"No schema registered for {config_key}.")
-        self._config_service.register_schema(config_key, schema)
         return (controller_cls or Controller)(
             config_key=config_key, config_service=self._config_service, schema=schema
         )
