@@ -6,8 +6,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections import UserDict
 from dataclasses import dataclass, field
 from typing import Generic, TypeVar
+
+import pydantic
 
 from .models import ConfigKey
 
@@ -124,3 +127,12 @@ _registry = SchemaRegistry()
 def get_schema_registry() -> SchemaRegistry:
     """Get the global configuration key registry."""
     return _registry
+
+
+class FakeSchemaRegistry(
+    UserDict[str, type[pydantic.BaseModel]], SchemaRegistryBase[str, pydantic.BaseModel]
+):
+    """A fake schema registry for testing purposes."""
+
+    def get_model(self, config_key: str) -> type[pydantic.BaseModel] | None:
+        return self.get(config_key)
