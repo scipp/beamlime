@@ -1,15 +1,16 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+from collections import UserDict
+
 import pydantic
 import pytest
 
 from beamlime.config.models import TOARange
-from beamlime.dashboard.config_service import (
-    ConfigSchemaManager,
-    ConfigService,
-)
+from beamlime.config.schema_registry import SchemaRegistryBase
+from beamlime.dashboard.config_service import ConfigService
 from beamlime.dashboard.detector_params import TOARangeParam
 from beamlime.dashboard.message_bridge import FakeMessageBridge
+from beamlime.dashboard.schema_validator import SchemaValidator
 
 
 # Test models for more comprehensive testing
@@ -70,25 +71,31 @@ def complex_key() -> str:
     return "complex_config"
 
 
+class FakeSchemaRegistry(
+    UserDict[str, type[pydantic.BaseModel]], SchemaRegistryBase[str, pydantic.BaseModel]
+):
+    """A fake schema registry for testing purposes."""
+
+    def get_model(self, config_key: str) -> type[pydantic.BaseModel] | None:
+        return self.get(config_key)
+
+
 @pytest.fixture
-def schemas(config_key: str, simple_key: str, complex_key: str) -> ConfigSchemaManager:
-    return ConfigSchemaManager(
-        {
-            config_key: TOARange,
-            simple_key: SimpleConfig,
-            complex_key: ComplexConfig,
-        }
+def schemas(config_key: str, simple_key: str, complex_key: str) -> SchemaValidator:
+    registry = FakeSchemaRegistry(
+        {config_key: TOARange, simple_key: SimpleConfig, complex_key: ComplexConfig}
     )
+    return SchemaValidator(schema_registry=registry)
 
 
 @pytest.fixture
-def service(schemas: ConfigSchemaManager) -> ConfigService:
+def service(schemas: SchemaValidator) -> ConfigService:
     return ConfigService(schema_validator=schemas)
 
 
 @pytest.fixture
 def service_with_bridge(
-    schemas: ConfigSchemaManager,
+    schemas: SchemaValidator,
 ) -> tuple[ConfigService, FakeMessageBridge]:
     bridge = FakeMessageBridge()
     return ConfigService(schema_validator=schemas, message_bridge=bridge), bridge
@@ -410,29 +417,6 @@ class TestConfigService:
         assert failing_callback.call_count == 1
         assert working_callback.called is True
         assert working_callback.data == config
-
-    def test_register_schema_with_manager(self, service: ConfigService) -> None:
-        """Test registering a new schema with ConfigSchemaManager."""
-        new_key = "new_config"
-
-        service.register_schema(new_key, SimpleConfig)
-
-        config = SimpleConfig(value=900, name="new_schema")
-        service.update_config(new_key, config)
-
-        assert service.get_config(new_key) == config
-
-    def test_register_schema_with_non_manager_raises_error(self) -> None:
-        """Test that registering schema with non-ConfigSchemaManager raises error."""
-
-        class FakeValidator:
-            pass
-
-        validator = FakeValidator()
-        service = ConfigService(schema_validator=validator)
-
-        with pytest.raises(TypeError, match="Schema validator must be an instance"):
-            service.register_schema("key", SimpleConfig)
 
     def test_complex_config_serialization_deserialization(
         self,

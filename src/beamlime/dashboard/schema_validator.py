@@ -4,8 +4,7 @@ from typing import Any, Generic, Protocol, TypeVar
 
 import pydantic
 
-from beamlime.config import ConfigKey
-from beamlime.config.schema_registry import SchemaRegistry
+from beamlime.config.schema_registry import SchemaRegistryBase
 
 K = TypeVar('K')
 V = TypeVar('V')
@@ -29,20 +28,20 @@ JSONSerialized = dict[str, Any]
 
 
 class SchemaValidator(
-    ConfigSchemaValidator[ConfigKey, JSONSerialized, pydantic.BaseModel],
+    ConfigSchemaValidator[K, JSONSerialized, pydantic.BaseModel],
 ):
-    def __init__(self, schema_registry: SchemaRegistry) -> None:
+    def __init__(
+        self, schema_registry: SchemaRegistryBase[K, pydantic.BaseModel]
+    ) -> None:
         self._schema_registry = schema_registry
 
-    def validate(self, key: ConfigKey, value: pydantic.BaseModel) -> bool:
+    def validate(self, key: K, value: pydantic.BaseModel) -> bool:
         model = self._schema_registry.get_model(key)
         if model is None:
             return False
         return isinstance(value, model)
 
-    def deserialize(
-        self, key: ConfigKey, data: JSONSerialized
-    ) -> pydantic.BaseModel | None:
+    def deserialize(self, key: K, data: JSONSerialized) -> pydantic.BaseModel | None:
         """Validate configuration data."""
         model = self._schema_registry.get_model(key)
         if model is None:

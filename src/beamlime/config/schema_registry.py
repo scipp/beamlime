@@ -5,23 +5,25 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Generic, TypeVar
 
 from .models import ConfigKey
 
-T = TypeVar('T')
+KeyType = TypeVar('KeyType')
+SchemaType = TypeVar('SchemaType')
 
 
 @dataclass(frozen=True)
-class ConfigItemSpec(Generic[T]):
+class ConfigItemSpec(Generic[SchemaType]):
     """
     A configuration key specification with associated type and metadata.
     """
 
     key: str
     service_name: str | None
-    model: type[T]
+    model: type[SchemaType]
     description: str = ""
     produced_by: set[str] = field(default_factory=set)
     consumed_by: set[str] = field(default_factory=set)
@@ -41,7 +43,15 @@ class ConfigItemSpec(Generic[T]):
         return f"*/{self.service_name}/{self.key}"
 
 
-class SchemaRegistry:
+class SchemaRegistryBase(ABC, Generic[KeyType, SchemaType]):
+    """Interface needed by SchemaValidator."""
+
+    @abstractmethod
+    def get_model(self, config_key: KeyType) -> type[SchemaType] | None:
+        """Get the model type for a given configuration key."""
+
+
+class SchemaRegistry(SchemaRegistryBase[ConfigKey, SchemaType]):
     """Central registry for all configuration keys in the application."""
 
     def __init__(self) -> None:
@@ -51,11 +61,11 @@ class SchemaRegistry:
         self,
         key: str,
         service_name: str | None,
-        model: type[T],
+        model: type[SchemaType],
         description: str = "",
         produced_by: set[str] | None = None,
         consumed_by: set[str] | None = None,
-    ) -> ConfigItemSpec[T]:
+    ) -> ConfigItemSpec[SchemaType]:
         """
         Create and register a configuration key specification in one step.
         """
@@ -81,7 +91,7 @@ class SchemaRegistry:
         """Get a registered key specification."""
         return self._keys.get((service_name, key))
 
-    def get_model(self, config_key: ConfigKey) -> type | None:
+    def get_model(self, config_key: ConfigKey) -> type[SchemaType] | None:
         """Get the model type for a given configuration key."""
         spec = self.get_spec(config_key.service_name, config_key.key)
         return spec.model if spec else None
