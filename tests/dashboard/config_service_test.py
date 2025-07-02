@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-from contextlib import contextmanager
-
 import pydantic
 import pytest
 
@@ -55,22 +53,6 @@ class FailingCallback:
     def __call__(self, data) -> None:
         self.call_count += 1
         raise self.exception
-
-
-# Context manager to capture log messages
-@contextmanager
-def capture_logs(logger, level: str = 'error') -> list:
-    captured: list[str] = []
-    original_level_method = getattr(logger, level)
-
-    def capture_method(msg, *args):
-        captured.append(msg % args if args else msg)
-
-    setattr(logger, level, capture_method)
-    try:
-        yield captured
-    finally:
-        setattr(logger, level, original_level_method)
 
 
 @pytest.fixture
@@ -331,6 +313,7 @@ class TestConfigService:
         self,
         service_with_bridge: tuple[ConfigService, FakeMessageBridge],
         simple_key: str,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test that invalid incoming data is logged and ignored."""
         service, bridge = service_with_bridge
@@ -339,11 +322,11 @@ class TestConfigService:
 
         bridge.add_incoming_message((simple_key, {"invalid_field": "value"}))
 
-        with capture_logs(service._logger, 'error') as captured:
+        with caplog.at_level('ERROR'):
             service.process_incoming_messages()
 
-        assert len(captured) == 1
-        assert "Invalid config data received" in captured[0]
+        assert len(caplog.records) == 1
+        assert "Invalid config data received" in caplog.records[0].message
 
         assert service.get_config(simple_key) is None
         assert callback.called is False
@@ -407,7 +390,7 @@ class TestConfigService:
         assert callback.data == config
 
     def test_callback_exception_handling(
-        self, service: ConfigService, simple_key: str
+        self, service: ConfigService, simple_key: str, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that exceptions in callbacks are handled gracefully."""
         failing_callback = FailingCallback()
@@ -418,11 +401,11 @@ class TestConfigService:
 
         config = SimpleConfig(value=500, name="exception_test")
 
-        with capture_logs(service._logger, 'error') as captured:
+        with caplog.at_level('ERROR'):
             service._notify_subscribers(simple_key, config)
 
-        assert len(captured) == 1
-        assert "Error in config subscriber callback" in captured[0]
+        assert len(caplog.records) == 1
+        assert "Error in config subscriber callback" in caplog.records[0].message
 
         assert failing_callback.call_count == 1
         assert working_callback.called is True
@@ -492,20 +475,21 @@ class TestConfigService:
         self,
         service_with_bridge: tuple[ConfigService, FakeMessageBridge],
         simple_key: str,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test that debug logging works correctly."""
         service, bridge = service_with_bridge
 
         config = SimpleConfig(value=1000, name="logging_test")
 
-        with capture_logs(service._logger, 'debug') as captured:
+        with caplog.at_level('DEBUG'):
             service.update_config(simple_key, config)
             bridge.add_incoming_message(
                 (simple_key, {"value": 1001, "name": "updated"})
             )
             service.process_incoming_messages()
 
-        assert len(captured) >= 2
+        assert len(caplog.records) >= 2
 
     def test_callback_receives_exact_data_object(
         self, service: ConfigService, simple_key: str
