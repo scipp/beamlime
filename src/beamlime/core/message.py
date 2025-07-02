@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Generic, Protocol, TypeVar
 
@@ -40,7 +41,8 @@ class Message(Generic[T]):
     Parameters
     ----------
     timestamp:
-        The timestamp of the message in nanoseconds since the epoch.
+        The timestamp of the message in nanoseconds since the epoch in UTC.
+        If not provided, the current time is used.
     stream:
         The stream key of the message. Identifies which stream the message belongs to.
         This can be used to distinguish messages from different sources or types.
@@ -48,7 +50,11 @@ class Message(Generic[T]):
         The value of the message.
     """
 
-    timestamp: int
+    timestamp: int = field(
+        default_factory=lambda: int(
+            datetime.now(timezone.utc).timestamp() * 1_000_000_000
+        )
+    )
     stream: StreamId
     value: T
 
@@ -59,8 +65,6 @@ class Message(Generic[T]):
 class MessageSource(Protocol, Generic[Tin]):
     # Note that Tin is often (but not always) Message[T]
     def get_messages(self) -> Sequence[Tin]: ...
-
-    def close(self) -> None: ...
 
 
 class MessageSink(Protocol, Generic[Tout]):

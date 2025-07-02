@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+"""
+ConfigService used by the legacy beamlime.services.dashboard module. Will be removed.
+"""
+
 import json
 import logging
 from typing import Any
@@ -127,7 +131,6 @@ class ConfigService:
             pass
         finally:
             self._running = False
-            self._consumer.close()
 
     def stop(self):
         self._running = False

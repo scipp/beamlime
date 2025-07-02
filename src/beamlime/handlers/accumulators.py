@@ -221,7 +221,12 @@ class TOAHistogrammer(Accumulator[MonitorEvents, sc.DataArray]):
         self._edges_ns: sc.Variable | None = None
 
     def _check_for_config_updates(self) -> None:
-        nbin = self._config.get('time_of_arrival_bins', 100)
+        if (edges := self._config.get('toa_edges')) is None:
+            # Used by legacy dashboard, we still support this as fallback for now.
+            nbin = self._config.get('time_of_arrival_bins', 100)
+        else:
+            # TODO Using bounds was requested in #387, not implemented yet.
+            nbin = edges['num_edges']
         if self._edges is None or nbin != self._nbin:
             self._nbin = nbin
             self._edges = sc.linspace(

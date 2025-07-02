@@ -12,5 +12,6 @@ pytest-xdist
 essdiffraction>=25.06.0
 esssans
 essspectroscopy>=25.05.0
+param
 pytest
 pytest-benchmark

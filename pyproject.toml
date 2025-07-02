@@ -38,6 +38,7 @@ dependencies = [
   "jinja2",
   "pydantic>=2",
   "scipp>=25.02.0",  # Improved performance of scipp.group
+  "scippneutron>=25.06.0",  # For DREAM unit conversion fixes
   "pooch",
 ]
 
@@ -48,6 +49,7 @@ test = [
     "essdiffraction>=25.06.0",
     "esssans",
     "essspectroscopy>=25.05.0",
+    "param",
     "pytest",
     "pytest-benchmark",
 ]

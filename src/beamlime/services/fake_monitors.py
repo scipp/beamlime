@@ -40,23 +40,27 @@ class FakeMonitorSource(MessageSource[sc.Variable]):
         current_time = time.time_ns()
         messages = []
 
-        for name, size in [("monitor1", 10000), ("monitor2", 1000)]:
+        for name, size, mean_ms in [("monitor1", 10000, 30), ("monitor2", 1000, 40)]:
             elapsed = current_time - self._last_message_time[name]
             num_intervals = int(elapsed // self._interval_ns)
 
             for i in range(num_intervals):
                 msg_time = self._last_message_time[name] + (i + 1) * self._interval_ns
                 messages.append(
-                    self._make_message(name=name, size=size, timestamp=msg_time)
+                    self._make_message(
+                        name=name, size=size, timestamp=msg_time, mean_ms=mean_ms
+                    )
                 )
             self._last_message_time[name] += num_intervals * self._interval_ns
 
         return messages
 
     def _make_message(
-        self, name: str, size: int, timestamp: int
+        self, name: str, size: int, timestamp: int, mean_ms: float
     ) -> Message[sc.Variable]:
-        time_of_flight = self._make_normal(mean=30_000_000, std=10_000_000, size=size)
+        time_of_flight = self._make_normal(
+            mean=int(1e6 * mean_ms), std=10_000_000, size=size
+        )
         var = sc.array(dims=['time_of_arrival'], values=time_of_flight, unit='ns')
         return Message(
             timestamp=timestamp,
