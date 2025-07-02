@@ -84,9 +84,10 @@ class BackgroundMessageBridge(MessageBridge[ConfigKey, dict[str, Any]]):
                 # Process one cycle of messages
                 has_messages = self._processor.process_cycle()
 
-                # If no messages were processed, sleep briefly to avoid busy waiting
+                # If no messages were processed, sleep briefly to avoid busy waiting. We
+                # keep this short to ensure that outgoing messages are sent promptly.
                 if not has_messages:
-                    time.sleep(0.001)  # 1ms sleep when idle
+                    time.sleep(0.01)  # 10 ms sleep when idle
 
         except Exception as e:
             self._logger.exception("Error in MessageBridge run loop: %s", e)
