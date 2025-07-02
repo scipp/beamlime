@@ -1,17 +1,14 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-from contextlib import contextmanager
 
 import pydantic
 import pytest
 
 from beamlime.config.models import TOARange
-from beamlime.dashboard.config_service import (
-    ConfigSchemaManager,
-    ConfigService,
-)
-from beamlime.dashboard.detector_params import TOARangeParam
+from beamlime.config.schema_registry import FakeSchemaRegistry
+from beamlime.dashboard.config_service import ConfigService
 from beamlime.dashboard.message_bridge import FakeMessageBridge
+from beamlime.dashboard.schema_validator import PydanticSchemaValidator, SchemaValidator
 
 
 # Test models for more comprehensive testing
@@ -57,20 +54,61 @@ class FailingCallback:
         raise self.exception
 
 
-# Context manager to capture log messages
-@contextmanager
-def capture_logs(logger, level: str = 'error') -> list:
-    captured: list[str] = []
-    original_level_method = getattr(logger, level)
+class MockGUIComponent:
+    """
+    Mock GUI component that simulates bidirectional parameter binding.
 
-    def capture_method(msg, *args):
-        captured.append(msg % args if args else msg)
+    1. Updates from config service update the component's values
+    2. Changes to component values echo back to the config service
+    3. Widget change events (simulated by _trigger_change_event) would normally
+       cause infinite loops without proper cycle prevention
+    """
 
-    setattr(logger, level, capture_method)
-    try:
-        yield captured
-    finally:
-        setattr(logger, level, original_level_method)
+    def __init__(self, config_key: str) -> None:
+        self.config_key = config_key
+        self.enabled = True
+        self.low = 0.0
+        self.high = 10000.0
+        self.unit = 'us'
+        self._config_service: ConfigService | None = None
+        self._update_count = 0
+        self._change_events_enabled = True
+
+    def subscribe_to_config(self, config_service: ConfigService) -> None:
+        """Subscribe to config service updates."""
+        self._config_service = config_service
+        config_service.subscribe(self.config_key, self._on_config_update)
+
+    def _on_config_update(self, data: TOARange) -> None:
+        """Handle updates from config service."""
+        self._update_count += 1
+        # Simulate widget value changes that would normally trigger change events
+        old_low = self.low
+        self.enabled = data.enabled
+        self.low = data.low
+        self.high = data.high
+        self.unit = data.unit
+
+        # Simulate widget change event that would trigger in real widgets
+        # This is what could cause infinite loops without proper cycle prevention
+        if self._change_events_enabled and old_low != self.low:
+            self._trigger_change_event('low', self.low)
+
+    def _trigger_change_event(self, param_name: str, value) -> None:
+        """Simulate a widget change event that would echo back to config service."""
+        if self._config_service:
+            config = TOARange(
+                enabled=self.enabled, low=self.low, high=self.high, unit=self.unit
+            )
+            self._config_service.update_config(self.config_key, config)
+
+    def set_low(self, value: float) -> None:
+        """Simulate user changing the low value in GUI."""
+        old_low = self.low
+        self.low = value
+        # User changes always trigger change events
+        if old_low != self.low:
+            self._trigger_change_event('low', self.low)
 
 
 @pytest.fixture
@@ -89,24 +127,21 @@ def complex_key() -> str:
 
 
 @pytest.fixture
-def schemas(config_key: str, simple_key: str, complex_key: str) -> ConfigSchemaManager:
-    return ConfigSchemaManager(
-        {
-            config_key: TOARange,
-            simple_key: SimpleConfig,
-            complex_key: ComplexConfig,
-        }
+def schemas(config_key: str, simple_key: str, complex_key: str) -> SchemaValidator:
+    registry = FakeSchemaRegistry(
+        {config_key: TOARange, simple_key: SimpleConfig, complex_key: ComplexConfig}
     )
+    return PydanticSchemaValidator(schema_registry=registry)
 
 
 @pytest.fixture
-def service(schemas: ConfigSchemaManager) -> ConfigService:
+def service(schemas: SchemaValidator) -> ConfigService:
     return ConfigService(schema_validator=schemas)
 
 
 @pytest.fixture
 def service_with_bridge(
-    schemas: ConfigSchemaManager,
+    schemas: SchemaValidator,
 ) -> tuple[ConfigService, FakeMessageBridge]:
     bridge = FakeMessageBridge()
     return ConfigService(schema_validator=schemas, message_bridge=bridge), bridge
@@ -119,8 +154,8 @@ class TestConfigService:
         config_key: str,
     ) -> None:
         service, bridge = service_with_bridge
-        toa_range = TOARangeParam()
-        service.subscribe(key=config_key, callback=toa_range.from_pydantic_updater())
+        callback = FakeCallback()
+        service.subscribe(key=config_key, callback=callback)
 
         # Create a config update and add it to the bridge
         config_data = {'enabled': False, 'low': 1000.0, 'high': 2000.0, 'unit': 'us'}
@@ -129,37 +164,44 @@ class TestConfigService:
         # Process the message
         service.process_incoming_messages()
 
+        assert callback.called is True
+        toa_range = callback.data
         assert toa_range.enabled is False
         assert toa_range.low == 1000.0
         assert toa_range.high == 2000.0
         assert toa_range.unit == 'us'
 
     def test_bidirectional_param_binding_no_infinite_cycle(
-        self, service_with_bridge: tuple[ConfigService, FakeMessageBridge]
+        self,
+        service_with_bridge: tuple[ConfigService, FakeMessageBridge],
+        config_key: str,
     ) -> None:
         """Test that bidirectional param binding doesn't cause infinite cycles."""
         service, bridge = service_with_bridge
 
-        toa_range = TOARangeParam()
-        toa_range.subscribe(service)
+        # Create mock GUI component that simulates TOARangeParam behavior
+        gui_component = MockGUIComponent(config_key)
+        gui_component.subscribe_to_config(service)
 
         # Init bridge with a single message
         bridge.add_incoming_message(
             (
-                toa_range.config_key,
+                config_key,
                 {'enabled': True, 'low': 1000.0, 'high': 2000.0, 'unit': 'us'},
             )
         )
 
         # Simulate GUI change (should publish to bridge)
-        toa_range.low = 1500.0
+        gui_component.set_low(1500.0)
         assert len(bridge.get_published_messages()) == 1
 
         # Process the external message. Should NOT trigger another update to the bridge
+        # The key insight: _disable_updates() in process_incoming_messages prevents
+        # the widget change event from triggering another update_config call
         service.process_incoming_messages()
-        assert toa_range.low == 1000.0
+        assert gui_component.low == 1000.0  # Updated from external message
         published = list(bridge.get_published_messages())
-        assert len(published) == 1
+        assert len(published) == 1  # Still only the original user change
 
         # Simulate our own updating making it back to the bridge
         bridge.clear()
@@ -167,8 +209,8 @@ class TestConfigService:
 
         # Process our own update. Should NOT trigger another update to the bridge
         service.process_incoming_messages()
-        assert toa_range.low == 1500.0
-        assert len(bridge.get_published_messages()) == 0
+        assert gui_component.low == 1500.0  # Updated from our own echo
+        assert len(bridge.get_published_messages()) == 0  # No new publications
 
     def test_get_nonexistent_key_returns_default(self, service: ConfigService) -> None:
         """Test getting a non-existent key returns the default value."""
@@ -331,6 +373,7 @@ class TestConfigService:
         self,
         service_with_bridge: tuple[ConfigService, FakeMessageBridge],
         simple_key: str,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test that invalid incoming data is logged and ignored."""
         service, bridge = service_with_bridge
@@ -339,11 +382,11 @@ class TestConfigService:
 
         bridge.add_incoming_message((simple_key, {"invalid_field": "value"}))
 
-        with capture_logs(service._logger, 'error') as captured:
+        with caplog.at_level('ERROR'):
             service.process_incoming_messages()
 
-        assert len(captured) == 1
-        assert "Invalid config data received" in captured[0]
+        assert len(caplog.records) == 1
+        assert "Invalid config data received" in caplog.records[0].message
 
         assert service.get_config(simple_key) is None
         assert callback.called is False
@@ -407,7 +450,7 @@ class TestConfigService:
         assert callback.data == config
 
     def test_callback_exception_handling(
-        self, service: ConfigService, simple_key: str
+        self, service: ConfigService, simple_key: str, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Test that exceptions in callbacks are handled gracefully."""
         failing_callback = FailingCallback()
@@ -418,38 +461,15 @@ class TestConfigService:
 
         config = SimpleConfig(value=500, name="exception_test")
 
-        with capture_logs(service._logger, 'error') as captured:
+        with caplog.at_level('ERROR'):
             service._notify_subscribers(simple_key, config)
 
-        assert len(captured) == 1
-        assert "Error in config subscriber callback" in captured[0]
+        assert len(caplog.records) == 1
+        assert "Error in config subscriber callback" in caplog.records[0].message
 
         assert failing_callback.call_count == 1
         assert working_callback.called is True
         assert working_callback.data == config
-
-    def test_register_schema_with_manager(self, service: ConfigService) -> None:
-        """Test registering a new schema with ConfigSchemaManager."""
-        new_key = "new_config"
-
-        service.register_schema(new_key, SimpleConfig)
-
-        config = SimpleConfig(value=900, name="new_schema")
-        service.update_config(new_key, config)
-
-        assert service.get_config(new_key) == config
-
-    def test_register_schema_with_non_manager_raises_error(self) -> None:
-        """Test that registering schema with non-ConfigSchemaManager raises error."""
-
-        class FakeValidator:
-            pass
-
-        validator = FakeValidator()
-        service = ConfigService(schema_validator=validator)
-
-        with pytest.raises(TypeError, match="Schema validator must be an instance"):
-            service.register_schema("key", SimpleConfig)
 
     def test_complex_config_serialization_deserialization(
         self,
@@ -492,20 +512,21 @@ class TestConfigService:
         self,
         service_with_bridge: tuple[ConfigService, FakeMessageBridge],
         simple_key: str,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         """Test that debug logging works correctly."""
         service, bridge = service_with_bridge
 
         config = SimpleConfig(value=1000, name="logging_test")
 
-        with capture_logs(service._logger, 'debug') as captured:
+        with caplog.at_level('DEBUG'):
             service.update_config(simple_key, config)
             bridge.add_incoming_message(
                 (simple_key, {"value": 1001, "name": "updated"})
             )
             service.process_incoming_messages()
 
-        assert len(captured) >= 2
+        assert len(caplog.records) >= 2
 
     def test_callback_receives_exact_data_object(
         self, service: ConfigService, simple_key: str

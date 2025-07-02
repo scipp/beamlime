@@ -172,7 +172,7 @@ def monitor_total_counts_bar_chart(**monitors: RawData | None) -> hv.Bars:
     """Create bar chart showing total counts from all monitors."""
     totals = [
         (name, np.nan if monitor is None else np.sum(monitor.current.values))
-        for name, monitor in monitors.items()
+        for name, monitor in reversed(monitors.items())
     ]
     bars = hv.Bars(totals, kdims='Monitor', vdims='Total Counts')
 
