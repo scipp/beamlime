@@ -186,6 +186,17 @@ class DashboardBase(ServiceBase, ABC):
         self.start_periodic_updates()
         return template
 
+    @property
+    def server(self):
+        """Get the Panel server for WSGI deployment."""
+        return pn.serve(
+            self.create_layout,
+            port=self._port,
+            show=False,
+            autoreload=False,
+            dev=self._dev,
+        )
+
     def _start_impl(self) -> None:
         """Start the dashboard service."""
         self._kafka_bridge_thread.start()
