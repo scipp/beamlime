@@ -1,63 +1,22 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import logging
-from collections import UserDict, defaultdict
+from collections import defaultdict
 from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Any, Generic, Protocol, TypeVar
+from typing import Any, Generic, TypeVar
 
 import pydantic
 
 from .message_bridge import MessageBridge
+from .schema_validator import ConfigSchemaValidator
 
 K = TypeVar('K')
 V = TypeVar('V')
 Serialized = TypeVar('Serialized')
 
 
-class ConfigSchemaValidator(Protocol, Generic[K, Serialized, V]):
-    """Protocol for validating configuration data against schemas."""
-
-    def validate(self, key: K, value: V) -> bool:
-        """Check if a schema is registered for the given key."""
-
-    def deserialize(self, key: K, data: Serialized) -> V | None:
-        """Validate configuration data."""
-
-    def serialize(self, data: V) -> Serialized:
-        """Serialize a pydantic model to a dictionary."""
-
-
 JSONSerialized = dict[str, Any]
-
-
-class ConfigSchemaManager(
-    UserDict[K, type[pydantic.BaseModel]],
-    ConfigSchemaValidator[K, JSONSerialized, pydantic.BaseModel],
-):
-    """
-    Manages configuration schemas.
-
-    Schemas are used to deserialize and validate configuration data, as well as to
-    serialize pydantic models to JSON-compatible dictionaries.
-    """
-
-    def validate(self, key: K, value: V) -> bool:
-        model = self.get(key)
-        if model is None:
-            return False
-        return isinstance(value, model)
-
-    def deserialize(self, key: K, data: JSONSerialized) -> pydantic.BaseModel | None:
-        """Validate configuration data."""
-        model = self.get(key)
-        if model is None:
-            return None
-        return model.model_validate(data)
-
-    def serialize(self, data: pydantic.BaseModel) -> JSONSerialized:
-        """Serialize a pydantic model to a dictionary."""
-        return data.model_dump(mode='json')
 
 
 class ConfigService(Generic[K, Serialized, V]):
@@ -84,16 +43,6 @@ class ConfigService(Generic[K, Serialized, V]):
         self._logger = logging.getLogger(__name__)
         self._config: dict[K, V] = {}
         self._update_disabled = False
-
-    def register_schema(self, key: K, schema: type[pydantic.BaseModel]) -> None:
-        """Register a schema for a configuration key."""
-        if isinstance(self.schema_validator, ConfigSchemaManager):
-            self.schema_validator[key] = schema
-        else:
-            raise TypeError(
-                'Schema validator must be an instance of ConfigSchemaManager for late '
-                'schema registration.'
-            )
 
     def subscribe(self, key: K, callback: Callable[[V], None]) -> None:
         """
