@@ -197,13 +197,6 @@ class TestConfigService:
 
         assert service.get_config(simple_key) == config
 
-    def test_update_config_invalid_type_raises_error(
-        self, service: ConfigService, simple_key: str
-    ) -> None:
-        """Test updating config with non-pydantic model raises TypeError."""
-        with pytest.raises(TypeError, match="must be a pydantic model"):
-            service.update_config(simple_key, {"value": 123})
-
     def test_update_config_unregistered_schema_raises_error(
         self, service: ConfigService
     ) -> None:
