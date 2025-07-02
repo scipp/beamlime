@@ -37,6 +37,7 @@ class BackgroundMessageBridge(MessageBridge[ConfigKey, dict[str, Any]]):
         logger: logging.Logger | None = None,
         outgoing_poll_interval: float = 0.1,
         incoming_poll_interval: float = 1.0,
+        busy_wait_sleep: float = 0.01,
     ):
         self._logger = logger or logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ class BackgroundMessageBridge(MessageBridge[ConfigKey, dict[str, Any]]):
 
         # Thread management
         self._running = False
+        self._busy_wait_sleep = busy_wait_sleep
 
         self._logger.info("MessageBridge initialized")
 
@@ -84,9 +86,10 @@ class BackgroundMessageBridge(MessageBridge[ConfigKey, dict[str, Any]]):
                 # Process one cycle of messages
                 has_messages = self._processor.process_cycle()
 
-                # If no messages were processed, sleep briefly to avoid busy waiting
+                # If no messages were processed, sleep briefly to avoid busy waiting. We
+                # keep this short to ensure that outgoing messages are sent promptly.
                 if not has_messages:
-                    time.sleep(0.001)  # 1ms sleep when idle
+                    time.sleep(self._busy_wait_sleep)
 
         except Exception as e:
             self._logger.exception("Error in MessageBridge run loop: %s", e)

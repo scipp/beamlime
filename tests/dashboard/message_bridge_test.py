@@ -2,11 +2,14 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import threading
 import time
+from functools import partial
 from typing import Any
 
 from beamlime.config.models import ConfigKey
 from beamlime.dashboard.message_bridge import BackgroundMessageBridge
 from beamlime.dashboard.message_transport import FakeTransport
+
+BackgroundMessageBridge = partial(BackgroundMessageBridge, busy_wait_sleep=0.001)
 
 
 class TestBackgroundMessageBridge:
