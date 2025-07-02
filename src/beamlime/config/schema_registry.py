@@ -37,14 +37,6 @@ class ConfigItemSpec(Generic[SchemaType]):
             source_name=source_name, service_name=self.service_name, key=self.key
         )
 
-    @property
-    def full_name(self) -> str:
-        """Get the full key name in service/key format."""
-        return f"{self.service_name}/{self.key}"
-
-    def __str__(self) -> str:
-        return f"*/{self.service_name}/{self.key}"
-
 
 class SchemaRegistryBase(ABC, Generic[KeyType, SchemaType]):
     """Interface needed by SchemaValidator."""
@@ -132,7 +124,7 @@ def get_schema_registry() -> SchemaRegistry:
 class FakeSchemaRegistry(
     UserDict[str, type[pydantic.BaseModel]], SchemaRegistryBase[str, pydantic.BaseModel]
 ):
-    """A fake schema registry for testing purposes."""
+    """A simple schema registry for testing purposes."""
 
     def get_model(self, config_key: str) -> type[pydantic.BaseModel] | None:
         return self.get(config_key)

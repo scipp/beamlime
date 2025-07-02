@@ -9,7 +9,7 @@ from typing import Any, Generic, TypeVar
 import pydantic
 
 from .message_bridge import MessageBridge
-from .schema_validator import ConfigSchemaValidator
+from .schema_validator import SchemaValidator
 
 K = TypeVar('K')
 V = TypeVar('V')
@@ -34,7 +34,7 @@ class ConfigService(Generic[K, Serialized, V]):
 
     def __init__(
         self,
-        schema_validator: ConfigSchemaValidator[K, Serialized, V],
+        schema_validator: SchemaValidator[K, Serialized, V],
         message_bridge: MessageBridge[K, Serialized] | None = None,
     ):
         self.schema_validator = schema_validator

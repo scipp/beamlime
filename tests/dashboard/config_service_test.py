@@ -8,7 +8,7 @@ from beamlime.config.models import TOARange
 from beamlime.config.schema_registry import FakeSchemaRegistry
 from beamlime.dashboard.config_service import ConfigService
 from beamlime.dashboard.message_bridge import FakeMessageBridge
-from beamlime.dashboard.schema_validator import SchemaValidator
+from beamlime.dashboard.schema_validator import PydanticSchemaValidator
 
 
 # Test models for more comprehensive testing
@@ -127,21 +127,23 @@ def complex_key() -> str:
 
 
 @pytest.fixture
-def schemas(config_key: str, simple_key: str, complex_key: str) -> SchemaValidator:
+def schemas(
+    config_key: str, simple_key: str, complex_key: str
+) -> PydanticSchemaValidator:
     registry = FakeSchemaRegistry(
         {config_key: TOARange, simple_key: SimpleConfig, complex_key: ComplexConfig}
     )
-    return SchemaValidator(schema_registry=registry)
+    return PydanticSchemaValidator(schema_registry=registry)
 
 
 @pytest.fixture
-def service(schemas: SchemaValidator) -> ConfigService:
+def service(schemas: PydanticSchemaValidator) -> ConfigService:
     return ConfigService(schema_validator=schemas)
 
 
 @pytest.fixture
 def service_with_bridge(
-    schemas: SchemaValidator,
+    schemas: PydanticSchemaValidator,
 ) -> tuple[ConfigService, FakeMessageBridge]:
     bridge = FakeMessageBridge()
     return ConfigService(schema_validator=schemas, message_bridge=bridge), bridge

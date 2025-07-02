@@ -5,7 +5,7 @@ import pytest
 
 from beamlime.config.models import TOARange
 from beamlime.config.schema_registry import FakeSchemaRegistry
-from beamlime.dashboard.schema_validator import SchemaValidator
+from beamlime.dashboard.schema_validator import PydanticSchemaValidator
 
 
 class SimpleModel(pydantic.BaseModel):
@@ -21,7 +21,7 @@ class AnotherModel(pydantic.BaseModel):
 @pytest.fixture
 def empty_validator():
     registry = FakeSchemaRegistry()
-    return SchemaValidator(registry)
+    return PydanticSchemaValidator(registry)
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def populated_validator():
     registry = FakeSchemaRegistry(
         {'simple': SimpleModel, 'toa_range': TOARange, 'another': AnotherModel}
     )
-    return SchemaValidator(registry)
+    return PydanticSchemaValidator(registry)
 
 
 class TestSchemaValidator:
@@ -129,7 +129,7 @@ class TestSchemaValidator:
             optional_field: str | None = None
 
         registry = FakeSchemaRegistry({'complex': ComplexModel})
-        validator = SchemaValidator(registry)
+        validator = PydanticSchemaValidator(registry)
         model = ComplexModel(
             items=['a', 'b', 'c'],
             metadata={'count': 3, 'total': 100},

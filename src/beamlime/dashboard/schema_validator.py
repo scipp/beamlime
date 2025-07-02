@@ -11,7 +11,7 @@ V = TypeVar('V')
 Serialized = TypeVar('Serialized')
 
 
-class ConfigSchemaValidator(Protocol, Generic[K, Serialized, V]):
+class SchemaValidator(Protocol, Generic[K, Serialized, V]):
     """Protocol for validating configuration data against schemas."""
 
     def validate(self, key: K, value: V) -> bool:
@@ -27,8 +27,8 @@ class ConfigSchemaValidator(Protocol, Generic[K, Serialized, V]):
 JSONSerialized = dict[str, Any]
 
 
-class SchemaValidator(
-    ConfigSchemaValidator[K, JSONSerialized, pydantic.BaseModel],
+class PydanticSchemaValidator(
+    SchemaValidator[K, JSONSerialized, pydantic.BaseModel],
 ):
     def __init__(
         self, schema_registry: SchemaRegistryBase[K, pydantic.BaseModel]
