@@ -16,7 +16,7 @@ from beamlime.config.workflow_spec import (
 )
 from beamlime.dashboard.config_service import ConfigService
 from beamlime.dashboard.message_bridge import FakeMessageBridge
-from beamlime.dashboard.schema_validator import SchemaValidator
+from beamlime.dashboard.schema_validator import PydanticSchemaValidator
 from beamlime.dashboard.workflow_config_service import (
     ConfigServiceAdapter,
     WorkflowConfigService,
@@ -32,7 +32,7 @@ def fake_message_bridge():
 @pytest.fixture
 def config_service(fake_message_bridge):
     """Create a ConfigService with fake message bridge."""
-    schema_validator = SchemaValidator(get_schema_registry())
+    schema_validator = PydanticSchemaValidator(get_schema_registry())
     return ConfigService(schema_validator, fake_message_bridge)
 
 

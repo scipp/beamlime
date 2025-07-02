@@ -34,7 +34,7 @@ from .data_service import DataService
 from .kafka_transport import KafkaTransport
 from .message_bridge import BackgroundMessageBridge
 from .orchestrator import Orchestrator
-from .schema_validator import SchemaValidator
+from .schema_validator import PydanticSchemaValidator
 from .stream_manager import MonitorStreamManager, ReductionStreamManager
 
 # Global throttling for sliders, etc.
@@ -91,7 +91,9 @@ class DashboardBase(ServiceBase, ABC):
         )
         self._config_service = ConfigService(
             message_bridge=self._kafka_bridge,
-            schema_validator=SchemaValidator(schema_registry=get_schema_registry()),
+            schema_validator=PydanticSchemaValidator(
+                schema_registry=get_schema_registry()
+            ),
         )
         self._controller_factory = ControllerFactory(
             config_service=self._config_service,
