@@ -2,25 +2,26 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 import pydantic
 import scipp as sc
 
-from beamlime.config.models import ConfigKey
-from beamlime.config.schema_registry import SchemaRegistry
+from beamlime.config.schema_registry import SchemaRegistryBase
 
 from .config_service import ConfigService
 
+K = TypeVar('K')
 
-class Controller:
+
+class Controller(Generic[K]):
     """Controller for linking widgets to configuration values."""
 
     def __init__(
         self,
         *,
-        config_key: ConfigKey,
-        config_service: ConfigService,
+        config_key: K,
+        config_service: ConfigService[K, Any, pydantic.BaseModel],
         schema: type[pydantic.BaseModel],
     ) -> None:
         self._config_key = config_key
@@ -100,12 +101,12 @@ class Controller:
         self._config_service.subscribe(self._config_key, self._trigger_callback)
 
 
-class BinEdgeController(Controller):
+class BinEdgeController(Controller[K]):
     def __init__(
         self,
         *,
-        config_key: ConfigKey,
-        config_service: ConfigService,
+        config_key: K,
+        config_service: ConfigService[K, Any, pydantic.BaseModel],
         schema: type[pydantic.BaseModel],
     ) -> None:
         super().__init__(
@@ -137,7 +138,7 @@ class BinEdgeController(Controller):
         )
 
 
-class ControllerFactory:
+class ControllerFactory(Generic[K]):
     """
     Factory for creating controllers linked to a config value.
 
@@ -147,7 +148,10 @@ class ControllerFactory:
     """
 
     def __init__(
-        self, *, config_service: ConfigService, schema_registry: SchemaRegistry
+        self,
+        *,
+        config_service: ConfigService[K, Any, pydantic.BaseModel],
+        schema_registry: SchemaRegistryBase[K, pydantic.BaseModel],
     ) -> None:
         """
         Initialize the controller factory with a configuration service.
@@ -163,8 +167,8 @@ class ControllerFactory:
         self._schema_registry = schema_registry
 
     def create(
-        self, *, config_key: ConfigKey, controller_cls: type[Controller] | None = None
-    ) -> Controller:
+        self, *, config_key: K, controller_cls: type[Controller[K]] | None = None
+    ) -> Controller[K]:
         """
         Create a controller for the given configuration key.
 
