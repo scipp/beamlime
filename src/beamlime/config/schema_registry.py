@@ -46,7 +46,6 @@ class SchemaRegistry:
 
     def __init__(self) -> None:
         self._keys: dict[tuple[str | None, str], ConfigItemSpec] = {}
-        self._model_to_spec: dict[type, ConfigItemSpec] = {}
 
     def create(
         self,
@@ -71,33 +70,11 @@ class SchemaRegistry:
         return self.register(spec)
 
     def register(self, spec: ConfigItemSpec) -> ConfigItemSpec:
-        """
-        Register a configuration key specification.
-
-        This is typically called automatically by ConfigKeySpec.__post_init__,
-        but can be used directly for testing or special cases.
-        """
+        """Register a configuration key specification."""
         key_id = (spec.service_name, spec.key)
         if key_id in self._keys:
-            existing = self._keys[key_id]
-            if existing.model != spec.model:
-                raise ValueError(
-                    f"Key {spec.service_name}/{spec.key} already registered with "
-                    f"different type: {existing.model} vs {spec.model}"
-                )
-
-        if spec.model in self._model_to_spec:
-            existing_spec = self._model_to_spec[spec.model]
-            existing_key_id = (existing_spec.service_name, existing_spec.key)
-            if existing_key_id != key_id:
-                raise ValueError(
-                    f"Model {spec.model} already registered for key "
-                    f"{existing_spec.service_name}/{existing_spec.key}, "
-                    f"cannot register for {spec.service_name}/{spec.key}"
-                )
-
+            raise ValueError(f"Key {spec.service_name}/{spec.key} already registered.")
         self._keys[key_id] = spec
-        self._model_to_spec[spec.model] = spec
         return spec
 
     def get_spec(self, service_name: str | None, key: str) -> ConfigItemSpec | None:
