@@ -11,6 +11,7 @@ the implementation and testing of :py:class:`WorkflowController`.
 from collections.abc import Callable
 from typing import Protocol
 
+import beamlime.config.keys  # noqa: F401 - Import to initialize global registry
 from beamlime.config.models import ConfigKey
 from beamlime.config.workflow_spec import (
     PersistentWorkflowConfigs,
@@ -57,40 +58,11 @@ class WorkflowConfigService(Protocol):
 class ConfigServiceAdapter(WorkflowConfigService):
     """
     Adapter to make ConfigService compatible with WorkflowConfigService protocol.
-
-    This also registers necessary schemas for workflow management.
     """
 
     def __init__(self, config_service: ConfigService, source_names: list[str]):
         self._config_service = config_service
         self._source_names = source_names
-        self._setup_schemas()
-
-    def _setup_schemas(self) -> None:
-        """Register necessary schemas with the config service."""
-        workflow_specs_key = ConfigKey(
-            service_name='data_reduction', key='workflow_specs'
-        )
-
-        self._config_service.register_schema(workflow_specs_key, WorkflowSpecs)
-        self._config_service.register_schema(
-            _persistent_configs_key, PersistentWorkflowConfigs
-        )
-
-        for source_name in self._source_names:
-            workflow_status_key = ConfigKey(
-                source_name=source_name,
-                service_name='data_reduction',
-                key='workflow_status',
-            )
-            workflow_config_key = ConfigKey(
-                source_name=source_name,
-                service_name="data_reduction",
-                key="workflow_config",
-            )
-
-            self._config_service.register_schema(workflow_status_key, WorkflowStatus)
-            self._config_service.register_schema(workflow_config_key, WorkflowConfig)
 
     def get_persistent_configs(self) -> PersistentWorkflowConfigs:
         """Get persistent workflow configurations."""
