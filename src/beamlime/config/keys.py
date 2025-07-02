@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """Example of a central definition of all configuration keys."""
 
-from beamlime.config.models import TOAEdges, TOARange
+from beamlime.config.models import StartTime, TOAEdges, TOARange
 from beamlime.config.workflow_spec import (
     PersistentWorkflowConfigs,
     WorkflowConfig,
@@ -11,6 +11,15 @@ from beamlime.config.workflow_spec import (
 )
 
 from .schema_registry import ConfigItemSpec
+
+MONITOR_START_TIME = ConfigItemSpec(
+    key="start_time",
+    service_name="monitor_data",
+    model=StartTime,
+    description="Start time for the monitor data",
+    produced_by={"dashboard"},
+    consumed_by={"monitor_data"},
+)
 
 MONITOR_TOA_EDGES = ConfigItemSpec(
     key="toa_edges",

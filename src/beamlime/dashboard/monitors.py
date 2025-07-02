@@ -13,6 +13,7 @@ from beamlime.config import keys
 from . import plots
 from .controller_factory import BinEdgeController
 from .dashboard import DashboardBase
+from .widgets.start_time_widget import StartTimeWidget
 from .widgets.toa_edges_widget import TOAEdgesWidget
 
 pn.extension('holoviews', template='material')
@@ -44,9 +45,12 @@ class DashboardApp(DashboardBase):
             keys.MONITOR_TOA_EDGES.create_key(),
             keys.MONITOR_TOA_EDGES.model,
         )
-        self._controller = self._controller_factory.create(
+        self._toa_controller = self._controller_factory.create(
             config_key=keys.MONITOR_TOA_EDGES.create_key(),
             controller_cls=BinEdgeController,
+        )
+        self._reset_controller = self._controller_factory.create(
+            config_key=keys.MONITOR_START_TIME.create_key()
         )
 
     def _setup_monitor_streams(self):
@@ -66,7 +70,8 @@ class DashboardApp(DashboardBase):
             pn.pane.HoloViews(status_dmap),
             pn.pane.Markdown("## Controls"),
             self._view_toggle_group,
-            TOAEdgesWidget(self._controller).panel,
+            StartTimeWidget(self._reset_controller).panel,
+            TOAEdgesWidget(self._toa_controller).panel,
         )
 
     def create_main_content(self) -> pn.viewable.Viewable:
