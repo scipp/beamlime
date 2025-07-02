@@ -7,7 +7,6 @@ import pytest
 from beamlime.config.models import TOARange
 from beamlime.config.schema_registry import FakeSchemaRegistry
 from beamlime.dashboard.config_service import ConfigService
-from beamlime.dashboard.detector_params import TOARangeParam
 from beamlime.dashboard.message_bridge import FakeMessageBridge
 from beamlime.dashboard.schema_validator import SchemaValidator
 
@@ -55,6 +54,63 @@ class FailingCallback:
         raise self.exception
 
 
+class MockGUIComponent:
+    """
+    Mock GUI component that simulates bidirectional parameter binding.
+
+    1. Updates from config service update the component's values
+    2. Changes to component values echo back to the config service
+    3. Widget change events (simulated by _trigger_change_event) would normally
+       cause infinite loops without proper cycle prevention
+    """
+
+    def __init__(self, config_key: str) -> None:
+        self.config_key = config_key
+        self.enabled = True
+        self.low = 0.0
+        self.high = 10000.0
+        self.unit = 'us'
+        self._config_service: ConfigService | None = None
+        self._update_count = 0
+        self._change_events_enabled = True
+
+    def subscribe_to_config(self, config_service: ConfigService) -> None:
+        """Subscribe to config service updates."""
+        self._config_service = config_service
+        config_service.subscribe(self.config_key, self._on_config_update)
+
+    def _on_config_update(self, data: TOARange) -> None:
+        """Handle updates from config service."""
+        self._update_count += 1
+        # Simulate widget value changes that would normally trigger change events
+        old_low = self.low
+        self.enabled = data.enabled
+        self.low = data.low
+        self.high = data.high
+        self.unit = data.unit
+
+        # Simulate widget change event that would trigger in real widgets
+        # This is what could cause infinite loops without proper cycle prevention
+        if self._change_events_enabled and old_low != self.low:
+            self._trigger_change_event('low', self.low)
+
+    def _trigger_change_event(self, param_name: str, value) -> None:
+        """Simulate a widget change event that would echo back to config service."""
+        if self._config_service:
+            config = TOARange(
+                enabled=self.enabled, low=self.low, high=self.high, unit=self.unit
+            )
+            self._config_service.update_config(self.config_key, config)
+
+    def set_low(self, value: float) -> None:
+        """Simulate user changing the low value in GUI."""
+        old_low = self.low
+        self.low = value
+        # User changes always trigger change events
+        if old_low != self.low:
+            self._trigger_change_event('low', self.low)
+
+
 @pytest.fixture
 def config_key() -> str:
     return "toa_range"
@@ -98,8 +154,8 @@ class TestConfigService:
         config_key: str,
     ) -> None:
         service, bridge = service_with_bridge
-        toa_range = TOARangeParam()
-        service.subscribe(key=config_key, callback=toa_range.from_pydantic_updater())
+        callback = FakeCallback()
+        service.subscribe(key=config_key, callback=callback)
 
         # Create a config update and add it to the bridge
         config_data = {'enabled': False, 'low': 1000.0, 'high': 2000.0, 'unit': 'us'}
@@ -108,37 +164,44 @@ class TestConfigService:
         # Process the message
         service.process_incoming_messages()
 
+        assert callback.called is True
+        toa_range = callback.data
         assert toa_range.enabled is False
         assert toa_range.low == 1000.0
         assert toa_range.high == 2000.0
         assert toa_range.unit == 'us'
 
     def test_bidirectional_param_binding_no_infinite_cycle(
-        self, service_with_bridge: tuple[ConfigService, FakeMessageBridge]
+        self,
+        service_with_bridge: tuple[ConfigService, FakeMessageBridge],
+        config_key: str,
     ) -> None:
         """Test that bidirectional param binding doesn't cause infinite cycles."""
         service, bridge = service_with_bridge
 
-        toa_range = TOARangeParam()
-        toa_range.subscribe(service)
+        # Create mock GUI component that simulates TOARangeParam behavior
+        gui_component = MockGUIComponent(config_key)
+        gui_component.subscribe_to_config(service)
 
         # Init bridge with a single message
         bridge.add_incoming_message(
             (
-                toa_range.config_key,
+                config_key,
                 {'enabled': True, 'low': 1000.0, 'high': 2000.0, 'unit': 'us'},
             )
         )
 
         # Simulate GUI change (should publish to bridge)
-        toa_range.low = 1500.0
+        gui_component.set_low(1500.0)
         assert len(bridge.get_published_messages()) == 1
 
         # Process the external message. Should NOT trigger another update to the bridge
+        # The key insight: _disable_updates() in process_incoming_messages prevents
+        # the widget change event from triggering another update_config call
         service.process_incoming_messages()
-        assert toa_range.low == 1000.0
+        assert gui_component.low == 1000.0  # Updated from external message
         published = list(bridge.get_published_messages())
-        assert len(published) == 1
+        assert len(published) == 1  # Still only the original user change
 
         # Simulate our own updating making it back to the bridge
         bridge.clear()
@@ -146,8 +209,8 @@ class TestConfigService:
 
         # Process our own update. Should NOT trigger another update to the bridge
         service.process_incoming_messages()
-        assert toa_range.low == 1500.0
-        assert len(bridge.get_published_messages()) == 0
+        assert gui_component.low == 1500.0  # Updated from our own echo
+        assert len(bridge.get_published_messages()) == 0  # No new publications
 
     def test_get_nonexistent_key_returns_default(self, service: ConfigService) -> None:
         """Test getting a non-existent key returns the default value."""
