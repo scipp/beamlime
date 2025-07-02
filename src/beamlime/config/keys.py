@@ -1,6 +1,13 @@
 # SPDX-FileCopyrightText: 2025 Scipp contributors (https://github.com/scipp)
 # SPDX-License-Identifier: BSD-3-Clause
-"""Example of a central definition of all configuration keys."""
+"""
+Central definition of all configuration keys.
+
+Usage patterns:
+
+- Getting model type: WORKFLOW_CONFIG.model
+- Creating ConfigKey: WORKFLOW_CONFIG.create_key(source_name="my_source")
+"""
 
 from beamlime.config.models import StartTime, TOAEdges, TOARange
 from beamlime.config.workflow_spec import (
@@ -10,9 +17,11 @@ from beamlime.config.workflow_spec import (
     WorkflowStatus,
 )
 
-from .schema_registry import ConfigItemSpec
+from .schema_registry import get_schema_registry
 
-MONITOR_START_TIME = ConfigItemSpec(
+_registry = get_schema_registry()
+
+MONITOR_START_TIME = _registry.create(
     key="start_time",
     service_name="monitor_data",
     model=StartTime,
@@ -21,7 +30,7 @@ MONITOR_START_TIME = ConfigItemSpec(
     consumed_by={"monitor_data"},
 )
 
-MONITOR_TOA_EDGES = ConfigItemSpec(
+MONITOR_TOA_EDGES = _registry.create(
     key="toa_edges",
     service_name="monitor_data",
     model=TOAEdges,
@@ -30,7 +39,7 @@ MONITOR_TOA_EDGES = ConfigItemSpec(
     consumed_by={"monitor_data"},
 )
 
-DETECTOR_TOA_RANGE = ConfigItemSpec(
+DETECTOR_TOA_RANGE = _registry.create(
     key="toa_range",
     service_name="detector_data",
     model=TOARange,
@@ -40,7 +49,7 @@ DETECTOR_TOA_RANGE = ConfigItemSpec(
 )
 
 # Data reduction service keys
-WORKFLOW_SPECS = ConfigItemSpec(
+WORKFLOW_SPECS = _registry.create(
     key="workflow_specs",
     service_name="data_reduction",
     model=WorkflowSpecs,
@@ -49,7 +58,7 @@ WORKFLOW_SPECS = ConfigItemSpec(
     consumed_by={"dashboard"},
 )
 
-WORKFLOW_STATUS = ConfigItemSpec(
+WORKFLOW_STATUS = _registry.create(
     key="workflow_status",
     service_name="data_reduction",
     model=WorkflowStatus,
@@ -58,7 +67,7 @@ WORKFLOW_STATUS = ConfigItemSpec(
     consumed_by={"dashboard"},
 )
 
-WORKFLOW_CONFIG = ConfigItemSpec(
+WORKFLOW_CONFIG = _registry.create(
     key="workflow_config",
     service_name="data_reduction",
     model=WorkflowConfig,
@@ -68,7 +77,7 @@ WORKFLOW_CONFIG = ConfigItemSpec(
 )
 
 # Dashboard service keys
-PERSISTENT_WORKFLOW_CONFIGS = ConfigItemSpec(
+PERSISTENT_WORKFLOW_CONFIGS = _registry.create(
     key="persistent_workflow_configs",
     service_name="dashboard",
     model=PersistentWorkflowConfigs,
@@ -76,8 +85,3 @@ PERSISTENT_WORKFLOW_CONFIGS = ConfigItemSpec(
     produced_by={"dashboard"},
     consumed_by={"dashboard"},
 )
-
-# Usage patterns:
-#
-# Getting model type: WORKFLOW_CONFIG.model
-# Creating ConfigKey: WORKFLOW_CONFIG.create_key(source_name="my_source")

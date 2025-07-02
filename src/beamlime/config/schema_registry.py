@@ -17,10 +17,6 @@ T = TypeVar('T')
 class ConfigItemSpec(Generic[T]):
     """
     A configuration key specification with associated type and metadata.
-
-    Instances automatically register themselves with the global registry
-    upon creation, ensuring all specs are discoverable and preventing
-    duplicate registrations.
     """
 
     key: str
@@ -29,10 +25,6 @@ class ConfigItemSpec(Generic[T]):
     description: str = ""
     produced_by: set[str] = field(default_factory=set)
     consumed_by: set[str] = field(default_factory=set)
-
-    def __post_init__(self) -> None:
-        """Register this spec with the global registry after creation."""
-        _registry.register(self)
 
     def create_key(self, source_name: str | None = None) -> ConfigKey:
         """Create a ConfigKey instance for a specific source."""
@@ -55,6 +47,28 @@ class SchemaRegistry:
     def __init__(self) -> None:
         self._keys: dict[tuple[str | None, str], ConfigItemSpec] = {}
         self._model_to_spec: dict[type, ConfigItemSpec] = {}
+
+    def create(
+        self,
+        key: str,
+        service_name: str | None,
+        model: type[T],
+        description: str = "",
+        produced_by: set[str] | None = None,
+        consumed_by: set[str] | None = None,
+    ) -> ConfigItemSpec[T]:
+        """
+        Create and register a configuration key specification in one step.
+        """
+        spec = ConfigItemSpec(
+            key=key,
+            service_name=service_name,
+            model=model,
+            description=description,
+            produced_by=produced_by or set(),
+            consumed_by=consumed_by or set(),
+        )
+        return self.register(spec)
 
     def register(self, spec: ConfigItemSpec) -> ConfigItemSpec:
         """
