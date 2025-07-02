@@ -6,6 +6,7 @@ from typing import Any, Generic, TypeVar
 
 import pydantic
 import scipp as sc
+from pydantic_core import PydanticUndefined
 
 from beamlime.config.schema_registry import SchemaRegistryBase
 
@@ -34,7 +35,7 @@ class Controller(Generic[K]):
         """Get the default values for the configuration fields."""
         defaults = {}
         for field, field_info in self._schema.model_fields.items():
-            if field_info.default is not None:
+            if field_info.default is not PydanticUndefined:
                 defaults[field] = field_info.default
             elif field_info.default_factory is not None:
                 defaults[field] = field_info.default_factory()
