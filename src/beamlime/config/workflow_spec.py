@@ -83,6 +83,10 @@ class WorkflowSpec(BaseModel):
     parameters: list[Parameter] = Field(
         default_factory=list, description="Parameters for the workflow."
     )
+    params: tuple[str, int] = Field(
+        default=('', 0),
+        description="Tuple containing the name and version of the workflow params.",
+    )
 
 
 WorkflowId = str

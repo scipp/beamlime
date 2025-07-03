@@ -4,6 +4,7 @@
 from typing import Literal, NewType
 
 import ess.powder.types  # noqa: F401
+import pydantic
 import scipp as sc
 from ess import dream, powder
 from ess.dream.workflow import DreamPowderWorkflow
@@ -22,6 +23,7 @@ from beamlime.config.env import StreamingEnv
 from beamlime.config.workflow_spec import Parameter, ParameterType
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
+from beamlime.parameters import get_parameter_registry, parameter_models
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
@@ -195,6 +197,58 @@ instrument_configuration_param = Parameter(
     default='High-flux (BC=240)',
     options=('High-flux (BC=215)', 'High-flux (BC=240)', 'High-resolution'),
 )
+
+
+class InstrumentConfiguration(pydantic.BaseModel):
+    value: dream.InstrumentConfiguration = pydantic.Field(
+        default=dream.InstrumentConfiguration.high_flux_BC240,
+        description='Chopper settings determining TOA to TOF conversion.',
+    )
+
+
+@get_parameter_registry().register(name='dream_powder_workflow', version=1)
+class PowderWorkflowParams(pydantic.BaseModel):
+    geometry_file: parameter_models.Filename = pydantic.Field(
+        title='Geometry file',
+        description='NeXus file containing instrument geometry and other static data.',
+    )
+    wavelength_range: parameter_models.WavelengthRange = pydantic.Field(
+        title='Wavelength range',
+        description='Range of wavelengths to include in the reduction.',
+    )
+    instrument_configuration: InstrumentConfiguration = pydantic.Field(
+        title='Instrument configuration',
+        description='Chopper settings determining TOA to TOF conversion.',
+        default=dream.InstrumentConfiguration.high_flux_BC240,
+    )
+
+
+@instrument.register_workflow(
+    name='Powder reduction v2',
+    description='Powder reduction without vanadium normalization.',
+    source_names=_source_names,
+    params=('dream_powder_workflow', 1),
+)
+def _my_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProcessor:
+    wf = _reduction_workflow.copy()
+    wf[NeXusName[NXdetector]] = source_name
+    wf[Filename[SampleRun]] = params.geometry_file.value
+    wf[dream.InstrumentConfiguration] = params.instrument_configuration.value
+    return StreamProcessor(
+        wf,
+        dynamic_keys=(
+            NeXusData[NXdetector, SampleRun],
+            NeXusData[powder.types.CaveMonitor, SampleRun],
+        ),
+        target_keys=(
+            powder.types.FocussedDataDspacing[SampleRun],
+            powder.types.FocussedDataDspacingTwoTheta[SampleRun],
+        ),
+        accumulators=(
+            powder.types.ReducedCountsDspacing[SampleRun],
+            powder.types.WavelengthMonitor[SampleRun, powder.types.CaveMonitor],
+        ),
+    )
 
 
 @instrument.register_workflow(
