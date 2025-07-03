@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 from collections import UserDict
 from collections.abc import Callable
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -46,3 +47,29 @@ class ParameterRegistry(UserDict[str, dict[int, type[BaseModel]]]):
                 f"{list(models.keys())}."
             )
         return model
+
+
+class ParamValue(BaseModel):
+    model_name: str = Field(description="Name of the model in the registry.")
+    model_version: int = Field(default=1, description="Version of the model.")
+    value: dict[str, Any]
+
+    def validate_value(self, registry: ParameterRegistry) -> BaseModel:
+        """
+        Validate the value against the registered model.
+
+        Args:
+            registry: The parameter registry to use for validation.
+
+        Returns:
+            An instance of the model class with validated data.
+        """
+        model_cls = registry.get_model(
+            ParamSpec(
+                name="",
+                description="",
+                model_name=self.model_name,
+                model_version=self.model_version,
+            )
+        )
+        return model_cls.model_validate(self.value)
