@@ -23,6 +23,7 @@ class ReductionApp(DashboardBase):
             dev=dev,
             log_level=log_level,
             dashboard_name='reduction_dashboard',
+            port=5009,  # Default port for reduction dashboard
         )
 
         self._setup_workflow_management()

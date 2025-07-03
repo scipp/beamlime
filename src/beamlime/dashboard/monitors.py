@@ -26,6 +26,7 @@ class DashboardApp(DashboardBase):
             dev=dev,
             log_level=log_level,
             dashboard_name='monitors_dashboard',
+            port=5007,  # Default port for monitors dashboard
         )
 
         self.toa_edges = TOAEdgesParam()

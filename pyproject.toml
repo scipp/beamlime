@@ -63,9 +63,11 @@ loki = [
     "esssans",
 ]
 dashboard = [
-  "dash",
+  "bokeh",
   "gunicorn",
-  "plotly",
+  "holoviews",
+  "panel",
+  "param",
 ]
 
 [project.scripts]
