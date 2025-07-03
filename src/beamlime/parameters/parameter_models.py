@@ -30,14 +30,22 @@ class RangeModel(BaseModel, ABC):
         return v
 
 
+class Scale(str, Enum):
+    """Allowed scales for data reduction."""
+
+    LINEAR = 'linear'
+    LOG = 'log'
+
+
 class EdgesModel(BaseModel, ABC):
     """Base model for edges with common fields and validation."""
 
     start: float = Field(default=1.0, description="Start of the edges.")
     stop: float = Field(default=10.0, description="Stop of the edges.")
     num_bins: int = Field(default=100, ge=1, le=10000, description="Number of bins.")
-    log: bool = Field(
-        default=False, description="If True, use logarithmically spaced edges."
+    scale: Scale = Field(
+        default=Scale.LINEAR,
+        description="Scale of the edges, either 'linear' or 'log'.",
     )
 
     @field_validator('stop')
