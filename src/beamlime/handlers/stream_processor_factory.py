@@ -45,6 +45,7 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
         description: str = '',
         source_names: Sequence[str] | None = None,
         parameters: Sequence[Parameter] | None = None,
+        params: tuple[str, int] = ('', 0),
     ) -> Callable[[Callable[..., StreamProcessor]], Callable[..., StreamProcessor]]:
         """
         Decorator to register a factory function for creating StreamProcessors.
@@ -73,8 +74,9 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
             spec = WorkflowSpec(
                 name=name,
                 description=description,
-                source_names=source_names or [],
-                parameters=parameters or [],
+                source_names=list(source_names or []),
+                parameters=list(parameters or []),
+                params=params,
             )
             spec_id = _hash_factory(factory)
             self._factories[spec_id] = factory

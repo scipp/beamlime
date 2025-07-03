@@ -66,6 +66,7 @@ class Instrument:
         description: str = '',
         source_names: Sequence[str] | None = None,
         parameters: Sequence[Parameter] | None = None,
+        params: tuple[str, int] = ('', 0),
     ) -> Callable[[Callable[..., StreamProcessor]], Callable[..., StreamProcessor]]:
         """
         Decorator to register a factory function for creating StreamProcessors.
@@ -92,4 +93,5 @@ class Instrument:
             description=description,
             source_names=source_names,
             parameters=parameters,
+            params=params,
         )

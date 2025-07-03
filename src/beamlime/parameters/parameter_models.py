@@ -14,10 +14,6 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator
 
-from .parameter_registry import ParameterRegistry
-
-_registry = ParameterRegistry()
-
 
 class RangeModel(BaseModel, ABC):
     """Base model for range with common fields and validation."""
@@ -75,12 +71,10 @@ class DspacingUnit(str, Enum):
     NANOMETER = 'nm'
 
 
-@_registry.register(name='filename', version=1)
 class Filename(BaseModel):
     value: Path = Field(..., description="Path to the file.")
 
 
-@_registry.register(name='wavelength_range', version=1)
 class WavelengthRange(RangeModel):
     """Model for wavelength range."""
 
@@ -89,7 +83,6 @@ class WavelengthRange(RangeModel):
     )
 
 
-@_registry.register(name='wavelength_edges', version=1)
 class WavelengthEdges(EdgesModel):
     """Model for wavelength edges."""
 
@@ -98,7 +91,6 @@ class WavelengthEdges(EdgesModel):
     )
 
 
-@_registry.register(name='dspacing_edges', version=1)
 class DspacingEdges(EdgesModel):
     """Model for d-spacing edges."""
 
