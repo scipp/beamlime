@@ -222,10 +222,10 @@ class PowderWorkflowParams(pydantic.BaseModel):
             unit=parameter_models.DspacingUnit.ANGSTROM,
         ),
     )
-    two_theta_edges: parameter_models.AngleEdges = pydantic.Field(
+    two_theta_edges: parameter_models.TwoTheta = pydantic.Field(
         title='Two-theta bins',
         description='Define the bin edges for binning in 2-theta.',
-        default=parameter_models.AngleEdges(
+        default=parameter_models.TwoTheta(
             start=0.4,
             stop=3.1415,
             num_bins=201,
@@ -235,11 +235,15 @@ class PowderWorkflowParams(pydantic.BaseModel):
     wavelength_range: parameter_models.WavelengthRange = pydantic.Field(
         title='Wavelength range',
         description='Range of wavelengths to include in the reduction.',
+        default=parameter_models.WavelengthRange(
+            start=1.1,
+            stop=4.5,
+            unit=parameter_models.WavelengthUnit.ANGSTROM,
+        ),
     )
     instrument_configuration: InstrumentConfiguration = pydantic.Field(
         title='Instrument configuration',
         description='Chopper settings determining TOA to TOF conversion.',
-        default=dream.InstrumentConfiguration.high_flux_BC240,
     )
 
 
