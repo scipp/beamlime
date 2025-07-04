@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import time
 from enum import Enum
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field, model_validator
 
-from beamlime import parameters
+from beamlime.parameters import ModelId
 
 T = TypeVar('T')
 
@@ -85,8 +85,8 @@ class WorkflowSpec(BaseModel):
     parameters: list[Parameter] = Field(
         default_factory=list, description="Parameters for the workflow."
     )
-    params: parameters.ModelId = Field(
-        default=parameters.ModelId(name='', version=0),
+    params: ModelId = Field(
+        default=ModelId(name='', version=0),
         description="Model Id containing the name and version of the workflow params.",
     )
 
@@ -118,8 +118,12 @@ class WorkflowConfig(BaseModel):
     identifier: WorkflowId | None = Field(
         description="Hash of the workflow, used to identify the workflow."
     )
-    values: dict[str, Any] = Field(
-        default_factory=dict, description="Parameter values for the workflow."
+    param_id: ModelId = Field(
+        description="Model Id containing the name and version of the workflow params."
+    )
+    params: dict[str, Parameter] = Field(
+        default_factory=dict,
+        description="Parameters for the workflow, indexed by parameter name.",
     )
 
 
