@@ -234,6 +234,9 @@ def _my_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProces
     wf[NeXusName[NXdetector]] = source_name
     wf[Filename[SampleRun]] = params.geometry_file.value
     wf[dream.InstrumentConfiguration] = params.instrument_configuration.value
+    wmin = sc.scalar(params.wavelength_range.start, unit=params.wavelength_range.unit)
+    wmax = sc.scalar(params.wavelength_range.stop, unit=params.wavelength_range.unit)
+    wf[powder.types.WavelengthMask] = lambda w: (w < wmin) | (w > wmax)
     return StreamProcessor(
         wf,
         dynamic_keys=(

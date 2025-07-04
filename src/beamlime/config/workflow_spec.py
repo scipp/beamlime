@@ -118,8 +118,9 @@ class WorkflowConfig(BaseModel):
     identifier: WorkflowId | None = Field(
         description="Hash of the workflow, used to identify the workflow."
     )
-    param_id: ModelId = Field(
-        description="Model Id containing the name and version of the workflow params."
+    param_id: ModelId | None = Field(
+        default=None,
+        description="Model Id containing the name and version of the workflow params.",
     )
     params: dict[str, Any] = Field(
         default_factory=dict,

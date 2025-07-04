@@ -2,14 +2,39 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+from typing import Any
+
 import panel as pn
 import pydantic
+from pydantic_core import PydanticUndefined
 
 from beamlime.config.workflow_spec import WorkflowId
 from beamlime.dashboard.workflow_controller import WorkflowController
 
 from .param_widget import ParamWidget
 from .workflow_ui_helper import WorkflowUIHelper
+
+
+def get_defaults(model: type[pydantic.BaseModel]) -> dict[str, Any]:
+    """
+    Get default values for all fields in a Pydantic model.
+
+    Parameters
+    ----------
+    model
+        Pydantic model class
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary of field names and their default values
+    """
+    return {
+        field_name: field_info.default
+        if field_info.default is not PydanticUndefined
+        else None
+        for field_name, field_info in model.model_fields.items()
+    }
 
 
 class WorkflowConfigWidget:
@@ -55,19 +80,22 @@ class WorkflowConfigWidget:
         """Create panel containing all parameter widgets."""
         parameter_widgets = []
 
-        # initial_values = self._ui_helper.get_initial_parameter_values(self._workflow_id)
-
         model_class = self._controller.get_workflow_params(self._workflow_id)
         if model_class is None:
             raise ValueError(
                 f"Workflow parameters for '{self._workflow_id}' are not defined."
             )
         self._model_class = model_class
+        previous_values = self._ui_helper.get_initial_parameter_values(
+            self._workflow_id
+        )
         for field_name, field_info in self._model_class.model_fields.items():
             # TODO
-            # initial_value = initial_values.get(param.name)
+
             field_type: type[pydantic.BaseModel] = field_info.annotation  # type: ignore[assignment]
+            values = previous_values.get(field_name, get_defaults(field_type))
             param_widget = ParamWidget(field_type)
+            param_widget.set_values(values)
             self._parameter_widgets[field_name] = param_widget
 
             # Create a row with widget and description
