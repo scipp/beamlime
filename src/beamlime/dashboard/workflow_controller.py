@@ -168,18 +168,23 @@ class WorkflowController:
             config,
         )
 
+        spec = self.get_workflow_spec(workflow_id)
+        if spec is None:
+            self._logger.error(
+                'Workflow spec for %s not found, cannot start workflow', workflow_id
+            )
+            return False
+
         workflow_config = WorkflowConfig(
-            identifier=workflow_id,
-            param_id=self.get_workflow_spec(workflow_id).params,
-            params=config.model_dump(),
+            identifier=workflow_id, param_id=spec.params, params=config.model_dump()
         )
 
         # Update the config for this workflow, used for restoring widget state
-        # current_configs = self._service.get_persistent_configs()
-        # current_configs.configs[workflow_id] = PersistentWorkflowConfig(
-        #    source_names=source_names, config=workflow_config
-        # )
-        # self._service.save_persistent_configs(current_configs)
+        current_configs = self._service.get_persistent_configs()
+        current_configs.configs[workflow_id] = PersistentWorkflowConfig(
+            source_names=source_names, config=workflow_config
+        )
+        self._service.save_persistent_configs(current_configs)
 
         # Send workflow config to each source
         for source_name in source_names:

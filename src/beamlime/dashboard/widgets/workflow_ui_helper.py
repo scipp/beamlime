@@ -65,12 +65,13 @@ class WorkflowUIHelper:
         if not spec:
             return {}
 
-        values = {param.name: param.default for param in spec.parameters}
+        # values = {param.name: param.default for param in spec.parameters}
+        values = {}
 
         # Override with persistent config if available
         persistent_config = self._controller.get_workflow_config(workflow_id)
         if persistent_config:
-            values.update(persistent_config.config.values)
+            values.update(persistent_config.config.params)
 
         return values
 
