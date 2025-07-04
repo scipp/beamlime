@@ -15,28 +15,6 @@ def snake_to_camel(snake_str: str) -> str:
     return ''.join(word.capitalize() for word in components)
 
 
-def get_defaults(model: type[pydantic.BaseModel]) -> dict[str, Any]:
-    """
-    Get default values for all fields in a Pydantic model.
-
-    Parameters
-    ----------
-    model
-        Pydantic model class
-
-    Returns
-    -------
-    dict[str, Any]
-        Dictionary of field names and their default values
-    """
-    return {
-        field_name: field_info.default
-        if field_info.default is not PydanticUndefined
-        else None
-        for field_name, field_info in model.model_fields.items()
-    }
-
-
 class ParamWidget:
     """Widget for creating and validating Pydantic model instances."""
 

@@ -65,17 +65,6 @@ class EdgesModel(BaseModel, ABC):
             raise ValueError('start must be positive if log is True')
         return v
 
-    def get_edges(self) -> sc.Variable:
-        """Convert the edges to a scipp variable."""
-        op = {Scale.LINEAR: sc.linspace, Scale.LOG: sc.logspace}[self.scale]
-        return op(
-            dim='wavelength',
-            start=self.start,
-            stop=self.stop,
-            num=self.num_bins,
-            unit=self.unit.value,
-        )
-
 
 class WavelengthUnit(str, Enum):
     """Allowed units for wavelength."""
@@ -125,6 +114,10 @@ class WavelengthEdges(EdgesModel):
         default=WavelengthUnit.ANGSTROM, description="Unit of the edges."
     )
 
+    def get_edges(self) -> sc.Variable:
+        """Get the edges as a scipp variable."""
+        return make_edges(model=self, dim='wavelength', unit=self.unit.value)
+
 
 class DspacingEdges(EdgesModel):
     """Model for d-spacing edges."""
@@ -133,8 +126,24 @@ class DspacingEdges(EdgesModel):
         default=DspacingUnit.ANGSTROM, description="Unit of the edges."
     )
 
+    def get_edges(self) -> sc.Variable:
+        """Get the edges as a scipp variable."""
+        return make_edges(model=self, dim='dspacing', unit=self.unit.value)
 
-class AngleEdges(EdgesModel):
-    """Model for angle edges."""
+
+class TwoTheta(EdgesModel):
+    """Model for two-theta edges."""
 
     unit: AngleUnit = Field(default=AngleUnit.DEGREE, description="Unit of the edges.")
+
+    def get_edges(self) -> sc.Variable:
+        """Get the edges as a scipp variable."""
+        return make_edges(model=self, dim='two_theta', unit=self.unit.value)
+
+
+def make_edges(*, model: EdgesModel, dim: str, unit: str) -> sc.Variable:
+    """Convert the edges to a scipp variable."""
+    op = {Scale.LINEAR: sc.linspace, Scale.LOG: sc.logspace}[model.scale]
+    return op(
+        dim=dim, start=model.start, stop=model.stop, num=model.num_bins, unit=unit
+    )

@@ -3,9 +3,31 @@
 from typing import Any
 
 import pydantic
+from pydantic_core import PydanticUndefined
 
 from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec
 from beamlime.dashboard.workflow_controller import WorkflowController
+
+
+def get_defaults(model: type[pydantic.BaseModel]) -> dict[str, Any]:
+    """
+    Get default values for all fields in a Pydantic model.
+
+    Parameters
+    ----------
+    model
+        Pydantic model class
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary of field names and their default values
+    """
+    return {
+        field_name: field_info.default
+        for field_name, field_info in model.model_fields.items()
+        if field_info.default is not PydanticUndefined
+    }
 
 
 class WorkflowUIHelper:
@@ -96,15 +118,16 @@ class WorkflowUIHelper:
         self, workflow_id: WorkflowId
     ) -> dict[str, dict[str, Any]]:
         """Get parameter widget data for a workflow."""
-        from .param_widget import get_defaults
-
         model_class = self.get_workflow_model_class(workflow_id)
         previous_values = self.get_initial_parameter_values(workflow_id)
+        root_defaults = get_defaults(model_class)
         widget_data = {}
 
         for field_name, field_info in model_class.model_fields.items():
             field_type: type[pydantic.BaseModel] = field_info.annotation  # type: ignore[assignment]
-            values = previous_values.get(field_name, get_defaults(field_type))
+            values = get_defaults(field_type)
+            values.update(root_defaults.get(field_name, {}))
+            values.update(previous_values.get(field_name, {}))
 
             # Extract title and description from field info
             title = (
