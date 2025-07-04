@@ -5,6 +5,7 @@ import panel as pn
 
 from beamlime import Service
 from beamlime.config import keys
+from beamlime.config.instruments import dream
 
 from . import plots
 from .dashboard import DashboardBase

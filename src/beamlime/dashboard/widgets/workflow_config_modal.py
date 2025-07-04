@@ -2,14 +2,13 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-from typing import Any
-
 import panel as pn
+import pydantic
 
 from beamlime.config.workflow_spec import WorkflowId
 from beamlime.dashboard.workflow_controller import WorkflowController
 
-from .parameter_widget import ParameterWidget
+from .param_widget import ParamWidget
 from .workflow_ui_helper import WorkflowUIHelper
 
 
@@ -37,7 +36,7 @@ class WorkflowConfigWidget:
         if (spec := controller.get_workflow_spec(workflow_id)) is None:
             raise ValueError(f"Workflow with ID '{workflow_id}' does not exist.")
         self._workflow_spec = spec
-        self._parameter_widgets: dict[str, ParameterWidget] = {}
+        self._parameter_widgets: dict[str, ParamWidget] = {}
         self._source_selector = self._create_source_selector()
         self._parameter_panel = self._create_parameter_panel()
         self._widget = self._create_widget()
@@ -56,19 +55,27 @@ class WorkflowConfigWidget:
         """Create panel containing all parameter widgets."""
         parameter_widgets = []
 
-        initial_values = self._ui_helper.get_initial_parameter_values(self._workflow_id)
+        # initial_values = self._ui_helper.get_initial_parameter_values(self._workflow_id)
 
-        for param in self._workflow_spec.parameters:
-            initial_value = initial_values.get(param.name)
-            param_widget = ParameterWidget(param, initial_value)
-            self._parameter_widgets[param.name] = param_widget
+        model_class = self._controller.get_workflow_params(self._workflow_id)
+        if model_class is None:
+            raise ValueError(
+                f"Workflow parameters for '{self._workflow_id}' are not defined."
+            )
+        self._model_class = model_class
+        for field_name, field_info in self._model_class.model_fields.items():
+            # TODO
+            # initial_value = initial_values.get(param.name)
+            field_type: type[pydantic.BaseModel] = field_info.annotation  # type: ignore[assignment]
+            param_widget = ParamWidget(field_type)
+            self._parameter_widgets[field_name] = param_widget
 
             # Create a row with widget and description
-            widget_row = pn.Row(
-                param_widget.widget,
-                pn.pane.HTML(f"<small>{param_widget.description}</small>"),
-            )
-            parameter_widgets.append(widget_row)
+            # widget_row = pn.Row(
+            #    param_widget.widget,
+            #    pn.pane.HTML(f"<small>{param_widget.description}</small>"),
+            # )
+            parameter_widgets.append(param_widget.panel())
 
         return pn.Column(*parameter_widgets)
 
@@ -92,9 +99,14 @@ class WorkflowConfigWidget:
         return self._source_selector.value
 
     @property
-    def parameter_values(self) -> dict[str, Any]:
+    def parameter_values(self) -> pydantic.BaseModel:
         """Get current parameter values as a dictionary."""
-        return {name: widget.value for name, widget in self._parameter_widgets.items()}
+        return self._model_class(
+            **{
+                name: widget.create_model()
+                for name, widget in self._parameter_widgets.items()
+            }
+        )
 
     def validate_configuration(self) -> bool:
         """Validate that required fields are configured."""

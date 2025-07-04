@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import time
 from enum import Enum
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -121,7 +121,7 @@ class WorkflowConfig(BaseModel):
     param_id: ModelId = Field(
         description="Model Id containing the name and version of the workflow params."
     )
-    params: dict[str, Parameter] = Field(
+    params: dict[str, Any] = Field(
         default_factory=dict,
         description="Parameters for the workflow, indexed by parameter name.",
     )
