@@ -5,6 +5,7 @@ import inspect
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from importlib import metadata
 
+import pydantic
 from ess.reduce.streaming import StreamProcessor
 
 from beamlime.config.workflow_spec import Parameter, WorkflowId, WorkflowSpec
@@ -91,7 +92,7 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
         *,
         workflow_id: WorkflowId,
         source_name: str,
-        workflow_params: dict | None = None,
+        workflow_params: pydantic.BaseModel | None = None,
     ) -> StreamProcessor:
         """
         Create a StreamProcessor using the registered factory.
@@ -124,10 +125,8 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
         kwargs = {}
         if 'source_name' in sig.parameters:
             kwargs['source_name'] = source_name
-
-        # Add any additional workflow parameters if they match factory parameters
-        if workflow_params:
-            kwargs.update(workflow_params)
+        if workflow_params and 'params' in sig.parameters:
+            kwargs['params'] = workflow_params
 
         # Call factory with appropriate arguments
         if kwargs:
