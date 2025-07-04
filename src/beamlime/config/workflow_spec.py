@@ -12,6 +12,8 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field, model_validator
 
+from beamlime import parameters
+
 T = TypeVar('T')
 
 
@@ -83,9 +85,9 @@ class WorkflowSpec(BaseModel):
     parameters: list[Parameter] = Field(
         default_factory=list, description="Parameters for the workflow."
     )
-    params: tuple[str, int] = Field(
-        default=('', 0),
-        description="Tuple containing the name and version of the workflow params.",
+    params: parameters.ModelId = Field(
+        default=parameters.ModelId(name='', version=0),
+        description="Model Id containing the name and version of the workflow params.",
     )
 
 

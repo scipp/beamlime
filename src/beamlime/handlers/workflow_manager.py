@@ -110,6 +110,7 @@ class WorkflowManager:
             )
             return [(config_key, status)]
 
+        # TODO This will be the model now, access registry here (deser with reg?)
         config = WorkflowConfig.model_validate(value)
         if config.identifier is None:  # New way to stop/remove a workflow.
             self.set_workflow(source_name, None)
