@@ -6,7 +6,8 @@ Workflow controller implementation backed by a config service.
 
 import logging
 from collections.abc import Callable
-from typing import Any
+
+import pydantic
 
 from beamlime.config.workflow_spec import (
     PersistentWorkflowConfig,
@@ -17,6 +18,7 @@ from beamlime.config.workflow_spec import (
     WorkflowStatus,
     WorkflowStatusType,
 )
+from beamlime.parameters import get_parameter_registry
 
 from .workflow_config_service import ConfigServiceAdapter, WorkflowConfigService
 
@@ -143,7 +145,10 @@ class WorkflowController:
             self._service.save_persistent_configs(current_configs)
 
     def start_workflow(
-        self, workflow_id: WorkflowId, source_names: list[str], config: dict[str, Any]
+        self,
+        workflow_id: WorkflowId,
+        source_names: list[str],
+        config: pydantic.BaseModel,
     ) -> bool:
         """Start a workflow with given configuration.
 
@@ -163,14 +168,18 @@ class WorkflowController:
             config,
         )
 
-        workflow_config = WorkflowConfig(identifier=workflow_id, values=config)
+        workflow_config = WorkflowConfig(
+            identifier=workflow_id,
+            param_id=self.get_workflow_spec(workflow_id).params,
+            params=config.model_dump(),
+        )
 
         # Update the config for this workflow, used for restoring widget state
-        current_configs = self._service.get_persistent_configs()
-        current_configs.configs[workflow_id] = PersistentWorkflowConfig(
-            source_names=source_names, config=workflow_config
-        )
-        self._service.save_persistent_configs(current_configs)
+        # current_configs = self._service.get_persistent_configs()
+        # current_configs.configs[workflow_id] = PersistentWorkflowConfig(
+        #    source_names=source_names, config=workflow_config
+        # )
+        # self._service.save_persistent_configs(current_configs)
 
         # Send workflow config to each source
         for source_name in source_names:
@@ -208,6 +217,15 @@ class WorkflowController:
     def get_workflow_spec(self, workflow_id: WorkflowId) -> WorkflowSpec | None:
         """Get the current workflow specification for the given Id."""
         return self._workflow_specs.workflows.get(workflow_id)
+
+    def get_workflow_params(
+        self, workflow_id: WorkflowId
+    ) -> type[pydantic.BaseModel] | None:
+        """Get the parameters for the given workflow Id."""
+        workflow_spec = self.get_workflow_spec(workflow_id)
+        if workflow_spec is None:
+            return None
+        return get_parameter_registry().get_model(workflow_spec.params)
 
     def get_workflow_config(
         self, workflow_id: WorkflowId
