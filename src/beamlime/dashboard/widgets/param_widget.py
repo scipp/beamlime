@@ -106,15 +106,26 @@ class ParamWidget:
                 description=description,
             )
         elif isinstance(field_type, type) and issubclass(field_type, Enum):
-            options = {enum_val.value: enum_val for enum_val in field_type}
-            default_display = (
-                default_value.value if default_value else next(iter(options.keys()))
+            options = {}
+            for enum_val in field_type:
+                if isinstance(enum_val.value, str):
+                    # Use the value for string enums
+                    display_key = enum_val.value
+                else:
+                    # Use string repr without enum class name for other enums
+                    display_key = str(enum_val).split('.')[-1]
+                options[display_key] = enum_val
+
+            # Set the actual enum instance as the default value
+            default_widget_value = (
+                default_value if default_value else next(iter(options.values()))
             )
+            max_length = max(len(key) for key in options.keys())
             return pn.widgets.Select(
                 name=display_name,
                 options=options,
-                value=default_display,
-                width=100,
+                value=default_widget_value,
+                width=int(100 * max(1, max_length / 10)),  # Width based on longest
                 description=description,
             )
         else:
@@ -150,13 +161,8 @@ class ParamWidget:
                 field_type = self.model_class.model_fields[field_name].annotation
                 if isinstance(value, Path):
                     value = str(value)
-                elif (
-                    isinstance(field_type, type)
-                    and issubclass(field_type, Enum)
-                    and isinstance(value, field_type)
-                ):
-                    # For enum fields, set the string value to display
-                    value = value.value
+                elif isinstance(field_type, type) and issubclass(field_type, Enum):
+                    value = field_type(value)
                 self.widgets[field_name].value = value
 
     def create_model(self) -> pydantic.BaseModel:
