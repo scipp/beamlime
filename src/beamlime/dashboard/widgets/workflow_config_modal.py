@@ -2,39 +2,14 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-from typing import Any
-
 import panel as pn
 import pydantic
-from pydantic_core import PydanticUndefined
 
 from beamlime.config.workflow_spec import WorkflowId
 from beamlime.dashboard.workflow_controller import WorkflowController
 
 from .param_widget import ParamWidget
 from .workflow_ui_helper import WorkflowUIHelper
-
-
-def get_defaults(model: type[pydantic.BaseModel]) -> dict[str, Any]:
-    """
-    Get default values for all fields in a Pydantic model.
-
-    Parameters
-    ----------
-    model
-        Pydantic model class
-
-    Returns
-    -------
-    dict[str, Any]
-        Dictionary of field names and their default values
-    """
-    return {
-        field_name: field_info.default
-        if field_info.default is not PydanticUndefined
-        else None
-        for field_name, field_info in model.model_fields.items()
-    }
 
 
 class WorkflowConfigWidget:
@@ -78,33 +53,16 @@ class WorkflowConfigWidget:
 
     def _create_parameter_panel(self) -> pn.Column:
         """Create panel containing all parameter widgets."""
-        parameter_widgets = []
+        widget_data = self._ui_helper.get_parameter_widget_data(self._workflow_id)
 
-        model_class = self._controller.get_workflow_params(self._workflow_id)
-        if model_class is None:
-            raise ValueError(
-                f"Workflow parameters for '{self._workflow_id}' are not defined."
-            )
-        self._model_class = model_class
-        previous_values = self._ui_helper.get_initial_parameter_values(
-            self._workflow_id
-        )
-        for field_name, field_info in self._model_class.model_fields.items():
-            # TODO
-
-            field_type: type[pydantic.BaseModel] = field_info.annotation  # type: ignore[assignment]
-            values = previous_values.get(field_name, get_defaults(field_type))
-            param_widget = ParamWidget(field_type)
-            param_widget.set_values(values)
+        for field_name, data in widget_data.items():
+            param_widget = ParamWidget(data['field_type'])
+            param_widget.set_values(data['values'])
             self._parameter_widgets[field_name] = param_widget
 
-            # Create a row with widget and description
-            # widget_row = pn.Row(
-            #    param_widget.widget,
-            #    pn.pane.HTML(f"<small>{param_widget.description}</small>"),
-            # )
-            parameter_widgets.append(param_widget.panel())
-
+        parameter_widgets = [
+            widget.panel() for widget in self._parameter_widgets.values()
+        ]
         return pn.Column(*parameter_widgets)
 
     def _create_widget(self) -> pn.Column:
@@ -129,11 +87,12 @@ class WorkflowConfigWidget:
     @property
     def parameter_values(self) -> pydantic.BaseModel:
         """Get current parameter values as a dictionary."""
-        return self._model_class(
-            **{
-                name: widget.create_model()
-                for name, widget in self._parameter_widgets.items()
-            }
+        widget_values = {
+            name: widget.create_model()
+            for name, widget in self._parameter_widgets.items()
+        }
+        return self._ui_helper.assemble_parameter_values(
+            self._workflow_id, widget_values
         )
 
     def validate_configuration(self) -> bool:

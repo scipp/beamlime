@@ -2,6 +2,8 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from typing import Any
 
+import pydantic
+
 from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec
 from beamlime.dashboard.workflow_controller import WorkflowController
 
@@ -65,7 +67,6 @@ class WorkflowUIHelper:
         if not spec:
             return {}
 
-        # values = {param.name: param.default for param in spec.parameters}
         values = {}
 
         # Override with persistent config if available
@@ -79,3 +80,41 @@ class WorkflowUIHelper:
         """Get initial source names for a workflow."""
         persistent_config = self._controller.get_workflow_config(workflow_id)
         return persistent_config.source_names if persistent_config else []
+
+    def get_workflow_model_class(
+        self, workflow_id: WorkflowId
+    ) -> type[pydantic.BaseModel]:
+        """Get and validate workflow parameter model class."""
+        model_class = self._controller.get_workflow_params(workflow_id)
+        if model_class is None:
+            raise ValueError(
+                f"Workflow parameters for '{workflow_id}' are not defined."
+            )
+        return model_class
+
+    def get_parameter_widget_data(
+        self, workflow_id: WorkflowId
+    ) -> dict[str, dict[str, Any]]:
+        """Get parameter widget data for a workflow."""
+        from .param_widget import get_defaults
+
+        model_class = self.get_workflow_model_class(workflow_id)
+        previous_values = self.get_initial_parameter_values(workflow_id)
+        widget_data = {}
+
+        for field_name, field_info in model_class.model_fields.items():
+            field_type: type[pydantic.BaseModel] = field_info.annotation  # type: ignore[assignment]
+            values = previous_values.get(field_name, get_defaults(field_type))
+            widget_data[field_name] = {
+                'field_type': field_type,
+                'values': values,
+            }
+
+        return widget_data
+
+    def assemble_parameter_values(
+        self, workflow_id: WorkflowId, parameter_values: dict[str, pydantic.BaseModel]
+    ) -> pydantic.BaseModel:
+        """Assemble parameter values into a model."""
+        model_class = self.get_workflow_model_class(workflow_id)
+        return model_class(**parameter_values)
