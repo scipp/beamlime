@@ -55,15 +55,34 @@ class WorkflowConfigWidget:
         """Create panel containing all parameter widgets."""
         widget_data = self._ui_helper.get_parameter_widget_data(self._workflow_id)
 
+        parameter_cards = []
         for field_name, data in widget_data.items():
             param_widget = ParamWidget(data['field_type'])
             param_widget.set_values(data['values'])
             self._parameter_widgets[field_name] = param_widget
 
-        parameter_widgets = [
-            widget.panel() for widget in self._parameter_widgets.values()
-        ]
-        return pn.Column(*parameter_widgets)
+            # Create card content
+            card_content = [param_widget.panel()]
+
+            # Add description if available
+            if data['description']:
+                description_pane = pn.pane.HTML(
+                    "<p style='margin: 0 0 10px 0; color: #666; font-size: 0.9em;'>"
+                    f"{data['description']}</p>"
+                )
+                card_content.insert(0, description_pane)
+
+            card = pn.Card(
+                *card_content,
+                title=data['title'],
+                margin=(5, 0),
+                collapsed=False,
+                width_policy='max',
+                sizing_mode='stretch_width',
+            )
+            parameter_cards.append(card)
+
+        return pn.Column(*parameter_cards, sizing_mode='stretch_width')
 
     def _create_widget(self) -> pn.Column:
         """Create the main configuration widget."""
