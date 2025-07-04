@@ -105,9 +105,19 @@ class WorkflowUIHelper:
         for field_name, field_info in model_class.model_fields.items():
             field_type: type[pydantic.BaseModel] = field_info.annotation  # type: ignore[assignment]
             values = previous_values.get(field_name, get_defaults(field_type))
+
+            # Extract title and description from field info
+            title = (
+                getattr(field_info, 'title', None)
+                or field_name.replace('_', ' ').title()
+            )
+            description = getattr(field_info, 'description', None)
+
             widget_data[field_name] = {
                 'field_type': field_type,
                 'values': values,
+                'title': title,
+                'description': description,
             }
 
         return widget_data
