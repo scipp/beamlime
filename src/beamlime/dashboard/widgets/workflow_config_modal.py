@@ -49,6 +49,7 @@ class WorkflowConfigWidget:
             options=self._workflow_spec.source_names,
             value=initial_sources,
             placeholder="Select source names to apply workflow to",
+            sizing_mode='stretch_width',
         )
 
     def _create_parameter_panel(self) -> pn.Column:
@@ -163,7 +164,7 @@ class WorkflowConfigModal:
             name=f"Configure {self._workflow_spec.name}",
             margin=20,
             width=800,
-            height=600,
+            height=800,
         )
 
         # Watch for modal close events to clean up

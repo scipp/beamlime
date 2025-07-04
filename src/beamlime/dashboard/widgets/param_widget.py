@@ -44,7 +44,7 @@ class ParamWidget:
         self.model_class = model_class
         self.widgets = {}
         self._create_widgets()
-        self.layout = pn.Row(*self.widgets.values())
+        self.layout = pn.Row(*self.widgets.values(), sizing_mode='stretch_width')
 
     def _create_widgets(self):
         """Create Panel widgets for each field in the model."""
@@ -80,16 +80,16 @@ class ParamWidget:
                 name=display_name,
                 value=default_value or 0.0,
                 placeholder=description,
-                width=100,
                 description=description,
+                sizing_mode='stretch_width',
             )
         elif field_type is int:
             return pn.widgets.IntInput(
                 name=display_name,
                 value=default_value or 0,
                 placeholder=description,
-                width=100,
                 description=description,
+                sizing_mode='stretch_width',
             )
         elif field_type is bool:
             # Does not support description directly
@@ -97,6 +97,7 @@ class ParamWidget:
                 name=display_name,
                 value=default_value or False,
                 margin=(20, 5, 5, 5),
+                sizing_mode='stretch_width',
             )
         elif field_type == Path or field_type is str:
             return pn.widgets.TextInput(
@@ -104,6 +105,7 @@ class ParamWidget:
                 value=str(default_value) if default_value else "",
                 placeholder=description,
                 description=description,
+                sizing_mode='stretch_width',
             )
         elif isinstance(field_type, type) and issubclass(field_type, Enum):
             options = {}
@@ -120,13 +122,12 @@ class ParamWidget:
             default_widget_value = (
                 default_value if default_value else next(iter(options.values()))
             )
-            max_length = max(len(key) for key in options.keys())
             return pn.widgets.Select(
                 name=display_name,
                 options=options,
                 value=default_widget_value,
-                width=int(100 * max(1, max_length / 10)),  # Width based on longest
                 description=description,
+                sizing_mode='stretch_width',
             )
         else:
             # Fallback to text input
@@ -135,6 +136,7 @@ class ParamWidget:
                 value=str(default_value) if default_value else "",
                 placeholder=description,
                 description=description,
+                sizing_mode='stretch_width',
             )
 
     def get_values(self) -> dict[str, Any]:
