@@ -12,6 +12,7 @@ from abc import ABC
 from enum import Enum
 from pathlib import Path
 
+import scipp as sc
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -64,6 +65,17 @@ class EdgesModel(BaseModel, ABC):
             raise ValueError('start must be positive if log is True')
         return v
 
+    def get_edges(self) -> sc.Variable:
+        """Convert the edges to a scipp variable."""
+        op = {Scale.LINEAR: sc.linspace, Scale.LOG: sc.logspace}[self.scale]
+        return op(
+            dim='wavelength',
+            start=self.start,
+            stop=self.stop,
+            num=self.num_bins,
+            unit=self.unit.value,
+        )
+
 
 class WavelengthUnit(str, Enum):
     """Allowed units for wavelength."""
@@ -79,6 +91,13 @@ class DspacingUnit(str, Enum):
     NANOMETER = 'nm'
 
 
+class AngleUnit(str, Enum):
+    """Allowed units for angles."""
+
+    DEGREE = 'deg'
+    RADIAN = 'rad'
+
+
 class Filename(BaseModel):
     value: Path = Field(..., description="Path to the file.")
 
@@ -89,6 +108,14 @@ class WavelengthRange(RangeModel):
     unit: WavelengthUnit = Field(
         default=WavelengthUnit.ANGSTROM, description="Unit of the wavelength range."
     )
+
+    def get_start(self) -> sc.Variable:
+        """Get the start of the range as a scipp variable."""
+        return sc.scalar(self.start, unit=self.unit.value)
+
+    def get_stop(self) -> sc.Variable:
+        """Get the stop of the range as a scipp variable."""
+        return sc.scalar(self.stop, unit=self.unit.value)
 
 
 class WavelengthEdges(EdgesModel):
@@ -105,3 +132,9 @@ class DspacingEdges(EdgesModel):
     unit: DspacingUnit = Field(
         default=DspacingUnit.ANGSTROM, description="Unit of the edges."
     )
+
+
+class AngleEdges(EdgesModel):
+    """Model for angle edges."""
+
+    unit: AngleUnit = Field(default=AngleUnit.DEGREE, description="Unit of the edges.")

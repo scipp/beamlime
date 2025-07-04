@@ -212,6 +212,26 @@ class PowderWorkflowParams(pydantic.BaseModel):
         title='Geometry file',
         description='NeXus file containing instrument geometry and other static data.',
     )
+    dspacing_edges: parameter_models.DspacingEdges = pydantic.Field(
+        title='d-spacing bins',
+        description='Define the bin edges for binning in d-spacing.',
+        default=parameter_models.DspacingEdges(
+            start=0.4,
+            stop=3.5,
+            num_bins=2000,
+            unit=parameter_models.DspacingUnit.ANGSTROM,
+        ),
+    )
+    two_theta_edges: parameter_models.AngleEdges = pydantic.Field(
+        title='Two-theta bins',
+        description='Define the bin edges for binning in 2-theta.',
+        default=parameter_models.AngleEdges(
+            start=0.4,
+            stop=3.1415,
+            num_bins=201,
+            unit=parameter_models.AngleUnit.RADIAN,
+        ),
+    )
     wavelength_range: parameter_models.WavelengthRange = pydantic.Field(
         title='Wavelength range',
         description='Range of wavelengths to include in the reduction.',
@@ -234,9 +254,11 @@ def _my_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProces
     wf[NeXusName[NXdetector]] = source_name
     wf[Filename[SampleRun]] = params.geometry_file.value
     wf[dream.InstrumentConfiguration] = params.instrument_configuration.value
-    wmin = sc.scalar(params.wavelength_range.start, unit=params.wavelength_range.unit)
-    wmax = sc.scalar(params.wavelength_range.stop, unit=params.wavelength_range.unit)
+    wmin = params.wavelength_range.get_start()
+    wmax = params.wavelength_range.get_stop()
     wf[powder.types.WavelengthMask] = lambda w: (w < wmin) | (w > wmax)
+    wf[powder.types.TwoThetaBins] = params.two_theta_edges.get_edges()
+    wf[powder.types.DspacingBins] = params.dspacing_edges.get_edges()
     return StreamProcessor(
         wf,
         dynamic_keys=(
