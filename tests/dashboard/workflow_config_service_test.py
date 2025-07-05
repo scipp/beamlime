@@ -45,7 +45,7 @@ def workflow_config_service(config_service) -> WorkflowConfigService:
 @pytest.fixture
 def sample_workflow_config():
     """Create a sample workflow config for testing."""
-    return WorkflowConfig(identifier="test_workflow", values={"param1": "value1"})
+    return WorkflowConfig(identifier="test_workflow", params={"param1": "value1"})
 
 
 @pytest.fixture
@@ -121,7 +121,7 @@ def test_send_workflow_config(
     assert key.service_name == "data_reduction"
     assert key.key == "workflow_config"
     assert value["identifier"] == sample_workflow_config.identifier
-    assert value["values"] == sample_workflow_config.values
+    assert value["params"] == sample_workflow_config.params
 
 
 def test_subscribe_to_workflow_specs(
