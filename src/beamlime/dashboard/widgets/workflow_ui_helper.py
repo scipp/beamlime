@@ -85,18 +85,10 @@ class WorkflowUIHelper:
 
     def get_initial_parameter_values(self, workflow_id: WorkflowId) -> dict[str, Any]:
         """Get initial parameter values for a workflow."""
-        spec = self._controller.get_workflow_spec(workflow_id)
-        if not spec:
-            return {}
-
-        values = {}
-
-        # Override with persistent config if available
         persistent_config = self._controller.get_workflow_config(workflow_id)
-        if persistent_config:
-            values.update(persistent_config.config.params)
-
-        return values
+        if not persistent_config:
+            return {}
+        return persistent_config.config.params
 
     def get_initial_source_names(self, workflow_id: WorkflowId) -> list[str]:
         """Get initial source names for a workflow."""
