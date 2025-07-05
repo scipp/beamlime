@@ -2,9 +2,11 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from collections.abc import Callable
 
+import pydantic
 import pytest
 
 from beamlime.config.workflow_spec import (
+    ModelId,
     Parameter,
     ParameterType,
     PersistentWorkflowConfigs,
@@ -17,6 +19,13 @@ from beamlime.config.workflow_spec import (
 )
 from beamlime.dashboard.workflow_config_service import WorkflowConfigService
 from beamlime.dashboard.workflow_controller import WorkflowController
+
+
+class SomeWorkflowParams(pydantic.BaseModel):
+    """Test Pydantic model for workflow parameters."""
+
+    threshold: float = 100.0
+    mode: str = "fast"
 
 
 class FakeWorkflowConfigService(WorkflowConfigService):
@@ -92,6 +101,7 @@ def workflow_spec(workflow_id: WorkflowId) -> WorkflowSpec:
         name="Test Workflow",
         description="A test workflow for unit testing",
         source_names=["detector_1", "detector_2"],
+        params=ModelId("test_workflow_params"),  # Use ModelId instead of string
         parameters=[
             Parameter(
                 name="threshold",
@@ -130,8 +140,19 @@ def workflow_controller(
     fake_service: FakeWorkflowConfigService, source_names: list[str]
 ) -> tuple[WorkflowController, FakeWorkflowConfigService]:
     """Workflow controller instance for testing."""
-    controller = WorkflowController(fake_service, source_names)
-    return controller, fake_service
+
+    # Minimal parameter registry replacement
+    class DummyRegistry:
+        def get_model(self, model_id):
+            return SomeWorkflowParams
+
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr(
+            "beamlime.dashboard.workflow_controller.get_parameter_registry",
+            lambda: DummyRegistry(),
+        )
+        controller = WorkflowController(fake_service, source_names)
+        return controller, fake_service
 
 
 class TestWorkflowController:
@@ -145,7 +166,7 @@ class TestWorkflowController:
         """Test that start_workflow sends configuration to all specified sources."""
         controller, service = workflow_controller
         service.set_workflow_specs(workflow_specs)
-        config = {"threshold": 150.0, "mode": "accurate"}
+        config = SomeWorkflowParams(threshold=150.0, mode="accurate")
 
         # Act
         result = controller.start_workflow(workflow_id, source_names, config)
@@ -162,7 +183,7 @@ class TestWorkflowController:
             )
             assert source_config is not None
             assert source_config[1].identifier == workflow_id
-            assert source_config[1].values == config
+            assert source_config[1].params == {"threshold": 150.0, "mode": "accurate"}
 
     def test_start_workflow_saves_persistent_config(
         self,
@@ -174,7 +195,7 @@ class TestWorkflowController:
         """Test that start_workflow saves persistent configuration."""
         controller, service = workflow_controller
         service.set_workflow_specs(workflow_specs)
-        config = {"threshold": 200.0, "mode": "fast"}
+        config = SomeWorkflowParams(threshold=200.0, mode="fast")
 
         # Act
         result = controller.start_workflow(workflow_id, source_names, config)
@@ -187,7 +208,7 @@ class TestWorkflowController:
         workflow_config = persistent_configs.configs[workflow_id]
         assert workflow_config.source_names == source_names
         assert workflow_config.config.identifier == workflow_id
-        assert workflow_config.config.values == config
+        assert workflow_config.config.params == {"threshold": 200.0, "mode": "fast"}
 
     def test_start_workflow_updates_status_to_starting(
         self,
@@ -199,7 +220,7 @@ class TestWorkflowController:
         """Test that start_workflow immediately updates status to STARTING."""
         controller, service = workflow_controller
         service.set_workflow_specs(workflow_specs)
-        config = {"threshold": 75.0}
+        config = SomeWorkflowParams(threshold=75.0)
 
         # Set up callback to capture status
         captured_status = {}
@@ -231,7 +252,7 @@ class TestWorkflowController:
         """Test that start_workflow works with empty configuration."""
         controller, service = workflow_controller
         service.set_workflow_specs(workflow_specs)
-        config = {}
+        config = SomeWorkflowParams()  # Use defaults
 
         # Act
         result = controller.start_workflow(workflow_id, source_names, config)
@@ -241,7 +262,7 @@ class TestWorkflowController:
         sent_configs = service.get_sent_configs()
         for _, workflow_config in sent_configs:
             assert workflow_config.identifier == workflow_id
-            assert workflow_config.values == {}
+            assert workflow_config.params == {"threshold": 100.0, "mode": "fast"}
 
     def test_start_workflow_with_single_source(
         self,
@@ -253,7 +274,7 @@ class TestWorkflowController:
         controller, service = workflow_controller
         service.set_workflow_specs(workflow_specs)
         single_source = ["detector_1"]
-        config = {"threshold": 300.0}
+        config = SomeWorkflowParams(threshold=300.0)
 
         # Set up callback to capture status
         captured_status = {}
@@ -285,7 +306,7 @@ class TestWorkflowController:
         """Test that start_workflow returns False for non-existent workflow."""
         controller, service = workflow_controller
         nonexistent_workflow_id = "nonexistent_workflow"
-        config = {"threshold": 100.0}
+        config = SomeWorkflowParams(threshold=100.0)
 
         # Act
         result = controller.start_workflow(
@@ -310,8 +331,8 @@ class TestWorkflowController:
 
         workflow_id_1 = "workflow_1"
         workflow_id_2 = "workflow_2"
-        config_1 = {"threshold": 100.0, "mode": "fast"}
-        config_2 = {"threshold": 200.0, "mode": "accurate"}
+        config_1 = SomeWorkflowParams(threshold=100.0, mode="fast")
+        config_2 = SomeWorkflowParams(threshold=200.0, mode="accurate")
         sources_1 = ["detector_1"]
         sources_2 = ["detector_2"]
 
@@ -323,11 +344,13 @@ class TestWorkflowController:
                     name="Workflow 1",
                     description="First workflow",
                     source_names=sources_1,
+                    params=ModelId("test_workflow_params"),
                 ),
                 workflow_id_2: WorkflowSpec(
                     name="Workflow 2",
                     description="Second workflow",
                     source_names=sources_2,
+                    params=ModelId("test_workflow_params"),
                 ),
             }
         )
@@ -346,12 +369,12 @@ class TestWorkflowController:
         # Check first workflow config
         config_1_data = persistent_configs.configs[workflow_id_1]
         assert config_1_data.source_names == sources_1
-        assert config_1_data.config.values == config_1
+        assert config_1_data.config.params == {"threshold": 100.0, "mode": "fast"}
 
         # Check second workflow config
         config_2_data = persistent_configs.configs[workflow_id_2]
         assert config_2_data.source_names == sources_2
-        assert config_2_data.config.values == config_2
+        assert config_2_data.config.params == {"threshold": 200.0, "mode": "accurate"}
 
     def test_persistent_config_replaces_existing_workflow(
         self,
@@ -364,14 +387,14 @@ class TestWorkflowController:
         service.set_workflow_specs(workflow_specs)
 
         # Start workflow with initial config
-        initial_config = {"threshold": 100.0, "mode": "fast"}
+        initial_config = SomeWorkflowParams(threshold=100.0, mode="fast")
         initial_sources = ["detector_1"]
         result1 = controller.start_workflow(
             workflow_id, initial_sources, initial_config
         )
 
         # Start same workflow with different config
-        updated_config = {"threshold": 300.0, "mode": "accurate"}
+        updated_config = SomeWorkflowParams(threshold=300.0, mode="accurate")
         updated_sources = ["detector_1", "detector_2"]
         result2 = controller.start_workflow(
             workflow_id, updated_sources, updated_config
@@ -386,7 +409,7 @@ class TestWorkflowController:
         # Should have the updated values
         workflow_config = persistent_configs.configs[workflow_id]
         assert workflow_config.source_names == updated_sources
-        assert workflow_config.config.values == updated_config
+        assert workflow_config.config.params == {"threshold": 300.0, "mode": "accurate"}
 
     def test_cleanup_persistent_configs_removes_obsolete_workflows(
         self,
@@ -401,19 +424,21 @@ class TestWorkflowController:
                         name="Workflow 1",
                         description="First workflow",
                         source_names=["detector_1"],
+                        params=ModelId("test_workflow_params"),
                     ),
                     "workflow_2": WorkflowSpec(
                         name="Workflow 2",
                         description="Second workflow",
                         source_names=["detector_2"],
+                        params=ModelId("test_workflow_params"),
                     ),
                 }
             )
         )
 
         # Start workflows to create persistent configs
-        controller.start_workflow("workflow_1", ["detector_1"], {})
-        controller.start_workflow("workflow_2", ["detector_2"], {})
+        controller.start_workflow("workflow_1", ["detector_1"], SomeWorkflowParams())
+        controller.start_workflow("workflow_2", ["detector_2"], SomeWorkflowParams())
 
         # Simulate workflow specs update with only one workflow remaining
         remaining_workflows = WorkflowSpecs(
@@ -422,6 +447,7 @@ class TestWorkflowController:
                     name="Remaining Workflow",
                     description="Only this one remains",
                     source_names=["detector_1"],
+                    params=ModelId("test_workflow_params"),
                 )
             }
         )
@@ -577,7 +603,7 @@ class TestWorkflowController:
         """Test that get_workflow_config returns saved persistent configuration."""
         controller, service = workflow_controller
         service.set_workflow_specs(workflow_specs)
-        config = {"threshold": 150.0, "mode": "accurate"}
+        config = SomeWorkflowParams(threshold=150.0, mode="accurate")
 
         # Start workflow to create persistent config
         controller.start_workflow(workflow_id, source_names, config)
@@ -589,7 +615,7 @@ class TestWorkflowController:
         assert result is not None
         assert result.source_names == source_names
         assert result.config.identifier == workflow_id
-        assert result.config.values == config
+        assert result.config.params == {"threshold": 150.0, "mode": "accurate"}
 
     def test_get_workflow_config_returns_none_for_nonexistent(
         self,
@@ -828,7 +854,7 @@ class TestWorkflowController:
         """Test that start_workflow works with empty source names list."""
         controller, service = workflow_controller
         service.set_workflow_specs(workflow_specs)
-        config = {"threshold": 100.0}
+        config = SomeWorkflowParams(threshold=100.0)
 
         # Act
         result = controller.start_workflow(workflow_id, [], config)
