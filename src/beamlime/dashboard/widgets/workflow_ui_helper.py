@@ -121,18 +121,12 @@ class WorkflowUIHelper:
             values.update(root_defaults.get(field_name, {}))
             values.update(previous_values.get(field_name, {}))
 
-            # Extract title and description from field info
-            title = (
-                getattr(field_info, 'title', None)
-                or field_name.replace('_', ' ').title()
-            )
-            description = getattr(field_info, 'description', None)
-
+            title = field_info.title or field_name.replace('_', ' ').title()
             widget_data[field_name] = {
                 'field_type': field_type,
                 'values': values,
                 'title': title,
-                'description': description,
+                'description': field_info.description,
             }
 
         return widget_data
