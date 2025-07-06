@@ -149,19 +149,16 @@ class WorkflowConfigWidget:
     def _highlight_source_error(self, has_error: bool) -> None:
         """Highlight source selector with error state."""
         if has_error:
-            self._source_selector.stylesheets = [
-                """
-                :host(.bk-input) {
-                    border: 2px solid #dc3545 !important;
-                }
-                """
-            ]
+            self._source_selector.styles = {
+                'border': '2px solid #dc3545',
+                'border-radius': '4px',
+            }
             self._source_error_pane.object = (
                 "<p style='color: #dc3545; margin: 5px 0; font-size: 0.9em;'>"
                 "Please select at least one source name.</p>"
             )
         else:
-            self._source_selector.stylesheets = []
+            self._source_selector.styles = {}
             self._source_error_pane.object = ""
 
     def clear_validation_errors(self) -> None:

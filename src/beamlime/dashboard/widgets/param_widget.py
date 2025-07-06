@@ -21,8 +21,8 @@ class ParamWidget:
     def __init__(self, model_class: type[pydantic.BaseModel]):
         self.model_class = model_class
         self.widgets = {}
-        self._error_panes = {}
         self._create_widgets()
+        self._error_pane = pn.pane.HTML("", sizing_mode='stretch_width')
         self._create_layout()
 
     def _create_widgets(self):
@@ -30,19 +30,13 @@ class ParamWidget:
         for field_name, field_info in self.model_class.model_fields.items():
             widget = self._create_widget_for_field(field_name, field_info)
             self.widgets[field_name] = widget
-            # Create error pane for each widget
-            self._error_panes[field_name] = pn.pane.HTML(
-                "", sizing_mode='stretch_width'
-            )
 
     def _create_layout(self):
-        """Create the layout with widgets and error panes."""
-        columns = []
-        for field_name, widget in self.widgets.items():
-            column = pn.Column(widget, self._error_panes[field_name], margin=(5, 0))
-            columns.append(column)
-
-        self.layout = pn.Row(*columns, sizing_mode='stretch_width')
+        """Create the layout with widgets and error pane."""
+        widget_row = pn.Row(*self.widgets.values(), sizing_mode='stretch_width')
+        self.layout = pn.Column(
+            widget_row, self._error_pane, sizing_mode='stretch_width'
+        )
 
     def _create_widget_for_field(
         self, field_name: str, field_info: pydantic.fields.FieldInfo
@@ -181,31 +175,36 @@ class ParamWidget:
     def set_error_state(self, has_error: bool, error_message: str) -> None:
         """Set error state for the widget."""
         if has_error:
-            # Apply error styling to all widgets
-            error_style = [
-                """
-                :host(.bk-input) {
-                    border: 2px solid #dc3545 !important;
-                }
-                """
-            ]
+            # Clear all widgets first
             for widget in self.widgets.values():
-                widget.stylesheets = error_style
+                widget.styles = {}
 
-            # Show error message in the first error pane
-            first_error_pane = next(iter(self._error_panes.values()))
-            first_error_pane.object = (
+            # Try to highlight the specific failing field
+            try:
+                self.create_model()
+            except pydantic.ValidationError as e:
+                error_details = e.errors()
+                if error_details:
+                    field_name = error_details[0].get('loc', [''])[0]
+                    if field_name in self.widgets:
+                        # Apply error styling to the failing widget
+                        self.widgets[field_name].styles = {
+                            'border': '2px solid #dc3545',
+                            'border-radius': '4px',
+                        }
+
+            # Show error message in the error pane
+            self._error_pane.object = (
                 f"<p style='color: #dc3545; margin: 5px 0; font-size: 0.9em;'>"
                 f"{error_message}</p>"
             )
         else:
-            # Clear error styling
+            # Clear error styling from all widgets
             for widget in self.widgets.values():
-                widget.stylesheets = []
+                widget.styles = {}
 
-            # Clear error messages
-            for error_pane in self._error_panes.values():
-                error_pane.object = ""
+            # Clear error message
+            self._error_pane.object = ""
 
     def panel(self):
         """Return the Panel layout."""
