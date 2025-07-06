@@ -21,14 +21,28 @@ class ParamWidget:
     def __init__(self, model_class: type[pydantic.BaseModel]):
         self.model_class = model_class
         self.widgets = {}
+        self._error_panes = {}
         self._create_widgets()
-        self.layout = pn.Row(*self.widgets.values(), sizing_mode='stretch_width')
+        self._create_layout()
 
     def _create_widgets(self):
         """Create Panel widgets for each field in the model."""
         for field_name, field_info in self.model_class.model_fields.items():
             widget = self._create_widget_for_field(field_name, field_info)
             self.widgets[field_name] = widget
+            # Create error pane for each widget
+            self._error_panes[field_name] = pn.pane.HTML(
+                "", sizing_mode='stretch_width'
+            )
+
+    def _create_layout(self):
+        """Create the layout with widgets and error panes."""
+        columns = []
+        for field_name, widget in self.widgets.items():
+            column = pn.Column(widget, self._error_panes[field_name], margin=(5, 0))
+            columns.append(column)
+
+        self.layout = pn.Row(*columns, sizing_mode='stretch_width')
 
     def _create_widget_for_field(
         self, field_name: str, field_info: pydantic.fields.FieldInfo
@@ -156,7 +170,42 @@ class ParamWidget:
             self.create_model()
             return True, "Valid"
         except pydantic.ValidationError as e:
+            # Extract first error message for display
+            error_details = e.errors()
+            if error_details:
+                field_name = error_details[0].get('loc', [''])[0]
+                error_msg = error_details[0].get('msg', str(e))
+                return False, f"{field_name}: {error_msg}" if field_name else error_msg
             return False, str(e)
+
+    def set_error_state(self, has_error: bool, error_message: str) -> None:
+        """Set error state for the widget."""
+        if has_error:
+            # Apply error styling to all widgets
+            error_style = [
+                """
+                :host(.bk-input) {
+                    border: 2px solid #dc3545 !important;
+                }
+                """
+            ]
+            for widget in self.widgets.values():
+                widget.stylesheets = error_style
+
+            # Show error message in the first error pane
+            first_error_pane = next(iter(self._error_panes.values()))
+            first_error_pane.object = (
+                f"<p style='color: #dc3545; margin: 5px 0; font-size: 0.9em;'>"
+                f"{error_message}</p>"
+            )
+        else:
+            # Clear error styling
+            for widget in self.widgets.values():
+                widget.stylesheets = []
+
+            # Clear error messages
+            for error_pane in self._error_panes.values():
+                error_pane.object = ""
 
     def panel(self):
         """Return the Panel layout."""

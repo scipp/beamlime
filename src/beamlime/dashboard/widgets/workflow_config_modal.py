@@ -39,6 +39,7 @@ class WorkflowConfigWidget:
         self._parameter_widgets: dict[str, ParamWidget] = {}
         self._source_selector = self._create_source_selector()
         self._parameter_panel = self._create_parameter_panel()
+        self._source_error_pane = pn.pane.HTML("", sizing_mode='stretch_width')
         self._widget = self._create_widget()
 
     def _create_source_selector(self) -> pn.widgets.MultiChoice:
@@ -91,6 +92,7 @@ class WorkflowConfigWidget:
             pn.pane.HTML(f"<h4>{self._workflow_spec.name}</h4>"),
             pn.pane.HTML(f"<p>{self._workflow_spec.description}</p>"),
             self._source_selector,
+            self._source_error_pane,
             self._parameter_panel,
         )
 
@@ -115,9 +117,58 @@ class WorkflowConfigWidget:
             self._workflow_id, widget_values
         )
 
-    def validate_configuration(self) -> bool:
-        """Validate that required fields are configured."""
-        return len(self.selected_sources) > 0
+    def validate_configuration(self) -> tuple[bool, list[str]]:
+        """
+        Validate that required fields are configured.
+
+        Returns
+        -------
+        tuple[bool, list[str]]
+            (is_valid, list_of_error_messages)
+        """
+        errors = []
+
+        # Validate source selection
+        if len(self.selected_sources) == 0:
+            errors.append("Please select at least one source name.")
+            self._highlight_source_error(True)
+        else:
+            self._highlight_source_error(False)
+
+        # Validate parameter widgets
+        for field_name, widget in self._parameter_widgets.items():
+            is_valid, error_msg = widget.validate()
+            if not is_valid:
+                errors.append(f"{field_name}: {error_msg}")
+                widget.set_error_state(True, error_msg)
+            else:
+                widget.set_error_state(False, "")
+
+        return len(errors) == 0, errors
+
+    def _highlight_source_error(self, has_error: bool) -> None:
+        """Highlight source selector with error state."""
+        if has_error:
+            self._source_selector.stylesheets = [
+                """
+                :host(.bk-input) {
+                    border: 2px solid #dc3545 !important;
+                }
+                """
+            ]
+            self._source_error_pane.object = (
+                "<p style='color: #dc3545; margin: 5px 0; font-size: 0.9em;'>"
+                "Please select at least one source name.</p>"
+            )
+        else:
+            self._source_selector.stylesheets = []
+            self._source_error_pane.object = ""
+
+    def clear_validation_errors(self) -> None:
+        """Clear all validation error states."""
+        self._highlight_source_error(False)
+        for widget in self._parameter_widgets.values():
+            widget.set_error_state(False, "")
 
 
 class WorkflowConfigModal:
@@ -144,6 +195,7 @@ class WorkflowConfigModal:
             raise ValueError(f"Workflow with ID '{workflow_id}' does not exist.")
         self._workflow_spec = spec
         self._config_widget = WorkflowConfigWidget(workflow_id, controller)
+        self._error_pane = pn.pane.HTML("", sizing_mode='stretch_width')
         self._modal = self._create_modal()
 
     def _create_modal(self) -> pn.Modal:
@@ -156,6 +208,7 @@ class WorkflowConfigModal:
 
         content = pn.Column(
             self._config_widget.widget,
+            self._error_pane,
             pn.Row(pn.Spacer(), cancel_button, start_button, margin=(10, 0)),
         )
 
@@ -192,8 +245,15 @@ class WorkflowConfigModal:
 
     def _on_start_workflow(self, event) -> None:
         """Handle start workflow button click."""
-        if not self._config_widget.validate_configuration():
-            self._show_error_modal("Please select at least one source name.")
+        # Clear previous errors
+        self._config_widget.clear_validation_errors()
+        self._error_pane.object = ""
+
+        # Validate configuration
+        is_valid, errors = self._config_widget.validate_configuration()
+
+        if not is_valid:
+            self._show_validation_errors(errors)
             return
 
         success = self._controller.start_workflow(
@@ -203,7 +263,7 @@ class WorkflowConfigModal:
         )
 
         if not success:
-            self._show_error_modal(
+            self._show_workflow_error(
                 f"Error: Workflow '{self._workflow_spec.name}' "
                 "is no longer available. Please select a different workflow."
             )
@@ -211,26 +271,30 @@ class WorkflowConfigModal:
 
         self._modal.open = False
 
-    def _show_error_modal(self, message: str) -> None:
-        """Show an error message in a modal."""
-        error_modal = pn.Modal(
-            pn.pane.HTML(f"<p style='color: red;'>{message}</p>"),
-            name="Error",
-            margin=20,
-            width=400,
+    def _show_validation_errors(self, errors: list[str]) -> None:
+        """Show validation errors inline."""
+        error_html = (
+            "<div style='background-color: #f8d7da; border: 1px solid #f5c6cb; "
+            "border-radius: 4px; padding: 10px; margin: 10px 0;'>"
+            "<h6 style='color: #721c24; margin: 0 0 10px 0;'>"
+            "Please fix the following errors:</h6>"
+            "<ul style='color: #721c24; margin: 0; padding-left: 20px;'>"
         )
+        for error in errors:
+            error_html += f"<li>{error}</li>"
+        error_html += "</ul></div>"
 
-        # Add to the same parent as this modal if possible
-        if hasattr(self._modal, '_parent') and self._modal._parent:
-            self._modal._parent.append(error_modal)
+        self._error_pane.object = error_html
 
-        error_modal.open = True
-
-        # Auto-close error modal after 3 seconds
-        def close_error():
-            error_modal.open = False
-
-        pn.state.add_periodic_callback(close_error, period=3000, count=1)
+    def _show_workflow_error(self, message: str) -> None:
+        """Show workflow error inline."""
+        error_html = (
+            "<div style='background-color: #f8d7da; border: 1px solid #f5c6cb; "
+            "border-radius: 4px; padding: 10px; margin: 10px 0;'>"
+            f"<p style='color: #721c24; margin: 0;'>{message}</p>"
+            "</div>"
+        )
+        self._error_pane.object = error_html
 
     def show(self) -> None:
         """Show the modal dialog."""
