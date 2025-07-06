@@ -158,7 +158,7 @@ class WorkflowConfigWidget:
                 "Please select at least one source name.</p>"
             )
         else:
-            self._source_selector.styles = {}
+            self._source_selector.styles = {'border': 'none'}
             self._source_error_pane.object = ""
 
     def clear_validation_errors(self) -> None:

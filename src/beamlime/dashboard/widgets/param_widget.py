@@ -177,7 +177,7 @@ class ParamWidget:
         if has_error:
             # Clear all widgets first
             for widget in self.widgets.values():
-                widget.styles = {}
+                widget.styles = {'border': 'none'}
 
             # Try to highlight the specific failing field
             try:
@@ -201,7 +201,7 @@ class ParamWidget:
         else:
             # Clear error styling from all widgets
             for widget in self.widgets.values():
-                widget.styles = {}
+                widget.styles = {'border': 'none'}
 
             # Clear error message
             self._error_pane.object = ""
