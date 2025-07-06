@@ -248,12 +248,12 @@ class PowderWorkflowParams(pydantic.BaseModel):
 
 
 @instrument.register_workflow(
-    name='Powder reduction v2',
+    name='Powder reduction',
     description='Powder reduction without vanadium normalization.',
     source_names=_source_names,
     params=('dream_powder_workflow', 1),
 )
-def _my_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProcessor:
+def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProcessor:
     wf = _reduction_workflow.copy()
     wf[NeXusName[NXdetector]] = source_name
     wf[Filename[SampleRun]] = params.geometry_file.value
@@ -281,7 +281,7 @@ def _my_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProces
 
 
 @instrument.register_workflow(
-    name='Powder reduction',
+    name='Powder reduction (legacy, defunct)',
     description='Powder reduction without vanadium normalization.',
     source_names=_source_names,
     parameters=[
@@ -291,7 +291,7 @@ def _my_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProces
         instrument_configuration_param,
     ],
 )
-def _powder_workflow(
+def _powder_workflow_legacy(
     source_name: str,
     GeometryFile: str,
     WavelengthMaskLow: float,
