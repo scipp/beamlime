@@ -89,8 +89,10 @@ class WorkflowConfigWidget:
     def _create_widget(self) -> pn.Column:
         """Create the main configuration widget."""
         return pn.Column(
-            pn.pane.HTML(f"<h4>{self._workflow_spec.name}</h4>"),
-            pn.pane.HTML(f"<p>{self._workflow_spec.description}</p>"),
+            pn.pane.HTML(
+                f"<h1>{self._workflow_spec.name}</h1>"
+                f"<p>{self._workflow_spec.description}</p>"
+            ),
             self._source_selector,
             self._source_error_pane,
             self._parameter_panel,
