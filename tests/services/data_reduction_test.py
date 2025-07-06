@@ -64,7 +64,8 @@ def test_can_configure_and_stop_workflow_with_detector(
     )
     workflow_config = workflow_spec.WorkflowConfig(
         identifier=workflow_id,
-        values={param.name: param.default for param in spec.parameters},
+        param_id=spec.params,
+        params={param.name: param.default for param in spec.parameters},
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
@@ -129,7 +130,8 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     )
     workflow_config = workflow_spec.WorkflowConfig(
         identifier=workflow_id,
-        values={param.name: param.default for param in spec.parameters},
+        param_id=spec.params,
+        params={param.name: param.default for param in spec.parameters},
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
@@ -195,7 +197,8 @@ def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None
     )
     workflow_config = workflow_spec.WorkflowConfig(
         identifier=workflow_id,
-        values={param.name: param.default for param in spec.parameters},
+        param_id=spec.params,
+        params={param.name: param.default for param in spec.parameters},
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
@@ -245,7 +248,8 @@ def test_service_can_recover_after_bad_workflow_id_was_set(
     )
     bad_workflow_id = workflow_spec.WorkflowConfig(
         identifier='abcde12345',  # Invalid workflow ID
-        values={param.name: param.default for param in spec.parameters},
+        param_id=spec.params,
+        params={param.name: param.default for param in spec.parameters},
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())
@@ -263,7 +267,8 @@ def test_service_can_recover_after_bad_workflow_id_was_set(
 
     bad_param_value = workflow_spec.WorkflowConfig(
         identifier=workflow_id,
-        values={param.name: param.default for param in spec.parameters},
+        param_id=spec.params,
+        params={param.name: param.default for param in spec.parameters},
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
@@ -291,7 +296,9 @@ def test_service_can_recover_after_bad_workflow_param_was_set(
     defaults = {param.name: param.default for param in spec.parameters}
     defaults['does_not_exist'] = 1
     bad_param_value = workflow_spec.WorkflowConfig(
-        identifier=workflow_id, values=defaults
+        identifier=workflow_id,
+        param_id=spec.params,
+        params=defaults,
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
@@ -305,7 +312,8 @@ def test_service_can_recover_after_bad_workflow_param_was_set(
 
     bad_param_value = workflow_spec.WorkflowConfig(
         identifier=workflow_id,
-        values={param.name: param.default for param in spec.parameters},
+        param_id=spec.params,
+        params={param.name: param.default for param in spec.parameters},
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
@@ -332,7 +340,8 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
     )
     workflow_config = workflow_spec.WorkflowConfig(
         identifier=workflow_id,
-        values={param.name: param.default for param in spec.parameters},
+        param_id=spec.params,
+        params={param.name: param.default for param in spec.parameters},
     )
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
     service.step()
@@ -347,7 +356,8 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
     # Try to set an invalid workflow ID
     bad_workflow_id = workflow_spec.WorkflowConfig(
         identifier='abcde12345',  # Invalid workflow ID
-        values={},
+        param_id=spec.params,
+        params={},
     )
     app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())
 
@@ -361,7 +371,9 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
     defaults = {param.name: param.default for param in spec.parameters}
     defaults['does_not_exist'] = 1
     bad_param_value = workflow_spec.WorkflowConfig(
-        identifier=workflow_id, values=defaults
+        identifier=workflow_id,
+        param_id=spec.params,
+        params=defaults,
     )
     app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
 
@@ -406,7 +418,8 @@ def test_workflow_starts_with_specific_or_global_source_name(
     )
     workflow_config = workflow_spec.WorkflowConfig(
         identifier=workflow_id,
-        values={param.name: param.default for param in spec.parameters},
+        param_id=spec.params,
+        params={param.name: param.default for param in spec.parameters},
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
@@ -436,7 +449,8 @@ def configured_dummy_reduction() -> BeamlimeApp:
     )
     workflow_config = workflow_spec.WorkflowConfig(
         identifier=workflow_id,
-        values={param.name: param.default for param in spec.parameters},
+        param_id=spec.params,
+        params={param.name: param.default for param in spec.parameters},
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())

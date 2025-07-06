@@ -5,6 +5,7 @@ Bifrost with all banks merged into a single one.
 from collections.abc import Generator
 from typing import NewType
 
+import pydantic
 import scipp as sc
 from ess.reduce import time_of_flight
 from ess.reduce.nexus.types import (
@@ -21,9 +22,9 @@ from scippnexus import NXdetector
 
 from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
-from beamlime.config.workflow_spec import Parameter, ParameterType
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
+from beamlime.parameters import get_parameter_registry
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
@@ -149,20 +150,33 @@ _reduction_workflow.insert(_make_counts_per_angle)
 
 _source_names = ('unified_detector',)
 
-spectrum_view_time_bins_param = Parameter(
-    name='SpectrumViewTimeBins',
-    description='Number of time bins for the spectrum view.',
-    param_type=ParameterType.INT,
-    default=500,
-)
+# Remove old parameter definitions
+# spectrum_view_time_bins_param = Parameter(...)
+# spectrum_view_pixels_per_tube_param = Parameter(...)
 
-spectrum_view_pixels_per_tube_param = Parameter(
-    name='SpectrumViewPixelsPerTube',
-    description='Number of pixels per tube for the spectrum view.',
-    param_type=ParameterType.OPTIONS,
-    default=10,
-    options=[1, 2, 5, 10, 20, 50, 100],  # Must be a divisor of 100
-)
+
+@get_parameter_registry().register(name='bifrost_spectrum_view', version=1)
+class SpectrumViewParams(pydantic.BaseModel):
+    time_bins: int = pydantic.Field(
+        title='Time bins',
+        description='Number of time bins for the spectrum view.',
+        default=500,
+        ge=1,
+        le=10000,
+    )
+    pixels_per_tube: int = pydantic.Field(
+        title='Pixels per tube',
+        description='Number of pixels per tube for the spectrum view.',
+        default=10,
+    )
+
+    @pydantic.field_validator('pixels_per_tube')
+    @classmethod
+    def pixels_per_tube_must_be_divisor_of_100(cls, v):
+        if 100 % v != 0:
+            raise ValueError('pixels_per_tube must be a divisor of 100')
+        return v
+
 
 instrument = Instrument(
     name='bifrost',
@@ -178,15 +192,14 @@ instrument = Instrument(
 
 @instrument.register_workflow(
     name='spectrum-view',
+    description='Spectrum view with configurable time bins and pixels per tube.',
     source_names=_source_names,
-    parameters=(spectrum_view_time_bins_param, spectrum_view_pixels_per_tube_param),
+    params=('bifrost_spectrum_view', 1),
 )
-def _spectrum_view(
-    SpectrumViewTimeBins: int, SpectrumViewPixelsPerTube: int
-) -> StreamProcessor:
+def _spectrum_view_new(params: SpectrumViewParams) -> StreamProcessor:
     wf = _reduction_workflow.copy()
-    wf[_SpectrumViewTimeBins] = SpectrumViewTimeBins
-    wf[_SpectrumViewPixelsPerTube] = SpectrumViewPixelsPerTube
+    wf[_SpectrumViewTimeBins] = params.time_bins
+    wf[_SpectrumViewPixelsPerTube] = params.pixels_per_tube
     return StreamProcessor(
         wf,
         dynamic_keys=(NeXusData[NXdetector, SampleRun],),

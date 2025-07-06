@@ -87,6 +87,13 @@ class AngleUnit(str, Enum):
     RADIAN = 'rad'
 
 
+class QUnit(str, Enum):
+    """Allowed units for Q."""
+
+    INVERSE_ANGSTROM = '1/Å'
+    INVERSE_NANOMETER = '1/nm'
+
+
 class Filename(BaseModel):
     value: Path = Field(..., description="Path to the file.")
 
@@ -139,6 +146,18 @@ class TwoTheta(EdgesModel):
     def get_edges(self) -> sc.Variable:
         """Get the edges as a scipp variable."""
         return make_edges(model=self, dim='two_theta', unit=self.unit.value)
+
+
+class QEdges(EdgesModel):
+    """Model for Q edges."""
+
+    unit: QUnit = Field(
+        default=QUnit.INVERSE_ANGSTROM, description="Unit of the Q edges."
+    )
+
+    def get_edges(self) -> sc.Variable:
+        """Get the edges as a scipp variable."""
+        return make_edges(model=self, dim='Q', unit=self.unit.value)
 
 
 def make_edges(*, model: EdgesModel, dim: str, unit: str) -> sc.Variable:
