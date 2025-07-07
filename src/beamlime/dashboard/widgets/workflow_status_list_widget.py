@@ -77,7 +77,6 @@ class WorkflowStatusListWidget:
             Controller for workflow operations
         """
         self._controller = controller
-        self._ui_helper = WorkflowUIHelper(controller)
         self._status_ui_helper = WorkflowStatusUIHelper()
         self._workflow_list = pn.Column()
         self._workflow_rows: dict[str, dict[str, Any]] = {}  # Track persistent widgets
@@ -94,8 +93,8 @@ class WorkflowStatusListWidget:
         self, source_name: str, status: WorkflowStatus
     ) -> dict[str, Any]:
         """Create a row widget data structure for a single workflow."""
-        # Get workflow name from UI helper
-        workflow_name = self._ui_helper.get_workflow_title(status.workflow_id)
+        # Get workflow name using bound controller
+        workflow_name = self._get_workflow_title(status.workflow_id)
 
         # Create info panel
         info_pane = pn.pane.HTML("", width=220)
@@ -223,6 +222,14 @@ class WorkflowStatusListWidget:
         row_data['last_status'] = status.status
         row_data['last_workflow_name'] = workflow_name
 
+    def _get_workflow_title(self, workflow_id) -> str:
+        """Get workflow title from workflow ID."""
+        bound_controller = self._controller.get_bound_controller(workflow_id)
+        if bound_controller is not None:
+            ui_helper = WorkflowUIHelper(bound_controller)
+            return ui_helper.get_workflow_title()
+        return str(workflow_id)
+
     def _on_status_update(self, all_status: dict[str, WorkflowStatus]) -> None:
         """Handle workflow status updates from controller."""
         if not all_status:
@@ -246,8 +253,8 @@ class WorkflowStatusListWidget:
         # Update or create rows for current sources
         workflow_widgets = []
         for source_name, status in all_status.items():
-            # Get workflow name from UI helper
-            workflow_name = self._ui_helper.get_workflow_title(status.workflow_id)
+            # Get workflow name using bound controller
+            workflow_name = self._get_workflow_title(status.workflow_id)
 
             if source_name in self._workflow_rows:
                 # Update existing row

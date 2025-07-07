@@ -24,6 +24,7 @@ class WorkflowConfigWidget:
             Controller bound to a specific workflow
         """
         self._controller = controller
+        self._ui_helper = WorkflowUIHelper(controller)
         self._parameter_widgets: dict[str, ParamWidget] = {}
         self._source_selector = self._create_source_selector()
         self._parameter_panel = self._create_parameter_panel()
@@ -32,7 +33,7 @@ class WorkflowConfigWidget:
 
     def _create_source_selector(self) -> pn.widgets.MultiChoice:
         """Create source selection widget."""
-        initial_sources = WorkflowUIHelper.get_initial_source_names(self._controller)
+        initial_sources = self._ui_helper.get_initial_source_names()
         return pn.widgets.MultiChoice(
             name="Source Names",
             options=self._controller.spec.source_names,
@@ -44,7 +45,7 @@ class WorkflowConfigWidget:
 
     def _create_parameter_panel(self) -> pn.Column:
         """Create panel containing all parameter widgets."""
-        widget_data = WorkflowUIHelper.get_parameter_widget_data(self._controller)
+        widget_data = self._ui_helper.get_parameter_widget_data()
 
         parameter_cards = []
         for field_name, data in widget_data.items():
@@ -103,9 +104,7 @@ class WorkflowConfigWidget:
             name: widget.create_model()
             for name, widget in self._parameter_widgets.items()
         }
-        return WorkflowUIHelper.assemble_parameter_values(
-            self._controller, widget_values
-        )
+        return self._ui_helper.assemble_parameter_values(widget_values)
 
     def validate_configuration(self) -> tuple[bool, list[str]]:
         """
@@ -279,4 +278,5 @@ class WorkflowConfigModal:
     @property
     def modal(self) -> pn.Modal:
         """Get the modal widget."""
+        return self._modal
         return self._modal
