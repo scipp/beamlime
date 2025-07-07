@@ -9,7 +9,6 @@ from ess.reduce.streaming import StreamProcessor
 from sciline.typing import Key
 
 from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
-from beamlime.parameters import get_parameter_registry
 
 from ..config.models import ConfigKey
 from ..config.workflow_spec import (
@@ -120,18 +119,8 @@ class WorkflowManager:
             return [(config_key, status)]
 
         try:
-            # Deserialize parameters using the registry
-            registry = get_parameter_registry()
-            if config.param_id is None:
-                workflow_params = None
-            else:
-                model_cls = registry.get_model(config.param_id)
-                workflow_params = model_cls.model_validate(config.params)
-
             processor = self._processor_factory.create(
-                workflow_id=config.identifier,
-                source_name=source_name,
-                workflow_params=workflow_params,
+                source_name=source_name, config=config
             )
         except Exception as e:
             # TODO This system is a bit flawed: If we have a workflow running already

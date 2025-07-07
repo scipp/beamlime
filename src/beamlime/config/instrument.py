@@ -11,6 +11,8 @@ from ess.reduce.streaming import StreamProcessor
 
 from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 
+from .workflow_spec import WorkflowSpec
+
 
 class InstrumentRegistry(UserDict[str, 'Instrument']):
     """
@@ -63,9 +65,9 @@ class Instrument:
         self,
         name: str,
         *,
+        version: int,
         description: str = '',
         source_names: Sequence[str] | None = None,
-        params: tuple[str, int] | None = None,
     ) -> Callable[[Callable[..., StreamProcessor]], Callable[..., StreamProcessor]]:
         """
         Decorator to register a factory function for creating StreamProcessors.
@@ -79,14 +81,17 @@ class Instrument:
         source_names:
             Optional list of source names that the factory can handle. This is used to
             create a workflow specification.
-        params:
-            Optional tuple containing the name and version of the parameters for the
-            workflow. This is used to create a workflow specification.
 
         Returns
         -------
         Decorator function that registers the factory and returns it unchanged.
         """
-        return self.processor_factory.register(
-            name=name, description=description, source_names=source_names, params=params
+        spec = WorkflowSpec(
+            instrument=self.name,
+            name=name,
+            version=version,
+            description=description,
+            source_names=list(source_names or []),
+            params=None,  # placeholder, filled in from type hint later
         )
+        return self.processor_factory.register(spec)

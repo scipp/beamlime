@@ -2,14 +2,12 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import hashlib
 import inspect
-from collections.abc import Callable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping
 from importlib import metadata
 
-import pydantic
 from ess.reduce.streaming import StreamProcessor
 
-from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec
-from beamlime.parameters import ModelId
+from beamlime.config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
 
 
 class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
@@ -42,74 +40,66 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
         }
 
     def register(
-        self,
-        name: str,
-        description: str = '',
-        source_names: Sequence[str] | None = None,
-        params: tuple[str, int] | None = None,
+        self, spec: WorkflowSpec
     ) -> Callable[[Callable[..., StreamProcessor]], Callable[..., StreamProcessor]]:
         """
         Decorator to register a factory function for creating StreamProcessors.
 
         Parameters
         ----------
-        name:
-            Name to register the factory under.
-        description:
-            Optional description of the factory.
-        source_names:
-            Optional list of source names that the factory can handle. This is used to
-            create a workflow specification.
-        params:
-            Optional tuple containing the name and version of the parameters for the
-            workflow. This is used to create a workflow specification.
+        spec:
+            Workflow specification that describes the workflow to register.
 
         Returns
         -------
         Decorator function that registers the factory and returns it unchanged.
         """
+        spec_id = f"{spec.instrument}/{spec.name}/{spec.version}"
 
         def decorator(
             factory: Callable[..., StreamProcessor],
         ) -> Callable[..., StreamProcessor]:
-            spec = WorkflowSpec(
-                name=name,
-                description=description,
-                source_names=list(source_names or []),
-                params=None
-                if params is None
-                else ModelId(name=params[0], version=params[1]),
-            )
-            spec_id = _hash_factory(factory)
+            # Try to get the type hint of the 'params' argument if it exists
+            sig = inspect.signature(factory)
+            params_type = None
+            params_param = sig.parameters.get('params')
+            if params_param is not None:
+                params_type = params_param.annotation
+                if params_type is params_param.empty:
+                    params_type = None
+            spec.params = params_type
             self._factories[spec_id] = factory
             self._workflow_specs[spec_id] = spec
             return factory
 
         return decorator
 
-    def create(
-        self,
-        *,
-        workflow_id: WorkflowId,
-        source_name: str,
-        workflow_params: pydantic.BaseModel | None = None,
-    ) -> StreamProcessor:
+    def create(self, *, source_name: str, config: WorkflowConfig) -> StreamProcessor:
         """
         Create a StreamProcessor using the registered factory.
 
         Parameters
         ----------
-        workflow_id:
-            ID of the workflow to create.
         source_name:
             Name of the data source.
-        workflow_params:
-            Optional dictionary of parameter values to pass to the factory.
+        config:
+            Configuration for the workflow, including the identifier and parameters.
         """
+        workflow_id = config.identifier
         if workflow_id not in self._workflow_specs:
             raise KeyError(f"Unknown workflow ID: {workflow_id}")
 
         workflow_spec = self._workflow_specs[workflow_id]
+        if (model_cls := workflow_spec.params) is None:
+            workflow_params = None
+        else:
+            if config.params is None:
+                raise ValueError(
+                    f"Workflow '{workflow_spec.name}' requires parameters, "
+                    f"but none were provided."
+                )
+            workflow_params = model_cls.model_validate(config.params)
+
         if workflow_spec.source_names and source_name not in workflow_spec.source_names:
             allowed_sources = ", ".join(workflow_spec.source_names)
             raise ValueError(

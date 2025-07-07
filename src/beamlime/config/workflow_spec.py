@@ -12,8 +12,6 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, Field
 
-from beamlime.parameters import ModelId
-
 T = TypeVar('T')
 
 
@@ -26,15 +24,17 @@ class WorkflowSpec(BaseModel):
     configuring workflows.
     """
 
+    instrument: str = Field(
+        description="Name of the instrument this workflow is associated with."
+    )
     name: str = Field(description="Name of the workflow.")
+    version: int = Field(description="Version of the workflow.")
     description: str = Field(description="Description of the workflow.")
     source_names: list[str] = Field(
         default_factory=list,
         description="List of detectors the workflow can be applied to.",
     )
-    params: ModelId | None = Field(
-        description="Model Id containing the name and version of the workflow params.",
-    )
+    params: type[BaseModel] | None = Field(description="Model for workflow param.")
 
 
 WorkflowId = str
@@ -51,6 +51,16 @@ class WorkflowSpecs(BaseModel):
         default_factory=dict, description="Workflows and their parameters."
     )
 
+    def __init__(self, **data):
+        super().__init__(**data)
+        # Set params=None in each spec after copying it. The model cannot be serialized,
+        # so the frontend obtains it from the workflow registry based one the
+        # workflow ID instead.
+        for k, v in self.workflows.items():
+            spec = v.model_copy()
+            spec.params = None
+            self.workflows[k] = spec
+
 
 class WorkflowConfig(BaseModel):
     """
@@ -63,10 +73,6 @@ class WorkflowConfig(BaseModel):
 
     identifier: WorkflowId | None = Field(
         description="Hash of the workflow, used to identify the workflow."
-    )
-    param_id: ModelId | None = Field(
-        default=None,
-        description="Model Id containing the name and version of the workflow params.",
     )
     params: dict[str, Any] = Field(
         default_factory=dict,

@@ -22,7 +22,7 @@ from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
-from beamlime.parameters import get_parameter_registry, parameter_models
+from beamlime.parameters import parameter_models
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
@@ -175,15 +175,12 @@ class InstrumentConfiguration(pydantic.BaseModel):
     )
 
 
-# dream-no-shape is a much smaller file without pixel_shape, which is not needed for
-# data reduction.
-
-
-@get_parameter_registry().register(name='dream_powder_workflow', version=1)
 class PowderWorkflowParams(pydantic.BaseModel):
     geometry_file: parameter_models.Filename = pydantic.Field(
         title='Geometry file',
         description='NeXus file containing instrument geometry and other static data.',
+        # dream-no-shape is a much smaller file without pixel_shape, which is not needed
+        # for data reduction.
         default=parameter_models.Filename(
             value=get_nexus_geometry_filename('dream-no-shape')
         ),
@@ -227,7 +224,7 @@ class PowderWorkflowParams(pydantic.BaseModel):
     name='Powder reduction',
     description='Powder reduction without vanadium normalization.',
     source_names=_source_names,
-    params=('dream_powder_workflow', 1),
+    version=1,
 )
 def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProcessor:
     wf = _reduction_workflow.copy()

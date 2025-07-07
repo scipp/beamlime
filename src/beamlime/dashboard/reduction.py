@@ -5,7 +5,7 @@ import panel as pn
 
 from beamlime import Service
 from beamlime.config import keys
-from beamlime.config.instruments import dream
+from beamlime.config.instruments import get_config
 
 from . import plots
 from .dashboard import DashboardBase
@@ -28,6 +28,8 @@ class ReductionApp(DashboardBase):
             dashboard_name='reduction_dashboard',
             port=5009,  # Default port for reduction dashboard
         )
+        # Load the module to register the instrument's workflows.
+        self._instrument_module = get_config(instrument)
 
         self._setup_workflow_management()
         self._setup_reduction_streams()
@@ -50,7 +52,9 @@ class ReductionApp(DashboardBase):
     def _setup_workflow_management(self) -> None:
         """Initialize workflow controller and reduction widget."""
         self._workflow_controller = WorkflowController.from_config_service(
-            config_service=self._config_service, source_names=list(self.source_names())
+            config_service=self._config_service,
+            source_names=list(self.source_names()),
+            workflow_registry=self._instrument_module.instrument.processor_factory,
         )
         self._reduction_widget = ReductionWidget(controller=self._workflow_controller)
 

@@ -5,7 +5,7 @@ Workflow controller implementation backed by a config service.
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 import pydantic
 
@@ -18,7 +18,6 @@ from beamlime.config.workflow_spec import (
     WorkflowStatus,
     WorkflowStatusType,
 )
-from beamlime.parameters import get_parameter_registry
 
 from .workflow_config_service import ConfigServiceAdapter, WorkflowConfigService
 
@@ -46,8 +45,10 @@ class WorkflowController:
 
     def __init__(
         self,
+        *,
         service: WorkflowConfigService,
         source_names: list[str],
+        workflow_registry: Mapping[WorkflowId, WorkflowSpec],
     ) -> None:
         """
         Initialize the workflow controller.
@@ -63,6 +64,7 @@ class WorkflowController:
         self._logger = logging.getLogger(__name__)
 
         self._source_names = source_names
+        self._workflow_registry = workflow_registry
 
         # Initialize all sources with UNKNOWN status
         self._workflow_status: dict[str, WorkflowStatus] = {
@@ -70,7 +72,7 @@ class WorkflowController:
             for source_name in self._source_names
         }
 
-        self._workflow_specs: WorkflowSpecs = WorkflowSpecs()
+        self._workflow_specs: dict[WorkflowId, WorkflowSpec] = {}
 
         # Callbacks
         self._workflow_specs_callbacks: list[
@@ -89,10 +91,15 @@ class WorkflowController:
         *,
         config_service,
         source_names: list[str],
+        workflow_registry: Mapping[WorkflowId, WorkflowSpec],
     ) -> 'WorkflowController':
         """Create WorkflowController from ConfigService."""
         adapter = ConfigServiceAdapter(config_service, source_names)
-        return cls(adapter, source_names)
+        return cls(
+            service=adapter,
+            source_names=source_names,
+            workflow_registry=workflow_registry,
+        )
 
     def _setup_subscriptions(self) -> None:
         """Setup subscriptions to service updates."""
@@ -111,10 +118,13 @@ class WorkflowController:
             'Received workflow specs update with %d workflows',
             len(workflow_specs.workflows),
         )
-        self._workflow_specs = workflow_specs
+        self._workflow_specs = dict(workflow_specs.workflows)
+        for workflow_id, spec in self._workflow_specs.items():
+            full_spec = self._workflow_registry[workflow_id]
+            spec.params = full_spec.params
 
         # Clean up old persistent configs for workflows that no longer exist
-        self._cleanup_persistent_configs(set(workflow_specs.workflows.keys()))
+        self._cleanup_persistent_configs(set(self._workflow_specs))
 
         # Notify all subscribers with the specs
         for callback in self._workflow_specs_callbacks:
@@ -155,7 +165,7 @@ class WorkflowController:
         Returns True if the workflow was started successfully, False otherwise.
         """
         # Check if workflow exists
-        if workflow_id not in self._workflow_specs.workflows:
+        if workflow_id not in self._workflow_specs:
             self._logger.warning(
                 'Cannot start workflow %s: workflow does not exist', workflow_id
             )
@@ -176,7 +186,7 @@ class WorkflowController:
             return False
 
         workflow_config = WorkflowConfig(
-            identifier=workflow_id, param_id=spec.params, params=config.model_dump()
+            identifier=workflow_id, params=config.model_dump()
         )
 
         # Update the config for this workflow, used for restoring widget state
@@ -221,16 +231,15 @@ class WorkflowController:
 
     def get_workflow_spec(self, workflow_id: WorkflowId) -> WorkflowSpec | None:
         """Get the current workflow specification for the given Id."""
-        return self._workflow_specs.workflows.get(workflow_id)
+        return self._workflow_specs.get(workflow_id)
 
     def get_workflow_params(
         self, workflow_id: WorkflowId
     ) -> type[pydantic.BaseModel] | None:
         """Get the parameters for the given workflow Id."""
-        workflow_spec = self.get_workflow_spec(workflow_id)
-        if workflow_spec is None:
+        if (workflow_spec := self.get_workflow_spec(workflow_id)) is None:
             return None
-        return get_parameter_registry().get_model(workflow_spec.params)
+        return workflow_spec.params
 
     def get_workflow_config(
         self, workflow_id: WorkflowId
@@ -258,7 +267,7 @@ class WorkflowController:
     ) -> None:
         """Notify a single subscriber about workflow specs update."""
         try:
-            callback(self._workflow_specs.workflows.copy())
+            callback(self._workflow_specs.copy())
         except Exception as e:
             self._logger.error('Error in workflow specs update callback: %s', e)
 
