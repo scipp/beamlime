@@ -14,16 +14,16 @@ from .workflow_ui_helper import WorkflowUIHelper
 class WorkflowConfigWidget:
     """Widget for configuring workflow parameters and source selection."""
 
-    def __init__(self, bound_controller: BoundWorkflowController) -> None:
+    def __init__(self, controller: BoundWorkflowController) -> None:
         """
         Initialize workflow configuration widget.
 
         Parameters
         ----------
-        bound_controller
+        controller
             Controller bound to a specific workflow
         """
-        self._bound_controller = bound_controller
+        self._controller = controller
         self._parameter_widgets: dict[str, ParamWidget] = {}
         self._source_selector = self._create_source_selector()
         self._parameter_panel = self._create_parameter_panel()
@@ -33,11 +33,11 @@ class WorkflowConfigWidget:
     def _create_source_selector(self) -> pn.widgets.MultiChoice:
         """Create source selection widget."""
         initial_sources = WorkflowUIHelper.get_initial_source_names_from_bound(
-            self._bound_controller
+            self._controller
         )
         return pn.widgets.MultiChoice(
             name="Source Names",
-            options=self._bound_controller.spec.source_names,
+            options=self._controller.spec.source_names,
             value=initial_sources,
             placeholder="Select source names to apply workflow to",
             sizing_mode='stretch_width',
@@ -47,7 +47,7 @@ class WorkflowConfigWidget:
     def _create_parameter_panel(self) -> pn.Column:
         """Create panel containing all parameter widgets."""
         widget_data = WorkflowUIHelper.get_parameter_widget_data_from_bound(
-            self._bound_controller
+            self._controller
         )
 
         parameter_cards = []
@@ -82,7 +82,7 @@ class WorkflowConfigWidget:
 
     def _create_widget(self) -> pn.Column:
         """Create the main configuration widget."""
-        spec = self._bound_controller.spec
+        spec = self._controller.spec
         return pn.Column(
             pn.pane.HTML(f"<h1>{spec.title}</h1><p>{spec.description}</p>"),
             self._source_selector,
@@ -108,7 +108,7 @@ class WorkflowConfigWidget:
             for name, widget in self._parameter_widgets.items()
         }
         return WorkflowUIHelper.assemble_parameter_values_from_bound(
-            self._bound_controller, widget_values
+            self._controller, widget_values
         )
 
     def validate_configuration(self) -> tuple[bool, list[str]]:
@@ -165,17 +165,17 @@ class WorkflowConfigWidget:
 class WorkflowConfigModal:
     """Modal dialog for workflow configuration."""
 
-    def __init__(self, bound_controller: BoundWorkflowController) -> None:
+    def __init__(self, controller: BoundWorkflowController) -> None:
         """
         Initialize workflow configuration modal.
 
         Parameters
         ----------
-        bound_controller
+        controller
             Controller bound to a specific workflow
         """
-        self._bound_controller = bound_controller
-        self._config_widget = WorkflowConfigWidget(bound_controller)
+        self._controller = controller
+        self._config_widget = WorkflowConfigWidget(controller)
         self._error_pane = pn.pane.HTML("", sizing_mode='stretch_width')
         self._modal = self._create_modal()
 
@@ -195,7 +195,7 @@ class WorkflowConfigModal:
 
         modal = pn.Modal(
             content,
-            name=f"Configure {self._bound_controller.spec.title}",
+            name=f"Configure {self._controller.spec.title}",
             margin=20,
             width=800,
             height=900,
@@ -237,14 +237,14 @@ class WorkflowConfigModal:
             self._show_validation_errors(errors)
             return
 
-        success = self._bound_controller.start_workflow(
+        success = self._controller.start_workflow(
             self._config_widget.selected_sources,
             self._config_widget.parameter_values,
         )
 
         if not success:
             self._show_workflow_error(
-                f"Error: Workflow '{self._bound_controller.workflow_id}' "
+                f"Error: Workflow '{self._controller.workflow_id}' "
                 "is no longer available. Please select a different workflow."
             )
             return
