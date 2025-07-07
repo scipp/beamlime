@@ -163,6 +163,9 @@ class ParamWidget:
                 error_msg = error_details[0].get('msg', str(e))
                 return False, f"{field_name}: {error_msg}" if field_name else error_msg
             return False, str(e)
+        except ValueError as e:
+            # Handle ValueError from model validators
+            return False, str(e)
 
     def set_error_state(self, has_error: bool, error_message: str) -> None:
         """Set error state for the widget."""
