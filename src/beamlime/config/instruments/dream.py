@@ -121,8 +121,10 @@ def _make_dream_detectors() -> StreamLUT:
     }
 
 
+# Normalization to monitors is partially broken due to some wavelength-range checking
+# in essdiffraction that does not play with TOA-TOF conversion (I think).
 _reduction_workflow = DreamPowderWorkflow(
-    run_norm=powder.RunNormalization.monitor_integrated
+    run_norm=powder.RunNormalization.proton_charge
 )
 
 _source_names = [
@@ -148,16 +150,6 @@ def _total_counts(data: DetectorData[SampleRun]) -> TotalCounts:
 
 
 _reduction_workflow.insert(_total_counts)
-_reduction_workflow[powder.types.DspacingBins] = sc.linspace(
-    dim='dspacing',
-    start=0.4,
-    stop=3.5,
-    num=2000,
-    unit='angstrom',
-)
-_reduction_workflow[powder.types.TwoThetaBins] = sc.linspace(
-    dim="two_theta", unit="rad", start=0.4, stop=3.1415, num=201
-)
 _reduction_workflow[powder.types.CalibrationData] = None
 _reduction_workflow = powder.with_pixel_mask_filenames(_reduction_workflow, [])
 _reduction_workflow[powder.types.UncertaintyBroadcastMode] = (
