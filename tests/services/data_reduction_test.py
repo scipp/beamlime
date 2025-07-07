@@ -16,15 +16,6 @@ from beamlime.services.data_reduction import make_reduction_service_builder
 from tests.helpers.beamlime_app import BeamlimeApp
 
 
-def _get_workflow_by_name(
-    workflow_specs, name: str
-) -> tuple[str, workflow_spec.WorkflowSpec]:
-    for wid, spec in workflow_specs.workflows.items():
-        if spec.name == name:
-            return wid, spec
-    raise ValueError(f"Workflow {name} not found in specs")
-
-
 def _get_workflow_from_registry(
     instrument: str, name: str
 ) -> tuple[str, workflow_spec.WorkflowSpec]:
