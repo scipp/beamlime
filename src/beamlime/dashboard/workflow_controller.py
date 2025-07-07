@@ -16,7 +16,6 @@ from beamlime.config.workflow_spec import (
     WorkflowConfig,
     WorkflowId,
     WorkflowSpec,
-    WorkflowSpecs,
     WorkflowStatus,
     WorkflowStatusType,
 )
@@ -34,9 +33,7 @@ class WorkflowController:
     Brief overview of what this controller does in the wider context of the "data
     reduction" service Kafka:
 
-    - Workflow specs are available/updated from Kafka via the config service.
-    - Workflow specs define list of available workflows, their parameters, and
-      descriptions.
+    - Workflow specs are defined in the workflow registry passed to the controller.
     - GUI displays available workflows and allows configuring and starting them via
       the controller.
     - Controller persists configs for workflows to allow restoring widget state across
@@ -61,6 +58,8 @@ class WorkflowController:
             Service for managing workflow configurations
         source_names
             List of source names to monitor for workflow status updates.
+        workflow_registry
+            Registry of available workflows and their specifications.
         """
         self._service = service
         self._logger = logging.getLogger(__name__)
@@ -73,8 +72,6 @@ class WorkflowController:
             source_name: WorkflowStatus(source_name=source_name)
             for source_name in self._source_names
         }
-
-        self._workflow_specs: dict[WorkflowId, WorkflowSpec] = {}
 
         # Callbacks
         self._workflow_specs_callbacks: list[
@@ -105,38 +102,11 @@ class WorkflowController:
 
     def _setup_subscriptions(self) -> None:
         """Setup subscriptions to service updates."""
-        # Subscribe to workflow specs
-        self._service.subscribe_to_workflow_specs(self._update_workflow_specs)
-
         # Subscribe to workflow status for each source
         for source_name in self._source_names:
             self._service.subscribe_to_workflow_status(
                 source_name, self._update_workflow_status
             )
-
-    def _update_workflow_specs(self, workflow_specs: WorkflowSpecs) -> None:
-        """Handle workflow specs updates from service."""
-        self._logger.info(
-            'Received workflow specs update with %d workflows',
-            len(workflow_specs.workflows),
-        )
-        self._workflow_specs.clear()
-        for workflow_id, spec in workflow_specs.workflows.items():
-            if workflow_id not in self._workflow_registry:
-                self._logger.warning(
-                    'Workflow %s not found in registry, skipping', workflow_id
-                )
-                continue
-            full_spec = self._workflow_registry[workflow_id]
-            spec.params = full_spec.params
-            self._workflow_specs[workflow_id] = spec
-
-        # Clean up old persistent configs for workflows that no longer exist
-        self._cleanup_persistent_configs(set(self._workflow_specs))
-
-        # Notify all subscribers with the specs
-        for callback in self._workflow_specs_callbacks:
-            self._notify_workflow_specs_update(callback)
 
     def _update_workflow_status(self, status: WorkflowStatus) -> None:
         """Handle workflow status updates from service."""
@@ -144,23 +114,6 @@ class WorkflowController:
         self._workflow_status[status.source_name] = status
         for callback in self._workflow_status_callbacks:
             self._notify_workflow_status_update(callback)
-
-    def _cleanup_persistent_configs(
-        self, current_workflow_ids: set[WorkflowId]
-    ) -> None:
-        """Clean up persistent configs for workflows that no longer exist."""
-        current_configs = self._service.get_persistent_configs()
-
-        # Clean up and save back if there were changes
-        original_count = len(current_configs.configs)
-        current_configs.cleanup_missing_workflows(current_workflow_ids)
-
-        if len(current_configs.configs) != original_count:
-            self._logger.info(
-                'Cleaned up %d obsolete persistent workflow configs',
-                original_count - len(current_configs.configs),
-            )
-            self._service.save_persistent_configs(current_configs)
 
     def start_workflow(
         self,
@@ -173,7 +126,7 @@ class WorkflowController:
         Returns True if the workflow was started successfully, False otherwise.
         """
         # Check if workflow exists
-        if workflow_id not in self._workflow_specs:
+        if workflow_id not in self._workflow_registry:
             self._logger.warning(
                 'Cannot start workflow %s: workflow does not exist', workflow_id
             )
@@ -199,6 +152,8 @@ class WorkflowController:
 
         # Update the config for this workflow, used for restoring widget state
         current_configs = self._service.get_persistent_configs()
+        # Clean up in case there are stale workflows that no longer exist
+        current_configs.cleanup_missing_workflows(set(self._workflow_registry))
         current_configs.configs[workflow_id] = PersistentWorkflowConfig(
             source_names=source_names, config=workflow_config
         )
@@ -239,7 +194,7 @@ class WorkflowController:
 
     def get_workflow_spec(self, workflow_id: WorkflowId) -> WorkflowSpec | None:
         """Get the current workflow specification for the given Id."""
-        return self._workflow_specs.get(workflow_id)
+        return self._workflow_registry.get(workflow_id)
 
     def get_workflow_params(
         self, workflow_id: WorkflowId
@@ -261,6 +216,7 @@ class WorkflowController:
     ) -> None:
         """Subscribe to workflow updates."""
         self._workflow_specs_callbacks.append(callback)
+        # Immediately notify with current registry contents
         self._notify_workflow_specs_update(callback)
 
     def subscribe_to_workflow_status_updates(
@@ -275,7 +231,7 @@ class WorkflowController:
     ) -> None:
         """Notify a single subscriber about workflow specs update."""
         try:
-            callback(self._workflow_specs.copy())
+            callback(dict(self._workflow_registry))
         except Exception as e:
             self._logger.error('Error in workflow specs update callback: %s', e)
 

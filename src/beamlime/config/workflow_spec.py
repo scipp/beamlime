@@ -40,28 +40,6 @@ class WorkflowSpec(BaseModel):
 WorkflowId = str
 
 
-class WorkflowSpecs(BaseModel):
-    """
-    Model for workflow specifications.
-
-    This model is used to define multiple workflows and their parameters.
-    """
-
-    workflows: dict[WorkflowId, WorkflowSpec] = Field(
-        default_factory=dict, description="Workflows and their parameters."
-    )
-
-    def __init__(self, **data):
-        super().__init__(**data)
-        # Set params=None in each spec after copying it. The model cannot be serialized,
-        # so the frontend obtains it from the workflow registry based one the
-        # workflow ID instead.
-        for k, v in self.workflows.items():
-            spec = v.model_copy()
-            spec.params = None
-            self.workflows[k] = spec
-
-
 class WorkflowConfig(BaseModel):
     """
     Model for workflow configuration.

@@ -15,7 +15,6 @@ import beamlime.config.keys as keys
 from beamlime.config.workflow_spec import (
     PersistentWorkflowConfigs,
     WorkflowConfig,
-    WorkflowSpecs,
     WorkflowStatus,
 )
 
@@ -35,12 +34,6 @@ class WorkflowConfigService(Protocol):
 
     def send_workflow_config(self, source_name: str, config: WorkflowConfig) -> None:
         """Send workflow configuration to a source."""
-        ...
-
-    def subscribe_to_workflow_specs(
-        self, callback: Callable[[WorkflowSpecs], None]
-    ) -> None:
-        """Subscribe to workflow specs updates."""
         ...
 
     def subscribe_to_workflow_status(
@@ -75,12 +68,6 @@ class ConfigServiceAdapter(WorkflowConfigService):
         """Send workflow configuration to a source."""
         config_key = keys.WORKFLOW_CONFIG.create_key(source_name=source_name)
         self._config_service.update_config(config_key, config)
-
-    def subscribe_to_workflow_specs(
-        self, callback: Callable[[WorkflowSpecs], None]
-    ) -> None:
-        """Subscribe to workflow specs updates."""
-        self._config_service.subscribe(keys.WORKFLOW_SPECS.create_key(), callback)
 
     def subscribe_to_workflow_status(
         self, source_name: str, callback: Callable[[WorkflowStatus], None]

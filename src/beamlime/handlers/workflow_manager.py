@@ -13,7 +13,6 @@ from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 from ..config.models import ConfigKey
 from ..config.workflow_spec import (
     WorkflowConfig,
-    WorkflowSpecs,
     WorkflowStatus,
     WorkflowStatusType,
 )
@@ -63,17 +62,6 @@ class WorkflowManager:
         self._source_to_key = source_to_key
         self._processors = ProcessorRegistry()
         self._proxies: dict[str, StreamProcessorProxy] = {}
-
-    def get_workflow_specs(self) -> WorkflowSpecs:
-        """
-        Get the workflow specifications for the available workflows.
-
-        Returns
-        -------
-        WorkflowSpecs
-            The workflow specifications.
-        """
-        return WorkflowSpecs(workflows=dict(self._processor_factory.items()))
 
     def set_workflow(self, source_name: str, processor: StreamProcessor | None) -> None:
         """
