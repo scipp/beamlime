@@ -20,7 +20,7 @@ from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
-from beamlime.parameters import get_parameter_registry, parameter_models
+from beamlime.parameters import parameter_models
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
@@ -111,7 +111,6 @@ _source_names = (
 )
 
 
-@get_parameter_registry().register(name='loki_sans_workflow', version=1)
 class SansWorkflowParams(pydantic.BaseModel):
     q_edges: parameter_models.QEdges = pydantic.Field(
         title='Q bins',
@@ -181,7 +180,7 @@ _accumulators = (
 )
 
 
-@instrument.register_workflow(name='I(Q)', source_names=_source_names)
+@instrument.register_workflow(name='I(Q)', source_names=_source_names, version=1)
 def _i_of_q(source_name: str) -> StreamProcessor:
     wf = _base_workflow.copy()
     wf[NeXusDetectorName] = source_name
@@ -197,7 +196,7 @@ def _i_of_q(source_name: str) -> StreamProcessor:
     name='I(Q) with params',
     description='I(Q) reduction with configurable parameters.',
     source_names=_source_names,
-    params=('loki_sans_workflow', 1),
+    version=1,
 )
 def _i_of_q_with_params(
     source_name: str, params: SansWorkflowParams

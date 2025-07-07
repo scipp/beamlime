@@ -57,6 +57,7 @@ instrument = Instrument(
     name='Total counts',
     description='Dummy workflow that simply computes the total counts.',
     source_names=['panel_0'],
+    version=1,
 )
 def _total_counts_processor() -> StreamProcessor:
     """Dummy processor for development and testing."""

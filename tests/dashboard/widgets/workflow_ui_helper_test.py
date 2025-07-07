@@ -4,8 +4,6 @@ import pydantic
 import pytest
 
 from beamlime.config.workflow_spec import (
-    Parameter,
-    ParameterType,
     PersistentWorkflowConfig,
     WorkflowConfig,
     WorkflowId,
@@ -129,31 +127,12 @@ def mock_controller() -> MockWorkflowController:
 def workflow_spec() -> WorkflowSpec:
     """Test workflow specification."""
     return WorkflowSpec(
+        instrument="test_instrument",
         name="Test Workflow",
+        version=1,
         description="A test workflow for unit testing",
         source_names=["detector_1", "detector_2"],
-        parameters=[
-            Parameter(
-                name="threshold",
-                description="Detection threshold",
-                param_type=ParameterType.FLOAT,
-                default=100.0,
-                unit="counts",
-            ),
-            Parameter(
-                name="mode",
-                description="Processing mode",
-                param_type=ParameterType.OPTIONS,
-                default="fast",
-                options=["fast", "accurate"],
-            ),
-            Parameter(
-                name="enabled",
-                description="Enable processing",
-                param_type=ParameterType.BOOL,
-                default=True,
-            ),
-        ],
+        params=SomeParams,
     )
 
 
@@ -214,9 +193,27 @@ class TestWorkflowUIHelper:
         self,
     ):
         """Test get_workflow_options with multiple workflow specs."""
-        spec1 = WorkflowSpec(name="Workflow One", description="First workflow")
-        spec2 = WorkflowSpec(name="Workflow Two", description="Second workflow")
-        spec3 = WorkflowSpec(name="Another Workflow", description="Third workflow")
+        spec1 = WorkflowSpec(
+            instrument="test_instrument",
+            name="Workflow One",
+            version=1,
+            description="First workflow",
+            params=None,
+        )
+        spec2 = WorkflowSpec(
+            instrument="test_instrument",
+            name="Workflow Two",
+            version=1,
+            description="Second workflow",
+            params=None,
+        )
+        spec3 = WorkflowSpec(
+            instrument="test_instrument",
+            name="Another Workflow",
+            version=1,
+            description="Third workflow",
+            params=None,
+        )
 
         specs = {"workflow_1": spec1, "workflow_2": spec2, "workflow_3": spec3}
         options = WorkflowUIHelper.make_workflow_options(specs)
@@ -302,9 +299,11 @@ class TestWorkflowUIHelper:
     ):
         workflow_id = "empty_desc_workflow"
         empty_spec = WorkflowSpec(
+            instrument="test_instrument",
             name="Empty Description Workflow",
+            version=1,
             description="",
-            parameters=workflow_spec.parameters,
+            params=None,
         )
         mock_controller.set_workflow_spec(workflow_id, empty_spec)
 
@@ -332,7 +331,13 @@ class TestWorkflowUIHelper:
         mock_controller: MockWorkflowController,
     ):
         """Test get_workflow_description with workflow spec that has no description."""
-        spec = WorkflowSpec(name="No Description Workflow", description="")
+        spec = WorkflowSpec(
+            instrument="test_instrument",
+            name="No Description Workflow",
+            version=1,
+            description="",
+            params=None,
+        )
         workflow_id = "no_desc_workflow"
         mock_controller.set_workflow_spec(workflow_id, spec)
 
@@ -423,9 +428,11 @@ class TestWorkflowUIHelper:
     ):
         """Test get_initial_parameter_values with workflow that has no parameters."""
         spec = WorkflowSpec(
+            instrument="test_instrument",
             name="No Parameters Workflow",
+            version=1,
             description="Workflow with no parameters",
-            parameters=[],
+            params=None,
         )
         workflow_id = "no_params_workflow"
         mock_controller.set_workflow_spec(workflow_id, spec)

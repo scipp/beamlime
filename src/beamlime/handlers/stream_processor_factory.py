@@ -93,11 +93,6 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
         if (model_cls := workflow_spec.params) is None:
             workflow_params = None
         else:
-            if config.params is None:
-                raise ValueError(
-                    f"Workflow '{workflow_spec.name}' requires parameters, "
-                    f"but none were provided."
-                )
             workflow_params = model_cls.model_validate(config.params)
 
         if workflow_spec.source_names and source_name not in workflow_spec.source_names:

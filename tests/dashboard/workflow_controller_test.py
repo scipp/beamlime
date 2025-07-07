@@ -6,9 +6,6 @@ import pydantic
 import pytest
 
 from beamlime.config.workflow_spec import (
-    ModelId,
-    Parameter,
-    ParameterType,
     PersistentWorkflowConfigs,
     WorkflowConfig,
     WorkflowId,
@@ -98,27 +95,21 @@ def workflow_id() -> WorkflowId:
 def workflow_spec(workflow_id: WorkflowId) -> WorkflowSpec:
     """Test workflow specification."""
     return WorkflowSpec(
+        instrument="test_instrument",
         name="Test Workflow",
+        version=1,
         description="A test workflow for unit testing",
         source_names=["detector_1", "detector_2"],
-        params=ModelId("test_workflow_params"),  # Use ModelId instead of string
-        parameters=[
-            Parameter(
-                name="threshold",
-                description="Detection threshold",
-                param_type=ParameterType.FLOAT,
-                default=100.0,
-                unit="counts",
-            ),
-            Parameter(
-                name="mode",
-                description="Processing mode",
-                param_type=ParameterType.OPTIONS,
-                default="fast",
-                options=["fast", "accurate"],
-            ),
-        ],
+        params=SomeWorkflowParams,
     )
+
+
+@pytest.fixture
+def workflow_registry(
+    workflow_id: WorkflowId, workflow_spec: WorkflowSpec
+) -> dict[WorkflowId, WorkflowSpec]:
+    """Test workflow registry."""
+    return {workflow_id: workflow_spec}
 
 
 @pytest.fixture
@@ -137,22 +128,17 @@ def fake_service() -> FakeWorkflowConfigService:
 
 @pytest.fixture
 def workflow_controller(
-    fake_service: FakeWorkflowConfigService, source_names: list[str]
+    fake_service: FakeWorkflowConfigService,
+    source_names: list[str],
+    workflow_registry: dict[WorkflowId, WorkflowSpec],
 ) -> tuple[WorkflowController, FakeWorkflowConfigService]:
     """Workflow controller instance for testing."""
-
-    # Minimal parameter registry replacement
-    class DummyRegistry:
-        def get_model(self, model_id):
-            return SomeWorkflowParams
-
-    with pytest.MonkeyPatch.context() as m:
-        m.setattr(
-            "beamlime.dashboard.workflow_controller.get_parameter_registry",
-            lambda: DummyRegistry(),
-        )
-        controller = WorkflowController(fake_service, source_names)
-        return controller, fake_service
+    controller = WorkflowController(
+        service=fake_service,
+        source_names=source_names,
+        workflow_registry=workflow_registry,
+    )
+    return controller, fake_service
 
 
 class TestWorkflowController:
@@ -336,22 +322,34 @@ class TestWorkflowController:
         sources_1 = ["detector_1"]
         sources_2 = ["detector_2"]
 
+        # Add workflow specs to the controller's registry
+        workflow_spec_1 = WorkflowSpec(
+            instrument="test_instrument",
+            name="Workflow 1",
+            version=1,
+            description="First workflow",
+            source_names=sources_1,
+            params=SomeWorkflowParams,
+        )
+        workflow_spec_2 = WorkflowSpec(
+            instrument="test_instrument",
+            name="Workflow 2",
+            version=1,
+            description="Second workflow",
+            source_names=sources_2,
+            params=SomeWorkflowParams,
+        )
+
+        # Update the controller's registry
+        controller._workflow_registry[workflow_id_1] = workflow_spec_1
+        controller._workflow_registry[workflow_id_2] = workflow_spec_2
+
         # Add specs for both workflows
         extended_specs = WorkflowSpecs(
             workflows={
                 **workflow_specs.workflows,
-                workflow_id_1: WorkflowSpec(
-                    name="Workflow 1",
-                    description="First workflow",
-                    source_names=sources_1,
-                    params=ModelId("test_workflow_params"),
-                ),
-                workflow_id_2: WorkflowSpec(
-                    name="Workflow 2",
-                    description="Second workflow",
-                    source_names=sources_2,
-                    params=ModelId("test_workflow_params"),
-                ),
+                workflow_id_1: workflow_spec_1,
+                workflow_id_2: workflow_spec_2,
             }
         )
         service.set_workflow_specs(extended_specs)
@@ -417,21 +415,34 @@ class TestWorkflowController:
     ):
         """Test that cleanup removes configs for workflows that no longer exist."""
         controller, service = workflow_controller
+
+        # Add workflow specs to the controller's registry
+        workflow_spec_1 = WorkflowSpec(
+            instrument="test_instrument",
+            name="Workflow 1",
+            version=1,
+            description="First workflow",
+            source_names=["detector_1"],
+            params=SomeWorkflowParams,
+        )
+        workflow_spec_2 = WorkflowSpec(
+            instrument="test_instrument",
+            name="Workflow 2",
+            version=1,
+            description="Second workflow",
+            source_names=["detector_2"],
+            params=SomeWorkflowParams,
+        )
+
+        # Update the controller's registry
+        controller._workflow_registry["workflow_1"] = workflow_spec_1
+        controller._workflow_registry["workflow_2"] = workflow_spec_2
+
         service.set_workflow_specs(
             WorkflowSpecs(
                 workflows={
-                    "workflow_1": WorkflowSpec(
-                        name="Workflow 1",
-                        description="First workflow",
-                        source_names=["detector_1"],
-                        params=ModelId("test_workflow_params"),
-                    ),
-                    "workflow_2": WorkflowSpec(
-                        name="Workflow 2",
-                        description="Second workflow",
-                        source_names=["detector_2"],
-                        params=ModelId("test_workflow_params"),
-                    ),
+                    "workflow_1": workflow_spec_1,
+                    "workflow_2": workflow_spec_2,
                 }
             )
         )
@@ -443,12 +454,7 @@ class TestWorkflowController:
         # Simulate workflow specs update with only one workflow remaining
         remaining_workflows = WorkflowSpecs(
             workflows={
-                "workflow_1": WorkflowSpec(
-                    name="Remaining Workflow",
-                    description="Only this one remains",
-                    source_names=["detector_1"],
-                    params=ModelId("test_workflow_params"),
-                )
+                "workflow_1": workflow_spec_1,
             }
         )
         service.set_workflow_specs(remaining_workflows)
@@ -708,10 +714,15 @@ class TestWorkflowController:
     def test_controller_initializes_all_sources_with_unknown_status(
         self,
         fake_service: FakeWorkflowConfigService,
+        workflow_registry: dict[WorkflowId, WorkflowSpec],
     ):
         """Test that controller initializes all sources with UNKNOWN status."""
         source_names = ["detector_1", "detector_2", "detector_3"]
-        controller = WorkflowController(fake_service, source_names)
+        controller = WorkflowController(
+            service=fake_service,
+            source_names=source_names,
+            workflow_registry=workflow_registry,
+        )
 
         # Set up callback to capture initial status
         captured_status = {}
@@ -937,3 +948,32 @@ class TestWorkflowController:
         # The new callback should not contain our test modification
         assert "test_modification" not in received_workflows[2]
         assert len(received_workflows[2]) == original_count
+
+    def test_get_workflow_params_returns_correct_params(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+        workflow_id: WorkflowId,
+        workflow_specs: WorkflowSpecs,
+    ):
+        """Test that get_workflow_params returns the correct parameters."""
+        controller, service = workflow_controller
+        service.set_workflow_specs(workflow_specs)
+
+        # Act
+        result = controller.get_workflow_params(workflow_id)
+
+        # Assert
+        assert result == SomeWorkflowParams
+
+    def test_get_workflow_params_returns_none_for_nonexistent(
+        self,
+        workflow_controller: tuple[WorkflowController, FakeWorkflowConfigService],
+    ):
+        """Test that get_workflow_params returns None for non-existent workflow."""
+        controller, service = workflow_controller
+
+        # Act
+        result = controller.get_workflow_params("nonexistent_workflow")
+
+        # Assert
+        assert result is None

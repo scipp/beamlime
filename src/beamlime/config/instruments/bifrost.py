@@ -24,7 +24,6 @@ from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
-from beamlime.parameters import get_parameter_registry
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
@@ -155,7 +154,6 @@ _source_names = ('unified_detector',)
 # spectrum_view_pixels_per_tube_param = Parameter(...)
 
 
-@get_parameter_registry().register(name='bifrost_spectrum_view', version=1)
 class SpectrumViewParams(pydantic.BaseModel):
     time_bins: int = pydantic.Field(
         title='Time bins',
@@ -194,7 +192,7 @@ instrument = Instrument(
     name='spectrum-view',
     description='Spectrum view with configurable time bins and pixels per tube.',
     source_names=_source_names,
-    params=('bifrost_spectrum_view', 1),
+    version=1,
 )
 def _spectrum_view_new(params: SpectrumViewParams) -> StreamProcessor:
     wf = _reduction_workflow.copy()
@@ -208,7 +206,9 @@ def _spectrum_view_new(params: SpectrumViewParams) -> StreamProcessor:
     )
 
 
-@instrument.register_workflow(name='counts-per-angle', source_names=_source_names)
+@instrument.register_workflow(
+    name='counts-per-angle', source_names=_source_names, version=1
+)
 def _counts_per_angle() -> StreamProcessor:
     return StreamProcessor(
         _reduction_workflow.copy(),
@@ -219,7 +219,7 @@ def _counts_per_angle() -> StreamProcessor:
     )
 
 
-@instrument.register_workflow(name='all', source_names=_source_names)
+@instrument.register_workflow(name='all', source_names=_source_names, version=1)
 def _all() -> StreamProcessor:
     return StreamProcessor(
         _reduction_workflow.copy(),

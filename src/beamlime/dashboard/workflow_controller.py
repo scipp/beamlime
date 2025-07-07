@@ -120,6 +120,12 @@ class WorkflowController:
         )
         self._workflow_specs = dict(workflow_specs.workflows)
         for workflow_id, spec in self._workflow_specs.items():
+            if workflow_id not in self._workflow_registry:
+                self._logger.warning(
+                    'Workflow %s not found in registry, skipping param assignment',
+                    workflow_id,
+                )
+                continue
             full_spec = self._workflow_registry[workflow_id]
             spec.params = full_spec.params
 
