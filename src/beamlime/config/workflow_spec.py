@@ -62,7 +62,7 @@ class WorkflowConfig(BaseModel):
     )
     params: dict[str, Any] = Field(
         default_factory=dict,
-        description="Parameters for the workflow, indexed by parameter name.",
+        description="Parameters for the workflow, as JSON-serialized Pydantic model.",
     )
 
 
