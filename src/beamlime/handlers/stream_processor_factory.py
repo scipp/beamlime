@@ -8,7 +8,7 @@ from importlib import metadata
 import pydantic
 from ess.reduce.streaming import StreamProcessor
 
-from beamlime.config.workflow_spec import Parameter, WorkflowId, WorkflowSpec
+from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec
 from beamlime.parameters import ModelId
 
 
@@ -46,8 +46,7 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
         name: str,
         description: str = '',
         source_names: Sequence[str] | None = None,
-        parameters: Sequence[Parameter] | None = None,
-        params: tuple[str, int] = ('', 0),
+        params: tuple[str, int] | None = None,
     ) -> Callable[[Callable[..., StreamProcessor]], Callable[..., StreamProcessor]]:
         """
         Decorator to register a factory function for creating StreamProcessors.
@@ -61,9 +60,9 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
         source_names:
             Optional list of source names that the factory can handle. This is used to
             create a workflow specification.
-        parameters:
-            Optional list of parameters that the factory accepts. This is used to
-            create a workflow specification.
+        params:
+            Optional tuple containing the name and version of the parameters for the
+            workflow. This is used to create a workflow specification.
 
         Returns
         -------
@@ -77,8 +76,9 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
                 name=name,
                 description=description,
                 source_names=list(source_names or []),
-                parameters=list(parameters or []),
-                params=ModelId(name=params[0], version=params[1]),
+                params=None
+                if params is None
+                else ModelId(name=params[0], version=params[1]),
             )
             spec_id = _hash_factory(factory)
             self._factories[spec_id] = factory

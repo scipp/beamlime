@@ -8,7 +8,7 @@ import pytest
 from streaming_data_types import eventdata_ev44
 
 from beamlime.config import workflow_spec
-from beamlime.config.instruments import available_instruments
+from beamlime.config.instruments import available_instruments, dream, loki
 from beamlime.config.models import ConfigKey, StartTime
 from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigUpdate
@@ -63,9 +63,7 @@ def test_can_configure_and_stop_workflow_with_detector(
         source_name=None, service_name="data_reduction", key="workflow_config"
     )
     workflow_config = workflow_spec.WorkflowConfig(
-        identifier=workflow_id,
-        param_id=spec.params,
-        params={param.name: param.default for param in spec.parameters},
+        identifier=workflow_id, param_id=spec.params
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
@@ -129,9 +127,7 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
         source_name=None, service_name="data_reduction", key="workflow_config"
     )
     workflow_config = workflow_spec.WorkflowConfig(
-        identifier=workflow_id,
-        param_id=spec.params,
-        params={param.name: param.default for param in spec.parameters},
+        identifier=workflow_id, param_id=spec.params
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
@@ -196,9 +192,7 @@ def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None
         source_name=None, service_name="data_reduction", key="workflow_config"
     )
     workflow_config = workflow_spec.WorkflowConfig(
-        identifier=workflow_id,
-        param_id=spec.params,
-        params={param.name: param.default for param in spec.parameters},
+        identifier=workflow_id, param_id=spec.params
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
@@ -249,7 +243,6 @@ def test_service_can_recover_after_bad_workflow_id_was_set(
     bad_workflow_id = workflow_spec.WorkflowConfig(
         identifier='abcde12345',  # Invalid workflow ID
         param_id=spec.params,
-        params={param.name: param.default for param in spec.parameters},
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())
@@ -266,9 +259,7 @@ def test_service_can_recover_after_bad_workflow_id_was_set(
     sink.messages.clear()  # Clear the error message
 
     bad_param_value = workflow_spec.WorkflowConfig(
-        identifier=workflow_id,
-        param_id=spec.params,
-        params={param.name: param.default for param in spec.parameters},
+        identifier=workflow_id, param_id=spec.params
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
@@ -293,7 +284,7 @@ def test_service_can_recover_after_bad_workflow_param_was_set(
     config_key = ConfigKey(
         source_name=None, service_name="data_reduction", key="workflow_config"
     )
-    defaults = {param.name: param.default for param in spec.parameters}
+    defaults = {}
     defaults['does_not_exist'] = 1
     bad_param_value = workflow_spec.WorkflowConfig(
         identifier=workflow_id,
@@ -311,9 +302,7 @@ def test_service_can_recover_after_bad_workflow_param_was_set(
     assert len(sink.messages) == 1  # Workflow not started, just an error message
 
     bad_param_value = workflow_spec.WorkflowConfig(
-        identifier=workflow_id,
-        param_id=spec.params,
-        params={param.name: param.default for param in spec.parameters},
+        identifier=workflow_id, param_id=spec.params
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
@@ -339,9 +328,7 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
         source_name=None, service_name="data_reduction", key="workflow_config"
     )
     workflow_config = workflow_spec.WorkflowConfig(
-        identifier=workflow_id,
-        param_id=spec.params,
-        params={param.name: param.default for param in spec.parameters},
+        identifier=workflow_id, param_id=spec.params
     )
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
     service.step()
@@ -368,7 +355,7 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
     assert sink.messages[2].value.values.sum() == 5000
 
     # Try to set a workflow with invalid parameters
-    defaults = {param.name: param.default for param in spec.parameters}
+    defaults = {}
     defaults['does_not_exist'] = 1
     bad_param_value = workflow_spec.WorkflowConfig(
         identifier=workflow_id,
@@ -417,9 +404,7 @@ def test_workflow_starts_with_specific_or_global_source_name(
         source_name=source_name, service_name="data_reduction", key="workflow_config"
     )
     workflow_config = workflow_spec.WorkflowConfig(
-        identifier=workflow_id,
-        param_id=spec.params,
-        params={param.name: param.default for param in spec.parameters},
+        identifier=workflow_id, param_id=spec.params
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
@@ -448,9 +433,7 @@ def configured_dummy_reduction() -> BeamlimeApp:
         source_name='panel_0', service_name="data_reduction", key="workflow_config"
     )
     workflow_config = workflow_spec.WorkflowConfig(
-        identifier=workflow_id,
-        param_id=spec.params,
-        params={param.name: param.default for param in spec.parameters},
+        identifier=workflow_id, param_id=spec.params
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())

@@ -9,7 +9,6 @@ from typing import Any
 
 from ess.reduce.streaming import StreamProcessor
 
-from beamlime.config.workflow_spec import Parameter
 from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 
 
@@ -63,10 +62,10 @@ class Instrument:
     def register_workflow(
         self,
         name: str,
+        *,
         description: str = '',
         source_names: Sequence[str] | None = None,
-        parameters: Sequence[Parameter] | None = None,
-        params: tuple[str, int] = ('', 0),
+        params: tuple[str, int] | None = None,
     ) -> Callable[[Callable[..., StreamProcessor]], Callable[..., StreamProcessor]]:
         """
         Decorator to register a factory function for creating StreamProcessors.
@@ -80,18 +79,14 @@ class Instrument:
         source_names:
             Optional list of source names that the factory can handle. This is used to
             create a workflow specification.
-        parameters:
-            Optional list of parameters that the factory accepts. This is used to
-            create a workflow specification.
+        params:
+            Optional tuple containing the name and version of the parameters for the
+            workflow. This is used to create a workflow specification.
 
         Returns
         -------
         Decorator function that registers the factory and returns it unchanged.
         """
         return self.processor_factory.register(
-            name=name,
-            description=description,
-            source_names=source_names,
-            parameters=parameters,
-            params=params,
+            name=name, description=description, source_names=source_names, params=params
         )

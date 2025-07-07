@@ -122,8 +122,11 @@ class WorkflowManager:
         try:
             # Deserialize parameters using the registry
             registry = get_parameter_registry()
-            model_cls = registry.get_model(config.param_id)
-            workflow_params = model_cls.model_validate(config.params)
+            if config.param_id is None:
+                workflow_params = None
+            else:
+                model_cls = registry.get_model(config.param_id)
+                workflow_params = model_cls.model_validate(config.params)
 
             processor = self._processor_factory.create(
                 workflow_id=config.identifier,
