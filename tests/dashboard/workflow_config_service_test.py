@@ -52,10 +52,12 @@ def sample_workflow_config():
 def sample_workflow_specs():
     """Create sample workflow specs for testing."""
     workflow_spec = WorkflowSpec(
+        instrument="test_instrument",
         name="Test Workflow",
+        version=1,
         description="A test workflow",
         source_names=["source1", "source2"],
-        parameters=[],
+        params=None,
     )
     return WorkflowSpecs(workflows={"test_workflow": workflow_spec})
 

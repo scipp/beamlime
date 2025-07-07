@@ -8,6 +8,8 @@ import pytest
 from streaming_data_types import eventdata_ev44
 
 from beamlime.config import workflow_spec
+
+# Import instrument modules so their workflows get registered.
 from beamlime.config.instruments import (  # noqa: F401
     available_instruments,
     dream,
@@ -67,9 +69,7 @@ def test_can_configure_and_stop_workflow_with_detector(
     config_key = ConfigKey(
         source_name=None, service_name="data_reduction", key="workflow_config"
     )
-    workflow_config = workflow_spec.WorkflowConfig(
-        identifier=workflow_id, param_id=spec.params
-    )
+    workflow_config = workflow_spec.WorkflowConfig(identifier=workflow_id)
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
     service.step()
@@ -131,9 +131,7 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     config_key = ConfigKey(
         source_name=None, service_name="data_reduction", key="workflow_config"
     )
-    workflow_config = workflow_spec.WorkflowConfig(
-        identifier=workflow_id, param_id=spec.params
-    )
+    workflow_config = workflow_spec.WorkflowConfig(identifier=workflow_id)
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
     service.step()
@@ -196,9 +194,7 @@ def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None
     config_key = ConfigKey(
         source_name=None, service_name="data_reduction", key="workflow_config"
     )
-    workflow_config = workflow_spec.WorkflowConfig(
-        identifier=workflow_id, param_id=spec.params
-    )
+    workflow_config = workflow_spec.WorkflowConfig(identifier=workflow_id)
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
     app.publish_events(size=2000, time=1)
@@ -262,9 +258,7 @@ def test_service_can_recover_after_bad_workflow_id_was_set(
     assert status.status == workflow_spec.WorkflowStatusType.STARTUP_ERROR
     sink.messages.clear()  # Clear the error message
 
-    bad_param_value = workflow_spec.WorkflowConfig(
-        identifier=workflow_id, param_id=spec.params
-    )
+    bad_param_value = workflow_spec.WorkflowConfig(identifier=workflow_id)
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
     app.publish_events(size=1000, time=5)
