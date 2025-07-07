@@ -73,6 +73,10 @@ class WorkflowUIHelper:
         """Get the description for the bound workflow."""
         return self._controller.spec.description
 
+    def get_source_names(self) -> list[str]:
+        """Get all source names the workflow supports."""
+        return self._controller.spec.source_names
+
     def get_initial_source_names(self) -> list[str]:
         """Get initial source names for the bound workflow controller."""
         persistent_config = self._controller.get_persistent_config()

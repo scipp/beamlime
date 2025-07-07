@@ -33,11 +33,10 @@ class WorkflowConfigWidget:
 
     def _create_source_selector(self) -> pn.widgets.MultiChoice:
         """Create source selection widget."""
-        initial_sources = self._ui_helper.get_initial_source_names()
         return pn.widgets.MultiChoice(
             name="Source Names",
-            options=self._controller.spec.source_names,
-            value=initial_sources,
+            options=self._ui_helper.get_source_names(),
+            value=self._ui_helper.get_initial_source_names(),
             placeholder="Select source names to apply workflow to",
             sizing_mode='stretch_width',
             margin=(0, 0, 0, 0),
@@ -79,9 +78,10 @@ class WorkflowConfigWidget:
 
     def _create_widget(self) -> pn.Column:
         """Create the main configuration widget."""
-        spec = self._controller.spec
+        title = self._ui_helper.get_workflow_title()
+        description = self._ui_helper.get_workflow_description()
         return pn.Column(
-            pn.pane.HTML(f"<h1>{spec.title}</h1><p>{spec.description}</p>"),
+            pn.pane.HTML(f"<h1>{title}</h1><p>{description}</p>"),
             self._source_selector,
             self._source_error_pane,
             self._parameter_panel,
@@ -278,5 +278,4 @@ class WorkflowConfigModal:
     @property
     def modal(self) -> pn.Modal:
         """Get the modal widget."""
-        return self._modal
         return self._modal
