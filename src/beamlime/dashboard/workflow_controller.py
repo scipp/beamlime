@@ -4,6 +4,8 @@
 Workflow controller implementation backed by a config service.
 """
 
+from __future__ import annotations
+
 import logging
 from collections.abc import Callable, Mapping
 
@@ -92,7 +94,7 @@ class WorkflowController:
         config_service,
         source_names: list[str],
         workflow_registry: Mapping[WorkflowId, WorkflowSpec],
-    ) -> 'WorkflowController':
+    ) -> WorkflowController:
         """Create WorkflowController from ConfigService."""
         adapter = ConfigServiceAdapter(config_service, source_names)
         return cls(
@@ -118,16 +120,16 @@ class WorkflowController:
             'Received workflow specs update with %d workflows',
             len(workflow_specs.workflows),
         )
-        self._workflow_specs = dict(workflow_specs.workflows)
-        for workflow_id, spec in self._workflow_specs.items():
+        self._workflow_specs.clear()
+        for workflow_id, spec in workflow_specs.workflows.items():
             if workflow_id not in self._workflow_registry:
                 self._logger.warning(
-                    'Workflow %s not found in registry, skipping param assignment',
-                    workflow_id,
+                    'Workflow %s not found in registry, skipping', workflow_id
                 )
                 continue
             full_spec = self._workflow_registry[workflow_id]
             spec.params = full_spec.params
+            self._workflow_specs[workflow_id] = spec
 
         # Clean up old persistent configs for workflows that no longer exist
         self._cleanup_persistent_configs(set(self._workflow_specs))
