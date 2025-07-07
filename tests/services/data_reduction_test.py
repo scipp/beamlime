@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 from streaming_data_types import eventdata_ev44
 
-from beamlime.config import workflow_spec
+from beamlime.config import instrument_registry, workflow_spec
 
 # Import instrument modules so their workflows get registered.
 from beamlime.config.instruments import (  # noqa: F401
@@ -24,9 +24,20 @@ from tests.helpers.beamlime_app import BeamlimeApp
 
 
 def _get_workflow_by_name(
-    workflow_specs: workflow_spec.WorkflowSpecs, name: str
+    workflow_specs, name: str
 ) -> tuple[str, workflow_spec.WorkflowSpec]:
     for wid, spec in workflow_specs.workflows.items():
+        if spec.name == name:
+            return wid, spec
+    raise ValueError(f"Workflow {name} not found in specs")
+
+
+def _get_workflow_from_registry(
+    instrument: str, name: str
+) -> tuple[str, workflow_spec.WorkflowSpec]:
+    instrument_config = instrument_registry[instrument]
+    workflow_registry = instrument_config.processor_factory
+    for wid, spec in workflow_registry.items():
         if spec.name == name:
             return wid, spec
     raise ValueError(f"Workflow {name} not found in specs")
@@ -60,10 +71,9 @@ def test_can_configure_and_stop_workflow_with_detector(
     app = make_reduction_app(instrument=instrument)
     sink = app.sink
     service = app.service
-    workflow_specs = sink.messages[0].value.value
     workflow_name = {'bifrost': 'spectrum-view', 'dummy': 'Total counts'}[instrument]
-    workflow_id, spec = _get_workflow_by_name(workflow_specs, workflow_name)
-    sink.messages.clear()  # Clear the initial message
+    # WorkflowSpec (second arg) unused here since the workflow does not take params.
+    workflow_id, _ = _get_workflow_from_registry(instrument, workflow_name)
 
     # Assume workflow is runnable for all source names
     config_key = ConfigKey(
