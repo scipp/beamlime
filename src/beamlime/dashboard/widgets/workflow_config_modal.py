@@ -90,7 +90,7 @@ class WorkflowConfigWidget:
         """Create the main configuration widget."""
         return pn.Column(
             pn.pane.HTML(
-                f"<h1>{self._workflow_spec.name}</h1>"
+                f"<h1>{self._workflow_spec.title}</h1>"
                 f"<p>{self._workflow_spec.description}</p>"
             ),
             self._source_selector,
@@ -213,7 +213,7 @@ class WorkflowConfigModal:
 
         modal = pn.Modal(
             content,
-            name=f"Configure {self._workflow_spec.name}",
+            name=f"Configure {self._workflow_spec.title}",
             margin=20,
             width=800,
             height=800,
@@ -263,7 +263,7 @@ class WorkflowConfigModal:
 
         if not success:
             self._show_workflow_error(
-                f"Error: Workflow '{self._workflow_spec.name}' "
+                f"Error: Workflow '{self._workflow_spec.get_id()}' "
                 "is no longer available. Please select a different workflow."
             )
             return
