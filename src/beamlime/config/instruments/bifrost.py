@@ -185,10 +185,11 @@ instrument = Instrument(
 
 
 @instrument.register_workflow(
-    name='spectrum-view',
+    name='spectrum_view',
+    version=1,
+    title='Spectrum view',
     description='Spectrum view with configurable time bins and pixels per tube.',
     source_names=_source_names,
-    version=1,
 )
 def _spectrum_view_new(params: SpectrumViewParams) -> StreamProcessor:
     wf = _reduction_workflow.copy()
@@ -203,7 +204,10 @@ def _spectrum_view_new(params: SpectrumViewParams) -> StreamProcessor:
 
 
 @instrument.register_workflow(
-    name='counts-per-angle', source_names=_source_names, version=1
+    name='counts_per_angle',
+    version=1,
+    title='Counts per angle',
+    source_names=_source_names,
 )
 def _counts_per_angle() -> StreamProcessor:
     return StreamProcessor(
@@ -215,7 +219,12 @@ def _counts_per_angle() -> StreamProcessor:
     )
 
 
-@instrument.register_workflow(name='all', source_names=_source_names, version=1)
+@instrument.register_workflow(
+    name='all',
+    version=1,
+    title='Spectrum view and counts per angle',
+    source_names=_source_names,
+)
 def _all(params: SpectrumViewParams) -> StreamProcessor:
     wf = _reduction_workflow.copy()
     wf[_SpectrumViewTimeBins] = params.time_bins

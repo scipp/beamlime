@@ -49,7 +49,7 @@ def test_can_configure_and_stop_workflow_with_detector(
     app = make_reduction_app(instrument=instrument)
     sink = app.sink
     service = app.service
-    workflow_name = {'bifrost': 'spectrum-view', 'dummy': 'Total counts'}[instrument]
+    workflow_name = {'bifrost': 'spectrum_view', 'dummy': 'total_counts'}[instrument]
     # WorkflowSpec (second arg) unused here since the workflow does not take params.
     workflow_id, _ = _get_workflow_from_registry(instrument, workflow_name)
 
@@ -107,8 +107,8 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     sink = app.sink
     service = app.service
     workflow_name = {
-        'dream': 'Powder reduction',
-        'loki': 'I(Q)',
+        'dream': 'powder_reduction',
+        'loki': 'i_of_q',
     }[instrument]
     n_target = {'dream': 2, 'loki': 1}[instrument]
     workflow_id, spec = _get_workflow_from_registry(instrument, workflow_name)
@@ -170,7 +170,7 @@ def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None
     app = make_reduction_app(instrument='dummy')
     sink = app.sink
     service = app.service
-    workflow_id, _ = _get_workflow_from_registry('dummy', 'Total counts')
+    workflow_id, _ = _get_workflow_from_registry('dummy', 'total_counts')
 
     app.publish_events(size=1000, time=0)
     service.step()
@@ -218,7 +218,7 @@ def test_service_can_recover_after_bad_workflow_id_was_set(
     app = make_reduction_app(instrument='dummy')
     sink = app.sink
     service = app.service
-    workflow_id, spec = _get_workflow_from_registry('dummy', 'Total counts')
+    workflow_id, spec = _get_workflow_from_registry('dummy', 'total_counts')
 
     # Assume workflow is runnable for all source names
     config_key = ConfigKey(
@@ -257,7 +257,7 @@ def test_service_can_recover_after_bad_workflow_param_was_set(
     app = make_reduction_app(instrument='dummy')
     sink = app.sink
     service = app.service
-    workflow_id, spec = _get_workflow_from_registry('dummy', 'Total counts')
+    workflow_id, spec = _get_workflow_from_registry('dummy', 'total_counts')
 
     # Assume workflow is runnable for all source names
     config_key = ConfigKey(
@@ -292,7 +292,7 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
     app = make_reduction_app(instrument='dummy')
     sink = app.sink
     service = app.service
-    workflow_id, spec = _get_workflow_from_registry('dummy', 'Total counts')
+    workflow_id, spec = _get_workflow_from_registry('dummy', 'total_counts')
 
     # Start a valid workflow first
     config_key = ConfigKey(
@@ -355,7 +355,7 @@ def test_workflow_starts_with_specific_or_global_source_name(
     app = make_reduction_app(instrument='dummy')
     sink = app.sink
     service = app.service
-    workflow_id, spec = _get_workflow_from_registry('dummy', 'Total counts')
+    workflow_id, spec = _get_workflow_from_registry('dummy', 'total_counts')
     source_name = None if all_source_names else spec.source_names[0]
 
     # This branch ensures that the service configures the workflow even for source names
@@ -388,7 +388,7 @@ def configured_dummy_reduction() -> BeamlimeApp:
     app = make_reduction_app(instrument='dummy')
     sink = app.sink
     service = app.service
-    workflow_id, _ = _get_workflow_from_registry('dummy', 'Total counts')
+    workflow_id, _ = _get_workflow_from_registry('dummy', 'total_counts')
 
     config_key = ConfigKey(
         source_name='panel_0', service_name="data_reduction", key="workflow_config"

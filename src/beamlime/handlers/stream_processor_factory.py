@@ -52,7 +52,7 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
         -------
         Decorator function that registers the factory and returns it unchanged.
         """
-        spec_id = f"{spec.instrument}/{spec.name}/{spec.version}"
+        spec_id = spec.get_id()
 
         def decorator(
             factory: Callable[..., StreamProcessor],

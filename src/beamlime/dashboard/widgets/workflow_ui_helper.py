@@ -52,7 +52,7 @@ class WorkflowUIHelper:
         specs = specs or {}
         select_text = "--- Click to select a workflow ---"
         options = {select_text: WorkflowUIHelper.no_selection}
-        options.update({spec.name: workflow_id for workflow_id, spec in specs.items()})
+        options.update({spec.title: workflow_id for workflow_id, spec in specs.items()})
         return options
 
     def is_no_selection(self, value: WorkflowId | object) -> bool:
@@ -63,12 +63,12 @@ class WorkflowUIHelper:
         """Get the default value for no workflow selection."""
         return self.no_selection
 
-    def get_workflow_name(self, workflow_id: WorkflowId | None) -> str:
-        """Get workflow name from ID, fallback to ID if not found."""
+    def get_workflow_title(self, workflow_id: WorkflowId | None) -> str:
+        """Get workflow title from ID, fallback to ID if not found."""
         if workflow_id is None:
             return "None"
         if (spec := self._controller.get_workflow_spec(workflow_id)) is not None:
-            return spec.name
+            return spec.title
         return str(workflow_id)
 
     def get_workflow_description(self, workflow_id: WorkflowId | object) -> str | None:

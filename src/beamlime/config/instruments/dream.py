@@ -216,10 +216,11 @@ class PowderWorkflowParams(pydantic.BaseModel):
 
 
 @instrument.register_workflow(
-    name='Powder reduction',
+    name='powder_reduction',
+    version=1,
+    title='Powder reduction',
     description='Powder reduction without vanadium normalization.',
     source_names=_source_names,
-    version=1,
 )
 def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProcessor:
     wf = _reduction_workflow.copy()

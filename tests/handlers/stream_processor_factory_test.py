@@ -51,6 +51,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="test-workflow",
             version=1,
+            title="Pretty name",
             description="Test description",
             params=None,
         )
@@ -74,6 +75,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="test-workflow",
             version=1,
+            title="test-workflow",
             description="Test",
             source_names=sources,
             params=None,
@@ -93,6 +95,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="test-workflow",
             version=1,
+            title="test-workflow",
             description="Test",
             params=None,
         )
@@ -112,6 +115,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="test-workflow",
             version=1,
+            title="test-workflow",
             description="Test",
             source_names=["source1"],
             params=None,
@@ -132,6 +136,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="test-workflow",
             version=1,
+            title="test-workflow",
             description="Test",
             params=None,
         )
@@ -153,6 +158,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="test-workflow",
             version=1,
+            title="test-workflow",
             description="Test",
             params=None,  # This will be auto-detected by the factory
         )
@@ -184,6 +190,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="test-workflow",
             version=1,
+            title="test-workflow",
             description="Test",
             source_names=["allowed-source"],
             params=None,
@@ -205,6 +212,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="workflow1",
             version=1,
+            title="workflow1",
             description="Test 1",
             params=None,
         )
@@ -212,6 +220,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="workflow2",
             version=1,
+            title="workflow2",
             description="Test 2",
             params=None,
         )
@@ -235,6 +244,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="workflow1",
             version=1,
+            title="workflow1",
             description="Test",
             params=None,
         )
@@ -257,6 +267,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="same-name",
             version=1,
+            title="V1",
             description="Test 1",
             params=None,
         )
@@ -264,6 +275,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="same-name",
             version=2,
+            title="V2",
             description="Test 2",
             params=None,
         )
@@ -300,6 +312,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="",
             version=1,
+            title="",
             description="Test",
             params=None,
         )
@@ -324,6 +337,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="test-workflow",
             version=1,
+            title="test-workflow",
             description="Test",
             source_names=sources,
             params=None,
@@ -355,6 +369,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="workflow1",
             version=1,
+            title="workflow1",
             description="Test",
             source_names=["source1", "source2"],
             params=None,
@@ -363,6 +378,7 @@ class TestStreamProcessorFactory:
             instrument="test-instrument",
             name="workflow2",
             version=1,
+            title="workflow2",
             description="Test",
             source_names=["source2", "source3"],
             params=None,

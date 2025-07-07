@@ -180,7 +180,9 @@ _accumulators = (
 )
 
 
-@instrument.register_workflow(name='I(Q)', source_names=_source_names, version=1)
+@instrument.register_workflow(
+    name='i_of_q', version=1, title='I(Q)', source_names=_source_names
+)
 def _i_of_q(source_name: str) -> StreamProcessor:
     wf = _base_workflow.copy()
     wf[NeXusDetectorName] = source_name
@@ -193,10 +195,11 @@ def _i_of_q(source_name: str) -> StreamProcessor:
 
 
 @instrument.register_workflow(
-    name='I(Q) with params',
+    name='i_of_q_with_params',
+    version=1,
+    title='I(Q) with params',
     description='I(Q) reduction with configurable parameters.',
     source_names=_source_names,
-    version=1,
 )
 def _i_of_q_with_params(
     source_name: str, params: SansWorkflowParams

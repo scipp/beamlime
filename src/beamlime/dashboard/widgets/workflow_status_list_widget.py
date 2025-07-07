@@ -98,7 +98,7 @@ class WorkflowStatusListWidget:
     ) -> dict[str, Any]:
         """Create a row widget data structure for a single workflow."""
         # Get workflow name from UI helper
-        workflow_name = self._ui_helper.get_workflow_name(status.workflow_id)
+        workflow_name = self._ui_helper.get_workflow_title(status.workflow_id)
 
         # Create info panel
         info_pane = pn.pane.HTML("", width=220)
@@ -250,7 +250,7 @@ class WorkflowStatusListWidget:
         workflow_widgets = []
         for source_name, status in all_status.items():
             # Get workflow name from UI helper
-            workflow_name = self._ui_helper.get_workflow_name(status.workflow_id)
+            workflow_name = self._ui_helper.get_workflow_title(status.workflow_id)
 
             if source_name in self._workflow_rows:
                 # Update existing row

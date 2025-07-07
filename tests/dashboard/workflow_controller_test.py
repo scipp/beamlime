@@ -79,8 +79,9 @@ def workflow_spec(workflow_id: WorkflowId) -> WorkflowSpec:
     """Test workflow specification."""
     return WorkflowSpec(
         instrument="test_instrument",
-        name="Test Workflow",
+        name="test_workflow",
         version=1,
+        title="Test Workflow",
         description="A test workflow for unit testing",
         source_names=["detector_1", "detector_2"],
         params=SomeWorkflowParams,
@@ -290,6 +291,7 @@ class TestWorkflowController:
             instrument="test_instrument",
             name="Workflow 1",
             version=1,
+            title="Workflow 1",
             description="First workflow",
             source_names=sources_1,
             params=SomeWorkflowParams,
@@ -298,6 +300,7 @@ class TestWorkflowController:
             instrument="test_instrument",
             name="Workflow 2",
             version=1,
+            title="Workflow 2",
             description="Second workflow",
             source_names=sources_2,
             params=SomeWorkflowParams,
@@ -482,7 +485,7 @@ class TestWorkflowController:
 
         # Assert
         assert result == workflow_spec
-        assert result.name == "Test Workflow"
+        assert result.title == "Test Workflow"
         assert result.description == "A test workflow for unit testing"
 
     def test_get_workflow_spec_returns_none_for_nonexistent(

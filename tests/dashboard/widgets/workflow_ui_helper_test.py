@@ -128,8 +128,9 @@ def workflow_spec() -> WorkflowSpec:
     """Test workflow specification."""
     return WorkflowSpec(
         instrument="test_instrument",
-        name="Test Workflow",
+        name="test_workflow",
         version=1,
+        title="Test Workflow",
         description="A test workflow for unit testing",
         source_names=["detector_1", "detector_2"],
         params=SomeParams,
@@ -197,6 +198,7 @@ class TestWorkflowUIHelper:
             instrument="test_instrument",
             name="Workflow One",
             version=1,
+            title="Workflow One",
             description="First workflow",
             params=None,
         )
@@ -204,6 +206,7 @@ class TestWorkflowUIHelper:
             instrument="test_instrument",
             name="Workflow Two",
             version=1,
+            title="Workflow Two",
             description="Second workflow",
             params=None,
         )
@@ -211,6 +214,7 @@ class TestWorkflowUIHelper:
             instrument="test_instrument",
             name="Another Workflow",
             version=1,
+            title="Another Workflow",
             description="Third workflow",
             params=None,
         )
@@ -263,19 +267,19 @@ class TestWorkflowUIHelper:
         workflow_id = "test_workflow"
         mock_controller.set_workflow_spec(workflow_id, workflow_spec)
 
-        name = ui_helper.get_workflow_name(workflow_id)
+        name = ui_helper.get_workflow_title(workflow_id)
         assert name == "Test Workflow"
 
     def test_get_workflow_name_with_nonexistent_workflow(
         self, ui_helper: WorkflowUIHelper
     ):
         """Test get_workflow_name with non-existent workflow."""
-        name = ui_helper.get_workflow_name("nonexistent_workflow")
+        name = ui_helper.get_workflow_title("nonexistent_workflow")
         assert name == "nonexistent_workflow"
 
     def test_get_workflow_name_with_none(self, ui_helper: WorkflowUIHelper):
         """Test get_workflow_name with None."""
-        name = ui_helper.get_workflow_name(None)
+        name = ui_helper.get_workflow_title(None)
         assert name == "None"
 
     def test_get_workflow_description_with_existing_workflow(
@@ -295,13 +299,13 @@ class TestWorkflowUIHelper:
         self,
         ui_helper: WorkflowUIHelper,
         mock_controller: MockWorkflowController,
-        workflow_spec: WorkflowSpec,
     ):
         workflow_id = "empty_desc_workflow"
         empty_spec = WorkflowSpec(
             instrument="test_instrument",
-            name="Empty Description Workflow",
+            name="worklow",
             version=1,
+            title="Empty Description Workflow",
             description="",
             params=None,
         )
@@ -333,8 +337,9 @@ class TestWorkflowUIHelper:
         """Test get_workflow_description with workflow spec that has no description."""
         spec = WorkflowSpec(
             instrument="test_instrument",
-            name="No Description Workflow",
+            name="workflow",
             version=1,
+            title="No Description Workflow",
             description="",
             params=None,
         )
@@ -429,8 +434,9 @@ class TestWorkflowUIHelper:
         """Test get_initial_parameter_values with workflow that has no parameters."""
         spec = WorkflowSpec(
             instrument="test_instrument",
-            name="No Parameters Workflow",
+            name="workflow",
             version=1,
+            title="No Parameters Workflow",
             description="Workflow with no parameters",
             params=None,
         )

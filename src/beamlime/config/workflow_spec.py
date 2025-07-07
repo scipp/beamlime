@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field
 
 T = TypeVar('T')
 
+WorkflowId = str
+
 
 class WorkflowSpec(BaseModel):
     """
@@ -27,8 +29,9 @@ class WorkflowSpec(BaseModel):
     instrument: str = Field(
         description="Name of the instrument this workflow is associated with."
     )
-    name: str = Field(description="Name of the workflow.")
+    name: str = Field(description="Name of the workflow. Used internally.")
     version: int = Field(description="Version of the workflow.")
+    title: str = Field(description="Title of the workflow. For display in the UI.")
     description: str = Field(description="Description of the workflow.")
     source_names: list[str] = Field(
         default_factory=list,
@@ -36,8 +39,13 @@ class WorkflowSpec(BaseModel):
     )
     params: type[BaseModel] | None = Field(description="Model for workflow param.")
 
+    def get_id(self) -> WorkflowId:
+        """
+        Get a unique identifier for the workflow.
 
-WorkflowId = str
+        The identifier is a combination of instrument, name, and version.
+        """
+        return f"{self.instrument}/{self.name}/{self.version}"
 
 
 class WorkflowConfig(BaseModel):

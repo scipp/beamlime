@@ -63,9 +63,10 @@ class Instrument:
 
     def register_workflow(
         self,
-        name: str,
         *,
+        name: str,
         version: int,
+        title: str,
         description: str = '',
         source_names: Sequence[str] | None = None,
     ) -> Callable[[Callable[..., StreamProcessor]], Callable[..., StreamProcessor]]:
@@ -86,10 +87,12 @@ class Instrument:
         Parameters
         ----------
         name:
-            Name to register the factory under.
+            Name to register the workflow under.
         version:
             Version of the factory. This is used to differentiate between different
             versions of the same workflow.
+        title:
+            Title if the workflow. This is used for display in the UI.
         description:
             Optional description of the factory.
         source_names:
@@ -104,6 +107,7 @@ class Instrument:
             instrument=self.name,
             name=name,
             version=version,
+            title=title,
             description=description,
             source_names=list(source_names or []),
             params=None,  # placeholder, filled in from type hint later
