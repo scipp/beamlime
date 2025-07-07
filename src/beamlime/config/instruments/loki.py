@@ -16,11 +16,11 @@ from ess.sans.types import (
 )
 from scippnexus import NXdetector
 
+from beamlime import parameter_models
 from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
-from beamlime.parameters import parameter_models
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
