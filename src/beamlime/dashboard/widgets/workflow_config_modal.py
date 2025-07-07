@@ -5,8 +5,7 @@ from __future__ import annotations
 import panel as pn
 import pydantic
 
-from beamlime.config.workflow_spec import WorkflowId
-from beamlime.dashboard.workflow_controller import WorkflowController
+from beamlime.dashboard.workflow_controller import BoundWorkflowController
 
 from .param_widget import ParamWidget
 from .workflow_ui_helper import WorkflowUIHelper
@@ -15,27 +14,16 @@ from .workflow_ui_helper import WorkflowUIHelper
 class WorkflowConfigWidget:
     """Widget for configuring workflow parameters and source selection."""
 
-    def __init__(
-        self,
-        workflow_id: WorkflowId,
-        controller: WorkflowController,
-    ) -> None:
+    def __init__(self, bound_controller: BoundWorkflowController) -> None:
         """
         Initialize workflow configuration widget.
 
         Parameters
         ----------
-        workflow_id
-            ID of the workflow
-        controller
-            Controller for workflow operations
+        bound_controller
+            Controller bound to a specific workflow
         """
-        self._workflow_id = workflow_id
-        self._controller = controller
-        self._ui_helper = WorkflowUIHelper(controller)
-        if (spec := controller.get_workflow_spec(workflow_id)) is None:
-            raise ValueError(f"Workflow with ID '{workflow_id}' does not exist.")
-        self._workflow_spec = spec
+        self._bound_controller = bound_controller
         self._parameter_widgets: dict[str, ParamWidget] = {}
         self._source_selector = self._create_source_selector()
         self._parameter_panel = self._create_parameter_panel()
@@ -44,10 +32,12 @@ class WorkflowConfigWidget:
 
     def _create_source_selector(self) -> pn.widgets.MultiChoice:
         """Create source selection widget."""
-        initial_sources = self._ui_helper.get_initial_source_names(self._workflow_id)
+        initial_sources = WorkflowUIHelper.get_initial_source_names_from_bound(
+            self._bound_controller
+        )
         return pn.widgets.MultiChoice(
             name="Source Names",
-            options=self._workflow_spec.source_names,
+            options=self._bound_controller.spec.source_names,
             value=initial_sources,
             placeholder="Select source names to apply workflow to",
             sizing_mode='stretch_width',
@@ -56,7 +46,9 @@ class WorkflowConfigWidget:
 
     def _create_parameter_panel(self) -> pn.Column:
         """Create panel containing all parameter widgets."""
-        widget_data = self._ui_helper.get_parameter_widget_data(self._workflow_id)
+        widget_data = WorkflowUIHelper.get_parameter_widget_data_from_bound(
+            self._bound_controller
+        )
 
         parameter_cards = []
         for field_name, data in widget_data.items():
@@ -90,11 +82,9 @@ class WorkflowConfigWidget:
 
     def _create_widget(self) -> pn.Column:
         """Create the main configuration widget."""
+        spec = self._bound_controller.spec
         return pn.Column(
-            pn.pane.HTML(
-                f"<h1>{self._workflow_spec.title}</h1>"
-                f"<p>{self._workflow_spec.description}</p>"
-            ),
+            pn.pane.HTML(f"<h1>{spec.title}</h1><p>{spec.description}</p>"),
             self._source_selector,
             self._source_error_pane,
             self._parameter_panel,
@@ -117,8 +107,8 @@ class WorkflowConfigWidget:
             name: widget.create_model()
             for name, widget in self._parameter_widgets.items()
         }
-        return self._ui_helper.assemble_parameter_values(
-            self._workflow_id, widget_values
+        return WorkflowUIHelper.assemble_parameter_values_from_bound(
+            self._bound_controller, widget_values
         )
 
     def validate_configuration(self) -> tuple[bool, list[str]]:
@@ -175,27 +165,17 @@ class WorkflowConfigWidget:
 class WorkflowConfigModal:
     """Modal dialog for workflow configuration."""
 
-    def __init__(
-        self,
-        workflow_id: WorkflowId,
-        controller: WorkflowController,
-    ) -> None:
+    def __init__(self, bound_controller: BoundWorkflowController) -> None:
         """
         Initialize workflow configuration modal.
 
         Parameters
         ----------
-        workflow_id
-            ID of the workflow
-        controller
-            Controller for workflow operations
+        bound_controller
+            Controller bound to a specific workflow
         """
-        self._workflow_id = workflow_id
-        self._controller = controller
-        if (spec := controller.get_workflow_spec(workflow_id)) is None:
-            raise ValueError(f"Workflow with ID '{workflow_id}' does not exist.")
-        self._workflow_spec = spec
-        self._config_widget = WorkflowConfigWidget(workflow_id, controller)
+        self._bound_controller = bound_controller
+        self._config_widget = WorkflowConfigWidget(bound_controller)
         self._error_pane = pn.pane.HTML("", sizing_mode='stretch_width')
         self._modal = self._create_modal()
 
@@ -215,7 +195,7 @@ class WorkflowConfigModal:
 
         modal = pn.Modal(
             content,
-            name=f"Configure {self._workflow_spec.title}",
+            name=f"Configure {self._bound_controller.spec.title}",
             margin=20,
             width=800,
             height=900,
@@ -257,15 +237,14 @@ class WorkflowConfigModal:
             self._show_validation_errors(errors)
             return
 
-        success = self._controller.start_workflow(
-            self._workflow_id,
+        success = self._bound_controller.start_workflow(
             self._config_widget.selected_sources,
             self._config_widget.parameter_values,
         )
 
         if not success:
             self._show_workflow_error(
-                f"Error: Workflow '{self._workflow_spec.get_id()}' "
+                f"Error: Workflow '{self._bound_controller.workflow_id}' "
                 "is no longer available. Please select a different workflow."
             )
             return

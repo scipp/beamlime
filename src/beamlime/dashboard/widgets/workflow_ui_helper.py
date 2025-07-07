@@ -6,7 +6,10 @@ import pydantic
 from pydantic_core import PydanticUndefined
 
 from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec
-from beamlime.dashboard.workflow_controller import WorkflowController
+from beamlime.dashboard.workflow_controller import (
+    BoundWorkflowController,
+    WorkflowController,
+)
 
 
 def get_defaults(model: type[pydantic.BaseModel]) -> dict[str, Any]:
@@ -106,12 +109,33 @@ class WorkflowUIHelper:
             )
         return model_class
 
-    def get_parameter_widget_data(
-        self, workflow_id: WorkflowId
+    @staticmethod
+    def get_initial_parameter_values_from_bound(
+        bound_controller: BoundWorkflowController,
+    ) -> dict[str, Any]:
+        """Get initial parameter values for a bound workflow controller."""
+        persistent_config = bound_controller.get_persistent_config()
+        if not persistent_config:
+            return {}
+        return persistent_config.config.params
+
+    @staticmethod
+    def get_initial_source_names_from_bound(
+        bound_controller: BoundWorkflowController,
+    ) -> list[str]:
+        """Get initial source names for a bound workflow controller."""
+        persistent_config = bound_controller.get_persistent_config()
+        return persistent_config.source_names if persistent_config else []
+
+    @staticmethod
+    def get_parameter_widget_data_from_bound(
+        bound_controller: BoundWorkflowController,
     ) -> dict[str, dict[str, Any]]:
-        """Get parameter widget data for a workflow."""
-        model_class = self.get_workflow_model_class(workflow_id)
-        previous_values = self.get_initial_parameter_values(workflow_id)
+        """Get parameter widget data for a bound workflow controller."""
+        model_class = bound_controller.params_model_class
+        previous_values = WorkflowUIHelper.get_initial_parameter_values_from_bound(
+            bound_controller
+        )
         root_defaults = get_defaults(model_class)
         widget_data = {}
 
@@ -131,9 +155,11 @@ class WorkflowUIHelper:
 
         return widget_data
 
-    def assemble_parameter_values(
-        self, workflow_id: WorkflowId, parameter_values: dict[str, pydantic.BaseModel]
+    @staticmethod
+    def assemble_parameter_values_from_bound(
+        bound_controller: BoundWorkflowController,
+        parameter_values: dict[str, pydantic.BaseModel],
     ) -> pydantic.BaseModel:
-        """Assemble parameter values into a model."""
-        model_class = self.get_workflow_model_class(workflow_id)
+        """Assemble parameter values into a model for a bound controller."""
+        model_class = bound_controller.params_model_class
         return model_class(**parameter_values)

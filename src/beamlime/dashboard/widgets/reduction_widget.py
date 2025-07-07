@@ -141,9 +141,11 @@ class ReductionWidget:
         if workflow_id is None:
             return
 
-        modal = WorkflowConfigModal(
-            workflow_id=workflow_id, controller=self._controller
-        )
+        bound_controller = self._controller.get_bound_controller(workflow_id)
+        if bound_controller is None:
+            return
+
+        modal = WorkflowConfigModal(bound_controller=bound_controller)
 
         # Add modal to container and show it
         self._modal_container.append(modal.modal)
