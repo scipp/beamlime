@@ -32,9 +32,7 @@ class WorkflowConfigWidget:
 
     def _create_source_selector(self) -> pn.widgets.MultiChoice:
         """Create source selection widget."""
-        initial_sources = WorkflowUIHelper.get_initial_source_names_from_bound(
-            self._controller
-        )
+        initial_sources = WorkflowUIHelper.get_initial_source_names(self._controller)
         return pn.widgets.MultiChoice(
             name="Source Names",
             options=self._controller.spec.source_names,
@@ -46,9 +44,7 @@ class WorkflowConfigWidget:
 
     def _create_parameter_panel(self) -> pn.Column:
         """Create panel containing all parameter widgets."""
-        widget_data = WorkflowUIHelper.get_parameter_widget_data_from_bound(
-            self._controller
-        )
+        widget_data = WorkflowUIHelper.get_parameter_widget_data(self._controller)
 
         parameter_cards = []
         for field_name, data in widget_data.items():
@@ -107,7 +103,7 @@ class WorkflowConfigWidget:
             name: widget.create_model()
             for name, widget in self._parameter_widgets.items()
         }
-        return WorkflowUIHelper.assemble_parameter_values_from_bound(
+        return WorkflowUIHelper.assemble_parameter_values(
             self._controller, widget_values
         )
 

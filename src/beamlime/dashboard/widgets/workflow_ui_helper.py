@@ -86,41 +86,8 @@ class WorkflowUIHelper:
             return None
         return spec.description
 
-    def get_initial_parameter_values(self, workflow_id: WorkflowId) -> dict[str, Any]:
-        """Get initial parameter values for a workflow."""
-        persistent_config = self._controller.get_workflow_config(workflow_id)
-        if not persistent_config:
-            return {}
-        return persistent_config.config.params
-
-    def get_initial_source_names(self, workflow_id: WorkflowId) -> list[str]:
-        """Get initial source names for a workflow."""
-        persistent_config = self._controller.get_workflow_config(workflow_id)
-        return persistent_config.source_names if persistent_config else []
-
-    def get_workflow_model_class(
-        self, workflow_id: WorkflowId
-    ) -> type[pydantic.BaseModel]:
-        """Get and validate workflow parameter model class."""
-        model_class = self._controller.get_workflow_params(workflow_id)
-        if model_class is None:
-            raise ValueError(
-                f"Workflow parameters for '{workflow_id}' are not defined."
-            )
-        return model_class
-
     @staticmethod
-    def get_initial_parameter_values_from_bound(
-        bound_controller: BoundWorkflowController,
-    ) -> dict[str, Any]:
-        """Get initial parameter values for a bound workflow controller."""
-        persistent_config = bound_controller.get_persistent_config()
-        if not persistent_config:
-            return {}
-        return persistent_config.config.params
-
-    @staticmethod
-    def get_initial_source_names_from_bound(
+    def get_initial_source_names(
         bound_controller: BoundWorkflowController,
     ) -> list[str]:
         """Get initial source names for a bound workflow controller."""
@@ -128,12 +95,12 @@ class WorkflowUIHelper:
         return persistent_config.source_names if persistent_config else []
 
     @staticmethod
-    def get_parameter_widget_data_from_bound(
+    def get_parameter_widget_data(
         bound_controller: BoundWorkflowController,
     ) -> dict[str, dict[str, Any]]:
         """Get parameter widget data for a bound workflow controller."""
         model_class = bound_controller.params_model_class
-        previous_values = WorkflowUIHelper.get_initial_parameter_values_from_bound(
+        previous_values = WorkflowUIHelper.get_initial_parameter_values(
             bound_controller
         )
         root_defaults = get_defaults(model_class)
@@ -156,7 +123,17 @@ class WorkflowUIHelper:
         return widget_data
 
     @staticmethod
-    def assemble_parameter_values_from_bound(
+    def get_initial_parameter_values(
+        bound_controller: BoundWorkflowController,
+    ) -> dict[str, Any]:
+        """Get initial parameter values for a bound workflow controller."""
+        persistent_config = bound_controller.get_persistent_config()
+        if not persistent_config:
+            return {}
+        return persistent_config.config.params
+
+    @staticmethod
+    def assemble_parameter_values(
         bound_controller: BoundWorkflowController,
         parameter_values: dict[str, pydantic.BaseModel],
     ) -> pydantic.BaseModel:
