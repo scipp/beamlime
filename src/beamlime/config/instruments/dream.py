@@ -199,19 +199,14 @@ class PowderWorkflowParams(pydantic.BaseModel):
         title='Two-theta bins',
         description='Define the bin edges for binning in 2-theta.',
         default=parameter_models.TwoTheta(
-            start=0.4,
-            stop=3.1415,
-            num_bins=201,
-            unit=parameter_models.AngleUnit.RADIAN,
+            start=0.4, stop=3.1415, num_bins=201, unit=parameter_models.AngleUnit.RADIAN
         ),
     )
     wavelength_range: parameter_models.WavelengthRange = pydantic.Field(
         title='Wavelength range',
         description='Range of wavelengths to include in the reduction.',
         default=parameter_models.WavelengthRange(
-            start=1.1,
-            stop=4.5,
-            unit=parameter_models.WavelengthUnit.ANGSTROM,
+            start=1.1, stop=4.5, unit=parameter_models.WavelengthUnit.ANGSTROM
         ),
     )
     instrument_configuration: InstrumentConfiguration = pydantic.Field(

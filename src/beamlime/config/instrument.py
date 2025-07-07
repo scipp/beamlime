@@ -72,10 +72,24 @@ class Instrument:
         """
         Decorator to register a factory function for creating StreamProcessors.
 
+        This decorator registers a factory function that creates a
+        :py:class:`StreamProcessor` for a specific workflow. The decorator automatically
+        registers the factory with the processor factory and returns the factory
+        function unchanged.
+
+        The factory function may have two parameters:
+        - `source_name`: The name of the source to process.
+        - `params`: A Pydantic model containing parameters for the workflow. The factory
+          inspects the type hint of the `params` parameter to determine the correct
+          model that the frontend uses to create workflow configuration widgets.
+
         Parameters
         ----------
         name:
             Name to register the factory under.
+        version:
+            Version of the factory. This is used to differentiate between different
+            versions of the same workflow.
         description:
             Optional description of the factory.
         source_names:

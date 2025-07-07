@@ -149,10 +149,6 @@ _reduction_workflow.insert(_make_counts_per_angle)
 
 _source_names = ('unified_detector',)
 
-# Remove old parameter definitions
-# spectrum_view_time_bins_param = Parameter(...)
-# spectrum_view_pixels_per_tube_param = Parameter(...)
-
 
 class SpectrumViewParams(pydantic.BaseModel):
     time_bins: int = pydantic.Field(
@@ -220,9 +216,12 @@ def _counts_per_angle() -> StreamProcessor:
 
 
 @instrument.register_workflow(name='all', source_names=_source_names, version=1)
-def _all() -> StreamProcessor:
+def _all(params: SpectrumViewParams) -> StreamProcessor:
+    wf = _reduction_workflow.copy()
+    wf[_SpectrumViewTimeBins] = params.time_bins
+    wf[_SpectrumViewPixelsPerTube] = params.pixels_per_tube
     return StreamProcessor(
-        _reduction_workflow.copy(),
+        wf,
         dynamic_keys=(NeXusData[NXdetector, SampleRun],),
         context_keys=(DetectorRotation,),
         target_keys=(CountsPerAngle, SpectrumView),
