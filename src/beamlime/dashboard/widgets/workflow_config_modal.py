@@ -70,8 +70,9 @@ class WorkflowConfigWidget:
             # Add description if available
             if data['description']:
                 description_pane = pn.pane.HTML(
-                    "<p style='margin: 0 0 10px 0; color: #666; font-size: 0.9em;'>"
-                    f"{data['description']}</p>"
+                    "<p style='margin: 0 0 0 0; color: #666; font-size: 0.9em;'>"
+                    f"{data['description']}</p>",
+                    margin=(5, 5),
                 )
                 card_content.insert(0, description_pane)
 
@@ -217,7 +218,7 @@ class WorkflowConfigModal:
             name=f"Configure {self._workflow_spec.title}",
             margin=20,
             width=800,
-            height=800,
+            height=900,
         )
 
         # Watch for modal close events to clean up

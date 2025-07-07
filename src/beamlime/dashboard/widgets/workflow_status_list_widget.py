@@ -88,10 +88,7 @@ class WorkflowStatusListWidget:
 
     def _create_widget(self) -> pn.Column:
         """Create the main widget."""
-        return pn.Column(
-            pn.pane.HTML("<h4>Workflow status</h4>"),
-            self._workflow_list,
-        )
+        return self._workflow_list
 
     def _create_workflow_row(
         self, source_name: str, status: WorkflowStatus

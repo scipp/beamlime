@@ -116,7 +116,6 @@ class ReductionWidget:
     def _create_widget(self) -> pn.Column:
         """Create the main widget layout."""
         return pn.Column(
-            pn.pane.HTML("<h3>Data Reduction Workflows</h3>"),
             pn.Column(
                 self._workflow_selector.widget, self._configure_button, width=500
             ),

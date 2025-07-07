@@ -22,7 +22,7 @@ class ParamWidget:
         self.model_class = model_class
         self.widgets = {}
         self._create_widgets()
-        self._error_pane = pn.pane.HTML("", sizing_mode='stretch_width')
+        self._error_pane = pn.pane.HTML("", sizing_mode='stretch_width', margin=(0, 5))
         self._create_layout()
 
     def _create_widgets(self):
@@ -64,7 +64,7 @@ class ParamWidget:
             'name': display_name,
             'description': description,
             'sizing_mode': 'stretch_width',
-            'margin': (0, 0, 0, 0),
+            'margin': (0, 5),
         }
 
         # Create widget based on type
