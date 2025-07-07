@@ -8,7 +8,12 @@ import pytest
 from streaming_data_types import eventdata_ev44
 
 from beamlime.config import workflow_spec
-from beamlime.config.instruments import available_instruments, dream, loki
+from beamlime.config.instruments import (  # noqa: F401
+    available_instruments,
+    dream,
+    dummy,
+    loki,
+)
 from beamlime.config.models import ConfigKey, StartTime
 from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.handlers.config_handler import ConfigUpdate
@@ -242,7 +247,6 @@ def test_service_can_recover_after_bad_workflow_id_was_set(
     )
     bad_workflow_id = workflow_spec.WorkflowConfig(
         identifier='abcde12345',  # Invalid workflow ID
-        param_id=spec.params,
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())
@@ -284,12 +288,8 @@ def test_service_can_recover_after_bad_workflow_param_was_set(
     config_key = ConfigKey(
         source_name=None, service_name="data_reduction", key="workflow_config"
     )
-    defaults = {}
-    defaults['does_not_exist'] = 1
     bad_param_value = workflow_spec.WorkflowConfig(
-        identifier=workflow_id,
-        param_id=spec.params,
-        params=defaults,
+        identifier=workflow_id, params={'does_not_exist': 1}
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
@@ -301,9 +301,7 @@ def test_service_can_recover_after_bad_workflow_param_was_set(
     service.step()
     assert len(sink.messages) == 1  # Workflow not started, just an error message
 
-    bad_param_value = workflow_spec.WorkflowConfig(
-        identifier=workflow_id, param_id=spec.params
-    )
+    bad_param_value = workflow_spec.WorkflowConfig(identifier=workflow_id, params={})
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
     app.publish_events(size=1000, time=5)
@@ -328,7 +326,7 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
         source_name=None, service_name="data_reduction", key="workflow_config"
     )
     workflow_config = workflow_spec.WorkflowConfig(
-        identifier=workflow_id, param_id=spec.params
+        identifier=workflow_id,
     )
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
     service.step()
@@ -343,7 +341,6 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
     # Try to set an invalid workflow ID
     bad_workflow_id = workflow_spec.WorkflowConfig(
         identifier='abcde12345',  # Invalid workflow ID
-        param_id=spec.params,
         params={},
     )
     app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())
@@ -355,12 +352,9 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
     assert sink.messages[2].value.values.sum() == 5000
 
     # Try to set a workflow with invalid parameters
-    defaults = {}
-    defaults['does_not_exist'] = 1
     bad_param_value = workflow_spec.WorkflowConfig(
         identifier=workflow_id,
-        param_id=spec.params,
-        params=defaults,
+        params={'does_not_exist': 1},  # Invalid parameter
     )
     app.publish_config_message(key=config_key, value=bad_param_value.model_dump())
 
@@ -403,9 +397,7 @@ def test_workflow_starts_with_specific_or_global_source_name(
     config_key = ConfigKey(
         source_name=source_name, service_name="data_reduction", key="workflow_config"
     )
-    workflow_config = workflow_spec.WorkflowConfig(
-        identifier=workflow_id, param_id=spec.params
-    )
+    workflow_config = workflow_spec.WorkflowConfig(identifier=workflow_id)
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
     # Process config message before data arrives. Without calling step() the order of
@@ -426,15 +418,13 @@ def configured_dummy_reduction() -> BeamlimeApp:
     sink = app.sink
     service = app.service
     workflow_specs = sink.messages[0].value.value
-    workflow_id, spec = _get_workflow_by_name(workflow_specs, 'Total counts')
+    workflow_id, _ = _get_workflow_by_name(workflow_specs, 'Total counts')
     sink.messages.clear()  # Clear the initial message
 
     config_key = ConfigKey(
         source_name='panel_0', service_name="data_reduction", key="workflow_config"
     )
-    workflow_config = workflow_spec.WorkflowConfig(
-        identifier=workflow_id, param_id=spec.params
-    )
+    workflow_config = workflow_spec.WorkflowConfig(identifier=workflow_id)
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
     # Process config message before data arrives. Without calling step() the order of
