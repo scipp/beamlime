@@ -10,9 +10,6 @@
    :template: class-template.rst
    :recursive:
 
-   LiveWorkflow
-   WorkflowResult
-
 ```
 
 ## Submodules
@@ -22,7 +19,5 @@
    :toctree: ../generated/modules
    :template: module-template.rst
    :recursive:
-
-   workflow_protocols
 
 ```
