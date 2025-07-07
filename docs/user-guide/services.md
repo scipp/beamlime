@@ -19,19 +19,32 @@ This will run the services with a simplified topic structure and make them compa
 Note also the `--sink png` argument, which will save the outputs as PNG files instead of publishing them to Kafka.
 This allows for testing the service outputs without running the dashboard.
 
-### Dashboard
+### Dashboard Services
 
-The dashboard service can be run in development mode using
+#### Development Mode
 
-```sh
-python -m beamlime.services.dashboard --instrument dummy
-```
-
-The dashboard service can be run in production mode using
+The dashboard services can be run in development mode using:
 
 ```sh
-BEAMLIME_INSTRUMENT=dummy gunicorn beamlime.services.wsgi:application
+python -m beamlime.dashboard.monitors --instrument dummy
+python -m beamlime.dashboard.reduction --instrument dummy
 ```
+
+#### Production Mode
+
+The dashboard services can be run in production mode using gunicorn:
+
+```sh
+# Monitors dashboard (runs on port 5007)
+BEAMLIME_INSTRUMENT=dummy gunicorn beamlime.dashboard.monitors_wsgi:application
+
+# Reduction dashboard (runs on port 5009)
+BEAMLIME_INSTRUMENT=dummy gunicorn beamlime.dashboard.reduction_wsgi:application
+```
+
+Navigate to `http://localhost:5007` for the monitors dashboard or `http://localhost:5009` for the reduction dashboard.
+
+Both dashboards can run simultaneously on their respective ports.
 
 ### Fake data services
 
@@ -62,14 +75,17 @@ Run the monitor data histogramming and accumulation service:
 python -m beamlime.services.monitor_data --instrument dummy
 ```
 
-Run the dashboard service:
+Run the monitors dashboard service:
 
 ```sh
-BEAMLIME_INSTRUMENT=dummy gunicorn beamlime.services.wsgi:application
+# Development mode (runs on port 5007)
+python -m beamlime.dashboard.monitors --instrument dummy
+
+# Or production mode with gunicorn
+BEAMLIME_INSTRUMENT=dummy gunicorn beamlime.dashboard.monitors_wsgi:application
 ```
 
-Navigate to `http://localhost:8000` to see the dashboard.
-
+Navigate to `http://localhost:5007` to see the dashboard.
 
 ## Running the services using Docker
 
@@ -85,14 +101,30 @@ BEAMLIME_INSTRUMENT=dummy docker-compose -f docker-compose-beamlime.yml up
 This will start the Zookeeper, Kafka broker.
 This can be then used with the services run manually as described above.
 
-Alternatively, the `monitor` or `detector` profile can be used to start the respective services in Docker:
+Alternatively, you can use profiles to start specific service groups:
 
 ```sh
+# Start monitor services (includes fake data, monitor processing, and monitors dashboard)
 BEAMLIME_INSTRUMENT=dummy docker-compose --profile monitor -f docker-compose-beamlime.yml up
+
+# Start detector services (includes fake data and detector processing)
+BEAMLIME_INSTRUMENT=dummy docker-compose --profile detector -f docker-compose-beamlime.yml up
+
+# Start reduction dashboard
+BEAMLIME_INSTRUMENT=dummy docker-compose --profile reduction -f docker-compose-beamlime.yml up
 ```
 
 It will take a minute or two for the services to start fully.
-Navigate to `http://localhost:8000` to see the dashboard.
+
+When using the `monitor` profile, navigate to `http://localhost:5007` to see the monitors dashboard.
+When using the `reduction` profile, navigate to `http://localhost:5009` to see the reduction dashboard.
+
+Both dashboard profiles can be run simultaneously:
+
+```sh
+# Run both monitors and reduction dashboards
+BEAMLIME_INSTRUMENT=dummy docker-compose --profile monitor --profile reduction -f docker-compose-beamlime.yml up
+```
 
 ### Kafka Configuration
 
