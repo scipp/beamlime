@@ -149,7 +149,20 @@ def _total_counts(data: DetectorData[SampleRun]) -> TotalCounts:
     )
 
 
+def _fake_proton_charge(
+    data: powder.types.ReducedCountsDspacing[SampleRun],
+) -> powder.types.AccumulatedProtonCharge[SampleRun]:
+    """
+    Fake approximate proton charge for consistent normalization during streaming.
+
+    This is not meant for production, but as a workaround until monitor normalization is
+    fixed and/or we have setup a proton-charge stream.
+    """
+    return powder.types.AccumulatedProtonCharge[SampleRun](sc.values(data.data).sum())
+
+
 _reduction_workflow.insert(_total_counts)
+_reduction_workflow.insert(_fake_proton_charge)
 _reduction_workflow[powder.types.CalibrationData] = None
 _reduction_workflow = powder.with_pixel_mask_filenames(_reduction_workflow, [])
 _reduction_workflow[powder.types.UncertaintyBroadcastMode] = (
