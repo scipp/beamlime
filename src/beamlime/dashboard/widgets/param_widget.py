@@ -60,38 +60,36 @@ class ParamWidget:
                 (arg for arg in args if arg is not type(None)), field_type
             )
 
+        shared_options = {
+            'name': display_name,
+            'description': description,
+            'sizing_mode': 'stretch_width',
+            'margin': (0, 0, 0, 0),
+        }
+
         # Create widget based on type
         if field_type is float:
             return pn.widgets.FloatInput(
-                name=display_name,
                 value=default_value or 0.0,
                 placeholder=description,
-                description=description,
-                sizing_mode='stretch_width',
+                **shared_options,
             )
         elif field_type is int:
             return pn.widgets.IntInput(
-                name=display_name,
                 value=default_value or 0,
                 placeholder=description,
-                description=description,
-                sizing_mode='stretch_width',
+                **shared_options,
             )
         elif field_type is bool:
             # Does not support description directly
-            return pn.widgets.Checkbox(
-                name=display_name,
-                value=default_value or False,
-                margin=(20, 5, 5, 5),
-                sizing_mode='stretch_width',
-            )
+            options = shared_options.copy()
+            options.pop('description', None)
+            return pn.widgets.Checkbox(value=default_value or False, **options)
         elif field_type == Path or field_type is str:
             return pn.widgets.TextInput(
-                name=display_name,
                 value=str(default_value) if default_value else "",
                 placeholder=description,
-                description=description,
-                sizing_mode='stretch_width',
+                **shared_options,
             )
         elif isinstance(field_type, type) and issubclass(field_type, Enum):
             options = {}
@@ -109,20 +107,14 @@ class ParamWidget:
                 default_value if default_value else next(iter(options.values()))
             )
             return pn.widgets.Select(
-                name=display_name,
-                options=options,
-                value=default_widget_value,
-                description=description,
-                sizing_mode='stretch_width',
+                options=options, value=default_widget_value, **shared_options
             )
         else:
             # Fallback to text input
             return pn.widgets.TextInput(
-                name=display_name,
                 value=str(default_value) if default_value else "",
                 placeholder=description,
-                description=description,
-                sizing_mode='stretch_width',
+                **shared_options,
             )
 
     def get_values(self) -> dict[str, Any]:

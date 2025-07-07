@@ -51,6 +51,7 @@ class WorkflowConfigWidget:
             value=initial_sources,
             placeholder="Select source names to apply workflow to",
             sizing_mode='stretch_width',
+            margin=(0, 0, 0, 0),
         )
 
     def _create_parameter_panel(self) -> pn.Column:
@@ -77,7 +78,7 @@ class WorkflowConfigWidget:
             card = pn.Card(
                 *card_content,
                 title=data['title'],
-                margin=(5, 0),
+                margin=(3, 0),
                 collapsed=False,
                 width_policy='max',
                 sizing_mode='stretch_width',
