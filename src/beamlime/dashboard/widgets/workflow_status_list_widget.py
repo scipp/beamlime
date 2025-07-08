@@ -157,7 +157,17 @@ class WorkflowStatusListWidget:
             'inspect_button': inspect_button,
             'last_status': None,
             'last_workflow_name': None,
+            'action_type': None,  # Track current action type
         }
+
+        # Set up callback once - it will check the action_type to determine what to do
+        def action_callback(event):
+            if row_data['action_type'] == 'stop':
+                self._controller.stop_workflow_for_source(source_name)
+            elif row_data['action_type'] == 'remove':
+                self._controller.remove_workflow_for_source(source_name)
+
+        action_button.on_click(action_callback)
 
         # Update the row content
         self._update_row_content(source_name, status, workflow_name, row_data)
@@ -193,30 +203,18 @@ class WorkflowStatusListWidget:
         """  # noqa: E501
         row_data['info_pane'].object = info_html
 
-        # Update button if needed
-        if row_data['action_button'].name != display_info['button_name']:
-            row_data['action_button'].name = display_info['button_name']
-            row_data['action_button'].button_type = display_info['button_type']
+        # Update button appearance and action type
+        row_data['action_button'].name = display_info['button_name']
+        row_data['action_button'].button_type = display_info['button_type']
 
-            # Clear existing callbacks
-            row_data['action_button']._callbacks = {}
-
-            # Set new callback based on status
-            if status.status in (
-                WorkflowStatusType.STARTING,
-                WorkflowStatusType.RUNNING,
-            ):
-
-                def stop_callback(event):
-                    self._controller.stop_workflow_for_source(source_name)
-
-                row_data['action_button'].on_click(stop_callback)
-            else:
-
-                def remove_callback(event):
-                    self._controller.remove_workflow_for_source(source_name)
-
-                row_data['action_button'].on_click(remove_callback)
+        # Set action type based on status
+        if status.status in (
+            WorkflowStatusType.STARTING,
+            WorkflowStatusType.RUNNING,
+        ):
+            row_data['action_type'] = 'stop'
+        else:
+            row_data['action_type'] = 'remove'
 
         # Update tracking data
         row_data['last_status'] = status.status
