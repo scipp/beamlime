@@ -13,7 +13,7 @@ pip install "git+https://github.com/scipp/beamlime.git@dream-v2#egg=beamlime[dre
 ### Data
 
 ```sh
-scp login.esss.dk:/dmsc/scipp/dream/268227_00024779_* .
+scp login.esss.dk:'/dmsc/scipp/dream/268227_00024779_*' .
 ```
 
 ## Running
