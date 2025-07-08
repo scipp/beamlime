@@ -20,7 +20,7 @@ scp login.esss.dk:'/dmsc/scipp/dream/268227_00024779_*' .
 
 ### Docker
 
-Either clone the repository or download [docker-compose-beamlime.yml](https://raw.githubusercontent.com/scipp/beamlime/refs/heads/dream-v2/docker-compose-beamlime.yml).
+Clone the repository and checkout the `dream-v2` branch.
 I usually run the Docker containers in a detached screen session, so I can reattach later if needed, but this is optional.
 
 ```sh
