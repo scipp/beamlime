@@ -8,8 +8,6 @@ from beamlime.config.workflow_spec import (
     PersistentWorkflowConfig,
     PersistentWorkflowConfigs,
     WorkflowConfig,
-    WorkflowSpec,
-    WorkflowSpecs,
     WorkflowStatus,
     WorkflowStatusType,
 )
@@ -45,19 +43,7 @@ def workflow_config_service(config_service) -> WorkflowConfigService:
 @pytest.fixture
 def sample_workflow_config():
     """Create a sample workflow config for testing."""
-    return WorkflowConfig(identifier="test_workflow", values={"param1": "value1"})
-
-
-@pytest.fixture
-def sample_workflow_specs():
-    """Create sample workflow specs for testing."""
-    workflow_spec = WorkflowSpec(
-        name="Test Workflow",
-        description="A test workflow",
-        source_names=["source1", "source2"],
-        parameters=[],
-    )
-    return WorkflowSpecs(workflows={"test_workflow": workflow_spec})
+    return WorkflowConfig(identifier="test_workflow", params={"param1": "value1"})
 
 
 @pytest.fixture
@@ -121,28 +107,7 @@ def test_send_workflow_config(
     assert key.service_name == "data_reduction"
     assert key.key == "workflow_config"
     assert value["identifier"] == sample_workflow_config.identifier
-    assert value["values"] == sample_workflow_config.values
-
-
-def test_subscribe_to_workflow_specs(
-    workflow_config_service, sample_workflow_specs, fake_message_bridge
-):
-    """Test subscribing to workflow specs updates."""
-    received_specs = []
-
-    def callback(specs: WorkflowSpecs) -> None:
-        received_specs.append(specs)
-
-    workflow_config_service.subscribe_to_workflow_specs(callback)
-
-    # Simulate incoming workflow specs update
-    specs_key = ConfigKey(service_name='data_reduction', key='workflow_specs')
-    serialized_specs = sample_workflow_specs.model_dump(mode='json')
-    fake_message_bridge.add_incoming_message((specs_key, serialized_specs))
-    workflow_config_service._config_service.process_incoming_messages()
-
-    assert len(received_specs) == 1
-    assert received_specs[0].workflows == sample_workflow_specs.workflows
+    assert value["params"] == sample_workflow_config.params
 
 
 def test_subscribe_to_workflow_status(
@@ -205,50 +170,61 @@ def test_subscribe_to_workflow_status_different_sources(
 
 
 def test_multiple_subscribers_same_key(
-    workflow_config_service, sample_workflow_specs, fake_message_bridge
+    workflow_config_service, sample_workflow_status, fake_message_bridge
 ):
     """Test that multiple subscribers to the same key all receive updates."""
-    received_specs_1 = []
-    received_specs_2 = []
+    source_name = "source1"
+    received_statuses_1 = []
+    received_statuses_2 = []
 
-    def callback1(specs: WorkflowSpecs) -> None:
-        received_specs_1.append(specs)
+    def callback1(status: WorkflowStatus) -> None:
+        received_statuses_1.append(status)
 
-    def callback2(specs: WorkflowSpecs) -> None:
-        received_specs_2.append(specs)
+    def callback2(status: WorkflowStatus) -> None:
+        received_statuses_2.append(status)
 
-    workflow_config_service.subscribe_to_workflow_specs(callback1)
-    workflow_config_service.subscribe_to_workflow_specs(callback2)
+    workflow_config_service.subscribe_to_workflow_status(source_name, callback1)
+    workflow_config_service.subscribe_to_workflow_status(source_name, callback2)
 
     # Send update
-    specs_key = ConfigKey(service_name='data_reduction', key='workflow_specs')
-    serialized_specs = sample_workflow_specs.model_dump(mode='json')
-    fake_message_bridge.add_incoming_message((specs_key, serialized_specs))
+    status_key = ConfigKey(
+        source_name=source_name,
+        service_name='data_reduction',
+        key='workflow_status',
+    )
+    serialized_status = sample_workflow_status.model_dump(mode='json')
+    fake_message_bridge.add_incoming_message((status_key, serialized_status))
     workflow_config_service._config_service.process_incoming_messages()
 
-    assert len(received_specs_1) == 1
-    assert len(received_specs_2) == 1
-    assert received_specs_1[0].workflows == sample_workflow_specs.workflows
-    assert received_specs_2[0].workflows == sample_workflow_specs.workflows
+    assert len(received_statuses_1) == 1
+    assert len(received_statuses_2) == 1
+    assert received_statuses_1[0].workflow_id == sample_workflow_status.workflow_id
+    assert received_statuses_2[0].workflow_id == sample_workflow_status.workflow_id
 
 
 def test_callback_receives_existing_data_on_subscription(
-    workflow_config_service, sample_workflow_specs, fake_message_bridge
+    workflow_config_service, sample_workflow_status, fake_message_bridge
 ):
     """Test that new subscribers receive existing data immediately."""
+    source_name = "source1"
+
     # First, set up some existing data
-    specs_key = ConfigKey(service_name='data_reduction', key='workflow_specs')
-    serialized_specs = sample_workflow_specs.model_dump(mode='json')
-    fake_message_bridge.add_incoming_message((specs_key, serialized_specs))
+    status_key = ConfigKey(
+        source_name=source_name,
+        service_name='data_reduction',
+        key='workflow_status',
+    )
+    serialized_status = sample_workflow_status.model_dump(mode='json')
+    fake_message_bridge.add_incoming_message((status_key, serialized_status))
     workflow_config_service._config_service.process_incoming_messages()
 
     # Now subscribe and check that callback is called immediately
-    received_specs = []
+    received_statuses = []
 
-    def callback(specs: WorkflowSpecs) -> None:
-        received_specs.append(specs)
+    def callback(status: WorkflowStatus) -> None:
+        received_statuses.append(status)
 
-    workflow_config_service.subscribe_to_workflow_specs(callback)
+    workflow_config_service.subscribe_to_workflow_status(source_name, callback)
 
-    assert len(received_specs) == 1
-    assert received_specs[0].workflows == sample_workflow_specs.workflows
+    assert len(received_statuses) == 1
+    assert received_statuses[0].workflow_id == sample_workflow_status.workflow_id

@@ -13,7 +13,6 @@ from beamlime.config.models import StartTime, TOAEdges, TOARange
 from beamlime.config.workflow_spec import (
     PersistentWorkflowConfigs,
     WorkflowConfig,
-    WorkflowSpecs,
     WorkflowStatus,
 )
 
@@ -58,15 +57,6 @@ DETECTOR_TOA_RANGE = _registry.create(
 )
 
 # Data reduction service keys
-WORKFLOW_SPECS = _registry.create(
-    key="workflow_specs",
-    service_name="data_reduction",
-    model=WorkflowSpecs,
-    description="Available workflow specifications",
-    produced_by={"data_reduction"},
-    consumed_by={"dashboard"},
-)
-
 WORKFLOW_STATUS = _registry.create(
     key="workflow_status",
     service_name="data_reduction",

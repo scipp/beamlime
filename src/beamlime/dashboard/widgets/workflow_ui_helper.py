@@ -2,8 +2,32 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from typing import Any
 
+import pydantic
+from pydantic_core import PydanticUndefined
+
 from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec
-from beamlime.dashboard.workflow_controller import WorkflowController
+from beamlime.dashboard.workflow_controller import BoundWorkflowController
+
+
+def get_defaults(model: type[pydantic.BaseModel]) -> dict[str, Any]:
+    """
+    Get default values for all fields in a Pydantic model.
+
+    Parameters
+    ----------
+    model
+        Pydantic model class
+
+    Returns
+    -------
+    dict[str, Any]
+        Dictionary of field names and their default values
+    """
+    return {
+        field_name: field_info.default
+        for field_name, field_info in model.model_fields.items()
+        if field_info.default is not PydanticUndefined
+    }
 
 
 class WorkflowUIHelper:
@@ -11,8 +35,8 @@ class WorkflowUIHelper:
 
     no_selection = object()
 
-    def __init__(self, controller: WorkflowController):
-        """Initialize UI helper with controller reference."""
+    def __init__(self, controller: BoundWorkflowController):
+        """Initialize UI helper with bound controller reference."""
         self._controller = controller
 
     @staticmethod
@@ -28,53 +52,70 @@ class WorkflowUIHelper:
         specs = specs or {}
         select_text = "--- Click to select a workflow ---"
         options = {select_text: WorkflowUIHelper.no_selection}
-        options.update({spec.name: workflow_id for workflow_id, spec in specs.items()})
+        options.update({spec.title: workflow_id for workflow_id, spec in specs.items()})
         return options
 
-    def is_no_selection(self, value: WorkflowId | object) -> bool:
+    @staticmethod
+    def is_no_selection(value: WorkflowId | object) -> bool:
         """Check if the given value represents no workflow selection."""
-        return value is self.no_selection
+        return value is WorkflowUIHelper.no_selection
 
-    def get_default_workflow_selection(self) -> object:
+    @staticmethod
+    def get_default_workflow_selection() -> object:
         """Get the default value for no workflow selection."""
-        return self.no_selection
+        return WorkflowUIHelper.no_selection
 
-    def get_workflow_name(self, workflow_id: WorkflowId | None) -> str:
-        """Get workflow name from ID, fallback to ID if not found."""
-        if workflow_id is None:
-            return "None"
-        if (spec := self._controller.get_workflow_spec(workflow_id)) is not None:
-            return spec.name
-        return str(workflow_id)
+    def get_workflow_title(self) -> str:
+        """Get workflow title from bound controller."""
+        return self._controller.spec.title
 
-    def get_workflow_description(self, workflow_id: WorkflowId | object) -> str | None:
-        """
-        Get the description for a workflow ID or selection value.
+    def get_workflow_description(self) -> str:
+        """Get the description for the bound workflow."""
+        return self._controller.spec.description
 
-        Returns `None` if no workflow is selected.
-        """
-        if not isinstance(workflow_id, WorkflowId) or self.is_no_selection(workflow_id):
-            return None
-        if (spec := self._controller.get_workflow_spec(workflow_id)) is None:
-            return None
-        return spec.description
+    def get_source_names(self) -> list[str]:
+        """Get all source names the workflow supports."""
+        return self._controller.spec.source_names
 
-    def get_initial_parameter_values(self, workflow_id: WorkflowId) -> dict[str, Any]:
-        """Get initial parameter values for a workflow."""
-        spec = self._controller.get_workflow_spec(workflow_id)
-        if not spec:
-            return {}
-
-        values = {param.name: param.default for param in spec.parameters}
-
-        # Override with persistent config if available
-        persistent_config = self._controller.get_workflow_config(workflow_id)
-        if persistent_config:
-            values.update(persistent_config.config.values)
-
-        return values
-
-    def get_initial_source_names(self, workflow_id: WorkflowId) -> list[str]:
-        """Get initial source names for a workflow."""
-        persistent_config = self._controller.get_workflow_config(workflow_id)
+    def get_initial_source_names(self) -> list[str]:
+        """Get initial source names for the bound workflow controller."""
+        persistent_config = self._controller.get_persistent_config()
         return persistent_config.source_names if persistent_config else []
+
+    def get_parameter_widget_data(self) -> dict[str, dict[str, Any]]:
+        """Get parameter widget data for the bound workflow controller."""
+        model_class = self._controller.params_model_class
+        previous_values = self.get_initial_parameter_values()
+        root_defaults = get_defaults(model_class)
+        widget_data = {}
+
+        for field_name, field_info in model_class.model_fields.items():
+            field_type: type[pydantic.BaseModel] = field_info.annotation  # type: ignore[assignment]
+            values = get_defaults(field_type)
+            values.update(root_defaults.get(field_name, {}))
+            values.update(previous_values.get(field_name, {}))
+
+            title = field_info.title or field_name.replace('_', ' ').title()
+            widget_data[field_name] = {
+                'field_type': field_type,
+                'values': values,
+                'title': title,
+                'description': field_info.description,
+            }
+
+        return widget_data
+
+    def get_initial_parameter_values(self) -> dict[str, Any]:
+        """Get initial parameter values for the bound workflow controller."""
+        persistent_config = self._controller.get_persistent_config()
+        if not persistent_config:
+            return {}
+        return persistent_config.config.params
+
+    def assemble_parameter_values(
+        self,
+        parameter_values: dict[str, pydantic.BaseModel],
+    ) -> pydantic.BaseModel:
+        """Assemble parameter values into a model for the bound controller."""
+        model_class = self._controller.params_model_class
+        return model_class(**parameter_values)

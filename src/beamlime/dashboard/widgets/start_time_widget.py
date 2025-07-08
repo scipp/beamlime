@@ -47,10 +47,7 @@ class StartTimeWidget(ConfigWidget):
         self._widgets = {'value': self._value_input, 'unit': self._unit_input}
         self._set_now_button.on_click(self._on_set_now)
 
-        self._panel = pn.Column(
-            pn.pane.Markdown("### Accumulation"),
-            pn.Row(self._set_now_button, self._value_display),
-        )
+        self._panel = pn.Row(self._set_now_button, self._value_display)
 
         super().__init__(controller)
 

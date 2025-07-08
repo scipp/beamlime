@@ -100,7 +100,7 @@ class ToNXevent_data(Accumulator[Events, sc.DataArray]):
         else:
             toa_values = np.array([], dtype=self._toa_dtype)
         event_time_offset = sc.array(dims=['event'], values=toa_values, unit='ns')
-        weights = sc.ones(sizes=event_time_offset.sizes, dtype='float32', unit='counts')
+        weights = sc.ones(sizes=event_time_offset.sizes, dtype='float64', unit='counts')
         events = sc.DataArray(
             data=weights, coords={'event_time_offset': event_time_offset}
         )
