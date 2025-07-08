@@ -201,10 +201,7 @@ class WorkflowStatusListWidget:
         row_data['action_button'].button_type = display_info['button_type']
 
         # Set action type based on status
-        if status.status in (
-            WorkflowStatusType.STARTING,
-            WorkflowStatusType.RUNNING,
-        ):
+        if status.status in (WorkflowStatusType.STARTING, WorkflowStatusType.RUNNING):
             row_data['action_type'] = 'stop'
         else:
             row_data['action_type'] = 'remove'
