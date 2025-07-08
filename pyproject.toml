@@ -59,7 +59,8 @@ bifrost = [
     "essspectroscopy",
 ]
 dream = [
-    "essdiffraction>=25.06.0",
+    "essdiffraction @ git+https://github.com/scipp/essdiffraction@main",
+    "scippneutron @ git+https://github.com/scipp/scippneutron@fix-coord-conv-position-unit-mismatch-exception",
 ]
 loki = [
     "esssans",

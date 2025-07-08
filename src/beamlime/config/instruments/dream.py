@@ -7,7 +7,7 @@ import ess.powder.types  # noqa: F401
 import pydantic
 import scipp as sc
 from ess import dream, powder
-from ess.dream.workflow import DreamPowderWorkflow
+from ess.dream import DreamPowderWorkflow
 from ess.reduce.nexus.types import (
     DetectorData,
     Filename,
