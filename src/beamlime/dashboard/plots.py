@@ -138,7 +138,7 @@ class AutoscalingPlot:
             # Explicit clim required for initial empty plot with logz=True. Changing to
             # logz=True only when we have data is not supported by Holoviews.
             return hv.Image([]).opts(options).opts(clim=(0.1, None))
-        combined = sc.reduce(list(data.values())).sum()
+        combined = sc.reduce(list(data.values())).nansum()
         # With logz=True we need to exclude zero values for two reasons:
         # 1. The value bounds calculation should properly adjust the color limits. Since
         #    zeros can never be included we want to adjust to the lowest positive value.
@@ -152,7 +152,7 @@ class AutoscalingPlot:
         masked = combined.assign(
             sc.where(
                 combined.data <= sc.scalar(0.0, unit=combined.unit),
-                sc.scalar(np.nan, unit=combined.unit),
+                sc.scalar(np.nan, unit=combined.unit, dtype=combined.dtype),
                 combined.data,
             )
         )

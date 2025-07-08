@@ -13,7 +13,9 @@ from ess.reduce.nexus.types import (
     Filename,
     NeXusData,
     NeXusName,
+    RunType,
     SampleRun,
+    VanadiumRun,
 )
 from ess.reduce.streaming import StreamProcessor
 from scippnexus import NXdetector
@@ -140,7 +142,7 @@ TotalCounts = NewType('TotalCounts', sc.DataArray)
 def _total_counts(data: DetectorData[SampleRun]) -> TotalCounts:
     """Dummy provider for some plottable result of total counts."""
     return TotalCounts(
-        data.hist(
+        data.nanhist(
             event_time_offset=sc.linspace(
                 'event_time_offset', 0, 71_000_000, num=1000, unit='ns'
             ),
@@ -150,15 +152,17 @@ def _total_counts(data: DetectorData[SampleRun]) -> TotalCounts:
 
 
 def _fake_proton_charge(
-    data: powder.types.ReducedCountsDspacing[SampleRun],
-) -> powder.types.AccumulatedProtonCharge[SampleRun]:
+    data: powder.types.ReducedCountsDspacing[RunType],
+) -> powder.types.AccumulatedProtonCharge[RunType]:
     """
     Fake approximate proton charge for consistent normalization during streaming.
 
     This is not meant for production, but as a workaround until monitor normalization is
     fixed and/or we have setup a proton-charge stream.
     """
-    return powder.types.AccumulatedProtonCharge[SampleRun](sc.values(data.data).sum())
+    fake_charge = sc.values(data.data).sum()
+    fake_charge.unit = 'counts/µAh'
+    return powder.types.AccumulatedProtonCharge[RunType](fake_charge)
 
 
 _reduction_workflow.insert(_total_counts)
@@ -264,6 +268,49 @@ def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamPr
         target_keys=(
             powder.types.FocussedDataDspacing[SampleRun],
             powder.types.FocussedDataDspacingTwoTheta[SampleRun],
+        ),
+        accumulators=(
+            powder.types.ReducedCountsDspacing[SampleRun],
+            powder.types.WavelengthMonitor[SampleRun, powder.types.CaveMonitor],
+        ),
+    )
+
+
+@instrument.register_workflow(
+    name='powder_reduction_with_vanadium',
+    version=1,
+    title='Powder reduction (with vanadium normalization)',
+    description='Powder reduction with vanadium normalization.',
+    source_names=_source_names,
+)
+def _powder_workflow_with_vanadium(
+    source_name: str, params: PowderWorkflowParams
+) -> StreamProcessor:
+    wf = _reduction_workflow.copy()
+    wf[NeXusName[NXdetector]] = source_name
+    wf[Filename[SampleRun]] = params.geometry_file.value
+    wf[Filename[VanadiumRun]] = (
+        '/home/simon/instruments/dream/geant4-nxs/268227_00024779_Vana_inc_BC_offset_240_deg_wlgth.hdf'
+    )
+    wf[dream.InstrumentConfiguration] = params.instrument_configuration.value
+    wmin = params.wavelength_range.get_start()
+    wmax = params.wavelength_range.get_stop()
+    wf[powder.types.WavelengthMask] = lambda w: (w < wmin) | (w > wmax)
+    wf[powder.types.TwoThetaBins] = params.two_theta_edges.get_edges()
+    wf[powder.types.DspacingBins] = params.dspacing_edges.get_edges()
+    return StreamProcessor(
+        wf,
+        dynamic_keys=(
+            NeXusData[NXdetector, SampleRun],
+            NeXusData[powder.types.CaveMonitor, SampleRun],
+        ),
+        target_keys=(
+            powder.types.FocussedDataDspacing[SampleRun],
+            powder.types.FocussedDataDspacingTwoTheta[SampleRun],
+            powder.types.FocussedDataDspacing[VanadiumRun],
+            powder.types.FocussedDataDspacingTwoTheta[VanadiumRun],
+            powder.types.IofDspacing[SampleRun],
+            powder.types.IofDspacingTwoTheta[SampleRun],
         ),
         accumulators=(
             powder.types.ReducedCountsDspacing[SampleRun],

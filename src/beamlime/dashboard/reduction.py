@@ -62,13 +62,21 @@ class ReductionApp(DashboardBase):
     def _setup_reduction_streams(self) -> None:
         """Initialize streams for reduction data."""
         source_names = set(self.source_names())
-        self._iofd_pipe = self._reduction_stream_manager.get_stream(
+        self._focussed_d_pipe = self._reduction_stream_manager.get_stream(
             source_names=source_names,
             view_name='ess.powder.types.FocussedDataDspacing[ess.reduce.nexus.types.SampleRun]',
         )
-        self._iofd2theta_pipe = self._reduction_stream_manager.get_stream(
+        self._focussed_d2theta_pipe = self._reduction_stream_manager.get_stream(
             source_names=source_names,
             view_name='ess.powder.types.FocussedDataDspacingTwoTheta[ess.reduce.nexus.types.SampleRun]',
+        )
+        self._iofd_pipe = self._reduction_stream_manager.get_stream(
+            source_names=source_names,
+            view_name='ess.powder.types.IofDspacing[ess.reduce.nexus.types.SampleRun]',
+        )
+        self._iofd2theta_pipe = self._reduction_stream_manager.get_stream(
+            source_names=source_names,
+            view_name='ess.powder.types.IofDspacingTwoTheta[ess.reduce.nexus.types.SampleRun]',
         )
 
     def create_sidebar_content(self) -> pn.viewable.Viewable:
@@ -82,6 +90,15 @@ class ReductionApp(DashboardBase):
 
     def create_main_content(self) -> pn.viewable.Viewable:
         """Create the main content area (empty for now)."""
+        self._foccussed_d_plot = plots.AutoscalingPlot()
+        foc_d = hv.DynamicMap(
+            self._foccussed_d_plot.plot_lines, streams=[self._focussed_d_pipe]
+        ).opts(shared_axes=False)
+        self._foccussed_d2theta_plot = plots.AutoscalingPlot()
+        foc_d2theta = hv.DynamicMap(
+            self._foccussed_d2theta_plot.plot_sum_of_2d,
+            streams=[self._focussed_d2theta_pipe],
+        ).opts(shared_axes=False)
         self._iofd_plot = plots.AutoscalingPlot()
         iofd = hv.DynamicMap(
             self._iofd_plot.plot_lines, streams=[self._iofd_pipe]
@@ -90,9 +107,23 @@ class ReductionApp(DashboardBase):
         iofd2theta = hv.DynamicMap(
             self._iofd2theta_plot.plot_sum_of_2d, streams=[self._iofd2theta_pipe]
         ).opts(shared_axes=False)
-        return pn.Column(
-            pn.pane.HoloViews(iofd),
-            pn.pane.HoloViews(iofd2theta),
+        return pn.Accordion(
+            (
+                "I(d) (vanadium normalized)",
+                pn.Column(
+                    pn.pane.HoloViews(iofd),
+                    pn.pane.HoloViews(iofd2theta),
+                ),
+            ),
+            (
+                "Focussed Data (before vanadium normalization)",
+                pn.Column(
+                    pn.pane.HoloViews(foc_d),
+                    pn.pane.HoloViews(foc_d2theta),
+                ),
+            ),
+            active=[0],
+            toggle=True,
         )
 
 
