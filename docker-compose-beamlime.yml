@@ -16,6 +16,8 @@ services:
       - zookeeper
     ports:
       - "9092:9092"
+    volumes:
+      - ./scripts:/scripts
     environment:
       KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: false
       KAFKA_BROKER_ID: 1
