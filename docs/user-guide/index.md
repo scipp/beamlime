@@ -18,3 +18,10 @@ maxdepth: 1
 
 installation
 ```
+
+```{toctree}
+caption: Examples
+maxdepth: 1
+
+dream-demo
+```
