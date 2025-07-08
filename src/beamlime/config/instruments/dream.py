@@ -298,8 +298,6 @@ def _powder_workflow_with_vanadium(
         target_keys=(
             powder.types.FocussedDataDspacing[SampleRun],
             powder.types.FocussedDataDspacingTwoTheta[SampleRun],
-            powder.types.FocussedDataDspacing[VanadiumRun],
-            powder.types.FocussedDataDspacingTwoTheta[VanadiumRun],
             powder.types.IofDspacing[SampleRun],
             powder.types.IofDspacingTwoTheta[SampleRun],
         ),
