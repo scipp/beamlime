@@ -20,6 +20,8 @@ from beamlime.config.workflow_spec import (
     WorkflowStatusType,
 )
 
+from .data_key import DataKey
+from .data_service import DataService
 from .workflow_config_service import ConfigServiceAdapter, WorkflowConfigService
 
 
@@ -106,6 +108,7 @@ class WorkflowController:
         service: WorkflowConfigService,
         source_names: list[str],
         workflow_registry: Mapping[WorkflowId, WorkflowSpec],
+        data_service: DataService[DataKey, object] | None = None,
     ) -> None:
         """
         Initialize the workflow controller.
@@ -118,12 +121,15 @@ class WorkflowController:
             List of source names to monitor for workflow status updates.
         workflow_registry
             Registry of available workflows and their specifications.
+        data_service
+            Optional data service for cleaning up workflow data keys.
         """
         self._service = service
         self._logger = logging.getLogger(__name__)
 
         self._source_names = source_names
         self._workflow_registry = workflow_registry
+        self._data_service = data_service
 
         # Initialize all sources with UNKNOWN status
         self._workflow_status: dict[str, WorkflowStatus] = {
@@ -149,6 +155,7 @@ class WorkflowController:
         config_service,
         source_names: list[str],
         workflow_registry: Mapping[WorkflowId, WorkflowSpec],
+        data_service: DataService[DataKey, object] | None = None,
     ) -> WorkflowController:
         """Create WorkflowController from ConfigService."""
         adapter = ConfigServiceAdapter(config_service, source_names)
@@ -156,6 +163,7 @@ class WorkflowController:
             service=adapter,
             source_names=source_names,
             workflow_registry=workflow_registry,
+            data_service=data_service,
         )
 
     def _setup_subscriptions(self) -> None:
@@ -247,6 +255,22 @@ class WorkflowController:
     def remove_workflow_for_source(self, source_name: str) -> None:
         """Remove a stopped workflow from tracking."""
         self._logger.info('Removing workflow for source %s', source_name)
+
+        # Remove associated data keys from data service
+        if self._data_service is not None:
+            keys_to_remove = [
+                key
+                for key in self._data_service.keys()
+                if (
+                    isinstance(key, DataKey)
+                    and key.service_name == 'data_reduction'
+                    and key.source_name == source_name
+                )
+            ]
+            for key in keys_to_remove:
+                self._logger.debug('Removing data key: %s', key)
+                del self._data_service[key]
+
         # Reset status to UNKNOWN (back to initial state)
         self._update_workflow_status(WorkflowStatus(source_name=source_name))
 

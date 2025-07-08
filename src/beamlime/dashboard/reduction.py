@@ -55,6 +55,7 @@ class ReductionApp(DashboardBase):
             config_service=self._config_service,
             source_names=list(self.source_names()),
             workflow_registry=self._instrument_module.instrument.processor_factory,
+            data_service=self._data_services['data_reduction'],
         )
         self._reduction_widget = ReductionWidget(controller=self._workflow_controller)
 
