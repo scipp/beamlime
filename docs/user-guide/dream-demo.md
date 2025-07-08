@@ -55,11 +55,17 @@ IDEs such as VScode with remote extensions will automatically forward this port 
 ### Data reduction
 
 Try to configure and start workflows.
+It usually takes a couple of seconds since static parts of the workflow (such as instrument geometry from NeXus files) have to be computed initially.
+
+The data rate is set to something very low, so you can actually see changes in the plots.
+The fake data source loops over the same events from the data file indefinitely.
+We can easily deal with much higher rates.
+
 Some config errors are caught and displayed in the UI, but if the backend reduction workflow fails you will not see an error in the UI.
 You can check the logs in the terminal where you started the `data_reduction` service.
 
-The data rate is set to something very low, so you can actually see changes in the plots.
-We can easily deal with much higher rates.
+The streamed data is using choppers settings with the `high_flux_BC240` settings.
+You can see/demonstrate artifacts from (incorrect) WFM frame merging by selecting `high_flux_BC215`.
 
 #### Known issues
 
