@@ -45,11 +45,19 @@ python -m beamlime.services.data_reduction --instrument=dream --dev
 python -m beamlime.dashboard.reduction --instrument=dream
 ```
 
+You can also run the monitor-related services:
+
+```sh
+python -m beamlime.services.fake_monitors --instrument dream --mode da00
+python -m beamlime.services.monitor_data --instrument=dream --dev
+python -m beamlime.dashboard.monitors --instrument=dream
+```
+
 ## Usage
 
 ### Connecting
 
-Navigate to `http://localhost:5009`.
+Navigate to `http://localhost:5009` for the data-reduction dashboard and `http://localhost:5007` for the monitors dashboard.
 IDEs such as VScode with remote extensions will automatically forward this port to the host machine if you click on the link in the terminal when starting the dashboard.
 
 ### Data reduction
@@ -73,6 +81,14 @@ You can see/demonstrate artifacts from (incorrect) WFM frame merging by selectin
 - Changing units of edges probably does not work everywhere either.
 - There is no indication of stopped workflows in the plots.
   Click "Remove" to remove a plot item.
+
+### Monitors
+
+The fake monitors are not based on a simulation but simply show a Gaussian distribution of values around a mean value.
+
+#### Known issues
+
+- Pan/Zoom state resets with every update.
 
 ## Troubleshooting
 
