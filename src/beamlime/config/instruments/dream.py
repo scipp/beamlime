@@ -176,6 +176,10 @@ _reduction_workflow[powder.types.KeepEvents[SampleRun]] = powder.types.KeepEvent
     SampleRun
 ](False)
 
+# dream-no-shape is a much smaller file without pixel_shape, which is not needed
+# for data reduction.
+_reduction_workflow[Filename[SampleRun]] = get_nexus_geometry_filename('dream-no-shape')
+
 
 class InstrumentConfiguration(pydantic.BaseModel):
     value: dream.InstrumentConfiguration = pydantic.Field(
@@ -203,15 +207,6 @@ class InstrumentConfiguration(pydantic.BaseModel):
 
 
 class PowderWorkflowParams(pydantic.BaseModel):
-    geometry_file: parameter_models.Filename = pydantic.Field(
-        title='Geometry file',
-        description='NeXus file containing instrument geometry and other static data.',
-        # dream-no-shape is a much smaller file without pixel_shape, which is not needed
-        # for data reduction.
-        default=parameter_models.Filename(
-            value=get_nexus_geometry_filename('dream-no-shape')
-        ),
-    )
     dspacing_edges: parameter_models.DspacingEdges = pydantic.Field(
         title='d-spacing bins',
         description='Define the bin edges for binning in d-spacing.',
@@ -252,7 +247,6 @@ class PowderWorkflowParams(pydantic.BaseModel):
 def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProcessor:
     wf = _reduction_workflow.copy()
     wf[NeXusName[NXdetector]] = source_name
-    wf[Filename[SampleRun]] = params.geometry_file.value
     wf[dream.InstrumentConfiguration] = params.instrument_configuration.value
     wmin = params.wavelength_range.get_start()
     wmax = params.wavelength_range.get_stop()
@@ -279,7 +273,7 @@ def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamPr
 @instrument.register_workflow(
     name='powder_reduction_with_vanadium',
     version=1,
-    title='Powder reduction (with vanadium normalization)',
+    title='Powder reduction (with vanadium)',
     description='Powder reduction with vanadium normalization.',
     source_names=_source_names,
 )
@@ -288,10 +282,7 @@ def _powder_workflow_with_vanadium(
 ) -> StreamProcessor:
     wf = _reduction_workflow.copy()
     wf[NeXusName[NXdetector]] = source_name
-    wf[Filename[SampleRun]] = params.geometry_file.value
-    wf[Filename[VanadiumRun]] = (
-        '/home/simon/instruments/dream/geant4-nxs/268227_00024779_Vana_inc_BC_offset_240_deg_wlgth.hdf'
-    )
+    wf[Filename[VanadiumRun]] = '268227_00024779_Vana_inc_BC_offset_240_deg_wlgth.hdf'
     wf[dream.InstrumentConfiguration] = params.instrument_configuration.value
     wmin = params.wavelength_range.get_start()
     wmax = params.wavelength_range.get_stop()
