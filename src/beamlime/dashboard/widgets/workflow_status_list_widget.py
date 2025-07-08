@@ -142,11 +142,7 @@ class WorkflowStatusListWidget:
 
         # Create row widget
         row_widget = pn.Row(
-            info_pane,
-            pn.Spacer(),
-            inspect_button,
-            action_button,
-            margin=(2, 0),
+            info_pane, pn.Spacer(), inspect_button, action_button, margin=(2, 0)
         )
 
         # Return widget data structure
@@ -160,7 +156,6 @@ class WorkflowStatusListWidget:
             'action_type': None,  # Track current action type
         }
 
-        # Set up callback once - it will check the action_type to determine what to do
         def action_callback(event):
             if row_data['action_type'] == 'stop':
                 self._controller.stop_workflow_for_source(source_name)
@@ -168,8 +163,6 @@ class WorkflowStatusListWidget:
                 self._controller.remove_workflow_for_source(source_name)
 
         action_button.on_click(action_callback)
-
-        # Update the row content
         self._update_row_content(source_name, status, workflow_name, row_data)
 
         return row_data
