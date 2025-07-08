@@ -213,7 +213,7 @@ class PowderWorkflowParams(pydantic.BaseModel):
         default=parameter_models.DspacingEdges(
             start=0.4,
             stop=3.5,
-            num_bins=2000,
+            num_bins=500,
             unit=parameter_models.DspacingUnit.ANGSTROM,
         ),
     )
@@ -221,7 +221,7 @@ class PowderWorkflowParams(pydantic.BaseModel):
         title='Two-theta bins',
         description='Define the bin edges for binning in 2-theta.',
         default=parameter_models.TwoTheta(
-            start=0.4, stop=3.1415, num_bins=201, unit=parameter_models.AngleUnit.RADIAN
+            start=0.4, stop=3.1415, num_bins=100, unit=parameter_models.AngleUnit.RADIAN
         ),
     )
     wavelength_range: parameter_models.WavelengthRange = pydantic.Field(
