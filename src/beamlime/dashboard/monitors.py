@@ -4,6 +4,8 @@
 Preliminary example of a monitor dashboard application using Beamlime.
 """
 
+import argparse
+
 import holoviews as hv
 import panel as pn
 
@@ -100,8 +102,12 @@ class DashboardApp(DashboardBase):
         )
 
 
+def get_arg_parser() -> argparse.ArgumentParser:
+    return Service.setup_arg_parser(description='Beamlime Dashboard')
+
+
 def main() -> None:
-    parser = Service.setup_arg_parser(description='Beamlime Dashboard')
+    parser = get_arg_parser()
     app = DashboardApp(**vars(parser.parse_args()))
     app.start(blocking=True)
 
