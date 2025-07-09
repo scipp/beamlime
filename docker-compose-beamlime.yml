@@ -38,11 +38,11 @@ services:
       KAFKA_SOCKET_REQUEST_MAX_BYTES: 104857600
       KAFKA_MAX_CONNECTIONS_PER_IP: 100
       # Memory settings
-      KAFKA_HEAP_OPTS: "-Xmx512M -Xms512M"
+      KAFKA_HEAP_OPTS: "-Xmx1G -Xms1G"
       # Disk usage limits
-      KAFKA_LOG_RETENTION_BYTES: 1073741824  # 1GB total retention
+      KAFKA_LOG_RETENTION_BYTES: 536870912  # 512MB total retention
       KAFKA_LOG_RETENTION_HOURS: 1           # Keep logs for 1 hours
-      KAFKA_LOG_SEGMENT_BYTES: 268435456     # 256MB per segment
+      KAFKA_LOG_SEGMENT_BYTES: 134217728     # 128MB per segment
       KAFKA_LOG_CLEANUP_POLICY: delete       # Delete old segments
       KAFKA_LOG_CLEANER_MIN_CLEANABLE_RATIO: 0.5
       KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000  # Check every 5 minutes
