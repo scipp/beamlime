@@ -114,7 +114,7 @@ class ReductionApp(DashboardBase):
             streams=[self._iofd2theta_pipe],
             cache_size=1,
         ).opts(shared_axes=False)
-        return pn.Accordion(
+        return pn.Tabs(
             (
                 "I(d) (vanadium normalized)",
                 pn.Column(
@@ -129,8 +129,6 @@ class ReductionApp(DashboardBase):
                     pn.pane.HoloViews(foc_d2theta),
                 ),
             ),
-            active=[0],
-            toggle=True,
         )
 
 
