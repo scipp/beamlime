@@ -90,25 +90,25 @@ class ReductionApp(DashboardBase):
 
     def create_main_content(self) -> pn.viewable.Viewable:
         """Create the main content area (empty for now)."""
-        self._foccussed_d_plot = plots.AutoscalingPlot()
+        self._foccussed_d_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
         foc_d = hv.DynamicMap(
             self._foccussed_d_plot.plot_lines,
             streams=[self._focussed_d_pipe],
             cache_size=1,
         ).opts(shared_axes=False)
-        self._foccussed_d2theta_plot = plots.AutoscalingPlot()
+        self._foccussed_d2theta_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
         foc_d2theta = hv.DynamicMap(
             self._foccussed_d2theta_plot.plot_sum_of_2d,
             streams=[self._focussed_d2theta_pipe],
             cache_size=1,
         ).opts(shared_axes=False)
-        self._iofd_plot = plots.AutoscalingPlot()
+        self._iofd_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
         iofd = hv.DynamicMap(
             self._iofd_plot.plot_lines,
             streams=[self._iofd_pipe],
             cache_size=1,
         ).opts(shared_axes=False)
-        self._iofd2theta_plot = plots.AutoscalingPlot()
+        self._iofd2theta_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
         iofd2theta = hv.DynamicMap(
             self._iofd2theta_plot.plot_sum_of_2d,
             streams=[self._iofd2theta_pipe],
