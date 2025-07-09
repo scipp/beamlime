@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+import argparse
+
 import holoviews as hv
 import panel as pn
 
@@ -132,8 +134,12 @@ class ReductionApp(DashboardBase):
         )
 
 
+def get_arg_parser() -> argparse.ArgumentParser:
+    return Service.setup_arg_parser(description='Beamlime Reduction Dashboard')
+
+
 def main() -> None:
-    parser = Service.setup_arg_parser(description='Beamlime Reduction Dashboard')
+    parser = get_arg_parser()
     app = ReductionApp(**vars(parser.parse_args()))
     app.start(blocking=True)
 
