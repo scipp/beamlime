@@ -34,11 +34,11 @@ services:
       KAFKA_METADATA_MAX_IDLE_INTERVAL_MS: 500
       # Reduce log retention for development
       KAFKA_SOCKET_SEND_BUFFER_BYTES: 104857600
-      KAFKA_SOCKET_RECEIVE_BUFFER_BYTES: 104857600
+      KAFKA_SOCKET_RECEIVE_BUFFER_BYTES: 204857600
       KAFKA_SOCKET_REQUEST_MAX_BYTES: 104857600
       KAFKA_MAX_CONNECTIONS_PER_IP: 100
       # Memory settings
-      KAFKA_HEAP_OPTS: "-Xmx1G -Xms1G"
+      KAFKA_HEAP_OPTS: "-Xmx2G -Xms2G"
       # Disk usage limits
       KAFKA_LOG_RETENTION_BYTES: 1073741824  # 1GB total retention
       KAFKA_LOG_RETENTION_HOURS: 1           # Keep logs for 1 hours
@@ -52,7 +52,7 @@ services:
       KAFKA_FETCH_MESSAGE_MAX_BYTES: 104857600    # 100MB
       KAFKA_MAX_REQUEST_SIZE: 104857600           # 100MB
       KAFKA_MAX_PARTITION_FETCH_BYTES: 104857600  # 100MB
-    mem_limit: 2G
+    mem_limit: 4G
     healthcheck:
       test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
       interval: 30s
