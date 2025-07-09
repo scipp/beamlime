@@ -59,6 +59,7 @@ class DashboardApp(DashboardBase):
         status_dmap = hv.DynamicMap(
             plots.monitor_total_counts_bar_chart,
             streams={'monitor1': self._monitor1_pipe, 'monitor2': self._monitor2_pipe},
+            cache_size=1,
         ).opts(shared_axes=False)
 
         return pn.Column(
@@ -77,14 +78,19 @@ class DashboardApp(DashboardBase):
             return pn.bind(plot_fn, view_mode=self._view_toggle.param.value)
 
         mon1 = hv.DynamicMap(
-            _with_toggle(plots.plot_monitor1), streams=[self._monitor1_pipe]
+            _with_toggle(plots.plot_monitor1),
+            streams=[self._monitor1_pipe],
+            cache_size=1,
         ).opts(shared_axes=False)
         mon2 = hv.DynamicMap(
-            _with_toggle(plots.plot_monitor2), streams=[self._monitor2_pipe]
+            _with_toggle(plots.plot_monitor2),
+            streams=[self._monitor2_pipe],
+            cache_size=1,
         ).opts(shared_axes=False)
         mons = hv.DynamicMap(
             _with_toggle(plots.plot_monitors_combined),
             streams={'monitor1': self._monitor1_pipe, 'monitor2': self._monitor2_pipe},
+            cache_size=1,
         ).opts(shared_axes=False)
 
         return pn.FlexBox(
