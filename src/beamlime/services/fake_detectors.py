@@ -51,6 +51,7 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
         self._rng = np.random.default_rng()
         self._tof = sc.linspace('tof', 0, 71_000_000, num=50, unit='ns')
         self._interval_ns = interval_ns
+        self._bank_scales: dict[str, float] = {}
 
         # Load nexus data if file is provided
         self._nexus_data = None if nexus_file is None else events_from_nexus(nexus_file)
@@ -59,14 +60,22 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
             self._logger.info("Configured detectors: %s", detector_names)
         else:
             detector_names = list(self._nexus_data.keys())
+            bank_sizes = {
+                name: data['event_time_offset'].size
+                for name, data in self._nexus_data.items()
+            }
             self._logger.info("Loaded event data from %s", nexus_file)
             self._logger.info(
                 "Loaded detectors:\n%s",
                 '\n'.join(
-                    f'    {detector}: {data["event_time_offset"].size} events'
-                    for detector, data in self._nexus_data.items()
+                    f'    {detector}: {size} events'
+                    for detector, size in bank_sizes.items()
                 ),
             )
+            largest_size = max(bank_sizes.values())
+            self._bank_scales = {
+                name: size / largest_size for name, size in bank_sizes.items()
+            }
 
         self._last_message_time = {
             detector: time.time_ns() for detector in detector_names
@@ -85,7 +94,11 @@ class FakeDetectorSource(MessageSource[sc.Dataset]):
         messages = []
 
         for name in self._last_message_time:
-            size = 1_000 if self._instrument == 'bifrost' else 100_000
+            size = (
+                1_000
+                if self._instrument == 'bifrost'
+                else int(1000 * self._bank_scales.get(name, 1.0))
+            )
             elapsed = current_time - self._last_message_time[name]
             num_intervals = int(elapsed // self._interval_ns)
 
