@@ -8,10 +8,13 @@ import holoviews as hv
 import panel as pn
 
 from beamlime import Service
+from beamlime.config import keys
 
 from . import plots
+from .controller_factory import BinEdgeController
 from .dashboard import DashboardBase
-from .monitor_params import TOAEdgesParam
+from .widgets.start_time_widget import StartTimeWidget
+from .widgets.toa_edges_widget import TOAEdgesWidget
 
 pn.extension('holoviews', template='material')
 hv.extension('bokeh')
@@ -29,18 +32,22 @@ class DashboardApp(DashboardBase):
             port=5007,  # Default port for monitors dashboard
         )
 
-        self.toa_edges = TOAEdgesParam()
         self._setup_monitor_streams()
         self._view_toggle = pn.widgets.RadioBoxGroup(
-            name="View Mode",
-            value='Current',
-            options=["Current", "Cumulative"],
-            inline=True,
-            margin=(10, 0),
+            value='Current', options=["Current", "Cumulative"], inline=True
+        )
+        self._view_toggle_group = pn.Column(
+            pn.pane.Markdown("### View Mode"), self._view_toggle
         )
 
-        self.toa_edges.subscribe(self._config_service)
         self._logger.info("Monitor dashboard initialized")
+        self._toa_controller = self._controller_factory.create(
+            config_key=keys.MONITOR_TOA_EDGES.create_key(),
+            controller_cls=BinEdgeController,
+        )
+        self._reset_controller = self._controller_factory.create(
+            config_key=keys.MONITOR_START_TIME.create_key()
+        )
 
     def _setup_monitor_streams(self):
         """Initialize streams for monitor data."""
@@ -58,9 +65,9 @@ class DashboardApp(DashboardBase):
             pn.pane.Markdown("## Status"),
             pn.pane.HoloViews(status_dmap),
             pn.pane.Markdown("## Controls"),
-            self._view_toggle,
-            pn.Param(self.toa_edges.panel()),
-            pn.layout.Spacer(height=20),
+            self._view_toggle_group,
+            StartTimeWidget(self._reset_controller).panel,
+            TOAEdgesWidget(self._toa_controller).panel,
         )
 
     def create_main_content(self) -> pn.viewable.Viewable:

@@ -14,8 +14,7 @@ from ..core.handler import (
     PeriodicAccumulatingHandler,
 )
 from ..core.message import Message, StreamId, StreamKind
-from .accumulators import DetectorEvents
-from .monitor_data_handler import make_monitor_data_preprocessor
+from .accumulators import Cumulative, DetectorEvents
 from .to_nxevent_data import ToNXevent_data
 from .to_nxlog import ToNXlog
 from .workflow_manager import WorkflowManager
@@ -66,7 +65,7 @@ class ReductionHandlerFactory(
         # returns for the detector data accumulator.
         match key.kind:
             case StreamKind.MONITOR_COUNTS:
-                preprocessor = make_monitor_data_preprocessor(key, config={})
+                preprocessor = Cumulative(config={}, clear_on_get=True)
                 config = {}
             case StreamKind.LOG:
                 attrs = self._f144_attribute_registry[key.name]
