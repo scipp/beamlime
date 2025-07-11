@@ -41,6 +41,7 @@ class StreamProcessor(Generic[Tin, Tout]):
 
     def process(self) -> None:
         messages = self._source.get_messages()
+        self._logger.debug('Processing %d messages', len(messages))
         messages_by_key = defaultdict(list)
         for msg in messages:
             messages_by_key[msg.stream].append(msg)

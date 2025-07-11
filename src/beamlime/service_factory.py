@@ -18,7 +18,12 @@ from .kafka import KafkaTopic
 from .kafka import consumer as kafka_consumer
 from .kafka.message_adapter import AdaptingMessageSource, MessageAdapter
 from .kafka.sink import KafkaSink, UnrollingSinkAdapter
-from .kafka.source import KafkaConsumer, KafkaMessageSource, MultiConsumer
+from .kafka.source import (
+    BackgroundMessageSource,
+    KafkaConsumer,
+    KafkaMessageSource,
+    MultiConsumer,
+)
 from .sinks import PlotToPngSink
 
 Traw = TypeVar("Traw")
@@ -75,6 +80,7 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         kafka_config: dict[str, Any],
         sink: MessageSink[Tout],
         raise_on_adapter_error: bool = False,
+        use_background_source: bool = False,
     ) -> Service:
         """Create a service from a consumer config."""
         resources = ExitStack()
@@ -91,9 +97,16 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
             )
             consumer = MultiConsumer([config_consumer, data_consumer])
 
+            if use_background_source:
+                source = resources.enter_context(
+                    BackgroundMessageSource(consumer=consumer)
+                )
+            else:
+                source = KafkaMessageSource(consumer=consumer)
+
             # Ownership of resource stack transferred to the service
             return self.from_source(
-                source=KafkaMessageSource(consumer=consumer),
+                source=source,
                 sink=sink,
                 resources=resources.pop_all(),
                 raise_on_adapter_error=raise_on_adapter_error,
@@ -108,9 +121,18 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         sink: MessageSink[Tout],
         resources: ExitStack | None = None,
         raise_on_adapter_error: bool = False,
+        use_background_source: bool = False,
     ) -> Service:
+        if resources is None:
+            resources = ExitStack()
+
+        if use_background_source:
+            source = resources.enter_context(BackgroundMessageSource(consumer=consumer))
+        else:
+            source = KafkaMessageSource(consumer=consumer)
+
         return self.from_source(
-            source=KafkaMessageSource(consumer=consumer),
+            source=source,
             sink=sink,
             resources=resources,
             raise_on_adapter_error=raise_on_adapter_error,
@@ -188,6 +210,8 @@ class DataServiceRunner:
         sink = UnrollingSinkAdapter(sink)
 
         with builder.from_consumer_config(
-            kafka_config={**consumer_config, **kafka_upstream_config}, sink=sink
+            kafka_config={**consumer_config, **kafka_upstream_config},
+            sink=sink,
+            use_background_source=True,
         ) as service:
             service.start()
