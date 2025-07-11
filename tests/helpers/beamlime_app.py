@@ -75,6 +75,7 @@ class BeamlimeApp:
             consumer=consumer,
             sink=UnrollingSinkAdapter(sink),
             raise_on_adapter_error=False,
+            use_background_source=False,
         )
         return BeamlimeApp(
             service=service, consumer=consumer, sink=sink, instrument=builder.instrument
