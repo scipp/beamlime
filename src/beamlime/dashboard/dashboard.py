@@ -24,7 +24,7 @@ from beamlime.kafka.message_adapter import (
     Da00ToScippAdapter,
     KafkaToDa00Adapter,
 )
-from beamlime.kafka.source import KafkaMessageSource
+from beamlime.kafka.source import BackgroundMessageSource
 
 from .config_service import ConfigService
 from .controller_factory import ControllerFactory
@@ -144,8 +144,11 @@ class DashboardBase(ServiceBase, ABC):
                 group='dashboard',
             )
         )
+        source = self._exit_stack.enter_context(
+            BackgroundMessageSource(consumer=consumer)
+        )
         return AdaptingMessageSource(
-            source=KafkaMessageSource(consumer=consumer, num_messages=1000),
+            source=source,
             adapter=ChainedAdapter(
                 first=KafkaToDa00Adapter(stream_kind=StreamKind.BEAMLIME_DATA),
                 second=Da00ToScippAdapter(),
