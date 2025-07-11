@@ -18,7 +18,7 @@ from .kafka import KafkaTopic
 from .kafka import consumer as kafka_consumer
 from .kafka.message_adapter import AdaptingMessageSource, MessageAdapter
 from .kafka.sink import KafkaSink, UnrollingSinkAdapter
-from .kafka.source import KafkaConsumer, KafkaMessageSource, MultiConsumer
+from .kafka.source import BackgroundMessageSource, KafkaConsumer, MultiConsumer
 from .sinks import PlotToPngSink
 
 Traw = TypeVar("Traw")
@@ -91,9 +91,11 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
             )
             consumer = MultiConsumer([config_consumer, data_consumer])
 
+            source = resources.enter_context(BackgroundMessageSource(consumer=consumer))
+
             # Ownership of resource stack transferred to the service
             return self.from_source(
-                source=KafkaMessageSource(consumer=consumer),
+                source=source,
                 sink=sink,
                 resources=resources.pop_all(),
                 raise_on_adapter_error=raise_on_adapter_error,
@@ -109,8 +111,12 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         resources: ExitStack | None = None,
         raise_on_adapter_error: bool = False,
     ) -> Service:
+        if resources is None:
+            resources = ExitStack()
+        source = resources.enter_context(BackgroundMessageSource(consumer=consumer))
+
         return self.from_source(
-            source=KafkaMessageSource(consumer=consumer),
+            source=source,
             sink=sink,
             resources=resources,
             raise_on_adapter_error=raise_on_adapter_error,
