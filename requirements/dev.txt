@@ -26,7 +26,11 @@ async-lru==2.0.5
     # via jupyterlab
 cffi==1.17.1
     # via argon2-cffi-bindings
+<<<<<<< HEAD
 copier==9.9.0
+=======
+copier==9.8.0
+>>>>>>> 355bf337 (deps: add holoviews to test deps + tox -e deps)
     # via -r dev.in
 dunamai==1.25.0
     # via copier
@@ -48,7 +52,11 @@ json5==0.12.0
     # via jupyterlab-server
 jsonpointer==3.0.0
     # via jsonschema
+<<<<<<< HEAD
 jsonschema[format-nongpl]==4.25.0
+=======
+jsonschema[format-nongpl]==4.24.1
+>>>>>>> 355bf337 (deps: add holoviews to test deps + tox -e deps)
     # via
     #   jupyter-events
     #   jupyterlab-server
@@ -65,7 +73,11 @@ jupyter-server==2.16.0
     #   notebook-shim
 jupyter-server-terminals==0.5.3
     # via jupyter-server
+<<<<<<< HEAD
 jupyterlab==4.4.5
+=======
+jupyterlab==4.4.4
+>>>>>>> 355bf337 (deps: add holoviews to test deps + tox -e deps)
     # via -r dev.in
 jupyterlab-server==2.27.3
     # via jupyterlab
