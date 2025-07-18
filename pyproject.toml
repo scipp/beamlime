@@ -52,6 +52,7 @@ test = [
     "param",
     "pytest",
     "pytest-benchmark",
+    "holoviews",
 ]
 bifrost = [
     "essspectroscopy",
