@@ -15,3 +15,4 @@ essspectroscopy>=25.05.0
 param
 pytest
 pytest-benchmark
+holoviews
