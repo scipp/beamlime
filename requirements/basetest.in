@@ -16,4 +16,3 @@ param
 pytest
 pytest-benchmark
 scippneutron>=25.07.0
-holoviews
