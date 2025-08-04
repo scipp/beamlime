@@ -386,10 +386,12 @@ class TestGroupIntoPixels:
         pixel_0_0 = result['y', 0]['x', 0]  # detector_number=0
         pixel_0_1 = result['y', 0]['x', 1]  # detector_number=1
         pixel_1_0 = result['y', 1]['x', 0]  # detector_number=2
+        pixel_1_1 = result['y', 1]['x', 1]  # detector_number=3
 
         assert len(pixel_0_0.values) == 2  # Two events for pixel 0
         assert len(pixel_0_1.values) == 1  # One event for pixel 1
         assert len(pixel_1_0.values) == 1  # One event for pixel 2
+        assert len(pixel_1_1.values) == 0  # No events for pixel 3
 
     def test_raises_if_unit_is_not_ns(self) -> None:
         detector_number = sc.array(dims=['x'], values=[0, 1])
