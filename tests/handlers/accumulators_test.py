@@ -242,7 +242,7 @@ class TestTOAHistogrammer:
         da = histogrammer.get()
         assert da.sum().value == 3
 
-    def test_config_update_clears_existing_data(self) -> None:
+    def test_config_update_keeps_existing_data(self) -> None:
         config = {'time_of_arrival_bins': 5}
         histogrammer = TOAHistogrammer(config=config)
         histogrammer.add(0, MonitorEvents(time_of_arrival=[1.0, 10.0], unit='ns'))
@@ -252,6 +252,8 @@ class TestTOAHistogrammer:
         da = histogrammer.get()
         # Should have 10 bins now, not 5
         assert da.sizes['time_of_arrival'] == 10
+        # The data should still be there, since we histogram only when calling get()
+        assert da.sum().value == 2
 
     def test_empty_events_array(self) -> None:
         histogrammer = TOAHistogrammer(config={'time_of_arrival_bins': 5})
