@@ -8,7 +8,7 @@ from collections.abc import Callable, Hashable
 from typing import Any, Generic, TypeVar
 
 from .assemblers import ComponentStreamAssembler, MergingStreamAssembler
-from .data_key import DataKey, MonitorDataKey
+from .data_key import DataKey, DetectorDataKey, MonitorDataKey
 from .data_service import DataService
 from .data_subscriber import DataSubscriber, Pipe, StreamAssembler
 
@@ -31,6 +31,16 @@ class StreamManager(Generic[P]):
             self.data_service.register_subscriber(subscriber)
             self._pipes[key] = pipe
         return self._pipes[key]
+
+
+class DetectorStreamManager(StreamManager[P]):
+    """A manager for detector data streams."""
+
+    def get_stream(self, component_name: str, view_name: str) -> P:
+        """Get or create a data stream for the given component key and view name."""
+        data_key = DetectorDataKey(component_name=component_name, view_name=view_name)
+        assembler = ComponentStreamAssembler(data_key)
+        return self._get_or_create_stream(data_key, assembler)
 
 
 class MonitorStreamManager(StreamManager[P]):

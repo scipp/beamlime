@@ -29,6 +29,15 @@ MONITOR_START_TIME = _registry.create(
     consumed_by={"monitor_data"},
 )
 
+DETECTOR_START_TIME = _registry.create(
+    key="start_time",
+    service_name="detector_data",
+    model=StartTime,
+    description="Start time for the detector data",
+    produced_by={"dashboard"},
+    consumed_by={"detector_data"},
+)
+
 REDUCTION_START_TIME = _registry.create(
     key="start_time",
     service_name="data_reduction",

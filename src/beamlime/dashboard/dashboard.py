@@ -35,7 +35,11 @@ from .kafka_transport import KafkaTransport
 from .message_bridge import BackgroundMessageBridge
 from .orchestrator import Orchestrator
 from .schema_validator import PydanticSchemaValidator
-from .stream_manager import MonitorStreamManager, ReductionStreamManager
+from .stream_manager import (
+    DetectorStreamManager,
+    MonitorStreamManager,
+    ReductionStreamManager,
+)
 
 # Global throttling for sliders, etc.
 pn.config.throttled = True
@@ -116,6 +120,9 @@ class DashboardBase(ServiceBase, ABC):
         }
         self._monitor_stream_manager = MonitorStreamManager(
             data_service=self._data_services['monitor_data'], pipe_factory=streams.Pipe
+        )
+        self._detector_stream_manager = DetectorStreamManager(
+            data_service=self._data_services['detector_data'], pipe_factory=streams.Pipe
         )
         self._reduction_stream_manager = ReductionStreamManager(
             data_service=self._data_services['data_reduction'],

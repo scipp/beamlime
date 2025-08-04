@@ -139,6 +139,43 @@ class BinEdgeController(Controller[K]):
         )
 
 
+class RangeController(Controller[K]):
+    """Controller for range settings that converts between center/width and low/high."""
+
+    def _preprocess_config(self, value: dict[str, Any]) -> dict[str, Any]:
+        """Convert from low/high to center/width representation."""
+        if 'low' in value and 'high' in value:
+            low = value['low']
+            high = value['high']
+            center = (low + high) / 2
+            width = high - low
+
+            # Create a copy and add center/width while keeping other fields
+            preprocessed = value.copy()
+            preprocessed['center'] = center
+            preprocessed['width'] = width
+            return preprocessed
+        return value
+
+    def _preprocess_value(self, value: dict[str, Any]) -> dict[str, Any]:
+        """Convert from center/width to low/high representation."""
+        if 'center' in value and 'width' in value:
+            center = value['center']
+            width = value['width']
+            low = center - width / 2
+            high = center + width / 2
+
+            # Create a copy and add low/high while removing center/width
+            preprocessed = value.copy()
+            preprocessed['low'] = low
+            preprocessed['high'] = high
+            # Remove center/width as they're not part of the schema
+            preprocessed.pop('center', None)
+            preprocessed.pop('width', None)
+            return preprocessed
+        return value
+
+
 class ControllerFactory(Generic[K]):
     """
     Factory for creating controllers linked to a config value.

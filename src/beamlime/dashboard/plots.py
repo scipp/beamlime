@@ -123,6 +123,36 @@ class AutoscalingPlot:
             hv.Overlay(curves).opts(options).opts(opts.Curve(framewise=bounds_changed))
         )
 
+    def plot_2d(self, data: sc.DataArray) -> hv.Image:
+        """Create a 2D plot from a scipp DataArray."""
+        options = opts.Image(
+            responsive=True,
+            height=400,
+            aspect='equal',
+            framewise=False,
+            logz=True,
+            colorbar=True,
+            cmap='viridis',
+            hooks=[remove_bokeh_logo],
+        )
+        if data is None:
+            # Explicit clim required for initial empty plot with logz=True.
+            return hv.Image([]).opts(options).opts(clim=(0.1, None))
+        data = data.to(dtype='float64')
+        masked = data.assign(
+            sc.where(
+                data.data <= sc.scalar(0.0, unit=data.unit),
+                sc.scalar(np.nan, unit=data.unit, dtype=data.dtype),
+                data.data,
+            )
+        )
+        bounds_changed = self.update_bounds(masked)
+        histogram = to_holoviews(masked)
+        return histogram.opts(options).opts(
+            framewise=bounds_changed,
+            clim=(self.value_bounds[0], self.value_bounds[1]),
+        )
+
     def plot_sum_of_2d(self, data: dict[DataKey, sc.DataArray]) -> hv.Histogram:
         """Create a 2D plot from a dictionary of scipp DataArrays."""
         options = opts.Image(
