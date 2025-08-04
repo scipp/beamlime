@@ -59,6 +59,12 @@ class DashboardApp(DashboardBase):
         self._hr_pipe = self._detector_stream_manager.get_stream(
             'high_resolution_detector', 'High-Res'
         )
+        self._mantle_pipe = self._detector_stream_manager.get_stream(
+            'mantle_detector', 'mantle_projection'
+        )
+        self._fw_pipe = self._detector_stream_manager.get_stream(
+            'endcap_forward_detector', 'endcap_forward'
+        )
 
     def create_sidebar_content(self) -> pn.viewable.Viewable:
         """Create the sidebar content with status and controls."""
@@ -83,8 +89,15 @@ class DashboardApp(DashboardBase):
 
             return pn.bind(toggled, view_mode=self._view_toggle.param.value)
 
+        self._fw_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
         self._bw_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
         self._hr_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
+        self._mantle_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
+        dmap_fw = hv.DynamicMap(
+            _with_toggle(self._fw_plot.plot_2d),
+            streams=[self._fw_pipe],
+            cache_size=1,
+        ).opts(shared_axes=False)
         dmap_bw = hv.DynamicMap(
             _with_toggle(self._bw_plot.plot_2d),
             streams=[self._bw_pipe],
@@ -95,10 +108,15 @@ class DashboardApp(DashboardBase):
             streams=[self._hr_pipe],
             cache_size=1,
         ).opts(shared_axes=False)
+        dmap_mantle = hv.DynamicMap(
+            _with_toggle(self._mantle_plot.plot_2d),
+            streams=[self._mantle_pipe],
+            cache_size=1,
+        ).opts(shared_axes=False)
 
         return pn.Column(
-            pn.pane.HoloViews(dmap_bw),
-            pn.pane.HoloViews(dmap_hr),
+            pn.Row(pn.pane.HoloViews(dmap_fw), pn.pane.HoloViews(dmap_mantle)),
+            pn.Row(pn.pane.HoloViews(dmap_bw), pn.pane.HoloViews(dmap_hr)),
         )
 
 
