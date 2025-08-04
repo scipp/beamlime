@@ -10,6 +10,7 @@ from beamlime.dashboard.controller_factory import (
     BinEdgeController,
     Controller,
     ControllerFactory,
+    RangeController,
 )
 from beamlime.dashboard.message_bridge import FakeMessageBridge
 from beamlime.dashboard.schema_validator import (
@@ -434,6 +435,246 @@ class TestBinEdgeController:
         stored_config = config_service.get_config("range")
         assert stored_config.low == 500.0
         assert stored_config.high == 1500.0
+        assert stored_config.unit == "ns"
+
+
+class TestRangeController:
+    @pytest.fixture
+    def range_controller(self, config_service: ConfigService) -> RangeController:
+        return RangeController(
+            config_key="range",
+            config_service=config_service,
+            schema=RangeConfig,
+        )
+
+    def test_center_width_to_low_high_conversion(
+        self, range_controller: RangeController, config_service: ConfigService
+    ) -> None:
+        """Test conversion from center/width to low/high when setting values."""
+        # Set values using center/width representation
+        range_controller.set_value(center=500.0, width=200.0, unit="us")
+
+        # Should be stored as low/high
+        stored_config = config_service.get_config("range")
+        assert stored_config.low == 400.0  # center - width/2 = 500 - 100
+        assert stored_config.high == 600.0  # center + width/2 = 500 + 100
+        assert stored_config.unit == "us"
+
+    def test_low_high_to_center_width_conversion(
+        self, range_controller: RangeController, config_service: ConfigService
+    ) -> None:
+        """Test conversion from low/high to center/width when reading values."""
+        # Set initial config with low/high
+        initial_config = RangeConfig(low=300.0, high=700.0, unit="ms")
+        config_service.update_config("range", initial_config)
+
+        callback = FakeCallback()
+        range_controller.subscribe(callback)
+
+        # Callback should receive center/width representation
+        assert callback.called is True
+        assert callback.data["center"] == 500.0  # (300 + 700) / 2
+        assert callback.data["width"] == 400.0  # 700 - 300
+        assert callback.data["unit"] == "ms"
+
+    def test_center_width_with_zero_width(
+        self, range_controller: RangeController, config_service: ConfigService
+    ) -> None:
+        """Test handling of zero width values."""
+        range_controller.set_value(center=100.0, width=0.0, unit="ns")
+
+        stored_config = config_service.get_config("range")
+        assert stored_config.low == 100.0
+        assert stored_config.high == 100.0
+        assert stored_config.unit == "ns"
+
+    def test_center_width_with_negative_width(
+        self, range_controller: RangeController, config_service: ConfigService
+    ) -> None:
+        """Test handling of negative width values."""
+        range_controller.set_value(center=100.0, width=-50.0, unit="us")
+
+        stored_config = config_service.get_config("range")
+        assert stored_config.low == 125.0  # center - width/2 = 100 - (-25)
+        assert stored_config.high == 75.0  # center + width/2 = 100 + (-25)
+        assert stored_config.unit == "us"
+
+    def test_unit_conversion_with_center_width(
+        self, range_controller: RangeController, config_service: ConfigService
+    ) -> None:
+        """Test unit conversion when using center/width representation."""
+        # Set initial config with microseconds
+        initial_config = RangeConfig(low=1000.0, high=3000.0, unit="us")
+        config_service.update_config("range", initial_config)
+
+        callback = FakeCallback()
+        range_controller.subscribe(callback)
+        callback.reset()  # Clear initial callback
+
+        # User changes unit dropdown to "ms", but center/width still in old unit (us)
+        # center=2000us, width=2000us should convert to center=2ms, width=2ms
+        range_controller.set_value(center=2000.0, width=2000.0, unit="ms")
+
+        stored_config = config_service.get_config("range")
+        assert stored_config.unit == "ms"
+        # Converted values: center=2ms, width=2ms -> low=1ms, high=3ms
+        assert stored_config.low == 1.0
+        assert stored_config.high == 3.0
+
+    def test_unit_conversion_precision_with_center_width(
+        self, range_controller: RangeController, config_service: ConfigService
+    ) -> None:
+        """Test unit conversion handles floating point precision with center/width."""
+        # Set initial config
+        initial_config = RangeConfig(low=1000.0, high=2000.0, unit="us")
+        config_service.update_config("range", initial_config)
+
+        callback = FakeCallback()
+        range_controller.subscribe(callback)
+        callback.reset()
+
+        # User changes unit, center/width values are in old unit (us)
+        # center=1500us=1.5ms, width=1000us=1.0ms
+        range_controller.set_value(center=1500.0, width=1000.0, unit="ms")
+
+        stored_config = config_service.get_config("range")
+        # Converted: center=1.5ms, width=1.0ms -> low=1.0ms, high=2.0ms
+        assert stored_config.low == 1.0
+        assert stored_config.high == 2.0
+        assert stored_config.unit == "ms"
+
+    def test_direct_low_high_setting_still_works(
+        self, range_controller: RangeController, config_service: ConfigService
+    ) -> None:
+        """Test that setting low/high directly still works without conversion."""
+        range_controller.set_value(low=100.0, high=200.0, unit="ns")
+
+        stored_config = config_service.get_config("range")
+        assert stored_config.low == 100.0
+        assert stored_config.high == 200.0
+        assert stored_config.unit == "ns"
+
+    def test_mixed_fields_with_center_width_priority(
+        self, range_controller: RangeController, config_service: ConfigService
+    ) -> None:
+        """Test behavior when both center/width and low/high are provided."""
+        # When both are provided, center/width should take priority
+        range_controller.set_value(
+            center=150.0, width=100.0, low=50.0, high=250.0, unit="us"
+        )
+
+        stored_config = config_service.get_config("range")
+        # Should use center/width values: center=150, width=100 -> low=100, high=200
+        assert stored_config.low == 100.0
+        assert stored_config.high == 200.0
+        assert stored_config.unit == "us"
+
+    def test_callback_includes_original_low_high_fields(
+        self, range_controller: RangeController, config_service: ConfigService
+    ) -> None:
+        """Test that callback includes both center/width and original low/high."""
+        # Set initial config
+        initial_config = RangeConfig(low=400.0, high=800.0, unit="ms")
+        config_service.update_config("range", initial_config)
+
+        callback = FakeCallback()
+        range_controller.subscribe(callback)
+
+        # Callback should include both representations
+        assert callback.data["center"] == 600.0  # (400 + 800) / 2
+        assert callback.data["width"] == 400.0  # 800 - 400
+        assert callback.data["low"] == 400.0  # Original low
+        assert callback.data["high"] == 800.0  # Original high
+        assert callback.data["unit"] == "ms"
+
+    def test_no_unit_conversion_same_unit_with_center_width(
+        self, range_controller: RangeController, config_service: ConfigService
+    ) -> None:
+        """Test no conversion when unit stays the same with center/width."""
+        # Set initial config
+        initial_config = RangeConfig(low=100.0, high=300.0, unit="us")
+        config_service.update_config("range", initial_config)
+
+        callback = FakeCallback()
+        range_controller.subscribe(callback)
+        callback.reset()
+
+        # Update with same unit using center/width
+        range_controller.set_value(center=250.0, width=200.0, unit="us")
+
+        stored_config = config_service.get_config("range")
+        assert stored_config.low == 150.0  # 250 - 100
+        assert stored_config.high == 350.0  # 250 + 100
+        assert stored_config.unit == "us"
+
+    def test_initial_unit_handling_with_center_width(
+        self, range_controller: RangeController, config_service: ConfigService
+    ) -> None:
+        """Test handling when no previous unit exists with center/width."""
+        # First call with center/width and no previous config
+        range_controller.set_value(center=75.0, width=50.0, unit="ns")
+
+        stored_config = config_service.get_config("range")
+        assert stored_config.low == 50.0  # 75 - 25
+        assert stored_config.high == 100.0  # 75 + 25
+        assert stored_config.unit == "ns"
+
+    def test_subscribe_prevents_update_cycles_with_center_width(
+        self, range_controller: RangeController, config_service: ConfigService
+    ) -> None:
+        """Test subscribe callbacks don't trigger update cycles with center/width."""
+        cycle_detected = False
+
+        def cycling_callback(data: dict) -> None:
+            nonlocal cycle_detected
+            if cycle_detected:
+                pytest.fail("Update cycle was not prevented")
+            cycle_detected = True
+            # Try to update using center/width from the callback data
+            if "center" in data and "width" in data:
+                range_controller.set_value(
+                    center=data["center"], width=data["width"], unit=data["unit"]
+                )
+            cycle_detected = False
+
+        range_controller.subscribe(cycling_callback)
+
+        # Simulate external config update
+        config = RangeConfig(low=200.0, high=600.0, unit="ms")
+        config_service.update_config("range", config)
+
+        # Should not cause infinite recursion
+        stored_config = config_service.get_config("range")
+        assert stored_config.low == 200.0
+        assert stored_config.high == 600.0
+
+    def test_complex_unit_conversion_scenario(
+        self, range_controller: RangeController, config_service: ConfigService
+    ) -> None:
+        """Test complex scenario with multiple unit conversions."""
+        # Start with microseconds
+        initial_config = RangeConfig(low=1000.0, high=3000.0, unit="us")
+        config_service.update_config("range", initial_config)
+
+        callback = FakeCallback()
+        range_controller.subscribe(callback)
+
+        # First conversion: us -> ms, values provided in old unit (us)
+        callback.reset()
+        range_controller.set_value(center=2000.0, width=2000.0, unit="ms")
+
+        stored_config = config_service.get_config("range")
+        assert stored_config.low == 1.0
+        assert stored_config.high == 3.0
+        assert stored_config.unit == "ms"
+
+        # Second conversion: ms -> ns, values provided in old unit (ms)
+        callback.reset()
+        range_controller.set_value(center=2.0, width=2.0, unit="ns")
+
+        stored_config = config_service.get_config("range")
+        assert stored_config.low == 1000000.0
+        assert stored_config.high == 3000000.0
         assert stored_config.unit == "ns"
 
 
