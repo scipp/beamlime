@@ -12,7 +12,7 @@ def test_toa_range_defaults():
     assert not toa.enabled
     assert toa.low == 0.0
     assert toa.high == 72_000.0
-    assert toa.unit == "us"
+    assert toa.unit == "μs"
     assert toa.range_ns is None
 
 
