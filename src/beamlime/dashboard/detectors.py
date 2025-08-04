@@ -23,6 +23,20 @@ from .widgets.toa_range_widget import TOARangeWidget
 pn.extension('holoviews', template='material')
 hv.extension('bokeh')
 
+# Rudimentary configuration for detector plots. There is some overlap with the
+# instrument configs in beamlime.config.instruments, but currently the latter is for the
+# backend, defining projections and more. I expect that the dashboard will require more
+# advanced config in the future, which might either be done by subclassing, or a more
+# complex config system. Until we have a better idea of what exactly we will need to
+# configure, we keep it simple and postpone the decision.
+_dream = {
+    'Endcap Backward': ('endcap_backward_detector', 'endcap_backward'),
+    'High Resolution': ('high_resolution_detector', 'High-Res'),
+    'Mantle': ('mantle_detector', 'mantle_projection'),
+    'Endcap Forward': ('endcap_forward_detector', 'endcap_forward'),
+}
+_config = {'dream': _dream}
+
 
 class DashboardApp(DashboardBase):
     """Detector dashboard application."""
@@ -35,6 +49,7 @@ class DashboardApp(DashboardBase):
             dashboard_name='detectors_dashboard',
             port=5008,  # Default port for detectors dashboard
         )
+        self._config = _config[instrument]
 
         self._setup_detector_streams()
         self._view_toggle = pn.widgets.RadioBoxGroup(
@@ -55,18 +70,10 @@ class DashboardApp(DashboardBase):
 
     def _setup_detector_streams(self):
         """Initialize streams for detector data."""
-        self._bw_pipe = self._detector_stream_manager.get_stream(
-            'endcap_backward_detector', 'endcap_backward'
-        )
-        self._hr_pipe = self._detector_stream_manager.get_stream(
-            'high_resolution_detector', 'High-Res'
-        )
-        self._mantle_pipe = self._detector_stream_manager.get_stream(
-            'mantle_detector', 'mantle_projection'
-        )
-        self._fw_pipe = self._detector_stream_manager.get_stream(
-            'endcap_forward_detector', 'endcap_forward'
-        )
+        self._streams = {
+            key: self._detector_stream_manager.get_stream(*value)
+            for key, value in self._config.items()
+        }
 
     def create_sidebar_content(self) -> pn.viewable.Viewable:
         """Create the sidebar content with status and controls."""
@@ -81,25 +88,11 @@ class DashboardApp(DashboardBase):
 
     def create_main_content(self) -> pn.viewable.Viewable:
         """Create the main monitor plots content."""
-
-        return pn.Column(
-            pn.Row(
-                self._setup_holoviews(
-                    self._bw_pipe, extra_image_opts={'title': 'Endcap Backward'}
-                ),
-                self._setup_holoviews(
-                    self._hr_pipe, extra_image_opts={'title': 'High Resolution'}
-                ),
-            ),
-            pn.Row(
-                self._setup_holoviews(
-                    self._mantle_pipe, extra_image_opts={'title': 'Mantle'}
-                ),
-                self._setup_holoviews(
-                    self._fw_pipe, extra_image_opts={'title': 'Endcap Forward'}
-                ),
-            ),
-        )
+        panes = [
+            self._setup_holoviews(pipe, extra_image_opts={'title': title})
+            for title, pipe in self._streams.items()
+        ]
+        return pn.Column(*[pn.Row(*panes[i : i + 2]) for i in range(0, len(panes), 2)])
 
     def _with_toggle(self, func):
         def toggled(data, view_mode: str = 'Current'):
@@ -113,6 +106,9 @@ class DashboardApp(DashboardBase):
     def _setup_holoviews(
         self, pipe: streams.Pipe, extra_image_opts: dict[str, Any] | None = None
     ) -> pn.pane.HoloViews:
+        # Equal aspect should work well for detector images, since they always define
+        # some rectangular area in space, typically with equal units. Pure logic views
+        # are exceptions, but we have not added those in the dashboard yet.
         image_opts = {'aspect': 'equal'}
         image_opts.update(extra_image_opts or {})
         plotter = plots.AutoscalingPlot(value_margin_factor=0.1, image_opts=image_opts)
