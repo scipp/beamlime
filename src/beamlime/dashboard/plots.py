@@ -4,6 +4,7 @@
 
 from collections import defaultdict
 from math import prod
+from typing import Any
 
 import holoviews as hv
 import numpy as np
@@ -37,7 +38,11 @@ class AutoscalingPlot:
     good starting guess of bounds.
     """
 
-    def __init__(self, value_margin_factor: float = 0.01):
+    def __init__(
+        self,
+        value_margin_factor: float = 0.01,
+        image_opts: dict[str, Any] | None = None,
+    ):
         """
         Initialize the plot with empty bounds.
 
@@ -54,6 +59,7 @@ class AutoscalingPlot:
             lambda: (None, None)
         )
         self.value_bounds = (None, None)
+        self._image_opts = image_opts or {}
 
     def update_bounds(self, data: sc.DataArray) -> bool:
         """Update bounds based on the data, return True if bounds changed."""
@@ -123,58 +129,23 @@ class AutoscalingPlot:
             hv.Overlay(curves).opts(options).opts(opts.Curve(framewise=bounds_changed))
         )
 
-    def plot_2d(self, data: sc.DataArray) -> hv.Image:
+    def plot_2d(self, data: sc.DataArray | None) -> hv.Image:
         """Create a 2D plot from a scipp DataArray."""
-        options = opts.Image(
-            responsive=True,
-            height=400,
-            aspect='equal',
-            framewise=False,
-            logz=True,
-            colorbar=True,
-            cmap='viridis',
-            hooks=[remove_bokeh_logo],
-        )
-        if data is None:
-            # Explicit clim required for initial empty plot with logz=True.
-            return hv.Image([]).opts(options).opts(clim=(0.1, None))
-        data = data.to(dtype='float64')
-        masked = data.assign(
-            sc.where(
-                data.data <= sc.scalar(0.0, unit=data.unit),
-                sc.scalar(np.nan, unit=data.unit, dtype=data.dtype),
-                data.data,
-            )
-        )
-        bounds_changed = self.update_bounds(masked)
-        histogram = to_holoviews(masked)
-        return histogram.opts(options).opts(
-            framewise=bounds_changed,
-            clim=(self.value_bounds[0], self.value_bounds[1]),
-        )
-
-    def plot_sum_of_2d(self, data: dict[DataKey, sc.DataArray]) -> hv.Histogram:
-        """Create a 2D plot from a dictionary of scipp DataArrays."""
-        options = opts.Image(
-            responsive=True,
-            height=400,
-            framewise=False,
-            logz=True,
-            colorbar=True,
-            cmap='viridis',
-            hooks=[remove_bokeh_logo],
-        )
+        base_opts = {
+            'responsive': True,
+            'height': 400,
+            'framewise': False,
+            'logz': True,
+            'colorbar': True,
+            'cmap': 'viridis',
+            'hooks': [remove_bokeh_logo],
+        }
+        base_opts.update(self._image_opts)
+        options = opts.Image(**base_opts)
         if data is None:
             # Explicit clim required for initial empty plot with logz=True. Changing to
             # logz=True only when we have data is not supported by Holoviews.
             return hv.Image([]).opts(options).opts(clim=(0.1, None))
-        reducer = sc.reduce(list(data.values()))
-        # This is not a great check, probably the whole approach is questionable, but
-        # this probably does the job for Dream focussed vs. vanadium normalized data.
-        if next(iter(data.values())).unit == '':
-            combined = reducer.nanmean()
-        else:
-            combined = reducer.nansum()
         # With logz=True we need to exclude zero values for two reasons:
         # 1. The value bounds calculation should properly adjust the color limits. Since
         #    zeros can never be included we want to adjust to the lowest positive value.
@@ -185,11 +156,12 @@ class AutoscalingPlot:
         #    will always be too low or too high. Once set, it seems it cannot be unset,
         #    i.e., we cannot rely on the autoscale enabled by `framewise=True` but have
         #    to set the limits manually. This is ok since they are computed anyway.
-        masked = combined.assign(
+        data = data.to(dtype='float64')
+        masked = data.assign(
             sc.where(
-                combined.data <= sc.scalar(0.0, unit=combined.unit),
-                sc.scalar(np.nan, unit=combined.unit, dtype=combined.dtype),
-                combined.data,
+                data.data <= sc.scalar(0.0, unit=data.unit),
+                sc.scalar(np.nan, unit=data.unit, dtype=data.dtype),
+                data.data,
             )
         )
         bounds_changed = self.update_bounds(masked)
@@ -202,6 +174,19 @@ class AutoscalingPlot:
             framewise=bounds_changed,
             clim=(self.value_bounds[0], self.value_bounds[1]),
         )
+
+    def plot_sum_of_2d(self, data: dict[DataKey, sc.DataArray]) -> hv.Image:
+        """Create a 2D plot from a dictionary of scipp DataArrays."""
+        if data is None:
+            return self.plot_2d(data)
+        reducer = sc.reduce(list(data.values()))
+        # This is not a great check, probably the whole approach is questionable, but
+        # this probably does the job for Dream focussed vs. vanadium normalized data.
+        if next(iter(data.values())).unit == '':
+            combined = reducer.nanmean()
+        else:
+            combined = reducer.nansum()
+        return self.plot_2d(combined)
 
 
 def monitor_total_counts_bar_chart(**monitors: RawData | None) -> hv.Bars:

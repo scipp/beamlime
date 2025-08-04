@@ -5,9 +5,11 @@ Preliminary example of a monitor dashboard application using Beamlime.
 """
 
 import argparse
+from typing import Any
 
 import holoviews as hv
 import panel as pn
+from holoviews import streams
 
 from beamlime import Service
 from beamlime.config import keys
@@ -42,7 +44,7 @@ class DashboardApp(DashboardBase):
             pn.pane.Markdown("### View Mode"), self._view_toggle
         )
 
-        self._logger.info("Monitor dashboard initialized")
+        self._logger.info("Detector dashboard initialized")
         self._toa_controller = self._controller_factory.create(
             config_key=keys.DETECTOR_TOA_RANGE.create_key(),
             controller_cls=RangeController,
@@ -52,7 +54,7 @@ class DashboardApp(DashboardBase):
         )
 
     def _setup_detector_streams(self):
-        """Initialize streams for monitor data."""
+        """Initialize streams for detector data."""
         self._bw_pipe = self._detector_stream_manager.get_stream(
             'endcap_backward_detector', 'endcap_backward'
         )
@@ -80,43 +82,44 @@ class DashboardApp(DashboardBase):
     def create_main_content(self) -> pn.viewable.Viewable:
         """Create the main monitor plots content."""
 
-        def _with_toggle(func):
-            def toggled(data, view_mode: str = 'Current'):
-                if data is None:
-                    return func(data=None)
-                da = data.cumulative if view_mode == 'Cumulative' else data.current
-                return func(data=da)
-
-            return pn.bind(toggled, view_mode=self._view_toggle.param.value)
-
-        self._fw_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
-        self._bw_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
-        self._hr_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
-        self._mantle_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
-        dmap_fw = hv.DynamicMap(
-            _with_toggle(self._fw_plot.plot_2d),
-            streams=[self._fw_pipe],
-            cache_size=1,
-        ).opts(shared_axes=False)
-        dmap_bw = hv.DynamicMap(
-            _with_toggle(self._bw_plot.plot_2d),
-            streams=[self._bw_pipe],
-            cache_size=1,
-        ).opts(shared_axes=False)
-        dmap_hr = hv.DynamicMap(
-            _with_toggle(self._hr_plot.plot_2d),
-            streams=[self._hr_pipe],
-            cache_size=1,
-        ).opts(shared_axes=False)
-        dmap_mantle = hv.DynamicMap(
-            _with_toggle(self._mantle_plot.plot_2d),
-            streams=[self._mantle_pipe],
-            cache_size=1,
-        ).opts(shared_axes=False)
-
         return pn.Column(
-            pn.Row(pn.pane.HoloViews(dmap_fw), pn.pane.HoloViews(dmap_mantle)),
-            pn.Row(pn.pane.HoloViews(dmap_bw), pn.pane.HoloViews(dmap_hr)),
+            pn.Row(
+                self._setup_holoviews(
+                    self._bw_pipe, extra_image_opts={'title': 'Endcap Backward'}
+                ),
+                self._setup_holoviews(
+                    self._hr_pipe, extra_image_opts={'title': 'High Resolution'}
+                ),
+            ),
+            pn.Row(
+                self._setup_holoviews(
+                    self._mantle_pipe, extra_image_opts={'title': 'Mantle'}
+                ),
+                self._setup_holoviews(
+                    self._fw_pipe, extra_image_opts={'title': 'Endcap Forward'}
+                ),
+            ),
+        )
+
+    def _with_toggle(self, func):
+        def toggled(data, view_mode: str = 'Current'):
+            if data is None:
+                return func(data=None)
+            da = data.cumulative if view_mode == 'Cumulative' else data.current
+            return func(data=da)
+
+        return pn.bind(toggled, view_mode=self._view_toggle.param.value)
+
+    def _setup_holoviews(
+        self, pipe: streams.Pipe, extra_image_opts: dict[str, Any] | None = None
+    ) -> pn.pane.HoloViews:
+        image_opts = {'aspect': 'equal'}
+        image_opts.update(extra_image_opts or {})
+        plotter = plots.AutoscalingPlot(value_margin_factor=0.1, image_opts=image_opts)
+        return pn.pane.HoloViews(
+            hv.DynamicMap(
+                self._with_toggle(plotter.plot_2d), streams=[pipe], cache_size=1
+            ).opts(shared_axes=False)
         )
 
 
