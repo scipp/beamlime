@@ -2,9 +2,9 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+import datetime
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Generic, Protocol, TypeVar
 
@@ -52,7 +52,7 @@ class Message(Generic[T]):
 
     timestamp: int = field(
         default_factory=lambda: int(
-            datetime.now(timezone.utc).timestamp() * 1_000_000_000
+            datetime.datetime.now(datetime.UTC).timestamp() * 1_000_000_000
         )
     )
     stream: StreamId

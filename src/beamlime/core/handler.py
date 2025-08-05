@@ -231,7 +231,7 @@ class PeriodicAccumulatingHandler(Handler[T, V]):
         for message in messages:
             try:
                 self._preprocess(message)
-            except Exception:  # noqa: PERF203
+            except Exception:
                 self._logger.exception(
                     'Error preprocessing message %s, skipping', message
                 )

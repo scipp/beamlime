@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-from typing_extensions import Self
+from typing import Self
 
 from ..core.message import StreamKind
 from .message_adapter import (

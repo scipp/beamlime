@@ -334,7 +334,7 @@ class AdaptingMessageSource(MessageSource[U]):
         for msg in raw_messages:
             try:
                 adapted.append(self._adapter.adapt(msg))
-            except streaming_data_types.exceptions.WrongSchemaException:  # noqa: PERF203
+            except streaming_data_types.exceptions.WrongSchemaException:
                 self._logger.warning('Message %s has an unknown schema. Skipping.', msg)
                 if self._raise_on_error:
                     raise

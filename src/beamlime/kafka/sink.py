@@ -83,7 +83,7 @@ class KafkaSink(MessageSink[T]):
                 else:
                     key_bytes = None
                     value = self._serializer(msg)
-            except SerializationError as e:  # noqa: PERF203
+            except SerializationError as e:
                 self._logger.error("Failed to serialize message: %s", e)
             else:
                 try:

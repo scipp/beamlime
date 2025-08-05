@@ -164,9 +164,11 @@ def provide_benchmark_root(git_root_path: GitRootDir) -> BenchmarkRootDir:
 
 
 def provide_now() -> DateTimeSuffix:
-    from datetime import datetime, timezone
+    import datetime
 
-    return DateTimeSuffix(datetime.now(tz=timezone.utc).isoformat(timespec='seconds'))
+    return DateTimeSuffix(
+        datetime.datetime.now(tz=datetime.UTC).isoformat(timespec='seconds')
+    )
 
 
 def provide_new_file_path(
