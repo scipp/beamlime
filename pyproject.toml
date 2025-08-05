@@ -33,7 +33,8 @@ dependencies = [
   "PyYAML",
   "confluent_kafka",
   "ess-streaming-data-types",
-  "essreduce>=25.03.1",
+  # Upper bound required by essdiffraction<25.08.0
+  "essreduce>=25.03.1,<25.07.0",
   "jinja2",
   "pydantic>=2",
   "scipp>=25.02.0",  # Improved performance of scipp.group
@@ -46,6 +47,8 @@ dynamic = ["version"]
 [project.optional-dependencies]
 test = [
     "essdiffraction>=25.06.0",
+    # Upper bound required by essdiffraction<25.08.0
+    "essreduce>=25.03.1,<25.07.0",
     "esssans",
     "essspectroscopy>=25.05.0",
     "param",

@@ -18,5 +18,4 @@ scipp
 --extra-index-url=https://pypi.org/simple
 --pre
 sciline @ git+https://github.com/scipp/sciline@main
-plopp @ git+https://github.com/scipp/plopp@main
 essreduce @ git+https://github.com/scipp/essreduce@main
