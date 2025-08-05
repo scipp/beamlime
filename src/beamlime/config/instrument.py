@@ -9,8 +9,9 @@ from typing import Any
 
 from ess.reduce.streaming import StreamProcessor
 
-from beamlime.config.workflow_spec import Parameter
 from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
+
+from .workflow_spec import WorkflowSpec
 
 
 class InstrumentRegistry(UserDict[str, 'Instrument']):
@@ -62,34 +63,53 @@ class Instrument:
 
     def register_workflow(
         self,
+        *,
         name: str,
+        version: int,
+        title: str,
         description: str = '',
         source_names: Sequence[str] | None = None,
-        parameters: Sequence[Parameter] | None = None,
     ) -> Callable[[Callable[..., StreamProcessor]], Callable[..., StreamProcessor]]:
         """
         Decorator to register a factory function for creating StreamProcessors.
 
+        This decorator registers a factory function that creates a
+        :py:class:`StreamProcessor` for a specific workflow. The decorator automatically
+        registers the factory with the processor factory and returns the factory
+        function unchanged.
+
+        The factory function may have two parameters:
+        - `source_name`: The name of the source to process.
+        - `params`: A Pydantic model containing parameters for the workflow. The factory
+          inspects the type hint of the `params` parameter to determine the correct
+          model that the frontend uses to create workflow configuration widgets.
+
         Parameters
         ----------
         name:
-            Name to register the factory under.
+            Name to register the workflow under.
+        version:
+            Version of the factory. This is used to differentiate between different
+            versions of the same workflow.
+        title:
+            Title of the workflow. This is used for display in the UI.
         description:
             Optional description of the factory.
         source_names:
             Optional list of source names that the factory can handle. This is used to
-            create a workflow specification.
-        parameters:
-            Optional list of parameters that the factory accepts. This is used to
             create a workflow specification.
 
         Returns
         -------
         Decorator function that registers the factory and returns it unchanged.
         """
-        return self.processor_factory.register(
+        spec = WorkflowSpec(
+            instrument=self.name,
             name=name,
+            version=version,
+            title=title,
             description=description,
-            source_names=source_names,
-            parameters=parameters,
+            source_names=list(source_names or []),
+            params=None,  # placeholder, filled in from type hint later
         )
+        return self.processor_factory.register(spec)

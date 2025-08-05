@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import ess.loki.live  # noqa: F401
-import scipp as sc
+import pydantic
 from ess import loki
 from ess.reduce.nexus.types import NeXusData, NeXusDetectorName, SampleRun
 from ess.reduce.streaming import StreamProcessor
@@ -16,9 +16,9 @@ from ess.sans.types import (
 )
 from scippnexus import NXdetector
 
+from beamlime import parameter_models
 from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
-from beamlime.config.workflow_spec import Parameter, ParameterType
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
@@ -111,40 +111,33 @@ _source_names = (
 )
 
 
-qbins_param = Parameter(
-    name='QBins',
-    description='Number of Q bins',
-    param_type=ParameterType.INT,
-    default=20,
-)
-wav_min_param = Parameter(
-    name='WavelengthMin',
-    unit='angstrom',
-    description='Minimum wavelength',
-    param_type=ParameterType.FLOAT,
-    default=1.0,
-)
-wav_max_param = Parameter(
-    name='WavelengthMax',
-    unit='angstrom',
-    description='Maximum wavelength',
-    param_type=ParameterType.FLOAT,
-    default=13.0,
-)
-wav_bins_param = Parameter(
-    name='WavelengthBins',
-    unit=None,
-    description='Number of wavelength bins',
-    param_type=ParameterType.INT,
-    default=100,
-)
-use_transmission_run = Parameter(
-    name='UseTransmissionRun',
-    unit=None,
-    description='Use transmission run instead of monitor readings of sample run',
-    param_type=ParameterType.BOOL,
-    default=False,
-)
+class SansWorkflowParams(pydantic.BaseModel):
+    q_edges: parameter_models.QEdges = pydantic.Field(
+        title='Q bins',
+        description='Define the bin edges for binning in Q.',
+        default=parameter_models.QEdges(
+            start=0.01,
+            stop=0.3,
+            num_bins=20,
+            unit=parameter_models.QUnit.INVERSE_ANGSTROM,
+        ),
+    )
+    wavelength_edges: parameter_models.WavelengthEdges = pydantic.Field(
+        title='Wavelength bins',
+        description='Define the bin edges for binning in wavelength.',
+        default=parameter_models.WavelengthEdges(
+            start=1.0,
+            stop=13.0,
+            num_bins=100,
+            unit=parameter_models.WavelengthUnit.ANGSTROM,
+        ),
+    )
+    use_transmission_run: bool = pydantic.Field(
+        title='Use transmission run',
+        description='Use transmission run instead of monitor readings of sample run',
+        default=False,
+    )
+
 
 # Created once outside workflow wrappers since this configures some files from pooch
 # where a checksum is needed, which takes significant time.
@@ -187,7 +180,9 @@ _accumulators = (
 )
 
 
-@instrument.register_workflow(name='I(Q)', source_names=_source_names)
+@instrument.register_workflow(
+    name='i_of_q', version=1, title='I(Q)', source_names=_source_names
+)
 def _i_of_q(source_name: str) -> StreamProcessor:
     wf = _base_workflow.copy()
     wf[NeXusDetectorName] = source_name
@@ -199,43 +194,23 @@ def _i_of_q(source_name: str) -> StreamProcessor:
     )
 
 
-# Note: For now we are setting up a manual parameter mapping. In the future we may want
-# auto-generate this, e.g., based on the widget-related components in ess.reduce.
-# On the other hand, a curated list of parameters may be useful and advantageous for
-# a simplified workflow control for live reduction.
 @instrument.register_workflow(
-    name='I(Q) with params',
+    name='i_of_q_with_params',
+    version=1,
+    title='I(Q) with params',
+    description='I(Q) reduction with configurable parameters.',
     source_names=_source_names,
-    parameters=(
-        qbins_param,
-        wav_min_param,
-        wav_max_param,
-        wav_bins_param,
-        use_transmission_run,
-    ),
 )
 def _i_of_q_with_params(
-    source_name: str,
-    QBins: int,
-    WavelengthMin: float,
-    WavelengthMax: float,
-    WavelengthBins: int,
-    UseTransmissionRun: bool,
+    source_name: str, params: SansWorkflowParams
 ) -> StreamProcessor:
     wf = _base_workflow.copy()
     wf[NeXusDetectorName] = source_name
 
-    wf[params.QBins] = sc.linspace(
-        dim='Q', start=0.01, stop=0.3, num=QBins + 1, unit='1/angstrom'
-    )
-    wf[params.WavelengthBins] = sc.linspace(
-        dim='wavelength',
-        start=WavelengthMin,
-        stop=WavelengthMax,
-        num=WavelengthBins + 1,
-        unit='angstrom',
-    )
-    if not UseTransmissionRun:
+    wf[params.QBins] = params.q_edges.get_edges()
+    wf[params.WavelengthBins] = params.wavelength_edges.get_edges()
+
+    if not params.use_transmission_run:
         target_keys = (IofQ[SampleRun], params.TransmissionFraction[SampleRun])
         wf.insert(_transmission_from_current_run)
     else:

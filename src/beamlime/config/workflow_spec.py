@@ -8,61 +8,13 @@ from __future__ import annotations
 
 import time
 from enum import Enum
-from typing import Any, Generic, TypeVar
+from typing import Any, TypeVar
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 T = TypeVar('T')
 
-
-class ParameterType(str, Enum):
-    """
-    Enum for parameter types.
-
-    This enum is used to define the type of a parameter.
-    """
-
-    INT = 'int'
-    FLOAT = 'float'
-    STRING = 'string'
-    BOOL = 'bool'
-    OPTIONS = 'options'
-
-
-class Parameter(BaseModel, Generic[T]):
-    """
-    Model for workflow parameter.
-
-    This model is used to define a parameter for a specific workflow.
-    """
-
-    name: str = Field(description="Name of the parameter.")
-    unit: str | None = Field(default=None, description="Unit of the parameter.")
-    description: str = Field(description="Description of the parameter.")
-    param_type: ParameterType = Field(description="Type of the parameter.")
-    default: T = Field(description="Default value of the parameter.")
-    options: list[T] | None = Field(
-        default=None,
-        description="List of options, if it is a parameter with options.",
-    )
-
-    @model_validator(mode='after')
-    def validate_options(self) -> Parameter:
-        """Validate that options are provided for OPTIONS parameter type."""
-        if self.param_type == ParameterType.OPTIONS:
-            if self.options is None or not self.options:
-                raise ValueError(
-                    "Options must be provided for parameter type 'OPTIONS'"
-                )
-            if self.default not in set(self.options):
-                raise ValueError(
-                    f"Default {self.default} must be one of options {self.options}"
-                )
-        elif self.options is not None:
-            raise ValueError(
-                "Options must be None for parameter types other than 'OPTIONS'"
-            )
-        return self
+WorkflowId = str
 
 
 class WorkflowSpec(BaseModel):
@@ -74,30 +26,26 @@ class WorkflowSpec(BaseModel):
     configuring workflows.
     """
 
-    name: str = Field(description="Name of the workflow.")
+    instrument: str = Field(
+        description="Name of the instrument this workflow is associated with."
+    )
+    name: str = Field(description="Name of the workflow. Used internally.")
+    version: int = Field(description="Version of the workflow.")
+    title: str = Field(description="Title of the workflow. For display in the UI.")
     description: str = Field(description="Description of the workflow.")
     source_names: list[str] = Field(
         default_factory=list,
         description="List of detectors the workflow can be applied to.",
     )
-    parameters: list[Parameter] = Field(
-        default_factory=list, description="Parameters for the workflow."
-    )
+    params: type[BaseModel] | None = Field(description="Model for workflow param.")
 
+    def get_id(self) -> WorkflowId:
+        """
+        Get a unique identifier for the workflow.
 
-WorkflowId = str
-
-
-class WorkflowSpecs(BaseModel):
-    """
-    Model for workflow specifications.
-
-    This model is used to define multiple workflows and their parameters.
-    """
-
-    workflows: dict[WorkflowId, WorkflowSpec] = Field(
-        default_factory=dict, description="Workflows and their parameters."
-    )
+        The identifier is a combination of instrument, name, and version.
+        """
+        return f"{self.instrument}/{self.name}/{self.version}"
 
 
 class WorkflowConfig(BaseModel):
@@ -112,8 +60,9 @@ class WorkflowConfig(BaseModel):
     identifier: WorkflowId | None = Field(
         description="Hash of the workflow, used to identify the workflow."
     )
-    values: dict[str, Any] = Field(
-        default_factory=dict, description="Parameter values for the workflow."
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Parameters for the workflow, as JSON-serialized Pydantic model.",
     )
 
 

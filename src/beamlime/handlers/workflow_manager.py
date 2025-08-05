@@ -13,7 +13,6 @@ from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 from ..config.models import ConfigKey
 from ..config.workflow_spec import (
     WorkflowConfig,
-    WorkflowSpecs,
     WorkflowStatus,
     WorkflowStatusType,
 )
@@ -64,17 +63,6 @@ class WorkflowManager:
         self._processors = ProcessorRegistry()
         self._proxies: dict[str, StreamProcessorProxy] = {}
 
-    def get_workflow_specs(self) -> WorkflowSpecs:
-        """
-        Get the workflow specifications for the available workflows.
-
-        Returns
-        -------
-        WorkflowSpecs
-            The workflow specifications.
-        """
-        return WorkflowSpecs(workflows=dict(self._processor_factory.items()))
-
     def set_workflow(self, source_name: str, processor: StreamProcessor | None) -> None:
         """
         Add a workflow to the manager.
@@ -120,9 +108,7 @@ class WorkflowManager:
 
         try:
             processor = self._processor_factory.create(
-                workflow_id=config.identifier,
-                source_name=source_name,
-                workflow_params=config.values,
+                source_name=source_name, config=config
             )
         except Exception as e:
             # TODO This system is a bit flawed: If we have a workflow running already

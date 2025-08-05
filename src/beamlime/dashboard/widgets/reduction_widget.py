@@ -26,7 +26,10 @@ from __future__ import annotations
 import panel as pn
 
 from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec
-from beamlime.dashboard.workflow_controller import WorkflowController
+from beamlime.dashboard.workflow_controller import (
+    BoundWorkflowController,
+    WorkflowController,
+)
 
 from .workflow_config_modal import WorkflowConfigModal
 from .workflow_status_list_widget import WorkflowStatusListWidget
@@ -46,7 +49,8 @@ class WorkflowSelectorWidget:
             Controller for workflow operations
         """
         self._controller = controller
-        self._ui_helper = WorkflowUIHelper(controller)
+        self._bound_controller: BoundWorkflowController | None = None
+        self._ui_helper: WorkflowUIHelper | None = None
         self._selector = pn.widgets.Select(name="Workflow")
         self._description_pane = pn.pane.HTML(
             "Select a workflow to see its description"
@@ -65,17 +69,29 @@ class WorkflowSelectorWidget:
 
     def _on_workflow_selected(self, event) -> None:
         """Handle workflow selection change."""
-        description = self._ui_helper.get_workflow_description(event.new)
-        if description is None:
+        workflow_id = event.new
+
+        # Create bound controller and UI helper for selected workflow
+        if WorkflowUIHelper.is_no_selection(workflow_id):
+            self._bound_controller = None
+            self._ui_helper = None
             text = "Select a workflow to see its description"
         else:
-            text = f"<p><strong>Description:</strong> {description}</p>"
+            self._bound_controller = self._controller.get_bound_controller(workflow_id)
+            if self._bound_controller is not None:
+                self._ui_helper = WorkflowUIHelper(self._bound_controller)
+                description = self._ui_helper.get_workflow_description()
+                text = f"<p><strong>Description:</strong> {description}</p>"
+            else:
+                self._ui_helper = None
+                text = "Select a workflow to see its description"
+
         self._description_pane.object = text
 
     def _on_workflows_updated(self, specs: dict[WorkflowId, WorkflowSpec]) -> None:
         """Handle workflow specs updates."""
-        self._selector.options = self._ui_helper.make_workflow_options(specs)
-        self._selector.value = self._ui_helper.get_default_workflow_selection()
+        self._selector.options = WorkflowUIHelper.make_workflow_options(specs)
+        self._selector.value = WorkflowUIHelper.get_default_workflow_selection()
 
     @property
     def widget(self) -> pn.Column:
@@ -87,6 +103,12 @@ class WorkflowSelectorWidget:
         """Get the currently selected workflow ID."""
         value = self._selector.value
         return None if self._ui_helper.is_no_selection(value) else value
+
+    def create_modal(self) -> WorkflowConfigModal | None:
+        if self._bound_controller is None:
+            return
+
+        return WorkflowConfigModal(controller=self._bound_controller)
 
 
 class ReductionWidget:
@@ -102,7 +124,6 @@ class ReductionWidget:
             Controller for workflow operations
         """
         self._controller = controller
-        self._ui_helper = WorkflowUIHelper(controller)
         self._workflow_selector = WorkflowSelectorWidget(controller)
         self._running_workflows_widget = WorkflowStatusListWidget(controller)
         self._configure_button = pn.widgets.Button(
@@ -116,7 +137,6 @@ class ReductionWidget:
     def _create_widget(self) -> pn.Column:
         """Create the main widget layout."""
         return pn.Column(
-            pn.pane.HTML("<h3>Data Reduction Workflows</h3>"),
             pn.Column(
                 self._workflow_selector.widget, self._configure_button, width=500
             ),
@@ -134,17 +154,12 @@ class ReductionWidget:
     def _on_workflow_selected(self, event) -> None:
         """Handle workflow selection change."""
         workflow_id = event.new
-        self._configure_button.disabled = self._ui_helper.is_no_selection(workflow_id)
+        self._configure_button.disabled = WorkflowUIHelper.is_no_selection(workflow_id)
 
     def _on_configure_workflow(self, event) -> None:
         """Handle configure workflow button click."""
-        workflow_id = self._workflow_selector.selected_workflow_id
-        if workflow_id is None:
+        if (modal := self._workflow_selector.create_modal()) is None:
             return
-
-        modal = WorkflowConfigModal(
-            workflow_id=workflow_id, controller=self._controller
-        )
 
         # Add modal to container and show it
         self._modal_container.append(modal.modal)

@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 
-from typing import Literal, NewType
+from typing import NewType
 
 import ess.powder.types  # noqa: F401
+import pydantic
 import scipp as sc
 from ess import dream, powder
 from ess.dream.workflow import DreamPowderWorkflow
@@ -17,9 +18,9 @@ from ess.reduce.nexus.types import (
 from ess.reduce.streaming import StreamProcessor
 from scippnexus import NXdetector
 
+from beamlime import parameter_models
 from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
-from beamlime.config.workflow_spec import Parameter, ParameterType
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
@@ -120,8 +121,10 @@ def _make_dream_detectors() -> StreamLUT:
     }
 
 
+# Normalization to monitors is partially broken due to some wavelength-range checking
+# in essdiffraction that does not play with TOA-TOF conversion (I think).
 _reduction_workflow = DreamPowderWorkflow(
-    run_norm=powder.RunNormalization.monitor_integrated
+    run_norm=powder.RunNormalization.proton_charge
 )
 
 _source_names = [
@@ -146,17 +149,20 @@ def _total_counts(data: DetectorData[SampleRun]) -> TotalCounts:
     )
 
 
+def _fake_proton_charge(
+    data: powder.types.ReducedCountsDspacing[SampleRun],
+) -> powder.types.AccumulatedProtonCharge[SampleRun]:
+    """
+    Fake approximate proton charge for consistent normalization during streaming.
+
+    This is not meant for production, but as a workaround until monitor normalization is
+    fixed and/or we have setup a proton-charge stream.
+    """
+    return powder.types.AccumulatedProtonCharge[SampleRun](sc.values(data.data).sum())
+
+
 _reduction_workflow.insert(_total_counts)
-_reduction_workflow[powder.types.DspacingBins] = sc.linspace(
-    dim='dspacing',
-    start=0.4,
-    stop=3.5,
-    num=2000,
-    unit='angstrom',
-)
-_reduction_workflow[powder.types.TwoThetaBins] = sc.linspace(
-    dim="two_theta", unit="rad", start=0.4, stop=3.1415, num=201
-)
+_reduction_workflow.insert(_fake_proton_charge)
 _reduction_workflow[powder.types.CalibrationData] = None
 _reduction_workflow = powder.with_pixel_mask_filenames(_reduction_workflow, [])
 _reduction_workflow[powder.types.UncertaintyBroadcastMode] = (
@@ -166,68 +172,89 @@ _reduction_workflow[powder.types.KeepEvents[SampleRun]] = powder.types.KeepEvent
     SampleRun
 ](False)
 
-# dream-no-shape is a much smaller file without pixel_shape, which is not needed for
-# data reduction.
-geometry_file_param = Parameter(
-    name='GeometryFile',
-    description='NeXus file containing instrument geometry and other static data.',
-    param_type=ParameterType.STRING,
-    default=str(get_nexus_geometry_filename('dream-no-shape')),
-)
-wavelength_mask_low_param = Parameter(
-    name='WavelengthMaskLow',
-    description='Wavelengths below this will be excluded.',
-    param_type=ParameterType.FLOAT,
-    default=1.0,
-    unit='angstrom',
-)
-wavelength_mask_high_param = Parameter(
-    name='WavelengthMaskHigh',
-    description='Wavelengths above this will be excluded.',
-    param_type=ParameterType.FLOAT,
-    default=5.0,
-    unit='angstrom',
-)
-instrument_configuration_param = Parameter(
-    name='InstrumentConfiguration',
-    description='Chopper settings determining TOA to TOF conversion.',
-    param_type=ParameterType.OPTIONS,
-    default='High-flux (BC=240)',
-    options=('High-flux (BC=215)', 'High-flux (BC=240)', 'High-resolution'),
-)
+
+class InstrumentConfiguration(pydantic.BaseModel):
+    value: dream.InstrumentConfiguration = pydantic.Field(
+        default=dream.InstrumentConfiguration.high_flux_BC240,
+        description='Chopper settings determining TOA to TOF conversion.',
+    )
+
+    @pydantic.model_validator(mode="after")
+    def check_high_resolution_not_implemented(self):
+        if self.value == dream.InstrumentConfiguration.high_resolution:
+            raise pydantic.ValidationError.from_exception_data(
+                "ValidationError",
+                [
+                    {
+                        "type": "value_error",
+                        "loc": ("value",),
+                        "input": self.value,
+                        "ctx": {
+                            "error": "The 'high_resolution' setting is not available."
+                        },
+                    }
+                ],
+            )
+        return self
+
+
+class PowderWorkflowParams(pydantic.BaseModel):
+    geometry_file: parameter_models.Filename = pydantic.Field(
+        title='Geometry file',
+        description='NeXus file containing instrument geometry and other static data.',
+        # dream-no-shape is a much smaller file without pixel_shape, which is not needed
+        # for data reduction.
+        default=parameter_models.Filename(
+            value=get_nexus_geometry_filename('dream-no-shape')
+        ),
+    )
+    dspacing_edges: parameter_models.DspacingEdges = pydantic.Field(
+        title='d-spacing bins',
+        description='Define the bin edges for binning in d-spacing.',
+        default=parameter_models.DspacingEdges(
+            start=0.4,
+            stop=3.5,
+            num_bins=2000,
+            unit=parameter_models.DspacingUnit.ANGSTROM,
+        ),
+    )
+    two_theta_edges: parameter_models.TwoTheta = pydantic.Field(
+        title='Two-theta bins',
+        description='Define the bin edges for binning in 2-theta.',
+        default=parameter_models.TwoTheta(
+            start=0.4, stop=3.1415, num_bins=201, unit=parameter_models.AngleUnit.RADIAN
+        ),
+    )
+    wavelength_range: parameter_models.WavelengthRange = pydantic.Field(
+        title='Wavelength range',
+        description='Range of wavelengths to include in the reduction.',
+        default=parameter_models.WavelengthRange(
+            start=1.1, stop=4.5, unit=parameter_models.WavelengthUnit.ANGSTROM
+        ),
+    )
+    instrument_configuration: InstrumentConfiguration = pydantic.Field(
+        title='Instrument configuration',
+        description='Chopper settings determining TOA to TOF conversion.',
+    )
 
 
 @instrument.register_workflow(
-    name='Powder reduction',
+    name='powder_reduction',
+    version=1,
+    title='Powder reduction',
     description='Powder reduction without vanadium normalization.',
     source_names=_source_names,
-    parameters=[
-        geometry_file_param,
-        wavelength_mask_low_param,
-        wavelength_mask_high_param,
-        instrument_configuration_param,
-    ],
 )
-def _powder_workflow(
-    source_name: str,
-    GeometryFile: str,
-    WavelengthMaskLow: float,
-    WavelengthMaskHigh: float,
-    InstrumentConfiguration: Literal[
-        'High-flux (BC=215)', 'High-flux (BC=240)', 'High-resolution'
-    ],
-) -> StreamProcessor:
+def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProcessor:
     wf = _reduction_workflow.copy()
     wf[NeXusName[NXdetector]] = source_name
-    wf[Filename[SampleRun]] = GeometryFile
-    wf[dream.InstrumentConfiguration] = {
-        'High-flux (BC=215)': dream.InstrumentConfiguration.high_flux_BC215,
-        'High-flux (BC=240)': dream.InstrumentConfiguration.high_flux_BC240,
-        'High-resolution': dream.InstrumentConfiguration.high_resolution,
-    }[InstrumentConfiguration]
-    wmin = sc.scalar(WavelengthMaskLow, unit=wavelength_mask_low_param.unit)
-    wmax = sc.scalar(WavelengthMaskHigh, unit=wavelength_mask_high_param.unit)
+    wf[Filename[SampleRun]] = params.geometry_file.value
+    wf[dream.InstrumentConfiguration] = params.instrument_configuration.value
+    wmin = params.wavelength_range.get_start()
+    wmax = params.wavelength_range.get_stop()
     wf[powder.types.WavelengthMask] = lambda w: (w < wmin) | (w > wmax)
+    wf[powder.types.TwoThetaBins] = params.two_theta_edges.get_edges()
+    wf[powder.types.DspacingBins] = params.dspacing_edges.get_edges()
     return StreamProcessor(
         wf,
         dynamic_keys=(

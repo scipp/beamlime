@@ -109,20 +109,22 @@ class DashboardBase(ServiceBase, ABC):
         """Set up data services, forwarder, and orchestrator."""
         # da00 of backend services converted to scipp.DataArray
         ScippDataService = DataService[DataKey, sc.DataArray]
-        data_services = {
+        self._data_services = {
             'monitor_data': ScippDataService(),
             'detector_data': ScippDataService(),
             'data_reduction': ScippDataService(),
         }
         self._monitor_stream_manager = MonitorStreamManager(
-            data_service=data_services['monitor_data'], pipe_factory=streams.Pipe
+            data_service=self._data_services['monitor_data'], pipe_factory=streams.Pipe
         )
         self._reduction_stream_manager = ReductionStreamManager(
-            data_service=data_services['data_reduction'], pipe_factory=streams.Pipe
+            data_service=self._data_services['data_reduction'],
+            pipe_factory=streams.Pipe,
         )
 
         self._orchestrator = Orchestrator(
-            self._setup_kafka_consumer(), DataForwarder(data_services=data_services)
+            self._setup_kafka_consumer(),
+            DataForwarder(data_services=self._data_services),
         )
         self._logger.info("Data infrastructure setup complete")
 
