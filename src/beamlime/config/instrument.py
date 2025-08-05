@@ -92,7 +92,7 @@ class Instrument:
             Version of the factory. This is used to differentiate between different
             versions of the same workflow.
         title:
-            Title if the workflow. This is used for display in the UI.
+            Title of the workflow. This is used for display in the UI.
         description:
             Optional description of the factory.
         source_names:
