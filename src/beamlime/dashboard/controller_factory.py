@@ -190,6 +190,10 @@ class RangeController(Controller[K]):
         if 'center' in value and 'width' in value:
             center = value['center']
             width = value['width']
+
+            if width < 0:
+                raise ValueError(f"Width must be non-negative, got {width}")
+
             low = center - width / 2
             high = center + width / 2
 

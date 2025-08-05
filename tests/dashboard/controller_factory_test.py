@@ -491,13 +491,25 @@ class TestRangeController:
     def test_center_width_with_negative_width(
         self, range_controller: RangeController, config_service: ConfigService
     ) -> None:
-        """Test handling of negative width values."""
-        range_controller.set_value(center=100.0, width=-50.0, unit="us")
+        """Test that negative width values raise ValueError."""
+        with pytest.raises(ValueError, match="Width must be non-negative, got -50.0"):
+            range_controller.set_value(center=100.0, width=-50.0, unit="us")
 
-        stored_config = config_service.get_config("range")
-        assert stored_config.low == 125.0  # center - width/2 = 100 - (-25)
-        assert stored_config.high == 75.0  # center + width/2 = 100 + (-25)
-        assert stored_config.unit == "us"
+    def test_center_width_with_negative_width_after_unit_conversion(
+        self, range_controller: RangeController, config_service: ConfigService
+    ) -> None:
+        """Test that negative width raises ValueError even after unit conversion."""
+        # Set initial config
+        initial_config = RangeConfig(low=1000.0, high=2000.0, unit="us")
+        config_service.update_config("range", initial_config)
+
+        callback = FakeCallback()
+        range_controller.subscribe(callback)
+        callback.reset()
+
+        # Try to set negative width (which would be converted)
+        with pytest.raises(ValueError, match="Width must be non-negative, got -1.0"):
+            range_controller.set_value(center=1500.0, width=-1000.0, unit="ms")
 
     def test_unit_conversion_with_center_width(
         self, range_controller: RangeController, config_service: ConfigService

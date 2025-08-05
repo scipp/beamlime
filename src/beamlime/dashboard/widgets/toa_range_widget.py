@@ -34,6 +34,7 @@ class TOARangeWidget(ConfigWidget):
             value=width_default,
             description="Width of the time range",
             width=100,
+            start=0,
         )
         self._unit_select = pn.widgets.Select(
             name="Unit",
