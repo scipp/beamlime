@@ -14,7 +14,13 @@ from ..core.handler import (
     PeriodicAccumulatingHandler,
 )
 from ..core.message import StreamId, StreamKind
-from .accumulators import Accumulator, Cumulative, MonitorEvents, TOAHistogrammer
+from .accumulators import (
+    Accumulator,
+    Cumulative,
+    MonitorEvents,
+    TOAHistogrammer,
+    TOARebinner,
+)
 
 
 def make_monitor_data_preprocessor(
@@ -24,7 +30,7 @@ def make_monitor_data_preprocessor(
         case StreamKind.MONITOR_EVENTS:
             return TOAHistogrammer(config=config)
         case StreamKind.MONITOR_COUNTS:
-            return Cumulative(config=config, clear_on_get=True)
+            return TOARebinner(config=config, clear_on_get=True)
         case _:
             raise ValueError(f"Invalid stream kind: {key.kind}")
 

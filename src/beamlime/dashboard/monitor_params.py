@@ -11,16 +11,16 @@ class TOAEdgesParam(MonitorDataParam):
         default=0.0, doc="Lower bound of the time window in microseconds."
     )
     high = param.Number(
-        default=72_000.0, doc="Upper bound of the time window in microseconds."
+        default=1000.0 / 14, doc="Upper bound of the time window in microseconds."
     )
-    num_edges = param.Integer(
-        default=100,
-        bounds=(1, 1000),
-        doc="Number of edges to use for the time of arrival histogram.",
+    num_bins = param.Integer(
+        default=500,
+        bounds=(1, 2000),
+        doc="Number of bins to use for the time of arrival histogram.",
     )
     unit = param.Selector(
-        default='us',
-        objects=['ns', 'us', 'ms', 's'],
+        default='ms',
+        objects=['ms'],
         doc="Physical unit for time values.",
     )
 
@@ -33,4 +33,4 @@ class TOAEdgesParam(MonitorDataParam):
         return models.TOAEdges
 
     def panel(self):
-        return self.param.num_edges
+        return self
