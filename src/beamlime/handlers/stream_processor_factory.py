@@ -53,6 +53,8 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
         Decorator function that registers the factory and returns it unchanged.
         """
         spec_id = spec.get_id()
+        if spec_id in self._factories:
+            raise ValueError(f"Workflow ID '{spec_id}' is already registered.")
 
         def decorator(
             factory: Callable[..., StreamProcessor],

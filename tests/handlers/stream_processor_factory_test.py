@@ -89,6 +89,27 @@ class TestStreamProcessorFactory:
         stored_spec = factory[workflow_id]
         assert stored_spec.source_names == sources
 
+    def test_register_duplicate_id_raises_error(self):
+        factory = StreamProcessorFactory()
+        spec = WorkflowSpec(
+            instrument="test-instrument",
+            name="test-wf",
+            version=1,
+            title="test-workflow",
+            description="Test",
+            params=None,
+        )
+
+        @factory.register(spec)
+        def factory_func():
+            return make_dummy_stream_processor()
+
+        with pytest.raises(
+            ValueError,
+            match="Workflow ID 'test-instrument/test-wf/1' is already registered.",
+        ):
+            factory.register(spec)(lambda: make_dummy_stream_processor())
+
     def test_create_returns_stream_processor(self):
         factory = StreamProcessorFactory()
         spec = WorkflowSpec(
