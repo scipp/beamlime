@@ -7,11 +7,11 @@ ess-instruments
 
 ## Development
 
-Beamlime is an open source project by the [European Spallation Source ERIC](https://europeanspallationsource.se/) (ESS).
+Beamlime is an open source project by the [European Spallation Source ERIC](https://ess.eu/) (ESS).
 
 ## License
 
-Beamlime is available as open source under the [BSD-3 license](https://opensource.org/licenses/BSD-3-Clause).
+Beamlime is available as open source under the [BSD-3 license](https://opensource.org/license/BSD-3-Clause).
 
 ## Citing Beamlime
 
