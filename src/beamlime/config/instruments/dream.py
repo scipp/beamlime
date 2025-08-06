@@ -7,13 +7,15 @@ import ess.powder.types  # noqa: F401
 import pydantic
 import scipp as sc
 from ess import dream, powder
-from ess.dream.workflow import DreamPowderWorkflow
+from ess.dream import DreamPowderWorkflow
 from ess.reduce.nexus.types import (
     DetectorData,
     Filename,
     NeXusData,
     NeXusName,
+    RunType,
     SampleRun,
+    VanadiumRun,
 )
 from ess.reduce.streaming import StreamProcessor
 from scippnexus import NXdetector
@@ -140,7 +142,7 @@ TotalCounts = NewType('TotalCounts', sc.DataArray)
 def _total_counts(data: DetectorData[SampleRun]) -> TotalCounts:
     """Dummy provider for some plottable result of total counts."""
     return TotalCounts(
-        data.hist(
+        data.nanhist(
             event_time_offset=sc.linspace(
                 'event_time_offset', 0, 71_000_000, num=1000, unit='ns'
             ),
@@ -150,15 +152,17 @@ def _total_counts(data: DetectorData[SampleRun]) -> TotalCounts:
 
 
 def _fake_proton_charge(
-    data: powder.types.ReducedCountsDspacing[SampleRun],
-) -> powder.types.AccumulatedProtonCharge[SampleRun]:
+    data: powder.types.ReducedCountsDspacing[RunType],
+) -> powder.types.AccumulatedProtonCharge[RunType]:
     """
     Fake approximate proton charge for consistent normalization during streaming.
 
     This is not meant for production, but as a workaround until monitor normalization is
     fixed and/or we have setup a proton-charge stream.
     """
-    return powder.types.AccumulatedProtonCharge[SampleRun](sc.values(data.data).sum())
+    fake_charge = sc.values(data.data).sum()
+    fake_charge.unit = 'counts/µAh'
+    return powder.types.AccumulatedProtonCharge[RunType](fake_charge)
 
 
 _reduction_workflow.insert(_total_counts)
@@ -171,6 +175,10 @@ _reduction_workflow[powder.types.UncertaintyBroadcastMode] = (
 _reduction_workflow[powder.types.KeepEvents[SampleRun]] = powder.types.KeepEvents[
     SampleRun
 ](False)
+
+# dream-no-shape is a much smaller file without pixel_shape, which is not needed
+# for data reduction.
+_reduction_workflow[Filename[SampleRun]] = get_nexus_geometry_filename('dream-no-shape')
 
 
 class InstrumentConfiguration(pydantic.BaseModel):
@@ -199,22 +207,13 @@ class InstrumentConfiguration(pydantic.BaseModel):
 
 
 class PowderWorkflowParams(pydantic.BaseModel):
-    geometry_file: parameter_models.Filename = pydantic.Field(
-        title='Geometry file',
-        description='NeXus file containing instrument geometry and other static data.',
-        # dream-no-shape is a much smaller file without pixel_shape, which is not needed
-        # for data reduction.
-        default=parameter_models.Filename(
-            value=get_nexus_geometry_filename('dream-no-shape')
-        ),
-    )
     dspacing_edges: parameter_models.DspacingEdges = pydantic.Field(
         title='d-spacing bins',
         description='Define the bin edges for binning in d-spacing.',
         default=parameter_models.DspacingEdges(
             start=0.4,
             stop=3.5,
-            num_bins=2000,
+            num_bins=500,
             unit=parameter_models.DspacingUnit.ANGSTROM,
         ),
     )
@@ -222,7 +221,7 @@ class PowderWorkflowParams(pydantic.BaseModel):
         title='Two-theta bins',
         description='Define the bin edges for binning in 2-theta.',
         default=parameter_models.TwoTheta(
-            start=0.4, stop=3.1415, num_bins=201, unit=parameter_models.AngleUnit.RADIAN
+            start=0.4, stop=3.1415, num_bins=100, unit=parameter_models.AngleUnit.RADIAN
         ),
     )
     wavelength_range: parameter_models.WavelengthRange = pydantic.Field(
@@ -235,6 +234,7 @@ class PowderWorkflowParams(pydantic.BaseModel):
     instrument_configuration: InstrumentConfiguration = pydantic.Field(
         title='Instrument configuration',
         description='Chopper settings determining TOA to TOF conversion.',
+        default=InstrumentConfiguration(),
     )
 
 
@@ -248,7 +248,6 @@ class PowderWorkflowParams(pydantic.BaseModel):
 def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProcessor:
     wf = _reduction_workflow.copy()
     wf[NeXusName[NXdetector]] = source_name
-    wf[Filename[SampleRun]] = params.geometry_file.value
     wf[dream.InstrumentConfiguration] = params.instrument_configuration.value
     wmin = params.wavelength_range.get_start()
     wmax = params.wavelength_range.get_stop()
@@ -264,6 +263,44 @@ def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamPr
         target_keys=(
             powder.types.FocussedDataDspacing[SampleRun],
             powder.types.FocussedDataDspacingTwoTheta[SampleRun],
+        ),
+        accumulators=(
+            powder.types.ReducedCountsDspacing[SampleRun],
+            powder.types.WavelengthMonitor[SampleRun, powder.types.CaveMonitor],
+        ),
+    )
+
+
+@instrument.register_workflow(
+    name='powder_reduction_with_vanadium',
+    version=1,
+    title='Powder reduction (with vanadium)',
+    description='Powder reduction with vanadium normalization.',
+    source_names=_source_names,
+)
+def _powder_workflow_with_vanadium(
+    source_name: str, params: PowderWorkflowParams
+) -> StreamProcessor:
+    wf = _reduction_workflow.copy()
+    wf[NeXusName[NXdetector]] = source_name
+    wf[Filename[VanadiumRun]] = '268227_00024779_Vana_inc_BC_offset_240_deg_wlgth.hdf'
+    wf[dream.InstrumentConfiguration] = params.instrument_configuration.value
+    wmin = params.wavelength_range.get_start()
+    wmax = params.wavelength_range.get_stop()
+    wf[powder.types.WavelengthMask] = lambda w: (w < wmin) | (w > wmax)
+    wf[powder.types.TwoThetaBins] = params.two_theta_edges.get_edges()
+    wf[powder.types.DspacingBins] = params.dspacing_edges.get_edges()
+    return StreamProcessor(
+        wf,
+        dynamic_keys=(
+            NeXusData[NXdetector, SampleRun],
+            NeXusData[powder.types.CaveMonitor, SampleRun],
+        ),
+        target_keys=(
+            powder.types.FocussedDataDspacing[SampleRun],
+            powder.types.FocussedDataDspacingTwoTheta[SampleRun],
+            powder.types.IofDspacing[SampleRun],
+            powder.types.IofDspacingTwoTheta[SampleRun],
         ),
         accumulators=(
             powder.types.ReducedCountsDspacing[SampleRun],

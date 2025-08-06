@@ -212,14 +212,22 @@ def get_env_defaults(
     for action in parser._actions:
         if action.dest == 'help':
             continue
+        # Start with the parser's default value
+        default_value = action.default
+
         # Convert --arg-name to BEAMLIME_ARG_NAME
         env_name = f"{prefix}_{action.dest.upper().replace('-', '_')}"
         env_val = os.getenv(env_name)
+
+        # Override with environment variable if present
         if env_val is not None:
-            if isinstance(action.default, bool):
+            if isinstance(default_value, bool):
                 env_defaults[action.dest] = env_val.lower() in ('true', '1', 'yes')
-            elif isinstance(action.default, int):
+            elif isinstance(default_value, int):
                 env_defaults[action.dest] = int(env_val)
             else:
                 env_defaults[action.dest] = env_val
+        else:
+            # Use parser's default value
+            env_defaults[action.dest] = default_value
     return env_defaults

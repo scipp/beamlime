@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+import argparse
+
 import holoviews as hv
 import panel as pn
 
@@ -62,13 +64,21 @@ class ReductionApp(DashboardBase):
     def _setup_reduction_streams(self) -> None:
         """Initialize streams for reduction data."""
         source_names = set(self.source_names())
-        self._iofd_pipe = self._reduction_stream_manager.get_stream(
+        self._focussed_d_pipe = self._reduction_stream_manager.get_stream(
             source_names=source_names,
             view_name='ess.powder.types.FocussedDataDspacing[ess.reduce.nexus.types.SampleRun]',
         )
-        self._iofd2theta_pipe = self._reduction_stream_manager.get_stream(
+        self._focussed_d2theta_pipe = self._reduction_stream_manager.get_stream(
             source_names=source_names,
             view_name='ess.powder.types.FocussedDataDspacingTwoTheta[ess.reduce.nexus.types.SampleRun]',
+        )
+        self._iofd_pipe = self._reduction_stream_manager.get_stream(
+            source_names=source_names,
+            view_name='ess.powder.types.IofDspacing[ess.reduce.nexus.types.SampleRun]',
+        )
+        self._iofd2theta_pipe = self._reduction_stream_manager.get_stream(
+            source_names=source_names,
+            view_name='ess.powder.types.IofDspacingTwoTheta[ess.reduce.nexus.types.SampleRun]',
         )
 
     def create_sidebar_content(self) -> pn.viewable.Viewable:
@@ -82,22 +92,54 @@ class ReductionApp(DashboardBase):
 
     def create_main_content(self) -> pn.viewable.Viewable:
         """Create the main content area (empty for now)."""
-        self._iofd_plot = plots.AutoscalingPlot()
+        self._foccussed_d_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
+        foc_d = hv.DynamicMap(
+            self._foccussed_d_plot.plot_lines,
+            streams=[self._focussed_d_pipe],
+            cache_size=1,
+        ).opts(shared_axes=False)
+        self._foccussed_d2theta_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
+        foc_d2theta = hv.DynamicMap(
+            self._foccussed_d2theta_plot.plot_sum_of_2d,
+            streams=[self._focussed_d2theta_pipe],
+            cache_size=1,
+        ).opts(shared_axes=False)
+        self._iofd_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
         iofd = hv.DynamicMap(
-            self._iofd_plot.plot_lines, streams=[self._iofd_pipe]
+            self._iofd_plot.plot_lines,
+            streams=[self._iofd_pipe],
+            cache_size=1,
         ).opts(shared_axes=False)
-        self._iofd2theta_plot = plots.AutoscalingPlot()
+        self._iofd2theta_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
         iofd2theta = hv.DynamicMap(
-            self._iofd2theta_plot.plot_sum_of_2d, streams=[self._iofd2theta_pipe]
+            self._iofd2theta_plot.plot_sum_of_2d,
+            streams=[self._iofd2theta_pipe],
+            cache_size=1,
         ).opts(shared_axes=False)
-        return pn.Column(
-            pn.pane.HoloViews(iofd),
-            pn.pane.HoloViews(iofd2theta),
+        return pn.Tabs(
+            (
+                "I(d) (vanadium normalized)",
+                pn.Column(
+                    pn.pane.HoloViews(iofd),
+                    pn.pane.HoloViews(iofd2theta),
+                ),
+            ),
+            (
+                "Focussed Data (before vanadium normalization)",
+                pn.Column(
+                    pn.pane.HoloViews(foc_d),
+                    pn.pane.HoloViews(foc_d2theta),
+                ),
+            ),
         )
 
 
+def get_arg_parser() -> argparse.ArgumentParser:
+    return Service.setup_arg_parser(description='Beamlime Reduction Dashboard')
+
+
 def main() -> None:
-    parser = Service.setup_arg_parser(description='Beamlime Reduction Dashboard')
+    parser = get_arg_parser()
     app = ReductionApp(**vars(parser.parse_args()))
     app.start(blocking=True)
 

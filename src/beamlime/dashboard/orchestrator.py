@@ -32,6 +32,7 @@ class Orchestrator:
         Call this periodically to consume data and feed it into the dashboard.
         """
         messages = self._message_source.get_messages()
+        self._logger.debug("Consumed %d data messages", len(messages))
 
         if not messages:
             return

@@ -33,12 +33,11 @@ dependencies = [
   "PyYAML",
   "confluent_kafka",
   "ess-streaming-data-types",
-  # Upper bound required by essdiffraction<25.08.0
-  "essreduce>=25.03.1,<25.07.0",
+  "essreduce>=25.07.0",
   "jinja2",
   "pydantic>=2",
   "scipp>=25.02.0",  # Improved performance of scipp.group
-  "scippneutron>=25.06.0",  # For DREAM unit conversion fixes
+  "scippneutron>=25.07.0",  # For DREAM unit conversion fixes
   "pooch",
 ]
 
@@ -46,20 +45,19 @@ dynamic = ["version"]
 
 [project.optional-dependencies]
 test = [
-    "essdiffraction>=25.06.0",
-    # Upper bound required by essdiffraction<25.08.0
-    "essreduce>=25.03.1,<25.07.0",
+    "essdiffraction>=25.08.0",
     "esssans",
     "essspectroscopy>=25.05.0",
     "param",
     "pytest",
     "pytest-benchmark",
+    "scippneutron>=25.07.0",
 ]
 bifrost = [
     "essspectroscopy",
 ]
 dream = [
-    "essdiffraction>=25.06.0",
+    "essdiffraction>=25.08.0",
 ]
 loki = [
     "esssans",

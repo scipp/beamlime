@@ -170,8 +170,18 @@ class DashboardBase(ServiceBase, ABC):
         """Get the header background color. Override for custom colors."""
         return '#2596be'
 
-    def start_periodic_updates(self, period: int = 1000) -> None:
-        """Start periodic updates for the dashboard."""
+    def start_periodic_updates(self, period: int = 500) -> None:
+        """
+        Start periodic updates for the dashboard.
+
+        Parameters
+        ----------
+        period:
+            The period in milliseconds for the periodic update step.
+            Default is 500 ms. Even if the backend produces updates, e.g., once per
+            second, this default should reduce UI lag somewhat. If there are no new
+            messages, the step function should not do anything.
+        """
         if self._callback is None:
 
             def _safe_step():

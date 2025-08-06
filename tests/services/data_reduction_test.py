@@ -32,7 +32,7 @@ def make_reduction_app(instrument: str) -> BeamlimeApp:
     return BeamlimeApp.from_service_builder(builder)
 
 
-@pytest.mark.parametrize("instrument", ['bifrost', 'dummy'])
+@pytest.mark.parametrize("instrument", ['bifrost', 'dummy', 'dream'])
 def test_can_configure_and_stop_workflow_with_detector(
     instrument: str, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -40,8 +40,14 @@ def test_can_configure_and_stop_workflow_with_detector(
     app = make_reduction_app(instrument=instrument)
     sink = app.sink
     service = app.service
-    workflow_name = {'bifrost': 'spectrum_view', 'dummy': 'total_counts'}[instrument]
+    workflow_name = {
+        'bifrost': 'spectrum_view',
+        'dummy': 'total_counts',
+        'dream': 'powder_reduction',
+    }[instrument]
     # WorkflowSpec (second arg) unused here since the workflow does not take params.
+    n_target = {'bifrost': 1, 'dummy': 1, 'dream': 2}[instrument]
+    check_counts = instrument != 'dream'
     workflow_id, _ = _get_workflow_from_registry(instrument, workflow_name)
 
     # Assume workflow is runnable for all source names
@@ -52,31 +58,35 @@ def test_can_configure_and_stop_workflow_with_detector(
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
     service.step()
-    assert len(sink.messages) == 1  # Workflow status message
+    n_det = 4 if instrument == 'dream' else 1
+    assert len(sink.messages) == n_det  # Workflow status message
     sink.messages.clear()
 
     app.publish_events(size=2000, time=2)
     service.step()
-    assert len(sink.messages) == 1
-    # Events before workflow config was published should not be included
-    assert sink.messages[0].value.values.sum() == 2000
+    assert len(sink.messages) == 1 * n_target
+    if check_counts:
+        # Events before workflow config was published should not be included
+        assert sink.messages[0].value.values.sum() == 2000
     service.step()
-    assert len(sink.messages) == 1
+    assert len(sink.messages) == 1 * n_target
     app.publish_events(size=3000, time=4)
     service.step()
-    assert len(sink.messages) == 2
-    assert sink.messages[1].value.values.sum() == 5000
+    assert len(sink.messages) == 2 * n_target
+    if check_counts:
+        assert sink.messages[1].value.values.sum() == 5000
 
     # More events but the same time, should not publish again
     app.publish_events(size=1000, time=4)
     service.step()
-    assert len(sink.messages) == 2
+    assert len(sink.messages) == 2 * n_target
 
     # Later time should publish again, including the previous events with duplicate time
     app.publish_events(size=1000, time=5)
     service.step()
-    assert len(sink.messages) == 3
-    assert sink.messages[2].value.values.sum() == 7000
+    assert len(sink.messages) == 3 * n_target
+    if check_counts:
+        assert sink.messages[2].value.values.sum() == 7000
 
     # Stop workflow
     app.publish_config_message(key=config_key, value=None)
@@ -84,7 +94,7 @@ def test_can_configure_and_stop_workflow_with_detector(
     service.step()
     app.publish_events(size=1000, time=20)
     service.step()
-    assert len(sink.messages) == 3 + 1  # + 1 for the stop message
+    assert len(sink.messages) == 3 * n_target + n_det  # + n_det for the stop message(s)
 
 
 @pytest.mark.parametrize("instrument", ['dream', 'loki'])
@@ -92,6 +102,8 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     instrument: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     if instrument == 'dream':
+        # Note we are instead currently testing a workflow without monitors instead.
+        # See above.
         pytest.skip("Dream requires upstream fixes for event-mode monitors.")
     caplog.set_level(logging.INFO)
     app = make_reduction_app(instrument=instrument)
