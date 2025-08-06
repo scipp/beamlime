@@ -234,6 +234,7 @@ class PowderWorkflowParams(pydantic.BaseModel):
     instrument_configuration: InstrumentConfiguration = pydantic.Field(
         title='Instrument configuration',
         description='Chopper settings determining TOA to TOF conversion.',
+        default=InstrumentConfiguration(),
     )
 
 
