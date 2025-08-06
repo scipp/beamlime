@@ -7,7 +7,6 @@ from typing import NewType
 
 import pydantic
 import scipp as sc
-from ess.reduce import time_of_flight
 from ess.reduce.nexus.types import (
     CalibratedBeamline,
     DetectorData,
@@ -75,7 +74,8 @@ detectors_config['fakes'] = dict(_bifrost_generator())
 # Would like to use a 2-D scipp.Variable, but GenericNeXusWorkflow does not accept
 # detector names as scalar variables.
 _detector_names = [
-    f'{123+4*(analyzer-1)+(5*4+1)*(sector-1)}_channel_{sector}_{analyzer}_triplet'
+    f'{123 + 4 * (analyzer - 1) + (5 * 4 + 1) * (sector - 1)}'
+    f'_channel_{sector}_{analyzer}_triplet'
     for analyzer in range(1, 6)
     for sector in range(1, 10)
 ]
@@ -130,11 +130,7 @@ def _make_counts_per_angle(
     return CountsPerAngle(da)
 
 
-_reduction_workflow = TofWorkflow(
-    run_types=(SampleRun,),
-    monitor_types=(),
-    tof_lut_provider=time_of_flight.TofLutProvider.FILE,
-)
+_reduction_workflow = TofWorkflow(run_types=(SampleRun,), monitor_types=())
 _reduction_workflow[Filename[SampleRun]] = get_nexus_geometry_filename('bifrost')
 _reduction_workflow[CalibratedBeamline[SampleRun]] = (
     _reduction_workflow[CalibratedBeamline[SampleRun]]
