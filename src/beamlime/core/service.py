@@ -11,9 +11,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from contextlib import ExitStack
-from typing import Any, Protocol
-
-from typing_extensions import Self
+from typing import Any, Protocol, Self
 
 from ..config.instruments import available_instruments
 from .processor import Processor
@@ -143,7 +141,7 @@ class Service(ServiceBase):
         while self.is_running:
             try:
                 signal.pause()
-            except KeyboardInterrupt:  # noqa: PERF203
+            except KeyboardInterrupt:
                 self.stop()
 
     def step(self) -> None:

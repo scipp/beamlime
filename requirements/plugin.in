@@ -1,4 +1,0 @@
--r test.in
-# Packages that implement beamlime plugins
-# Disabled until esssans removed upper pin on essreduce
-# esssans @ git+https://github.com/scipp/esssans@main

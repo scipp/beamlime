@@ -10,7 +10,7 @@ pip install beamlime
 ````
 ````{tab-item} conda
 ```sh
-conda install -c conda-forge -c scipp beamlime
+conda install -c conda-forge beamlime
 ```
 ````
 `````

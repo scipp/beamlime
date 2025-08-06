@@ -168,7 +168,7 @@ class ConfigHandler(Handler[bytes, None]):
                             'Action %s called for source name %s', action, source_name
                         )
                         results.extend(result)
-                    except Exception:  # noqa: PERF203
+                    except Exception:
                         self._logger.exception(
                             'Error processing config action for %s:', config_key
                         )
