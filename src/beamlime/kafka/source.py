@@ -153,7 +153,7 @@ class BackgroundMessageSource(MessageSource[KafkaMessage]):
                             except queue.Empty:
                                 # Queue became empty between full check and get
                                 self._queue.put_nowait(messages)
-                except Exception:  # noqa: PERF203
+                except Exception:
                     self._logger.exception("Error in background message consumption")
                     # Continue running even if there's an error
         except Exception:
