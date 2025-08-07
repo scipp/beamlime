@@ -26,7 +26,7 @@ class ControllableKafkaConsumer:
         self.message_queue: Queue = Queue()
         self.consume_calls = 0
         self.should_raise = False
-        self.exception_to_raise = None
+        self.exception_to_raise: Exception | None = None
         self.consume_delay = 0.0
 
     def add_messages(self, messages: list[FakeKafkaMessage]) -> None:
@@ -93,7 +93,7 @@ class TestBackgroundMessageSource:
         """Test that context manager properly starts and stops background
         consumption."""
         consumer = ControllableKafkaConsumer()
-        test_messages = [FakeKafkaMessage(value='test', topic="topic1")]
+        test_messages = [FakeKafkaMessage(value=b'test', topic="topic1")]
         consumer.add_messages(test_messages)
 
         # Before context: no consumption should happen
@@ -110,7 +110,7 @@ class TestBackgroundMessageSource:
                 # Should get the messages
                 messages = source.get_messages()
                 assert len(messages) == 1
-                assert messages[0].value() == 'test'
+                assert messages[0].value() == b'test'
 
         # After context: consumption should stop
         calls_at_exit = consumer.consume_calls
@@ -183,7 +183,7 @@ class TestBackgroundMessageSource:
     def test_get_messages_starts_consumption_automatically(self) -> None:
         """Test that get_messages starts background consumption if not started."""
         consumer = ControllableKafkaConsumer()
-        test_messages = [FakeKafkaMessage(value='auto_start', topic="topic1")]
+        test_messages = [FakeKafkaMessage(value=b'auto_start', topic="topic1")]
         consumer.add_messages(test_messages)
 
         source = BackgroundMessageSource(consumer, timeout=0.01)
@@ -202,8 +202,8 @@ class TestBackgroundMessageSource:
         """Test that messages are consumed and queued in the background."""
         consumer = ControllableKafkaConsumer()
         test_messages = [
-            FakeKafkaMessage(value='msg1', topic="topic1"),
-            FakeKafkaMessage(value='msg2', topic="topic2"),
+            FakeKafkaMessage(value=b'msg1', topic="topic1"),
+            FakeKafkaMessage(value=b'msg2', topic="topic2"),
         ]
         consumer.add_messages(test_messages)
 
@@ -213,16 +213,16 @@ class TestBackgroundMessageSource:
 
             messages = source.get_messages()
             assert len(messages) == 2
-            assert messages[0].value() == 'msg1'
-            assert messages[1].value() == 'msg2'
+            assert messages[0].value() == b'msg1'
+            assert messages[1].value() == b'msg2'
 
     def test_get_messages_returns_accumulated_batches(self) -> None:
         """Test that get_messages returns all batches accumulated since last call."""
         consumer = ControllableKafkaConsumer()
 
         # Add messages that will be consumed in separate batches
-        batch1 = [FakeKafkaMessage(value='batch1_msg1', topic="topic1")]
-        batch2 = [FakeKafkaMessage(value='batch2_msg1', topic="topic2")]
+        batch1 = [FakeKafkaMessage(value=b'batch1_msg1', topic="topic1")]
+        batch2 = [FakeKafkaMessage(value=b'batch2_msg1', topic="topic2")]
         consumer.add_messages(batch1 + batch2)
 
         with BackgroundMessageSource(consumer, num_messages=1, timeout=0.001) as source:
@@ -287,7 +287,7 @@ class TestBackgroundMessageSource:
                 # Stop raising errors and add a message
                 consumer.should_raise = False
                 consumer.add_messages(
-                    [FakeKafkaMessage(value='after_error', topic="topic1")]
+                    [FakeKafkaMessage(value=b'after_error', topic="topic1")]
                 )
 
                 # Wait for recovery and message consumption
@@ -302,7 +302,7 @@ class TestBackgroundMessageSource:
                     time.sleep(0.01)
                     messages = source.get_messages()
 
-                assert any(msg.value() == 'after_error' for msg in messages)
+                assert any(msg.value() == b'after_error' for msg in messages)
 
         # Verify error was logged
         error_logs = [
@@ -328,6 +328,7 @@ class TestBackgroundMessageSource:
         """Test that context manager properly cleans up even if exception occurs."""
         consumer = ControllableKafkaConsumer()
 
+        calls_during = 0
         try:
             with BackgroundMessageSource(consumer, timeout=0.01):
                 # Verify consumption started

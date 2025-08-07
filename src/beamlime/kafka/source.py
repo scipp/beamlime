@@ -3,6 +3,7 @@
 import logging
 import queue
 import threading
+from collections.abc import Sequence
 from typing import Protocol
 
 from ..core.message import MessageSource
@@ -10,7 +11,7 @@ from .message_adapter import KafkaMessage
 
 
 class KafkaConsumer(Protocol):
-    def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]: ...
+    def consume(self, num_messages: int, timeout: float) -> Sequence[KafkaMessage]: ...
 
 
 class MultiConsumer(KafkaConsumer):
