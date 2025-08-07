@@ -27,6 +27,7 @@ The dashboard services can be run in development mode using:
 
 ```sh
 python -m beamlime.dashboard.monitors --instrument dummy
+python -m beamlime.dashboard.detectors --instrument dummy
 python -m beamlime.dashboard.reduction --instrument dummy
 ```
 
@@ -38,13 +39,16 @@ The dashboard services can be run in production mode using gunicorn:
 # Monitors dashboard (runs on port 5007)
 BEAMLIME_INSTRUMENT=dummy gunicorn beamlime.dashboard.monitors_wsgi:application
 
+# Detectors dashboard (runs on port 5008)
+BEAMLIME_INSTRUMENT=dummy gunicorn beamlime.dashboard.detectors_wsgi:application
+
 # Reduction dashboard (runs on port 5009)
 BEAMLIME_INSTRUMENT=dummy gunicorn beamlime.dashboard.reduction_wsgi:application
 ```
 
-Navigate to `http://localhost:5007` for the monitors dashboard or `http://localhost:5009` for the reduction dashboard.
+Navigate to `http://localhost:5007` for the monitors dashboard, `http://localhost:5008` for the detectors dashboard, or `http://localhost:5009` for the reduction dashboard.
 
-Both dashboards can run simultaneously on their respective ports.
+All three dashboards can run simultaneously on their respective ports.
 
 ### Fake data services
 
@@ -117,6 +121,7 @@ BEAMLIME_INSTRUMENT=dummy docker-compose --profile reduction -f docker-compose-b
 It will take a minute or two for the services to start fully.
 
 When using the `monitor` profile, navigate to `http://localhost:5007` to see the monitors dashboard.
+When using the `detector` profile, navigate to `http://localhost:5008` to see the detectors dashboard.
 When using the `reduction` profile, navigate to `http://localhost:5009` to see the reduction dashboard.
 
 Both dashboard profiles can be run simultaneously:

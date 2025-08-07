@@ -139,6 +139,83 @@ class BinEdgeController(Controller[K]):
         )
 
 
+class RangeController(Controller[K]):
+    """Controller for range settings that converts between center/width and low/high."""
+
+    def __init__(
+        self,
+        *,
+        config_key: K,
+        config_service: ConfigService[K, Any, pydantic.BaseModel],
+        schema: type[pydantic.BaseModel],
+    ) -> None:
+        super().__init__(
+            config_key=config_key, config_service=config_service, schema=schema
+        )
+        self._old_unit: str | None = None
+
+    def _preprocess_config(self, value: dict[str, Any]) -> dict[str, Any]:
+        """Convert from low/high to center/width representation."""
+        self._old_unit = value.get('unit')
+        if 'low' in value and 'high' in value:
+            low = value['low']
+            high = value['high']
+            center = (low + high) / 2
+            width = high - low
+
+            # Create a copy and add center/width while keeping other fields
+            preprocessed = value.copy()
+            preprocessed['center'] = center
+            preprocessed['width'] = width
+            return preprocessed
+        return value
+
+    def _preprocess_value(self, value: dict[str, Any]) -> dict[str, Any]:
+        """Convert from center/width to low/high representation."""
+        unit = value.get('unit')
+        if self._old_unit is None:
+            self._old_unit = unit
+        elif unit and unit != self._old_unit:
+            # Convert center and width to new unit
+            if 'center' in value and 'width' in value:
+                preprocessed = value.copy()
+                preprocessed['center'] = self._to_unit(
+                    value['center'], self._old_unit, unit
+                )
+                preprocessed['width'] = self._to_unit(
+                    value['width'], self._old_unit, unit
+                )
+                value = preprocessed
+
+        if 'center' in value and 'width' in value:
+            center = value['center']
+            width = value['width']
+
+            if width < 0:
+                raise ValueError(f"Width must be non-negative, got {width}")
+
+            low = center - width / 2
+            high = center + width / 2
+
+            # Create a copy and add low/high while removing center/width
+            preprocessed = value.copy()
+            preprocessed['low'] = low
+            preprocessed['high'] = high
+            # Remove center/width as they're not part of the schema
+            preprocessed.pop('center', None)
+            preprocessed.pop('width', None)
+            return preprocessed
+        return value
+
+    def _to_unit(self, value: float, old_unit: str, new_unit: str) -> float:
+        # We round the result to avoid floating-point precision issues when switching
+        # units. Otherwise, the value might not match the original value when converted
+        # back to the old unit.
+        return round(
+            sc.scalar(value, unit=old_unit).to(unit=new_unit).value, ndigits=12
+        )
+
+
 class ControllerFactory(Generic[K]):
     """
     Factory for creating controllers linked to a config value.

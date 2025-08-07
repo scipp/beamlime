@@ -35,7 +35,11 @@ from .kafka_transport import KafkaTransport
 from .message_bridge import BackgroundMessageBridge
 from .orchestrator import Orchestrator
 from .schema_validator import PydanticSchemaValidator
-from .stream_manager import MonitorStreamManager, ReductionStreamManager
+from .stream_manager import (
+    DetectorStreamManager,
+    MonitorStreamManager,
+    ReductionStreamManager,
+)
 
 # Global throttling for sliders, etc.
 pn.config.throttled = True
@@ -117,6 +121,9 @@ class DashboardBase(ServiceBase, ABC):
         self._monitor_stream_manager = MonitorStreamManager(
             data_service=self._data_services['monitor_data'], pipe_factory=streams.Pipe
         )
+        self._detector_stream_manager = DetectorStreamManager(
+            data_service=self._data_services['detector_data'], pipe_factory=streams.Pipe
+        )
         self._reduction_stream_manager = ReductionStreamManager(
             data_service=self._data_services['data_reduction'],
             pipe_factory=streams.Pipe,
@@ -185,17 +192,21 @@ class DashboardBase(ServiceBase, ABC):
             second, this default should reduce UI lag somewhat. If there are no new
             messages, the step function should not do anything.
         """
-        if self._callback is None:
+        if self._callback is not None:
+            # Callback from previous session, e.g., before reloading the page. As far as
+            # I can tell the garbage collector does clean this up eventually, but
+            # let's be explicit.
+            self._callback.stop()
 
-            def _safe_step():
-                try:
-                    self._step()
-                    self._config_service.process_incoming_messages()
-                except Exception:
-                    self._logger.exception("Error in periodic update step.")
+        def _safe_step():
+            try:
+                self._step()
+                self._config_service.process_incoming_messages()
+            except Exception:
+                self._logger.exception("Error in periodic update step.")
 
-            self._callback = pn.state.add_periodic_callback(_safe_step, period=period)
-            self._logger.info("Periodic updates started")
+        self._callback = pn.state.add_periodic_callback(_safe_step, period=period)
+        self._logger.info("Periodic updates started")
 
     def create_layout(self) -> pn.template.MaterialTemplate:
         """Create the basic dashboard layout."""
