@@ -4,10 +4,21 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from typing import Generic, Protocol
+from typing import Any, Generic, Protocol
 
-from .handler import HandlerRegistry
-from .message import Message, MessageSink, MessageSource, Tin, Tout
+from .handler import Accumulator, HandlerRegistry
+from .message import (
+    CONFIG_STREAM_ID,
+    Message,
+    MessageSink,
+    MessageSource,
+    StreamId,
+    StreamKind,
+    Tin,
+    Tout,
+)
+
+Preprocessed = Any
 
 
 class Processor(Protocol):
@@ -178,56 +189,137 @@ class Horizon:
     """
 
 
-class Accumulator(Protocol):  # Workflow?
-    def add(self, data: dict[str, sc.DataArray]) -> None: ...
+class WorkflowManager:
+    def __init__(self) -> None:
+        self._last_update: int = 0
+
+    def get_active_workflows(self) -> list[Workflow]:
+        """
+        Get a list of active workflows based on.
+        """
+        return []
+
+    def handle_config_messages(self, config_messages: list[Message[Tin]]) -> None:
+        """
+        Handle configuration messages to update the workflow state.
+        This may include resetting accumulators or changing their configuration.
+        """
+        pass
+
+    def handle_data_messages(self, data: dict[StreamId, Preprocessed]) -> None:
+        """
+        Handle data messages by passing them to the appropriate accumulators.
+        This may include updating the workflow state based on the preprocessed data.
+        """
+        # Multiplex data into the active workflows.
+        for workflow in self.get_active_workflows():
+            workflow.add(data)
+
+    def compute_results(self, end_time: int) -> list[Message[Tout]]:
+        """
+        Compute results from the accumulated data and return them as messages.
+        This may include processing the accumulated data and preparing it for output.
+        """
+        self._last_update = end_time
+        results = [
+            workflow.get(end_time=end_time) for workflow in self.get_active_workflows()
+        ]
+        # TODO Convert to Message
+        return results
+
+
+class Workflow(Protocol):
+    def add(self, data: dict[str, Preprocessed]) -> None: ...
     def get(self, end_time: int): ...
     def reset(self, start_time: int) -> None: ...
 
 
-class Processor:
+class Preprocessor(Generic[Tin, Tout]):
+    def __init__(self, accumulator: Accumulator[Tin, Tout]) -> None:
+        """
+        Initialize the preprocessor with an accumulator class.
+
+        Parameters
+        ----------
+        accumulator_cls:
+            The accumulator class to use for preprocessing messages. Must be default
+            constructable.
+        """
+
+        self._accumulator = accumulator
+
+    def __call__(self, messages: list[Message[Tin]]) -> Tout:
+        """
+        Preprocess messages before they are sent to the accumulator.
+        """
+        for message in messages:
+            self._accumulator.add(message.timestamp, message.value)
+        # We assume the accumulater is cleared in `get`.
+        return self._accumulator.get()
+
+
+class PreprocessorRegistry(Generic[Tin, Tout]):
+    """Preprocessor registry wrapping a legacy handler registry."""
+
+    def __init__(self, hander_registry: HandlerRegistry[Tin, Tout]) -> None:
+        self._handlers = hander_registry
+        self._preprocessors: dict[StreamId, Preprocessor[Tin, Tout]] = {}
+
+    def get(self, key: StreamId) -> Preprocessor | None:
+        """
+        Get a preprocessor for the given stream ID.
+        """
+        if (preprocessor := self._preprocessors.get(key)) is not None:
+            return preprocessor
+        if (handler := self._handlers.get(key)) is not None:
+            preprocessor = Preprocessor(handler._preprocessor)
+            self._preprocessors[key] = preprocessor
+            return preprocessor
+        return None
+
+
+class OrchestratingProcessor:
+    def __init__(
+        self,
+        *,
+        logger: logging.Logger | None = None,
+        source: MessageSource[Message[Tin]],
+        sink: MessageSink[Tout],
+        handler_registry: HandlerRegistry[Tin, Tout],
+    ) -> None:
+        self._logger = logger or logging.getLogger(__name__)
+        self._source = source
+        self._sink = sink
+        self._preprocessor_registry = PreprocessorRegistry(handler_registry)
+        self._workflow_manager = WorkflowManager()
+
     def process(self) -> None:
-        config_messages = self.get_config_messages()
-        # Encapsulates knowledge about concrete accumulators and corresponding config
-        # messages. Same as WorkflowConfig mechanism, using a registry?
-        self.configure_accumulators(config_messages)
-        data_messages = self.get_data_messages()
+        messages = self._source.get_messages()
+        self._logger.debug('Processing %d messages', len(messages))
+        messages_by_key = defaultdict(list)
+        for msg in messages:
+            messages_by_key[msg.stream].append(msg)
 
-        # Does this need to consider any config messages aside from a reset?
-        # Do NOT change horizons one resets or config changes! We are moving away from
-        # "interactive data exploration". We can have multiple independent workflows
-        # running, changing one workflow should not affect others.... and we don't want
-        # to track a different horizon for each, I think?
-        self.update_horizon(data_messages)
-        before, after = self.horizon.split(data_messages)
-        if self.horizon.is_ready():
-            # Note that `before` may be empty, e.g., if we could not determine in the
-            # previous call that we are ready to process.
-            data = self._preprocess(before)
-            self._accumulate(data)
-            self._publish_results()
-        data = self._preprocess(after)
-        self._accumulate(data)
+        # Handle config messages, which can trigger workflow (re)creation, resets, etc.
+        config_messages = messages_by_key.pop(CONFIG_STREAM_ID, [])
+        # TODO This might want to return status messages or similar?
+        self._workflow_manager.handle_config_messages(config_messages)
 
-    def _accumulate(self, data) -> None:
-        for accum in self.get_active_accumulators():
-            accum.add(data)
+        # Pre-process data messages
+        preprocessed: dict[StreamId, Preprocessed] = {}
+        for key, msgs in messages_by_key.items():
+            preprocessor = self._preprocessor_registry.get(key)
+            if preprocessor is None:
+                self._logger.debug('No preprocessor for key %s, skipping messages', key)
+                continue
+            try:
+                preprocessed[key] = preprocessor(msgs)
+            except Exception:
+                self._logger.exception('Error pre-processing messages for key %s', key)
 
-    def _publish_results(self, end_time: int) -> None:
-        results = [
-            accum.get(end_time=end_time)
-            for accum in self.get_active_accumulators(end_time=end_time)
-        ]
-        # publish
-        self.horizon.step()
+        # Handle data messages with the workflow manager, accumulating data as needed.
+        self._workflow_manager.handle_data_messages(preprocessed)
 
-    def reset(self) -> None:
-        # ???
-        self.reset_accumulators()
-        self.reset_horizon()
-
-
-for batch in self.update_horizon(data_messages):
-    data = self._preprocess(batch.messages)
-    self._accumulate(data)
-    if batch.ready:
-        self._publish_results()
+        # TODO Logic to determine when to compute and publish
+        results = self._workflow_manager.compute_results()
+        self._sink.publish_messages(results)
