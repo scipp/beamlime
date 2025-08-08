@@ -226,21 +226,8 @@ class Processor:
         self.reset_horizon()
 
 
-@dataclass
-class MessageBatch:
-    start_time: int
-    end_time: int
-    ready: bool
-    messages: list[Message[Tin]]
-
-
 for batch in self.update_horizon(data_messages):
     data = self._preprocess(batch.messages)
     self._accumulate(data)
     if batch.ready:
         self._publish_results()
-
-
-class MessageBatcher:
-    def batch(self, messages: list[Message[Tin]]) -> list[MessageBatch]:
-        pass
