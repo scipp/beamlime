@@ -613,7 +613,7 @@ class TestJobManager:
         manager.push_data(initial_data)
         assert len(manager.active_jobs) == 1
 
-        # Push data with start_time exactly matching job's scheduled end_time
+        # Push data with start_time exactly matching job's scheduled start_time
         exact_data = WorkflowData(
             start_time=200,  # Exactly matches job's scheduled end_time
             end_time=250,
@@ -770,3 +770,177 @@ class TestJobManager:
 
         # All jobs should now be active
         assert len(manager.active_jobs) == 3
+
+    def test_schedule_job_with_invalid_time_range_raises_error(self, fake_job_factory):
+        """Test that scheduling a job with end_time <= start_time raises ValueError."""
+        manager = JobManager(fake_job_factory)
+
+        # Test end_time < start_time
+        config_invalid1 = WorkflowConfig(
+            identifier="invalid_workflow", start_time=200, end_time=100
+        )
+        with pytest.raises(
+            ValueError,
+            match="Job end_time=100 must be greater than start_time=200",
+        ):
+            manager.schedule_job("test_source", config_invalid1)
+
+        # Test end_time == start_time (except for immediate start)
+        config_invalid2 = WorkflowConfig(
+            identifier="invalid_workflow", start_time=100, end_time=100
+        )
+        with pytest.raises(
+            ValueError, match="Job end_time=100 must be greater than start_time=100"
+        ):
+            manager.schedule_job("test_source", config_invalid2)
+
+    def test_schedule_job_with_immediate_start_and_end_time_allowed(
+        self, fake_job_factory
+    ):
+        """Test that immediate start (-1) with any end_time is allowed."""
+        manager = JobManager(fake_job_factory)
+
+        # This should be allowed: immediate start with specific end time
+        config_valid = WorkflowConfig(
+            identifier="valid_workflow", start_time=-1, end_time=100
+        )
+        job_id = manager.schedule_job("test_source", config_valid)
+        assert job_id == 0
+
+    def test_job_with_zero_duration_after_immediate_start(self, fake_job_factory):
+        """Test behavior of job with immediate start and very early end time."""
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(identifier="test_workflow", start_time=-1, end_time=50)
+
+        _ = manager.schedule_job("test_source", config)
+
+        data = WorkflowData(
+            start_time=30,  # Before job's end_time
+            end_time=100,  # Beyond job's end_time of 50 - so job should finish
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+        manager.push_data(data)
+
+        # Job should activate and immediately finish
+        assert len(manager.active_jobs) == 1  # Activated
+
+        results = manager.compute_results()
+        assert len(results) == 1  # Returns result
+        assert len(manager.active_jobs) == 0  # Finished and removed
+
+    def test_job_schedule_edge_case_start_equals_data_time(self, fake_job_factory):
+        """
+        Test job activation when data start_time exactly matches scheduled start_time.
+        """
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(
+            identifier="test_workflow", start_time=100, end_time=200
+        )
+
+        _ = manager.schedule_job("test_source", config)
+
+        # Push data with start_time exactly matching job's scheduled start_time
+        data = WorkflowData(
+            start_time=100,  # Exactly matches job's start_time
+            end_time=150,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+        manager.push_data(data)
+
+        # Job should be activated
+        assert len(manager.active_jobs) == 1
+
+    def test_job_schedule_edge_case_end_equals_data_time(self, fake_job_factory):
+        """Test job finishing when data end_time exactly matches scheduled end_time."""
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(identifier="test_workflow", start_time=-1, end_time=200)
+
+        _ = manager.schedule_job("test_source", config)
+
+        # Activate job
+        initial_data = WorkflowData(
+            start_time=100,
+            end_time=150,
+            data={StreamId(name="test_source"): sc.scalar(10.0)},
+        )
+        manager.push_data(initial_data)
+        assert len(manager.active_jobs) == 1
+
+        # Push data with end_time exactly matching job's scheduled end_time
+        final_data = WorkflowData(
+            start_time=180,
+            end_time=200,  # Exactly matches job's end_time
+            data={StreamId(name="test_source"): sc.scalar(20.0)},
+        )
+        manager.push_data(final_data)
+
+        # Job should NOT be marked for finishing yet (end_time <= end_time, not <)
+        assert len(manager.active_jobs) == 1
+
+        # But the next data batch should finish it
+        beyond_data = WorkflowData(
+            start_time=201,  # Beyond job's end_time
+            end_time=250,
+            data={StreamId(name="test_source"): sc.scalar(5.0)},
+        )
+        manager.push_data(beyond_data)
+
+        results = manager.compute_results()
+        assert len(results) == 1
+        assert len(manager.active_jobs) == 0  # Job should be finished
+
+    def test_multiple_jobs_same_schedule_times(self, fake_job_factory):
+        """Test multiple jobs with identical start and end times."""
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(
+            identifier="test_workflow", start_time=100, end_time=200
+        )
+
+        # Schedule multiple jobs with same timing
+        _ = manager.schedule_job("source1", config)
+        _ = manager.schedule_job("source2", config)
+        _ = manager.schedule_job("source3", config)
+
+        # All should activate together
+        data = WorkflowData(
+            start_time=150,
+            end_time=170,
+            data={
+                StreamId(name="source1"): sc.scalar(10.0),
+                StreamId(name="source2"): sc.scalar(20.0),
+                StreamId(name="source3"): sc.scalar(30.0),
+            },
+        )
+        manager.push_data(data)
+        assert len(manager.active_jobs) == 3
+
+        # All should finish together
+        finishing_data = WorkflowData(
+            start_time=250,  # Beyond all jobs' end_time
+            end_time=270,
+            data={StreamId(name="source1"): sc.scalar(5.0)},
+        )
+        manager.push_data(finishing_data)
+
+        results = manager.compute_results()
+        assert len(results) == 3
+        assert len(manager.active_jobs) == 0
+
+    def test_negative_start_times_other_than_minus_one(self, fake_job_factory):
+        """Test behavior with negative start times other than -1."""
+        manager = JobManager(fake_job_factory)
+
+        # Negative start times other than -1 should be treated as regular timestamps
+        config = WorkflowConfig(
+            identifier="test_workflow", start_time=-100, end_time=200
+        )
+        _ = manager.schedule_job("test_source", config)
+
+        # Data with positive time should activate job (since -100 < any positive time)
+        data = WorkflowData(
+            start_time=100,
+            end_time=150,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+        manager.push_data(data)
+        assert len(manager.active_jobs) == 1

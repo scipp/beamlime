@@ -46,13 +46,24 @@ class JobResult:
     data: sc.DataArray | sc.DataGroup
 
 
-# Keep JobSchedule class but use it only in JobManager
 @dataclass
 class JobSchedule:
     """Defines when a job should start and optionally when it should end."""
 
     start_time: int = 0  # When job should start processing
     end_time: int | None = None  # When job should stop (None = no limit)
+
+    def __post_init__(self) -> None:
+        """Validate the schedule configuration."""
+        if (
+            self.end_time is not None
+            and self.end_time <= self.start_time
+            and self.start_time != -1
+        ):
+            raise ValueError(
+                f"Job end_time={self.end_time} must be greater than start_time="
+                f"{self.start_time}, or start_time must be -1 (immediate start)"
+            )
 
 
 class Job:
@@ -174,14 +185,19 @@ class JobManager:
             for job_id in self._scheduled_jobs.keys()
             if self._job_schedules[job_id].start_time <= start_time
         ]
+
+        # Activate jobs first
+        for job in to_activate:
+            self._start_job(job)
+
+        # Now check for jobs to finish (including newly activated ones)
         to_finish = [
             job_id
             for job_id in self._active_jobs.keys()
             if (schedule := self._job_schedules[job_id]).end_time is not None
             and schedule.end_time <= end_time
         ]
-        for job in to_activate:
-            self._start_job(job)
+
         # Do not remove from active jobs yet, we need to compute results.
         self._finishing_jobs.extend(to_finish)
 
@@ -189,12 +205,11 @@ class JobManager:
         """
         Schedule a new job based on the provided configuration.
         """
+        schedule = JobSchedule(start_time=config.start_time, end_time=config.end_time)
         job = self._job_factory.create(
             job_id=self._next_job_id, source_name=source_name, config=config
         )
         job_id = self._next_job_id
-
-        schedule = JobSchedule(start_time=config.start_time, end_time=config.end_time)
 
         self._job_schedules[job_id] = schedule
         self._scheduled_jobs[job_id] = job
