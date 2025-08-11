@@ -64,6 +64,14 @@ class WorkflowConfig(BaseModel):
     identifier: WorkflowId | None = Field(
         description="Hash of the workflow, used to identify the workflow."
     )
+    start_time: int = Field(
+        default=-1,
+        description="Start time for scheduling the workflow (-1 means start now).",
+    )
+    end_time: int | None = Field(
+        default=None,
+        description="End time for scheduling the workflow (None means no end).",
+    )
     params: dict[str, Any] = Field(
         default_factory=dict,
         description="Parameters for the workflow, as JSON-serialized Pydantic model.",

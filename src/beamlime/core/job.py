@@ -46,6 +46,15 @@ class JobResult:
     data: sc.DataArray | sc.DataGroup
 
 
+# Keep JobSchedule class but use it only in JobManager
+@dataclass
+class JobSchedule:
+    """Defines when a job should start and optionally when it should end."""
+
+    start_time: int = 0  # When job should start processing
+    end_time: int | None = None  # When job should stop (None = no limit)
+
+
 class Job:
     def __init__(
         self,
@@ -144,6 +153,7 @@ class JobManager:
         self._scheduled_jobs: dict[JobId, Job] = {}
         self._finishing_jobs: list[JobId] = []
         self._next_job_id: JobId = 0
+        self._job_schedules: dict[JobId, JobSchedule] = {}
 
     @property
     def active_jobs(self) -> list[Job]:
@@ -158,13 +168,17 @@ class JobManager:
         self._active_jobs[job] = workflow
 
     def _advance_to_time(self, start_time: int, end_time: int) -> None:
+        """Activate jobs that should start and mark jobs that should finish."""
         to_activate = [
-            job
-            for job, wf in self._scheduled_jobs.items()
-            if wf.start_time <= start_time
+            job_id
+            for job_id in self._scheduled_jobs.keys()
+            if self._job_schedules[job_id].start_time <= start_time
         ]
         to_finish = [
-            job for job, wf in self._active_jobs.items() if wf.end_time <= end_time
+            job_id
+            for job_id in self._active_jobs.keys()
+            if (schedule := self._job_schedules[job_id]).end_time is not None
+            and schedule.end_time <= end_time
         ]
         for job in to_activate:
             self._start_job(job)
@@ -179,8 +193,12 @@ class JobManager:
             job_id=self._next_job_id, source_name=source_name, config=config
         )
         job_id = self._next_job_id
-        self._next_job_id += 1
+
+        schedule = JobSchedule(start_time=config.start_time, end_time=config.end_time)
+
+        self._job_schedules[job_id] = schedule
         self._scheduled_jobs[job_id] = job
+        self._next_job_id += 1
         return job_id
 
     def stop_job(self, job_id: JobId) -> None:
@@ -192,6 +210,7 @@ class JobManager:
             self._finishing_jobs.append(job_id)
         elif job_id in self._scheduled_jobs:
             del self._scheduled_jobs[job_id]
+            del self._job_schedules[job_id]  # Clean up schedule
         else:
             raise KeyError(f"Job {job_id} not found in active or scheduled jobs.")
 
@@ -222,7 +241,8 @@ class JobManager:
         """
         results = [job.get() for job in self.active_jobs]
         results = [result for result in results if result is not None]
-        for job in self._finishing_jobs:
-            _ = self._active_jobs.pop(job, None)
+        for job_id in self._finishing_jobs:
+            _ = self._active_jobs.pop(job_id, None)
+            _ = self._job_schedules.pop(job_id, None)  # Clean up schedule
         self._finishing_jobs.clear()
         return results

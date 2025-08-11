@@ -209,7 +209,9 @@ class TestJobManager:
     def test_schedule_job_creates_job(self, fake_job_factory):
         """Test that scheduling a job creates it using the factory."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(
+            identifier="test_workflow", start_time=-1
+        )  # Start immediately
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -220,7 +222,7 @@ class TestJobManager:
     def test_schedule_multiple_jobs_increments_id(self, fake_job_factory):
         """Test that scheduling multiple jobs increments job IDs."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(identifier="test_workflow", start_time=-1)
 
         job_id1 = manager.schedule_job("source1", config)
         job_id2 = manager.schedule_job("source2", config)
@@ -228,15 +230,19 @@ class TestJobManager:
         assert job_id1 == 0
         assert job_id2 == 1
 
-    def test_push_data_activates_scheduled_jobs(self, fake_job_factory):
-        """Test that pushing data activates jobs that should start."""
+    def test_push_data_activates_scheduled_jobs_with_immediate_start(
+        self, fake_job_factory
+    ):
+        """Test that pushing data activates jobs scheduled to start immediately."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(
+            identifier="test_workflow", start_time=-1
+        )  # Start immediately
 
-        job_id = manager.schedule_job("test_source", config)
+        _ = manager.schedule_job("test_source", config)
         assert len(manager.active_jobs) == 0
 
-        # Push data that should activate the job
+        # Push data that should activate the job (since start_time=-1)
         data = WorkflowData(
             start_time=100,
             end_time=200,
@@ -246,13 +252,41 @@ class TestJobManager:
 
         assert len(manager.active_jobs) == 1
 
+    def test_push_data_activates_jobs_based_on_schedule(self, fake_job_factory):
+        """Test that jobs are activated based on their scheduled start time."""
+        manager = JobManager(fake_job_factory)
+        config1 = WorkflowConfig(identifier="early_workflow", start_time=50)
+        config2 = WorkflowConfig(identifier="late_workflow", start_time=150)
+
+        _ = manager.schedule_job("source1", config1)
+        _ = manager.schedule_job("source2", config2)
+        assert len(manager.active_jobs) == 0
+
+        # Push early data - should only activate job1
+        early_data = WorkflowData(
+            start_time=100,
+            end_time=120,
+            data={StreamId(name="source1"): sc.scalar(42.0)},
+        )
+        manager.push_data(early_data)
+        assert len(manager.active_jobs) == 1
+
+        # Push later data - should activate job2
+        later_data = WorkflowData(
+            start_time=160,
+            end_time=180,
+            data={StreamId(name="source2"): sc.scalar(42.0)},
+        )
+        manager.push_data(later_data)
+        assert len(manager.active_jobs) == 2
+
     def test_push_data_feeds_active_jobs(self, fake_job_factory):
         """Test that pushing data feeds all active jobs."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(identifier="test_workflow", start_time=-1)
 
-        job_id1 = manager.schedule_job("source1", config)
-        job_id2 = manager.schedule_job("source2", config)
+        _ = manager.schedule_job("source1", config)
+        _ = manager.schedule_job("source2", config)
 
         data = WorkflowData(
             start_time=100,
@@ -264,24 +298,26 @@ class TestJobManager:
         # Both jobs should be active and receive data
         assert len(manager.active_jobs) == 2
         for job in manager.active_jobs:
-            assert job.start_time == 100
-            assert job.end_time == 200
+            assert job.start_time == 100  # Data start time
+            assert job.end_time == 200  # Data end time
 
     def test_stop_job_scheduled_removes_from_scheduled(self, fake_job_factory):
         """Test stopping a scheduled job removes it completely."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(
+            identifier="test_workflow", start_time=200
+        )  # Start later
 
         job_id = manager.schedule_job("test_source", config)
-        # Before push_data, job should be scheduled but not active
+        # Before data reaches start time, job should be scheduled but not active
         assert len(manager.active_jobs) == 0
 
         manager.stop_job(job_id)
 
-        # After stopping, push_data should not activate the job
+        # After stopping, even when data reaches start time, job should not activate
         data = WorkflowData(
-            start_time=100,
-            end_time=200,
+            start_time=250,
+            end_time=300,
             data={StreamId(name="test_source"): sc.scalar(42.0)},
         )
         manager.push_data(data)
@@ -290,7 +326,7 @@ class TestJobManager:
     def test_stop_job_active_marks_for_finishing(self, fake_job_factory):
         """Test stopping an active job marks it for finishing."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(identifier="test_workflow", start_time=-1)
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -317,7 +353,7 @@ class TestJobManager:
     def test_reset_job_active(self, fake_job_factory):
         """Test resetting an active job calls its reset method."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(identifier="test_workflow", start_time=-1)
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -343,7 +379,7 @@ class TestJobManager:
     def test_reset_job_scheduled(self, fake_job_factory):
         """Test resetting a scheduled job calls its reset method."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(identifier="test_workflow", start_time=200)
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -360,10 +396,10 @@ class TestJobManager:
     def test_compute_results_returns_job_results(self, fake_job_factory):
         """Test that compute_results returns results from all active jobs."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(identifier="test_workflow", start_time=-1)
 
-        job_id1 = manager.schedule_job("source1", config)
-        job_id2 = manager.schedule_job("source2", config)
+        _ = manager.schedule_job("source1", config)
+        _ = manager.schedule_job("source2", config)
 
         # Activate jobs
         data = WorkflowData(
@@ -381,7 +417,7 @@ class TestJobManager:
     def test_compute_results_removes_stopped_jobs(self, fake_job_factory):
         """Test that compute_results removes jobs that were stopped."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(identifier="test_workflow", start_time=-1)
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -403,48 +439,54 @@ class TestJobManager:
         assert len(results) == 1  # Should still return result
         assert len(manager.active_jobs) == 0  # Should be removed now
 
-    def test_job_lifecycle_with_time_based_activation(self, fake_job_factory):
-        """Test complete job lifecycle with time-based activation."""
+    def test_job_lifecycle_with_schedule_based_activation(self, fake_job_factory):
+        """Test complete job lifecycle with schedule-based activation."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config1 = WorkflowConfig(identifier="workflow1", start_time=50, end_time=250)
+        config2 = WorkflowConfig(identifier="workflow2", start_time=150, end_time=350)
 
-        # Schedule two jobs
-        job_id1 = manager.schedule_job("source1", config)
-        job_id2 = manager.schedule_job("source2", config)
+        # Schedule two jobs with different start times
+        _ = manager.schedule_job("source1", config1)
+        _ = manager.schedule_job("source2", config2)
 
         # Initially no active jobs
         assert len(manager.active_jobs) == 0
 
-        # Push early data - should activate both jobs
+        # Push early data - should activate job1 only (start_time=50)
         early_data = WorkflowData(
             start_time=100,
             end_time=150,
             data={StreamId(name="source1"): sc.scalar(10.0)},
         )
         manager.push_data(early_data)
-        assert len(manager.active_jobs) == 2
+        assert len(manager.active_jobs) == 1
 
-        # Push later data - should continue feeding jobs
+        # Push later data - should activate job2 (start_time=150)
         later_data = WorkflowData(
-            start_time=151,
-            end_time=200,
+            start_time=200,
+            end_time=250,
             data={StreamId(name="source1"): sc.scalar(20.0)},
         )
         manager.push_data(later_data)
+        assert len(manager.active_jobs) == 2
 
-        # Verify jobs received both data pushes
-        for job in manager.active_jobs:
-            assert job.start_time == 100
-            assert job.end_time == 200
+        # Push data that should finish job1 (end_time=250)
+        finishing_data = WorkflowData(
+            start_time=251,
+            end_time=300,
+            data={StreamId(name="source1"): sc.scalar(30.0)},
+        )
+        manager.push_data(finishing_data)
 
-        # Get results
+        # Get results - job1 should be finished and removed
         results = manager.compute_results()
-        assert len(results) == 2
+        assert len(results) == 2  # Both jobs return results
+        assert len(manager.active_jobs) == 1  # Only job2 remains
 
     def test_multiple_data_accumulation(self, fake_job_factory):
         """Test that multiple data pushes accumulate correctly in jobs."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(identifier="test_workflow", start_time=-1)
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -475,12 +517,12 @@ class TestJobManager:
         # The accumulated value should be 30.0 (10.0 + 20.0)
         assert processor.data["main_data"] == 30.0
 
-    def test_jobs_finish_based_on_end_time(self, fake_job_factory):
-        """Test that jobs are marked for finishing when data end_time exceeds job end_time."""
+    def test_jobs_finish_based_on_schedule_end_time(self, fake_job_factory):
+        """Test that jobs are marked for finishing based on schedule end_time."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(identifier="test_workflow", start_time=-1, end_time=175)
 
-        job_id = manager.schedule_job("test_source", config)
+        _ = manager.schedule_job("test_source", config)
 
         # Activate job with initial data
         initial_data = WorkflowData(
@@ -490,78 +532,62 @@ class TestJobManager:
         )
         manager.push_data(initial_data)
         assert len(manager.active_jobs) == 1
-        assert manager.active_jobs[0].end_time == 150
 
-        # Push data that goes beyond the job's current end_time
-        # This should mark the job for finishing
+        # Push data with start_time that goes beyond the job's scheduled end_time
         finishing_data = WorkflowData(
-            start_time=151,
-            end_time=200,  # Beyond job's current end_time of 150
+            start_time=180,  # Beyond job's scheduled end_time of 175
+            end_time=200,
             data={StreamId(name="test_source"): sc.scalar(20.0)},
         )
         manager.push_data(finishing_data)
 
-        # Job should still be active until compute_results is called
-        assert len(manager.active_jobs) == 1
-        assert manager.active_jobs[0].end_time == 200  # Updated to new end_time
-
-        # After compute_results, job should be removed
+        # Job should be marked for finishing
         results = manager.compute_results()
         assert len(results) == 1
         assert len(manager.active_jobs) == 0  # Job should be finished and removed
 
-    def test_multiple_jobs_different_end_times(self, fake_job_factory):
-        """Test handling multiple jobs with different end times."""
+    def test_multiple_jobs_different_schedule_end_times(self, fake_job_factory):
+        """Test handling multiple jobs with different scheduled end times."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config1 = WorkflowConfig(identifier="workflow1", start_time=-1, end_time=150)
+        config2 = WorkflowConfig(identifier="workflow2", start_time=-1, end_time=200)
+        config3 = WorkflowConfig(identifier="workflow3", start_time=-1, end_time=300)
 
-        # Schedule three jobs
-        job_id1 = manager.schedule_job("source1", config)
-        job_id2 = manager.schedule_job("source2", config)
-        job_id3 = manager.schedule_job("source3", config)
+        # Schedule three jobs with different end times
+        _ = manager.schedule_job("source1", config1)
+        _ = manager.schedule_job("source2", config2)
+        _ = manager.schedule_job("source3", config3)
 
-        # Activate all jobs with different end times
-        data1 = WorkflowData(
+        # Activate all jobs
+        initial_data = WorkflowData(
             start_time=100,
-            end_time=150,  # Job 1 ends at 150
-            data={StreamId(name="source1"): sc.scalar(10.0)},
+            end_time=120,
+            data={
+                StreamId(name="source1"): sc.scalar(10.0),
+                StreamId(name="source2"): sc.scalar(20.0),
+                StreamId(name="source3"): sc.scalar(30.0),
+            },
         )
-        data2 = WorkflowData(
-            start_time=100,
-            end_time=200,  # Job 2 ends at 200
-            data={StreamId(name="source2"): sc.scalar(20.0)},
-        )
-        data3 = WorkflowData(
-            start_time=100,
-            end_time=300,  # Job 3 ends at 300
-            data={StreamId(name="source3"): sc.scalar(30.0)},
-        )
-
-        manager.push_data(data1)
-        manager.push_data(data2)
-        manager.push_data(data3)
+        manager.push_data(initial_data)
         assert len(manager.active_jobs) == 3
 
-        # Push data with end_time=175, should finish job1 (end_time=150) but not others
+        # Push data with start_time=175, should finish job1 (end_time=150), not others
         intermediate_data = WorkflowData(
-            start_time=151,
-            end_time=175,
-            data={StreamId(name="source1"): sc.scalar(5.0)},
+            start_time=175,
+            end_time=180,
+            data={StreamId(name="source2"): sc.scalar(5.0)},
         )
         manager.push_data(intermediate_data)
-
-        # All jobs still active until compute_results
-        assert len(manager.active_jobs) == 3
 
         # Compute results should finish job1
         results = manager.compute_results()
         assert len(results) == 3  # All jobs return results
         assert len(manager.active_jobs) == 2  # Job1 should be removed
 
-        # Push data with end_time=250, should finish job2 (end_time=200) but not job3
+        # Push data with start_time=250, should finish job2 (end_time=200) but not job3
         later_data = WorkflowData(
-            start_time=201,
-            end_time=250,
+            start_time=250,
+            end_time=260,
             data={StreamId(name="source3"): sc.scalar(15.0)},
         )
         manager.push_data(later_data)
@@ -571,26 +597,26 @@ class TestJobManager:
         assert len(results) == 2  # Both remaining jobs return results
         assert len(manager.active_jobs) == 1  # Only job3 should remain
 
-    def test_job_finishing_edge_case_exact_end_time(self, fake_job_factory):
-        """Test job finishing when data end_time exactly matches job end_time."""
+    def test_job_finishing_edge_case_exact_schedule_end_time(self, fake_job_factory):
+        """Test job finishing when data start_time is exactly scheduled end_time."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(identifier="test_workflow", start_time=-1, end_time=200)
 
-        job_id = manager.schedule_job("test_source", config)
+        _ = manager.schedule_job("test_source", config)
 
         # Activate job
         initial_data = WorkflowData(
             start_time=100,
-            end_time=200,
+            end_time=150,
             data={StreamId(name="test_source"): sc.scalar(10.0)},
         )
         manager.push_data(initial_data)
         assert len(manager.active_jobs) == 1
 
-        # Push data with end_time exactly matching job's end_time
+        # Push data with start_time exactly matching job's scheduled end_time
         exact_data = WorkflowData(
-            start_time=151,
-            end_time=200,  # Exactly matches job's end_time
+            start_time=200,  # Exactly matches job's scheduled end_time
+            end_time=250,
             data={StreamId(name="test_source"): sc.scalar(20.0)},
         )
         manager.push_data(exact_data)
@@ -601,25 +627,25 @@ class TestJobManager:
         assert len(manager.active_jobs) == 0  # Job should be finished
 
     def test_no_premature_job_finishing(self, fake_job_factory):
-        """Test that jobs don't finish prematurely when data end_time is before job end_time."""
+        """Test jobs don't finish prematurely when data is before scheduled end_time."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(identifier="test_workflow", start_time=-1, end_time=300)
 
-        job_id = manager.schedule_job("test_source", config)
+        _ = manager.schedule_job("test_source", config)
 
-        # Activate job with end_time=200
+        # Activate job
         initial_data = WorkflowData(
             start_time=100,
-            end_time=200,
+            end_time=150,
             data={StreamId(name="test_source"): sc.scalar(10.0)},
         )
         manager.push_data(initial_data)
         assert len(manager.active_jobs) == 1
 
-        # Push data with end_time < job's end_time
+        # Push data with start_time < job's scheduled end_time
         early_data = WorkflowData(
-            start_time=151,
-            end_time=180,  # Before job's end_time of 200
+            start_time=200,  # Before job's scheduled end_time of 300
+            end_time=250,
             data={StreamId(name="test_source"): sc.scalar(20.0)},
         )
         manager.push_data(early_data)
@@ -630,14 +656,21 @@ class TestJobManager:
         assert len(manager.active_jobs) == 1  # Job should still be active
 
     def test_job_finishing_with_mixed_scenarios(self, fake_job_factory):
-        """Test complex scenario with job stopping, finishing, and continuation."""
+        """
+        Test complex scenario with job stopping, schedule-based finishing,
+        and continuation.
+        """
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config1 = WorkflowConfig(identifier="workflow1", start_time=-1, end_time=160)
+        config2 = WorkflowConfig(identifier="workflow2", start_time=-1, end_time=250)
+        config3 = WorkflowConfig(
+            identifier="workflow3", start_time=-1, end_time=None
+        )  # No end time
 
         # Schedule three jobs
-        job_id1 = manager.schedule_job("source1", config)
-        job_id2 = manager.schedule_job("source2", config)
-        job_id3 = manager.schedule_job("source3", config)
+        _ = manager.schedule_job("source1", config1)
+        job_id2 = manager.schedule_job("source2", config2)
+        _ = manager.schedule_job("source3", config3)
 
         # Activate all jobs
         initial_data = WorkflowData(
@@ -655,10 +688,10 @@ class TestJobManager:
         # Manually stop job2
         manager.stop_job(job_id2)
 
-        # Push data that would finish job1 due to end_time, keep job3 active
+        # Push data that would finish job1 due to schedule end_time, keep job3 active
         finishing_data = WorkflowData(
-            start_time=151,
-            end_time=160,  # Beyond job1's end_time of 150, but job3 should continue
+            start_time=170,  # Beyond job1's scheduled end_time of 160
+            end_time=180,
             data={
                 StreamId(name="source1"): sc.scalar(5.0),
                 StreamId(name="source3"): sc.scalar(15.0),
@@ -668,8 +701,72 @@ class TestJobManager:
 
         # Compute results should:
         # - Return results from all 3 jobs
-        # - Remove job1 (finished by time) and job2 (manually stopped)
-        # - Keep job3 active
+        # - Remove job1 (finished by schedule) and job2 (manually stopped)
+        # - Keep job3 active (no end time)
         results = manager.compute_results()
         assert len(results) == 3
         assert len(manager.active_jobs) == 1  # Only job3 should remain
+
+    def test_jobs_without_end_time_never_finish_automatically(self, fake_job_factory):
+        """Test that jobs without scheduled end_time never finish automatically."""
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(
+            identifier="test_workflow", start_time=-1, end_time=None
+        )
+
+        _ = manager.schedule_job("test_source", config)
+
+        # Activate job and push lots of data
+        for i in range(5):
+            data = WorkflowData(
+                start_time=100 + i * 100,
+                end_time=150 + i * 100,
+                data={StreamId(name="test_source"): sc.scalar(10.0 * i)},
+            )
+            manager.push_data(data)
+
+        # Job should never be marked for finishing
+        results = manager.compute_results()
+        assert len(results) == 1
+        assert len(manager.active_jobs) == 1  # Job should still be active
+
+    def test_schedule_start_time_edge_cases(self, fake_job_factory):
+        """Test edge cases for schedule start times."""
+        manager = JobManager(fake_job_factory)
+
+        # Test immediate start (-1)
+        config_immediate = WorkflowConfig(identifier="immediate", start_time=-1)
+        # Test future start
+        config_future = WorkflowConfig(identifier="future", start_time=200)
+        # Test past start (should activate immediately when data arrives)
+        config_past = WorkflowConfig(identifier="past", start_time=50)
+
+        _ = manager.schedule_job("source1", config_immediate)
+        _ = manager.schedule_job("source2", config_future)
+        _ = manager.schedule_job("source3", config_past)
+
+        # Push data at time 100
+        data = WorkflowData(
+            start_time=100,
+            end_time=150,
+            data={
+                StreamId(name="source1"): sc.scalar(10.0),
+                StreamId(name="source2"): sc.scalar(20.0),
+                StreamId(name="source3"): sc.scalar(30.0),
+            },
+        )
+        manager.push_data(data)
+
+        # Should activate immediate and past, but not future
+        assert len(manager.active_jobs) == 2
+
+        # Push later data that should activate future job
+        later_data = WorkflowData(
+            start_time=250,
+            end_time=300,
+            data={StreamId(name="source2"): sc.scalar(40.0)},
+        )
+        manager.push_data(later_data)
+
+        # All jobs should now be active
+        assert len(manager.active_jobs) == 3
