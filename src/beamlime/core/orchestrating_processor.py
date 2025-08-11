@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import Any, Generic, Protocol
 
-from .handler import Accumulator, HandlerRegistry
+import scipp as sc
+
+from .handler import Accumulator, HandlerRegistry, output_stream_name
 from .message import (
     CONFIG_STREAM_ID,
     Message,
@@ -18,8 +21,6 @@ from .message import (
     Tout,
 )
 from ..config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
-
-Preprocessed = Any
 
 
 class Processor(Protocol):
@@ -190,6 +191,54 @@ class Horizon:
     """
 
 
+@dataclass(slots=True, kw_only=True)
+class MessageBatch:
+    start_time: int
+    end_time: int
+    messages: list[Message[Any]]
+
+
+@dataclass(slots=True, kw_only=True)
+class Preprocessed:
+    start_time: int
+    end_time: int
+    data: Any
+
+
+class NaiveMessageBatcher:
+    def __init__(
+        self, batch_length_s: float = 1.0, pulse_length_s: float = 1.0 / 14
+    ) -> None:
+        # Batch length is currently ignored.
+        self._batch_length_ns = int(batch_length_s * 1_000_000_000)
+        self._pulse_length_ns = int(pulse_length_s * 1_000_000_000)
+
+    def make_batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
+        if not messages:
+            return None
+        messages = sorted(messages)
+        # start_time is the lower bound of the batch, end_time is the upper bound, both
+        # in multiples of the pulse length.
+        start_time = (
+            messages[0].timestamp // self._pulse_length_ns * self._pulse_length_ns
+        )
+        end_time = (
+            (messages[-1].timestamp + self._pulse_length_ns - 1)
+            // self._pulse_length_ns
+            * self._pulse_length_ns
+        )
+        return MessageBatch(start_time=start_time, end_time=end_time, messages=messages)
+
+    def batch(
+        self, messages_by_key: dict[StreamId, list[Message[Any]]]
+    ) -> dict[StreamId, MessageBatch]:
+        """
+        Create batches for each stream ID based on the messages provided.
+        """
+        batches = {key: self.make_batch(msgs) for key, msgs in messages_by_key.items()}
+        return {key: batch for key, batch in batches.items() if batch is not None}
+
+
 class Workflow:
     def __init__(self, spec: WorkflowSpec, config: WorkflowConfig) -> None:
         """
@@ -212,6 +261,16 @@ class Workflow:
         """
         return self._spec
 
+    @property
+    def start_time(self) -> int:
+        # TODO Add start_time field to WorkflowConfig
+        return -1
+
+    @property
+    def end_time(self) -> int:
+        # TODO Add end_time field to WorkflowConfig
+        return -1
+
     # TODO Would it be a better interface if the workflow can decide itself when to
     # compute results, e.g., based on a time horizon?
     # Maybe WorkflowSpec should not just have start_time and end_time but also
@@ -219,9 +278,50 @@ class Workflow:
     # Complication: Preprocessed data does not have raw time stamps any more,
     # how can we determine if we reached the period?
     # We still need some sort of source pulse tracking.
+    def start(self, start_time: int) -> None:
+        """
+        Start the workflow at the given start time.
+
+        Parameters
+        ----------
+        start_time:
+            The time at which to start the workflow.
+        """
+        # TODO Implement starting logic, e.g., initializing accumulators or handlers.
+        pass
+
     def add(self, data: dict[StreamId, Preprocessed]) -> None: ...
-    def get(self, end_time: int): ...
+    def get(self, end_time: int) -> WorkflowResult | None: ...
     def reset(self, start_time: int) -> None: ...
+
+
+@dataclass
+class WorkflowResult:
+    start_time: int
+    end_time: int
+    source_name: str
+    name: str
+    data: sc.DataArray | sc.DataGroup
+
+    def to_message(self, service_name: str) -> Message:
+        """
+        Convert the workflow result to a message for publishing.
+
+        Parameters
+        ----------
+        service_name:
+            The name of the service to which the message belongs.
+        """
+        stream_name = output_stream_name(
+            service_name=service_name,
+            stream_name=self.source_name,
+            signal_name=self.name,
+        )
+        return Message(
+            timestamp=self.start_time,
+            stream=StreamId(kind=StreamKind.BEAMLIME_DATA, name=stream_name),
+            value=self.data,
+        )
 
 
 class WorkflowRegistry:
@@ -234,6 +334,7 @@ class WorkflowRegistry:
         if workflow_id not in self._workflow_specs:
             raise KeyError(f"Unknown workflow ID: {workflow_id}")
         workflow_spec = self._workflow_specs[workflow_id]
+        # Note that workflows are created but not started here.
         return Workflow(spec=workflow_spec, config=config)
 
 
@@ -283,27 +384,8 @@ class WorkflowManager:
         results = [
             workflow.get(end_time=end_time) for workflow in self.get_active_workflows()
         ]
-        # Where do we get this info?
-        # WorkflowConfig messages have:
-        # - source_name
-        # - name (via WorkflowSpec) or identifier -> use as signal name?
-        #   previously this was the accumulator name, now we have one workflow per
-        #   accumulator
-        return [
-            Message(
-                timestamp=timestamp,
-                stream=StreamId(
-                    kind=StreamKind.BEAMLIME_DATA,
-                    name=output_stream_name(
-                        service_name=self._service_name,
-                        stream_name=key.name,
-                        signal_name=name,
-                    ),
-                ),
-                value=accumulator.get(),
-            )
-            for name, accumulator in self._accumulators.items()
-        ]
+        results = [result for result in results if result is not None]
+        return [result.to_message(service_name=self.service_name) for result in results]
 
 
 class Preprocessor(Generic[Tin, Tout]):
@@ -364,11 +446,12 @@ class OrchestratingProcessor:
         self._sink = sink
         self._preprocessor_registry = PreprocessorRegistry(handler_registry)
         self._workflow_manager = WorkflowManager()
+        self._message_batcher = NaiveMessageBatcher()
 
     def process(self) -> None:
         messages = self._source.get_messages()
         self._logger.debug('Processing %d messages', len(messages))
-        messages_by_key = defaultdict(list)
+        messages_by_key = defaultdict[StreamId, list[Message]](list)
         for msg in messages:
             messages_by_key[msg.stream].append(msg)
 
@@ -377,8 +460,10 @@ class OrchestratingProcessor:
         # TODO This might want to return status messages or similar?
         self._workflow_manager.handle_config_messages(config_messages)
 
-        # Pre-process data messages
-        preprocessed = self._preprocess_messages(messages_by_key)
+        data_batches = self._message_batcher.batch(messages_by_key)
+
+        # Pre-process data batches
+        preprocessed = self._preprocess_messages(data_batches)
 
         # Handle data messages with the workflow manager, accumulating data as needed.
         self._workflow_manager.handle_data_messages(preprocessed)
@@ -388,19 +473,22 @@ class OrchestratingProcessor:
         self._sink.publish_messages(results)
 
     def _preprocess_messages(
-        self, messages_by_key: dict[StreamId, list[Message[Tin]]]
+        self, batches_by_key: dict[StreamId, MessageBatch]
     ) -> dict[StreamId, Preprocessed]:
         """
         Preprocess messages before they are sent to the accumulators.
         """
         preprocessed: dict[StreamId, Preprocessed] = {}
-        for key, msgs in messages_by_key.items():
+        for key, batch in batches_by_key.items():
             preprocessor = self._preprocessor_registry.get(key)
             if preprocessor is None:
                 self._logger.debug('No preprocessor for key %s, skipping messages', key)
                 continue
             try:
-                preprocessed[key] = preprocessor(msgs)
+                data = preprocessor(batch.messages)
+                preprocessed[key] = Preprocessed(
+                    start_time=batch.start_time, end_time=batch.end_time, data=data
+                )
             except Exception:
                 self._logger.exception('Error pre-processing messages for key %s', key)
         return preprocessed

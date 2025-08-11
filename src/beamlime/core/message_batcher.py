@@ -52,8 +52,10 @@ class MessageBatcher:
     def __init__(self, batch_length_s: float = 1.0) -> None:
         self._batch_length_ns = int(batch_length_s * 1_000_000_000)
         self._current_timestamp: int | None = None
+        self._pending_messages: list[Message[Any]] = []
+        self._current_batch: MessageBatch | None = None
 
-    def batch(self, messages: list[Message[Any]]) -> list[MessageBatch]:
+    def batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
         if not messages:
             return []
 
