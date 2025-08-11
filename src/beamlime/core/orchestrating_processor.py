@@ -5,13 +5,11 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Generic, Hashable
+from typing import Any, Generic, Hashable, Protocol
 
 import scipp as sc
-from ess.reduce.streaming import StreamProcessor
 
 from ..config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
-from ..handlers.stream_processor_factory import StreamProcessorFactory
 from ..handlers.workflow_manager import WorkflowManager as LegacyWorkflowManager
 from .handler import Accumulator, HandlerRegistry, output_stream_name
 from .message import (
@@ -24,6 +22,26 @@ from .message import (
     Tin,
     Tout,
 )
+
+
+class StreamProcessor(Protocol):
+    """
+    Protocol matching ess.reduce.streaming.StreamProcessor, used by :py:class:`Job`.
+
+    There will be other implementations, in particular for non-data-reduction jobs.
+    """
+
+    def accumulate(self, data: dict[Hashable, Any]) -> None:
+        """Accumulate data for processing."""
+        ...
+
+    def finalize(self) -> dict[Hashable, Any]:
+        """Finalize the accumulated data and return it."""
+        ...
+
+    def clear(self) -> None:
+        """Clear the accumulated data."""
+        ...
 
 
 @dataclass(slots=True, kw_only=True)
@@ -69,32 +87,30 @@ class Job:
     def __init__(
         self,
         *,
-        workflow_spec: WorkflowSpec,
+        workflow_name: str,
         source_name: str,
         processor: StreamProcessor,
         source_mapping: dict[str, Hashable],
     ) -> None:
-        self._workflow_spec = workflow_spec
+        self._workflow_name = workflow_name
         self._source_name = source_name
         self._processor = processor
         self._source_mapping = source_mapping
+        self._start_time = -1
+        self._end_time = -1
 
     @property
     def start_time(self) -> int:
-        # TODO Add start_time field to WorkflowConfig
-        return -1
+        return self._start_time
 
     @property
     def end_time(self) -> int:
-        # TODO Add end_time field to WorkflowConfig
-        return -1
-
-    def start(self) -> None:
-        # TODO Implement starting logic, e.g., initializing accumulators or handlers.
-        pass
+        return self._end_time
 
     def add(self, data: WorkflowData) -> None:
-        # TODO Add aux_sources to WorkflowSpec
+        if self._start_time == -1:
+            self._start_time = data.start_time
+        self._end_time = data.end_time
         update: dict[Hashable, Any] = {}
         for stream, value in data.data.items():
             if stream.name not in self._source_mapping:
@@ -111,11 +127,15 @@ class Job:
             start_time=self.start_time,
             end_time=self.end_time,
             source_name=self._source_name,
-            name=self._workflow_spec.name,
+            name=self._workflow_name,
             data=data,
         )
 
-    def reset(self, start_time: int) -> None: ...
+    def reset(self) -> None:
+        """Reset the processor for this job."""
+        self._processor.clear()
+        self._start_time = -1
+        self._end_time = -1
 
 
 @dataclass
@@ -135,6 +155,7 @@ class JobResult:
         service_name:
             The name of the service to which the message belongs.
         """
+        # TODO I think we should include the Job ID in the message.
         stream_name = output_stream_name(
             service_name=service_name,
             stream_name=self.source_name,
@@ -147,7 +168,7 @@ class JobResult:
         )
 
 
-class WorkflowRegistry:
+class JobFactory:
     def __init__(self, legacy_manager: LegacyWorkflowManager) -> None:
         self._workflow_specs: dict[WorkflowId, WorkflowSpec] = {}
         self._legacy_manager = legacy_manager
@@ -164,7 +185,7 @@ class WorkflowRegistry:
         }
         source_mapping[source_name] = source_to_key[source_name]
         return Job(
-            workflow_spec=workflow_spec,
+            workflow_name=workflow_spec.name,
             source_name=source_name,
             processor=stream_processor,
             source_mapping=source_mapping,
@@ -175,18 +196,18 @@ JobId = int
 
 
 class JobManager:
-    def __init__(self, workflow_registry: WorkflowRegistry) -> None:
+    def __init__(self, job_factory: JobFactory) -> None:
         self.service_name = 'data_reduction'
         self._last_update: int = 0
-        self._workflow_registry = workflow_registry
+        self._job_factory = job_factory
         self._active_jobs: dict[JobId, Job] = {}
         self._scheduled_jobs: dict[JobId, Job] = {}
         self._finishing_jobs: list[JobId] = []
         self._next_job_id: JobId = 0
 
     @property
-    def active_workflows(self) -> list[Job]:
-        """Get the list of active workflows."""
+    def active_jobs(self) -> list[Job]:
+        """Get the list of active jobs."""
         return list(self._active_jobs.values())
 
     def _schedule_job(self, workflow: Job) -> None:
@@ -200,7 +221,6 @@ class JobManager:
         workflow = self._scheduled_jobs.pop(job, None)
         if workflow is None:
             raise KeyError(f"Job {job} not found in scheduled jobs.")
-        workflow.start()
         self._active_jobs[job] = workflow
 
     def _advance_to_time(self, start_time: int, end_time: int) -> None:
@@ -214,7 +234,7 @@ class JobManager:
         ]
         for job in to_activate:
             self._start_job(job)
-        # Do not remove from active workflows yet, we need to compute results.
+        # Do not remove from active jobs yet, we need to compute results.
         self._finishing_jobs.extend(to_finish)
 
     def handle_config_messages(self, config_messages: list[Message[Tin]]) -> None:
@@ -232,7 +252,7 @@ class JobManager:
         This may include updating the workflow state based on the preprocessed data.
         """
         self._advance_to_time(data.start_time, data.end_time)
-        for workflow in self.active_workflows:
+        for workflow in self.active_jobs:
             workflow.add(data)
 
     def compute_results(self) -> list[Message[Tout]]:
@@ -240,7 +260,7 @@ class JobManager:
         Compute results from the accumulated data and return them as messages.
         This may include processing the accumulated data and preparing it for output.
         """
-        results = [workflow.get() for workflow in self.active_workflows]
+        results = [job.get() for job in self.active_jobs]
         results = [result for result in results if result is not None]
         for job in self._finishing_jobs:
             _ = self._active_jobs.pop(job, None)
@@ -307,7 +327,7 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         self._preprocessor_registry = PreprocessorRegistry(handler_registry)
         legacy_manager = handler_registry._factory._workflow_manager
         self._job_manager = JobManager(
-            workflow_registry=WorkflowRegistry(legacy_manager=legacy_manager)
+            job_factory=JobFactory(legacy_manager=legacy_manager)
         )
         self._message_batcher = NaiveMessageBatcher()
 
