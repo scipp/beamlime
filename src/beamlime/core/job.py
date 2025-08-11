@@ -2,8 +2,9 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+from collections.abc import Hashable
 from dataclasses import dataclass
-from typing import Any, Hashable, Protocol
+from typing import Any, Protocol
 
 import scipp as sc
 
@@ -32,15 +33,50 @@ class WorkflowData:
     data: dict[StreamId, Any]
 
 
+JobId = int
+
+
+@dataclass
+class JobResult:
+    job_id: JobId
+    start_time: int
+    end_time: int
+    source_name: str
+    name: str
+    data: sc.DataArray | sc.DataGroup
+
+    def to_message(self, service_name: str) -> Message:
+        """
+        Convert the workflow result to a message for publishing.
+
+        Parameters
+        ----------
+        service_name:
+            The name of the service to which the message belongs.
+        """
+        stream_name = output_stream_name(
+            service_name=service_name,
+            stream_name=self.source_name,
+            signal_name=f'{self.name}-{self.job_id}',
+        )
+        return Message(
+            timestamp=self.start_time,
+            stream=StreamId(kind=StreamKind.BEAMLIME_DATA, name=stream_name),
+            value=self.data,
+        )
+
+
 class Job:
     def __init__(
         self,
         *,
+        job_id: JobId,
         workflow_name: str,
         source_name: str,
         processor: StreamProcessor,
         source_mapping: dict[str, Hashable],
     ) -> None:
+        self._job_id = job_id
         self._workflow_name = workflow_name
         self._source_name = source_name
         self._processor = processor
@@ -68,11 +104,12 @@ class Job:
             update[key] = value
         self._processor.accumulate(update)
 
-    def get(self) -> JobResult | None:
+    def get(self) -> JobResult:
         data = sc.DataGroup(
             {str(key): val for key, val in self._processor.finalize().items()}
         )
         return JobResult(
+            job_id=self._job_id,
             start_time=self.start_time,
             end_time=self.end_time,
             source_name=self._source_name,
@@ -87,42 +124,12 @@ class Job:
         self._end_time = -1
 
 
-@dataclass
-class JobResult:
-    start_time: int
-    end_time: int
-    source_name: str
-    name: str
-    data: sc.DataArray | sc.DataGroup
-
-    def to_message(self, service_name: str) -> Message:
-        """
-        Convert the workflow result to a message for publishing.
-
-        Parameters
-        ----------
-        service_name:
-            The name of the service to which the message belongs.
-        """
-        # TODO I think we should include the Job ID in the message.
-        stream_name = output_stream_name(
-            service_name=service_name,
-            stream_name=self.source_name,
-            signal_name=self.name,
-        )
-        return Message(
-            timestamp=self.start_time,
-            stream=StreamId(kind=StreamKind.BEAMLIME_DATA, name=stream_name),
-            value=self.data,
-        )
-
-
 class JobFactory:
     def __init__(self, legacy_manager: LegacyWorkflowManager) -> None:
         self._workflow_specs: dict[WorkflowId, WorkflowSpec] = {}
         self._legacy_manager = legacy_manager
 
-    def create(self, *, source_name: str, config: WorkflowConfig) -> Job:
+    def create(self, *, job_id: JobId, source_name: str, config: WorkflowConfig) -> Job:
         # Note that this initializes the job immediately, i.e., we pay startup cost now.
         legacy_factory = self._legacy_manager._processor_factory
         stream_processor = legacy_factory.create(source_name=source_name, config=config)
@@ -134,14 +141,12 @@ class JobFactory:
         }
         source_mapping[source_name] = source_to_key[source_name]
         return Job(
+            job_id=job_id,
             workflow_name=workflow_spec.name,
             source_name=source_name,
             processor=stream_processor,
             source_mapping=source_mapping,
         )
-
-
-JobId = int
 
 
 class JobManager:
