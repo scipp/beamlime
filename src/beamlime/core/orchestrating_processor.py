@@ -21,6 +21,8 @@ from .message import (
     Tout,
 )
 from ..config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
+from ..handlers.stream_processor_factory import StreamProcessorFactory
+from ..handlers.workflow_manager import WorkflowManager as LegacyWorkflowManager
 
 
 class Processor(Protocol):
@@ -199,10 +201,10 @@ class MessageBatch:
 
 
 @dataclass(slots=True, kw_only=True)
-class Preprocessed:
+class WorkflowData:
     start_time: int
     end_time: int
-    data: Any
+    data: dict[StreamId, Any]
 
 
 class NaiveMessageBatcher:
@@ -213,7 +215,7 @@ class NaiveMessageBatcher:
         self._batch_length_ns = int(batch_length_s * 1_000_000_000)
         self._pulse_length_ns = int(pulse_length_s * 1_000_000_000)
 
-    def make_batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
+    def batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
         if not messages:
             return None
         messages = sorted(messages)
@@ -229,37 +231,19 @@ class NaiveMessageBatcher:
         )
         return MessageBatch(start_time=start_time, end_time=end_time, messages=messages)
 
-    def batch(
-        self, messages_by_key: dict[StreamId, list[Message[Any]]]
-    ) -> dict[StreamId, MessageBatch]:
-        """
-        Create batches for each stream ID based on the messages provided.
-        """
-        batches = {key: self.make_batch(msgs) for key, msgs in messages_by_key.items()}
-        return {key: batch for key, batch in batches.items() if batch is not None}
 
+class Job:
+    def __init__(self, processor: StreamProcessor) -> None:
+        self._processor = processor
 
-class Workflow:
-    def __init__(self, spec: WorkflowSpec, config: WorkflowConfig) -> None:
-        """
-        Initialize the workflow with a specification and configuration.
-
-        Parameters
-        ----------
-        spec:
-            The workflow specification defining the workflow's parameters and behavior.
-        config:
-            The configuration for the workflow, including parameter values.
-        """
-        self._spec = spec
-        self._config = config
-
-    @property
-    def spec(self) -> WorkflowSpec:
-        """
-        Get the workflow specification.
-        """
-        return self._spec
+    @staticmethod
+    def from_legacy(
+        legacy_manager: LegacyWorkflowManager, source_name: str, config: WorkflowConfig
+    ) -> Job:
+        stream_processor = legacy_manager._processor_factory.create(
+            source_name=source_name, config=config
+        )
+        pass
 
     @property
     def start_time(self) -> int:
@@ -278,25 +262,27 @@ class Workflow:
     # Complication: Preprocessed data does not have raw time stamps any more,
     # how can we determine if we reached the period?
     # We still need some sort of source pulse tracking.
-    def start(self, start_time: int) -> None:
-        """
-        Start the workflow at the given start time.
-
-        Parameters
-        ----------
-        start_time:
-            The time at which to start the workflow.
-        """
+    def start(self) -> None:
         # TODO Implement starting logic, e.g., initializing accumulators or handlers.
         pass
 
-    def add(self, data: dict[StreamId, Preprocessed]) -> None: ...
-    def get(self, end_time: int) -> WorkflowResult | None: ...
+    def add(self, data: WorkflowData) -> None:
+        # TODO Add aux_sources to WorkflowSpec
+        for stream, value in data.data.items():
+            if self._key in self._processor._context_keys:
+                self._processor.set_context({self._key: value})
+            elif self._key in self._processor._dynamic_keys:
+                self._processor.accumulate({self._key: value})
+            else:
+                # Might be unused by this particular workflow
+                pass
+
+    def get(self) -> JobResult | None: ...
     def reset(self, start_time: int) -> None: ...
 
 
 @dataclass
-class WorkflowResult:
+class JobResult:
     start_time: int
     end_time: int
     source_name: str
@@ -325,37 +311,69 @@ class WorkflowResult:
 
 
 class WorkflowRegistry:
-    def __init__(self) -> None:
+    def __init__(self, legacy_manager: LegacyWorkflowManager) -> None:
         self._workflow_specs: dict[WorkflowId, WorkflowSpec] = {}
+        self._legacy_manager = legacy_manager
 
-    def create(self, *, source_name: str, config: WorkflowConfig) -> Workflow:
+    def create(self, *, source_name: str, config: WorkflowConfig) -> Job:
+        # Note that this initializes the job immediately, i.e., we pay startup cost now.
+        stream_processor = self._legacy_manager._processor_factory.create(
+            source_name=source_name, config=config
+        )
         # TODO Take details from StreamProcessorFactory
         workflow_id = config.identifier
         if workflow_id not in self._workflow_specs:
             raise KeyError(f"Unknown workflow ID: {workflow_id}")
         workflow_spec = self._workflow_specs[workflow_id]
         # Note that workflows are created but not started here.
-        return Workflow(spec=workflow_spec, config=config)
+        return Job(spec=workflow_spec, config=config)
 
 
-class WorkflowManager:
+JobId = int
+
+
+class JobManager:
     def __init__(self, workflow_registry: WorkflowRegistry) -> None:
+        self.service_name = 'data_reduction'
         self._last_update: int = 0
         self._workflow_registry = workflow_registry
+        self._active_jobs: dict[JobId, Job] = {}
+        self._scheduled_jobs: dict[JobId, Job] = {}
+        self._finishing_jobs: list[JobId] = []
+        self._next_job_id: JobId = 0
 
-    def advance_to_time(self, new_time: int) -> None:
-        # Latest or incremented to next end_time??
-        # Who determines when to compute/publish?
-        pass
+    @property
+    def active_workflows(self) -> list[Job]:
+        """Get the list of active workflows."""
+        return list(self._active_jobs.values())
 
-    def get_active_workflows(self) -> list[Workflow]:
-        """
-        Get a list of active workflows.
-        This also starts scheduled workflows, if their start_time is reached.
-        """
-        # Should this really start workflows? We don't want to necessarily tie this
-        # to data handling, but rather to the time horizon.
-        return []
+    def _schedule_job(self, workflow: Job) -> None:
+        """Start a new job with the given workflow."""
+        job_id = self._next_job_id
+        self._next_job_id += 1
+        self._scheduled_jobs[job_id] = workflow
+
+    def _start_job(self, job: JobId) -> None:
+        """Start a new job with the given workflow."""
+        workflow = self._scheduled_jobs.pop(job, None)
+        if workflow is None:
+            raise KeyError(f"Job {job} not found in scheduled jobs.")
+        workflow.start()
+        self._active_jobs[job] = workflow
+
+    def _advance_to_time(self, start_time: int, end_time: int) -> None:
+        to_activate = [
+            job
+            for job, wf in self._scheduled_jobs.items()
+            if wf.start_time <= start_time
+        ]
+        to_finish = [
+            job for job, wf in self._active_jobs.items() if wf.end_time <= end_time
+        ]
+        for job in to_activate:
+            self._start_job(job)
+        # Do not remove from active workflows yet, we need to compute results.
+        self._finishing_jobs.extend(to_finish)
 
     def handle_config_messages(self, config_messages: list[Message[Tin]]) -> None:
         """
@@ -366,25 +384,25 @@ class WorkflowManager:
         # create a workflow. This may also schedule a workflow stop. In that case we
         # still need to compute a final result?
 
-    def handle_data_messages(self, data: dict[StreamId, Preprocessed]) -> None:
+    def handle_data_messages(self, data: WorkflowData) -> None:
         """
         Handle data messages by passing them to the appropriate accumulators.
         This may include updating the workflow state based on the preprocessed data.
         """
-        # Multiplex data into the active workflows.
-        for workflow in self.get_active_workflows():
+        self._advance_to_time(data.start_time, data.end_time)
+        for workflow in self.active_workflows:
             workflow.add(data)
 
-    def compute_results(self, end_time: int) -> list[Message[Tout]]:
+    def compute_results(self) -> list[Message[Tout]]:
         """
         Compute results from the accumulated data and return them as messages.
         This may include processing the accumulated data and preparing it for output.
         """
-        self._last_update = end_time
-        results = [
-            workflow.get(end_time=end_time) for workflow in self.get_active_workflows()
-        ]
+        results = [workflow.get() for workflow in self.active_workflows]
         results = [result for result in results if result is not None]
+        for job in self._finishing_jobs:
+            _ = self._active_jobs.pop(job, None)
+        self._finishing_jobs.clear()
         return [result.to_message(service_name=self.service_name) for result in results]
 
 
@@ -432,7 +450,7 @@ class PreprocessorRegistry(Generic[Tin, Tout]):
         return None
 
 
-class OrchestratingProcessor:
+class OrchestratingProcessor(Generic[Tin, Tout]):
     def __init__(
         self,
         *,
@@ -445,50 +463,61 @@ class OrchestratingProcessor:
         self._source = source
         self._sink = sink
         self._preprocessor_registry = PreprocessorRegistry(handler_registry)
-        self._workflow_manager = WorkflowManager()
+        legacy_manager = handler_registry._factory._workflow_manager
+        self._job_manager = JobManager(
+            workflow_registry=WorkflowRegistry(legacy_manager=legacy_manager)
+        )
         self._message_batcher = NaiveMessageBatcher()
 
     def process(self) -> None:
         messages = self._source.get_messages()
         self._logger.debug('Processing %d messages', len(messages))
-        messages_by_key = defaultdict[StreamId, list[Message]](list)
+        config_messages: list[Message[Tin]] = []
+        data_messages: list[Message[Tin]] = []
+
         for msg in messages:
-            messages_by_key[msg.stream].append(msg)
+            if msg.stream == CONFIG_STREAM_ID:
+                config_messages.append(msg)
+            else:
+                data_messages.append(msg)
 
         # Handle config messages, which can trigger workflow (re)creation, resets, etc.
-        config_messages = messages_by_key.pop(CONFIG_STREAM_ID, [])
         # TODO This might want to return status messages or similar?
-        self._workflow_manager.handle_config_messages(config_messages)
+        self._job_manager.handle_config_messages(config_messages)
 
-        data_batches = self._message_batcher.batch(messages_by_key)
+        message_batch = self._message_batcher.batch(data_messages)
+        if message_batch is None:
+            self._logger.debug('No data messages to process')
+            return
 
-        # Pre-process data batches
-        preprocessed = self._preprocess_messages(data_batches)
+        # Pre-process message batch
+        workflow_data = self._preprocess_messages(message_batch)
 
         # Handle data messages with the workflow manager, accumulating data as needed.
-        self._workflow_manager.handle_data_messages(preprocessed)
+        self._job_manager.handle_data_messages(workflow_data)
 
         # TODO Logic to determine when to compute and publish
-        results = self._workflow_manager.compute_results(end_time=0)
+        results = self._job_manager.compute_results()
         self._sink.publish_messages(results)
 
-    def _preprocess_messages(
-        self, batches_by_key: dict[StreamId, MessageBatch]
-    ) -> dict[StreamId, Preprocessed]:
+    def _preprocess_messages(self, batch: MessageBatch) -> WorkflowData:
         """
         Preprocess messages before they are sent to the accumulators.
         """
-        preprocessed: dict[StreamId, Preprocessed] = {}
-        for key, batch in batches_by_key.items():
+        messages_by_key = defaultdict[StreamId, list[Message]](list)
+        for msg in batch.messages:
+            messages_by_key[msg.stream].append(msg)
+
+        data: dict[StreamId, Any] = {}
+        for key, messages in messages_by_key.items():
             preprocessor = self._preprocessor_registry.get(key)
             if preprocessor is None:
                 self._logger.debug('No preprocessor for key %s, skipping messages', key)
                 continue
             try:
-                data = preprocessor(batch.messages)
-                preprocessed[key] = Preprocessed(
-                    start_time=batch.start_time, end_time=batch.end_time, data=data
-                )
+                data[key] = preprocessor(messages)
             except Exception:
                 self._logger.exception('Error pre-processing messages for key %s', key)
-        return preprocessed
+        return WorkflowData(
+            start_time=batch.start_time, end_time=batch.end_time, data=data
+        )
