@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Hashable
+from collections.abc import Hashable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -54,7 +54,7 @@ class Job:
         workflow_name: str,
         source_name: str,
         processor: StreamProcessor,
-        source_mapping: dict[str, Hashable],
+        source_mapping: Mapping[str, Hashable],
     ) -> None:
         self._job_id = job_id
         self._workflow_name = workflow_name
