@@ -2,6 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from collections.abc import Hashable
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -10,8 +11,7 @@ import scipp as sc
 
 from ..config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
 from ..handlers.workflow_manager import WorkflowManager as LegacyWorkflowManager
-from .handler import output_stream_name
-from .message import Message, StreamId, StreamKind, Tin, Tout
+from .message import StreamId
 
 
 class StreamProcessor(Protocol):
@@ -39,31 +39,11 @@ JobId = int
 @dataclass
 class JobResult:
     job_id: JobId
-    start_time: int
-    end_time: int
     source_name: str
     name: str
+    start_time: int
+    end_time: int
     data: sc.DataArray | sc.DataGroup
-
-    def to_message(self, service_name: str) -> Message:
-        """
-        Convert the workflow result to a message for publishing.
-
-        Parameters
-        ----------
-        service_name:
-            The name of the service to which the message belongs.
-        """
-        stream_name = output_stream_name(
-            service_name=service_name,
-            stream_name=self.source_name,
-            signal_name=f'{self.name}-{self.job_id}',
-        )
-        return Message(
-            timestamp=self.start_time,
-            stream=StreamId(kind=StreamKind.BEAMLIME_DATA, name=stream_name),
-            value=self.data,
-        )
 
 
 class Job:
@@ -124,7 +104,13 @@ class Job:
         self._end_time = -1
 
 
-class JobFactory:
+class JobFactory(ABC):
+    @abstractmethod
+    def create(self, *, job_id: JobId, source_name: str, config: WorkflowConfig) -> Job:
+        pass
+
+
+class LegacyJobFactory(JobFactory):
     def __init__(self, legacy_manager: LegacyWorkflowManager) -> None:
         self._workflow_specs: dict[WorkflowId, WorkflowSpec] = {}
         self._legacy_manager = legacy_manager
@@ -164,12 +150,6 @@ class JobManager:
         """Get the list of active jobs."""
         return list(self._active_jobs.values())
 
-    def _schedule_job(self, workflow: Job) -> None:
-        """Start a new job with the given workflow."""
-        job_id = self._next_job_id
-        self._next_job_id += 1
-        self._scheduled_jobs[job_id] = workflow
-
     def _start_job(self, job: JobId) -> None:
         """Start a new job with the given workflow."""
         workflow = self._scheduled_jobs.pop(job, None)
@@ -191,25 +171,51 @@ class JobManager:
         # Do not remove from active jobs yet, we need to compute results.
         self._finishing_jobs.extend(to_finish)
 
-    def handle_config_messages(self, config_messages: list[Message[Tin]]) -> None:
+    def schedule_job(self, source_name: str, config: WorkflowConfig) -> JobId:
         """
-        Handle configuration messages to update the workflow state.
-        This may include resetting accumulators or changing their configuration.
+        Schedule a new job based on the provided configuration.
         """
-        # Config messages contain WorkflowConfig, which WorkflowFactory can use to
-        # create a workflow. This may also schedule a workflow stop. In that case we
-        # still need to compute a final result?
+        job = self._job_factory.create(
+            job_id=self._next_job_id, source_name=source_name, config=config
+        )
+        job_id = self._next_job_id
+        self._next_job_id += 1
+        self._scheduled_jobs[job_id] = job
+        return job_id
 
-    def handle_data_messages(self, data: WorkflowData) -> None:
+    def stop_job(self, job_id: JobId) -> None:
         """
-        Handle data messages by passing them to the appropriate accumulators.
-        This may include updating the workflow state based on the preprocessed data.
+        Stop a job with the given ID.
+        This will not remove the job from active jobs, but will mark it for finishing.
         """
+        if job_id in self._active_jobs:
+            self._finishing_jobs.append(job_id)
+        elif job_id in self._scheduled_jobs:
+            del self._scheduled_jobs[job_id]
+        else:
+            raise KeyError(f"Job {job_id} not found in active or scheduled jobs.")
+
+    def reset_job(self, job_id: JobId) -> None:
+        """
+        Reset a job with the given ID.
+        This will clear the processor and reset the start and end times.
+        """
+        if (job := self._active_jobs.get(job_id)) is not None:
+            job.reset()
+        elif (job := self._scheduled_jobs.get(job_id)) is not None:
+            # Currently meaningless but might become relevant, e.g., if we add support
+            # for pausing jobs?
+            job.reset()
+        else:
+            raise KeyError(f"Job {job_id} not found in active or scheduled jobs.")
+
+    def push_data(self, data: WorkflowData) -> None:
+        """Push data into the active jobs."""
         self._advance_to_time(data.start_time, data.end_time)
-        for workflow in self.active_jobs:
-            workflow.add(data)
+        for job in self.active_jobs:
+            job.add(data)
 
-    def compute_results(self) -> list[Message[Tout]]:
+    def compute_results(self) -> list[JobResult]:
         """
         Compute results from the accumulated data and return them as messages.
         This may include processing the accumulated data and preparing it for output.
@@ -219,4 +225,4 @@ class JobManager:
         for job in self._finishing_jobs:
             _ = self._active_jobs.pop(job, None)
         self._finishing_jobs.clear()
-        return [result.to_message(service_name=self.service_name) for result in results]
+        return results

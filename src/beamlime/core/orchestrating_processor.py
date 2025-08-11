@@ -7,19 +7,18 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Generic
 
-import scipp as sc
-
-from .handler import Accumulator, HandlerRegistry
+from .handler import Accumulator, HandlerRegistry, output_stream_name
+from .job import JobFactory, JobManager, JobResult, WorkflowData
 from .message import (
     CONFIG_STREAM_ID,
     Message,
     MessageSink,
     MessageSource,
     StreamId,
+    StreamKind,
     Tin,
     Tout,
 )
-from .job import JobFactory, JobManager, WorkflowData
 
 
 @dataclass(slots=True, kw_only=True)
@@ -74,7 +73,7 @@ class Preprocessor(Generic[Tin, Tout]):
         """
         for message in messages:
             self._accumulator.add(message.timestamp, message.value)
-        # We assume the accumulater is cleared in `get`.
+        # We assume the accumulator is cleared in `get`.
         return self._accumulator.get()
 
 
@@ -142,10 +141,14 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         workflow_data = self._preprocess_messages(message_batch)
 
         # Handle data messages with the workflow manager, accumulating data as needed.
-        self._job_manager.handle_data_messages(workflow_data)
+        self._job_manager.push_data(workflow_data)
 
         # TODO Logic to determine when to compute and publish
         results = self._job_manager.compute_results()
+        messages = [
+            job_result_to_message(result)(service_name=self.service_name)
+            for result in results
+        ]
         self._sink.publish_messages(results)
 
     def _preprocess_messages(self, batch: MessageBatch) -> WorkflowData:
@@ -169,3 +172,20 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         return WorkflowData(
             start_time=batch.start_time, end_time=batch.end_time, data=data
         )
+
+
+def job_result_to_message(result: JobResult) -> Message:
+    """
+    Convert a workflow result to a message for publishing.
+    """
+    service_name = 'data_reduction'
+    stream_name = output_stream_name(
+        service_name=service_name,
+        stream_name=result.source_name,
+        signal_name=f'{result.name}-{result.job_id}',
+    )
+    return Message(
+        timestamp=result.start_time,
+        stream=StreamId(kind=StreamKind.BEAMLIME_DATA, name=stream_name),
+        value=result.data,
+    )
