@@ -17,6 +17,7 @@ from .message import (
     Tin,
     Tout,
 )
+from ..config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
 
 Preprocessed = Any
 
@@ -189,14 +190,70 @@ class Horizon:
     """
 
 
-class WorkflowManager:
+class Workflow:
+    def __init__(self, spec: WorkflowSpec, config: WorkflowConfig) -> None:
+        """
+        Initialize the workflow with a specification and configuration.
+
+        Parameters
+        ----------
+        spec:
+            The workflow specification defining the workflow's parameters and behavior.
+        config:
+            The configuration for the workflow, including parameter values.
+        """
+        self._spec = spec
+        self._config = config
+
+    @property
+    def spec(self) -> WorkflowSpec:
+        """
+        Get the workflow specification.
+        """
+        return self._spec
+
+    # TODO Would it be a better interface if the workflow can decide itself when to
+    # compute results, e.g., based on a time horizon?
+    # Maybe WorkflowSpec should not just have start_time and end_time but also
+    # compute_period?
+    # Complication: Preprocessed data does not have raw time stamps any more,
+    # how can we determine if we reached the period?
+    # We still need some sort of source pulse tracking.
+    def add(self, data: dict[StreamId, Preprocessed]) -> None: ...
+    def get(self, end_time: int): ...
+    def reset(self, start_time: int) -> None: ...
+
+
+class WorkflowRegistry:
     def __init__(self) -> None:
+        self._workflow_specs: dict[WorkflowId, WorkflowSpec] = {}
+
+    def create(self, *, source_name: str, config: WorkflowConfig) -> Workflow:
+        # TODO Take details from StreamProcessorFactory
+        workflow_id = config.identifier
+        if workflow_id not in self._workflow_specs:
+            raise KeyError(f"Unknown workflow ID: {workflow_id}")
+        workflow_spec = self._workflow_specs[workflow_id]
+        return Workflow(spec=workflow_spec, config=config)
+
+
+class WorkflowManager:
+    def __init__(self, workflow_registry: WorkflowRegistry) -> None:
         self._last_update: int = 0
+        self._workflow_registry = workflow_registry
+
+    def advance_to_time(self, new_time: int) -> None:
+        # Latest or incremented to next end_time??
+        # Who determines when to compute/publish?
+        pass
 
     def get_active_workflows(self) -> list[Workflow]:
         """
-        Get a list of active workflows based on.
+        Get a list of active workflows.
+        This also starts scheduled workflows, if their start_time is reached.
         """
+        # Should this really start workflows? We don't want to necessarily tie this
+        # to data handling, but rather to the time horizon.
         return []
 
     def handle_config_messages(self, config_messages: list[Message[Tin]]) -> None:
@@ -204,7 +261,9 @@ class WorkflowManager:
         Handle configuration messages to update the workflow state.
         This may include resetting accumulators or changing their configuration.
         """
-        pass
+        # Config messages contain WorkflowConfig, which WorkflowFactory can use to
+        # create a workflow. This may also schedule a workflow stop. In that case we
+        # still need to compute a final result?
 
     def handle_data_messages(self, data: dict[StreamId, Preprocessed]) -> None:
         """
@@ -224,14 +283,27 @@ class WorkflowManager:
         results = [
             workflow.get(end_time=end_time) for workflow in self.get_active_workflows()
         ]
-        # TODO Convert to Message
-        return results
-
-
-class Workflow(Protocol):
-    def add(self, data: dict[str, Preprocessed]) -> None: ...
-    def get(self, end_time: int): ...
-    def reset(self, start_time: int) -> None: ...
+        # Where do we get this info?
+        # WorkflowConfig messages have:
+        # - source_name
+        # - name (via WorkflowSpec) or identifier -> use as signal name?
+        #   previously this was the accumulator name, now we have one workflow per
+        #   accumulator
+        return [
+            Message(
+                timestamp=timestamp,
+                stream=StreamId(
+                    kind=StreamKind.BEAMLIME_DATA,
+                    name=output_stream_name(
+                        service_name=self._service_name,
+                        stream_name=key.name,
+                        signal_name=name,
+                    ),
+                ),
+                value=accumulator.get(),
+            )
+            for name, accumulator in self._accumulators.items()
+        ]
 
 
 class Preprocessor(Generic[Tin, Tout]):
@@ -306,6 +378,21 @@ class OrchestratingProcessor:
         self._workflow_manager.handle_config_messages(config_messages)
 
         # Pre-process data messages
+        preprocessed = self._preprocess_messages(messages_by_key)
+
+        # Handle data messages with the workflow manager, accumulating data as needed.
+        self._workflow_manager.handle_data_messages(preprocessed)
+
+        # TODO Logic to determine when to compute and publish
+        results = self._workflow_manager.compute_results(end_time=0)
+        self._sink.publish_messages(results)
+
+    def _preprocess_messages(
+        self, messages_by_key: dict[StreamId, list[Message[Tin]]]
+    ) -> dict[StreamId, Preprocessed]:
+        """
+        Preprocess messages before they are sent to the accumulators.
+        """
         preprocessed: dict[StreamId, Preprocessed] = {}
         for key, msgs in messages_by_key.items():
             preprocessor = self._preprocessor_registry.get(key)
@@ -316,10 +403,4 @@ class OrchestratingProcessor:
                 preprocessed[key] = preprocessor(msgs)
             except Exception:
                 self._logger.exception('Error pre-processing messages for key %s', key)
-
-        # Handle data messages with the workflow manager, accumulating data as needed.
-        self._workflow_manager.handle_data_messages(preprocessed)
-
-        # TODO Logic to determine when to compute and publish
-        results = self._workflow_manager.compute_results()
-        self._sink.publish_messages(results)
+        return preprocessed
