@@ -5,10 +5,14 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Generic, Protocol
+from typing import Any, Generic, Hashable
 
 import scipp as sc
+from ess.reduce.streaming import StreamProcessor
 
+from ..config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
+from ..handlers.stream_processor_factory import StreamProcessorFactory
+from ..handlers.workflow_manager import WorkflowManager as LegacyWorkflowManager
 from .handler import Accumulator, HandlerRegistry, output_stream_name
 from .message import (
     CONFIG_STREAM_ID,
@@ -20,177 +24,6 @@ from .message import (
     Tin,
     Tout,
 )
-from ..config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
-from ..handlers.stream_processor_factory import StreamProcessorFactory
-from ..handlers.workflow_manager import WorkflowManager as LegacyWorkflowManager
-
-
-class Processor(Protocol):
-    """
-    Protocol for a processor that processes messages. Used by :py:class:`Service`.
-    """
-
-    def process(self) -> None:
-        pass
-
-
-class StreamProcessor(Generic[Tin, Tout]):
-    """
-    Processor messages from a source using a handler and send results to a sink.
-
-    The source, handler registry, and sink are injected at construction time.
-    """
-
-    def __init__(
-        self,
-        *,
-        logger: logging.Logger | None = None,
-        source: MessageSource[Message[Tin]],
-        sink: MessageSink[Tout],
-        handler_registry: HandlerRegistry[Tin, Tout],
-    ) -> None:
-        self._logger = logger or logging.getLogger(__name__)
-        self._source = source
-        self._sink = sink
-        self._handler_registry = handler_registry
-
-    def process(self) -> None:
-        messages = self._source.get_messages()
-
-        # - Get config messages.
-        # - start_time messages can trigger reset
-        # - other config messages may trigger accumulator recreation or change
-        # - Looking at data messages, determine where the horizon is.
-        # - Process messages up to the horizon.
-        # - post-process and publish
-        # - Process remaining messages but do not publish (will happen in next run).
-
-        # Remember that the preprocessors are in a sense stateless, since we can
-        # directly flush their result into the accumulators after every message batch,
-        # even if we have not reached the horizon yet.
-
-        # How to handle config changes? Try to preserve data we got before?
-        # - How do we know if we should change the horizon?
-        # - How do we know if the config change does not require a reset?
-        #   Interesting case study: Changing TOA range requires a reset currently, but
-        #   we might want to support changing it without a reset in the future. The
-        #   design needs to allow for this.
-        #   Maybe it can be specified on the config command message?
-        #   Or maybe this would fall under post-processing?
-
-        # Who adds info on time window? Needs to be done by accumulator?
-
-        # We should support having a start_time in the future, e.g., to schedule a data
-        # reduction. And if we do that, also support end_time?
-        # Maybe this is a way to avoid the implicit reset mechanism? Every config change
-        # should come with a start_time (special value to start now)?
-
-        # Allows user to schedule accumulation, e.g., "accumulate this detector slice
-        # for 10 seconds".
-
-        # TODO
-        # does setting start time need to go into handler? it should only affect the
-        # processor in the new mechanism
-        # What about implicit resets from changing config such as TOF range?
-        # This feels like a really bad and surprising mechanism. Can we make it
-        # explicit by (1) keeping backlog in accumulators, (2) notifying users if the
-        # config change requires changing the start time? Consider, e.g., histogram of
-        # ROI, where we would need to store events or a 3D histogram in the backend.
-        # Or, as a simpler example monitor accumulation has a "hidden" clear mechanism
-        # when changing the number of bins.
-        # Maybe handlers need to be able to inform the processor about the start time,
-        # if the handler was forced to reset its state?
-        # If we ever want to be able to re-process messages after a config change
-        # (be it from a local buffer or by manipulating the consumer offsets), where
-        # would that be handled? Should the handlers/accumulators deal with buffering
-        # (which could be more efficient, avoiding full re-processing, but also more
-        # complex), or should the processor handle it, simply re-feeding everything into
-        # handlers? Maybe handlers could then avoid having to deal with config changes:
-        # A handlers is a concrete "job" for a fixed config. If the config changes,
-        # the processor can simply create a new handler for the new config and re-feed
-        # all messages into it.
-        # This sounds like a better design, but it would strictly limit the length of
-        # the backlog. In cases where we simply accumulate a histogram before rebinning
-        # we could in principle keep an infinite history if done by the handler. Can we
-        # combine the benefits of both approaches?
-        # Does this fit in between preprocessor and accumulator, currently encapsulated
-        # in the handler? But not all preprocessors provide and infinite history, e.g.,
-        # grouping events into pixels on keeps current chunk.
-        #
-        # Could such a mechanism also make it easier to deal with things such as
-        # multiple ROIs? Currently we have one fixed one, but maybe we can be more
-        # flexible with the approach considered above.
-        #
-        # Maybe all of the above goes to far. But removing the complexity of
-        # specific accumulators within specific handlers "watching" for config changes
-        # and resetting themselves would be a good step forward.
-        # The processor could then simply re-create the handler for the new config,
-        # which would then have to deal with the backlog itself, e.g., by storing
-        # messages in a buffer until it is ready to process them.
-        #
-        # Would this bring us closer to how the workflow manager handles this for data
-        # reduction, where a config change (re)creates a stream processor (linked to
-        # within a handler)? The mechanism is a bit complex due to this wrapping, but
-        # maybe we can make this a first class citizen in the processor? Instead of
-        # recreating a processor within a handler, simply re-create the entire handler?
-        # Note that the workflow manager deals with the chicken/egg problem of creating
-        # a handler before we can create an actual processor. But if config changes can
-        # cause handler (re)creation the need for this might go away, simplifying the
-        # entire mechanism? See `WorkflowManager.get_accumulator` and how it is used in
-        # `ReductionHandlerFactory.make_handler`.
-        # ... but does this work? We have monitor streams that are multiplexed into
-        # multiple processors.
-        messages = self._source.get_messages()
-        messages_by_key = defaultdict(list)
-        for msg in messages:
-            messages_by_key[msg.stream].append(msg)
-
-        results = []
-        for key, msgs in messages_by_key.items():
-            handler = self._handler_registry.get(key)
-            if handler is None:
-                self._logger.debug('No handler for key %s, skipping messages', key)
-                continue
-            try:
-                results.extend(handler.handle(msgs))
-            except Exception:
-                self._logger.exception('Error processing messages for key %s', key)
-        self._sink.publish_messages(results)
-
-
-class Horizon:
-    """
-    Represents a time horizon for processing messages.
-
-    This should operate based on source pulses, so we have a clear discrete time unit.
-
-    Mechanism:
-
-    - For each source, feed in message timestamps.
-    - Determine which messages to process, which to keep for later (or have 2 handlers
-      for a sort of double buffering).
-    - Tells us when we can produce an update and move to the next horizon.
-    - Mechanism to determine when to produce and update can have a backoff, i.e., if
-      issues with messages ordering are detected, we can wait for a few pulses before
-      producing an update.
-    - Consider implementing a precise mechanism to handle setting a start time. Either
-      with a local buffer or using Kafka offsets.
-
-    Questions:
-
-    - What about "slow" data sources, succh as monitor readouts published at a lower
-      frequency? Do we need to delay starting a time window until we have to first such
-      message?
-
-    Assumptions:
-
-    - The pulse time is precise enough for aligning messages from different sources. For
-      example, if the monitor-detector distance is large, there is an offset between
-      the two, i.e., looking at the pulse time in respective messages will yield events
-      that actually originated in pulse N-1 in the same pulse as monitor readings in
-      pulse N.
-
-    """
 
 
 @dataclass(slots=True, kw_only=True)
@@ -233,17 +66,18 @@ class NaiveMessageBatcher:
 
 
 class Job:
-    def __init__(self, processor: StreamProcessor) -> None:
+    def __init__(
+        self,
+        *,
+        workflow_spec: WorkflowSpec,
+        source_name: str,
+        processor: StreamProcessor,
+        source_mapping: dict[str, Hashable],
+    ) -> None:
+        self._workflow_spec = workflow_spec
+        self._source_name = source_name
         self._processor = processor
-
-    @staticmethod
-    def from_legacy(
-        legacy_manager: LegacyWorkflowManager, source_name: str, config: WorkflowConfig
-    ) -> Job:
-        stream_processor = legacy_manager._processor_factory.create(
-            source_name=source_name, config=config
-        )
-        pass
+        self._source_mapping = source_mapping
 
     @property
     def start_time(self) -> int:
@@ -255,29 +89,32 @@ class Job:
         # TODO Add end_time field to WorkflowConfig
         return -1
 
-    # TODO Would it be a better interface if the workflow can decide itself when to
-    # compute results, e.g., based on a time horizon?
-    # Maybe WorkflowSpec should not just have start_time and end_time but also
-    # compute_period?
-    # Complication: Preprocessed data does not have raw time stamps any more,
-    # how can we determine if we reached the period?
-    # We still need some sort of source pulse tracking.
     def start(self) -> None:
         # TODO Implement starting logic, e.g., initializing accumulators or handlers.
         pass
 
     def add(self, data: WorkflowData) -> None:
         # TODO Add aux_sources to WorkflowSpec
+        update: dict[Hashable, Any] = {}
         for stream, value in data.data.items():
-            if self._key in self._processor._context_keys:
-                self._processor.set_context({self._key: value})
-            elif self._key in self._processor._dynamic_keys:
-                self._processor.accumulate({self._key: value})
-            else:
-                # Might be unused by this particular workflow
-                pass
+            if stream.name not in self._source_mapping:
+                continue
+            key = self._source_mapping[stream.name]
+            update[key] = value
+        self._processor.accumulate(update)
 
-    def get(self) -> JobResult | None: ...
+    def get(self) -> JobResult | None:
+        data = sc.DataGroup(
+            {str(key): val for key, val in self._processor.finalize().items()}
+        )
+        return JobResult(
+            start_time=self.start_time,
+            end_time=self.end_time,
+            source_name=self._source_name,
+            name=self._workflow_spec.name,
+            data=data,
+        )
+
     def reset(self, start_time: int) -> None: ...
 
 
@@ -317,16 +154,21 @@ class WorkflowRegistry:
 
     def create(self, *, source_name: str, config: WorkflowConfig) -> Job:
         # Note that this initializes the job immediately, i.e., we pay startup cost now.
-        stream_processor = self._legacy_manager._processor_factory.create(
-            source_name=source_name, config=config
-        )
-        # TODO Take details from StreamProcessorFactory
+        legacy_factory = self._legacy_manager._processor_factory
+        stream_processor = legacy_factory.create(source_name=source_name, config=config)
         workflow_id = config.identifier
-        if workflow_id not in self._workflow_specs:
-            raise KeyError(f"Unknown workflow ID: {workflow_id}")
-        workflow_spec = self._workflow_specs[workflow_id]
-        # Note that workflows are created but not started here.
-        return Job(spec=workflow_spec, config=config)
+        workflow_spec = legacy_factory._workflow_specs[workflow_id]
+        source_to_key = self._legacy_manager._source_to_key
+        source_mapping = {
+            source: source_to_key[source] for source in workflow_spec.aux_source_names
+        }
+        source_mapping[source_name] = source_to_key[source_name]
+        return Job(
+            workflow_spec=workflow_spec,
+            source_name=source_name,
+            processor=stream_processor,
+            source_mapping=source_mapping,
+        )
 
 
 JobId = int

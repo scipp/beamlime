@@ -37,6 +37,10 @@ class WorkflowSpec(BaseModel):
         default_factory=list,
         description="List of detectors the workflow can be applied to.",
     )
+    aux_source_names: list[str] = Field(
+        default_factory=list,
+        description="List of auxiliary data streams the workflow needs.",
+    )
     params: type[BaseModel] | None = Field(description="Model for workflow param.")
 
     def get_id(self) -> WorkflowId:
