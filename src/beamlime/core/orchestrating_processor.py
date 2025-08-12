@@ -139,6 +139,12 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         )
         self._job_manager_adapter = JobManagerAdapter(self._job_manager)
         self._message_batcher = NaiveMessageBatcher()
+
+        # NOTE We intend to extract the relevant functionality from ConfigHandler as the
+        # full mechanism is no longer needed. For now we keep it, so monitor_data and
+        # detector_data services still work. We "extract" the relevant functionality
+        # by registering actions. The dict-like interface of the ConfigHandler is unused
+        # here.
         config_handler = handler_registry.get(CONFIG_STREAM_ID)
         if config_handler is None or not isinstance(config_handler, ConfigHandler):
             raise ValueError(
@@ -267,6 +273,8 @@ class JobManagerAdapter:
             # it will keep running, but we need to notify about startup errors. Frontend
             # will not be able to display the correct workflow status. Need to come up
             # with a better way to handle this.
+            # NOTE This can be fixed using the new JobManager approach, provided that
+            # the frontend can display a per-job status, instead of per-source.
             status = WorkflowStatus(
                 source_name=source_name,
                 status=WorkflowStatusType.STARTUP_ERROR,
