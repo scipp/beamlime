@@ -18,11 +18,7 @@ from dataclasses import dataclass
 from typing import Any, Generic
 
 from ..config.models import ConfigKey, StartTime
-from ..config.workflow_spec import (
-    WorkflowConfig,
-    WorkflowStatus,
-    WorkflowStatusType,
-)
+from ..config.workflow_spec import WorkflowConfig, WorkflowStatus, WorkflowStatusType
 from .handler import Accumulator, HandlerFactory, HandlerRegistry, output_stream_name
 from .job import JobId, JobManager, JobResult, LegacyJobFactory, WorkflowData
 from .message import (
@@ -69,40 +65,55 @@ class NaiveMessageBatcher:
         return MessageBatch(start_time=start_time, end_time=end_time, messages=messages)
 
 
-class Preprocessor(Generic[Tin, Tout]):
-    def __init__(self, accumulator: Accumulator[Tin, Tout]) -> None:
-        """Initialize the preprocessor with an accumulator."""
+class MessagePreprocessor(Generic[Tin, Tout]):
+    """Message preprocessor that handles batches of messages."""
 
-        self._accumulator = accumulator
-
-    def __call__(self, messages: list[Message[Tin]]) -> Tout:
-        """
-        Preprocess messages before they are sent to the accumulator.
-        """
-        for message in messages:
-            self._accumulator.add(message.timestamp, message.value)
-        # We assume the accumulator is cleared in `get`.
-        return self._accumulator.get()
-
-
-class PreprocessorRegistry(Generic[Tin, Tout]):
-    """Preprocessor registry wrapping a legacy handler registry."""
-
-    def __init__(self, factory: HandlerFactory[Tin, Tout]) -> None:
+    def __init__(
+        self, factory: HandlerFactory[Tin, Tout], logger: logging.Logger | None = None
+    ) -> None:
         self._factory = factory
-        self._preprocessors: dict[StreamId, Preprocessor[Tin, Tout]] = {}
+        self._logger = logger or logging.getLogger(__name__)
+        self._accumulators: dict[StreamId, Accumulator[Tin, Tout]] = {}
 
-    def get(self, key: StreamId) -> Preprocessor | None:
-        """
-        Get a preprocessor for the given stream ID.
-        """
-        if (preprocessor := self._preprocessors.get(key)) is not None:
-            return preprocessor
-        if (accum := self._factory.make_preprocessor(key)) is not None:
-            preprocessor = Preprocessor(accum)
-            self._preprocessors[key] = preprocessor
-            return preprocessor
+    def _get_accumulator(self, key: StreamId) -> Accumulator[Tin, Tout] | None:
+        """Get an accumulator for the given stream ID."""
+        if (accumulator := self._accumulators.get(key)) is not None:
+            return accumulator
+        if (accumulator := self._factory.make_preprocessor(key)) is not None:
+            self._accumulators[key] = accumulator
+            return accumulator
         return None
+
+    def _preprocess_stream(
+        self, messages: list[Message[Tin]], accumulator: Accumulator[Tin, Tout]
+    ) -> Tout:
+        """Preprocess messages for a single stream using the given accumulator."""
+        for message in messages:
+            accumulator.add(message.timestamp, message.value)
+        # We assume the accumulator is cleared in `get`.
+        return accumulator.get()
+
+    def preprocess_messages(self, batch: MessageBatch) -> WorkflowData:
+        """
+        Preprocess messages before they are sent to the accumulators.
+        """
+        messages_by_key = defaultdict[StreamId, list[Message]](list)
+        for msg in batch.messages:
+            messages_by_key[msg.stream].append(msg)
+
+        data: dict[StreamId, Any] = {}
+        for key, messages in messages_by_key.items():
+            accumulator = self._get_accumulator(key)
+            if accumulator is None:
+                self._logger.debug('No preprocessor for key %s, skipping messages', key)
+                continue
+            try:
+                data[key] = self._preprocess_stream(messages, accumulator)
+            except Exception:
+                self._logger.exception('Error pre-processing messages for key %s', key)
+        return WorkflowData(
+            start_time=batch.start_time, end_time=batch.end_time, data=data
+        )
 
 
 class OrchestratingProcessor(Generic[Tin, Tout]):
@@ -117,7 +128,9 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         self._logger = logger or logging.getLogger(__name__)
         self._source = source
         self._sink = sink
-        self._preprocessor_registry = PreprocessorRegistry(handler_registry._factory)
+        self._message_preprocessor = MessagePreprocessor(
+            handler_registry._factory, self._logger
+        )
         self._config_handler = handler_registry.get(CONFIG_STREAM_ID)
         if self._config_handler is None:
             raise ValueError(
@@ -162,7 +175,7 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
             return
 
         # Pre-process message batch
-        workflow_data = self._preprocess_messages(message_batch)
+        workflow_data = self._message_preprocessor.preprocess_messages(message_batch)
 
         # Handle data messages with the workflow manager, accumulating data as needed.
         self._job_manager.push_data(workflow_data)
@@ -171,28 +184,6 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         results = self._job_manager.compute_results()
         messages = [_job_result_to_message(result) for result in results]
         self._sink.publish_messages(messages)
-
-    def _preprocess_messages(self, batch: MessageBatch) -> WorkflowData:
-        """
-        Preprocess messages before they are sent to the accumulators.
-        """
-        messages_by_key = defaultdict[StreamId, list[Message]](list)
-        for msg in batch.messages:
-            messages_by_key[msg.stream].append(msg)
-
-        data: dict[StreamId, Any] = {}
-        for key, messages in messages_by_key.items():
-            preprocessor = self._preprocessor_registry.get(key)
-            if preprocessor is None:
-                self._logger.debug('No preprocessor for key %s, skipping messages', key)
-                continue
-            try:
-                data[key] = preprocessor(messages)
-            except Exception:
-                self._logger.exception('Error pre-processing messages for key %s', key)
-        return WorkflowData(
-            start_time=batch.start_time, end_time=batch.end_time, data=data
-        )
 
 
 def _job_result_to_message(result: JobResult) -> Message:
