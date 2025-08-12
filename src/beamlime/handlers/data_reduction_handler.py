@@ -14,6 +14,9 @@ from ..core.handler import (
     PeriodicAccumulatingHandler,
 )
 from ..core.message import Message, StreamId, StreamKind
+
+# Registers monitor data workflows
+from . import monitor_data_handler  # noqa: F401
 from .accumulators import Cumulative, DetectorEvents
 from .to_nxevent_data import ToNXevent_data
 from .to_nxlog import ToNXlog

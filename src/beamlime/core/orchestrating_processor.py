@@ -8,6 +8,7 @@
 # 3. Output key naming (needs frontend changes)
 # 4. JobId handling, expose to frontend?
 # 5. Include start_time and end_time in result messages.
+# 6. Actually batch messages from N pulses.
 from __future__ import annotations
 
 import logging
@@ -147,7 +148,7 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         )
 
     def process(self) -> None:
-        time.sleep(0.1)
+        time.sleep(2.0)
         messages = self._source.get_messages()
         self._logger.debug('Processing %d messages', len(messages))
         config_messages: list[Message[Tin]] = []
@@ -217,6 +218,7 @@ def _job_result_to_message(result: JobResult) -> Message:
         stream_name=result.source_name,
         signal_name=legacy_signal_name,
     )
+
     return Message(
         timestamp=result.start_time,
         stream=StreamId(kind=StreamKind.BEAMLIME_DATA, name=stream_name),
@@ -248,7 +250,7 @@ class JobManagerAdapter:
                 self.reset_job(source_name=source, value=value)
             return []
         # TODO Can we use the start_time?
-        start_time = StartTime.model_validate(value)
+        _ = StartTime.model_validate(value)
         self._job_manager.reset_job(job_id=self._jobs[source_name])
         return []
 
