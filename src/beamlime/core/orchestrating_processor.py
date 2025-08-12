@@ -19,6 +19,7 @@ from typing import Any, Generic
 
 from ..config.models import ConfigKey, StartTime
 from ..config.workflow_spec import WorkflowConfig, WorkflowStatus, WorkflowStatusType
+from ..handlers.config_handler import ConfigHandler
 from .handler import Accumulator, HandlerFactory, HandlerRegistry, output_stream_name
 from .job import JobId, JobManager, JobResult, LegacyJobFactory, WorkflowData
 from .message import (
@@ -131,11 +132,6 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         self._message_preprocessor = MessagePreprocessor(
             handler_registry._factory, self._logger
         )
-        self._config_handler = handler_registry.get(CONFIG_STREAM_ID)
-        if self._config_handler is None:
-            raise ValueError(
-                f"Config handler not found in registry for stream {CONFIG_STREAM_ID}"
-            )
         self._job_manager = JobManager(
             job_factory=LegacyJobFactory(
                 instrument=handler_registry._factory.instrument
@@ -143,6 +139,12 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         )
         self._job_manager_adapter = JobManagerAdapter(self._job_manager)
         self._message_batcher = NaiveMessageBatcher()
+        config_handler = handler_registry.get(CONFIG_STREAM_ID)
+        if config_handler is None or not isinstance(config_handler, ConfigHandler):
+            raise ValueError(
+                f"Config handler not found in registry for stream {CONFIG_STREAM_ID}"
+            )
+        self._config_handler = config_handler
         self._config_handler.register_action(
             key='workflow_config',
             action=self._job_manager_adapter.set_workflow_with_config,
