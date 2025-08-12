@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 import scipp as sc
 
-from beamlime.config.workflow_spec import WorkflowConfig
+from beamlime.config.workflow_spec import JobSchedule, WorkflowConfig
 from beamlime.core.job import (
     Job,
     JobFactory,
@@ -105,6 +105,62 @@ def sample_workflow_data():
             StreamId(name="unknown_source"): sc.scalar(99.0),  # Should be ignored
         },
     )
+
+
+class TestJobSchedule:
+    def test_valid_schedule_with_start_and_end(self):
+        """Test creating a valid schedule with start and end times."""
+        schedule = JobSchedule(start_time=100, end_time=200)
+        assert schedule.start_time == 100
+        assert schedule.end_time == 200
+
+    def test_valid_schedule_with_immediate_start_and_end(self):
+        """Test creating a valid schedule with immediate start (-1) and end time."""
+        schedule = JobSchedule(start_time=-1, end_time=100)
+        assert schedule.start_time == -1
+        assert schedule.end_time == 100
+
+    def test_valid_schedule_with_no_end_time(self):
+        """Test creating a valid schedule with no end time (None)."""
+        schedule = JobSchedule(start_time=100, end_time=None)
+        assert schedule.start_time == 100
+        assert schedule.end_time is None
+
+    def test_valid_schedule_defaults(self):
+        """Test creating a schedule with default values."""
+        schedule = JobSchedule()
+        assert schedule.start_time == 0
+        assert schedule.end_time is None
+
+    def test_invalid_schedule_end_before_start(self):
+        """Test that end_time < start_time raises ValueError."""
+        with pytest.raises(
+            ValueError,
+            match="Job end_time=100 must be greater than start_time=200",
+        ):
+            JobSchedule(start_time=200, end_time=100)
+
+    def test_invalid_schedule_end_equals_start(self):
+        """Test that end_time == start_time raises ValueError."""
+        with pytest.raises(
+            ValueError,
+            match="Job end_time=100 must be greater than start_time=100",
+        ):
+            JobSchedule(start_time=100, end_time=100)
+
+    def test_valid_schedule_negative_start_times_other_than_minus_one(self):
+        """Test that negative start times other than -1 are treated as regular times."""
+        schedule = JobSchedule(start_time=-100, end_time=200)
+        assert schedule.start_time == -100
+        assert schedule.end_time == 200
+
+    def test_invalid_schedule_negative_start_with_equal_end(self):
+        """Test that negative start time (not -1) with equal end time still raises."""
+        with pytest.raises(
+            ValueError,
+            match="Job end_time=-50 must be greater than start_time=-50",
+        ):
+            JobSchedule(start_time=-50, end_time=-50)
 
 
 class TestJob:
@@ -209,9 +265,7 @@ class TestJobManager:
     def test_schedule_job_creates_job(self, fake_job_factory):
         """Test that scheduling a job creates it using the factory."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(
-            identifier="test_workflow", start_time=-1
-        )  # Start immediately
+        config = WorkflowConfig(identifier="test_workflow")  # Start immediately
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -222,7 +276,7 @@ class TestJobManager:
     def test_schedule_multiple_jobs_increments_id(self, fake_job_factory):
         """Test that scheduling multiple jobs increments job IDs."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow", start_time=-1)
+        config = WorkflowConfig(identifier="test_workflow")
 
         job_id1 = manager.schedule_job("source1", config)
         job_id2 = manager.schedule_job("source2", config)
@@ -235,9 +289,7 @@ class TestJobManager:
     ):
         """Test that pushing data activates jobs scheduled to start immediately."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(
-            identifier="test_workflow", start_time=-1
-        )  # Start immediately
+        config = WorkflowConfig(identifier="test_workflow")  # Start immediately
 
         _ = manager.schedule_job("test_source", config)
         assert len(manager.active_jobs) == 0
@@ -255,8 +307,12 @@ class TestJobManager:
     def test_push_data_activates_jobs_based_on_schedule(self, fake_job_factory):
         """Test that jobs are activated based on their scheduled start time."""
         manager = JobManager(fake_job_factory)
-        config1 = WorkflowConfig(identifier="early_workflow", start_time=50)
-        config2 = WorkflowConfig(identifier="late_workflow", start_time=150)
+        config1 = WorkflowConfig(
+            identifier="early_workflow", schedule=JobSchedule(start_time=50)
+        )
+        config2 = WorkflowConfig(
+            identifier="late_workflow", schedule=JobSchedule(start_time=150)
+        )
 
         _ = manager.schedule_job("source1", config1)
         _ = manager.schedule_job("source2", config2)
@@ -283,7 +339,7 @@ class TestJobManager:
     def test_push_data_feeds_active_jobs(self, fake_job_factory):
         """Test that pushing data feeds all active jobs."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow", start_time=-1)
+        config = WorkflowConfig(identifier="test_workflow")
 
         _ = manager.schedule_job("source1", config)
         _ = manager.schedule_job("source2", config)
@@ -305,7 +361,7 @@ class TestJobManager:
         """Test stopping a scheduled job removes it completely."""
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(
-            identifier="test_workflow", start_time=200
+            identifier="test_workflow", schedule=JobSchedule(start_time=200)
         )  # Start later
 
         job_id = manager.schedule_job("test_source", config)
@@ -326,7 +382,7 @@ class TestJobManager:
     def test_stop_job_active_marks_for_finishing(self, fake_job_factory):
         """Test stopping an active job marks it for finishing."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow", start_time=-1)
+        config = WorkflowConfig(identifier="test_workflow")
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -353,7 +409,7 @@ class TestJobManager:
     def test_reset_job_active(self, fake_job_factory):
         """Test resetting an active job calls its reset method."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow", start_time=-1)
+        config = WorkflowConfig(identifier="test_workflow")
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -379,7 +435,9 @@ class TestJobManager:
     def test_reset_job_scheduled(self, fake_job_factory):
         """Test resetting a scheduled job calls its reset method."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow", start_time=200)
+        config = WorkflowConfig(
+            identifier="test_workflow", schedule=JobSchedule(start_time=200)
+        )
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -396,7 +454,7 @@ class TestJobManager:
     def test_compute_results_returns_job_results(self, fake_job_factory):
         """Test that compute_results returns results from all active jobs."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow", start_time=-1)
+        config = WorkflowConfig(identifier="test_workflow")
 
         _ = manager.schedule_job("source1", config)
         _ = manager.schedule_job("source2", config)
@@ -417,7 +475,7 @@ class TestJobManager:
     def test_compute_results_removes_stopped_jobs(self, fake_job_factory):
         """Test that compute_results removes jobs that were stopped."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow", start_time=-1)
+        config = WorkflowConfig(identifier="test_workflow")
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -442,8 +500,12 @@ class TestJobManager:
     def test_job_lifecycle_with_schedule_based_activation(self, fake_job_factory):
         """Test complete job lifecycle with schedule-based activation."""
         manager = JobManager(fake_job_factory)
-        config1 = WorkflowConfig(identifier="workflow1", start_time=50, end_time=250)
-        config2 = WorkflowConfig(identifier="workflow2", start_time=150, end_time=350)
+        config1 = WorkflowConfig(
+            identifier="workflow1", schedule=JobSchedule(start_time=50, end_time=250)
+        )
+        config2 = WorkflowConfig(
+            identifier="workflow2", schedule=JobSchedule(start_time=150, end_time=350)
+        )
 
         # Schedule two jobs with different start times
         _ = manager.schedule_job("source1", config1)
@@ -486,7 +548,7 @@ class TestJobManager:
     def test_multiple_data_accumulation(self, fake_job_factory):
         """Test that multiple data pushes accumulate correctly in jobs."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow", start_time=-1)
+        config = WorkflowConfig(identifier="test_workflow")
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -520,7 +582,10 @@ class TestJobManager:
     def test_jobs_finish_based_on_schedule_end_time(self, fake_job_factory):
         """Test that jobs are marked for finishing based on schedule end_time."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow", start_time=-1, end_time=175)
+        config = WorkflowConfig(
+            identifier="test_workflow",
+            schedule=JobSchedule(end_time=175),
+        )
 
         _ = manager.schedule_job("test_source", config)
 
@@ -549,9 +614,15 @@ class TestJobManager:
     def test_multiple_jobs_different_schedule_end_times(self, fake_job_factory):
         """Test handling multiple jobs with different scheduled end times."""
         manager = JobManager(fake_job_factory)
-        config1 = WorkflowConfig(identifier="workflow1", start_time=-1, end_time=150)
-        config2 = WorkflowConfig(identifier="workflow2", start_time=-1, end_time=200)
-        config3 = WorkflowConfig(identifier="workflow3", start_time=-1, end_time=300)
+        config1 = WorkflowConfig(
+            identifier="workflow1", schedule=JobSchedule(end_time=150)
+        )
+        config2 = WorkflowConfig(
+            identifier="workflow2", schedule=JobSchedule(end_time=200)
+        )
+        config3 = WorkflowConfig(
+            identifier="workflow3", schedule=JobSchedule(end_time=300)
+        )
 
         # Schedule three jobs with different end times
         _ = manager.schedule_job("source1", config1)
@@ -600,7 +671,10 @@ class TestJobManager:
     def test_job_finishing_edge_case_exact_schedule_end_time(self, fake_job_factory):
         """Test job finishing when data start_time is exactly scheduled end_time."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow", start_time=-1, end_time=200)
+        config = WorkflowConfig(
+            identifier="test_workflow",
+            schedule=JobSchedule(end_time=200),
+        )
 
         _ = manager.schedule_job("test_source", config)
 
@@ -615,7 +689,7 @@ class TestJobManager:
 
         # Push data with start_time exactly matching job's scheduled start_time
         exact_data = WorkflowData(
-            start_time=200,  # Exactly matches job's scheduled end_time
+            start_time=200,  # Exactly matches job's end_time
             end_time=250,
             data={StreamId(name="test_source"): sc.scalar(20.0)},
         )
@@ -629,7 +703,10 @@ class TestJobManager:
     def test_no_premature_job_finishing(self, fake_job_factory):
         """Test jobs don't finish prematurely when data is before scheduled end_time."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow", start_time=-1, end_time=300)
+        config = WorkflowConfig(
+            identifier="test_workflow",
+            schedule=JobSchedule(end_time=300),
+        )
 
         _ = manager.schedule_job("test_source", config)
 
@@ -661,10 +738,14 @@ class TestJobManager:
         and continuation.
         """
         manager = JobManager(fake_job_factory)
-        config1 = WorkflowConfig(identifier="workflow1", start_time=-1, end_time=160)
-        config2 = WorkflowConfig(identifier="workflow2", start_time=-1, end_time=250)
+        config1 = WorkflowConfig(
+            identifier="workflow1", schedule=JobSchedule(end_time=160)
+        )
+        config2 = WorkflowConfig(
+            identifier="workflow2", schedule=JobSchedule(end_time=250)
+        )
         config3 = WorkflowConfig(
-            identifier="workflow3", start_time=-1, end_time=None
+            identifier="workflow3", schedule=JobSchedule(end_time=None)
         )  # No end time
 
         # Schedule three jobs
@@ -711,7 +792,8 @@ class TestJobManager:
         """Test that jobs without scheduled end_time never finish automatically."""
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(
-            identifier="test_workflow", start_time=-1, end_time=None
+            identifier="test_workflow",
+            schedule=JobSchedule(end_time=None),
         )
 
         _ = manager.schedule_job("test_source", config)
@@ -735,11 +817,15 @@ class TestJobManager:
         manager = JobManager(fake_job_factory)
 
         # Test immediate start (-1)
-        config_immediate = WorkflowConfig(identifier="immediate", start_time=-1)
+        config_immediate = WorkflowConfig(identifier="immediate")
         # Test future start
-        config_future = WorkflowConfig(identifier="future", start_time=200)
+        config_future = WorkflowConfig(
+            identifier="future", schedule=JobSchedule(start_time=200)
+        )
         # Test past start (should activate immediately when data arrives)
-        config_past = WorkflowConfig(identifier="past", start_time=50)
+        config_past = WorkflowConfig(
+            identifier="past", schedule=JobSchedule(start_time=50)
+        )
 
         _ = manager.schedule_job("source1", config_immediate)
         _ = manager.schedule_job("source2", config_future)
@@ -771,29 +857,6 @@ class TestJobManager:
         # All jobs should now be active
         assert len(manager.active_jobs) == 3
 
-    def test_schedule_job_with_invalid_time_range_raises_error(self, fake_job_factory):
-        """Test that scheduling a job with end_time <= start_time raises ValueError."""
-        manager = JobManager(fake_job_factory)
-
-        # Test end_time < start_time
-        config_invalid1 = WorkflowConfig(
-            identifier="invalid_workflow", start_time=200, end_time=100
-        )
-        with pytest.raises(
-            ValueError,
-            match="Job end_time=100 must be greater than start_time=200",
-        ):
-            manager.schedule_job("test_source", config_invalid1)
-
-        # Test end_time == start_time (except for immediate start)
-        config_invalid2 = WorkflowConfig(
-            identifier="invalid_workflow", start_time=100, end_time=100
-        )
-        with pytest.raises(
-            ValueError, match="Job end_time=100 must be greater than start_time=100"
-        ):
-            manager.schedule_job("test_source", config_invalid2)
-
     def test_schedule_job_with_immediate_start_and_end_time_allowed(
         self, fake_job_factory
     ):
@@ -802,7 +865,8 @@ class TestJobManager:
 
         # This should be allowed: immediate start with specific end time
         config_valid = WorkflowConfig(
-            identifier="valid_workflow", start_time=-1, end_time=100
+            identifier="valid_workflow",
+            schedule=JobSchedule(end_time=100),
         )
         job_id = manager.schedule_job("test_source", config_valid)
         assert job_id == 0
@@ -810,7 +874,9 @@ class TestJobManager:
     def test_job_with_zero_duration_after_immediate_start(self, fake_job_factory):
         """Test behavior of job with immediate start and very early end time."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow", start_time=-1, end_time=50)
+        config = WorkflowConfig(
+            identifier="test_workflow", schedule=JobSchedule(end_time=50)
+        )
 
         _ = manager.schedule_job("test_source", config)
 
@@ -834,7 +900,8 @@ class TestJobManager:
         """
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(
-            identifier="test_workflow", start_time=100, end_time=200
+            identifier="test_workflow",
+            schedule=JobSchedule(start_time=100, end_time=200),
         )
 
         _ = manager.schedule_job("test_source", config)
@@ -853,7 +920,10 @@ class TestJobManager:
     def test_job_schedule_edge_case_end_equals_data_time(self, fake_job_factory):
         """Test job finishing when data end_time exactly matches scheduled end_time."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow", start_time=-1, end_time=200)
+        config = WorkflowConfig(
+            identifier="test_workflow",
+            schedule=JobSchedule(end_time=200),
+        )
 
         _ = manager.schedule_job("test_source", config)
 
@@ -893,7 +963,8 @@ class TestJobManager:
         """Test multiple jobs with identical start and end times."""
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(
-            identifier="test_workflow", start_time=100, end_time=200
+            identifier="test_workflow",
+            schedule=JobSchedule(start_time=100, end_time=200),
         )
 
         # Schedule multiple jobs with same timing
@@ -932,7 +1003,8 @@ class TestJobManager:
 
         # Negative start times other than -1 should be treated as regular timestamps
         config = WorkflowConfig(
-            identifier="test_workflow", start_time=-100, end_time=200
+            identifier="test_workflow",
+            schedule=JobSchedule(start_time=-100, end_time=200),
         )
         _ = manager.schedule_job("test_source", config)
 

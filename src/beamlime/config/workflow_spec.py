@@ -7,6 +7,7 @@ Models for data reduction workflow widget creation and configuration.
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, TypeVar
 
@@ -52,6 +53,26 @@ class WorkflowSpec(BaseModel):
         return f"{self.instrument}/{self.name}/{self.version}"
 
 
+@dataclass
+class JobSchedule:
+    """Defines when a job should start and optionally when it should end."""
+
+    start_time: int = 0  # When job should start processing
+    end_time: int | None = None  # When job should stop (None = no limit)
+
+    def __post_init__(self) -> None:
+        """Validate the schedule configuration."""
+        if (
+            self.end_time is not None
+            and self.end_time <= self.start_time
+            and self.start_time != -1
+        ):
+            raise ValueError(
+                f"Job end_time={self.end_time} must be greater than start_time="
+                f"{self.start_time}, or start_time must be -1 (immediate start)"
+            )
+
+
 class WorkflowConfig(BaseModel):
     """
     Model for workflow configuration.
@@ -64,13 +85,8 @@ class WorkflowConfig(BaseModel):
     identifier: WorkflowId | None = Field(
         description="Hash of the workflow, used to identify the workflow."
     )
-    start_time: int = Field(
-        default=-1,
-        description="Start time for scheduling the workflow (-1 means start now).",
-    )
-    end_time: int | None = Field(
-        default=None,
-        description="End time for scheduling the workflow (None means no end).",
+    schedule: JobSchedule = Field(
+        default_factory=JobSchedule, description="Schedule for the workflow."
     )
     params: dict[str, Any] = Field(
         default_factory=dict,

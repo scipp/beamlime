@@ -9,7 +9,7 @@ from typing import Any, Protocol
 
 import scipp as sc
 
-from ..config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
+from ..config.workflow_spec import JobSchedule, WorkflowConfig, WorkflowId, WorkflowSpec
 from ..handlers.workflow_manager import WorkflowManager as LegacyWorkflowManager
 from .message import StreamId
 
@@ -44,26 +44,6 @@ class JobResult:
     start_time: int
     end_time: int
     data: sc.DataArray | sc.DataGroup
-
-
-@dataclass
-class JobSchedule:
-    """Defines when a job should start and optionally when it should end."""
-
-    start_time: int = 0  # When job should start processing
-    end_time: int | None = None  # When job should stop (None = no limit)
-
-    def __post_init__(self) -> None:
-        """Validate the schedule configuration."""
-        if (
-            self.end_time is not None
-            and self.end_time <= self.start_time
-            and self.start_time != -1
-        ):
-            raise ValueError(
-                f"Job end_time={self.end_time} must be greater than start_time="
-                f"{self.start_time}, or start_time must be -1 (immediate start)"
-            )
 
 
 class Job:
@@ -205,13 +185,12 @@ class JobManager:
         """
         Schedule a new job based on the provided configuration.
         """
-        schedule = JobSchedule(start_time=config.start_time, end_time=config.end_time)
         job = self._job_factory.create(
             job_id=self._next_job_id, source_name=source_name, config=config
         )
         job_id = self._next_job_id
 
-        self._job_schedules[job_id] = schedule
+        self._job_schedules[job_id] = config.schedule
         self._scheduled_jobs[job_id] = job
         self._next_job_id += 1
         return job_id
