@@ -125,8 +125,7 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
             )
         self._job_manager = JobManager(
             job_factory=LegacyJobFactory(
-                factory=handler_registry._factory.processor_factory,
-                source_to_key=handler_registry._factory.source_to_key,
+                instrument_config=handler_registry._factory.instrument_config
             )
         )
         self._job_manager_adapter = JobManagerAdapter(self._job_manager)
