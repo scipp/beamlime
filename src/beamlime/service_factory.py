@@ -10,7 +10,7 @@ from typing import Any, Generic, NoReturn, TypeVar
 
 from .config import config_names
 from .config.config_loader import load_config
-from .core import MessageSink, StreamProcessor
+from .core import MessageSink, Processor, StreamProcessor
 from .core.handler import HandlerFactory, HandlerRegistry
 from .core.message import Message, MessageSource, StreamId
 from .core.service import Service
@@ -41,6 +41,7 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         adapter: MessageAdapter | None = None,
         handler_factory: HandlerFactory[Tin, Tout],
         startup_messages: list[Message[Tout]] | None = None,
+        processor_cls: type[Processor] = StreamProcessor,
     ) -> None:
         """
         Parameters
@@ -57,6 +58,10 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
             The factory to use for creating handlers for messages.
         startup_messages:
             A list of messages to publish before starting the service.
+        processor_cls:
+            The processor class to use for processing messages. Defaults to
+            `StreamProcessor`, but can be set to `OrchestratingProcessor` for
+            orchestrated processing.
         """
         self._name = f'{instrument}_{name}'
         self._log_level = log_level
@@ -65,6 +70,7 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         self._adapter = adapter
         self._handler_registry = HandlerRegistry(factory=handler_factory)
         self._startup_messages = startup_messages or []
+        self._processor_cls = processor_cls
 
     @property
     def instrument(self) -> str:
@@ -145,7 +151,7 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         resources: ExitStack | None = None,
         raise_on_adapter_error: bool = False,
     ) -> Service:
-        processor = StreamProcessor(
+        processor = self._processor_cls(
             source=source
             if self._adapter is None
             else AdaptingMessageSource(

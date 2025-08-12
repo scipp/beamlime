@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Generic
 
+from ..config.models import ConfigKey
+from ..config.workflow_spec import (
+    WorkflowConfig,
+    WorkflowStatus,
+    WorkflowStatusType,
+)
 from .handler import Accumulator, HandlerRegistry, output_stream_name
-from .job import JobFactory, JobManager, JobResult, WorkflowData
+from .job import JobId, JobManager, JobResult, LegacyJobFactory, WorkflowData
 from .message import (
     CONFIG_STREAM_ID,
     Message,
@@ -91,9 +98,11 @@ class PreprocessorRegistry(Generic[Tin, Tout]):
         if (preprocessor := self._preprocessors.get(key)) is not None:
             return preprocessor
         if (handler := self._handlers.get(key)) is not None:
-            preprocessor = Preprocessor(handler._preprocessor)
-            self._preprocessors[key] = preprocessor
-            return preprocessor
+            # Might be NullHandler
+            if hasattr(handler, '_preprocessor'):
+                preprocessor = Preprocessor(handler._preprocessor)
+                self._preprocessors[key] = preprocessor
+                return preprocessor
         return None
 
 
@@ -110,13 +119,24 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         self._source = source
         self._sink = sink
         self._preprocessor_registry = PreprocessorRegistry(handler_registry)
+        self._config_handler = handler_registry.get(CONFIG_STREAM_ID)
+        if self._config_handler is None:
+            raise ValueError(
+                f"Config handler not found in registry for stream {CONFIG_STREAM_ID}"
+            )
         legacy_manager = handler_registry._factory._workflow_manager
         self._job_manager = JobManager(
-            job_factory=JobFactory(legacy_manager=legacy_manager)
+            job_factory=LegacyJobFactory(legacy_manager=legacy_manager)
         )
+        self._job_manager_adapter = JobManagerAdapter(self._job_manager)
         self._message_batcher = NaiveMessageBatcher()
+        self._config_handler.register_action(
+            key='workflow_config',
+            action=self._job_manager_adapter.set_workflow_with_config,
+        )
 
     def process(self) -> None:
+        time.sleep(1.0)
         messages = self._source.get_messages()
         self._logger.debug('Processing %d messages', len(messages))
         config_messages: list[Message[Tin]] = []
@@ -130,7 +150,8 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
 
         # Handle config messages, which can trigger workflow (re)creation, resets, etc.
         # TODO This might want to return status messages or similar?
-        self._job_manager.handle_config_messages(config_messages)
+        # Pushes WorkflowConfig into JobManager via JobManagerAdapter.
+        self._config_handler.handle(config_messages)
 
         message_batch = self._message_batcher.batch(data_messages)
         if message_batch is None:
@@ -145,11 +166,8 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
 
         # TODO Logic to determine when to compute and publish
         results = self._job_manager.compute_results()
-        messages = [
-            job_result_to_message(result)(service_name=self.service_name)
-            for result in results
-        ]
-        self._sink.publish_messages(results)
+        messages = [_job_result_to_message(result) for result in results]
+        self._sink.publish_messages(messages)
 
     def _preprocess_messages(self, batch: MessageBatch) -> WorkflowData:
         """
@@ -174,18 +192,71 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         )
 
 
-def job_result_to_message(result: JobResult) -> Message:
+def _job_result_to_message(result: JobResult) -> Message:
     """
     Convert a workflow result to a message for publishing.
     """
     service_name = 'data_reduction'
+    # We probably want to switch to something like
+    #   signal_name=f'{result.name}-{result.job_id}'
+    # but for now we keep the legacy signal name for frontend compatibility.
+    legacy_signal_name = f'reduced/{result.source_name}'
     stream_name = output_stream_name(
         service_name=service_name,
         stream_name=result.source_name,
-        signal_name=f'{result.name}-{result.job_id}',
+        signal_name=legacy_signal_name,
     )
     return Message(
         timestamp=result.start_time,
         stream=StreamId(kind=StreamKind.BEAMLIME_DATA, name=stream_name),
         value=result.data,
     )
+
+
+class JobManagerAdapter:
+    def __init__(self, job_manager: JobManager) -> None:
+        self._job_manager = job_manager
+        self._jobs: dict[str, JobId] = {}
+
+    def set_workflow_with_config(
+        self, source_name: str | None, value: dict | None
+    ) -> list[tuple[ConfigKey, WorkflowStatus]]:
+        if source_name is None:
+            raise ValueError("source_name cannot be None for set_workflow_with_config")
+
+        config_key = ConfigKey(source_name=source_name, key="workflow_status")
+
+        config = WorkflowConfig.model_validate(value)
+        if config.identifier is None:  # New way to stop/remove a workflow.
+            if (job_id := self._jobs.pop(source_name, None)) is not None:
+                self._job_manager.stop_job(job_id)
+                # TODO Not stopped yet, is returning status here the wrong approach?
+                status = WorkflowStatus(
+                    source_name=source_name, status=WorkflowStatusType.STOPPED
+                )
+                return [(config_key, status)]
+            return []
+
+        try:
+            job_id = self._job_manager.schedule_job(
+                source_name=source_name, config=config
+            )
+            self._jobs[source_name] = job_id
+        except Exception as e:
+            # TODO This system is a bit flawed: If we have a workflow running already
+            # it will keep running, but we need to notify about startup errors. Frontend
+            # will not be able to display the correct workflow status. Need to come up
+            # with a better way to handle this.
+            status = WorkflowStatus(
+                source_name=source_name,
+                status=WorkflowStatusType.STARTUP_ERROR,
+                message=str(e),
+            )
+            return [(config_key, status)]
+
+        status = WorkflowStatus(
+            source_name=source_name,
+            status=WorkflowStatusType.RUNNING,
+            workflow_id=config.identifier,
+        )
+        return [(config_key, status)]
