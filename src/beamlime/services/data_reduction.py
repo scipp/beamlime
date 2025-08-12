@@ -38,7 +38,6 @@ def make_reduction_service_builder(
     service_name = 'data_reduction'
     config_handler = ConfigHandler(service_name=service_name)
     handler_factory = ReductionHandlerFactory(
-        config_registry=config_handler,
         workflow_manager=workflow_manager,
         f144_attribute_registry=instrument_config.f144_attribute_registry,
     )

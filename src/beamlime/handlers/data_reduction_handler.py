@@ -7,13 +7,8 @@ from typing import Any
 
 import scipp as sc
 
-from ..core.handler import (
-    ConfigRegistry,
-    Handler,
-    HandlerFactory,
-    PeriodicAccumulatingHandler,
-)
-from ..core.message import Message, StreamId, StreamKind
+from ..core.handler import Accumulator, HandlerFactory
+from ..core.message import StreamId, StreamKind
 
 # Registers monitor data workflows
 from . import monitor_data_handler  # noqa: F401
@@ -21,11 +16,6 @@ from .accumulators import Cumulative, DetectorEvents
 from .to_nxevent_data import ToNXevent_data
 from .to_nxlog import ToNXlog
 from .workflow_manager import WorkflowManager
-
-
-class NullHandler(Handler[Any, None]):
-    def handle(self, messages: list[Message[Any]]) -> list[Message[None]]:
-        return []
 
 
 class ReductionHandlerFactory(
@@ -41,53 +31,19 @@ class ReductionHandlerFactory(
         workflow_manager: WorkflowManager,
         f144_attribute_registry: dict[str, dict[str, Any]],
         logger: logging.Logger | None = None,
-        config_registry: ConfigRegistry,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
-        self._config_registry = config_registry
         self._workflow_manager = workflow_manager
         self._f144_attribute_registry = f144_attribute_registry
 
-    def make_handler(
-        self, key: StreamId
-    ) -> Handler[DetectorEvents, sc.DataGroup[sc.DataArray]]:
-        self._logger.info("Creating handler for %s", key)
-        accumulator = self._workflow_manager.get_accumulator(key.name)
-        if accumulator is None:
-            self._logger.warning(
-                "No workflow key found for source name %s, using null handler",
-                key.name,
-            )
-            return NullHandler(logger=self._logger, config={})
-
-        # Note we are setting config = {} unless we are processing detector data. The
-        # config is used, e.g., to implement a "clear" mechanism. For data reduction,
-        # clearing is however handled by "clearing" the entire data reduction workflow
-        # for a detector, i.e., auxiliary data such as logs and monitors are cleared
-        # when the workflow is cleared. This is done via the proxy the workflow manager
-        # returns for the detector data accumulator.
+    def make_preprocessor(self, key: StreamId) -> Accumulator | None:
         match key.kind:
             case StreamKind.MONITOR_COUNTS:
-                preprocessor = Cumulative(config={}, clear_on_get=True)
-                config = {}
+                return Cumulative(clear_on_get=True)
             case StreamKind.LOG:
                 attrs = self._f144_attribute_registry[key.name]
-                preprocessor = ToNXlog(attrs=attrs)
-                config = {}
+                return ToNXlog(attrs=attrs)
             case StreamKind.MONITOR_EVENTS | StreamKind.DETECTOR_EVENTS:
-                preprocessor = ToNXevent_data()
-                config = self._config_registry.get_config(key.name)
+                return ToNXevent_data()
             case _:
-                raise ValueError(f"Invalid stream kind: {key.kind}")
-        self._logger.info(
-            "%s using preprocessor %s", key.name, preprocessor.__class__.__name__
-        )
-        self._logger.info("%s using accumulator %s", key.name, accumulator)
-
-        return PeriodicAccumulatingHandler(
-            service_name=self._config_registry.service_name,
-            logger=self._logger,
-            config=config,
-            preprocessor=preprocessor,
-            accumulators={f'reduced/{key.name}': accumulator},
-        )
+                return None

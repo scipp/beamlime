@@ -23,7 +23,7 @@ from ..config.workflow_spec import (
     WorkflowStatus,
     WorkflowStatusType,
 )
-from .handler import Accumulator, HandlerRegistry, output_stream_name
+from .handler import Accumulator, HandlerFactory, HandlerRegistry, output_stream_name
 from .job import JobId, JobManager, JobResult, LegacyJobFactory, WorkflowData
 from .message import (
     CONFIG_STREAM_ID,
@@ -71,15 +71,7 @@ class NaiveMessageBatcher:
 
 class Preprocessor(Generic[Tin, Tout]):
     def __init__(self, accumulator: Accumulator[Tin, Tout]) -> None:
-        """
-        Initialize the preprocessor with an accumulator class.
-
-        Parameters
-        ----------
-        accumulator_cls:
-            The accumulator class to use for preprocessing messages. Must be default
-            constructable.
-        """
+        """Initialize the preprocessor with an accumulator."""
 
         self._accumulator = accumulator
 
@@ -96,8 +88,8 @@ class Preprocessor(Generic[Tin, Tout]):
 class PreprocessorRegistry(Generic[Tin, Tout]):
     """Preprocessor registry wrapping a legacy handler registry."""
 
-    def __init__(self, hander_registry: HandlerRegistry[Tin, Tout]) -> None:
-        self._handlers = hander_registry
+    def __init__(self, factory: HandlerFactory[Tin, Tout]) -> None:
+        self._factory = factory
         self._preprocessors: dict[StreamId, Preprocessor[Tin, Tout]] = {}
 
     def get(self, key: StreamId) -> Preprocessor | None:
@@ -106,12 +98,10 @@ class PreprocessorRegistry(Generic[Tin, Tout]):
         """
         if (preprocessor := self._preprocessors.get(key)) is not None:
             return preprocessor
-        if (handler := self._handlers.get(key)) is not None:
-            # Might be NullHandler
-            if hasattr(handler, '_preprocessor'):
-                preprocessor = Preprocessor(handler._preprocessor)
-                self._preprocessors[key] = preprocessor
-                return preprocessor
+        if (accum := self._factory.make_preprocessor(key)) is not None:
+            preprocessor = Preprocessor(accum)
+            self._preprocessors[key] = preprocessor
+            return preprocessor
         return None
 
 
@@ -127,7 +117,7 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         self._logger = logger or logging.getLogger(__name__)
         self._source = source
         self._sink = sink
-        self._preprocessor_registry = PreprocessorRegistry(handler_registry)
+        self._preprocessor_registry = PreprocessorRegistry(handler_registry._factory)
         self._config_handler = handler_registry.get(CONFIG_STREAM_ID)
         if self._config_handler is None:
             raise ValueError(

@@ -75,6 +75,9 @@ class HandlerFactory(Protocol, Generic[Tin, Tout]):
     def make_handler(self, key: StreamId) -> Handler[Tin, Tout] | None:
         pass
 
+    def make_preprocessor(self, key: StreamId) -> Accumulator | None:
+        return None
+
 
 class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
     """
