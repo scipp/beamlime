@@ -84,9 +84,7 @@ class MonitorStreamProcessor(StreamProcessor):
     description="Histogrammed and time-integrated beam monitor data.",
     source_names=['monitor1', 'monitor2'],
 )
-def _monitor_data_workflow(
-    source_name: str, params: MonitorDataParams
-) -> StreamProcessor:
+def _monitor_data_workflow(params: MonitorDataParams) -> StreamProcessor:
     return MonitorStreamProcessor(edges=params.toa_edges.get_edges())
 
 
