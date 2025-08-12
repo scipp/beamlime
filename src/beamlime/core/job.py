@@ -117,11 +117,11 @@ class LegacyJobFactory(JobFactory):
 
     def create(self, *, job_id: JobId, source_name: str, config: WorkflowConfig) -> Job:
         # Note that this initializes the job immediately, i.e., we pay startup cost now.
-        legacy_factory = self._legacy_manager._processor_factory
+        legacy_factory = self._legacy_manager.processor_factory
         stream_processor = legacy_factory.create(source_name=source_name, config=config)
         workflow_id = config.identifier
         workflow_spec = legacy_factory._workflow_specs[workflow_id]
-        source_to_key = self._legacy_manager._source_to_key
+        source_to_key = self._legacy_manager.source_to_key
         source_mapping = {
             source: source_to_key[source] for source in workflow_spec.aux_source_names
         }
