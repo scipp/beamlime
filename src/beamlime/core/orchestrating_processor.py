@@ -173,9 +173,8 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
                 data_messages.append(msg)
 
         # Handle config messages, which can trigger workflow (re)creation, resets, etc.
-        # TODO This might want to return status messages or similar?
         # Pushes WorkflowConfig into JobManager via JobManagerAdapter.
-        self._config_handler.handle(config_messages)
+        result_messages = self._config_handler.handle(config_messages)
 
         message_batch = self._message_batcher.batch(data_messages)
         if message_batch is None:
@@ -190,8 +189,8 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
 
         # TODO Logic to determine when to compute and publish
         results = self._job_manager.compute_results()
-        messages = [_job_result_to_message(result) for result in results]
-        self._sink.publish_messages(messages)
+        result_messages.extend([_job_result_to_message(result) for result in results])
+        self._sink.publish_messages(result_messages)
 
 
 def _job_result_to_message(result: JobResult) -> Message:
