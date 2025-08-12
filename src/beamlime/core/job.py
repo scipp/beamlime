@@ -112,17 +112,17 @@ class JobFactory(ABC):
 
 
 class LegacyJobFactory(JobFactory):
-    def __init__(self, instrument_config: Instrument) -> None:
+    def __init__(self, instrument: Instrument) -> None:
         self._workflow_specs: dict[WorkflowId, WorkflowSpec] = {}
-        self._instrument_config = instrument_config
+        self._instrument = instrument
 
     def create(self, *, job_id: JobId, source_name: str, config: WorkflowConfig) -> Job:
-        factory = self._instrument_config.processor_factory
+        factory = self._instrument.processor_factory
         # Note that this initializes the job immediately, i.e., we pay startup cost now.
         stream_processor = factory.create(source_name=source_name, config=config)
         workflow_id = config.identifier
         workflow_spec = factory[workflow_id]
-        source_to_key = self._instrument_config.source_to_key
+        source_to_key = self._instrument.source_to_key
         source_mapping = {
             source: source_to_key[source] for source in workflow_spec.aux_source_names
         }

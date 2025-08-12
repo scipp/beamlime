@@ -32,9 +32,7 @@ def make_reduction_service_builder(
     instrument_config = instrument_registry[instrument]
     service_name = 'data_reduction'
     config_handler = ConfigHandler(service_name=service_name)
-    handler_factory = ReductionHandlerFactory(
-        instrument_config=instrument_config,
-    )
+    handler_factory = ReductionHandlerFactory(instrument=instrument_config)
     builder = DataServiceBuilder(
         instrument=instrument,
         name=service_name,

@@ -28,22 +28,22 @@ class ReductionHandlerFactory(
     def __init__(
         self,
         *,
-        instrument_config: Instrument,
+        instrument: Instrument,
         logger: logging.Logger | None = None,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
-        self._instrument_config = instrument_config
+        self._instrument = instrument
 
     @property
-    def instrument_config(self) -> Instrument:
-        return self._instrument_config
+    def instrument(self) -> Instrument:
+        return self._instrument
 
     def make_preprocessor(self, key: StreamId) -> Accumulator | None:
         match key.kind:
             case StreamKind.MONITOR_COUNTS:
                 return Cumulative(clear_on_get=True)
             case StreamKind.LOG:
-                attrs = self._instrument_config.f144_attribute_registry[key.name]
+                attrs = self._instrument.f144_attribute_registry[key.name]
                 return ToNXlog(attrs=attrs)
             case StreamKind.MONITOR_EVENTS | StreamKind.DETECTOR_EVENTS:
                 return ToNXevent_data()
