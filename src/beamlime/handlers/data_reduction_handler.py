@@ -6,6 +6,9 @@ import logging
 from typing import Any
 
 import scipp as sc
+from sciline.typing import Key
+
+from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 
 from ..core.handler import Accumulator, HandlerFactory
 from ..core.message import StreamId, StreamKind
@@ -15,7 +18,6 @@ from . import monitor_data_handler  # noqa: F401
 from .accumulators import Cumulative, DetectorEvents
 from .to_nxevent_data import ToNXevent_data
 from .to_nxlog import ToNXlog
-from .workflow_manager import WorkflowManager
 
 
 class ReductionHandlerFactory(
@@ -28,13 +30,15 @@ class ReductionHandlerFactory(
     def __init__(
         self,
         *,
-        workflow_manager: WorkflowManager,
+        processor_factory: StreamProcessorFactory,
+        source_to_key: dict[str, Key],
         f144_attribute_registry: dict[str, dict[str, Any]],
         logger: logging.Logger | None = None,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
-        self._workflow_manager = workflow_manager
         self._f144_attribute_registry = f144_attribute_registry
+        self.processor_factory = processor_factory
+        self.source_to_key = source_to_key
 
     def make_preprocessor(self, key: StreamId) -> Accumulator | None:
         match key.kind:

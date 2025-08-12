@@ -8,9 +8,11 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 
 import scipp as sc
+from sciline.typing import Key
+
+from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 
 from ..config.workflow_spec import JobSchedule, WorkflowConfig, WorkflowId, WorkflowSpec
-from ..handlers.workflow_manager import WorkflowManager as LegacyWorkflowManager
 from .message import StreamId
 
 
@@ -111,17 +113,19 @@ class JobFactory(ABC):
 
 
 class LegacyJobFactory(JobFactory):
-    def __init__(self, legacy_manager: LegacyWorkflowManager) -> None:
+    def __init__(
+        self, factory: StreamProcessorFactory, source_to_key: dict[str, Key]
+    ) -> None:
         self._workflow_specs: dict[WorkflowId, WorkflowSpec] = {}
-        self._legacy_manager = legacy_manager
+        self._factory = factory
+        self._source_to_key = source_to_key
 
     def create(self, *, job_id: JobId, source_name: str, config: WorkflowConfig) -> Job:
         # Note that this initializes the job immediately, i.e., we pay startup cost now.
-        legacy_factory = self._legacy_manager.processor_factory
-        stream_processor = legacy_factory.create(source_name=source_name, config=config)
+        stream_processor = self._factory.create(source_name=source_name, config=config)
         workflow_id = config.identifier
-        workflow_spec = legacy_factory._workflow_specs[workflow_id]
-        source_to_key = self._legacy_manager.source_to_key
+        workflow_spec = self._factory._workflow_specs[workflow_id]
+        source_to_key = self._source_to_key
         source_mapping = {
             source: source_to_key[source] for source in workflow_spec.aux_source_names
         }

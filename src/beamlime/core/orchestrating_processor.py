@@ -123,9 +123,11 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
             raise ValueError(
                 f"Config handler not found in registry for stream {CONFIG_STREAM_ID}"
             )
-        legacy_manager = handler_registry._factory._workflow_manager
         self._job_manager = JobManager(
-            job_factory=LegacyJobFactory(legacy_manager=legacy_manager)
+            job_factory=LegacyJobFactory(
+                factory=handler_registry._factory.processor_factory,
+                source_to_key=handler_registry._factory.source_to_key,
+            )
         )
         self._job_manager_adapter = JobManagerAdapter(self._job_manager)
         self._message_batcher = NaiveMessageBatcher()
