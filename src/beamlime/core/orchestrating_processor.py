@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+# TODO
+# 1. Reset mechanism ignores start_time. Either change schema, or use it?
+# 2. Make it work with any service, not just data_reduction.
+#    - service_name
+#    - adapters for accumulators other than StreamProcessor
+# 3. Output key naming (needs frontend changes)
+# 4. JobId handling, expose to frontend?
+# 5. Include start_time and end_time in result messages.
 from __future__ import annotations
 
 import logging
@@ -8,7 +16,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Generic
 
-from ..config.models import ConfigKey
+from ..config.models import ConfigKey, StartTime
 from ..config.workflow_spec import (
     WorkflowConfig,
     WorkflowStatus,
@@ -134,9 +142,12 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
             key='workflow_config',
             action=self._job_manager_adapter.set_workflow_with_config,
         )
+        self._config_handler.register_action(
+            key='start_time', action=self._job_manager_adapter.reset_job
+        )
 
     def process(self) -> None:
-        time.sleep(1.0)
+        time.sleep(0.1)
         messages = self._source.get_messages()
         self._logger.debug('Processing %d messages', len(messages))
         config_messages: list[Message[Tin]] = []
@@ -214,9 +225,32 @@ def _job_result_to_message(result: JobResult) -> Message:
 
 
 class JobManagerAdapter:
+    """
+    Adapter to convert calls to JobManager into ConfigHandler actions.
+
+    This has two purposes:
+
+    1. We can keep using ConfigHandler until we have fully refactored everything.
+    2. We keep the legacy one-source-one-job behavior, replacing old jobs if a new one
+       is started. The long-term goal is to change this to a more flexible mechanism,
+       but this, too, would require frontend changes.
+    """
+
     def __init__(self, job_manager: JobManager) -> None:
         self._job_manager = job_manager
         self._jobs: dict[str, JobId] = {}
+
+    def reset_job(
+        self, source_name: str | None, value: dict
+    ) -> list[tuple[ConfigKey, WorkflowStatus]]:
+        if source_name is None:
+            for source in self._jobs:
+                self.reset_job(source_name=source, value=value)
+            return []
+        # TODO Can we use the start_time?
+        start_time = StartTime.model_validate(value)
+        self._job_manager.reset_job(job_id=self._jobs[source_name])
+        return []
 
     def set_workflow_with_config(
         self, source_name: str | None, value: dict | None
