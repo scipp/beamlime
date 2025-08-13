@@ -191,7 +191,10 @@ def output_stream_name(*, service_name: str, stream_name: str, signal_name: str)
     """
     Return the output stream name for a given service name, stream name and signal.
     """
-    return f'{stream_name}/{service_name}/{signal_name}'
+    if signal_name:
+        return f'{stream_name}/{service_name}/{signal_name}'
+    else:
+        return f'{stream_name}/{service_name}'
 
 
 class PeriodicAccumulatingHandler(Handler[T, V]):

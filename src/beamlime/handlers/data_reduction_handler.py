@@ -26,10 +26,7 @@ class ReductionHandlerFactory(
     """
 
     def __init__(
-        self,
-        *,
-        instrument: Instrument,
-        logger: logging.Logger | None = None,
+        self, *, instrument: Instrument, logger: logging.Logger | None = None
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._instrument = instrument

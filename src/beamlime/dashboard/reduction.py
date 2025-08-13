@@ -8,6 +8,7 @@ import panel as pn
 from beamlime import Service
 from beamlime.config import keys
 from beamlime.config.instruments import get_config
+from beamlime.handlers import monitor_data_handler  # noqa: F401
 
 from . import plots
 from .dashboard import DashboardBase
@@ -80,6 +81,7 @@ class ReductionApp(DashboardBase):
             source_names=source_names,
             view_name='ess.powder.types.IofDspacingTwoTheta[ess.reduce.nexus.types.SampleRun]',
         )
+        self._monitor1_pipe = self._monitor_stream_manager.get_stream('monitor1')
 
     def create_sidebar_content(self) -> pn.viewable.Viewable:
         """Create the sidebar content with workflow controls."""
@@ -116,7 +118,13 @@ class ReductionApp(DashboardBase):
             streams=[self._iofd2theta_pipe],
             cache_size=1,
         ).opts(shared_axes=False)
+
+        mon1 = hv.DynamicMap(
+            plots.plot_monitor1, streams=[self._monitor1_pipe], cache_size=1
+        ).opts(shared_axes=False)
+
         return pn.Tabs(
+            ("Monitors", pn.Column(pn.pane.HoloViews(mon1))),
             (
                 "I(d) (vanadium normalized)",
                 pn.Column(

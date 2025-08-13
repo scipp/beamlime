@@ -9,6 +9,7 @@
 # 4. JobId handling, expose to frontend?
 # 5. Include start_time and end_time in result messages.
 # 6. Actually batch messages from N pulses.
+# 7. Remove PeriodAccumulatingHandler, once no longer in use.
 from __future__ import annotations
 
 import logging
@@ -197,15 +198,20 @@ def _job_result_to_message(result: JobResult) -> Message:
     """
     Convert a workflow result to a message for publishing.
     """
-    service_name = 'data_reduction'
-    # We probably want to switch to something like
-    #   signal_name=f'{result.name}-{result.job_id}'
-    # but for now we keep the legacy signal name for frontend compatibility.
-    legacy_signal_name = f'reduced/{result.source_name}'
+    if result.name == 'monitor_data':
+        # Monitor data is special, it has a different output stream name.
+        service_name = 'monitor_data'
+        signal_name = ''
+    else:
+        service_name = 'data_reduction'
+        # We probably want to switch to something like
+        #   signal_name=f'{result.name}-{result.job_id}'
+        # but for now we keep the legacy signal name for frontend compatibility.
+        signal_name = f'reduced/{result.source_name}'
     stream_name = output_stream_name(
         service_name=service_name,
         stream_name=result.source_name,
-        signal_name=legacy_signal_name,
+        signal_name=signal_name,
     )
 
     return Message(
