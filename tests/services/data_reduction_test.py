@@ -8,9 +8,6 @@ import pytest
 from streaming_data_types import eventdata_ev44
 
 from beamlime.config import instrument_registry, workflow_spec
-
-# Import instrument modules so their workflows get registered.
-from beamlime.config.instruments import dream, dummy, loki  # noqa: F401
 from beamlime.config.models import ConfigKey, StartTime
 from beamlime.services.data_reduction import make_reduction_service_builder
 from tests.helpers.beamlime_app import BeamlimeApp

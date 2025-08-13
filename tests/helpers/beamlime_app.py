@@ -59,6 +59,7 @@ class BeamlimeApp:
         self._detector_config = get_config(self.instrument).detectors_config['fakes']
         self._rng = np.random.default_rng(seed=1234)  # Avoid test flakiness
         self._detector_events: bytes | None = None
+        self._monitor_events: dict[str, bytes] = {}
 
     @staticmethod
     def from_service_builder(builder: DataServiceBuilder) -> BeamlimeApp:
@@ -96,19 +97,31 @@ class BeamlimeApp:
         )
         self.consumer.add_message(message)
 
-    def publish_monitor_events(self, *, size: int, time: int) -> None:
-        monitor_message = FakeKafkaMessage(
-            value=self.make_serialized_ev44(name='monitor1', size=size, with_ids=False),
-            topic=self.monitor_topic,
-            timestamp=time * 1_000_000_000,
-        )
-        self.consumer.add_message(monitor_message)
-        monitor_message = FakeKafkaMessage(
-            value=self.make_serialized_ev44(name='monitor2', size=size, with_ids=False),
-            topic=self.monitor_topic,
-            timestamp=time * 1_000_000_000,
-        )
-        self.consumer.add_message(monitor_message)
+    def publish_monitor_events(
+        self, *, size: int, time: int, reuse_events: bool = False
+    ) -> None:
+        """
+        Publish monitor events to the consumer.
+
+        If `reuse_events` is True, the same events are reused for each call to this
+        method. This is useful for speeding up tests that need to send many event
+        messages but do not require different events for each call.
+        """
+        for monitor_name in ['monitor1', 'monitor2']:
+            if not reuse_events or monitor_name not in self._monitor_events:
+                events = self.make_serialized_ev44(
+                    name=monitor_name, size=size, with_ids=False
+                )
+                self._monitor_events[monitor_name] = events
+            else:
+                events = self._monitor_events[monitor_name]
+
+            monitor_message = FakeKafkaMessage(
+                value=events,
+                topic=self.monitor_topic,
+                timestamp=time * 1_000_000_000,
+            )
+            self.consumer.add_message(monitor_message)
 
     def publish_events(
         self, *, size: int, time: int, reuse_events: bool = False

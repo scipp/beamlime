@@ -1,174 +1,101 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+"""
+Test for the monitor data service.
 
-import time
+Note that this uses mostly the same logic as the data reduction service, so the tests
+are similar to those in `tests/services/data_reduction_test.py`. Many tests are not
+duplicated here.
+"""
 
-import numpy as np
+import logging
+
 import pytest
-from streaming_data_types import eventdata_ev44
 
-from beamlime import StreamKind
-from beamlime.config.streams import stream_kind_to_topic
-from beamlime.core.handler import output_stream_name
-from beamlime.fakes import FakeMessageSink
-from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
-from beamlime.kafka.source import KafkaConsumer
+from beamlime.config import instrument_registry, workflow_spec
+from beamlime.config.models import ConfigKey
 from beamlime.services.monitor_data import make_monitor_service_builder
+from tests.helpers.beamlime_app import BeamlimeApp
 
 
-class EmptyConsumer(KafkaConsumer):
-    def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]:
-        return []
-
-    def close(self) -> None:
-        pass
-
-
-class Ev44Consumer(KafkaConsumer):
-    def __init__(
-        self,
-        num_sources: int = 1,
-        events_per_message: int = 1_000,
-        max_events: int = 1_000_000,
-    ) -> None:
-        self._topic = stream_kind_to_topic(
-            instrument='dummy', kind=StreamKind.MONITOR_EVENTS
-        )
-        self._num_sources = num_sources
-        self._events_per_message = events_per_message
-        self._max_events = max_events
-        self._pixel_id = np.ones(events_per_message, dtype=np.int32)
-        rng = np.random.default_rng()
-        self._time_of_flight = rng.uniform(0, 70_000_000, events_per_message).astype(
-            np.int32
-        )
-        self._reference_time = 0
-        self._running = False
-        self._count = 0
-        self._content = [
-            self.make_serialized_ev44(source) for source in range(self._num_sources)
-        ]
-
-    def start(self) -> None:
-        self._running = True
-
-    def reset(self) -> None:
-        self._running = False
-        self._count = 0
-
-    @property
-    def at_end(self) -> bool:
-        return (
-            self._count * self._events_per_message
-            >= self._max_events * self._num_sources
-        )
-
-    def _make_timestamp(self) -> int:
-        self._reference_time += 1
-        self._count += 1
-        return self._reference_time * 71_000_000 // self._num_sources
-
-    def make_serialized_ev44(self, source: int) -> bytes:
-        # Note empty reference_time. KafkaToEv44Adapter uses message.timestamp(), which
-        # allows use to reuse the serialized content, to avoid seeing the cost in the
-        # benchmarks.
-        return eventdata_ev44.serialise_ev44(
-            source_name=f"monitor{source}",
-            message_id=0,
-            reference_time=[],
-            reference_time_index=0,
-            time_of_flight=self._time_of_flight,
-            pixel_id=self._pixel_id,
-        )
-
-    def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]:
-        if not self._running or self.at_end:
-            return []
-        messages = [
-            FakeKafkaMessage(
-                value=self._content[msg % self._num_sources],
-                topic=self._topic,
-                timestamp=self._make_timestamp(),
-            )
-            for msg in range(num_messages)
-        ]
-        return messages
-
-    def close(self) -> None:
-        pass
+def _get_workflow_from_registry(
+    instrument: str,
+) -> tuple[str, workflow_spec.WorkflowSpec]:
+    # Currently only one workflow for monitor data, so we can hardcode the name.
+    name = 'monitor_data'
+    instrument_config = instrument_registry[f'{instrument}_beam_monitors']
+    workflow_registry = instrument_config.processor_factory
+    for wid, spec in workflow_registry.items():
+        if spec.name == name:
+            return wid, spec
+    raise ValueError(f"Workflow {name} not found in specs")
 
 
-def start_and_wait_for_completion(consumer: Ev44Consumer) -> None:
-    consumer.start()
-    while not consumer.at_end:
-        time.sleep(0.01)
-    consumer.reset()
+def make_monitor_app(instrument: str) -> BeamlimeApp:
+    builder = make_monitor_service_builder(instrument=instrument)
+    return BeamlimeApp.from_service_builder(builder)
 
 
-@pytest.mark.parametrize('num_sources', [1, 2, 4, 8])
-@pytest.mark.parametrize('events_per_message', [10_000, 100_000, 1_000_000])
-def test_performance(benchmark, num_sources: int, events_per_message: int) -> None:
-    # There is some caveat in this benchmark: Ev44Consumer has no concept of real time.
-    # It is this always returning messages quickly, which shifts the balance in the
-    # services to a different place than in reality.
-    builder = make_monitor_service_builder(instrument='dummy')
-    service = builder.from_consumer(
-        consumer=EmptyConsumer(), sink=FakeMessageSink(), raise_on_adapter_error=True
+first_monitor_source_name = {
+    'dummy': 'monitor1',
+    'dream': 'monitor1',
+    'bifrost': 'monitor1',
+    'loki': 'monitor1',
+}
+
+
+@pytest.mark.parametrize("instrument", ['bifrost', 'dummy', 'dream', 'loki'])
+def test_can_configure_and_stop_monitor_workflow(
+    instrument: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = make_monitor_app(instrument)
+    sink = app.sink
+    service = app.service
+    workflow_id, _ = _get_workflow_from_registry(instrument)
+
+    source_name = first_monitor_source_name[instrument]
+    config_key = ConfigKey(
+        source_name=source_name, service_name="monitor_data", key="workflow_config"
     )
+    workflow_config = workflow_spec.WorkflowConfig(identifier=workflow_id)
+    # Trigger workflow start
+    app.publish_config_message(key=config_key, value=workflow_config.model_dump())
+    service.step()
+    assert len(sink.messages) == 1  # Workflow status message
+    sink.messages.clear()
 
-    sink = FakeMessageSink()
-    consumer = Ev44Consumer(
-        num_sources=num_sources,
-        events_per_message=events_per_message,
-        max_events=50_000_000,
-    )
-    service = builder.from_consumer(
-        consumer=consumer, sink=sink, raise_on_adapter_error=True
-    )
-    service.start(blocking=False)
-    benchmark(start_and_wait_for_completion, consumer=consumer)
-    service.stop()
+    app.publish_monitor_events(size=2000, time=2)
+    service.step()
+    # Each workflow call returns two results, cumulative and current
+    assert len(sink.messages) == 2
+    assert sink.messages[-2].value.values.sum() == 2000
+    assert sink.messages[-1].value.values.sum() == 2000
+    # No data -> no data published
+    service.step()
+    assert len(sink.messages) == 2
 
+    app.publish_monitor_events(size=3000, time=4)
+    service.step()
+    assert len(sink.messages) == 4
+    assert sink.messages[-2].value.values.sum() == 5000
+    assert sink.messages[-1].value.values.sum() == 3000
 
-def test_monitor_data_service() -> None:
-    builder = make_monitor_service_builder(instrument='dummy')
-    sink = FakeMessageSink()
-    consumer = Ev44Consumer(num_sources=2, events_per_message=100, max_events=10_000)
-    service = builder.from_consumer(
-        consumer=consumer, sink=sink, raise_on_adapter_error=True
-    )
-    service.start(blocking=False)
-    start_and_wait_for_completion(consumer=consumer)
-    source_names = [msg.stream.name for msg in sink.messages]
-    assert (
-        output_stream_name(
-            service_name='monitor_data',
-            stream_name='monitor0',
-            signal_name='cumulative',
-        )
-        in source_names
-    )
-    assert (
-        output_stream_name(
-            service_name='monitor_data',
-            stream_name='monitor1',
-            signal_name='cumulative',
-        )
-        in source_names
-    )
-    assert (
-        output_stream_name(
-            service_name='monitor_data', stream_name='monitor0', signal_name='current'
-        )
-        in source_names
-    )
-    assert (
-        output_stream_name(
-            service_name='monitor_data', stream_name='monitor1', signal_name='current'
-        )
-        in source_names
-    )
-    size = len(sink.messages)
-    start_and_wait_for_completion(consumer=consumer)
-    assert len(sink.messages) > size
-    service.stop()
+    # More events but the same time
+    app.publish_monitor_events(size=1000, time=4)
+    # Later time
+    app.publish_monitor_events(size=1000, time=5)
+    service.step()
+    assert len(sink.messages) == 6
+    assert sink.messages[-2].value.values.sum() == 7000
+    assert sink.messages[-1].value.values.sum() == 2000
+
+    # Stop workflow
+    stop = workflow_spec.WorkflowConfig(identifier=None).model_dump()
+    app.publish_config_message(key=config_key, value=stop)
+    app.publish_monitor_events(size=1000, time=10)
+    service.step()
+    app.publish_monitor_events(size=1000, time=20)
+    service.step()
+    assert len(sink.messages) == 6 + 1  # + 1 for the stop message
