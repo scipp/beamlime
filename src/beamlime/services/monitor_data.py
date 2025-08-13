@@ -3,6 +3,8 @@
 import logging
 from typing import NoReturn
 
+from beamlime.config import instrument_registry
+from beamlime.config.instruments import get_config
 from beamlime.config.streams import get_stream_mapping
 from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.core.orchestrating_processor import OrchestratingProcessor
@@ -22,10 +24,11 @@ def make_monitor_service_builder(
         .with_beamlime_config_route()
         .build()
     )
+    _ = get_config(instrument)  # Load the module to register the instrument
     service_name = 'monitor_data'
     config_handler = ConfigHandler(service_name=service_name)
     handler_factory = monitor_data_handler.MonitorHandlerFactory(
-        instrument=monitor_data_handler.instrument
+        instrument=instrument_registry[f'{instrument}_beam_monitors']
     )
     builder = DataServiceBuilder(
         instrument=instrument,

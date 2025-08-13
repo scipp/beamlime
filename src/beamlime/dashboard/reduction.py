@@ -6,7 +6,7 @@ import holoviews as hv
 import panel as pn
 
 from beamlime import Service
-from beamlime.config import keys
+from beamlime.config import instrument_registry, keys
 from beamlime.config.instruments import get_config
 
 from . import plots
@@ -53,10 +53,11 @@ class ReductionApp(DashboardBase):
 
     def _setup_workflow_management(self) -> None:
         """Initialize workflow controller and reduction widget."""
+        instrument = instrument_registry[self._instrument]
         self._workflow_controller = WorkflowController.from_config_service(
             config_service=self._config_service,
             source_names=list(self.source_names()),
-            workflow_registry=self._instrument_module.instrument.processor_factory,
+            workflow_registry=instrument.processor_factory,
             data_service=self._data_services['data_reduction'],
         )
         self._reduction_widget = ReductionWidget(controller=self._workflow_controller)

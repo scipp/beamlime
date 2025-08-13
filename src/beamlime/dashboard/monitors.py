@@ -10,8 +10,8 @@ import holoviews as hv
 import panel as pn
 
 from beamlime import Service
-from beamlime.config import keys
-from beamlime.handlers import monitor_data_handler
+from beamlime.config import instrument_registry, keys
+from beamlime.config.instruments import get_config
 
 from . import plots
 from .dashboard import DashboardBase
@@ -34,6 +34,8 @@ class DashboardApp(DashboardBase):
             dashboard_name='monitors_dashboard',
             port=5007,  # Default port for monitors dashboard
         )
+        # Load the module to register the instrument's workflows.
+        self._instrument_module = get_config(instrument)
 
         self._setup_workflow_management()
         self._setup_monitor_streams()
@@ -51,10 +53,11 @@ class DashboardApp(DashboardBase):
 
     def _setup_workflow_management(self) -> None:
         """Initialize workflow controller and reduction widget."""
+        instrument = instrument_registry[f'{self._instrument}_beam_monitors']
         self._workflow_controller = WorkflowController.from_config_service(
             config_service=self._config_service,
             source_names=[],
-            workflow_registry=monitor_data_handler.instrument.processor_factory,
+            workflow_registry=instrument.processor_factory,
             data_service=self._data_services['monitor_data'],
         )
         self._reduction_widget = ReductionWidget(controller=self._workflow_controller)

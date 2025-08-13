@@ -14,8 +14,6 @@ from ..core.handler import JobBasedHandlerFactoryBase
 from ..core.message import StreamId, StreamKind
 from .accumulators import Accumulator, CollectTOA, Cumulative, MonitorEvents
 
-instrument = Instrument(name='beam_monitors')
-
 
 class MonitorDataParams(pydantic.BaseModel):
     toa_edges: parameter_models.TOAEdges = pydantic.Field(
@@ -82,15 +80,22 @@ class MonitorStreamProcessor(StreamProcessor):
         self._current = None
 
 
-@instrument.register_workflow(
-    name='monitor_data',
-    version=1,
-    title="Beam monitor data",
-    description="Histogrammed and time-integrated beam monitor data.",
-    source_names=['monitor1', 'monitor2'],
-)
 def _monitor_data_workflow(params: MonitorDataParams) -> StreamProcessor:
     return MonitorStreamProcessor(edges=params.toa_edges.get_edges())
+
+
+def make_beam_monitor_instrument(name: str, source_names: list[str]) -> Instrument:
+    """Create an Instrument with workflows for beam monitor processing."""
+    instrument = Instrument(name=f'{name}_beam_monitors')
+    register = instrument.register_workflow(
+        name='monitor_data',
+        version=1,
+        title="Beam monitor data",
+        description="Histogrammed and time-integrated beam monitor data.",
+        source_names=source_names,
+    )
+    register(_monitor_data_workflow)
+    return instrument
 
 
 class MonitorHandlerFactory(
