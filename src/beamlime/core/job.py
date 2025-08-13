@@ -60,7 +60,6 @@ class Job:
         self._source_mapping = source_mapping
         self._start_time = -1
         self._end_time = -1
-        self._error_message: str | None = None
 
     @property
     def start_time(self) -> int:
@@ -85,22 +84,11 @@ class Job:
             return JobStatus(job_id=self._job_id, has_error=False)
         except Exception as e:
             error_msg = f"Error processing data for job {self._job_id}: {e}"
-            self._error_message = error_msg
             return JobStatus(
                 job_id=self._job_id, has_error=True, error_message=error_msg
             )
 
     def get(self) -> JobResult:
-        if self._error_message is not None:
-            return JobResult(
-                job_id=self._job_id,
-                start_time=self.start_time,
-                end_time=self.end_time,
-                source_name=self._source_name,
-                name=self._workflow_name,
-                error_message=self._error_message,
-            )
-
         try:
             data = sc.DataGroup(
                 {str(key): val for key, val in self._processor.finalize().items()}
@@ -265,3 +253,15 @@ class JobManager:
             _ = self._job_schedules.pop(job_id, None)  # Clean up schedule
         self._finishing_jobs.clear()
         return results
+
+    def format_job_error(self, status: JobStatus) -> str:
+        """Format a job error message with meaningful job information."""
+        job = self._active_jobs.get(status.job_id) or self._scheduled_jobs.get(
+            status.job_id
+        )
+        if job is None:
+            return f"Job {status.job_id} error: {status.error_message}"
+
+        return (
+            f"Job {job._workflow_name}/{job._source_name} error: {status.error_message}"
+        )

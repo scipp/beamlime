@@ -194,9 +194,7 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         # Log any errors from data processing
         for status in job_statuses:
             if status.has_error:
-                self._logger.error(
-                    'Job %d error: %s', status.job_id, status.error_message
-                )
+                self._logger.error(self._job_manager.format_job_error(status))
 
         # TODO Logic to determine when to compute and publish
         results = self._job_manager.compute_results()

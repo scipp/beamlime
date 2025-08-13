@@ -15,6 +15,7 @@ from beamlime.core.job import (
     JobId,
     JobManager,
     JobResult,
+    JobStatus,
     WorkflowData,
 )
 from beamlime.core.message import StreamId
@@ -28,8 +29,12 @@ class FakeProcessor:
         self.accumulate_calls = []
         self.finalize_calls = 0
         self.clear_calls = 0
+        self.should_fail_accumulate = False
+        self.should_fail_finalize = False
 
     def accumulate(self, data: dict[Hashable, Any]) -> None:
+        if self.should_fail_accumulate:
+            raise RuntimeError("Accumulate failure")
         self.accumulate_calls.append(data.copy())
         for key, value in data.items():
             if key in self.data:
@@ -38,6 +43,8 @@ class FakeProcessor:
                 self.data[key] = deepcopy(value)
 
     def finalize(self) -> dict[Hashable, Any]:
+        if self.should_fail_finalize:
+            raise RuntimeError("Finalize failure")
         self.finalize_calls += 1
         return self.data.copy()
 
@@ -171,8 +178,10 @@ class TestJob:
 
     def test_add_data_sets_times(self, sample_job, sample_workflow_data):
         """Test that adding data sets start and end times."""
-        sample_job.add(sample_workflow_data)
+        status = sample_job.add(sample_workflow_data)
 
+        assert not status.has_error
+        assert status.error_message is None
         assert sample_job.start_time == 100
         assert sample_job.end_time == 200
 
@@ -189,11 +198,13 @@ class TestJob:
             data={StreamId(name="test_source"): sc.scalar(20.0)},
         )
 
-        sample_job.add(data1)
+        status1 = sample_job.add(data1)
+        assert not status1.has_error
         assert sample_job.start_time == 100
         assert sample_job.end_time == 150
 
-        sample_job.add(data2)
+        status2 = sample_job.add(data2)
+        assert not status2.has_error
         assert sample_job.start_time == 100  # Should not change
         assert sample_job.end_time == 250  # Should update
 
@@ -209,7 +220,8 @@ class TestJob:
             },
         )
 
-        sample_job.add(data)
+        status = sample_job.add(data)
+        assert not status.has_error
 
         # Check that processor received only mapped data
         assert len(fake_processor.accumulate_calls) == 1
@@ -220,6 +232,63 @@ class TestJob:
         assert accumulated["aux"] == sc.scalar(10.0)
         # unmapped_source should not appear
         assert len(accumulated) == 2  # Only main and aux should be present
+
+    def test_add_data_error_handling(self, fake_processor):
+        """Test error handling during data processing."""
+        job = Job(
+            job_id=1,
+            workflow_name="test_workflow",
+            source_name="test_source",
+            processor=fake_processor,
+            source_mapping={"test_source": "main"},
+        )
+
+        # Make processor fail
+        fake_processor.should_fail_accumulate = True
+
+        data = WorkflowData(
+            start_time=100,
+            end_time=200,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+
+        status = job.add(data)
+        assert status.has_error
+        assert status.job_id == 1
+        assert "Error processing data for job 1" in status.error_message
+        assert "Accumulate failure" in status.error_message
+
+    def test_add_data_error_recovery(self, fake_processor):
+        """Test that job can recover after an error."""
+        job = Job(
+            job_id=1,
+            workflow_name="test_workflow",
+            source_name="test_source",
+            processor=fake_processor,
+            source_mapping={"test_source": "main"},
+        )
+
+        data = WorkflowData(
+            start_time=100,
+            end_time=200,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+
+        # First, cause an error
+        fake_processor.should_fail_accumulate = True
+        status1 = job.add(data)
+        assert status1.has_error
+
+        # Then fix the processor and try again
+        fake_processor.should_fail_accumulate = False
+        status2 = job.add(data)
+        assert not status2.has_error
+        assert status2.error_message is None
+
+        # Job should now return successful result
+        result = job.get()
+        assert result.error_message is None
+        assert result.data is not None
 
     def test_get_returns_job_result(self, sample_job, sample_workflow_data):
         """Test that get() returns a proper JobResult."""
@@ -233,11 +302,39 @@ class TestJob:
         assert result.start_time == 100
         assert result.end_time == 200
         assert isinstance(result.data, sc.DataGroup)
+        assert result.error_message is None
 
     def test_get_calls_processor_finalize(self, sample_job, fake_processor):
         """Test that get() calls processor.finalize()."""
         sample_job.get()
         assert fake_processor.finalize_calls == 1
+
+    def test_get_with_finalize_error(self, fake_processor):
+        """Test get() handles finalize errors."""
+        job = Job(
+            job_id=1,
+            workflow_name="test_workflow",
+            source_name="test_source",
+            processor=fake_processor,
+            source_mapping={"test_source": "main"},
+        )
+
+        # Add some data successfully
+        data = WorkflowData(
+            start_time=100,
+            end_time=200,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+        job.add(data)
+
+        # Make finalize fail
+        fake_processor.should_fail_finalize = True
+
+        result = job.get()
+        assert result.error_message is not None
+        assert "Error finalizing job 1" in result.error_message
+        assert "Finalize failure" in result.error_message
+        assert result.data is None
 
     def test_reset_clears_processor_and_times(
         self, sample_job, sample_workflow_data, fake_processor
@@ -252,6 +349,29 @@ class TestJob:
         assert fake_processor.clear_calls == 1
         assert sample_job.start_time == -1
         assert sample_job.end_time == -1
+
+    def test_can_get_after_error_in_add(self, fake_processor):
+        """Adding bad data should not directly affect get()."""
+        job = Job(
+            job_id=1,
+            workflow_name="test_workflow",
+            source_name="test_source",
+            processor=fake_processor,
+            source_mapping={"test_source": "main"},
+        )
+
+        # Cause an error
+        fake_processor.should_fail_accumulate = True
+        data = WorkflowData(
+            start_time=100,
+            end_time=200,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+        job.add(data)
+
+        result = job.get()
+        # No error, provided that the processor does not fail finalize
+        assert result.error_message is None
 
 
 class TestJobManager:
@@ -300,9 +420,52 @@ class TestJobManager:
             end_time=200,
             data={StreamId(name="test_source"): sc.scalar(42.0)},
         )
-        manager.push_data(data)
+        statuses = manager.push_data(data)
 
         assert len(manager.active_jobs) == 1
+        assert len(statuses) == 1
+        assert not statuses[0].has_error
+
+    def test_push_data_returns_job_statuses(self, fake_job_factory):
+        """Test that push_data returns status for each active job."""
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(identifier="test_workflow")
+
+        _ = manager.schedule_job("source1", config)
+        _ = manager.schedule_job("source2", config)
+
+        data = WorkflowData(
+            start_time=100,
+            end_time=200,
+            data={StreamId(name="source1"): sc.scalar(42.0)},
+        )
+        statuses = manager.push_data(data)
+
+        assert len(statuses) == 2
+        assert all(isinstance(status, JobStatus) for status in statuses)
+        assert all(not status.has_error for status in statuses)
+
+    def test_push_data_handles_job_errors(self, fake_job_factory):
+        """Test that push_data handles and reports job errors."""
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(identifier="test_workflow")
+
+        job_id = manager.schedule_job("test_source", config)
+
+        # Make the processor fail
+        fake_job_factory.processors[job_id].should_fail_accumulate = True
+
+        data = WorkflowData(
+            start_time=100,
+            end_time=200,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+        statuses = manager.push_data(data)
+
+        assert len(statuses) == 1
+        assert statuses[0].has_error
+        assert statuses[0].job_id == job_id
+        assert "Error processing data" in statuses[0].error_message
 
     def test_push_data_activates_jobs_based_on_schedule(self, fake_job_factory):
         """Test that jobs are activated based on their scheduled start time."""
@@ -324,8 +487,9 @@ class TestJobManager:
             end_time=120,
             data={StreamId(name="source1"): sc.scalar(42.0)},
         )
-        manager.push_data(early_data)
+        statuses = manager.push_data(early_data)
         assert len(manager.active_jobs) == 1
+        assert len(statuses) == 1
 
         # Push later data - should activate job2
         later_data = WorkflowData(
@@ -333,8 +497,9 @@ class TestJobManager:
             end_time=180,
             data={StreamId(name="source2"): sc.scalar(42.0)},
         )
-        manager.push_data(later_data)
+        statuses = manager.push_data(later_data)
         assert len(manager.active_jobs) == 2
+        assert len(statuses) == 2
 
     def test_push_data_feeds_active_jobs(self, fake_job_factory):
         """Test that pushing data feeds all active jobs."""
@@ -349,10 +514,11 @@ class TestJobManager:
             end_time=200,
             data={StreamId(name="source1"): sc.scalar(42.0)},
         )
-        manager.push_data(data)
+        statuses = manager.push_data(data)
 
         # Both jobs should be active and receive data
         assert len(manager.active_jobs) == 2
+        assert len(statuses) == 2
         for job in manager.active_jobs:
             assert job.start_time == 100  # Data start time
             assert job.end_time == 200  # Data end time
@@ -1015,3 +1181,72 @@ class TestJobManager:
         )
         manager.push_data(data)
         assert len(manager.active_jobs) == 1
+
+    def test_accumulate_failure_handled_gracefully(self, fake_job_factory):
+        """Test that an accumulate failure in the processor is handled gracefully."""
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(identifier="test_workflow")
+
+        job_id = manager.schedule_job("test_source", config)
+
+        # Activate the job
+        data = WorkflowData(
+            start_time=100,
+            end_time=200,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+        manager.push_data(data)
+        assert len(manager.active_jobs) == 1
+
+        # Induce an accumulate failure
+        processor = fake_job_factory.processors[job_id]
+        processor.should_fail_accumulate = True
+
+        # Push new data - should be handled gracefully, not crash
+        new_data = WorkflowData(
+            start_time=201,
+            end_time=250,
+            data={StreamId(name="test_source"): sc.scalar(84.0)},
+        )
+        manager.push_data(new_data)
+
+        # Job should still update its time window even with error
+        assert len(manager.active_jobs) == 1
+        assert manager.active_jobs[0].start_time == 100
+        assert manager.active_jobs[0].end_time == 250  # Updated despite error
+
+        results = manager.compute_results()
+        assert len(results) == 1
+        # Finalize fails if the latest data push failed.
+        assert results[0].error_message is None
+
+    def test_finalize_failure_handled_gracefully(self, fake_job_factory):
+        """Test that a finalize failure in the processor is handled gracefully."""
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(identifier="test_workflow")
+
+        job_id = manager.schedule_job("test_source", config)
+
+        # Activate the job
+        data = WorkflowData(
+            start_time=100,
+            end_time=200,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+        manager.push_data(data)
+        assert len(manager.active_jobs) == 1
+
+        # Induce a finalize failure
+        processor = fake_job_factory.processors[job_id]
+
+        processor.should_fail_finalize = True
+        results = manager.compute_results()
+        assert len(results) == 1
+        assert results[0].error_message is not None
+        assert len(manager.active_jobs) == 1
+
+        processor.should_fail_finalize = False
+        results = manager.compute_results()
+        assert len(results) == 1
+        assert len(manager.active_jobs) == 1
+        assert results[0].error_message is None
