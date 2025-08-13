@@ -7,8 +7,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from ess.reduce.streaming import StreamProcessor
-
+from beamlime.core.job import StreamProcessor
 from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 
 from .workflow_spec import WorkflowSpec
