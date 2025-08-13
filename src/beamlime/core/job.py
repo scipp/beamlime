@@ -5,26 +5,14 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Mapping
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any
 
 import scipp as sc
 
-from beamlime.config.instrument import Instrument
+from beamlime.config.instrument import Instrument, StreamProcessor
 
 from ..config.workflow_spec import JobSchedule, WorkflowConfig, WorkflowId, WorkflowSpec
 from .message import StreamId
-
-
-class StreamProcessor(Protocol):
-    """
-    Protocol matching ess.reduce.streaming.StreamProcessor, used by :py:class:`Job`.
-
-    There will be other implementations, in particular for non-data-reduction jobs.
-    """
-
-    def accumulate(self, data: dict[Hashable, Any]) -> None: ...
-    def finalize(self) -> dict[Hashable, Any]: ...
-    def clear(self) -> None: ...
 
 
 @dataclass(slots=True, kw_only=True)

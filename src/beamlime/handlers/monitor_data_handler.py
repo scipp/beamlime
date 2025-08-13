@@ -8,9 +8,8 @@ import pydantic
 import scipp as sc
 
 from .. import parameter_models
-from ..config.instrument import Instrument
+from ..config.instrument import Instrument, StreamProcessor
 from ..core.handler import JobBasedHandlerFactoryBase
-from ..core.job import StreamProcessor
 from ..core.message import StreamId, StreamKind
 from .accumulators import Accumulator, Cumulative, MonitorEvents
 from .to_nxevent_data import ToNXevent_data

@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 from collections import UserDict
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Hashable, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
-from beamlime.core.job import StreamProcessor
 from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
 
 from .workflow_spec import WorkflowSpec
@@ -35,6 +34,18 @@ class InstrumentRegistry(UserDict[str, 'Instrument']):
 
 
 instrument_registry = InstrumentRegistry()
+
+
+class StreamProcessor(Protocol):
+    """
+    Protocol matching ess.reduce.streaming.StreamProcessor, used by :py:class:`Job`.
+
+    There will be other implementations, in particular for non-data-reduction jobs.
+    """
+
+    def accumulate(self, data: dict[Hashable, Any]) -> None: ...
+    def finalize(self) -> dict[Hashable, Any]: ...
+    def clear(self) -> None: ...
 
 
 @dataclass(frozen=True, kw_only=True)
