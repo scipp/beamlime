@@ -32,7 +32,15 @@ class JobResult:
     name: str
     start_time: int
     end_time: int
-    data: sc.DataArray | sc.DataGroup
+    data: sc.DataArray | sc.DataGroup | None = None
+    error_message: str | None = None
+
+
+@dataclass
+class JobStatus:
+    job_id: JobId
+    has_error: bool
+    error_message: str | None = None
 
 
 class Job:
@@ -52,6 +60,7 @@ class Job:
         self._source_mapping = source_mapping
         self._start_time = -1
         self._end_time = -1
+        self._error_message: str | None = None
 
     @property
     def start_time(self) -> int:
@@ -61,40 +70,66 @@ class Job:
     def end_time(self) -> int:
         return self._end_time
 
-    def add(self, data: WorkflowData) -> None:
-        if self._start_time == -1:
-            self._start_time = data.start_time
-        self._end_time = data.end_time
-        update: dict[Hashable, Any] = {}
-        for stream, value in data.data.items():
-            if stream.name not in self._source_mapping:
-                continue
-            key = self._source_mapping[stream.name]
-            update[key] = value
-        self._processor.accumulate(update)
+    def add(self, data: WorkflowData) -> JobStatus:
+        try:
+            if self._start_time == -1:
+                self._start_time = data.start_time
+            self._end_time = data.end_time
+            update: dict[Hashable, Any] = {}
+            for stream, value in data.data.items():
+                if stream.name not in self._source_mapping:
+                    continue
+                key = self._source_mapping[stream.name]
+                update[key] = value
+            self._processor.accumulate(update)
+            return JobStatus(job_id=self._job_id, has_error=False)
+        except Exception as e:
+            error_msg = f"Error processing data for job {self._job_id}: {e}"
+            self._error_message = error_msg
+            return JobStatus(
+                job_id=self._job_id, has_error=True, error_message=error_msg
+            )
 
-    def get(self) -> JobResult | None:
+    def get(self) -> JobResult:
+        if self._error_message is not None:
+            return JobResult(
+                job_id=self._job_id,
+                start_time=self.start_time,
+                end_time=self.end_time,
+                source_name=self._source_name,
+                name=self._workflow_name,
+                error_message=self._error_message,
+            )
+
         try:
             data = sc.DataGroup(
                 {str(key): val for key, val in self._processor.finalize().items()}
             )
-        except Exception:
-            # TODO Better plan for error handling. Return a JobResult with error?
-            return
-        return JobResult(
-            job_id=self._job_id,
-            start_time=self.start_time,
-            end_time=self.end_time,
-            source_name=self._source_name,
-            name=self._workflow_name,
-            data=data,
-        )
+            return JobResult(
+                job_id=self._job_id,
+                start_time=self.start_time,
+                end_time=self.end_time,
+                source_name=self._source_name,
+                name=self._workflow_name,
+                data=data,
+            )
+        except Exception as e:
+            error_msg = f"Error finalizing job {self._job_id}: {e}"
+            return JobResult(
+                job_id=self._job_id,
+                start_time=self.start_time,
+                end_time=self.end_time,
+                source_name=self._source_name,
+                name=self._workflow_name,
+                error_message=error_msg,
+            )
 
     def reset(self) -> None:
         """Reset the processor for this job."""
         self._processor.clear()
         self._start_time = -1
         self._end_time = -1
+        self._error_message = None
 
 
 class JobFactory(ABC):
@@ -210,11 +245,14 @@ class JobManager:
         else:
             raise KeyError(f"Job {job_id} not found in active or scheduled jobs.")
 
-    def push_data(self, data: WorkflowData) -> None:
-        """Push data into the active jobs."""
+    def push_data(self, data: WorkflowData) -> list[JobStatus]:
+        """Push data into the active jobs and return status for each job."""
         self._advance_to_time(data.start_time, data.end_time)
+        job_statuses: list[JobStatus] = []
         for job in self.active_jobs:
-            job.add(data)
+            status = job.add(data)
+            job_statuses.append(status)
+        return job_statuses
 
     def compute_results(self) -> list[JobResult]:
         """
@@ -222,7 +260,6 @@ class JobManager:
         This may include processing the accumulated data and preparing it for output.
         """
         results = [job.get() for job in self.active_jobs]
-        results = [result for result in results if result is not None]
         for job_id in self._finishing_jobs:
             _ = self._active_jobs.pop(job_id, None)
             _ = self._job_schedules.pop(job_id, None)  # Clean up schedule

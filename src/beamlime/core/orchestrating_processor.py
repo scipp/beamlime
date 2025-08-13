@@ -189,11 +189,35 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         workflow_data = self._message_preprocessor.preprocess_messages(message_batch)
 
         # Handle data messages with the workflow manager, accumulating data as needed.
-        self._job_manager.push_data(workflow_data)
+        job_statuses = self._job_manager.push_data(workflow_data)
+
+        # Log any errors from data processing
+        for status in job_statuses:
+            if status.has_error:
+                self._logger.error(
+                    'Job %d error: %s', status.job_id, status.error_message
+                )
 
         # TODO Logic to determine when to compute and publish
         results = self._job_manager.compute_results()
-        result_messages.extend([_job_result_to_message(result) for result in results])
+
+        # Filter valid results and log errors
+        valid_results = []
+        for result in results:
+            if result.error_message is not None:
+                self._logger.error(
+                    'Job %d (%s/%s) failed: %s',
+                    result.job_id,
+                    result.source_name,
+                    result.name,
+                    result.error_message,
+                )
+            else:
+                valid_results.append(result)
+
+        result_messages.extend(
+            [_job_result_to_message(result) for result in valid_results]
+        )
         self._sink.publish_messages(result_messages)
 
 
