@@ -7,6 +7,7 @@ from collections.abc import Callable, Mapping
 from typing import Any, Generic, Protocol, TypeVar
 
 from ..config import models
+from ..config.instrument import Instrument
 from .message import Message, StreamId, StreamKind, Tin, Tout
 
 
@@ -77,6 +78,20 @@ class HandlerFactory(Protocol, Generic[Tin, Tout]):
 
     def make_preprocessor(self, key: StreamId) -> Accumulator | None:
         return None
+
+
+class JobBasedHandlerFactoryBase(HandlerFactory[Tin, Tout]):
+    """Factory base used by job-based backend services."""
+
+    def __init__(
+        self, *, instrument: Instrument, logger: logging.Logger | None = None
+    ) -> None:
+        self._logger = logger or logging.getLogger(__name__)
+        self._instrument = instrument
+
+    @property
+    def instrument(self) -> Instrument:
+        return self._instrument
 
 
 class CommonHandlerFactory(HandlerFactory[Tin, Tout]):

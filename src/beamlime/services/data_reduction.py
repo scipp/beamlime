@@ -39,7 +39,6 @@ def make_reduction_service_builder(
         log_level=log_level,
         adapter=adapter,
         handler_factory=handler_factory,
-        startup_messages=[],
         processor_cls=OrchestratingProcessor,
     )
     builder.add_handler(CONFIG_STREAM_ID, config_handler)

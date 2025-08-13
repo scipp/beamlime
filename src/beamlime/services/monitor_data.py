@@ -3,8 +3,11 @@
 import logging
 from typing import NoReturn
 
+from beamlime.config import instrument_registry
+from beamlime.config.instruments import get_config
 from beamlime.config.streams import get_stream_mapping
 from beamlime.core.message import CONFIG_STREAM_ID
+from beamlime.core.orchestrating_processor import OrchestratingProcessor
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.monitor_data_handler import MonitorHandlerFactory
 from beamlime.kafka.routes import RoutingAdapterBuilder
@@ -14,9 +17,6 @@ from beamlime.service_factory import DataServiceBuilder, DataServiceRunner
 def make_monitor_service_builder(
     *, instrument: str, dev: bool = True, log_level: int = logging.INFO
 ) -> DataServiceBuilder:
-    service_name = 'monitor_data'
-    config_handler = ConfigHandler(service_name=service_name)
-    handler_factory = MonitorHandlerFactory(config_registry=config_handler)
     stream_mapping = get_stream_mapping(instrument=instrument, dev=dev)
     adapter = (
         RoutingAdapterBuilder(stream_mapping=stream_mapping)
@@ -24,12 +24,18 @@ def make_monitor_service_builder(
         .with_beamlime_config_route()
         .build()
     )
+    _ = get_config(instrument)  # Load the module to register the instrument
+    instrument_config = instrument_registry[instrument]
+    service_name = 'monitor_data'
+    config_handler = ConfigHandler(service_name=service_name)
+    handler_factory = MonitorHandlerFactory(instrument=instrument_config)
     builder = DataServiceBuilder(
         instrument=instrument,
         name=service_name,
         log_level=log_level,
         adapter=adapter,
         handler_factory=handler_factory,
+        processor_cls=OrchestratingProcessor,
     )
     builder.add_handler(CONFIG_STREAM_ID, config_handler)
     return builder

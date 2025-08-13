@@ -2,7 +2,6 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-import logging
 from collections.abc import Hashable
 
 import pydantic
@@ -10,22 +9,11 @@ import scipp as sc
 
 from .. import parameter_models
 from ..config.instruments.dream import instrument
-from ..core.handler import (
-    Config,
-    ConfigRegistry,
-    FakeConfigRegistry,
-    HandlerFactory,
-    PeriodicAccumulatingHandler,
-)
+from ..core.handler import JobBasedHandlerFactoryBase
 from ..core.job import StreamProcessor
 from ..core.message import StreamId, StreamKind
-from .accumulators import (
-    Accumulator,
-    Cumulative,
-    MonitorEvents,
-    TOAHistogrammer,
-    TOARebinner,
-)
+from .accumulators import Accumulator, Cumulative, MonitorEvents
+from .to_nxevent_data import ToNXevent_data
 
 
 class MonitorDataParams(pydantic.BaseModel):
@@ -88,44 +76,14 @@ def _monitor_data_workflow(params: MonitorDataParams) -> StreamProcessor:
     return MonitorStreamProcessor(edges=params.toa_edges.get_edges())
 
 
-def make_monitor_data_preprocessor(
-    key: StreamId, config: Config
-) -> Accumulator[MonitorEvents, sc.DataArray] | Accumulator[sc.DataArray, sc.DataArray]:
-    match key.kind:
-        case StreamKind.MONITOR_EVENTS:
-            return TOAHistogrammer(config=config)
-        case StreamKind.MONITOR_COUNTS:
-            return TOARebinner(config=config, clear_on_get=True)
-        case _:
-            raise ValueError(f"Invalid stream kind: {key.kind}")
-
-
-class MonitorHandlerFactory(HandlerFactory[MonitorEvents | sc.DataArray, sc.DataArray]):
-    def __init__(
-        self,
-        *,
-        logger: logging.Logger | None = None,
-        config_registry: ConfigRegistry | None = None,
-    ) -> None:
-        self._logger = logger or logging.getLogger(__name__)
-        self._config_registry = config_registry or FakeConfigRegistry()
-
-    def make_handler(
-        self, key: StreamId
-    ) -> (
-        PeriodicAccumulatingHandler[MonitorEvents, sc.DataArray]
-        | PeriodicAccumulatingHandler[sc.DataArray, sc.DataArray]
-    ):
-        config = self._config_registry.get_config(key.name)
-        accumulators = {
-            'cumulative': Cumulative(config=config),
-            'current': Cumulative(config=config, clear_on_get=True),
-        }
-        preprocessor = make_monitor_data_preprocessor(key, config)
-        return PeriodicAccumulatingHandler(
-            service_name=self._config_registry.service_name,
-            logger=self._logger,
-            config=config,
-            preprocessor=preprocessor,
-            accumulators=accumulators,
-        )
+class MonitorHandlerFactory(
+    JobBasedHandlerFactoryBase[MonitorEvents | sc.DataArray, sc.DataArray]
+):
+    def make_monitor_data_preprocessor(self, key: StreamId) -> Accumulator | None:
+        match key.kind:
+            case StreamKind.MONITOR_COUNTS:
+                return Cumulative(clear_on_get=True)
+            case StreamKind.MONITOR_EVENTS:
+                return ToNXevent_data()
+            case _:
+                return None

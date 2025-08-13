@@ -2,38 +2,19 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-import logging
-
 import scipp as sc
 
-from beamlime.config.instrument import Instrument
-
-from ..core.handler import Accumulator, HandlerFactory
+from ..core.handler import Accumulator, JobBasedHandlerFactoryBase
 from ..core.message import StreamId, StreamKind
-
-# Registers monitor data workflows
-from . import monitor_data_handler  # noqa: F401
 from .accumulators import Cumulative, DetectorEvents
 from .to_nxevent_data import ToNXevent_data
 from .to_nxlog import ToNXlog
 
 
 class ReductionHandlerFactory(
-    HandlerFactory[DetectorEvents, sc.DataGroup[sc.DataArray]]
+    JobBasedHandlerFactoryBase[DetectorEvents, sc.DataGroup[sc.DataArray]]
 ):
-    """
-    Factory for data reduction handlers.
-    """
-
-    def __init__(
-        self, *, instrument: Instrument, logger: logging.Logger | None = None
-    ) -> None:
-        self._logger = logger or logging.getLogger(__name__)
-        self._instrument = instrument
-
-    @property
-    def instrument(self) -> Instrument:
-        return self._instrument
+    """Factory for data reduction handlers."""
 
     def make_preprocessor(self, key: StreamId) -> Accumulator | None:
         match key.kind:
