@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import pytest
 import scipp as sc
+from scipp.testing import assert_identical
 from streaming_data_types import logdata_f144
 
 from beamlime.core.handler import Accumulator
@@ -10,7 +11,10 @@ from beamlime.handlers.accumulators import (
     ForwardingAccumulator,
     GroupIntoPixels,
     LogData,
+    MonitorEvents,
     NullAccumulator,
+    TOAHistogrammer,
+    TOARebinner,
 )
 from beamlime.handlers.to_nxevent_data import DetectorEvents, ToNXevent_data
 
@@ -178,6 +182,181 @@ class TestCumulative:
         cumulative.clear()
         with pytest.raises(ValueError, match="No data has been added"):
             cumulative.get()
+
+
+class TestTOAHistogrammer:
+    def test_returns_zeros_if_no_chunks_added(self) -> None:
+        histogrammer = TOAHistogrammer(config={'time_of_arrival_bins': 6})
+        da = histogrammer.get()
+        dim = 'time_of_arrival'
+        bins = sc.linspace(dim, 0.0, 1000 / 14, num=7, unit='ms')
+        assert_identical(
+            da,
+            sc.DataArray(
+                sc.zeros(dims=[dim], shape=[6], unit='counts', dtype='int64'),
+                coords={dim: bins},
+            ),
+        )
+
+    def test_returns_zeros_with_custom_edges(self) -> None:
+        config = {'toa_edges': {'low': 5.0, 'high': 15.0, 'num_bins': 4, 'unit': 'ms'}}
+        histogrammer = TOAHistogrammer(config=config)
+        da = histogrammer.get()
+        dim = 'time_of_arrival'
+        bins = sc.linspace(dim, 5.0, 15.0, num=5, unit='ms')
+        assert_identical(
+            da,
+            sc.DataArray(
+                sc.zeros(dims=[dim], shape=[4], unit='counts', dtype='int64'),
+                coords={dim: bins},
+            ),
+        )
+
+    def test_can_clear_histogrammer(self) -> None:
+        histogrammer = TOAHistogrammer(config={})
+        histogrammer.add(0, MonitorEvents(time_of_arrival=[1.0, 10.0], unit='ns'))
+        before = histogrammer.get()
+        assert before.sum().value > 0
+        histogrammer.clear()
+        after = histogrammer.get()
+        assert after.sum().value == 0
+
+    def test_accumulates_consecutive_add_calls(self) -> None:
+        histogrammer = TOAHistogrammer(config={'time_of_arrival_bins': 7})
+        histogrammer.add(0, MonitorEvents(time_of_arrival=[1.0, 10.0], unit='ns'))
+        histogrammer.add(1, MonitorEvents(time_of_arrival=[2.0, 20.0], unit='ns'))
+        da = histogrammer.get()
+        assert sc.identical(da.sum().data, sc.scalar(4, unit='counts'))
+
+    def test_raises_if_unit_is_not_ns(self) -> None:
+        histogrammer = TOAHistogrammer(config={'time_of_arrival_bins': 7})
+        with pytest.raises(ValueError, match="Expected unit 'ns'"):
+            histogrammer.add(0, MonitorEvents(time_of_arrival=[1.0, 10.0], unit='ms'))
+
+    def test_works_with_detector_events(self) -> None:
+        histogrammer = TOAHistogrammer(config={'time_of_arrival_bins': 5})
+        events = DetectorEvents(
+            pixel_id=[1, 2, 3], time_of_arrival=[100.0, 200.0, 300.0], unit='ns'
+        )
+        histogrammer.add(0, events)
+        da = histogrammer.get()
+        assert da.sum().value == 3
+
+    def test_config_update_keeps_existing_data(self) -> None:
+        config = {'time_of_arrival_bins': 5}
+        histogrammer = TOAHistogrammer(config=config)
+        histogrammer.add(0, MonitorEvents(time_of_arrival=[1.0, 10.0], unit='ns'))
+
+        # Update config
+        config['time_of_arrival_bins'] = 10
+        da = histogrammer.get()
+        # Should have 10 bins now, not 5
+        assert da.sizes['time_of_arrival'] == 10
+        # The data should still be there, since we histogram only when calling get()
+        assert da.sum().value == 2
+
+    def test_empty_events_array(self) -> None:
+        histogrammer = TOAHistogrammer(config={'time_of_arrival_bins': 5})
+        histogrammer.add(0, MonitorEvents(time_of_arrival=[], unit='ns'))
+        da = histogrammer.get()
+        assert da.sum().value == 0
+        assert da.sizes['time_of_arrival'] == 5
+
+
+class TestTOARebinner:
+    def test_get_before_add_raises_error(self) -> None:
+        rebinner = TOARebinner(config={})
+        with pytest.raises(ValueError, match="No data has been added"):
+            rebinner.get()
+
+    def test_rebins_to_configured_edges(self) -> None:
+        config = {'toa_edges': {'low': 0.0, 'high': 10.0, 'num_bins': 5, 'unit': 'ms'}}
+        rebinner = TOARebinner(config=config)
+
+        # Create data with different binning
+        original_edges = sc.linspace('time_of_arrival', 0.0, 10.0, num=11, unit='ms')
+        data = sc.DataArray(
+            sc.ones(dims=['time_of_arrival'], shape=[10], unit='counts'),
+            coords={'time_of_arrival': original_edges},
+        )
+
+        rebinner.add(0, data)
+        result = rebinner.get()
+
+        # Should be rebinned to 5 bins
+        assert result.sizes['time_of_arrival'] == 5
+        expected_edges = sc.linspace('time_of_arrival', 0.0, 10.0, num=6, unit='ms')
+        assert sc.identical(result.coords['time_of_arrival'], expected_edges)
+
+    def test_cumulative_rebinning(self) -> None:
+        config = {'time_of_arrival_bins': 5}
+        rebinner = TOARebinner(config=config)
+
+        # Add same data twice
+        edges = sc.linspace('time_of_arrival', 0.0, 1000 / 14, num=6, unit='ms')
+        data = sc.DataArray(
+            sc.ones(dims=['time_of_arrival'], shape=[5], unit='counts'),
+            coords={'time_of_arrival': edges},
+        )
+
+        rebinner.add(0, data)
+        rebinner.add(1, data)
+        result = rebinner.get()
+
+        # Should be cumulative (2 * ones)
+        assert sc.allclose(
+            result.data,
+            sc.full(dims=['time_of_arrival'], shape=[5], value=2.0, unit='counts'),
+        )
+
+    def test_clear_on_get(self) -> None:
+        rebinner = TOARebinner(config={'time_of_arrival_bins': 5}, clear_on_get=True)
+
+        edges = sc.linspace('time_of_arrival', 0.0, 1000 / 14, num=6, unit='ms')
+        data = sc.DataArray(
+            sc.ones(dims=['time_of_arrival'], shape=[5], unit='counts'),
+            coords={'time_of_arrival': edges},
+        )
+
+        rebinner.add(0, data)
+        result1 = rebinner.get()
+        rebinner.add(1, data)
+        result2 = rebinner.get()
+
+        # Both should be the same since clear_on_get=True
+        assert sc.identical(result1.data, result2.data)
+
+    def test_renames_dimension_if_needed(self) -> None:
+        config = {'time_of_arrival_bins': 5}
+        rebinner = TOARebinner(config=config)
+
+        # Data with different dimension name
+        edges = sc.linspace('toa', 0.0, 1000 / 14, num=6, unit='ms')
+        data = sc.DataArray(
+            sc.ones(dims=['toa'], shape=[5], unit='counts'), coords={'toa': edges}
+        )
+
+        rebinner.add(0, data)
+        result = rebinner.get()
+
+        # Should have renamed to 'time_of_arrival'
+        assert 'time_of_arrival' in result.dims
+        assert 'toa' not in result.dims
+
+    def test_manual_clear(self) -> None:
+        rebinner = TOARebinner(config={'time_of_arrival_bins': 5})
+
+        edges = sc.linspace('time_of_arrival', 0.0, 1000 / 14, num=6, unit='ms')
+        data = sc.DataArray(
+            sc.ones(dims=['time_of_arrival'], shape=[5], unit='counts'),
+            coords={'time_of_arrival': edges},
+        )
+
+        rebinner.add(0, data)
+        rebinner.clear()
+
+        with pytest.raises(ValueError, match="No data has been added"):
+            rebinner.get()
 
 
 class TestGroupIntoPixels:
