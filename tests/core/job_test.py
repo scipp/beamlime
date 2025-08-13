@@ -379,8 +379,8 @@ class TestJobManager:
         manager.push_data(data)
         assert len(manager.active_jobs) == 0
 
-    def test_stop_job_active_marks_for_finishing(self, fake_job_factory):
-        """Test stopping an active job marks it for finishing."""
+    def test_stop_job_stops_active_immediately(self, fake_job_factory):
+        """Test stopping an active job."""
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(identifier="test_workflow")
 
@@ -396,8 +396,8 @@ class TestJobManager:
         assert len(manager.active_jobs) == 1
 
         manager.stop_job(job_id)
-        # Job should still be active until compute_results is called
-        assert len(manager.active_jobs) == 1
+        # Job stopped, even before compute_results is called
+        assert len(manager.active_jobs) == 0
 
     def test_stop_job_nonexistent_raises_error(self, fake_job_factory):
         """Test stopping a non-existent job raises KeyError."""
@@ -472,7 +472,7 @@ class TestJobManager:
         assert len(results) == 2
         assert all(isinstance(result, JobResult) for result in results)
 
-    def test_compute_results_removes_stopped_jobs(self, fake_job_factory):
+    def test_compute_results_ignores_stopped_jobs(self, fake_job_factory):
         """Test that compute_results removes jobs that were stopped."""
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(identifier="test_workflow")
@@ -490,12 +490,11 @@ class TestJobManager:
 
         # Stop the job
         manager.stop_job(job_id)
-        assert len(manager.active_jobs) == 1  # Still active
+        assert len(manager.active_jobs) == 0  # Not active
 
-        # Compute results should remove it
+        # Compute results should not give a result for the stopped job
         results = manager.compute_results()
-        assert len(results) == 1  # Should still return result
-        assert len(manager.active_jobs) == 0  # Should be removed now
+        assert len(results) == 0  # Should not return result
 
     def test_job_lifecycle_with_schedule_based_activation(self, fake_job_factory):
         """Test complete job lifecycle with schedule-based activation."""
@@ -781,11 +780,11 @@ class TestJobManager:
         manager.push_data(finishing_data)
 
         # Compute results should:
-        # - Return results from all 3 jobs
-        # - Remove job1 (finished by schedule) and job2 (manually stopped)
+        # - Return results from all 2 jobs (not job2 since it was stopped)
+        # - Remove job1 (finished by schedule)
         # - Keep job3 active (no end time)
         results = manager.compute_results()
-        assert len(results) == 3
+        assert len(results) == 2
         assert len(manager.active_jobs) == 1  # Only job3 should remain
 
     def test_jobs_without_end_time_never_finish_automatically(self, fake_job_factory):

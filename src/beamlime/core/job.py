@@ -185,16 +185,11 @@ class JobManager:
         return job_id
 
     def stop_job(self, job_id: JobId) -> None:
-        """
-        Stop a job with the given ID.
-        This will not remove the job from active jobs, but will mark it for finishing.
-        """
-        if job_id in self._active_jobs:
-            self._finishing_jobs.append(job_id)
-        elif job_id in self._scheduled_jobs:
-            del self._scheduled_jobs[job_id]
-            del self._job_schedules[job_id]  # Clean up schedule
-        else:
+        """Stop a job with the given ID immediately."""
+        was_active = self._active_jobs.pop(job_id, None)
+        _ = self._job_schedules.pop(job_id, None)
+        was_schedule = self._scheduled_jobs.pop(job_id, None)
+        if was_active is None and was_schedule is None:
             raise KeyError(f"Job {job_id} not found in active or scheduled jobs.")
 
     def reset_job(self, job_id: JobId) -> None:
