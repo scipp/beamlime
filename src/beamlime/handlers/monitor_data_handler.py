@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Hashable
 
+import numpy as np
 import pydantic
 import scipp as sc
 
@@ -11,8 +12,7 @@ from .. import parameter_models
 from ..config.instrument import Instrument, StreamProcessor
 from ..core.handler import JobBasedHandlerFactoryBase
 from ..core.message import StreamId, StreamKind
-from .accumulators import Accumulator, Cumulative, MonitorEvents
-from .to_nxevent_data import ToNXevent_data
+from .accumulators import Accumulator, CollectTOA, Cumulative, MonitorEvents
 
 instrument = Instrument(name='beam_monitors')
 
@@ -33,36 +33,38 @@ class MonitorDataParams(pydantic.BaseModel):
 class MonitorStreamProcessor(StreamProcessor):
     def __init__(self, edges: sc.Variable) -> None:
         self._edges = edges
-        self._event_edges = edges.to(unit='ns').rename({edges.dim: 'event_time_offset'})
+        self._event_edges = edges.to(unit='ns').values
         self._cumulative: sc.DataArray | None = None
         self._current: sc.DataArray | None = None
 
     def accumulate(self, data: dict[Hashable, sc.DataArray]) -> None:
         if len(data) != 1:
             raise ValueError("MonitorStreamProcessor expects exactly one data item.")
-        da = next(iter(data.values()))
+        raw = next(iter(data.values()))
         # Note: In theory we should consider rebinning/histogramming only in finalize(),
         # but the current plan is to accumulate before/during preprocessing, i.e.,
         # before we ever get here. That is, there should typically be one finalize()
         # call per accumulate() call.
-        if da.bins is not None:
-            da = (
-                da.hist(event_time_offset=self._event_edges, dim=da.dims)
-                .drop_coords('event_time_offset')
-                .rename_dims(event_time_offset=self._edges.dim)
-                .assign_coords({self._edges.dim: self._edges})
+        if isinstance(raw, np.ndarray):
+            # Data from accumulators.CollectTOA.
+            # Using NumPy here as for these specific operations with medium-sized data
+            # it is a bit faster than Scipp.
+            values, _ = np.histogram(raw, bins=self._event_edges)
+            hist = sc.DataArray(
+                data=sc.array(dims=[self._edges.dim], values=values, unit='counts'),
+                coords={self._edges.dim: self._edges},
             )
         else:
-            if da.dim != self._edges.dim:
-                da = da.rename({da.dim: self._edges.dim})
-            coord = da.coords.get(self._edges.dim).to(unit=self._edges.unit)
-            da = da.assign_coords({self._edges.dim: coord}).rebin(
+            if raw.dim != self._edges.dim:
+                raw = raw.rename({raw.dim: self._edges.dim})
+            coord = raw.coords.get(self._edges.dim).to(unit=self._edges.unit)
+            hist = raw.assign_coords({self._edges.dim: coord}).rebin(
                 {self._edges.dim: self._edges}
             )
         if self._current is None:
-            self._current = da
+            self._current = hist
         else:
-            self._current += da
+            self._current += hist
 
     def finalize(self) -> dict[Hashable, sc.DataArray]:
         if self._current is None:
@@ -99,6 +101,6 @@ class MonitorHandlerFactory(
             case StreamKind.MONITOR_COUNTS:
                 return Cumulative(clear_on_get=True)
             case StreamKind.MONITOR_EVENTS:
-                return ToNXevent_data()
+                return CollectTOA()
             case _:
                 return None

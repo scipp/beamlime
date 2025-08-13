@@ -240,34 +240,7 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
         self._chunks.clear()
 
 
-class _TOAMixin:
-    """Mixing class for accumulators that create time-of-arrival histograms."""
-
-    def __init__(self, config: Config):
-        self._config = config
-        self._params: dict[str, Any] = {}
-        self._edges: sc.Variable | None = None
-        self._edges_ns: sc.Variable | None = None
-
-    def _check_for_config_updates(self) -> None:
-        if (edges := self._config.get('toa_edges')) is None:
-            # Used by legacy dashboard, we still support this as fallback for now.
-            nbin = self._config.get('time_of_arrival_bins', 100)
-            params = {'start': 0.0, 'stop': 1000 / 14, 'num': nbin + 1, 'unit': 'ms'}
-        else:
-            params = {
-                'start': edges['low'],
-                'stop': edges['high'],
-                'num': edges['num_bins'] + 1,
-                'unit': edges['unit'],
-            }
-        if self._edges is None or params != self._params:
-            self._params = params
-            self._edges = sc.linspace('time_of_arrival', **params)
-            self._edges_ns = self._edges.to(unit='ns')
-
-
-class TOAHistogrammer(_TOAMixin, Accumulator[MonitorEvents, sc.DataArray]):
+class CollectTOA(Accumulator[MonitorEvents, np.ndarray]):
     """
     Accumulator that bins time of arrival data into a histogram.
 
@@ -275,11 +248,10 @@ class TOAHistogrammer(_TOAMixin, Accumulator[MonitorEvents, sc.DataArray]):
     detector data it could be used to produce a histogram for a selected ROI.
     """
 
-    def __init__(self, config: Config):
-        super().__init__(config)
+    def __init__(self):
         self._chunks: list[np.ndarray] = []
 
-    def add(self, timestamp: int, data: DetectorEvents | MonitorEvents) -> None:
+    def add(self, timestamp: int, data: MonitorEvents) -> None:
         _ = timestamp
         # We could easily support other units, but ev44 is always in ns so this should
         # never happen.
@@ -287,47 +259,12 @@ class TOAHistogrammer(_TOAMixin, Accumulator[MonitorEvents, sc.DataArray]):
             raise ValueError(f"Expected unit 'ns', got '{data.unit}'")
         self._chunks.append(data.time_of_arrival)
 
-    def get(self) -> sc.DataArray:
-        self._check_for_config_updates()
+    def get(self) -> np.ndarray:
         # Using NumPy here as for these specific operations with medium-sized data it is
         # a bit faster than Scipp. Could optimize the concatenate by reusing a buffer.
-        events = np.concatenate(self._chunks or [[]])
-        values, _ = np.histogram(events, bins=self._edges_ns.values)
+        result = np.concatenate(self._chunks or [[]])
         self._chunks.clear()
-        return sc.DataArray(
-            data=sc.array(dims=[self._edges.dim], values=values, unit='counts'),
-            coords={self._edges.dim: self._edges},
-        )
+        return result
 
     def clear(self) -> None:
         self._chunks.clear()
-
-
-class TOARebinner(
-    _TOAMixin,
-    _CumulativeAccumulationMixin,
-    Accumulator[sc.DataArray, sc.DataArray],
-):
-    """
-    Accumulator that cumulatively adds data arrays and rebins them to histogram edges.
-
-    Similar to Cumulative but provides histogram functionality for time-of-arrival data.
-    """
-
-    def __init__(self, config: Config, clear_on_get: bool = False):
-        _TOAMixin.__init__(self, config)
-        _CumulativeAccumulationMixin.__init__(self, clear_on_get=clear_on_get)
-
-    def add(self, timestamp: int, data: sc.DataArray) -> None:
-        _ = timestamp
-        self._add_cumulative(data)
-
-    def _compute_result(self, cumulative: sc.DataArray) -> sc.DataArray:
-        """Rebin the cumulative data to histogram edges."""
-        self._check_for_config_updates()
-        if cumulative.dim != 'time_of_arrival':
-            cumulative = cumulative.rename({cumulative.dim: 'time_of_arrival'})
-        coord = cumulative.coords.get(self._edges.dim).to(unit=self._edges.unit)
-        return cumulative.assign_coords({self._edges.dim: coord}).rebin(
-            {self._edges.dim: self._edges}
-        )
