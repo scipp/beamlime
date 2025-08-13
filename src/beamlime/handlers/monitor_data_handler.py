@@ -33,37 +33,51 @@ class MonitorDataParams(pydantic.BaseModel):
 class MonitorStreamProcessor(StreamProcessor):
     def __init__(self, edges: sc.Variable) -> None:
         self._edges = edges
-        self._cumulative = Cumulative()
-        self._current = Cumulative(clear_on_get=True)
+        self._event_edges = edges.to(unit='ns').rename({edges.dim: 'event_time_offset'})
+        self._cumulative: sc.DataArray | None = None
+        self._current: sc.DataArray | None = None
 
     def accumulate(self, data: dict[Hashable, sc.DataArray]) -> None:
-        # TODO Histogram if event data!
         if len(data) != 1:
             raise ValueError("MonitorStreamProcessor expects exactly one data item.")
-        monitor = next(iter(data.values()))
-        timestamp = 0
-        self._cumulative.add(timestamp=timestamp, data=monitor)
-        self._current.add(timestamp=timestamp, data=monitor)
-
-    def _compute(self, accum: Cumulative) -> sc.DataArray:
-        # TODO Copied from TOARebinner, should be refactored to not use config mechanism
-        cumulative = accum.get()
-        if cumulative.dim != 'time_of_arrival':
-            cumulative = cumulative.rename({cumulative.dim: 'time_of_arrival'})
-        coord = cumulative.coords.get(self._edges.dim).to(unit=self._edges.unit)
-        return cumulative.assign_coords({self._edges.dim: coord}).rebin(
-            {self._edges.dim: self._edges}
-        )
+        da = next(iter(data.values()))
+        # Note: In theory we should consider rebinning/histogramming only in finalize(),
+        # but the current plan is to accumulate before/during preprocessing, i.e.,
+        # before we ever get here. That is, there should typically be one finalize()
+        # call per accumulate() call.
+        if da.bins is not None:
+            da = (
+                da.hist(event_time_offset=self._event_edges, dim=da.dims)
+                .drop_coords('event_time_offset')
+                .rename_dims(event_time_offset=self._edges.dim)
+                .assign_coords({self._edges.dim: self._edges})
+            )
+        else:
+            if da.dim != self._edges.dim:
+                da = da.rename({da.dim: self._edges.dim})
+            coord = da.coords.get(self._edges.dim).to(unit=self._edges.unit)
+            da = da.assign_coords({self._edges.dim: coord}).rebin(
+                {self._edges.dim: self._edges}
+            )
+        if self._current is None:
+            self._current = da
+        else:
+            self._current += da
 
     def finalize(self) -> dict[Hashable, sc.DataArray]:
-        return {
-            'cumulative': self._compute(self._cumulative),
-            'current': self._compute(self._current),
-        }
+        if self._current is None:
+            raise ValueError("No data has been added")
+        current = self._current
+        if self._cumulative is None:
+            self._cumulative = current
+        else:
+            self._cumulative += current
+        self._current = None
+        return {'cumulative': self._cumulative, 'current': current}
 
     def clear(self) -> None:
-        self._cumulative.clear()
-        self._current.clear()
+        self._cumulative = None
+        self._current = None
 
 
 @instrument.register_workflow(
