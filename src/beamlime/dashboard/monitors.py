@@ -14,7 +14,6 @@ from beamlime.config import keys
 from beamlime.handlers import monitor_data_handler
 
 from . import plots
-from .controller_factory import BinEdgeController
 from .dashboard import DashboardBase
 from .widgets.reduction_widget import ReductionWidget
 from .widgets.start_time_widget import StartTimeWidget
@@ -46,10 +45,6 @@ class DashboardApp(DashboardBase):
         )
 
         self._logger.info("Monitor dashboard initialized")
-        self._toa_controller = self._controller_factory.create(
-            config_key=keys.MONITOR_TOA_EDGES.create_key(),
-            controller_cls=BinEdgeController,
-        )
         self._reset_controller = self._controller_factory.create(
             config_key=keys.MONITOR_START_TIME.create_key()
         )

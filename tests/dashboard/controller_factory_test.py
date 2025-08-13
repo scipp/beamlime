@@ -7,10 +7,9 @@ import pytest
 from beamlime.config.schema_registry import FakeSchemaRegistry
 from beamlime.dashboard.config_service import ConfigService
 from beamlime.dashboard.controller_factory import (
-    BinEdgeController,
     Controller,
     ControllerFactory,
-    RangeController,
+    RangeController
 )
 from beamlime.dashboard.message_bridge import FakeMessageBridge
 from beamlime.dashboard.schema_validator import (
@@ -355,89 +354,6 @@ class TestController:
         assert callback2.data == {"value": 999, "name": "multi", "enabled": False}
 
 
-class TestBinEdgeController:
-    @pytest.fixture
-    def bin_edge_controller(self, config_service: ConfigService) -> BinEdgeController:
-        return BinEdgeController(
-            config_key="range",
-            config_service=config_service,
-            schema=RangeConfig,
-        )
-
-    def test_unit_conversion_on_value_change(
-        self, bin_edge_controller: BinEdgeController, config_service: ConfigService
-    ) -> None:
-        """Test unit conversion when unit changes."""
-        # Set initial config with microseconds
-        initial_config = RangeConfig(low=1000.0, high=2000.0, unit="us")
-        config_service.update_config("range", initial_config)
-
-        callback = FakeCallback()
-        bin_edge_controller.subscribe(callback)
-        callback.reset()  # Clear the initial callback from subscription
-
-        # Change unit to milliseconds - values should be converted
-        bin_edge_controller.set_value(low=1000.0, high=2000.0, unit="ms")
-
-        stored_config = config_service.get_config("range")
-        assert stored_config.unit == "ms"
-        # 1000 us = 1 ms, 2000 us = 2 ms
-        assert stored_config.low == 1.0
-        assert stored_config.high == 2.0
-
-    def test_no_conversion_same_unit(
-        self, bin_edge_controller: BinEdgeController, config_service: ConfigService
-    ) -> None:
-        """Test no conversion when unit stays the same."""
-        # Set initial config
-        initial_config = RangeConfig(low=500.0, high=1500.0, unit="ms")
-        config_service.update_config("range", initial_config)
-
-        callback = FakeCallback()
-        bin_edge_controller.subscribe(callback)
-        callback.reset()  # Clear the initial callback
-
-        # Update values with same unit
-        bin_edge_controller.set_value(low=600.0, high=1600.0, unit="ms")
-
-        stored_config = config_service.get_config("range")
-        assert stored_config.low == 600.0
-        assert stored_config.high == 1600.0
-        assert stored_config.unit == "ms"
-
-    def test_unit_conversion_precision(
-        self, bin_edge_controller: BinEdgeController, config_service: ConfigService
-    ) -> None:
-        """Test unit conversion handles floating point precision correctly."""
-        # Set initial config with microseconds
-        initial_config = RangeConfig(low=1000.0, high=2000.0, unit="us")
-        config_service.update_config("range", initial_config)
-
-        callback = FakeCallback()
-        bin_edge_controller.subscribe(callback)
-        callback.reset()  # Clear initial callback
-
-        # Convert to milliseconds
-        bin_edge_controller.set_value(low=1000.0, high=2000.0, unit="ms")
-
-        stored_config = config_service.get_config("range")
-        # 1000 us = 1.0 ms, 2000 us = 2.0 ms
-        assert stored_config.low == 1.0
-        assert stored_config.high == 2.0
-
-    def test_initial_unit_handling(
-        self, bin_edge_controller: BinEdgeController, config_service: ConfigService
-    ) -> None:
-        """Test handling when no previous unit exists."""
-        # First set_value call with no previous config
-        bin_edge_controller.set_value(low=500.0, high=1500.0, unit="ns")
-
-        stored_config = config_service.get_config("range")
-        assert stored_config.low == 500.0
-        assert stored_config.high == 1500.0
-        assert stored_config.unit == "ns"
-
-
 class TestRangeController:
     @pytest.fixture
     def range_controller(self, config_service: ConfigService) -> RangeController:
@@ -689,7 +605,6 @@ class TestRangeController:
         assert stored_config.high == 3000000.0
         assert stored_config.unit == "ns"
 
-
 class TestControllerFactory:
     def test_create_controller_with_valid_key(
         self, controller_factory: ControllerFactory
@@ -698,16 +613,6 @@ class TestControllerFactory:
         controller = controller_factory.create(config_key="simple")
 
         assert isinstance(controller, Controller)
-
-    def test_create_controller_with_custom_class(
-        self, controller_factory: ControllerFactory
-    ) -> None:
-        """Test creating a controller with a custom controller class."""
-        controller = controller_factory.create(
-            config_key="range", controller_cls=BinEdgeController
-        )
-
-        assert isinstance(controller, BinEdgeController)
 
     def test_create_controller_with_invalid_key_raises_error(
         self, controller_factory: ControllerFactory

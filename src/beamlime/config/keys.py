@@ -9,7 +9,7 @@ Usage patterns:
 - Creating ConfigKey: WORKFLOW_CONFIG.create_key(source_name="my_source")
 """
 
-from beamlime.config.models import StartTime, TOAEdges, TOARange
+from beamlime.config.models import StartTime, TOARange
 from beamlime.config.workflow_spec import (
     PersistentWorkflowConfigs,
     WorkflowConfig,
@@ -45,15 +45,6 @@ REDUCTION_START_TIME = _registry.create(
     description="Start time for the data reduction",
     produced_by={"data_reduction"},
     consumed_by={"dashboard"},
-)
-
-MONITOR_TOA_EDGES = _registry.create(
-    key="toa_edges",
-    service_name="monitor_data",
-    model=TOAEdges,
-    description="Time of Arrival edges for a TOA histogram",
-    produced_by={"dashboard"},
-    consumed_by={"monitor_data"},
 )
 
 DETECTOR_TOA_RANGE = _registry.create(
