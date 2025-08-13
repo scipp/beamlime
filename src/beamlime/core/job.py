@@ -126,7 +126,7 @@ class LegacyJobFactory(JobFactory):
         source_mapping = {
             source: source_to_key[source] for source in workflow_spec.aux_source_names
         }
-        source_mapping[source_name] = source_to_key[source_name]
+        source_mapping[source_name] = source_to_key.get(source_name, source_name)
         return Job(
             job_id=job_id,
             workflow_name=workflow_spec.name,

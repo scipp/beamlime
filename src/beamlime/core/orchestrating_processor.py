@@ -199,7 +199,6 @@ def _job_result_to_message(result: JobResult) -> Message:
     Convert a workflow result to a message for publishing.
     """
     if result.name == 'monitor_data':
-        # Monitor data is special, it has a different output stream name.
         service_name = 'monitor_data'
         signal_name = ''
     else:

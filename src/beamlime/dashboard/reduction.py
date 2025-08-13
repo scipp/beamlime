@@ -8,7 +8,6 @@ import panel as pn
 from beamlime import Service
 from beamlime.config import keys
 from beamlime.config.instruments import get_config
-from beamlime.handlers import monitor_data_handler  # noqa: F401
 
 from . import plots
 from .dashboard import DashboardBase

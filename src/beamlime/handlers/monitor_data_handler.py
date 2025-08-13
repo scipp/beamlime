@@ -8,12 +8,14 @@ import pydantic
 import scipp as sc
 
 from .. import parameter_models
-from ..config.instruments.dream import instrument
+from ..config.instrument import Instrument
 from ..core.handler import JobBasedHandlerFactoryBase
 from ..core.job import StreamProcessor
 from ..core.message import StreamId, StreamKind
 from .accumulators import Accumulator, Cumulative, MonitorEvents
 from .to_nxevent_data import ToNXevent_data
+
+instrument = Instrument(name='beam_monitors')
 
 
 class MonitorDataParams(pydantic.BaseModel):
@@ -79,7 +81,7 @@ def _monitor_data_workflow(params: MonitorDataParams) -> StreamProcessor:
 class MonitorHandlerFactory(
     JobBasedHandlerFactoryBase[MonitorEvents | sc.DataArray, sc.DataArray]
 ):
-    def make_monitor_data_preprocessor(self, key: StreamId) -> Accumulator | None:
+    def make_preprocessor(self, key: StreamId) -> Accumulator | None:
         match key.kind:
             case StreamKind.MONITOR_COUNTS:
                 return Cumulative(clear_on_get=True)

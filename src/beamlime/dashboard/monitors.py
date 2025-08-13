@@ -11,14 +11,16 @@ import panel as pn
 
 from beamlime import Service
 from beamlime.config import keys
+from beamlime.handlers import monitor_data_handler
 
 from . import plots
 from .controller_factory import BinEdgeController
 from .dashboard import DashboardBase
+from .widgets.reduction_widget import ReductionWidget
 from .widgets.start_time_widget import StartTimeWidget
-from .widgets.toa_edges_widget import TOAEdgesWidget
+from .workflow_controller import WorkflowController
 
-pn.extension('holoviews', template='material')
+pn.extension('holoviews', 'modal', template='material')
 hv.extension('bokeh')
 
 
@@ -34,6 +36,7 @@ class DashboardApp(DashboardBase):
             port=5007,  # Default port for monitors dashboard
         )
 
+        self._setup_workflow_management()
         self._setup_monitor_streams()
         self._view_toggle = pn.widgets.RadioBoxGroup(
             value='Current', options=["Current", "Cumulative"], inline=True
@@ -50,6 +53,16 @@ class DashboardApp(DashboardBase):
         self._reset_controller = self._controller_factory.create(
             config_key=keys.MONITOR_START_TIME.create_key()
         )
+
+    def _setup_workflow_management(self) -> None:
+        """Initialize workflow controller and reduction widget."""
+        self._workflow_controller = WorkflowController.from_config_service(
+            config_service=self._config_service,
+            source_names=[],
+            workflow_registry=monitor_data_handler.instrument.processor_factory,
+            data_service=self._data_services['monitor_data'],
+        )
+        self._reduction_widget = ReductionWidget(controller=self._workflow_controller)
 
     def _setup_monitor_streams(self):
         """Initialize streams for monitor data."""
@@ -70,7 +83,8 @@ class DashboardApp(DashboardBase):
             pn.pane.Markdown("## Controls"),
             self._view_toggle_group,
             StartTimeWidget(self._reset_controller).panel,
-            TOAEdgesWidget(self._toa_controller).panel,
+            pn.pane.Markdown("## Workflows"),
+            self._reduction_widget.widget,
         )
 
     def create_main_content(self) -> pn.viewable.Viewable:

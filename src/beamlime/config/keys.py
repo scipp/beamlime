@@ -77,7 +77,9 @@ WORKFLOW_STATUS = _registry.create(
 
 WORKFLOW_CONFIG = _registry.create(
     key="workflow_config",
-    service_name="data_reduction",
+    # Do we need to change WorkflowConfigService so it uses a backend-service-specific
+    # source_name? Or is the filtering based on service name no longer needed?
+    service_name=None,
     model=WorkflowConfig,
     description="Configuration for a workflow",
     produced_by={"dashboard"},
