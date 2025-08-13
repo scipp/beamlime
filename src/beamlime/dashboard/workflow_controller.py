@@ -156,9 +156,12 @@ class WorkflowController:
         source_names: list[str],
         workflow_registry: Mapping[WorkflowId, WorkflowSpec],
         data_service: DataService[DataKey, object] | None = None,
+        backend_service_name: str = 'data_reduction',
     ) -> WorkflowController:
         """Create WorkflowController from ConfigService."""
-        adapter = ConfigServiceAdapter(config_service, source_names)
+        adapter = ConfigServiceAdapter(
+            config_service, source_names, backend_service_name=backend_service_name
+        )
         return cls(
             service=adapter,
             source_names=source_names,

@@ -51,10 +51,10 @@ class NaiveMessageBatcher:
         self._pulse_length_ns = int(pulse_length_s * 1_000_000_000)
 
     def batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
-        if not messages:
-            return None
         # Unclear if filter needed in practice, but there is a test with bad timestamps.
         messages = [msg for msg in messages if isinstance(msg.timestamp, int)]
+        if not messages:
+            return None
         messages = sorted(messages)
         # start_time is the lower bound of the batch, end_time is the upper bound, both
         # in multiples of the pulse length.
@@ -282,6 +282,9 @@ class JobManagerAdapter:
             # with a better way to handle this.
             # NOTE This can be fixed using the new JobManager approach, provided that
             # the frontend can display a per-job status, instead of per-source.
+            # But maybe the key insight is that status-reporting should be decoupled
+            # from reply messages. Maybe status should just be emitted periodically for
+            # all jobs?
             status = WorkflowStatus(
                 source_name=source_name,
                 status=WorkflowStatusType.STARTUP_ERROR,
