@@ -181,7 +181,11 @@ _accumulators = (
 
 
 @instrument.register_workflow(
-    name='i_of_q', version=1, title='I(Q)', source_names=_source_names
+    name='i_of_q',
+    version=1,
+    title='I(Q)',
+    source_names=_source_names,
+    aux_source_names=['monitor1', 'monitor2'],
 )
 def _i_of_q(source_name: str) -> StreamProcessor:
     wf = _base_workflow.copy()
@@ -200,6 +204,7 @@ def _i_of_q(source_name: str) -> StreamProcessor:
     title='I(Q) with params',
     description='I(Q) reduction with configurable parameters.',
     source_names=_source_names,
+    aux_source_names=['monitor1', 'monitor2'],
 )
 def _i_of_q_with_params(
     source_name: str, params: SansWorkflowParams

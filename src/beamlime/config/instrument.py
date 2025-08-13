@@ -79,6 +79,7 @@ class Instrument:
         title: str,
         description: str = '',
         source_names: Sequence[str] | None = None,
+        aux_source_names: Sequence[str] | None = None,
     ) -> Callable[[Callable[..., StreamProcessor]], Callable[..., StreamProcessor]]:
         """
         Decorator to register a factory function for creating StreamProcessors.
@@ -108,6 +109,8 @@ class Instrument:
         source_names:
             Optional list of source names that the factory can handle. This is used to
             create a workflow specification.
+        aux_source_names:
+            List of auxiliary source names that the workflow needs.
 
         Returns
         -------
@@ -121,5 +124,6 @@ class Instrument:
             description=description,
             source_names=list(source_names or []),
             params=None,  # placeholder, filled in from type hint later
+            aux_source_names=list(aux_source_names or []),
         )
         return self.processor_factory.register(spec)

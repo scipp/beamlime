@@ -73,10 +73,14 @@ class Job:
             update[key] = value
         self._processor.accumulate(update)
 
-    def get(self) -> JobResult:
-        data = sc.DataGroup(
-            {str(key): val for key, val in self._processor.finalize().items()}
-        )
+    def get(self) -> JobResult | None:
+        try:
+            data = sc.DataGroup(
+                {str(key): val for key, val in self._processor.finalize().items()}
+            )
+        except Exception:
+            # TODO Better plan for error handling. Return a JobResult with error?
+            return
         return JobResult(
             job_id=self._job_id,
             start_time=self.start_time,

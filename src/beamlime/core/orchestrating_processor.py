@@ -53,6 +53,8 @@ class NaiveMessageBatcher:
     def batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
         if not messages:
             return None
+        # Unclear if filter needed in practice, but there is a test with bad timestamps.
+        messages = [msg for msg in messages if isinstance(msg.timestamp, int)]
         messages = sorted(messages)
         # start_time is the lower bound of the batch, end_time is the upper bound, both
         # in multiples of the pulse length.
@@ -180,6 +182,7 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         message_batch = self._message_batcher.batch(data_messages)
         if message_batch is None:
             self._logger.debug('No data messages to process')
+            self._sink.publish_messages(result_messages)
             return
 
         # Pre-process message batch

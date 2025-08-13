@@ -132,10 +132,6 @@ def test_performance(benchmark, num_sources: int, events_per_message: int) -> No
 
 def test_monitor_data_service() -> None:
     builder = make_monitor_service_builder(instrument='dummy')
-    service = builder.from_consumer(
-        consumer=EmptyConsumer(), sink=FakeMessageSink(), raise_on_adapter_error=True
-    )
-
     sink = FakeMessageSink()
     consumer = Ev44Consumer(num_sources=2, events_per_message=100, max_events=10_000)
     service = builder.from_consumer(

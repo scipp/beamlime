@@ -12,6 +12,7 @@ from ess.reduce.streaming import StreamProcessor
 
 from beamlime.config import Instrument
 from beamlime.config.env import StreamingEnv
+from beamlime.handlers.monitor_data_handler import make_beam_monitor_instrument
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
@@ -50,6 +51,10 @@ _total_counts_workflow = sciline.Pipeline((_total_counts,))
 instrument = Instrument(
     name='dummy',
     source_to_key={'panel_0': Events},
+)
+
+_monitor_instrument = make_beam_monitor_instrument(
+    name='dummy', source_names=['monitor1', 'monitor2']
 )
 
 
