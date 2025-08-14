@@ -59,7 +59,6 @@ class DashboardApp(DashboardBase):
             source_names=[],
             workflow_registry=instrument.processor_factory,
             data_service=self._data_services['monitor_data'],
-            backend_service_name='monitor_data',
         )
         self._reduction_widget = ReductionWidget(controller=self._workflow_controller)
 

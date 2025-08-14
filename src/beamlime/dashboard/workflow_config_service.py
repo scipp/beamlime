@@ -48,28 +48,9 @@ class ConfigServiceAdapter(WorkflowConfigService):
     Adapter to make ConfigService compatible with WorkflowConfigService protocol.
     """
 
-    def __init__(
-        self,
-        config_service: ConfigService,
-        source_names: list[str],
-        backend_service_name: str = 'data_reduction',
-    ):
+    def __init__(self, config_service: ConfigService, source_names: list[str]):
         self._config_service = config_service
         self._source_names = source_names
-        # This is a hack, which we could avoid if we unify the backend services and
-        # remove the service-name-based config message filtering. It is currently
-        # unclear whether this will happen.
-        match backend_service_name:
-            case 'data_reduction':
-                self._CONFIG = keys.WORKFLOW_CONFIG
-                self._STATUS = keys.WORKFLOW_STATUS
-            case 'monitor_data':
-                self._CONFIG = keys.MONITOR_WORKFLOW_CONFIG
-                self._STATUS = keys.MONITOR_WORKFLOW_STATUS
-            case _:
-                raise ValueError(
-                    f"Unknown backend service name: {backend_service_name}"
-                )
 
     def get_persistent_configs(self) -> PersistentWorkflowConfigs:
         """Get persistent workflow configurations."""
@@ -85,12 +66,12 @@ class ConfigServiceAdapter(WorkflowConfigService):
 
     def send_workflow_config(self, source_name: str, config: WorkflowConfig) -> None:
         """Send workflow configuration to a source."""
-        config_key = self._CONFIG.create_key(source_name=source_name)
+        config_key = keys.WORKFLOW_CONFIG.create_key(source_name=source_name)
         self._config_service.update_config(config_key, config)
 
     def subscribe_to_workflow_status(
         self, source_name: str, callback: Callable[[WorkflowStatus], None]
     ) -> None:
         """Subscribe to workflow status updates for a source."""
-        workflow_status_key = self._STATUS.create_key(source_name=source_name)
+        workflow_status_key = keys.WORKFLOW_STATUS.create_key(source_name=source_name)
         self._config_service.subscribe(workflow_status_key, callback)
