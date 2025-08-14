@@ -36,6 +36,9 @@ class DashboardApp(DashboardBase):
         )
         # Load the module to register the instrument's workflows.
         self._instrument_module = get_config(instrument)
+        self._processor_factory = instrument_registry[
+            f'{self._instrument}_beam_monitors'
+        ].processor_factory
 
         self._setup_workflow_management()
         self._setup_monitor_streams()
@@ -53,11 +56,10 @@ class DashboardApp(DashboardBase):
 
     def _setup_workflow_management(self) -> None:
         """Initialize workflow controller and reduction widget."""
-        instrument = instrument_registry[f'{self._instrument}_beam_monitors']
         self._workflow_controller = WorkflowController.from_config_service(
             config_service=self._config_service,
-            source_names=[],
-            workflow_registry=instrument.processor_factory,
+            source_names=sorted(self._processor_factory.source_names),
+            workflow_registry=self._processor_factory,
             data_service=self._data_services['monitor_data'],
         )
         self._reduction_widget = ReductionWidget(controller=self._workflow_controller)

@@ -59,7 +59,7 @@ DETECTOR_TOA_RANGE = _registry.create(
 # Data reduction service keys
 WORKFLOW_STATUS = _registry.create(
     key="workflow_status",
-    service_name="data_reduction",
+    service_name="job_server",
     model=WorkflowStatus,
     description="Current status of a workflow for a source",
     produced_by={"data_reduction"},
@@ -68,8 +68,6 @@ WORKFLOW_STATUS = _registry.create(
 
 WORKFLOW_CONFIG = _registry.create(
     key="workflow_config",
-    # Do we need to change WorkflowConfigService so it uses a backend-service-specific
-    # source_name? Or is the filtering based on service name no longer needed?
     service_name=None,
     model=WorkflowConfig,
     description="Configuration for a workflow",

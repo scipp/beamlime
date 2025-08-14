@@ -279,7 +279,9 @@ class JobManagerAdapter:
         if source_name is None:
             raise ValueError("source_name cannot be None for set_workflow_with_config")
 
-        config_key = ConfigKey(source_name=source_name, key="workflow_status")
+        config_key = ConfigKey(
+            service_name="job_server", source_name=source_name, key="workflow_status"
+        )
 
         config = WorkflowConfig.model_validate(value)
         if config.identifier is None:  # New way to stop/remove a workflow.
