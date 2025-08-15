@@ -9,10 +9,11 @@ import pydantic
 import scipp as sc
 
 from .. import parameter_models
-from ..config.instrument import Instrument, StreamProcessor
+from ..config.instrument import Instrument
 from ..core.handler import JobBasedHandlerFactoryBase
 from ..core.message import StreamId, StreamKind
 from .accumulators import Accumulator, CollectTOA, Cumulative, MonitorEvents
+from .stream_processor_factory import StreamProcessor
 
 
 class MonitorDataParams(pydantic.BaseModel):

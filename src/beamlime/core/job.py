@@ -8,7 +8,8 @@ from typing import Any
 
 import scipp as sc
 
-from beamlime.config.instrument import Instrument, StreamProcessor
+from beamlime.config.instrument import Instrument
+from beamlime.handlers.stream_processor_factory import StreamProcessor
 
 from ..config.workflow_spec import JobSchedule, WorkflowConfig
 from .message import StreamId

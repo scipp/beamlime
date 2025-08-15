@@ -2,11 +2,22 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import inspect
 import typing
-from collections.abc import Callable, Iterator, Mapping
-
-from ess.reduce.streaming import StreamProcessor
+from collections.abc import Callable, Hashable, Iterator, Mapping
+from typing import Any, Protocol
 
 from beamlime.config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
+
+
+class StreamProcessor(Protocol):
+    """
+    Protocol matching ess.reduce.streaming.StreamProcessor, used by :py:class:`Job`.
+
+    There will be other implementations, in particular for non-data-reduction jobs.
+    """
+
+    def accumulate(self, data: dict[Hashable, Any]) -> None: ...
+    def finalize(self) -> dict[Hashable, Any]: ...
+    def clear(self) -> None: ...
 
 
 class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
