@@ -1,15 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-# TODO
-# 1. Reset mechanism ignores start_time. Either change schema, or use it?
-# 2. Make it work with any service, not just data_reduction.
-#    - service_name
-#    - adapters for accumulators other than StreamProcessor
-# 3. Output key naming (needs frontend changes)
-# 4. JobId handling, expose to frontend?
-# 5. Include start_time and end_time in result messages.
-# 6. Actually batch messages from N pulses.
-# 7. Remove PeriodAccumulatingHandler, once no longer in use.
 from __future__ import annotations
 
 import logging
