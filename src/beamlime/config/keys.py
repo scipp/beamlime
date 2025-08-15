@@ -66,6 +66,9 @@ WORKFLOW_STATUS = _registry.create(
     consumed_by={"dashboard"},
 )
 
+# Backend now filters based on instrument name (part of the identifier). This
+# mechanism will likely change again in the future, but for now service_name=None so
+# all backend services receive this.
 WORKFLOW_CONFIG = _registry.create(
     key="workflow_config",
     service_name=None,

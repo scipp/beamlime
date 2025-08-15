@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Generic
@@ -160,7 +159,6 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         )
 
     def process(self) -> None:
-        time.sleep(2.0)
         messages = self._source.get_messages()
         self._logger.debug('Processing %d messages', len(messages))
         config_messages: list[Message[Tin]] = []
@@ -217,17 +215,15 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
 
 
 def _job_result_to_message(result: JobResult) -> Message:
-    """
-    Convert a workflow result to a message for publishing.
-    """
+    """Convert a workflow result to a message for publishing."""
+    # We probably want to switch to something like
+    #   signal_name=f'{result.name}-{result.job_id}'
+    # but for now we keep the legacy signal name for frontend compatibility.
     if result.name == 'monitor_data':
         service_name = 'monitor_data'
         signal_name = ''
     else:
         service_name = 'data_reduction'
-        # We probably want to switch to something like
-        #   signal_name=f'{result.name}-{result.job_id}'
-        # but for now we keep the legacy signal name for frontend compatibility.
         signal_name = f'reduced/{result.source_name}'
     stream_name = output_stream_name(
         service_name=service_name,
@@ -266,7 +262,7 @@ class JobManagerAdapter:
             for source in self._jobs:
                 self.reset_job(source_name=source, value=value)
             return []
-        # TODO Can we use the start_time?
+        # TODO Can we use the start_time or should we change the schema?
         _ = StartTime.model_validate(value)
         self._job_manager.reset_job(job_id=self._jobs[source_name])
         return []
