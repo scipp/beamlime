@@ -191,7 +191,11 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
             if status.has_error:
                 self._logger.error(self._job_manager.format_job_error(status))
 
-        # TODO Logic to determine when to compute and publish
+        # We used to compute results only after 1-N accumulation calls, reasoning that
+        # processing data (partially) immediately (instead of waiting for more data)
+        # would increase the latency. A closer look, the contrary is true, based on
+        # a simple model with a constant plus linear (per event) time for preprocessing
+        # (including accumulation).
         results = self._job_manager.compute_results()
 
         # Filter valid results and log errors
