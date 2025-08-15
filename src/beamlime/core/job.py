@@ -11,8 +11,21 @@ import scipp as sc
 
 from beamlime.config.instrument import Instrument, StreamProcessor
 
-from ..config.workflow_spec import JobSchedule, WorkflowConfig, WorkflowId, WorkflowSpec
+from ..config.workflow_spec import JobSchedule, WorkflowConfig
 from .message import StreamId
+
+
+class DifferentInstrument(Exception):
+    """
+    Raised when a workflow id does not match the instrument of this worker.
+
+    This is not considered an error, but rather a signal that the workflow should be
+    handled by a different worker.
+    """
+
+
+class WorkflowNotFoundError(Exception):
+    """Raised when a workflow specification is not found in this worker."""
 
 
 @dataclass(slots=True, kw_only=True)
@@ -128,15 +141,18 @@ class JobFactory(ABC):
 
 class LegacyJobFactory(JobFactory):
     def __init__(self, instrument: Instrument) -> None:
-        self._workflow_specs: dict[WorkflowId, WorkflowSpec] = {}
         self._instrument = instrument
 
     def create(self, *, job_id: JobId, source_name: str, config: WorkflowConfig) -> Job:
+        if config.get_instrument() != self._instrument.name:
+            raise DifferentInstrument()
+
         factory = self._instrument.processor_factory
+        workflow_id = config.identifier
+        if (workflow_spec := factory.get(workflow_id)) is None:
+            raise WorkflowNotFoundError(f"WorkflowSpec with Id {workflow_id} not found")
         # Note that this initializes the job immediately, i.e., we pay startup cost now.
         stream_processor = factory.create(source_name=source_name, config=config)
-        workflow_id = config.identifier
-        workflow_spec = factory[workflow_id]
         source_to_key = self._instrument.source_to_key
         source_mapping = {
             source: source_to_key[source] for source in workflow_spec.aux_source_names

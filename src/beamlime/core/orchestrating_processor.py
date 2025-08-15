@@ -22,7 +22,14 @@ from ..config.models import ConfigKey, StartTime
 from ..config.workflow_spec import WorkflowConfig, WorkflowStatus, WorkflowStatusType
 from ..handlers.config_handler import ConfigHandler
 from .handler import Accumulator, HandlerFactory, HandlerRegistry, output_stream_name
-from .job import JobId, JobManager, JobResult, LegacyJobFactory, WorkflowData
+from .job import (
+    DifferentInstrument,
+    JobId,
+    JobManager,
+    JobResult,
+    LegacyJobFactory,
+    WorkflowData,
+)
 from .message import (
     CONFIG_STREAM_ID,
     Message,
@@ -133,14 +140,16 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         self._source = source
         self._sink = sink
         self._message_preprocessor = MessagePreprocessor(
-            handler_registry._factory, self._logger
+            factory=handler_registry._factory, logger=self._logger
         )
         self._job_manager = JobManager(
             job_factory=LegacyJobFactory(
                 instrument=handler_registry._factory.instrument
             )
         )
-        self._job_manager_adapter = JobManagerAdapter(self._job_manager)
+        self._job_manager_adapter = JobManagerAdapter(
+            job_manager=self._job_manager, logger=self._logger
+        )
         self._message_batcher = NaiveMessageBatcher()
 
         # NOTE We intend to extract the relevant functionality from ConfigHandler as the
@@ -257,7 +266,8 @@ class JobManagerAdapter:
        but this, too, would require frontend changes.
     """
 
-    def __init__(self, job_manager: JobManager) -> None:
+    def __init__(self, *, job_manager: JobManager, logger: logging.Logger) -> None:
+        self._logger = logger
         self._job_manager = job_manager
         self._jobs: dict[str, JobId] = {}
 
@@ -299,6 +309,19 @@ class JobManagerAdapter:
                 source_name=source_name, config=config
             )
             self._jobs[source_name] = job_id
+        except DifferentInstrument:
+            # We have multiple backend services that handle jobs, e.g., data_reduction
+            # and monitor_data. The frontend simply sends a WorkflowConfig message and
+            # does not make assumptions which service will handle it. The workflows
+            # for each backend are part of a different instrument, e.g., 'dream' for
+            # data_reduction and 'dream_beam_monitors' for monitor_data, which is
+            # included in the identifier. This should thus work safely, but the question
+            # is whether it should be filtered out earlier.
+            self._logger.debug(
+                "Workflow %s not found, assuming it is handled by another worker",
+                config.identifier,
+            )
+            return []
         except Exception as e:
             # TODO This system is a bit flawed: If we have a workflow running already
             # it will keep running, but we need to notify about startup errors. Frontend
