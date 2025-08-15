@@ -6,16 +6,15 @@ import scipp as sc
 from scipp.testing import assert_identical
 
 from beamlime import StreamId, StreamKind
+from beamlime.config.workflow_spec import WorkflowConfig
+from beamlime.handlers.accumulators import CollectTOA, Cumulative
 from beamlime.handlers.monitor_data_handler import (
     MonitorDataParams,
     MonitorHandlerFactory,
     MonitorStreamProcessor,
     make_beam_monitor_instrument,
 )
-from beamlime.parameter_models import TOAEdges, TimeUnit
-from beamlime.config.workflow_spec import WorkflowConfig
-from beamlime.config.instrument import InstrumentRegistry
-from beamlime.handlers.accumulators import CollectTOA, Cumulative
+from beamlime.parameter_models import TimeUnit, TOAEdges
 
 
 class TestMonitorDataParams:
@@ -265,4 +264,4 @@ class TestMonitorHandlerFactory:
         preprocessor2 = factory.make_preprocessor(stream_id2)
 
         assert preprocessor1 is not preprocessor2
-        assert type(preprocessor1) == type(preprocessor2)
+        assert type(preprocessor1) is type(preprocessor2)

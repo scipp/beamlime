@@ -36,7 +36,7 @@ class MonitorStreamProcessor(StreamProcessor):
         self._cumulative: sc.DataArray | None = None
         self._current: sc.DataArray | None = None
 
-    def accumulate(self, data: dict[Hashable, sc.DataArray]) -> None:
+    def accumulate(self, data: dict[Hashable, sc.DataArray | np.ndarray]) -> None:
         if len(data) != 1:
             raise ValueError("MonitorStreamProcessor expects exactly one data item.")
         raw = next(iter(data.values()))
