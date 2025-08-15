@@ -10,7 +10,7 @@ import sciline
 import scipp as sc
 from ess.reduce.streaming import StreamProcessor
 
-from beamlime.config import Instrument
+from beamlime.config import Instrument, instrument_registry
 from beamlime.config.env import StreamingEnv
 from beamlime.handlers.monitor_data_handler import make_beam_monitor_instrument
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
@@ -56,6 +56,9 @@ instrument = Instrument(
 _monitor_instrument = make_beam_monitor_instrument(
     name='dummy', source_names=['monitor1', 'monitor2']
 )
+
+instrument_registry.register(instrument)
+instrument_registry.register(_monitor_instrument)
 
 
 @instrument.register_workflow(

@@ -45,7 +45,8 @@ class Instrument:
     It includes the stream mapping, processor factory, and other settings
     required for the instrument to function correctly.
 
-    Instances are automatically registered with the global registry upon creation.
+    Instances must be explicitly registered with the global registry using
+    `instrument_registry.register(instrument)`.
     """
 
     name: str
@@ -54,10 +55,6 @@ class Instrument:
     )
     source_to_key: dict[str, type] = field(default_factory=dict)
     f144_attribute_registry: dict[str, dict[str, Any]] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        """Register the instrument with the global registry after initialization."""
-        instrument_registry.register(self)
 
     def register_workflow(
         self,

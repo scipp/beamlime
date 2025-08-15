@@ -17,7 +17,7 @@ from ess.sans.types import (
 from scippnexus import NXdetector
 
 from beamlime import parameter_models
-from beamlime.config import Instrument
+from beamlime.config import Instrument, instrument_registry
 from beamlime.config.env import StreamingEnv
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 from beamlime.handlers.monitor_data_handler import make_beam_monitor_instrument
@@ -165,6 +165,9 @@ instrument = Instrument(
 _monitor_instrument = make_beam_monitor_instrument(
     name='loki', source_names=['monitor1', 'monitor2']
 )
+
+instrument_registry.register(instrument)
+instrument_registry.register(_monitor_instrument)
 
 
 def _transmission_from_current_run(
