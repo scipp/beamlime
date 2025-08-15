@@ -9,7 +9,7 @@ from beamlime.dashboard.config_service import ConfigService
 from beamlime.dashboard.controller_factory import (
     Controller,
     ControllerFactory,
-    RangeController
+    RangeController,
 )
 from beamlime.dashboard.message_bridge import FakeMessageBridge
 from beamlime.dashboard.schema_validator import (
@@ -604,6 +604,7 @@ class TestRangeController:
         assert stored_config.low == 1000000.0
         assert stored_config.high == 3000000.0
         assert stored_config.unit == "ns"
+
 
 class TestControllerFactory:
     def test_create_controller_with_valid_key(
