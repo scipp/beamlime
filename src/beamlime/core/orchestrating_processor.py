@@ -24,10 +24,10 @@ from ..handlers.config_handler import ConfigHandler
 from .handler import Accumulator, HandlerFactory, HandlerRegistry, output_stream_name
 from .job import (
     DifferentInstrument,
+    JobFactory,
     JobId,
     JobManager,
     JobResult,
-    LegacyJobFactory,
     WorkflowData,
 )
 from .message import (
@@ -143,9 +143,7 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
             factory=handler_registry._factory, logger=self._logger
         )
         self._job_manager = JobManager(
-            job_factory=LegacyJobFactory(
-                instrument=handler_registry._factory.instrument
-            )
+            job_factory=JobFactory(instrument=handler_registry._factory.instrument)
         )
         self._job_manager_adapter = JobManagerAdapter(
             job_manager=self._job_manager, logger=self._logger

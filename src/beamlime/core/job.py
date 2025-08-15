@@ -2,7 +2,6 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from collections.abc import Hashable, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -133,13 +132,7 @@ class Job:
         self._error_message = None
 
 
-class JobFactory(ABC):
-    @abstractmethod
-    def create(self, *, job_id: JobId, source_name: str, config: WorkflowConfig) -> Job:
-        pass
-
-
-class LegacyJobFactory(JobFactory):
+class JobFactory:
     def __init__(self, instrument: Instrument) -> None:
         self._instrument = instrument
 
