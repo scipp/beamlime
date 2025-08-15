@@ -36,9 +36,6 @@ class InstrumentRegistry(UserDict[str, 'Instrument']):
         self[instrument.name] = instrument
 
 
-instrument_registry = InstrumentRegistry()
-
-
 @dataclass(frozen=True, kw_only=True)
 class Instrument:
     """
@@ -118,3 +115,6 @@ class Instrument:
             aux_source_names=list(aux_source_names or []),
         )
         return self.processor_factory.register(spec)
+
+
+instrument_registry = InstrumentRegistry()
