@@ -9,7 +9,7 @@ from contextlib import ExitStack
 
 import panel as pn
 import scipp as sc
-from holoviews import streams
+from holoviews import Dimension, streams
 
 from beamlime import ServiceBase
 from beamlime.config import config_names
@@ -70,6 +70,9 @@ class DashboardBase(ServiceBase, ABC):
         self._setup_config_service()
         self._setup_data_infrastructure()
         self._logger.info("%s initialized", self.__class__.__name__)
+
+        # Global unit format.
+        Dimension.unit_format = ' [{unit}]'
 
     @abstractmethod
     def create_sidebar_content(self) -> pn.viewable.Viewable:

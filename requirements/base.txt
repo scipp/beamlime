@@ -9,7 +9,7 @@ annotated-types==0.7.0
     # via pydantic
 certifi==2025.8.3
     # via requests
-charset-normalizer==3.4.2
+charset-normalizer==3.4.3
     # via requests
 confluent-kafka==2.11.0
     # via -r base.in
@@ -29,7 +29,7 @@ essreduce==25.7.1
     # via -r base.in
 flatbuffers==25.2.10
     # via ess-streaming-data-types
-fonttools==4.59.0
+fonttools==4.59.1
     # via matplotlib
 h5py==3.14.0
     # via
@@ -41,7 +41,7 @@ idna==3.10
     #   requests
 jinja2==3.1.6
     # via -r base.in
-kiwisolver==1.4.8
+kiwisolver==1.4.9
     # via matplotlib
 lazy-loader==0.4
     # via
@@ -96,7 +96,7 @@ pyyaml==6.0.2
     # via -r base.in
 requests==2.32.4
     # via pooch
-sciline==25.5.2
+sciline==25.8.0
     # via essreduce
 scipp==25.5.1
     # via
