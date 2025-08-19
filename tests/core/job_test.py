@@ -96,7 +96,7 @@ class TestJobSchedule:
     def test_valid_schedule_defaults(self):
         """Test creating a schedule with default values."""
         schedule = JobSchedule()
-        assert schedule.start_time == 0
+        assert schedule.start_time is None
         assert schedule.end_time is None
 
     def test_invalid_schedule_end_before_start(self):
@@ -133,8 +133,8 @@ class TestJobSchedule:
 class TestJob:
     def test_initial_state(self, sample_job):
         """Test initial state of a Job."""
-        assert sample_job.start_time == -1
-        assert sample_job.end_time == -1
+        assert sample_job.start_time is None
+        assert sample_job.end_time is None
 
     def test_add_data_sets_times(self, sample_job, sample_workflow_data):
         """Test that adding data sets start and end times."""

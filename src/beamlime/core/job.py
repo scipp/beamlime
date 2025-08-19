@@ -30,6 +30,13 @@ class WorkflowNotFoundError(Exception):
 
 @dataclass(slots=True, kw_only=True)
 class WorkflowData:
+    """
+    Data to be processed by a workflow.
+
+    All timestamps are in nanoseconds since the epoch (UTC) and reference the timestamps
+    of the raw data being processed (as opposed to when it was processed).
+    """
+
     start_time: int
     end_time: int
     data: dict[StreamId, Any]
@@ -38,13 +45,13 @@ class WorkflowData:
 JobId = int
 
 
-@dataclass
+@dataclass(slots=True, kw_only=True)
 class JobResult:
     job_id: JobId
     source_name: str
     name: str
-    start_time: int
-    end_time: int
+    start_time: int | None
+    end_time: int | None
     data: sc.DataArray | sc.DataGroup | None = None
     error_message: str | None = None
 
@@ -52,8 +59,12 @@ class JobResult:
 @dataclass
 class JobStatus:
     job_id: JobId
-    has_error: bool
     error_message: str | None = None
+
+    @property
+    def has_error(self) -> bool:
+        """Check if the job status indicates an error."""
+        return self.error_message is not None
 
 
 class Job:
@@ -71,20 +82,20 @@ class Job:
         self._source_name = source_name
         self._processor = processor
         self._source_mapping = source_mapping
-        self._start_time = -1
-        self._end_time = -1
+        self._start_time: int | None = None
+        self._end_time: int | None = None
 
     @property
-    def start_time(self) -> int:
+    def start_time(self) -> int | None:
         return self._start_time
 
     @property
-    def end_time(self) -> int:
+    def end_time(self) -> int | None:
         return self._end_time
 
     def add(self, data: WorkflowData) -> JobStatus:
         try:
-            if self._start_time == -1:
+            if self._start_time is None:
                 self._start_time = data.start_time
             self._end_time = data.end_time
             update: dict[Hashable, Any] = {}
@@ -94,12 +105,10 @@ class Job:
                 key = self._source_mapping[stream.name]
                 update[key] = value
             self._processor.accumulate(update)
-            return JobStatus(job_id=self._job_id, has_error=False)
+            return JobStatus(job_id=self._job_id)
         except Exception as e:
             error_msg = f"Error processing data for job {self._job_id}: {e}"
-            return JobStatus(
-                job_id=self._job_id, has_error=True, error_message=error_msg
-            )
+            return JobStatus(job_id=self._job_id, error_message=error_msg)
 
     def get(self) -> JobResult:
         try:
@@ -130,7 +139,6 @@ class Job:
         self._processor.clear()
         self._start_time = -1
         self._end_time = -1
-        self._error_message = None
 
 
 class JobFactory:
@@ -189,7 +197,7 @@ class JobManager:
         to_activate = [
             job_id
             for job_id in self._scheduled_jobs.keys()
-            if self._job_schedules[job_id].start_time <= start_time
+            if self._job_schedules[job_id].should_start(start_time)
         ]
 
         # Activate jobs first

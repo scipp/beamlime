@@ -55,22 +55,35 @@ class WorkflowSpec(BaseModel):
 
 @dataclass
 class JobSchedule:
-    """Defines when a job should start and optionally when it should end."""
+    """
+    Defines when a job should start and optionally when it should end.
 
-    start_time: int = 0  # When job should start processing
+    All timestamps are in nanoseconds since the epoch (UTC) and reference the timestamps
+    of the raw data being processed (as opposed to when it should be processed).
+    """
+
+    start_time: int | None = None  # When job should start processing
     end_time: int | None = None  # When job should stop (None = no limit)
 
     def __post_init__(self) -> None:
         """Validate the schedule configuration."""
         if (
             self.end_time is not None
+            and self.start_time is not None
             and self.end_time <= self.start_time
-            and self.start_time != -1
         ):
             raise ValueError(
                 f"Job end_time={self.end_time} must be greater than start_time="
-                f"{self.start_time}, or start_time must be -1 (immediate start)"
+                f"{self.start_time}, or start_time must be None (immediate start)"
             )
+
+    def should_start(self, current_time: int) -> bool:
+        """
+        Check if the job should start based on the current time.
+
+        Returns True if the job should start, False otherwise.
+        """
+        return self.start_time is None or current_time >= self.start_time
 
 
 class WorkflowConfig(BaseModel):
