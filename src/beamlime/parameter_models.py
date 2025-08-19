@@ -124,6 +124,25 @@ class WavelengthRange(RangeModel):
         return sc.scalar(self.stop, unit=self.unit.value)
 
 
+class TOARange(RangeModel):
+    """Time of arrival range filter settings."""
+
+    enabled: bool = Field(default=False, description="Enable the range filter.")
+    unit: TimeUnit = Field(
+        default=TimeUnit.MICROSECOND, description="Unit of the interval bounds."
+    )
+
+    @property
+    def range_ns(self) -> tuple[sc.Variable, sc.Variable] | None:
+        """Time window range in nanoseconds as a scipp scalar."""
+        if not self.enabled:
+            return None
+        return (
+            sc.scalar(self.start, unit=self.unit.value).to(unit='ns'),
+            sc.scalar(self.stop, unit=self.unit.value).to(unit='ns'),
+        )
+
+
 class TOAEdges(EdgesModel):
     """Model for time of arrival edges."""
 

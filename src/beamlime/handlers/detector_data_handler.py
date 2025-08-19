@@ -7,6 +7,8 @@ import pathlib
 import re
 from typing import Any
 
+import pydantic
+
 import scipp as sc
 from ess.reduce.live import raw
 
@@ -28,6 +30,54 @@ from .accumulators import (
     NullAccumulator,
     ROIBasedTOAHistogram,
 )
+from .. import parameter_models
+
+# TODO
+# remove models.TOARange
+# use parameter_models.TOARange
+# Remove pixel grouping from preprocessor, move into DetectorViewStreamProcessor
+# update handler factory, add make_preprocessor
+# remove ConfigModelAccessor
+# remove PeriodicAccumulatingHandler?
+
+
+class DetectorViewParams(pydantic.BaseModel):
+    # TODO split out the enabled flag?
+    pixel_weighting: None = None  # TODO
+    toa_range: models.TOARange = pydantic.Field(
+        title="Time of Arrival Range",
+        description="Time of arrival range for detector data.",
+        default=models.TOARange(),
+    )
+
+
+class ROIHistogramParams(pydantic.BaseModel):
+    region_of_interest: None = None  # TODO
+    toa_edges: parameter_models.TOAEdges = pydantic.Field(
+        title="Time of Arrival Edges",
+        description="Time of arrival edges for histogramming.",
+        default=parameter_models.TOAEdges(
+            start=0.0,
+            stop=1000.0 / 14,
+            num_bins=100,
+            unit=parameter_models.TimeUnit.MS,
+        ),
+    )
+
+
+class DetectorView(StreamProcessor):
+    # Can be created for different view types
+    pass
+
+
+class ROIHistogram(StreamProcessor):
+    pass
+
+
+def make_detector_data_instrument(name: str, source_names: list[str]) -> Instrument:
+    # register one or more views for each source
+    # register ROI histogram for each source
+    pass
 
 
 class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
