@@ -31,6 +31,10 @@ from .accumulators import (
     ROIBasedTOAHistogram,
 )
 from .. import parameter_models
+from ..config.instrument import Instrument
+from ..core.handler import JobBasedHandlerFactoryBase
+from ..core.message import StreamId, StreamKind
+from .stream_processor_factory import StreamProcessor
 
 # TODO
 # remove models.TOARange
@@ -51,6 +55,12 @@ class DetectorViewParams(pydantic.BaseModel):
     )
 
 
+class DetectorView(StreamProcessor):
+    # Can be created for different view types
+    def __init__(self, source_name: str, params: DetectorViewParams) -> None:
+        pass
+
+
 class ROIHistogramParams(pydantic.BaseModel):
     region_of_interest: None = None  # TODO
     toa_edges: parameter_models.TOAEdges = pydantic.Field(
@@ -65,22 +75,30 @@ class ROIHistogramParams(pydantic.BaseModel):
     )
 
 
-class DetectorView(StreamProcessor):
-    # Can be created for different view types
-    pass
-
-
 class ROIHistogram(StreamProcessor):
-    pass
+    def __init__(self, source_name: str, params: ROIHistogramParams) -> None:
+        pass
 
 
 def make_detector_data_instrument(name: str, source_names: list[str]) -> Instrument:
     # register one or more views for each source
     # register ROI histogram for each source
-    pass
+    """Create an Instrument with workflows for detector data processing."""
+    instrument = Instrument(name=f'{name}_detectors')
+    # TODO source names depending on view
+    # Different wf for each view?
+    instrument.register_workflow(
+        name='detector_data',
+        version=1,
+        title="Detector data",
+        description="Histogrammed and time-integrated detector data.",
+        source_names=source_names,
+    )(DetectorView)
+    # TODO ROIHistogram
+    return instrument
 
 
-class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
+class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataArray]):
     """
     Factory for detector data handlers.
 
@@ -92,18 +110,25 @@ class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
     """
 
     def __init__(
-        self,
-        *,
-        instrument: str,
-        logger: logging.Logger | None = None,
-        config_registry: ConfigRegistry,
+        self, *, instrument: Instrument, logger: logging.Logger | None = None
     ) -> None:
-        self._logger = logger or logging.getLogger(__name__)
-        self._config_registry = config_registry
-        self._instrument = instrument
-        self._detector_config = get_config(instrument).detectors_config['detectors']
-        self._nexus_file = _try_get_nexus_geometry_filename(instrument)
+        super().__init__(instrument=instrument, logger=logger)
+        self._detector_config = get_config(self.instrument.name).detectors_config[
+            'detectors'
+        ]
+        self._nexus_file = _try_get_nexus_geometry_filename(self.instrument.name)
         self._window_length = 1
+
+    def make_preprocessor(self, key: StreamId) -> Accumulator | None:
+        match key.kind:
+            case StreamKind.DETECTOR_EVENTS:
+                # TODO Need detector_number... or move grouping out of preprocessor?
+                # But grouping is also needed by ROI hist, so we should keep it here.
+                # But ROIHistogram also needs a filter, created by the detector view!
+                # But view only serves as a factory here.
+                return GroupIntoPixels()
+            case _:
+                return None
 
     def _make_view(
         self, detector_config: dict[str, Any]

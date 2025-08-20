@@ -124,8 +124,7 @@ class Cumulative(_CumulativeAccumulationMixin, Accumulator[sc.DataArray, sc.Data
 
 
 class GroupIntoPixels(Accumulator[DetectorEvents, sc.DataArray]):
-    def __init__(self, config: Config, detector_number: sc.Variable):
-        self._config = config
+    def __init__(self, detector_number: sc.Variable):
         self._chunks: list[DetectorEvents] = []
         self._toa_unit = 'ns'
         self._sizes = detector_number.sizes
