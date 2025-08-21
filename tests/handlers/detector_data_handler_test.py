@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import scipp as sc
 
+from beamlime.config import instrument_registry
 from beamlime.config.instruments import available_instruments, get_config
 from beamlime.core.handler import FakeConfigRegistry, Message, StreamId, StreamKind
 from beamlime.handlers.accumulators import DetectorEvents
@@ -11,6 +12,17 @@ from beamlime.handlers.detector_data_handler import (
     DetectorHandlerFactory,
     get_nexus_geometry_filename,
 )
+
+
+def test_get_detector_number() -> None:
+    instrument_name = 'dream'
+    _ = get_config(instrument_name)  # Load the module to register the instrument
+    instrument = instrument_registry[instrument_name]
+    factory = DetectorHandlerFactory(instrument=instrument)
+    detnum = factory.get_detector_number('mantle_detector')
+    assert detnum is not None
+    detnum = factory.get_detector_number('endcap_backward_detector')
+    assert detnum is not None
 
 
 def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -> None:

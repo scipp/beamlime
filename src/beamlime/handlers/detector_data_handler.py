@@ -5,11 +5,12 @@ from __future__ import annotations
 import logging
 import pathlib
 import re
-from typing import Any
+from typing import Any, Hashable
 
 import pydantic
 
 import scipp as sc
+import scippnexus as snx
 from ess.reduce.live import raw
 
 from ..config import models
@@ -39,25 +40,51 @@ from .stream_processor_factory import StreamProcessor
 # TODO
 # remove models.TOARange
 # use parameter_models.TOARange
-# Remove pixel grouping from preprocessor, move into DetectorViewStreamProcessor
-# update handler factory, add make_preprocessor
 # remove ConfigModelAccessor
 # remove PeriodicAccumulatingHandler?
 
 
 class DetectorViewParams(pydantic.BaseModel):
+    pixel_weighting: models.PixelWeighting = pydantic.Field(
+        title="Pixel Weighting",
+        description="Whether to apply pixel weighting based on the number of pixels "
+        "contributing to each screen pixel.",
+        default=models.PixelWeighting(
+            enabled=True, method=models.WeightingMethod.PIXEL_NUMBER
+        ),
+    )
     # TODO split out the enabled flag?
-    pixel_weighting: None = None  # TODO
-    toa_range: models.TOARange = pydantic.Field(
+    toa_range: parameter_models.TOARange = pydantic.Field(
         title="Time of Arrival Range",
         description="Time of arrival range for detector data.",
-        default=models.TOARange(),
+        default=parameter_models.TOARange(),
     )
 
 
-class DetectorView(StreamProcessor):
-    # Can be created for different view types
-    def __init__(self, source_name: str, params: DetectorViewParams) -> None:
+class DetectorProjection:
+    # Note the new approach, avoiding the backwards
+    #     Instrument -> module -> config -> view
+    # setup procedure. Now we just register the view creation in the Instrument
+
+    # - Use different instance for different projection
+    # - Use different class for logic view
+
+    # pass literal projection
+    def __init__(self, config: dict[str, dict[str, Any]]) -> None:
+        self._config = config
+
+    # This is the factory we want to register in the instrument
+    # in each instrument module:
+    #     instrument = make_detector_data_instrument()
+    #     xy_projection = DetectorProjection(
+    #         projection='xy_plane',
+    #         config={'resolution': {'bank1': ..., 'bank2': ...}}
+    #     )
+    #     instrument.register_workflow(...)(xy_projection)
+    def register_with_instrument(self, instrument: Instrument) -> None: ...
+
+    def __call__(self, source_name: str, params: DetectorViewParams) -> DetectorView:
+        config = self._config[source_name]
         pass
 
 
@@ -118,15 +145,39 @@ class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataA
         ]
         self._nexus_file = _try_get_nexus_geometry_filename(self.instrument.name)
         self._window_length = 1
+        self._views = {
+            view_name: self._make_view(detector)
+            for view_name, detector in self._detector_config.items()
+        }
+
+    # TODO cache
+    def get_detector_number(self, detector_name: str) -> sc.Variable | None:
+        for det_config in self._detector_config.values():
+            if det_config['detector_name'] == detector_name:
+                if (detector_number := det_config.get('detector_number')) is not None:
+                    return detector_number
+        if self._nexus_file is None:
+            return None
+        try:
+            return snx.load(
+                self._nexus_file,
+                root=f'entry/instrument/{detector_name}/detector_number',
+                definitions={},
+            )
+        except (FileNotFoundError, KeyError):
+            self._logger.error(
+                'Could not find detector number for %s in NeXus file %s',
+                detector_name,
+                self._nexus_file,
+            )
+            return None
 
     def make_preprocessor(self, key: StreamId) -> Accumulator | None:
         match key.kind:
             case StreamKind.DETECTOR_EVENTS:
-                # TODO Need detector_number... or move grouping out of preprocessor?
-                # But grouping is also needed by ROI hist, so we should keep it here.
-                # But ROIHistogram also needs a filter, created by the detector view!
-                # But view only serves as a factory here.
-                return GroupIntoPixels()
+                if (detector_number := self.get_detector_number(key.name)) is None:
+                    return None
+                return GroupIntoPixels(detector_number=detector_number)
             case _:
                 return None
 
@@ -157,6 +208,33 @@ class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataA
             resolution=detector_config.get('resolution'),
             pixel_noise=detector_config.get('pixel_noise'),
         )
+
+    # TODO No, use direct DetectorProjection approach above!
+    def make_detector_projection(
+        self, source_name: str, params: DetectorViewParams, projection: str
+    ) -> DetectorView | None:
+        for config in self._detector_config.values():
+            if (
+                config['detector_name'] == source_name
+                and config.get('projection') == projection
+            ):
+                break
+        else:
+            self._logger.error(
+                'No detector configuration found for %s with projection %s',
+                source_name,
+                projection,
+            )
+            return None
+        view = raw.RollingDetectorView.from_nexus(
+            self._nexus_file,
+            detector_name=source_name,
+            window=self._window_length,
+            projection=config['projection'],
+            resolution=config.get('resolution'),
+            pixel_noise=config.get('pixel_noise'),
+        )
+        return DetectorView(params=params, detector_view=view)
 
     def make_handler(self, key: StreamId) -> Handler[DetectorEvents, sc.DataArray]:
         detector_name = key.name
@@ -195,7 +273,7 @@ class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataA
         )
 
 
-class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
+class DetectorView(StreamProcessor):
     """
     Accumulator for detector counts, based on a rolling detector view.
 
@@ -204,65 +282,49 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
 
     def __init__(
         self,
-        logger: logging.Logger,
-        config: Config,
+        params: DetectorViewParams,
         detector_view: raw.RollingDetectorView,
-    ):
-        self._logger = logger
-        self._view = detector_view
-        self._inv_weights = sc.reciprocal(detector_view.transform_weights())
-        self._toa_range = ConfigModelAccessor(
-            config, 'toa_range', model=models.TOARange, convert=self._convert_toa_range
-        )
-        self._use_weights = ConfigModelAccessor(
-            config,
-            'pixel_weighting',
-            model=models.PixelWeighting,
-            convert=self._convert_pixel_weighting,
-        )
-        self._previous: sc.DataArray | None = None
-
-    def _convert_toa_range(
-        self, value: dict[str, Any]
-    ) -> tuple[sc.Variable, sc.Variable] | None:
-        model = models.TOARange.model_validate(value)
-        self.clear()
-        return model.range_ns
-
-    def _convert_pixel_weighting(self, value: dict[str, Any]) -> bool:
-        model = models.PixelWeighting.model_validate(value)
+    ) -> None:
+        self._use_toa_range = params.toa_range.enabled
+        self._toa_range = params.toa_range.range_ns
+        self._use_weights = params.pixel_weighting.enabled
         # Note: Currently we use default weighting based on the number of detector
         # pixels contributing to each screen pixel. In the future more advanced options
         # such as by the signal of a uniform scattered may need to be supported.
-        if model.method != models.WeightingMethod.PIXEL_NUMBER:
-            raise ValueError(f'Unsupported pixel weighting method: {model.method}')
-        return model.enabled
+        weighting = params.pixel_weighting
+        if weighting.method != models.WeightingMethod.PIXEL_NUMBER:
+            raise ValueError(f'Unsupported pixel weighting method: {weighting.method}')
+        self._use_weights = weighting.enabled
+        self._view = detector_view
+        self._inv_weights = sc.reciprocal(detector_view.transform_weights())
+        self._previous: sc.DataArray | None = None
 
     def apply_toa_range(self, data: sc.DataArray) -> sc.DataArray:
-        if (toa_range := self._toa_range()) is None:
+        if not self._use_toa_range:
             return data
-        low, high = toa_range
+        low, high = self._toa_range
         # GroupIntoPixels stores time-of-arrival as the data variable of the bins to
         # avoid allocating weights that are all ones. For filtering we need to turn this
         # into a coordinate, since scipp does not support filtering on data variables.
         return data.bins.assign_coords(toa=data.bins.data).bins['toa', low:high]
 
-    def add(self, timestamp: int, data: sc.DataArray) -> None:
+    def accumulate(self, data: dict[Hashable, Any]) -> None:
         """
         Add data to the accumulator.
 
         Parameters
         ----------
-        timestamp:
-            Timestamp of the data.
         data:
             Data to be added. It is assumed that this is ev44 data that was passed
             through :py:class:`GroupIntoPixels`.
         """
-        data = self.apply_toa_range(data)
-        self._view.add_events(data)
+        if len(data) != 1:
+            raise ValueError("DetectorViewProcessor expects exactly one data item.")
+        raw = next(iter(data.values()))
+        data = self.apply_toa_range(raw)
+        self._view.add_events(raw)
 
-    def get(self) -> sc.DataGroup[sc.DataArray]:
+    def finalize(self) -> dict[str, sc.DataArray]:
         cumulative = self._view.cumulative.copy()
         # This is a hack to get the current counts. Should be updated once
         # ess.reduce.live.raw.RollingDetectorView has been modified to support this.
@@ -271,7 +333,7 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
             current = current - self._previous
         self._previous = cumulative
         result = sc.DataGroup(cumulative=cumulative, current=current)
-        return result * self._inv_weights if self._use_weights() else result
+        return dict(result * self._inv_weights if self._use_weights else result)
 
     def clear(self) -> None:
         self._view.clear_counts()
