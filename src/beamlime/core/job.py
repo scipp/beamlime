@@ -137,8 +137,8 @@ class Job:
     def reset(self) -> None:
         """Reset the processor for this job."""
         self._processor.clear()
-        self._start_time = -1
-        self._end_time = -1
+        self._start_time = None
+        self._end_time = None
 
 
 class JobFactory:
