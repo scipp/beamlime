@@ -5,36 +5,31 @@ from __future__ import annotations
 import logging
 import pathlib
 import re
-from typing import Any, Hashable
+from collections.abc import Hashable
+from typing import Any, Literal
 
 import pydantic
-
 import scipp as sc
 import scippnexus as snx
 from ess.reduce.live import raw
 
+from .. import parameter_models
 from ..config import models
+from ..config.instrument import Instrument
 from ..config.instruments import get_config
 from ..core.handler import (
     Accumulator,
-    Config,
-    ConfigModelAccessor,
-    ConfigRegistry,
     Handler,
-    HandlerFactory,
+    JobBasedHandlerFactoryBase,
     PeriodicAccumulatingHandler,
 )
-from ..core.message import StreamId
+from ..core.message import StreamId, StreamKind
 from .accumulators import (
     DetectorEvents,
     GroupIntoPixels,
     NullAccumulator,
     ROIBasedTOAHistogram,
 )
-from .. import parameter_models
-from ..config.instrument import Instrument
-from ..core.handler import JobBasedHandlerFactoryBase
-from ..core.message import StreamId, StreamKind
 from .stream_processor_factory import StreamProcessor
 
 # TODO
@@ -61,6 +56,20 @@ class DetectorViewParams(pydantic.BaseModel):
     )
 
 
+# Yes? No? Maybe?
+class ProjectionParams(pydantic.BaseModel):
+    resolution: int = pydantic.Field(
+        title="Resolution",
+        description="Resolution of the projection in pixels.",
+        default=100,
+    )
+    pixel_noise: float | None = pydantic.Field(
+        title="Pixel Noise",
+        description="Pixel noise to be applied to the projection.",
+        default=None,
+    )
+
+
 class DetectorProjection:
     # Note the new approach, avoiding the backwards
     #     Instrument -> module -> config -> view
@@ -69,23 +78,46 @@ class DetectorProjection:
     # - Use different instance for different projection
     # - Use different class for logic view
 
-    # pass literal projection
-    def __init__(self, config: dict[str, dict[str, Any]]) -> None:
-        self._config = config
+    def __init__(
+        self,
+        *,
+        instrument: Instrument,
+        projection: Literal['xy_plane', 'cylinder_mantle_z'],
+        resolution: dict[str, dict[str, int]],
+    ) -> None:
+        self._nexus_file = _try_get_nexus_geometry_filename(instrument.name)
+        self._projection = projection
+        self._resolution = resolution
+        self._window_length = 1
+        self._register_with_instrument(instrument)
 
-    # This is the factory we want to register in the instrument
-    # in each instrument module:
-    #     instrument = make_detector_data_instrument()
-    #     xy_projection = DetectorProjection(
-    #         projection='xy_plane',
-    #         config={'resolution': {'bank1': ..., 'bank2': ...}}
-    #     )
-    #     instrument.register_workflow(...)(xy_projection)
-    def register_with_instrument(self, instrument: Instrument) -> None: ...
+    def _register_with_instrument(self, instrument: Instrument) -> None:
+        instrument.register_workflow(
+            name='detector_xy_projection',
+            version=1,
+            title="Detector XY Projection",
+            description="Projection of a detector onto an XY-plane.",
+            source_names=list(self._resolution),
+        )(self.make_view)
 
-    def __call__(self, source_name: str, params: DetectorViewParams) -> DetectorView:
-        config = self._config[source_name]
-        pass
+    def _get_resolution(self, source_name: str) -> dict[str, int]:
+        """
+        Get the resolution for the given source name.
+        """
+        aspect = self._resolution[source_name]
+        scale = 8
+        return {key: value * scale for key, value in aspect.items()}
+
+    def make_view(self, source_name: str, params: DetectorViewParams) -> DetectorView:
+        view = raw.RollingDetectorView.from_nexus(
+            self._nexus_file,
+            detector_name=source_name,
+            window=self._window_length,
+            projection=self._projection,
+            resolution=self._get_resolution(source_name),
+            pixel_noise=sc.scalar(4.0, unit='mm'),
+        )
+        return DetectorView(params=params, detector_view=view)
 
 
 class ROIHistogramParams(pydantic.BaseModel):
@@ -107,22 +139,9 @@ class ROIHistogram(StreamProcessor):
         pass
 
 
-def make_detector_data_instrument(name: str, source_names: list[str]) -> Instrument:
-    # register one or more views for each source
-    # register ROI histogram for each source
-    """Create an Instrument with workflows for detector data processing."""
-    instrument = Instrument(name=f'{name}_detectors')
-    # TODO source names depending on view
-    # Different wf for each view?
-    instrument.register_workflow(
-        name='detector_data',
-        version=1,
-        title="Detector data",
-        description="Histogrammed and time-integrated detector data.",
-        source_names=source_names,
-    )(DetectorView)
-    # TODO ROIHistogram
-    return instrument
+def make_detector_data_instrument(name: str) -> Instrument:
+    """Create an Instrument for detector view workflows."""
+    return Instrument(name=f'{name}_detectors')
 
 
 class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataArray]):
@@ -208,33 +227,6 @@ class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataA
             resolution=detector_config.get('resolution'),
             pixel_noise=detector_config.get('pixel_noise'),
         )
-
-    # TODO No, use direct DetectorProjection approach above!
-    def make_detector_projection(
-        self, source_name: str, params: DetectorViewParams, projection: str
-    ) -> DetectorView | None:
-        for config in self._detector_config.values():
-            if (
-                config['detector_name'] == source_name
-                and config.get('projection') == projection
-            ):
-                break
-        else:
-            self._logger.error(
-                'No detector configuration found for %s with projection %s',
-                source_name,
-                projection,
-            )
-            return None
-        view = raw.RollingDetectorView.from_nexus(
-            self._nexus_file,
-            detector_name=source_name,
-            window=self._window_length,
-            projection=config['projection'],
-            resolution=config.get('resolution'),
-            pixel_noise=config.get('pixel_noise'),
-        )
-        return DetectorView(params=params, detector_view=view)
 
     def make_handler(self, key: StreamId) -> Handler[DetectorEvents, sc.DataArray]:
         detector_name = key.name

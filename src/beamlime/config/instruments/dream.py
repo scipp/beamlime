@@ -23,7 +23,11 @@ from scippnexus import NXdetector
 from beamlime import parameter_models
 from beamlime.config import Instrument, instrument_registry
 from beamlime.config.env import StreamingEnv
-from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
+from beamlime.handlers.detector_data_handler import (
+    DetectorProjection,
+    get_nexus_geometry_filename,
+    make_detector_data_instrument,
+)
 from beamlime.handlers.monitor_data_handler import make_beam_monitor_instrument
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
@@ -43,9 +47,21 @@ instrument = Instrument(
 _monitor_instrument = make_beam_monitor_instrument(
     name='dream', source_names=['monitor1', 'monitor2']
 )
+_detector_instrument = make_detector_data_instrument(name='dream')
 
 instrument_registry.register(instrument)
 instrument_registry.register(_monitor_instrument)
+instrument_registry.register(_detector_instrument)
+
+_xy_projection = DetectorProjection(
+    instrument=_detector_instrument,
+    projection='xy_plane',
+    resolution={
+        'endcap_backward_detector': {'y': 30, 'x': 20},
+        'endcap_forward_detector': {'y': 20, 'x': 20},
+        'high_resolution_detector': {'y': 20, 'x': 20},
+    },
+)
 
 
 def _get_mantle_front_layer(da: sc.DataArray) -> sc.DataArray:
