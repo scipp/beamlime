@@ -5,7 +5,9 @@ from __future__ import annotations
 import logging
 import pathlib
 import re
-from collections.abc import Hashable
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Hashable
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 import pydantic
@@ -17,19 +19,9 @@ from .. import parameter_models
 from ..config import models
 from ..config.instrument import Instrument
 from ..config.instruments import get_config
-from ..core.handler import (
-    Accumulator,
-    Handler,
-    JobBasedHandlerFactoryBase,
-    PeriodicAccumulatingHandler,
-)
+from ..core.handler import Accumulator, JobBasedHandlerFactoryBase
 from ..core.message import StreamId, StreamKind
-from .accumulators import (
-    DetectorEvents,
-    GroupIntoPixels,
-    NullAccumulator,
-    ROIBasedTOAHistogram,
-)
+from .accumulators import DetectorEvents, GroupIntoPixels
 from .stream_processor_factory import StreamProcessor
 
 # TODO
@@ -37,6 +29,10 @@ from .stream_processor_factory import StreamProcessor
 # use parameter_models.TOARange
 # remove ConfigModelAccessor
 # remove PeriodicAccumulatingHandler?
+# instrument name hacks. introduce workflow namespaces instead?
+# accumulators[f'{name}/roi'] = ROIBasedTOAHistogram(
+#     config=config, roi_filter=view.make_roi_filter()
+# )
 
 
 class DetectorViewParams(pydantic.BaseModel):
@@ -70,14 +66,46 @@ class ProjectionParams(pydantic.BaseModel):
     )
 
 
-class DetectorProjection:
-    # Note the new approach, avoiding the backwards
-    #     Instrument -> module -> config -> view
-    # setup procedure. Now we just register the view creation in the Instrument
+@dataclass(frozen=True, kw_only=True)
+class ViewConfig(ABC):
+    name: str
+    title: str
+    description: str
 
-    # - Use different instance for different projection
-    # - Use different class for logic view
 
+class DetectorProcessorFactory(ABC):
+    def __init__(
+        self, *, instrument: Instrument, config: ViewConfig, source_names: list[str]
+    ) -> None:
+        self._instrument = instrument.name[: -len('_detectors')]
+        self._config = config
+        self._source_names = source_names
+        self._window_length = 1
+        self._nexus_file = _try_get_nexus_geometry_filename(
+            instrument.name[: -len('_detectors')]
+        )
+        self._register_with_instrument(instrument)
+
+    def make_view(self, source_name: str, params: DetectorViewParams) -> DetectorView:
+        return DetectorView(
+            params=params, detector_view=self._make_rollingview(source_name)
+        )
+
+    def _register_with_instrument(self, instrument: Instrument) -> None:
+        instrument.register_workflow(
+            name=self._config.name,
+            version=1,
+            title=self._config.title,
+            description=self._config.description,
+            source_names=self._source_names,
+        )(self.make_view)
+
+    @abstractmethod
+    def _make_rollingview(self, source_name: str) -> raw.RollingDetectorView:
+        """Create a RollingDetectorView for the given source name."""
+
+
+class DetectorProjection(DetectorProcessorFactory):
     def __init__(
         self,
         *,
@@ -85,33 +113,35 @@ class DetectorProjection:
         projection: Literal['xy_plane', 'cylinder_mantle_z'],
         resolution: dict[str, dict[str, int]],
     ) -> None:
-        self._nexus_file = _try_get_nexus_geometry_filename(
-            instrument.name[: -len('_detectors')]
-        )
         self._projection = projection
         self._resolution = resolution
-        self._window_length = 1
-        self._register_with_instrument(instrument)
+        if projection == 'xy_plane':
+            config = ViewConfig(
+                name='detector_xy_projection',
+                title='Detector XY Projection',
+                description='Projection of a detector bank onto an XY-plane.',
+            )
+        elif projection == 'cylinder_mantle_z':
+            config = ViewConfig(
+                name='detector_cylinder_mantle_z',
+                title='Detector Cylinder Mantle Z Projection',
+                description='Projection of a detector bank onto a cylinder mantle '
+                'along Z-axis.',
+            )
+        else:
+            raise ValueError(f'Unsupported projection: {projection}')
 
-    def _register_with_instrument(self, instrument: Instrument) -> None:
-        instrument.register_workflow(
-            name='detector_xy_projection',
-            version=1,
-            title="Detector XY Projection",
-            description="Projection of a detector onto an XY-plane.",
-            source_names=list(self._resolution),
-        )(self.make_view)
+        super().__init__(
+            instrument=instrument, config=config, source_names=list(resolution)
+        )
 
     def _get_resolution(self, source_name: str) -> dict[str, int]:
-        """
-        Get the resolution for the given source name.
-        """
         aspect = self._resolution[source_name]
         scale = 8
         return {key: value * scale for key, value in aspect.items()}
 
-    def make_view(self, source_name: str, params: DetectorViewParams) -> DetectorView:
-        view = raw.RollingDetectorView.from_nexus(
+    def _make_rollingview(self, source_name: str) -> raw.RollingDetectorView:
+        return raw.RollingDetectorView.from_nexus(
             self._nexus_file,
             detector_name=source_name,
             window=self._window_length,
@@ -119,7 +149,40 @@ class DetectorProjection:
             resolution=self._get_resolution(source_name),
             pixel_noise=sc.scalar(4.0, unit='mm'),
         )
-        return DetectorView(params=params, detector_view=view)
+
+
+@dataclass(frozen=True, kw_only=True)
+class LogicalViewConfig(ViewConfig):
+    # If no projection defined, the shape of the detector_number is used.
+    transform: Callable[[sc.DataArray], sc.DataArray] | None = None
+    _detector_numbers: dict[str, sc.Variable] = field(default_factory=dict)
+
+    @property
+    def source_names(self) -> list[str]:
+        """Return the source names for the logical view."""
+        return list(self._detector_numbers.keys())
+
+    def add_detector(self, source_name: str, detector_number: sc.Variable) -> None:
+        self._detector_numbers[source_name] = detector_number
+
+    def get_detector_number(self, source_name: str) -> sc.Variable:
+        """Get the detector number for the given source name."""
+        return self._detector_numbers[source_name]
+
+
+class DetectorLogicalView(DetectorProcessorFactory):
+    def __init__(self, *, instrument: Instrument, config: LogicalViewConfig) -> None:
+        super().__init__(
+            instrument=instrument, config=config, source_names=config.source_names
+        )
+        self._config = config
+
+    def _make_rollingview(self, source_name: str) -> raw.RollingDetectorView:
+        return raw.RollingDetectorView(
+            detector_number=self._config.get_detector_number(source_name),
+            window=self._window_length,
+            projection=self._config.transform,
+        )
 
 
 class ROIHistogramParams(pydantic.BaseModel):
@@ -180,8 +243,7 @@ class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataA
             return snx.load(
                 self._nexus_file,
                 root=f'entry/instrument/{detector_name}/detector_number',
-                definitions={},
-            ).rename_dims(dim_0='detector_number')
+            )
         except (FileNotFoundError, KeyError):
             self._logger.error(
                 'Could not find detector number for %s in NeXus file %s',
@@ -198,70 +260,6 @@ class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataA
                 return GroupIntoPixels(detector_number=detector_number)
             case _:
                 return None
-
-    def _make_view(
-        self, detector_config: dict[str, Any]
-    ) -> raw.RollingDetectorView | None:
-        projection = detector_config.get('projection')
-        if (
-            (self._nexus_file is None or self._instrument == 'bifrost')
-            and (projection is None or not isinstance(projection, str))
-            and (detector_number := detector_config.get('detector_number')) is not None
-        ):
-            return raw.RollingDetectorView(
-                detector_number=detector_number,
-                window=self._window_length,
-                projection=projection,
-            )
-        if self._nexus_file is None:
-            self._logger.error(
-                'NeXus file is required to setup detector view for %s', detector_config
-            )
-            return None
-        return raw.RollingDetectorView.from_nexus(
-            self._nexus_file,
-            detector_name=detector_config['detector_name'],
-            window=self._window_length,
-            projection=detector_config['projection'],
-            resolution=detector_config.get('resolution'),
-            pixel_noise=detector_config.get('pixel_noise'),
-        )
-
-    def make_handler(self, key: StreamId) -> Handler[DetectorEvents, sc.DataArray]:
-        detector_name = key.name
-        candidates = {
-            view_name: self._make_view(detector)
-            for view_name, detector in self._detector_config.items()
-            if detector['detector_name'] == detector_name
-        }
-        views = {name: view for name, view in candidates.items() if view is not None}
-        if not views:
-            self._logger.warning('No views configured for %s', detector_name)
-        detector_number: sc.Variable | None = None
-        accumulators: dict[str, Accumulator[sc.DataArray, sc.DataArray]] = {}
-        config = self._config_registry.get_config(detector_name)
-        for name, view in views.items():
-            detector_number = view.detector_number
-            accumulators[name] = DetectorCounts(
-                logger=self._logger, config=config, detector_view=view
-            )
-            accumulators[f'{name}/roi'] = ROIBasedTOAHistogram(
-                config=config, roi_filter=view.make_roi_filter()
-            )
-        if detector_number is None:
-            preprocessor = NullAccumulator()
-        else:
-            preprocessor = GroupIntoPixels(
-                config=config, detector_number=detector_number
-            )
-
-        return PeriodicAccumulatingHandler(
-            service_name=self._config_registry.service_name,
-            logger=self._logger,
-            config=config,
-            preprocessor=preprocessor,
-            accumulators=accumulators,
-        )
 
 
 class DetectorView(StreamProcessor):

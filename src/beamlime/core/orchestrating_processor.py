@@ -226,7 +226,11 @@ def _job_result_to_message(result: JobResult) -> Message:
     if result.name == 'monitor_data':
         service_name = 'monitor_data'
         signal_name = ''
-    elif result.name in ('detector_xy_projection',):
+    elif result.name in (
+        'detector_xy_projection',
+        'detector_cylinder_mantle_z',
+        'mantle_front_layer',
+    ):
         service_name = 'detector_data'
         signal_name = result.name
     else:

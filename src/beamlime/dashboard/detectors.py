@@ -33,7 +33,7 @@ hv.extension('bokeh')
 _dream = {
     'Endcap Backward': ('endcap_backward_detector', 'detector_xy_projection'),
     'High Resolution': ('high_resolution_detector', 'detector_xy_projection'),
-    'Mantle': ('mantle_detector', 'mantle_projection'),
+    'Mantle': ('mantle_detector', 'mantle_front_layer'),
     'Endcap Forward': ('endcap_forward_detector', 'detector_xy_projection'),
 }
 _config = {'dream': _dream}

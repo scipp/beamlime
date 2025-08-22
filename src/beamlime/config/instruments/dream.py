@@ -24,7 +24,9 @@ from beamlime import parameter_models
 from beamlime.config import Instrument, instrument_registry
 from beamlime.config.env import StreamingEnv
 from beamlime.handlers.detector_data_handler import (
+    DetectorLogicalView,
     DetectorProjection,
+    LogicalViewConfig,
     get_nexus_geometry_filename,
     make_detector_data_instrument,
 )
@@ -62,6 +64,11 @@ _xy_projection = DetectorProjection(
         'high_resolution_detector': {'y': 20, 'x': 20},
     },
 )
+_cylinder_projection = DetectorProjection(
+    instrument=_detector_instrument,
+    projection='cylinder_mantle_z',
+    resolution={'mantle_detector': {'arc_length': 10, 'z': 40}},
+)
 
 
 def _get_mantle_front_layer(da: sc.DataArray) -> sc.DataArray:
@@ -73,6 +80,22 @@ def _get_mantle_front_layer(da: sc.DataArray) -> sc.DataArray:
         .transpose(('wire', 'module', 'segment', 'counter', 'strip'))['wire', 0]
         .flatten(('module', 'segment', 'counter'), to='mod/seg/cntr')
     )
+
+
+_mantle_front_layer_config = LogicalViewConfig(
+    name='mantle_front_layer',
+    title='Mantle front layer',
+    description='All voxels of the front layer of the mantle detector.',
+    transform=_get_mantle_front_layer,
+)
+_mantle_front_layer_config.add_detector(
+    source_name='mantle_detector',
+    detector_number=sc.arange('dummy', 229377, 720897, unit=None),
+)
+
+_logical_view = DetectorLogicalView(
+    instrument=_detector_instrument, config=_mantle_front_layer_config
+)
 
 
 _res_scale = 8
