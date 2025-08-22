@@ -133,10 +133,8 @@ class TOARange(RangeModel):
     )
 
     @property
-    def range_ns(self) -> tuple[sc.Variable, sc.Variable] | None:
+    def range_ns(self) -> tuple[sc.Variable, sc.Variable]:
         """Time window range in nanoseconds as a scipp scalar."""
-        if not self.enabled:
-            return None
         return (
             sc.scalar(self.start, unit=self.unit.value).to(unit='ns'),
             sc.scalar(self.stop, unit=self.unit.value).to(unit='ns'),

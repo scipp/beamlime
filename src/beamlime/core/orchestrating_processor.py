@@ -48,7 +48,7 @@ class NaiveMessageBatcher:
 
     def batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
         # Unclear if filter needed in practice, but there is a test with bad timestamps.
-        messages = [msg for msg in messages if isinstance(msg.timestamp, int)]
+        # messages = [msg for msg in messages if isinstance(msg.timestamp, int)]
         if not messages:
             return None
         messages = sorted(messages)
@@ -226,6 +226,9 @@ def _job_result_to_message(result: JobResult) -> Message:
     if result.name == 'monitor_data':
         service_name = 'monitor_data'
         signal_name = ''
+    elif result.name in ('detector_xy_projection',):
+        service_name = 'detector_data'
+        signal_name = result.name
     else:
         service_name = 'data_reduction'
         signal_name = f'reduced/{result.source_name}'
@@ -293,6 +296,9 @@ class JobManagerAdapter:
             return []
 
         try:
+            if source_name in self._jobs:
+                # If we have a job for this source, we stop it first.
+                self._job_manager.stop_job(self._jobs[source_name])
             job_id = self._job_manager.schedule_job(
                 source_name=source_name, config=config
             )

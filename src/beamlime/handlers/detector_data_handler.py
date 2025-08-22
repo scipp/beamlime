@@ -85,7 +85,9 @@ class DetectorProjection:
         projection: Literal['xy_plane', 'cylinder_mantle_z'],
         resolution: dict[str, dict[str, int]],
     ) -> None:
-        self._nexus_file = _try_get_nexus_geometry_filename(instrument.name)
+        self._nexus_file = _try_get_nexus_geometry_filename(
+            instrument.name[: -len('_detectors')]
+        )
         self._projection = projection
         self._resolution = resolution
         self._window_length = 1
@@ -159,15 +161,12 @@ class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataA
         self, *, instrument: Instrument, logger: logging.Logger | None = None
     ) -> None:
         super().__init__(instrument=instrument, logger=logger)
-        self._detector_config = get_config(self.instrument.name).detectors_config[
+        self._instrument_name = instrument.name[: -len('_detectors')]
+        self._detector_config = get_config(self._instrument_name).detectors_config[
             'detectors'
         ]
-        self._nexus_file = _try_get_nexus_geometry_filename(self.instrument.name)
+        self._nexus_file = _try_get_nexus_geometry_filename(self._instrument_name)
         self._window_length = 1
-        self._views = {
-            view_name: self._make_view(detector)
-            for view_name, detector in self._detector_config.items()
-        }
 
     # TODO cache
     def get_detector_number(self, detector_name: str) -> sc.Variable | None:
@@ -182,7 +181,7 @@ class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataA
                 self._nexus_file,
                 root=f'entry/instrument/{detector_name}/detector_number',
                 definitions={},
-            )
+            ).rename_dims(dim_0='detector_number')
         except (FileNotFoundError, KeyError):
             self._logger.error(
                 'Could not find detector number for %s in NeXus file %s',
@@ -313,8 +312,8 @@ class DetectorView(StreamProcessor):
         if len(data) != 1:
             raise ValueError("DetectorViewProcessor expects exactly one data item.")
         raw = next(iter(data.values()))
-        data = self.apply_toa_range(raw)
-        self._view.add_events(raw)
+        filtered = self.apply_toa_range(raw)
+        self._view.add_events(filtered)
 
     def finalize(self) -> dict[str, sc.DataArray]:
         cumulative = self._view.cumulative.copy()

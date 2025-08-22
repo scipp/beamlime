@@ -31,10 +31,10 @@ hv.extension('bokeh')
 # complex config system. Until we have a better idea of what exactly we will need to
 # configure, we keep it simple and postpone the decision.
 _dream = {
-    'Endcap Backward': ('endcap_backward_detector', 'endcap_backward'),
-    'High Resolution': ('high_resolution_detector', 'High-Res'),
+    'Endcap Backward': ('endcap_backward_detector', 'detector_xy_projection'),
+    'High Resolution': ('high_resolution_detector', 'detector_xy_projection'),
     'Mantle': ('mantle_detector', 'mantle_projection'),
-    'Endcap Forward': ('endcap_forward_detector', 'endcap_forward'),
+    'Endcap Forward': ('endcap_forward_detector', 'detector_xy_projection'),
 }
 _config = {'dream': _dream}
 
@@ -55,7 +55,7 @@ class DashboardApp(DashboardBase):
         # Load the module to register the instrument's workflows.
         self._instrument_module = get_config(instrument)
         self._processor_factory = instrument_registry[
-            f'{self._instrument}_beam_monitors'
+            f'{self._instrument}_detectors'
         ].processor_factory
 
         self._setup_workflow_management()
