@@ -2,7 +2,6 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-import logging
 import pathlib
 import re
 from abc import ABC, abstractmethod
@@ -12,13 +11,11 @@ from typing import Any, Literal
 
 import pydantic
 import scipp as sc
-import scippnexus as snx
 from ess.reduce.live import raw
 
 from .. import parameter_models
 from ..config import models
 from ..config.instrument import Instrument
-from ..config.instruments import get_config
 from ..core.handler import Accumulator, JobBasedHandlerFactoryBase
 from ..core.message import StreamId, StreamKind
 from .accumulators import DetectorEvents, GroupIntoPixels
@@ -28,7 +25,7 @@ from .stream_processor_factory import StreamProcessor
 # remove models.TOARange
 # use parameter_models.TOARange
 # remove ConfigModelAccessor
-# remove PeriodicAccumulatingHandler?
+# remove PeriodicAccumulatingHandler? need to refactor timeseries_handler.py first
 # instrument name hacks. introduce workflow namespaces instead?
 # accumulators[f'{name}/roi'] = ROIBasedTOAHistogram(
 #     config=config, roi_filter=view.make_roi_filter()
@@ -67,19 +64,19 @@ class ProjectionParams(pydantic.BaseModel):
 
 
 @dataclass(frozen=True, kw_only=True)
-class ViewConfig(ABC):
+class ViewConfig:
     name: str
     title: str
     description: str
+    source_names: list[str] = field(default_factory=list)
 
 
 class DetectorProcessorFactory(ABC):
-    def __init__(
-        self, *, instrument: Instrument, config: ViewConfig, source_names: list[str]
-    ) -> None:
-        self._instrument = instrument.name[: -len('_detectors')]
+    def __init__(self, *, instrument: Instrument, config: ViewConfig) -> None:
+        self._instrument = instrument
+        self._instrument_name = instrument.name[: -len('_detectors')]
         self._config = config
-        self._source_names = source_names
+        self._source_names = config.source_names
         self._window_length = 1
         self._nexus_file = _try_get_nexus_geometry_filename(
             instrument.name[: -len('_detectors')]
@@ -115,11 +112,13 @@ class DetectorProjection(DetectorProcessorFactory):
     ) -> None:
         self._projection = projection
         self._resolution = resolution
+        source_names = list(resolution.keys())
         if projection == 'xy_plane':
             config = ViewConfig(
                 name='detector_xy_projection',
                 title='Detector XY Projection',
                 description='Projection of a detector bank onto an XY-plane.',
+                source_names=source_names,
             )
         elif projection == 'cylinder_mantle_z':
             config = ViewConfig(
@@ -127,13 +126,11 @@ class DetectorProjection(DetectorProcessorFactory):
                 title='Detector Cylinder Mantle Z Projection',
                 description='Projection of a detector bank onto a cylinder mantle '
                 'along Z-axis.',
+                source_names=source_names,
             )
         else:
             raise ValueError(f'Unsupported projection: {projection}')
-
-        super().__init__(
-            instrument=instrument, config=config, source_names=list(resolution)
-        )
+        super().__init__(instrument=instrument, config=config)
 
     def _get_resolution(self, source_name: str) -> dict[str, int]:
         aspect = self._resolution[source_name]
@@ -155,31 +152,16 @@ class DetectorProjection(DetectorProcessorFactory):
 class LogicalViewConfig(ViewConfig):
     # If no projection defined, the shape of the detector_number is used.
     transform: Callable[[sc.DataArray], sc.DataArray] | None = None
-    _detector_numbers: dict[str, sc.Variable] = field(default_factory=dict)
-
-    @property
-    def source_names(self) -> list[str]:
-        """Return the source names for the logical view."""
-        return list(self._detector_numbers.keys())
-
-    def add_detector(self, source_name: str, detector_number: sc.Variable) -> None:
-        self._detector_numbers[source_name] = detector_number
-
-    def get_detector_number(self, source_name: str) -> sc.Variable:
-        """Get the detector number for the given source name."""
-        return self._detector_numbers[source_name]
 
 
 class DetectorLogicalView(DetectorProcessorFactory):
     def __init__(self, *, instrument: Instrument, config: LogicalViewConfig) -> None:
-        super().__init__(
-            instrument=instrument, config=config, source_names=config.source_names
-        )
+        super().__init__(instrument=instrument, config=config)
         self._config = config
 
     def _make_rollingview(self, source_name: str) -> raw.RollingDetectorView:
         return raw.RollingDetectorView(
-            detector_number=self._config.get_detector_number(source_name),
+            detector_number=self._instrument.get_detector_number(source_name),
             window=self._window_length,
             projection=self._config.transform,
         )
@@ -216,47 +198,13 @@ class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataA
     Handlers are created based on the instrument name in the message key which should
     identify the detector name. Depending on the configured detector views a NeXus file
     with geometry information may be required to setup the view. Currently the NeXus
-    files are always obtained via Pooch. Note that this may need to be refactored to a
-    more dynamic approach in the future.
+    files are always obtained via Pooch.
     """
-
-    def __init__(
-        self, *, instrument: Instrument, logger: logging.Logger | None = None
-    ) -> None:
-        super().__init__(instrument=instrument, logger=logger)
-        self._instrument_name = instrument.name[: -len('_detectors')]
-        self._detector_config = get_config(self._instrument_name).detectors_config[
-            'detectors'
-        ]
-        self._nexus_file = _try_get_nexus_geometry_filename(self._instrument_name)
-        self._window_length = 1
-
-    # TODO cache
-    def get_detector_number(self, detector_name: str) -> sc.Variable | None:
-        for det_config in self._detector_config.values():
-            if det_config['detector_name'] == detector_name:
-                if (detector_number := det_config.get('detector_number')) is not None:
-                    return detector_number
-        if self._nexus_file is None:
-            return None
-        try:
-            return snx.load(
-                self._nexus_file,
-                root=f'entry/instrument/{detector_name}/detector_number',
-            )
-        except (FileNotFoundError, KeyError):
-            self._logger.error(
-                'Could not find detector number for %s in NeXus file %s',
-                detector_name,
-                self._nexus_file,
-            )
-            return None
 
     def make_preprocessor(self, key: StreamId) -> Accumulator | None:
         match key.kind:
             case StreamKind.DETECTOR_EVENTS:
-                if (detector_number := self.get_detector_number(key.name)) is None:
-                    return None
+                detector_number = self._instrument.get_detector_number(key.name)
                 return GroupIntoPixels(detector_number=detector_number)
             case _:
                 return None

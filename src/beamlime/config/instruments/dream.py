@@ -50,6 +50,11 @@ _monitor_instrument = make_beam_monitor_instrument(
     name='dream', source_names=['monitor1', 'monitor2']
 )
 _detector_instrument = make_detector_data_instrument(name='dream')
+_detector_instrument.add_detector('mantle_detector')
+_detector_instrument.add_detector('endcap_backward_detector')
+_detector_instrument.add_detector('endcap_forward_detector')
+_detector_instrument.add_detector('high_resolution_detector')
+_detector_instrument.add_detector('sans_detector')
 
 instrument_registry.register(instrument)
 instrument_registry.register(_monitor_instrument)
@@ -86,11 +91,8 @@ _mantle_front_layer_config = LogicalViewConfig(
     name='mantle_front_layer',
     title='Mantle front layer',
     description='All voxels of the front layer of the mantle detector.',
+    source_names=['mantle_detector'],
     transform=_get_mantle_front_layer,
-)
-_mantle_front_layer_config.add_detector(
-    source_name='mantle_detector',
-    detector_number=sc.arange('dummy', 229377, 720897, unit=None),
 )
 
 _logical_view = DetectorLogicalView(

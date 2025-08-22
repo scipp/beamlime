@@ -7,6 +7,9 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+import scipp as sc
+import scippnexus as snx
+
 from beamlime.handlers.stream_processor_factory import (
     StreamProcessor,
     StreamProcessorFactory,
@@ -55,6 +58,30 @@ class Instrument:
     )
     source_to_key: dict[str, type] = field(default_factory=dict)
     f144_attribute_registry: dict[str, dict[str, Any]] = field(default_factory=dict)
+    _detector_numbers: dict[str, sc.Variable] = field(default_factory=dict)
+
+    def add_detector(
+        self, name: str, detector_number: sc.Variable | None = None
+    ) -> None:
+        from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
+
+        if detector_number is not None:
+            self._detector_numbers[name] = detector_number
+            return
+        instrument_name = self.name.split('_')[0]
+        nexus_file = get_nexus_geometry_filename(instrument_name)
+        candidate = snx.load(
+            nexus_file, root=f'entry/instrument/{name}/detector_number'
+        )
+        if not isinstance(candidate, sc.Variable):
+            raise ValueError(
+                f"Detector {name} not found in {nexus_file}. "
+                "Please provide a detector_number explicitly."
+            )
+        self._detector_numbers[name] = candidate
+
+    def get_detector_number(self, name: str) -> sc.Variable:
+        return self._detector_numbers[name]
 
     def register_workflow(
         self,
