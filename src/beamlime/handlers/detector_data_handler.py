@@ -87,6 +87,7 @@ class DetectorProcessorFactory(ABC):
 
     def _register_with_instrument(self, instrument: Instrument) -> None:
         instrument.register_workflow(
+            namespace='detector_data',
             name=self._config.name,
             version=1,
             title=self._config.title,
@@ -181,11 +182,6 @@ class ROIHistogramParams(pydantic.BaseModel):
 class ROIHistogram(StreamProcessor):
     def __init__(self, source_name: str, params: ROIHistogramParams) -> None:
         pass
-
-
-def make_detector_data_instrument(name: str) -> Instrument:
-    """Create an Instrument for detector view workflows."""
-    return Instrument(name=f'{name}_detectors')
 
 
 class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataArray]):

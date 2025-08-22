@@ -85,18 +85,18 @@ def _monitor_data_workflow(params: MonitorDataParams) -> StreamProcessor:
     return MonitorStreamProcessor(edges=params.toa_edges.get_edges())
 
 
-def make_beam_monitor_instrument(name: str, source_names: list[str]) -> Instrument:
+def register_monitor_workflows(instrument: Instrument, source_names: list[str]) -> None:
     """Create an Instrument with workflows for beam monitor processing."""
-    instrument = Instrument(name=f'{name}_beam_monitors')
     register = instrument.register_workflow(
-        name='monitor_data',
+        namespace='monitor_data',
+        name='monitor_histogram',
         version=1,
         title="Beam monitor data",
-        description="Histogrammed and time-integrated beam monitor data.",
+        description="Histogrammed and time-integrated beam monitor data. The monitor "
+        "is histogrammed or rebinned into specified time-of-arrival (TOA) bins.",
         source_names=source_names,
     )
     register(_monitor_data_workflow)
-    return instrument
 
 
 class MonitorHandlerFactory(

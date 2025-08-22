@@ -12,7 +12,7 @@ from beamlime.handlers.monitor_data_handler import (
     MonitorDataParams,
     MonitorHandlerFactory,
     MonitorStreamProcessor,
-    make_beam_monitor_instrument,
+    register_monitor_workflows,
 )
 from beamlime.parameter_models import TimeUnit, TOAEdges
 
@@ -199,7 +199,7 @@ def test_make_beam_monitor_instrument():
     name = "test_instrument"
     source_names = ["source1", "source2"]
 
-    instrument = make_beam_monitor_instrument(name, source_names)
+    instrument = register_monitor_workflows(name, source_names)
 
     assert instrument.name == f"{name}_beam_monitors"
 
@@ -221,7 +221,7 @@ class TestMonitorHandlerFactory:
     @pytest.fixture
     def mock_instrument(self):
         """Create a mock instrument for testing."""
-        return make_beam_monitor_instrument("test", ["source1"])
+        return register_monitor_workflows("test", ["source1"])
 
     @pytest.fixture
     def factory(self, mock_instrument):

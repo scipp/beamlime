@@ -30,6 +30,10 @@ class WorkflowSpec(BaseModel):
     instrument: str = Field(
         description="Name of the instrument this workflow is associated with."
     )
+    namespace: str = Field(
+        default='data_reduction',
+        description="Namespace for the workflow, used to group workflows logically.",
+    )
     name: str = Field(description="Name of the workflow. Used internally.")
     version: int = Field(description="Version of the workflow.")
     title: str = Field(description="Title of the workflow. For display in the UI.")

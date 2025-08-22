@@ -20,7 +20,7 @@ from beamlime import parameter_models
 from beamlime.config import Instrument, instrument_registry
 from beamlime.config.env import StreamingEnv
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
-from beamlime.handlers.monitor_data_handler import make_beam_monitor_instrument
+from beamlime.handlers.monitor_data_handler import register_monitor_workflows
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
@@ -161,13 +161,8 @@ instrument = Instrument(
         'monitor2': NeXusData[Transmission, SampleRun],
     },
 )
-
-_monitor_instrument = make_beam_monitor_instrument(
-    name='loki', source_names=['monitor1', 'monitor2']
-)
-
+register_monitor_workflows(instrument=instrument, source_names=['monitor1', 'monitor2'])
 instrument_registry.register(instrument)
-instrument_registry.register(_monitor_instrument)
 
 
 def _transmission_from_current_run(

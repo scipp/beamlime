@@ -12,14 +12,11 @@ import panel as pn
 from holoviews import streams
 
 from beamlime import Service
-from beamlime.config import instrument_registry, keys
-from beamlime.config.instruments import get_config
+from beamlime.config import keys
 
 from . import plots
 from .dashboard import DashboardBase
-from .widgets.reduction_widget import ReductionWidget
 from .widgets.start_time_widget import StartTimeWidget
-from .workflow_controller import WorkflowController
 
 pn.extension('holoviews', 'modal', template='material')
 hv.extension('bokeh')
@@ -52,13 +49,7 @@ class DashboardApp(DashboardBase):
         )
         self._config = _config[instrument]
 
-        # Load the module to register the instrument's workflows.
-        self._instrument_module = get_config(instrument)
-        self._processor_factory = instrument_registry[
-            f'{self._instrument}_detectors'
-        ].processor_factory
-
-        self._setup_workflow_management()
+        self._setup_workflow_management('detector_data')
         self._setup_detector_streams()
         self._view_toggle = pn.widgets.RadioBoxGroup(
             value='Current', options=["Current", "Cumulative"], inline=True
@@ -71,16 +62,6 @@ class DashboardApp(DashboardBase):
         self._reset_controller = self._controller_factory.create(
             config_key=keys.DETECTOR_START_TIME.create_key()
         )
-
-    def _setup_workflow_management(self) -> None:
-        """Initialize workflow controller and reduction widget."""
-        self._workflow_controller = WorkflowController.from_config_service(
-            config_service=self._config_service,
-            source_names=sorted(self._processor_factory.source_names),
-            workflow_registry=self._processor_factory,
-            data_service=self._data_services['detector_data'],
-        )
-        self._reduction_widget = ReductionWidget(controller=self._workflow_controller)
 
     def _setup_detector_streams(self):
         """Initialize streams for detector data."""

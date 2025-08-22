@@ -28,9 +28,8 @@ from beamlime.handlers.detector_data_handler import (
     DetectorProjection,
     LogicalViewConfig,
     get_nexus_geometry_filename,
-    make_detector_data_instrument,
 )
-from beamlime.handlers.monitor_data_handler import make_beam_monitor_instrument
+from beamlime.handlers.monitor_data_handler import register_monitor_workflows
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
@@ -45,20 +44,15 @@ instrument = Instrument(
         'monitor1': NeXusData[powder.types.CaveMonitor, SampleRun],
     },
 )
+instrument.add_detector('mantle_detector')
+instrument.add_detector('endcap_backward_detector')
+instrument.add_detector('endcap_forward_detector')
+instrument.add_detector('high_resolution_detector')
+instrument.add_detector('sans_detector')
 
-_monitor_instrument = make_beam_monitor_instrument(
-    name='dream', source_names=['monitor1', 'monitor2']
-)
-_detector_instrument = make_detector_data_instrument(name='dream')
-_detector_instrument.add_detector('mantle_detector')
-_detector_instrument.add_detector('endcap_backward_detector')
-_detector_instrument.add_detector('endcap_forward_detector')
-_detector_instrument.add_detector('high_resolution_detector')
-_detector_instrument.add_detector('sans_detector')
+register_monitor_workflows(instrument=instrument, source_names=['monitor1', 'monitor2'])
 
 instrument_registry.register(instrument)
-instrument_registry.register(_monitor_instrument)
-instrument_registry.register(_detector_instrument)
 
 _res_scale = 8
 pixel_noise = sc.scalar(4.0, unit='mm')
@@ -66,7 +60,7 @@ pixel_noise = sc.scalar(4.0, unit='mm')
 
 # Order in 'resolution' matters so plots have X as horizontal axis and Y as vertical.
 _xy_projection = DetectorProjection(
-    instrument=_detector_instrument,
+    instrument=instrument,
     projection='xy_plane',
     resolution={
         'endcap_backward_detector': {'y': 30, 'x': 20},
@@ -77,7 +71,7 @@ _xy_projection = DetectorProjection(
 # We use the arc length instead of phi as it makes it easier to get a correct
 # aspect ratio for the plot if both axes have the same unit.
 _cylinder_projection = DetectorProjection(
-    instrument=_detector_instrument,
+    instrument=instrument,
     projection='cylinder_mantle_z',
     resolution={'mantle_detector': {'arc_length': 10, 'z': 40}},
 )
@@ -105,7 +99,7 @@ _mantle_front_layer_config = LogicalViewConfig(
 )
 
 _logical_view = DetectorLogicalView(
-    instrument=_detector_instrument, config=_mantle_front_layer_config
+    instrument=instrument, config=_mantle_front_layer_config
 )
 
 

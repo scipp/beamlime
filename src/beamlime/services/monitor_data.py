@@ -28,7 +28,7 @@ def make_monitor_service_builder(
     service_name = 'monitor_data'
     config_handler = ConfigHandler(service_name=service_name)
     handler_factory = monitor_data_handler.MonitorHandlerFactory(
-        instrument=instrument_registry[f'{instrument}_beam_monitors']
+        instrument=instrument_registry[instrument]
     )
     builder = DataServiceBuilder(
         instrument=instrument,

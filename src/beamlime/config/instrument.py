@@ -66,8 +66,7 @@ class Instrument:
         from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 
         if self._nexus_file is None:
-            instrument_name = self.name.split('_')[0]
-            self._nexus_file = get_nexus_geometry_filename(instrument_name)
+            self._nexus_file = get_nexus_geometry_filename(self.name)
         if self._nexus_file is None:
             raise ValueError(f"Nexus file not set or found for instrument {self.name}.")
         return self._nexus_file
@@ -99,6 +98,7 @@ class Instrument:
     def register_workflow(
         self,
         *,
+        namespace: str = 'data_reduction',
         name: str,
         version: int,
         title: str,
@@ -143,6 +143,7 @@ class Instrument:
         """
         spec = WorkflowSpec(
             instrument=self.name,
+            namespace=namespace,
             name=name,
             version=version,
             title=title,

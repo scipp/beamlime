@@ -29,9 +29,7 @@ def make_detector_service_builder(
     _ = get_config(instrument)  # Load the module to register the instrument
     service_name = 'detector_data'
     config_handler = ConfigHandler(service_name=service_name)
-    handler_factory = DetectorHandlerFactory(
-        instrument=instrument_registry[f'{instrument}_detectors']
-    )
+    handler_factory = DetectorHandlerFactory(instrument=instrument_registry[instrument])
     builder = DataServiceBuilder(
         instrument=instrument,
         name=service_name,

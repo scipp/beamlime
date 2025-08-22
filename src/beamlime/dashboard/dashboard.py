@@ -12,8 +12,9 @@ import scipp as sc
 from holoviews import Dimension, streams
 
 from beamlime import ServiceBase
-from beamlime.config import config_names
+from beamlime.config import config_names, instrument_registry
 from beamlime.config.config_loader import load_config
+from beamlime.config.instruments import get_config
 from beamlime.config.schema_registry import get_schema_registry
 from beamlime.config.streams import stream_kind_to_topic
 from beamlime.core.message import StreamKind
@@ -40,6 +41,8 @@ from .stream_manager import (
     MonitorStreamManager,
     ReductionStreamManager,
 )
+from .widgets.reduction_widget import ReductionWidget
+from .workflow_controller import WorkflowController
 
 # Global throttling for sliders, etc.
 pn.config.throttled = True
@@ -73,6 +76,12 @@ class DashboardBase(ServiceBase, ABC):
 
         # Global unit format.
         Dimension.unit_format = ' [{unit}]'
+
+        # Load the module to register the instrument's workflows.
+        self._instrument_module = get_config(instrument)
+        self._processor_factory = instrument_registry[
+            self._instrument
+        ].processor_factory
 
     @abstractmethod
     def create_sidebar_content(self) -> pn.viewable.Viewable:
@@ -164,6 +173,21 @@ class DashboardBase(ServiceBase, ABC):
                 second=Da00ToScippAdapter(),
             ),
         )
+
+    def _setup_workflow_management(self, namespace: str) -> None:
+        """Initialize workflow controller and reduction widget."""
+        workflow_registry = {
+            key: workflow
+            for key, workflow in self._processor_factory.items()
+            if workflow.namespace == namespace
+        }
+        self._workflow_controller = WorkflowController.from_config_service(
+            config_service=self._config_service,
+            source_names=sorted(self._processor_factory.source_names),
+            workflow_registry=workflow_registry,
+            data_service=self._data_services[namespace],
+        )
+        self._reduction_widget = ReductionWidget(controller=self._workflow_controller)
 
     def _step(self):
         """Step function for periodic updates."""
