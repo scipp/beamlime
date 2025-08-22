@@ -32,7 +32,7 @@ comm==0.2.3
     # via
     #   ipykernel
     #   ipywidgets
-debugpy==1.8.15
+debugpy==1.8.16
     # via ipykernel
 decorator==5.2.1
     # via ipython
@@ -46,7 +46,7 @@ docutils==0.21.2
     #   sphinx
 executing==2.2.0
     # via stack-data
-fastjsonschema==2.21.1
+fastjsonschema==2.21.2
     # via nbformat
 imagesize==1.4.1
     # via sphinx
@@ -98,7 +98,7 @@ matplotlib-inline==0.1.7
     # via
     #   ipykernel
     #   ipython
-mdit-py-plugins==0.4.2
+mdit-py-plugins==0.5.0
     # via myst-parser
 mdurl==0.1.2
     # via markdown-it-py
@@ -165,7 +165,7 @@ referencing==0.36.2
     # via
     #   jsonschema
     #   jsonschema-specifications
-rpds-py==0.26.0
+rpds-py==0.27.0
     # via
     #   jsonschema
     #   referencing
@@ -208,7 +208,7 @@ stack-data==0.6.3
     # via ipython
 tinycss2==1.4.0
     # via bleach
-tornado==6.5.1
+tornado==6.5.2
     # via
     #   ipykernel
     #   jupyter-client

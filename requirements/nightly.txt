@@ -14,7 +14,7 @@ asttokens==3.0.0
     # via stack-data
 certifi==2025.8.3
     # via requests
-charset-normalizer==3.4.2
+charset-normalizer==3.4.3
     # via requests
 click==8.2.1
     # via dask
@@ -58,7 +58,7 @@ executing==2.2.0
     # via stack-data
 flatbuffers==25.2.10
     # via ess-streaming-data-types
-fonttools==4.59.0
+fonttools==4.59.1
     # via matplotlib
 fsspec==2025.7.0
     # via dask
@@ -95,7 +95,7 @@ jinja2==3.1.6
     # via -r nightly.in
 jupyterlab-widgets==3.0.15
     # via ipywidgets
-kiwisolver==1.4.8
+kiwisolver==1.4.10rc0
     # via matplotlib
 lazy-loader==0.4
     # via
