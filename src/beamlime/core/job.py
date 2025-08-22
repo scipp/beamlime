@@ -266,11 +266,14 @@ class JobManager:
         This may include processing the accumulated data and preparing it for output.
         """
         results = [job.get() for job in self.active_jobs]
+        self._finish_jobs()
+        return results
+
+    def _finish_jobs(self):
         for job_id in self._finishing_jobs:
             _ = self._active_jobs.pop(job_id, None)
             _ = self._job_schedules.pop(job_id, None)  # Clean up schedule
         self._finishing_jobs.clear()
-        return results
 
     def format_job_error(self, status: JobStatus) -> str:
         """Format a job error message with meaningful job information."""
