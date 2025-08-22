@@ -8,9 +8,6 @@ import pytest
 from streaming_data_types import eventdata_ev44
 
 from beamlime.config import instrument_registry, workflow_spec
-
-# Import instrument modules so their workflows get registered.
-from beamlime.config.instruments import dream, dummy, loki  # noqa: F401
 from beamlime.config.models import ConfigKey, StartTime
 from beamlime.services.data_reduction import make_reduction_service_builder
 from tests.helpers.beamlime_app import BeamlimeApp
@@ -32,6 +29,14 @@ def make_reduction_app(instrument: str) -> BeamlimeApp:
     return BeamlimeApp.from_service_builder(builder)
 
 
+first_source_name = {
+    'dummy': 'panel_0',
+    'dream': 'mantle_detector',
+    'bifrost': 'unified_detector',
+    'loki': 'loki_detector_0',
+}
+
+
 @pytest.mark.parametrize("instrument", ['bifrost', 'dummy', 'dream'])
 def test_can_configure_and_stop_workflow_with_detector(
     instrument: str, caplog: pytest.LogCaptureFixture
@@ -50,16 +55,15 @@ def test_can_configure_and_stop_workflow_with_detector(
     check_counts = instrument != 'dream'
     workflow_id, _ = _get_workflow_from_registry(instrument, workflow_name)
 
-    # Assume workflow is runnable for all source names
+    source_name = first_source_name[instrument]
     config_key = ConfigKey(
-        source_name=None, service_name="data_reduction", key="workflow_config"
+        source_name=source_name, service_name="data_reduction", key="workflow_config"
     )
     workflow_config = workflow_spec.WorkflowConfig(identifier=workflow_id)
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
     service.step()
-    n_det = 4 if instrument == 'dream' else 1
-    assert len(sink.messages) == n_det  # Workflow status message
+    assert len(sink.messages) == 1  # Workflow status message
     sink.messages.clear()
 
     app.publish_events(size=2000, time=2)
@@ -76,25 +80,24 @@ def test_can_configure_and_stop_workflow_with_detector(
     if check_counts:
         assert sink.messages[1].value.values.sum() == 5000
 
-    # More events but the same time, should not publish again
+    # More events but the same time
     app.publish_events(size=1000, time=4)
-    service.step()
-    assert len(sink.messages) == 2 * n_target
-
-    # Later time should publish again, including the previous events with duplicate time
+    # Later time
     app.publish_events(size=1000, time=5)
     service.step()
     assert len(sink.messages) == 3 * n_target
     if check_counts:
+        # Result should include previous events with duplicate time
         assert sink.messages[2].value.values.sum() == 7000
 
     # Stop workflow
-    app.publish_config_message(key=config_key, value=None)
+    stop = workflow_spec.WorkflowConfig(identifier=None).model_dump()
+    app.publish_config_message(key=config_key, value=stop)
     app.publish_events(size=1000, time=10)
     service.step()
     app.publish_events(size=1000, time=20)
     service.step()
-    assert len(sink.messages) == 3 * n_target + n_det  # + n_det for the stop message(s)
+    assert len(sink.messages) == 3 * n_target + 1  # + 1 for the stop message
 
 
 @pytest.mark.parametrize("instrument", ['dream', 'loki'])
@@ -116,9 +119,9 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     n_target = {'dream': 2, 'loki': 1}[instrument]
     workflow_id, spec = _get_workflow_from_registry(instrument, workflow_name)
 
-    # Assume workflow is runnable for all source names
+    source_name = first_source_name[instrument]
     config_key = ConfigKey(
-        source_name=None, service_name="data_reduction", key="workflow_config"
+        source_name=source_name, service_name="data_reduction", key="workflow_config"
     )
     workflow_config = workflow_spec.WorkflowConfig(identifier=workflow_id)
     # Trigger workflow start
@@ -132,13 +135,8 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     # No monitor data yet, so the workflow was not able to produce a result yet
     assert len(sink.messages) == 0
 
-    # Monitor messages on their own do not trigger the workflow...
+    # Monitor messages triggers and passes the workflow
     app.publish_monitor_events(size=2000, time=3)
-    service.step()
-    assert len(sink.messages) == 0
-
-    # ... trigger by detector events instead
-    app.publish_events(size=0, time=3)
     service.step()
     assert len(sink.messages) == 1 * n_target
 
@@ -149,18 +147,16 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     service.step()
     assert len(sink.messages) == 2 * n_target
 
-    # More events but the same time, should not publish again
+    # More events but the same time
     app.publish_events(size=1000, time=4)
-    service.step()
-    assert len(sink.messages) == 2 * n_target
-
-    # Later time should publish again
+    # Later time
     app.publish_events(size=1000, time=5)
     service.step()
     assert len(sink.messages) == 3 * n_target
 
     # Stop workflow
-    app.publish_config_message(key=config_key, value=None)
+    stop = workflow_spec.WorkflowConfig(identifier=None).model_dump()
+    app.publish_config_message(key=config_key, value=stop)
     app.publish_events(size=1000, time=10)
     service.step()
     app.publish_events(size=1000, time=20)
@@ -178,9 +174,8 @@ def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None
     app.publish_events(size=1000, time=0)
     service.step()
 
-    # Assume workflow is runnable for all source names
     config_key = ConfigKey(
-        source_name=None, service_name="data_reduction", key="workflow_config"
+        source_name='panel_0', service_name="data_reduction", key="workflow_config"
     )
     workflow_config = workflow_spec.WorkflowConfig(identifier=workflow_id)
     # Trigger workflow start
@@ -223,12 +218,11 @@ def test_service_can_recover_after_bad_workflow_id_was_set(
     service = app.service
     workflow_id, spec = _get_workflow_from_registry('dummy', 'total_counts')
 
-    # Assume workflow is runnable for all source names
     config_key = ConfigKey(
-        source_name=None, service_name="data_reduction", key="workflow_config"
+        source_name='panel_0', service_name="data_reduction", key="workflow_config"
     )
     bad_workflow_id = workflow_spec.WorkflowConfig(
-        identifier='abcde12345',  # Invalid workflow ID
+        identifier='dummy/abcde12345',  # Invalid workflow ID
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())
@@ -260,11 +254,10 @@ def test_service_can_recover_after_bad_workflow_param_was_set(
     app = make_reduction_app(instrument='dummy')
     sink = app.sink
     service = app.service
-    workflow_id, spec = _get_workflow_from_registry('dummy', 'total_counts')
+    workflow_id, _ = _get_workflow_from_registry('dummy', 'total_counts')
 
-    # Assume workflow is runnable for all source names
     config_key = ConfigKey(
-        source_name=None, service_name="data_reduction", key="workflow_config"
+        source_name='panel_0', service_name="data_reduction", key="workflow_config"
     )
     bad_param_value = workflow_spec.WorkflowConfig(
         identifier=workflow_id, params={'does_not_exist': 1}
@@ -295,11 +288,13 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
     app = make_reduction_app(instrument='dummy')
     sink = app.sink
     service = app.service
-    workflow_id, spec = _get_workflow_from_registry('dummy', 'total_counts')
+    workflow_id, _ = _get_workflow_from_registry('dummy', 'total_counts')
 
     # Start a valid workflow first
     config_key = ConfigKey(
-        source_name=None, service_name="data_reduction", key="workflow_config"
+        source_name=first_source_name['dummy'],
+        service_name="data_reduction",
+        key="workflow_config",
     )
     workflow_config = workflow_spec.WorkflowConfig(
         identifier=workflow_id,
@@ -316,7 +311,7 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
 
     # Try to set an invalid workflow ID
     bad_workflow_id = workflow_spec.WorkflowConfig(
-        identifier='abcde12345',  # Invalid workflow ID
+        identifier='dummy/abcde12345',  # Invalid workflow ID
         params={},
     )
     app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())
@@ -346,20 +341,15 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
     [False, True],
     ids=["config_before_data", "data_before_config"],
 )
-@pytest.mark.parametrize(
-    "all_source_names", [False, True], ids=["specific_source", "all_sources"]
-)
-def test_workflow_starts_with_specific_or_global_source_name(
-    data_before_config: bool,
-    all_source_names: bool,
-    caplog: pytest.LogCaptureFixture,
+def test_workflow_starts_with_specific_source_name(
+    data_before_config: bool, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.INFO)
     app = make_reduction_app(instrument='dummy')
     sink = app.sink
     service = app.service
     workflow_id, spec = _get_workflow_from_registry('dummy', 'total_counts')
-    source_name = None if all_source_names else spec.source_names[0]
+    source_name = spec.source_names[0]
 
     # This branch ensures that the service configures the workflow even for source names
     # it has not "seen" yet.
@@ -414,7 +404,7 @@ def test_fully_consumes_long_chain_of_event_messages(
     configured_dummy_reduction: BeamlimeApp,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logging.DEBUG)
     app = configured_dummy_reduction
     sink = app.sink
 

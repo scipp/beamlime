@@ -102,43 +102,6 @@ class Controller(Generic[K]):
         self._config_service.subscribe(self._config_key, self._trigger_callback)
 
 
-class BinEdgeController(Controller[K]):
-    def __init__(
-        self,
-        *,
-        config_key: K,
-        config_service: ConfigService[K, Any, pydantic.BaseModel],
-        schema: type[pydantic.BaseModel],
-    ) -> None:
-        super().__init__(
-            config_key=config_key, config_service=config_service, schema=schema
-        )
-        self._old_unit: str | None = None
-
-    def _preprocess_config(self, value: dict[str, Any]) -> dict[str, Any]:
-        self._old_unit = value['unit']
-        return value
-
-    def _preprocess_value(self, value: dict[str, Any]) -> dict[str, Any]:
-        unit = value['unit']
-        if self._old_unit is None:
-            self._old_unit = unit
-        elif unit != self._old_unit:
-            preprocessed = value.copy()
-            preprocessed['low'] = self._to_unit(value['low'], self._old_unit, unit)
-            preprocessed['high'] = self._to_unit(value['high'], self._old_unit, unit)
-            return preprocessed
-        return value
-
-    def _to_unit(self, value: float, old_unit: str, new_unit: str) -> float:
-        # We round the result to avoid floating-point precision issues when switching
-        # units. Otherwise, the value might not match the original value when converted
-        # back to the old unit.
-        return round(
-            sc.scalar(value, unit=old_unit).to(unit=new_unit).value, ndigits=12
-        )
-
-
 class RangeController(Controller[K]):
     """Controller for range settings that converts between center/width and low/high."""
 

@@ -3,13 +3,14 @@
 
 import scipp as sc
 
-from beamlime.config import Instrument
+from beamlime.config import Instrument, instrument_registry
 from beamlime.config.env import StreamingEnv
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
 instrument = Instrument(name='odin')
+instrument_registry.register(instrument)
 
 # Note: Panel size is fake and does not correspond to production setting
 detectors_config = {

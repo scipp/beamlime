@@ -7,9 +7,10 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from ess.reduce.streaming import StreamProcessor
-
-from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
+from beamlime.handlers.stream_processor_factory import (
+    StreamProcessor,
+    StreamProcessorFactory,
+)
 
 from .workflow_spec import WorkflowSpec
 
@@ -35,9 +36,6 @@ class InstrumentRegistry(UserDict[str, 'Instrument']):
         self[instrument.name] = instrument
 
 
-instrument_registry = InstrumentRegistry()
-
-
 @dataclass(frozen=True, kw_only=True)
 class Instrument:
     """
@@ -47,7 +45,8 @@ class Instrument:
     It includes the stream mapping, processor factory, and other settings
     required for the instrument to function correctly.
 
-    Instances are automatically registered with the global registry upon creation.
+    Instances must be explicitly registered with the global registry using
+    `instrument_registry.register(instrument)`.
     """
 
     name: str
@@ -57,10 +56,6 @@ class Instrument:
     source_to_key: dict[str, type] = field(default_factory=dict)
     f144_attribute_registry: dict[str, dict[str, Any]] = field(default_factory=dict)
 
-    def __post_init__(self) -> None:
-        """Register the instrument with the global registry after initialization."""
-        instrument_registry.register(self)
-
     def register_workflow(
         self,
         *,
@@ -69,6 +64,7 @@ class Instrument:
         title: str,
         description: str = '',
         source_names: Sequence[str] | None = None,
+        aux_source_names: Sequence[str] | None = None,
     ) -> Callable[[Callable[..., StreamProcessor]], Callable[..., StreamProcessor]]:
         """
         Decorator to register a factory function for creating StreamProcessors.
@@ -98,6 +94,8 @@ class Instrument:
         source_names:
             Optional list of source names that the factory can handle. This is used to
             create a workflow specification.
+        aux_source_names:
+            List of auxiliary source names that the workflow needs.
 
         Returns
         -------
@@ -111,5 +109,9 @@ class Instrument:
             description=description,
             source_names=list(source_names or []),
             params=None,  # placeholder, filled in from type hint later
+            aux_source_names=list(aux_source_names or []),
         )
         return self.processor_factory.register(spec)
+
+
+instrument_registry = InstrumentRegistry()

@@ -66,6 +66,16 @@ class EdgesModel(BaseModel, ABC):
         return v
 
 
+class TimeUnit(str, Enum):
+    """Allowed units for time."""
+
+    NS = 'ns'
+    US = 'us'
+    MICROSECOND = 'μs'
+    MS = 'ms'
+    S = 's'
+
+
 class WavelengthUnit(str, Enum):
     """Allowed units for wavelength."""
 
@@ -112,6 +122,16 @@ class WavelengthRange(RangeModel):
     def get_stop(self) -> sc.Variable:
         """Get the stop of the range as a scipp variable."""
         return sc.scalar(self.stop, unit=self.unit.value)
+
+
+class TOAEdges(EdgesModel):
+    """Model for time of arrival edges."""
+
+    unit: TimeUnit = Field(default=TimeUnit.MS, description="Unit of the edges.")
+
+    def get_edges(self) -> sc.Variable:
+        """Get the edges as a scipp variable."""
+        return make_edges(model=self, dim='time_of_arrival', unit=self.unit.value)
 
 
 class WavelengthEdges(EdgesModel):

@@ -2,6 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import pytest
 
+from beamlime.config.keys import WORKFLOW_CONFIG, WORKFLOW_STATUS
 from beamlime.config.models import ConfigKey
 from beamlime.config.schema_registry import get_schema_registry
 from beamlime.config.workflow_spec import (
@@ -104,8 +105,8 @@ def test_send_workflow_config(
 
     key, value = published_messages[0]
     assert key.source_name == source_name
-    assert key.service_name == "data_reduction"
-    assert key.key == "workflow_config"
+    assert key.service_name == WORKFLOW_CONFIG.service_name
+    assert key.key == WORKFLOW_CONFIG.key
     assert value["identifier"] == sample_workflow_config.identifier
     assert value["params"] == sample_workflow_config.params
 
@@ -123,11 +124,7 @@ def test_subscribe_to_workflow_status(
     workflow_config_service.subscribe_to_workflow_status(source_name, callback)
 
     # Simulate incoming workflow status update
-    status_key = ConfigKey(
-        source_name=source_name,
-        service_name='data_reduction',
-        key='workflow_status',
-    )
+    status_key = WORKFLOW_STATUS.create_key(source_name=source_name)
     serialized_status = sample_workflow_status.model_dump(mode='json')
     fake_message_bridge.add_incoming_message((status_key, serialized_status))
     workflow_config_service._config_service.process_incoming_messages()
@@ -156,11 +153,7 @@ def test_subscribe_to_workflow_status_different_sources(
     workflow_config_service.subscribe_to_workflow_status("source2", source2_callback)
 
     # Send update for source1 only
-    status_key = ConfigKey(
-        source_name="source1",
-        service_name='data_reduction',
-        key='workflow_status',
-    )
+    status_key = WORKFLOW_STATUS.create_key(source_name="source1")
     serialized_status = sample_workflow_status.model_dump(mode='json')
     fake_message_bridge.add_incoming_message((status_key, serialized_status))
     workflow_config_service._config_service.process_incoming_messages()
@@ -187,11 +180,7 @@ def test_multiple_subscribers_same_key(
     workflow_config_service.subscribe_to_workflow_status(source_name, callback2)
 
     # Send update
-    status_key = ConfigKey(
-        source_name=source_name,
-        service_name='data_reduction',
-        key='workflow_status',
-    )
+    status_key = WORKFLOW_STATUS.create_key(source_name=source_name)
     serialized_status = sample_workflow_status.model_dump(mode='json')
     fake_message_bridge.add_incoming_message((status_key, serialized_status))
     workflow_config_service._config_service.process_incoming_messages()
@@ -209,11 +198,7 @@ def test_callback_receives_existing_data_on_subscription(
     source_name = "source1"
 
     # First, set up some existing data
-    status_key = ConfigKey(
-        source_name=source_name,
-        service_name='data_reduction',
-        key='workflow_status',
-    )
+    status_key = WORKFLOW_STATUS.create_key(source_name=source_name)
     serialized_status = sample_workflow_status.model_dump(mode='json')
     fake_message_bridge.add_incoming_message((status_key, serialized_status))
     workflow_config_service._config_service.process_incoming_messages()

@@ -9,7 +9,7 @@ Usage patterns:
 - Creating ConfigKey: WORKFLOW_CONFIG.create_key(source_name="my_source")
 """
 
-from beamlime.config.models import StartTime, TOAEdges, TOARange
+from beamlime.config.models import StartTime, TOARange
 from beamlime.config.workflow_spec import (
     PersistentWorkflowConfigs,
     WorkflowConfig,
@@ -47,15 +47,6 @@ REDUCTION_START_TIME = _registry.create(
     consumed_by={"dashboard"},
 )
 
-MONITOR_TOA_EDGES = _registry.create(
-    key="toa_edges",
-    service_name="monitor_data",
-    model=TOAEdges,
-    description="Time of Arrival edges for a TOA histogram",
-    produced_by={"dashboard"},
-    consumed_by={"monitor_data"},
-)
-
 DETECTOR_TOA_RANGE = _registry.create(
     key="toa_range",
     service_name="detector_data",
@@ -68,16 +59,19 @@ DETECTOR_TOA_RANGE = _registry.create(
 # Data reduction service keys
 WORKFLOW_STATUS = _registry.create(
     key="workflow_status",
-    service_name="data_reduction",
+    service_name="job_server",
     model=WorkflowStatus,
     description="Current status of a workflow for a source",
     produced_by={"data_reduction"},
     consumed_by={"dashboard"},
 )
 
+# Backend now filters based on instrument name (part of the identifier). This
+# mechanism will likely change again in the future, but for now service_name=None so
+# all backend services receive this.
 WORKFLOW_CONFIG = _registry.create(
     key="workflow_config",
-    service_name="data_reduction",
+    service_name=None,
     model=WorkflowConfig,
     description="Configuration for a workflow",
     produced_by={"dashboard"},

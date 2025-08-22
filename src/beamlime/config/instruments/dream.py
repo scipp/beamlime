@@ -21,9 +21,10 @@ from ess.reduce.streaming import StreamProcessor
 from scippnexus import NXdetector
 
 from beamlime import parameter_models
-from beamlime.config import Instrument
+from beamlime.config import Instrument, instrument_registry
 from beamlime.config.env import StreamingEnv
 from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
+from beamlime.handlers.monitor_data_handler import make_beam_monitor_instrument
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
@@ -38,6 +39,13 @@ instrument = Instrument(
         'monitor1': NeXusData[powder.types.CaveMonitor, SampleRun],
     },
 )
+
+_monitor_instrument = make_beam_monitor_instrument(
+    name='dream', source_names=['monitor1', 'monitor2']
+)
+
+instrument_registry.register(instrument)
+instrument_registry.register(_monitor_instrument)
 
 
 def _get_mantle_front_layer(da: sc.DataArray) -> sc.DataArray:

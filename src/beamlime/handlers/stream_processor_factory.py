@@ -1,11 +1,23 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import inspect
-from collections.abc import Callable, Iterator, Mapping
-
-from ess.reduce.streaming import StreamProcessor
+import typing
+from collections.abc import Callable, Hashable, Iterator, Mapping
+from typing import Any, Protocol
 
 from beamlime.config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
+
+
+class StreamProcessor(Protocol):
+    """
+    Protocol matching ess.reduce.streaming.StreamProcessor, used by :py:class:`Job`.
+
+    There will be other implementations, in particular for non-data-reduction jobs.
+    """
+
+    def accumulate(self, data: dict[Hashable, Any]) -> None: ...
+    def finalize(self) -> dict[Hashable, Any]: ...
+    def clear(self) -> None: ...
 
 
 class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
@@ -60,13 +72,10 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
             factory: Callable[..., StreamProcessor],
         ) -> Callable[..., StreamProcessor]:
             # Try to get the type hint of the 'params' argument if it exists
-            sig = inspect.signature(factory)
-            params_type = None
-            params_param = sig.parameters.get('params')
-            if params_param is not None:
-                params_type = params_param.annotation
-                if params_type is params_param.empty:
-                    params_type = None
+            # Use get_type_hints to resolve forward references, in case we used
+            # `from __future__ import annotations`.
+            type_hints = typing.get_type_hints(factory, globalns=factory.__globals__)
+            params_type = type_hints.get('params', None)
             spec.params = params_type
             self._factories[spec_id] = factory
             self._workflow_specs[spec_id] = spec

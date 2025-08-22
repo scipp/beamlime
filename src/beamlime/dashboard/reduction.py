@@ -6,7 +6,7 @@ import holoviews as hv
 import panel as pn
 
 from beamlime import Service
-from beamlime.config import keys
+from beamlime.config import instrument_registry, keys
 from beamlime.config.instruments import get_config
 
 from . import plots
@@ -32,6 +32,7 @@ class ReductionApp(DashboardBase):
         )
         # Load the module to register the instrument's workflows.
         self._instrument_module = get_config(instrument)
+        self._processor_factory = instrument_registry[instrument].processor_factory
 
         self._setup_workflow_management()
         self._setup_reduction_streams()
@@ -40,30 +41,19 @@ class ReductionApp(DashboardBase):
         )
         self._logger.info("Reduction dashboard initialized")
 
-    def source_names(self) -> list[str]:
-        """Return the set of source names that this dashboard monitors."""
-        return sorted(
-            [
-                'mantle_detector',
-                'endcap_forward_detector',
-                'endcap_backward_detector',
-                'high_resolution_detector',
-            ]
-        )
-
     def _setup_workflow_management(self) -> None:
         """Initialize workflow controller and reduction widget."""
         self._workflow_controller = WorkflowController.from_config_service(
             config_service=self._config_service,
-            source_names=list(self.source_names()),
-            workflow_registry=self._instrument_module.instrument.processor_factory,
+            source_names=sorted(self._processor_factory.source_names),
+            workflow_registry=self._processor_factory,
             data_service=self._data_services['data_reduction'],
         )
         self._reduction_widget = ReductionWidget(controller=self._workflow_controller)
 
     def _setup_reduction_streams(self) -> None:
         """Initialize streams for reduction data."""
-        source_names = set(self.source_names())
+        source_names = self._processor_factory.source_names
         self._focussed_d_pipe = self._reduction_stream_manager.get_stream(
             source_names=source_names,
             view_name='ess.powder.types.FocussedDataDspacing[ess.reduce.nexus.types.SampleRun]',
@@ -119,17 +109,11 @@ class ReductionApp(DashboardBase):
         return pn.Tabs(
             (
                 "I(d) (vanadium normalized)",
-                pn.Column(
-                    pn.pane.HoloViews(iofd),
-                    pn.pane.HoloViews(iofd2theta),
-                ),
+                pn.Column(pn.pane.HoloViews(iofd), pn.pane.HoloViews(iofd2theta)),
             ),
             (
                 "Focussed Data (before vanadium normalization)",
-                pn.Column(
-                    pn.pane.HoloViews(foc_d),
-                    pn.pane.HoloViews(foc_d2theta),
-                ),
+                pn.Column(pn.pane.HoloViews(foc_d), pn.pane.HoloViews(foc_d2theta)),
             ),
         )
 
