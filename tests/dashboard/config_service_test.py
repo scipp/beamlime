@@ -85,8 +85,8 @@ class MockGUIComponent:
         # Simulate widget value changes that would normally trigger change events
         old_low = self.low
         self.enabled = data.enabled
-        self.low = data.low
-        self.high = data.high
+        self.low = data.start
+        self.high = data.stop
         self.unit = data.unit
 
         # Simulate widget change event that would trigger in real widgets
@@ -98,7 +98,7 @@ class MockGUIComponent:
         """Simulate a widget change event that would echo back to config service."""
         if self._config_service:
             config = TOARange(
-                enabled=self.enabled, low=self.low, high=self.high, unit=self.unit
+                enabled=self.enabled, start=self.low, stop=self.high, unit=self.unit
             )
             self._config_service.update_config(self.config_key, config)
 
@@ -158,7 +158,7 @@ class TestConfigService:
         service.subscribe(key=config_key, callback=callback)
 
         # Create a config update and add it to the bridge
-        config_data = {'enabled': False, 'low': 1000.0, 'high': 2000.0, 'unit': 'us'}
+        config_data = {'enabled': False, 'start': 1000.0, 'stop': 2000.0, 'unit': 'us'}
         bridge.add_incoming_message((config_key, config_data))
 
         # Process the message
@@ -167,8 +167,8 @@ class TestConfigService:
         assert callback.called is True
         toa_range = callback.data
         assert toa_range.enabled is False
-        assert toa_range.low == 1000.0
-        assert toa_range.high == 2000.0
+        assert toa_range.start == 1000.0
+        assert toa_range.stop == 2000.0
         assert toa_range.unit == 'us'
 
     def test_bidirectional_param_binding_no_infinite_cycle(
@@ -187,7 +187,7 @@ class TestConfigService:
         bridge.add_incoming_message(
             (
                 config_key,
-                {'enabled': True, 'low': 1000.0, 'high': 2000.0, 'unit': 'us'},
+                {'enabled': True, 'start': 1000.0, 'stop': 2000.0, 'unit': 'us'},
             )
         )
 

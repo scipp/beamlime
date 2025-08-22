@@ -36,7 +36,7 @@ class TestSchemaValidator:
     def test_validate_with_registered_schema(self, populated_validator):
         """Test validate method with registered schemas and valid models."""
         simple_instance = SimpleModel(name='test', value=42)
-        toa_instance = TOARange(enabled=True, low=1000.0, high=2000.0, unit='us')
+        toa_instance = TOARange(enabled=True, start=1000.0, stop=2000.0, unit='us')
 
         assert populated_validator.validate('simple', simple_instance) is True
         assert populated_validator.validate('toa_range', toa_instance) is True
@@ -44,7 +44,7 @@ class TestSchemaValidator:
     def test_validate_with_wrong_model_type(self, populated_validator):
         """Test validate method with wrong model type."""
         simple_instance = SimpleModel(name='test', value=42)
-        toa_instance = TOARange(enabled=True, low=1000.0, high=2000.0, unit='us')
+        toa_instance = TOARange(enabled=True, start=1000.0, stop=2000.0, unit='us')
 
         # Wrong model for key
         assert populated_validator.validate('simple', toa_instance) is False
@@ -65,7 +65,7 @@ class TestSchemaValidator:
     def test_deserialize_valid_data(self, populated_validator):
         """Test deserialize method with valid data."""
         simple_data = {'name': 'test', 'value': 42}
-        toa_data = {'enabled': True, 'low': 1000.0, 'high': 2000.0, 'unit': 'us'}
+        toa_data = {'enabled': True, 'start': 1000.0, 'stop': 2000.0, 'unit': 'us'}
 
         simple_result = populated_validator.deserialize('simple', simple_data)
         toa_result = populated_validator.deserialize('toa_range', toa_data)
@@ -76,8 +76,8 @@ class TestSchemaValidator:
 
         assert isinstance(toa_result, TOARange)
         assert toa_result.enabled is True
-        assert toa_result.low == 1000.0
-        assert toa_result.high == 2000.0
+        assert toa_result.start == 1000.0
+        assert toa_result.stop == 2000.0
         assert toa_result.unit == 'us'
 
     def test_deserialize_invalid_data(self, populated_validator):
@@ -107,7 +107,7 @@ class TestSchemaValidator:
     def test_serialize_valid_model(self, populated_validator):
         """Test serialize method with valid pydantic model."""
         simple_model = SimpleModel(name='test', value=42)
-        toa_model = TOARange(enabled=False, low=500.0, high=1500.0, unit='ns')
+        toa_model = TOARange(enabled=False, start=500.0, stop=1500.0, unit='ns')
 
         simple_result = populated_validator.serialize(simple_model)
         toa_result = populated_validator.serialize(toa_model)
@@ -115,8 +115,8 @@ class TestSchemaValidator:
         assert simple_result == {'name': 'test', 'value': 42}
         assert toa_result == {
             'enabled': False,
-            'low': 500.0,
-            'high': 1500.0,
+            'start': 500.0,
+            'stop': 1500.0,
             'unit': 'ns',
         }
 

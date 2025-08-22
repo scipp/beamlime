@@ -1,33 +1,9 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import pytest
-import scipp as sc
 from pydantic import ValidationError
 
 from beamlime.config import models
-
-
-def test_toa_range_defaults():
-    toa = models.TOARange()
-    assert not toa.enabled
-    assert toa.low == 0.0
-    assert toa.high == 72_000.0
-    assert toa.unit == "μs"
-    assert toa.range_ns is None
-
-
-def test_toa_range_custom():
-    toa = models.TOARange(enabled=True, low=1.0, high=2.0, unit="ms")
-    assert toa.enabled
-    low, high = toa.range_ns
-    assert sc.identical(low, sc.scalar(1_000_000.0, unit="ns"))
-    assert sc.identical(high, sc.scalar(2_000_000.0, unit="ns"))
-
-
-@pytest.mark.parametrize('unit', ['m', 'invalid'])
-def test_toa_range_invalid_unit(unit):
-    with pytest.raises(ValidationError):
-        models.TOARange(unit=unit)
 
 
 def test_weighting_method_values():
