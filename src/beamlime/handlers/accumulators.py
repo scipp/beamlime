@@ -10,8 +10,7 @@ import scipp as sc
 from ess.reduce.live.roi import ROIFilter
 from streaming_data_types import logdata_f144
 
-from ..config import models
-from ..core.handler import Accumulator, Config, ConfigModelAccessor
+from ..core.handler import Accumulator, Config
 from .to_nxevent_data import DetectorEvents, MonitorEvents
 
 
@@ -174,9 +173,10 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
         # Note: Currently we are using the same ROI config values for all detector
         # handlers ands views. This is for demo purposes and will be replaced by a more
         # flexible configuration in the future.
-        self._roi = ConfigModelAccessor(
-            config=config, key='roi_rectangle', model=models.ROIRectangle
-        )
+        self._roi = None
+        # self._roi = ConfigModelAccessor(
+        #    config=config, key='roi_rectangle', model=models.ROIRectangle
+        # )
         self._nbin = -1
         self._edges: sc.Variable | None = None
         self._edges_ns: sc.Variable | None = None

@@ -4,10 +4,11 @@ import numpy as np
 import pytest
 import scipp as sc
 
+from beamlime import StreamKind
 from beamlime.config import instrument_registry
 from beamlime.config.instrument import Instrument
 from beamlime.config.instruments import available_instruments, get_config
-from beamlime.core.handler import FakeConfigRegistry, Message, StreamId, StreamKind
+from beamlime.core.handler import FakeConfigRegistry, Message, StreamId
 from beamlime.handlers.accumulators import DetectorEvents
 from beamlime.handlers.detector_data_handler import (
     DetectorHandlerFactory,
