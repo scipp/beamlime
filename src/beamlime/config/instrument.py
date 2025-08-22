@@ -72,6 +72,11 @@ class Instrument:
             raise ValueError(f"Nexus file not set or found for instrument {self.name}.")
         return self._nexus_file
 
+    @property
+    def detector_names(self) -> Sequence[str]:
+        """Get the names of all detectors registered in this instrument."""
+        return list(self._detector_numbers.keys())
+
     def add_detector(
         self, name: str, detector_number: sc.Variable | None = None
     ) -> None:

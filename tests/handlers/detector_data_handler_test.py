@@ -5,6 +5,7 @@ import pytest
 import scipp as sc
 
 from beamlime.config import instrument_registry
+from beamlime.config.instrument import Instrument
 from beamlime.config.instruments import available_instruments, get_config
 from beamlime.core.handler import FakeConfigRegistry, Message, StreamId, StreamKind
 from beamlime.handlers.accumulators import DetectorEvents
@@ -14,15 +15,9 @@ from beamlime.handlers.detector_data_handler import (
 )
 
 
-def test_get_detector_number() -> None:
-    instrument_name = 'dream'
+def get_instrument(instrument_name: str) -> Instrument:
     _ = get_config(instrument_name)  # Load the module to register the instrument
-    instrument = instrument_registry[instrument_name]
-    factory = DetectorHandlerFactory(instrument=instrument)
-    detnum = factory.get_detector_number('mantle_detector')
-    assert detnum is not None
-    detnum = factory.get_detector_number('endcap_backward_detector')
-    assert detnum is not None
+    return instrument_registry[instrument_name]
 
 
 def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -> None:
@@ -72,13 +67,11 @@ def test_get_nexus_filename_raises_if_datetime_out_of_range() -> None:
         get_nexus_geometry_filename('dream', date=sc.datetime('2020-01-01T00:00:00'))
 
 
-@pytest.mark.parametrize('instrument', available_instruments())
-def test_factory_can_create_handler(instrument: str) -> None:
-    config = get_config(instrument).detectors_config
-    detectors = {view['detector_name'] for view in config['detectors'].values()}
-    assert len(detectors) > 0
-    factory = DetectorHandlerFactory(
-        instrument=instrument, config_registry=FakeConfigRegistry()
-    )
-    for name in detectors:
-        _ = factory.make_handler(StreamId(kind=StreamKind.DETECTOR_EVENTS, name=name))
+@pytest.mark.parametrize('instrument_name', available_instruments())
+def test_factory_can_create_preprocessor(instrument_name: str) -> None:
+    instrument = get_instrument(instrument_name)
+    factory = DetectorHandlerFactory(instrument=instrument)
+    for name in instrument.detector_names:
+        _ = factory.make_preprocessor(
+            StreamId(kind=StreamKind.DETECTOR_EVENTS, name=name)
+        )
