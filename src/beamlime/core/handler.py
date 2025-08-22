@@ -32,25 +32,6 @@ class ConfigRegistry(Protocol):
     def get_config(self, source_name: str) -> Config: ...
 
 
-class FakeConfigRegistry(ConfigRegistry):
-    """
-    Fake config registry that returns empty configs for any requested source_name.
-
-    This is used for testing purposes and is not meant to be used in production.
-    """
-
-    def __init__(self, configs: dict[str, Config] | None = None):
-        self._service_name = 'fake_service'
-        self._configs: dict[str, Config] = configs or {}
-
-    @property
-    def service_name(self) -> str:
-        return self._service_name
-
-    def get_config(self, source_name: str) -> Config:
-        return self._configs.setdefault(source_name, {})
-
-
 class Handler(Generic[Tin, Tout]):
     """
     Base class for message handlers.
@@ -101,17 +82,13 @@ class CommonHandlerFactory(HandlerFactory[Tin, Tout]):
         self,
         *,
         logger: logging.Logger | None = None,
-        config_registry: ConfigRegistry | None = None,
         handler_cls: type[Handler[Tin, Tout]],
     ):
         self._logger = logger or logging.getLogger(__name__)
-        self._config_registry = config_registry or FakeConfigRegistry()
         self._handler_cls = handler_cls
 
     def make_handler(self, key: StreamId) -> Handler[Tin, Tout]:
-        return self._handler_cls(
-            logger=self._logger, config=self._config_registry.get_config(key.name)
-        )
+        return self._handler_cls(logger=self._logger, config={})
 
 
 class HandlerRegistry(Generic[Tin, Tout]):
