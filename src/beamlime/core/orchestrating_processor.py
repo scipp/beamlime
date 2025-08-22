@@ -300,12 +300,12 @@ class JobManagerAdapter:
             return []
 
         try:
-            if source_name in self._jobs:
-                # If we have a job for this source, we stop it first.
-                self._job_manager.stop_job(self._jobs[source_name])
             job_id = self._job_manager.schedule_job(
                 source_name=source_name, config=config
             )
+            if source_name in self._jobs:
+                # If we have a job for this source, we stop it first.
+                self._job_manager.stop_job(self._jobs[source_name])
             self._jobs[source_name] = job_id
         except DifferentInstrument:
             # We have multiple backend services that handle jobs, e.g., data_reduction
