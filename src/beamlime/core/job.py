@@ -146,7 +146,10 @@ class JobFactory:
         self._instrument = instrument
 
     def create(self, *, job_id: JobId, source_name: str, config: WorkflowConfig) -> Job:
-        if config.get_instrument() != self._instrument.name:
+        if config.get_instrument_namespace() != (
+            self._instrument.name,
+            self._instrument.active_namespace,
+        ):
             raise DifferentInstrument()
 
         factory = self._instrument.processor_factory

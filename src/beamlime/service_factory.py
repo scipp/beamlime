@@ -11,7 +11,7 @@ from typing import Any, Generic, NoReturn, TypeVar
 from .config import config_names
 from .config.config_loader import load_config
 from .core import MessageSink, Processor, StreamProcessor
-from .core.handler import HandlerFactory, HandlerRegistry
+from .core.handler import HandlerFactory, HandlerRegistry, JobBasedHandlerFactoryBase
 from .core.message import Message, MessageSource, StreamId
 from .core.service import Service
 from .kafka import KafkaTopic
@@ -71,6 +71,9 @@ class DataServiceBuilder(Generic[Traw, Tin, Tout]):
         self._handler_registry = HandlerRegistry(factory=handler_factory)
         self._startup_messages = startup_messages or []
         self._processor_cls = processor_cls
+        if isinstance(handler_factory, JobBasedHandlerFactoryBase):
+            # Ensure only jobs from the active namespace can be created by JobFactory.
+            handler_factory.instrument.active_namespace = name
 
     @property
     def instrument(self) -> str:

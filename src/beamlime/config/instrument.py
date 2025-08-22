@@ -60,6 +60,7 @@ class Instrument:
     f144_attribute_registry: dict[str, dict[str, Any]] = field(default_factory=dict)
     _detector_numbers: dict[str, sc.Variable] = field(default_factory=dict)
     _nexus_file: str | None = None
+    active_namespace: str | None = None
 
     @property
     def nexus_file(self) -> str:

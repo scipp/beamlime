@@ -54,7 +54,7 @@ class WorkflowSpec(BaseModel):
 
         The identifier is a combination of instrument, name, and version.
         """
-        return f"{self.instrument}/{self.name}/{self.version}"
+        return f"{self.instrument}/{self.namespace}/{self.name}/{self.version}"
 
 
 @dataclass
@@ -110,7 +110,7 @@ class WorkflowConfig(BaseModel):
         description="Parameters for the workflow, as JSON-serialized Pydantic model.",
     )
 
-    def get_instrument(self) -> str | None:
+    def get_instrument_namespace(self) -> tuple[str, str] | None:
         """
         Get the instrument name from the workflow identifier.
 
@@ -118,7 +118,7 @@ class WorkflowConfig(BaseModel):
         """
         if self.identifier is None or '/' not in self.identifier:
             return None
-        return self.identifier.split('/')[0]
+        return tuple(self.identifier.split('/')[0:2])
 
 
 class PersistentWorkflowConfig(BaseModel):
