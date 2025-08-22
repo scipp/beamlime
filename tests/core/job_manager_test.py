@@ -270,8 +270,8 @@ class TestJobManager:
         manager.reset_job(job_id)
 
         # Verify job was reset
-        assert manager.active_jobs[0].start_time == -1
-        assert manager.active_jobs[0].end_time == -1
+        assert manager.active_jobs[0].start_time is None
+        assert manager.active_jobs[0].end_time is None
         assert fake_job_factory.processors[job_id].clear_calls == 1
 
     def test_reset_job_scheduled(self, fake_job_factory):

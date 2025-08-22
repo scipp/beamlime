@@ -307,8 +307,8 @@ class TestJob:
         sample_job.reset()
 
         assert fake_processor.clear_calls == 1
-        assert sample_job.start_time == -1
-        assert sample_job.end_time == -1
+        assert sample_job.start_time is None
+        assert sample_job.end_time is None
 
     def test_can_get_after_error_in_add(self, fake_processor):
         """Adding bad data should not directly affect get()."""
