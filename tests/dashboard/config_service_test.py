@@ -4,11 +4,11 @@
 import pydantic
 import pytest
 
-from beamlime.config.models import TOARange
 from beamlime.config.schema_registry import FakeSchemaRegistry
 from beamlime.dashboard.config_service import ConfigService
 from beamlime.dashboard.message_bridge import FakeMessageBridge
 from beamlime.dashboard.schema_validator import PydanticSchemaValidator, SchemaValidator
+from beamlime.parameter_models import TOARange
 
 
 # Test models for more comprehensive testing
