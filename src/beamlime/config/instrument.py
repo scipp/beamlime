@@ -39,7 +39,7 @@ class InstrumentRegistry(UserDict[str, 'Instrument']):
         self[instrument.name] = instrument
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class Instrument:
     """
     Class for instrument configuration.
@@ -59,23 +59,31 @@ class Instrument:
     source_to_key: dict[str, type] = field(default_factory=dict)
     f144_attribute_registry: dict[str, dict[str, Any]] = field(default_factory=dict)
     _detector_numbers: dict[str, sc.Variable] = field(default_factory=dict)
+    _nexus_file: str | None = None
+
+    @property
+    def nexus_file(self) -> str:
+        from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
+
+        if self._nexus_file is None:
+            instrument_name = self.name.split('_')[0]
+            self._nexus_file = get_nexus_geometry_filename(instrument_name)
+        if self._nexus_file is None:
+            raise ValueError(f"Nexus file not set or found for instrument {self.name}.")
+        return self._nexus_file
 
     def add_detector(
         self, name: str, detector_number: sc.Variable | None = None
     ) -> None:
-        from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
-
         if detector_number is not None:
             self._detector_numbers[name] = detector_number
             return
-        instrument_name = self.name.split('_')[0]
-        nexus_file = get_nexus_geometry_filename(instrument_name)
         candidate = snx.load(
-            nexus_file, root=f'entry/instrument/{name}/detector_number'
+            self.nexus_file, root=f'entry/instrument/{name}/detector_number'
         )
         if not isinstance(candidate, sc.Variable):
             raise ValueError(
-                f"Detector {name} not found in {nexus_file}. "
+                f"Detector {name} not found in {self.nexus_file}. "
                 "Please provide a detector_number explicitly."
             )
         self._detector_numbers[name] = candidate

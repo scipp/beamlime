@@ -74,18 +74,15 @@ class ViewConfig:
 class DetectorProcessorFactory(ABC):
     def __init__(self, *, instrument: Instrument, config: ViewConfig) -> None:
         self._instrument = instrument
-        self._instrument_name = instrument.name[: -len('_detectors')]
         self._config = config
         self._source_names = config.source_names
         self._window_length = 1
-        self._nexus_file = _try_get_nexus_geometry_filename(
-            instrument.name[: -len('_detectors')]
-        )
         self._register_with_instrument(instrument)
 
     def make_view(self, source_name: str, params: DetectorViewParams) -> DetectorView:
+        """Factory method that will be registered as a workflow creation function."""
         return DetectorView(
-            params=params, detector_view=self._make_rollingview(source_name)
+            params=params, detector_view=self._make_rolling_view(source_name)
         )
 
     def _register_with_instrument(self, instrument: Instrument) -> None:
@@ -98,7 +95,7 @@ class DetectorProcessorFactory(ABC):
         )(self.make_view)
 
     @abstractmethod
-    def _make_rollingview(self, source_name: str) -> raw.RollingDetectorView:
+    def _make_rolling_view(self, source_name: str) -> raw.RollingDetectorView:
         """Create a RollingDetectorView for the given source name."""
 
 
@@ -137,9 +134,9 @@ class DetectorProjection(DetectorProcessorFactory):
         scale = 8
         return {key: value * scale for key, value in aspect.items()}
 
-    def _make_rollingview(self, source_name: str) -> raw.RollingDetectorView:
+    def _make_rolling_view(self, source_name: str) -> raw.RollingDetectorView:
         return raw.RollingDetectorView.from_nexus(
-            self._nexus_file,
+            self._instrument.nexus_file,
             detector_name=source_name,
             window=self._window_length,
             projection=self._projection,
@@ -159,7 +156,7 @@ class DetectorLogicalView(DetectorProcessorFactory):
         super().__init__(instrument=instrument, config=config)
         self._config = config
 
-    def _make_rollingview(self, source_name: str) -> raw.RollingDetectorView:
+    def _make_rolling_view(self, source_name: str) -> raw.RollingDetectorView:
         return raw.RollingDetectorView(
             detector_number=self._instrument.get_detector_number(source_name),
             window=self._window_length,
@@ -337,12 +334,3 @@ def get_nexus_geometry_filename(
     except IndexError:
         raise ValueError(f'No geometry file found for given date {date}') from None
     return pathlib.Path(_pooch.fetch(filename))
-
-
-def _try_get_nexus_geometry_filename(
-    instrument: str, date: sc.Variable | None = None
-) -> pathlib.Path | None:
-    try:
-        return get_nexus_geometry_filename(instrument, date)
-    except ValueError:
-        return None
