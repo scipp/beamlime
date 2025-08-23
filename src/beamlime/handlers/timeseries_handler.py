@@ -3,22 +3,58 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Hashable
+from typing import Any
 
 import scipp as sc
 
-from ..config.instruments import get_config
-from ..core.handler import (
-    ConfigRegistry,
-    Handler,
-    HandlerFactory,
-    PeriodicAccumulatingHandler,
-)
+from ..config.instrument import Instrument
+from ..core.handler import JobBasedHandlerFactoryBase
 from ..core.message import StreamId
-from .accumulators import ForwardingAccumulator, LogData
+from .accumulators import LogData
+from .stream_processor_factory import StreamProcessor
 from .to_nxlog import ToNXlog
 
 
-class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
+class TimeseriesStreamProcessor(StreamProcessor):
+    def __init__(self) -> None:
+        self._data: sc.DataArray | None = None
+
+    def accumulate(self, data: dict[Hashable, sc.DataArray]) -> None:
+        if len(data) != 1:
+            raise ValueError("Timeseries processor expects exactly one data item.")
+        # Just store the data for forwarding
+        self._data = next(iter(data.values()))
+
+    def finalize(self) -> dict[str, sc.DataArray]:
+        if self._data is None:
+            raise ValueError("No data has been added")
+        return {'cumulative': self._data, 'current': self._data}
+
+    def clear(self) -> None:
+        self._data = None
+
+
+def _timeseries_workflow() -> StreamProcessor:
+    return TimeseriesStreamProcessor()
+
+
+def register_timeseries_workflows(
+    instrument: Instrument, source_names: list[str]
+) -> None:
+    """Create an Instrument with workflows for timeseries processing."""
+    register = instrument.register_workflow(
+        namespace='timeseries',
+        name='timeseries_data',
+        version=1,
+        title="Timeseries data",
+        description="Accumulated log data as timeseries.",
+        source_names=source_names,
+    )
+    register(_timeseries_workflow)
+
+
+class LogdataHandlerFactory(JobBasedHandlerFactoryBase[LogData, sc.DataArray]):
     """
     Factory for creating handlers for log data.
 
@@ -29,10 +65,9 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
     def __init__(
         self,
         *,
-        instrument: str,
+        instrument: Instrument,
         logger: logging.Logger | None = None,
-        config_registry: ConfigRegistry,
-        attribute_registry: dict[str, dict[str, any]] | None = None,
+        attribute_registry: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         """
         Initialize the LogdataHandlerFactory.
@@ -43,8 +78,6 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
             The name of the instrument.
         logger:
             The logger to use for logging messages.
-        config:
-            Configuration for the handler.
         attribute_registry:
             A dictionary mapping source names to attributes. This provides essential
             attributes for the values and timestamps in the log data. Log messages do
@@ -55,14 +88,13 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
         """
 
         self._logger = logger or logging.getLogger(__name__)
-        self._config_registry = config_registry
         self._instrument = instrument
         if attribute_registry is None:
-            self._attribute_registry = get_config(instrument).f144_attribute_registry
+            self._attribute_registry = instrument.f144_attribute_registry
         else:
             self._attribute_registry = attribute_registry
 
-    def make_handler(self, key: StreamId) -> Handler[LogData, sc.DataArray] | None:
+    def make_preprocessor(self, key: StreamId) -> ToNXlog | None:
         source_name = key.name
         attrs = self._attribute_registry.get(source_name)
         if attrs is None:
@@ -73,7 +105,7 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
             return None
 
         try:
-            to_nx_log = ToNXlog(attrs=attrs)
+            return ToNXlog(attrs=attrs)
         except Exception:
             self._logger.exception(
                 "Failed to create NXlog for source name '%s'. "
@@ -81,13 +113,3 @@ class LogdataHandlerFactory(HandlerFactory[LogData, sc.DataArray]):
                 source_name,
             )
             return None
-
-        accumulators = {'timeseries': ForwardingAccumulator()}
-        config = self._config_registry.get_config(source_name)
-        return PeriodicAccumulatingHandler(
-            service_name=self._config_registry.service_name,
-            logger=self._logger,
-            config=config,
-            preprocessor=to_nx_log,
-            accumulators=accumulators,
-        )

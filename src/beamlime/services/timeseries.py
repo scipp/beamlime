@@ -6,8 +6,11 @@ import logging
 from collections.abc import Mapping
 from typing import Any, NoReturn
 
+from beamlime.config import instrument_registry
+from beamlime.config.instruments import get_config
 from beamlime.config.streams import get_stream_mapping
 from beamlime.core.message import CONFIG_STREAM_ID
+from beamlime.core.orchestrating_processor import OrchestratingProcessor
 from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.timeseries_handler import LogdataHandlerFactory
 from beamlime.kafka.routes import RoutingAdapterBuilder
@@ -21,13 +24,6 @@ def make_timeseries_service_builder(
     log_level: int = logging.INFO,
     attribute_registry: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> DataServiceBuilder:
-    service_name = 'timeseries'
-    config_handler = ConfigHandler(service_name=service_name)
-    handler_factory = LogdataHandlerFactory(
-        instrument=instrument,
-        attribute_registry=attribute_registry,
-        config_registry=config_handler,
-    )
     stream_mapping = get_stream_mapping(instrument=instrument, dev=dev)
     adapter = (
         RoutingAdapterBuilder(stream_mapping=stream_mapping)
@@ -35,12 +31,20 @@ def make_timeseries_service_builder(
         .with_beamlime_config_route()
         .build()
     )
+    _ = get_config(instrument)  # Load the module to register the instrument
+    service_name = 'timeseries'
+    config_handler = ConfigHandler(service_name=service_name)
+    handler_factory = LogdataHandlerFactory(
+        instrument=instrument_registry[instrument],
+        attribute_registry=attribute_registry,
+    )
     builder = DataServiceBuilder(
         instrument=instrument,
         name=service_name,
         log_level=log_level,
         adapter=adapter,
         handler_factory=handler_factory,
+        processor_cls=OrchestratingProcessor,
     )
     builder.add_handler(CONFIG_STREAM_ID, config_handler)
     return builder
