@@ -13,25 +13,6 @@ class Config(Protocol):
     def get(self, key: str, default: Any | None = None) -> Any: ...
 
 
-class ConfigRegistry(Protocol):
-    """
-    Registry for configuration for different sources.
-
-    This is used by handlers to obtain configuration specific to a source. This protocol
-    is first and foremostly implemented by :py:class:`ConfigHandler`, which is used to
-    handle configuration messages, providing a mechanism to update the configuration
-    dynamically. The configuration is then used by the handlers to configure themselves
-    based on the source name of the messages they are processing.
-    """
-
-    @property
-    def service_name(self) -> str:
-        """Name of the service this registry is associated with."""
-        ...
-
-    def get_config(self, source_name: str) -> Config: ...
-
-
 class Handler(Generic[Tin, Tout]):
     """
     Base class for message handlers.
