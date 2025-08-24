@@ -13,31 +13,46 @@ instrument_registry.register(instrument)
 
 # TODO Unclear if this is transposed or not. Wait for updated files.
 dim = 'detector_number'
-sizes = {'x': 1280, 'y': 1280}
+sizes = {'y': 1280, 'x': 1280}
+
+_whole_panel = sc.arange(dim, 0 * 1280**2 + 1, 1 * 1280**2 + 1, unit=None).fold(
+    dim=dim, sizes=sizes
+)
+
 detectors_config = {
     'detectors': {
-        'Panel 0': {
-            'detector_name': 'detector_panel_0',
-            'detector_number': sc.arange(
-                dim, 0 * 1280**2 + 1, 1 * 1280**2 + 1, unit=None
-            ).fold(dim=dim, sizes=sizes),
-        },
-        'Panel 1': {
-            'detector_name': 'detector_panel_1',
-            'detector_number': sc.arange(
-                dim, 1 * 1280**2 + 1, 2 * 1280**2 + 1, unit=None
-            ).fold(dim=dim, sizes=sizes),
-        },
-        'Panel 2': {
-            'detector_name': 'detector_panel_2',
-            'detector_number': sc.arange(
-                dim, 2 * 1280**2 + 1, 3 * 1280**2 + 1, unit=None
-            ).fold(dim=dim, sizes=sizes),
-        },
+        'ProtoType Panel (0, 0)': {
+            'detector_name': 'nmx_detector_p1',
+            'detector_number': _whole_panel,  # ['x', :640]['y', :640],
+        }
+        # 'Panel 0': {
+        #     'detector_name': 'detector_panel_0',
+        #     'detector_number': sc.arange(
+        #         dim, 0 * 1280**2 + 1, 1 * 1280**2 + 1, unit=None
+        #     ).fold(dim=dim, sizes=sizes),
+        # },
+        # 'Panel 1': {
+        #     'detector_name': 'detector_panel_1',
+        #     'detector_number': sc.arange(
+        #         dim, 1 * 1280**2 + 1, 2 * 1280**2 + 1, unit=None
+        #     ).fold(dim=dim, sizes=sizes),
+        # },
+        # 'Panel 2': {
+        #     'detector_name': 'detector_panel_2',
+        #     'detector_number': sc.arange(
+        #         dim, 2 * 1280**2 + 1, 3 * 1280**2 + 1, unit=None
+        #     ).fold(dim=dim, sizes=sizes),
+        # },
     },
     'fakes': {
-        f'detector_panel_{i}': (i * 1280**2 + 1, (i + 1) * 1280**2) for i in range(3)
+        'nmx_detector_p1': (0 * 1280**2 + 1, 1 * 1280**2 + 1),
+        # 'nmx_detector_p2': (0 * 1280**2 + 1, 1 * 1280**2 + 1),
+        # 'nmx_detector_p3': (0 * 1280**2 + 1, 1 * 1280**2 + 1),
+        # 'nmx_detector_p4': (0 * 1280**2 + 1, 1 * 1280**2 + 1),
     },
+    # {
+    #     f'detector_panel_{i}': (i * 1280**2 + 1, (i + 1) * 1280**2) for i in range(3)
+    # },
 }
 
 
@@ -50,9 +65,9 @@ def _make_nmx_detectors() -> StreamLUT:
     """
     return {
         InputStreamKey(
-            topic=f'nmx_detector_p{panel}', source_name='nmx'
-        ): 'nmx_detector'
-        for panel in range(3)
+            topic='nmx_detector_p1',  # Kafka topic for NMX detector
+            source_name='nmx',  # Kafka message source_name for NMX
+        ): 'nmx_detector'  # Mapped key
     }
 
 

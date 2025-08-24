@@ -35,7 +35,10 @@ _dream = {
     'Mantle': ('mantle_detector', 'mantle_projection'),
     'Endcap Forward': ('endcap_forward_detector', 'endcap_forward'),
 }
-_config = {'dream': _dream}
+_nmx = {
+    'Prototype Panel (0, 0)': ('nmx', 'nmx'),
+}
+_config = {'dream': _dream, "nmx": _nmx}
 
 
 class DashboardApp(DashboardBase):
