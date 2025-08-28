@@ -67,9 +67,12 @@ class Instrument:
         from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
 
         if self._nexus_file is None:
-            self._nexus_file = get_nexus_geometry_filename(self.name)
-        if self._nexus_file is None:
-            raise ValueError(f"Nexus file not set or found for instrument {self.name}.")
+            try:
+                self._nexus_file = get_nexus_geometry_filename(self.name)
+            except ValueError as e:
+                raise ValueError(
+                    f"Nexus file not set or found for instrument {self.name}."
+                ) from e
         return self._nexus_file
 
     @property
