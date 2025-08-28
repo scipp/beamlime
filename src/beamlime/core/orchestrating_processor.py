@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
+from numbers import Number
 from typing import Any, Generic
 
 from ..config.models import ConfigKey, StartTime
@@ -48,7 +49,7 @@ class NaiveMessageBatcher:
 
     def batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
         # Unclear if filter needed in practice, but there is a test with bad timestamps.
-        # messages = [msg for msg in messages if isinstance(msg.timestamp, int)]
+        messages = [msg for msg in messages if isinstance(msg.timestamp, Number)]
         if not messages:
             return None
         messages = sorted(messages)

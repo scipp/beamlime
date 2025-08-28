@@ -33,7 +33,7 @@ class DetectorViewParams(pydantic.BaseModel):
         description="Whether to apply pixel weighting based on the number of pixels "
         "contributing to each screen pixel.",
         default=models.PixelWeighting(
-            enabled=True, method=models.WeightingMethod.PIXEL_NUMBER
+            enabled=False, method=models.WeightingMethod.PIXEL_NUMBER
         ),
     )
     # TODO split out the enabled flag?
@@ -101,10 +101,14 @@ class DetectorProjection(DetectorProcessorFactory):
         *,
         instrument: Instrument,
         projection: Literal['xy_plane', 'cylinder_mantle_z'],
+        pixel_noise: str | sc.Variable | None = None,
         resolution: dict[str, dict[str, int]],
+        resolution_scale: float = 1,
     ) -> None:
         self._projection = projection
+        self._pixel_noise = pixel_noise
         self._resolution = resolution
+        self._res_scale = resolution_scale
         source_names = list(resolution.keys())
         if projection == 'xy_plane':
             config = ViewConfig(
@@ -127,8 +131,7 @@ class DetectorProjection(DetectorProcessorFactory):
 
     def _get_resolution(self, source_name: str) -> dict[str, int]:
         aspect = self._resolution[source_name]
-        scale = 8
-        return {key: value * scale for key, value in aspect.items()}
+        return {key: value * self._res_scale for key, value in aspect.items()}
 
     def _make_rolling_view(self, source_name: str) -> raw.RollingDetectorView:
         return raw.RollingDetectorView.from_nexus(
@@ -137,7 +140,7 @@ class DetectorProjection(DetectorProcessorFactory):
             window=self._window_length,
             projection=self._projection,
             resolution=self._get_resolution(source_name),
-            pixel_noise=sc.scalar(4.0, unit='mm'),
+            pixel_noise=self._pixel_noise,
         )
 
 

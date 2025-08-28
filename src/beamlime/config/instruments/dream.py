@@ -58,22 +58,26 @@ _res_scale = 8
 pixel_noise = sc.scalar(4.0, unit='mm')
 
 
-# Order in 'resolution' matters so plots have X as horizontal axis and Y as vertical.
-_xy_projection = DetectorProjection(
-    instrument=instrument,
-    projection='xy_plane',
-    resolution={
-        'endcap_backward_detector': {'y': 30, 'x': 20},
-        'endcap_forward_detector': {'y': 20, 'x': 20},
-        'high_resolution_detector': {'y': 20, 'x': 20},
-    },
-)
 # We use the arc length instead of phi as it makes it easier to get a correct
 # aspect ratio for the plot if both axes have the same unit.
 _cylinder_projection = DetectorProjection(
     instrument=instrument,
     projection='cylinder_mantle_z',
+    pixel_noise=sc.scalar(4.0, unit='mm'),
     resolution={'mantle_detector': {'arc_length': 10, 'z': 40}},
+    resolution_scale=_res_scale,
+)
+# Order in 'resolution' matters so plots have X as horizontal axis and Y as vertical.
+_xy_projection = DetectorProjection(
+    instrument=instrument,
+    projection='xy_plane',
+    pixel_noise=sc.scalar(4.0, unit='mm'),
+    resolution={
+        'endcap_backward_detector': {'y': 30, 'x': 20},
+        'endcap_forward_detector': {'y': 20, 'x': 20},
+        'high_resolution_detector': {'y': 20, 'x': 20},
+    },
+    resolution_scale=_res_scale,
 )
 
 

@@ -23,7 +23,7 @@ def _get_workflow_from_registry(
 ) -> tuple[str, workflow_spec.WorkflowSpec]:
     # Currently only one workflow for monitor data, so we can hardcode the name.
     name = 'monitor_data'
-    instrument_config = instrument_registry[f'{instrument}_beam_monitors']
+    instrument_config = instrument_registry[instrument]
     workflow_registry = instrument_config.processor_factory
     for wid, spec in workflow_registry.items():
         if spec.name == name:

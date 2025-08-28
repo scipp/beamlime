@@ -73,7 +73,7 @@ class Instrument:
         return self._nexus_file
 
     @property
-    def detector_names(self) -> Sequence[str]:
+    def detector_names(self) -> list[str]:
         """Get the names of all detectors registered in this instrument."""
         return list(self._detector_numbers.keys())
 
