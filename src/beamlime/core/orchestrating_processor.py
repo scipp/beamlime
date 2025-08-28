@@ -63,20 +63,15 @@ class NaiveMessageBatcher:
         self._buffered_messages = sorted(self._buffered_messages)
 
         # Initialize watermark on first call
+        max_timestamp = max(msg.timestamp for msg in self._buffered_messages)
         if self._watermark is None:
-            self._watermark = max(msg.timestamp for msg in self._buffered_messages)
+            self._watermark = max_timestamp
             return None  # Wait for more messages to potentially advance watermark
 
         # Check if we should advance watermark
-        watermark_plus_batch = self._watermark + self._batch_length_ns
-        messages_after_watermark_plus_batch = [
-            msg
-            for msg in self._buffered_messages
-            if msg.timestamp > watermark_plus_batch
-        ]
-
-        if messages_after_watermark_plus_batch:
-            self._watermark += self._batch_length_ns
+        next_watermark = self._watermark + self._batch_length_ns
+        if max_timestamp > next_watermark:
+            self._watermark = next_watermark
 
         return self._create_batch_from_buffered()
 
@@ -101,19 +96,10 @@ class NaiveMessageBatcher:
         if not messages_before_watermark:
             return None
 
-        # TODO: Just use watermark!
-        # start_time is the lower bound of the batch, end_time is the upper bound, both
-        # in multiples of the pulse length.
-        start_time = (
-            messages_before_watermark[0].timestamp
-            // self._pulse_length_ns
-            * self._pulse_length_ns
-        )
-        end_time = (
-            (messages_before_watermark[-1].timestamp + self._pulse_length_ns - 1)
-            // self._pulse_length_ns
-            * self._pulse_length_ns
-        )
+        # Use watermark directly as end_time
+        end_time = self._watermark
+        start_time = end_time - self._batch_length_ns
+
         return MessageBatch(
             start_time=start_time, end_time=end_time, messages=messages_before_watermark
         )
