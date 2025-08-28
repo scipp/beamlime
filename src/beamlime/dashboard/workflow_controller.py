@@ -274,6 +274,12 @@ class WorkflowController:
         # Reset status to UNKNOWN (back to initial state)
         self._update_workflow_status(WorkflowStatus(source_name=source_name))
 
+    def get_workflow_specs(self) -> dict[WorkflowId, WorkflowSpec]:
+        """Get the current workflow specifications sorted by title."""
+        return dict(
+            sorted(self._workflow_registry.items(), key=lambda item: item[1].title)
+        )
+
     def get_workflow_spec(self, workflow_id: WorkflowId) -> WorkflowSpec | None:
         """Get the current workflow specification for the given Id."""
         return self._workflow_registry.get(workflow_id)
@@ -293,29 +299,12 @@ class WorkflowController:
         all_configs = self._service.get_persistent_configs()
         return all_configs.configs.get(workflow_id)
 
-    def subscribe_to_workflow_updates(
-        self, callback: Callable[[dict[WorkflowId, WorkflowSpec]], None]
-    ) -> None:
-        """Subscribe to workflow updates."""
-        self._workflow_specs_callbacks.append(callback)
-        # Immediately notify with current registry contents
-        self._notify_workflow_specs_update(callback)
-
     def subscribe_to_workflow_status_updates(
         self, callback: Callable[[dict[str, WorkflowStatus]], None]
     ) -> None:
         """Subscribe to workflow status updates."""
         self._workflow_status_callbacks.append(callback)
         self._notify_workflow_status_update(callback)
-
-    def _notify_workflow_specs_update(
-        self, callback: Callable[[dict[WorkflowId, WorkflowSpec]], None]
-    ) -> None:
-        """Notify a single subscriber about workflow specs update."""
-        try:
-            callback(dict(self._workflow_registry))
-        except Exception as e:
-            self._logger.error('Error in workflow specs update callback: %s', e)
 
     def _notify_workflow_status_update(
         self, callback: Callable[[dict[str, WorkflowStatus]], None]

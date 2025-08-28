@@ -80,7 +80,7 @@ class DetectorProcessorFactory(ABC):
             namespace='detector_data',
             name=f'{self._config.name}_roi',
             version=1,
-            title=f'{self._config.title} ROI Histogram',
+            title=f'ROI Histogram: {self._config.title} ',
             description=f'ROI Histogram for {self._config.description}',
             source_names=self._source_names,
         )(self.make_roi)
