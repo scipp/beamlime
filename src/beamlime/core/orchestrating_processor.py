@@ -204,22 +204,18 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
 
 def _job_result_to_message(result: JobResult) -> Message:
     """Convert a workflow result to a message for publishing."""
+
     # We probably want to switch to something like
     #   signal_name=f'{result.name}-{result.job_id}'
     # but for now we keep the legacy signal name for frontend compatibility.
-    if result.name == 'monitor_data':
-        service_name = 'monitor_data'
+    service_name = result.namespace
+    if service_name == 'monitor_data':
         signal_name = ''
-    elif result.name in (
-        'detector_xy_projection',
-        'detector_cylinder_mantle_z',
-        'mantle_front_layer',
-    ):
-        service_name = 'detector_data'
+    elif service_name == 'detector_data':
         signal_name = result.name
     else:
-        service_name = 'data_reduction'
         signal_name = f'reduced/{result.source_name}'
+
     stream_name = output_stream_name(
         service_name=service_name,
         stream_name=result.source_name,

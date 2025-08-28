@@ -52,7 +52,7 @@ class WorkflowSpec(BaseModel):
         """
         Get a unique identifier for the workflow.
 
-        The identifier is a combination of instrument, name, and version.
+        The identifier is a combination of instrument, namespace, name, and version.
         """
         return f"{self.instrument}/{self.namespace}/{self.name}/{self.version}"
 
@@ -112,9 +112,10 @@ class WorkflowConfig(BaseModel):
 
     def get_instrument_namespace(self) -> tuple[str, str] | None:
         """
-        Get the instrument name from the workflow identifier.
+        Get the instrument name and namespace from the workflow identifier.
 
-        The identifier is expected to be in the format 'instrument/name/version'.
+        The identifier is expected to be in the format
+        'instrument/namespace/name/version'.
         """
         if self.identifier is None or '/' not in self.identifier:
             return None
