@@ -22,11 +22,6 @@ from .accumulators import DetectorEvents, GroupIntoPixels
 from .stream_processor_factory import StreamProcessor
 
 # TODO
-# remove models.TOARange
-# use parameter_models.TOARange
-# remove ConfigModelAccessor
-# remove PeriodicAccumulatingHandler? need to refactor timeseries_handler.py first
-# instrument name hacks. introduce workflow namespaces instead?
 # accumulators[f'{name}/roi'] = ROIBasedTOAHistogram(
 #     config=config, roi_filter=view.make_roi_filter()
 # )

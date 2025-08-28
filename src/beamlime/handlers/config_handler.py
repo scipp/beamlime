@@ -50,6 +50,10 @@ class ConfigProcessor:
         logger: logging.Logger | None = None,
     ) -> None:
         self._job_manager_adapter = job_manager_adapter
+        self._actions = {
+            'workflow_config': self._job_manager_adapter.set_workflow_with_config,
+            'start_time': self._job_manager_adapter.reset_job,
+        }
         self._logger = logger or logging.getLogger(__name__)
 
     def process_messages(
@@ -105,28 +109,15 @@ class ConfigProcessor:
                     'Processing config key %s for source %s', config_key, source_name
                 )
                 try:
-                    if config_key == 'workflow_config':
-                        results = self._job_manager_adapter.set_workflow_with_config(
-                            source_name, update.value
-                        )
-                    elif config_key == 'start_time':
-                        results = self._job_manager_adapter.reset_job(
-                            source_name, update.value
-                        )
-                    else:
+                    if (action := self._actions.get(config_key)) is None:
                         self._logger.debug('Unknown config key: %s', config_key)
                         continue
-
+                    results = action(source_name, update.value)
                     # Convert results to messages
-                    for result_config_key, result_value in results:
-                        response_messages.append(
-                            Message(
-                                stream=CONFIG_STREAM_ID,
-                                value=ConfigUpdate(
-                                    config_key=result_config_key, value=result_value
-                                ),
-                            )
-                        )
+                    updates = [ConfigUpdate(*result) for result in results]
+                    response_messages.extend(
+                        Message(stream=CONFIG_STREAM_ID, value=up) for up in updates
+                    )
 
                 except Exception:
                     self._logger.exception(
