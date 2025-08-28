@@ -54,10 +54,6 @@ register_monitor_workflows(instrument=instrument, source_names=['monitor1', 'mon
 
 instrument_registry.register(instrument)
 
-_res_scale = 8
-pixel_noise = sc.scalar(4.0, unit='mm')
-
-
 # We use the arc length instead of phi as it makes it easier to get a correct
 # aspect ratio for the plot if both axes have the same unit.
 _cylinder_projection = DetectorProjection(
@@ -65,7 +61,7 @@ _cylinder_projection = DetectorProjection(
     projection='cylinder_mantle_z',
     pixel_noise=sc.scalar(4.0, unit='mm'),
     resolution={'mantle_detector': {'arc_length': 10, 'z': 40}},
-    resolution_scale=_res_scale,
+    resolution_scale=8,
 )
 # Order in 'resolution' matters so plots have X as horizontal axis and Y as vertical.
 _xy_projection = DetectorProjection(
@@ -77,7 +73,7 @@ _xy_projection = DetectorProjection(
         'endcap_forward_detector': {'y': 20, 'x': 20},
         'high_resolution_detector': {'y': 20, 'x': 20},
     },
-    resolution_scale=_res_scale,
+    resolution_scale=8,
 )
 
 

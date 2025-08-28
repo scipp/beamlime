@@ -11,6 +11,7 @@ from ess.reduce.live.roi import ROIFilter
 from streaming_data_types import logdata_f144
 
 from ..core.handler import Accumulator, Config
+from ..parameter_models import RangeModel
 from .to_nxevent_data import DetectorEvents, MonitorEvents
 
 
@@ -138,50 +139,33 @@ class GroupIntoPixels(Accumulator[DetectorEvents, sc.DataArray]):
 
 
 class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
-    def __init__(self, config: Config, roi_filter: ROIFilter):
-        self._config = config
+    def __init__(
+        self,
+        *,
+        x_range: RangeModel,
+        y_range: RangeModel,
+        toa_edges: sc.Variable,
+        roi_filter: ROIFilter,
+    ):
         self._roi_filter = roi_filter
         self._chunks: list[sc.DataArray] = []
-
-        # Note: Currently we are using the same ROI config values for all detector
-        # handlers ands views. This is for demo purposes and will be replaced by a more
-        # flexible configuration in the future.
-        self._roi = None
-        # self._roi = ConfigModelAccessor(
-        #    config=config, key='roi_rectangle', model=models.ROIRectangle
-        # )
         self._nbin = -1
-        self._edges: sc.Variable | None = None
-        self._edges_ns: sc.Variable | None = None
-        self._current_roi = None
+        self._edges = toa_edges
+        self._edges_ns = toa_edges.to(unit='ns')
+        self._configure_roi_filter(rx=x_range, ry=y_range)
 
-    def _check_for_config_updates(self) -> None:
-        nbin = self._config.get('time_of_arrival_bins', 100)
-        if self._edges is None or nbin != self._nbin:
-            self._nbin = nbin
-            self._edges = sc.linspace(
-                'time_of_arrival', 0.0, 1000 / 14, num=nbin, unit='ms'
-            )
-            self._edges_ns = self._edges.to(unit='ns')
-            self.clear()
-
+    def _configure_roi_filter(self, rx: RangeModel, ry: RangeModel) -> None:
         # Access to protected variables should hopefully be avoided by changing the
         # config values to send indices instead of percentages, once we have per-view
         # configuration.
         y, x = self._roi_filter._indices.dims
         sizes = self._roi_filter._indices.sizes
-        roi = self._roi()
-        rx = roi.x
-        ry = roi.y
         # Convert fraction to indices
-        y_indices = (int(ry.low * (sizes[y] - 1)), int(ry.high * (sizes[y] - 1)))
-        x_indices = (int(rx.low * (sizes[x] - 1)), int(rx.high * (sizes[x] - 1)))
+        y_indices = (int(ry.start * (sizes[y] - 1)), int(ry.stop * (sizes[y] - 1)))
+        x_indices = (int(rx.start * (sizes[x] - 1)), int(rx.stop * (sizes[x] - 1)))
         new_roi = {y: y_indices, x: x_indices}
 
-        if new_roi != self._current_roi:
-            self._current_roi = new_roi
-            self._roi_filter.set_roi_from_intervals(sc.DataGroup(new_roi))
-            self.clear()  # Clear accumulated data when ROI changes
+        self._roi_filter.set_roi_from_intervals(sc.DataGroup(new_roi))
 
     def _add_weights(self, data: sc.DataArray) -> None:
         constituents = data.bins.constituents
@@ -193,7 +177,6 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
         data.data = sc.bins(**constituents, validate_indices=False)
 
     def add(self, timestamp: int, data: sc.DataArray) -> None:
-        self._check_for_config_updates()
         # Note that the preprocessor does *not* add weights of 1 (unlike NeXus loaders).
         # Instead, the data column of the content corresponds to the time of arrival.
         filtered, scale = self._roi_filter.apply(data)

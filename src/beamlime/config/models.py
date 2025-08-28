@@ -10,7 +10,7 @@ from enum import Enum
 from typing import Any, Literal
 
 import scipp as sc
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 TimeUnit = Literal['ns', 'us', 'μs', 'ms', 's']
 
@@ -66,33 +66,6 @@ class UpdateEvery(TimeModel):
 
     value: float = Field(default=1.0, ge=0.1, description="Time value.")
     unit: TimeUnit = Field(default="s", description="Physical unit for the time value.")
-
-
-class ROIAxisRange(BaseModel):
-    """
-    Setting for the range of an axis to use for a rectangular ROI.
-
-    Low and high are given as fractions of the axis length between 0 and 1.
-    """
-
-    low: float = Field(
-        ge=0.0, lt=1.0, default=0.49, description="Start of the ROI as a fraction."
-    )
-    high: float = Field(
-        ge=0.0, lt=1.0, default=0.51, description="End of the ROI as a fraction."
-    )
-
-    @model_validator(mode='after')
-    def validate_range(self) -> ROIAxisRange:
-        """Validate that low < high."""
-        if self.low >= self.high:
-            raise ValueError('Low value must be less than high value')
-        return self
-
-
-class ROIRectangle(BaseModel):
-    x: ROIAxisRange = Field(default_factory=ROIAxisRange)
-    y: ROIAxisRange = Field(default_factory=ROIAxisRange)
 
 
 class ConfigKey(BaseModel, frozen=True):

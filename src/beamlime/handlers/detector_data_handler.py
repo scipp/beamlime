@@ -18,13 +18,8 @@ from ..config import models
 from ..config.instrument import Instrument
 from ..core.handler import Accumulator, JobBasedHandlerFactoryBase
 from ..core.message import StreamId, StreamKind
-from .accumulators import DetectorEvents, GroupIntoPixels
+from .accumulators import DetectorEvents, GroupIntoPixels, ROIBasedTOAHistogram
 from .stream_processor_factory import StreamProcessor
-
-# TODO
-# accumulators[f'{name}/roi'] = ROIBasedTOAHistogram(
-#     config=config, roi_filter=view.make_roi_filter()
-# )
 
 
 class DetectorViewParams(pydantic.BaseModel):
@@ -41,20 +36,6 @@ class DetectorViewParams(pydantic.BaseModel):
         title="Time of Arrival Range",
         description="Time of arrival range for detector data.",
         default=parameter_models.TOARange(),
-    )
-
-
-# Yes? No? Maybe?
-class ProjectionParams(pydantic.BaseModel):
-    resolution: int = pydantic.Field(
-        title="Resolution",
-        description="Resolution of the projection in pixels.",
-        default=100,
-    )
-    pixel_noise: float | None = pydantic.Field(
-        title="Pixel Noise",
-        description="Pixel noise to be applied to the projection.",
-        default=None,
     )
 
 
@@ -80,6 +61,12 @@ class DetectorProcessorFactory(ABC):
             params=params, detector_view=self._make_rolling_view(source_name)
         )
 
+    def make_roi(self, source_name: str, params: ROIHistogramParams) -> ROIHistogram:
+        """Factory method that will be registered as a workflow creation function."""
+        return ROIHistogram(
+            params=params, detector_view=self._make_rolling_view(source_name)
+        )
+
     def _register_with_instrument(self, instrument: Instrument) -> None:
         instrument.register_workflow(
             namespace='detector_data',
@@ -89,6 +76,14 @@ class DetectorProcessorFactory(ABC):
             description=self._config.description,
             source_names=self._source_names,
         )(self.make_view)
+        instrument.register_workflow(
+            namespace='detector_data',
+            name=f'{self._config.name}_roi',
+            version=1,
+            title=f'{self._config.title} ROI Histogram',
+            description=f'ROI Histogram for {self._config.description}',
+            source_names=self._source_names,
+        )(self.make_roi)
 
     @abstractmethod
     def _make_rolling_view(self, source_name: str) -> raw.RollingDetectorView:
@@ -163,8 +158,28 @@ class DetectorLogicalView(DetectorProcessorFactory):
         )
 
 
+class LimitedRange(parameter_models.RangeModel):
+    """Model for a limited range between 0 and 1."""
+
+    start: float = parameter_models.Field(
+        ge=0.0, le=1.0, default=0.0, description="Start of the range."
+    )
+    stop: float = parameter_models.Field(
+        ge=0.0, le=1.0, default=1.0, description="Stop of the range."
+    )
+
+
 class ROIHistogramParams(pydantic.BaseModel):
-    region_of_interest: None = None  # TODO
+    x_range: LimitedRange = pydantic.Field(
+        title="X Range",
+        description="X range of the ROI as a fraction of the viewport.",
+        default=LimitedRange(start=0.0, stop=1.0),
+    )
+    y_range: LimitedRange = pydantic.Field(
+        title="Y Range",
+        description="Y range of the ROI as a fraction of the viewport.",
+        default=LimitedRange(start=0.0, stop=1.0),
+    )
     toa_edges: parameter_models.TOAEdges = pydantic.Field(
         title="Time of Arrival Edges",
         description="Time of arrival edges for histogramming.",
@@ -178,8 +193,27 @@ class ROIHistogramParams(pydantic.BaseModel):
 
 
 class ROIHistogram(StreamProcessor):
-    def __init__(self, source_name: str, params: ROIHistogramParams) -> None:
-        pass
+    def __init__(
+        self, params: ROIHistogramParams, detector_view: raw.RollingDetectorView
+    ) -> None:
+        self._accumulator = ROIBasedTOAHistogram(
+            toa_edges=params.toa_edges.get_edges(),
+            x_range=params.x_range,
+            y_range=params.y_range,
+            roi_filter=detector_view.make_roi_filter(),
+        )
+
+    def accumulate(self, data: dict[Hashable, Any]) -> None:
+        if len(data) != 1:
+            raise ValueError("ROIHistogram expects exactly one data item.")
+        raw = next(iter(data.values()))
+        self._accumulator.add(0, raw)  # Timestamp not used.
+
+    def finalize(self) -> dict[str, sc.DataArray]:
+        return {'current': self._accumulator.get()}
+
+    def clear(self) -> None:
+        self._accumulator.clear()
 
 
 class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataArray]):
