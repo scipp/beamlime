@@ -9,7 +9,6 @@ from beamlime.core.handler import Accumulator
 from beamlime.handlers.accumulators import (
     CollectTOA,
     Cumulative,
-    ForwardingAccumulator,
     GroupIntoPixels,
     LogData,
     MonitorEvents,
@@ -73,31 +72,6 @@ class TestNullAccumulator:
         accumulator = NullAccumulator()
         accumulator.clear()
         # Should not raise any exceptions
-
-
-class TestForwardingAccumulator:
-    def test_add_stores_data(self) -> None:
-        accumulator = ForwardingAccumulator[str]()
-        accumulator.add(0, "test data")
-        assert accumulator.get() == "test data"
-
-    def test_get_before_add_raises_error(self) -> None:
-        accumulator = ForwardingAccumulator[str]()
-        with pytest.raises(ValueError, match="No data has been added"):
-            accumulator.get()
-
-    def test_add_overwrites_previous_data(self) -> None:
-        accumulator = ForwardingAccumulator[str]()
-        accumulator.add(0, "first")
-        accumulator.add(1, "second")
-        assert accumulator.get() == "second"
-
-    def test_clear_does_nothing(self) -> None:
-        accumulator = ForwardingAccumulator[str]()
-        accumulator.add(0, "test")
-        accumulator.clear()
-        # Clear doesn't affect ForwardingAccumulator behavior
-        assert accumulator.get() == "test"
 
 
 class TestCumulative:

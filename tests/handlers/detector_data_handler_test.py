@@ -8,7 +8,7 @@ from beamlime import StreamKind
 from beamlime.config import instrument_registry
 from beamlime.config.instrument import Instrument
 from beamlime.config.instruments import available_instruments, get_config
-from beamlime.core.handler import FakeConfigRegistry, Message, StreamId
+from beamlime.core.handler import Message, StreamId
 from beamlime.handlers.accumulators import DetectorEvents
 from beamlime.handlers.detector_data_handler import (
     DetectorHandlerFactory,
@@ -22,9 +22,7 @@ def get_instrument(instrument_name: str) -> Instrument:
 
 
 def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -> None:
-    factory = DetectorHandlerFactory(
-        instrument='dummy', config_registry=FakeConfigRegistry()
-    )
+    factory = DetectorHandlerFactory(instrument='dummy')
     handler = factory.make_handler(
         StreamId(kind=StreamKind.DETECTOR_EVENTS, name='panel_0')
     )

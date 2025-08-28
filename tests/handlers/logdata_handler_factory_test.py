@@ -8,15 +8,9 @@ import pytest
 import scipp as sc
 from scipp.testing import assert_identical
 
-from beamlime.core.handler import FakeConfigRegistry
 from beamlime.core.message import Message, StreamId, StreamKind
 from beamlime.handlers.accumulators import LogData
 from beamlime.handlers.timeseries_handler import LogdataHandlerFactory
-
-
-@pytest.fixture
-def fake_config_registry():
-    return FakeConfigRegistry()
 
 
 @pytest.fixture
@@ -69,24 +63,20 @@ def log_capture() -> LogCapture:
     logger.removeHandler(handler)
 
 
-def test_logdata_handler_factory_initialization(
-    fake_config_registry, attribute_registry
-):
+def test_logdata_handler_factory_initialization(attribute_registry):
     """Test that LogdataHandlerFactory initializes correctly"""
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
         logger=None,
-        config_registry=fake_config_registry,
         attribute_registry=attribute_registry,
     )
     assert factory is not None
 
 
-def test_make_handler_with_valid_source(fake_config_registry, attribute_registry):
+def test_make_handler_with_valid_source(attribute_registry):
     """Test creating a handler with a valid source name"""
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
-        config_registry=fake_config_registry,
         attribute_registry=attribute_registry,
     )
 
@@ -97,14 +87,11 @@ def test_make_handler_with_valid_source(fake_config_registry, attribute_registry
     assert handler is not None
 
 
-def test_make_handler_with_missing_source(
-    fake_config_registry, attribute_registry, log_capture: LogCapture
-):
+def test_make_handler_with_missing_source(attribute_registry, log_capture: LogCapture):
     """Test creating a handler with a source name that doesn't have attributes"""
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
         logger=log_capture.logger,
-        config_registry=fake_config_registry,
         attribute_registry=attribute_registry,
     )
 
@@ -120,7 +107,7 @@ def test_make_handler_with_missing_source(
 
 
 def test_make_handler_with_invalid_attributes(
-    fake_config_registry, attribute_registry, log_capture: LogCapture
+    attribute_registry, log_capture: LogCapture
 ):
     """Test creating a handler with invalid attributes for a source"""
     # Create a copy of the attribute registry with invalid attributes
@@ -130,7 +117,6 @@ def test_make_handler_with_invalid_attributes(
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
         logger=log_capture.logger,
-        config_registry=fake_config_registry,
         attribute_registry=invalid_registry,
     )
 
@@ -145,11 +131,10 @@ def test_make_handler_with_invalid_attributes(
     )
 
 
-def test_full_handler_lifecycle(fake_config_registry, attribute_registry):
+def test_full_handler_lifecycle(attribute_registry):
     """Test the full lifecycle of creating and using a handler"""
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
-        config_registry=fake_config_registry,
         attribute_registry=attribute_registry,
     )
 
@@ -179,11 +164,10 @@ def test_full_handler_lifecycle(fake_config_registry, attribute_registry):
     assert_identical(result.coords["time"][0], expected_time)
 
 
-def test_handler_with_multiple_messages(fake_config_registry, attribute_registry):
+def test_handler_with_multiple_messages(attribute_registry):
     """Test handling multiple messages within the same update interval"""
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
-        config_registry=fake_config_registry,
         attribute_registry=attribute_registry,
     )
 
@@ -264,13 +248,10 @@ def test_handler_across_update_intervals(attribute_registry):
     )
 
 
-def test_logdata_handler_preserves_source_name(
-    fake_config_registry, attribute_registry
-):
+def test_logdata_handler_preserves_source_name(attribute_registry):
     """Test that the generated messages preserve the source name"""
     factory = LogdataHandlerFactory(
         instrument="test_instrument",
-        config_registry=fake_config_registry,
         attribute_registry=attribute_registry,
     )
 

@@ -9,9 +9,7 @@ from typing import Any, NoReturn
 from beamlime.config import instrument_registry
 from beamlime.config.instruments import get_config
 from beamlime.config.streams import get_stream_mapping
-from beamlime.core.message import CONFIG_STREAM_ID
 from beamlime.core.orchestrating_processor import OrchestratingProcessor
-from beamlime.handlers.config_handler import ConfigHandler
 from beamlime.handlers.timeseries_handler import LogdataHandlerFactory
 from beamlime.kafka.routes import RoutingAdapterBuilder
 from beamlime.service_factory import DataServiceBuilder, DataServiceRunner
@@ -33,12 +31,11 @@ def make_timeseries_service_builder(
     )
     _ = get_config(instrument)  # Load the module to register the instrument
     service_name = 'timeseries'
-    config_handler = ConfigHandler(service_name=service_name)
     handler_factory = LogdataHandlerFactory(
         instrument=instrument_registry[instrument],
         attribute_registry=attribute_registry,
     )
-    builder = DataServiceBuilder(
+    return DataServiceBuilder(
         instrument=instrument,
         name=service_name,
         log_level=log_level,
@@ -46,8 +43,6 @@ def make_timeseries_service_builder(
         handler_factory=handler_factory,
         processor_cls=OrchestratingProcessor,
     )
-    builder.add_handler(CONFIG_STREAM_ID, config_handler)
-    return builder
 
 
 def main() -> NoReturn:
