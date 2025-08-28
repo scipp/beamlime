@@ -49,6 +49,7 @@ class TestStreamProcessorFactory:
         factory = StreamProcessorFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="test-workflow",
             version=1,
             title="Pretty name",
@@ -61,7 +62,7 @@ class TestStreamProcessorFactory:
             return make_dummy_stream_processor()
 
         assert len(factory) == 1
-        workflow_id = "test-instrument/test-workflow/1"
+        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         assert workflow_id in factory
         stored_spec = factory[workflow_id]
         assert stored_spec.name == "test-workflow"
@@ -73,6 +74,7 @@ class TestStreamProcessorFactory:
         sources = ["source1", "source2"]
         spec = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="test-workflow",
             version=1,
             title="test-workflow",
@@ -85,7 +87,7 @@ class TestStreamProcessorFactory:
         def factory_func():
             return make_dummy_stream_processor()
 
-        workflow_id = "test-instrument/test-workflow/1"
+        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         stored_spec = factory[workflow_id]
         assert stored_spec.source_names == sources
 
@@ -93,6 +95,7 @@ class TestStreamProcessorFactory:
         factory = StreamProcessorFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="test-wf",
             version=1,
             title="test-workflow",
@@ -106,7 +109,8 @@ class TestStreamProcessorFactory:
 
         with pytest.raises(
             ValueError,
-            match="Workflow ID 'test-instrument/test-wf/1' is already registered.",
+            match="Workflow ID 'test-instrument/test-namespace/test-wf/1' is already "
+            "registered.",
         ):
             factory.register(spec)(lambda: make_dummy_stream_processor())
 
@@ -114,6 +118,7 @@ class TestStreamProcessorFactory:
         factory = StreamProcessorFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="test-workflow",
             version=1,
             title="test-workflow",
@@ -125,7 +130,7 @@ class TestStreamProcessorFactory:
         def factory_func():
             return make_dummy_stream_processor()
 
-        workflow_id = "test-instrument/test-workflow/1"
+        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         config = WorkflowConfig(identifier=workflow_id)
         processor = factory.create(source_name="any-source", config=config)
         assert isinstance(processor, StreamProcessor)
@@ -134,6 +139,7 @@ class TestStreamProcessorFactory:
         factory = StreamProcessorFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="test-workflow",
             version=1,
             title="test-workflow",
@@ -146,7 +152,7 @@ class TestStreamProcessorFactory:
         def factory_func(*, source_name):
             return make_dummy_stream_processor_with_source(source_name=source_name)
 
-        workflow_id = "test-instrument/test-workflow/1"
+        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         config = WorkflowConfig(identifier=workflow_id)
         processor = factory.create(source_name="source1", config=config)
         assert isinstance(processor, StreamProcessor)
@@ -155,6 +161,7 @@ class TestStreamProcessorFactory:
         factory = StreamProcessorFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="test-workflow",
             version=1,
             title="test-workflow",
@@ -166,7 +173,7 @@ class TestStreamProcessorFactory:
         def factory_func(*, params: MyParams):
             return make_dummy_stream_processor_with_params(params=params)
 
-        workflow_id = "test-instrument/test-workflow/1"
+        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         config = WorkflowConfig(
             identifier=workflow_id, params={"value": 100, "name": "custom"}
         )
@@ -177,6 +184,7 @@ class TestStreamProcessorFactory:
         factory = StreamProcessorFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="test-workflow",
             version=1,
             title="test-workflow",
@@ -188,7 +196,7 @@ class TestStreamProcessorFactory:
         def factory_func(*, params: MyParams):
             return make_dummy_stream_processor_with_params(params=params)
 
-        workflow_id = "test-instrument/test-workflow/1"
+        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         config = WorkflowConfig(
             identifier=workflow_id,
             params={"value": "not-an-int", "name": "test"},  # Invalid type for 'value'
@@ -209,6 +217,7 @@ class TestStreamProcessorFactory:
         factory = StreamProcessorFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="test-workflow",
             version=1,
             title="test-workflow",
@@ -221,7 +230,7 @@ class TestStreamProcessorFactory:
         def factory_func():
             return make_dummy_stream_processor()
 
-        workflow_id = "test-instrument/test-workflow/1"
+        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         config = WorkflowConfig(identifier=workflow_id)
 
         with pytest.raises(ValueError, match="Source 'invalid-source' is not allowed"):
@@ -231,6 +240,7 @@ class TestStreamProcessorFactory:
         factory = StreamProcessorFactory()
         spec1 = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="workflow1",
             version=1,
             title="workflow1",
@@ -239,6 +249,7 @@ class TestStreamProcessorFactory:
         )
         spec2 = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="workflow2",
             version=1,
             title="workflow2",
@@ -263,6 +274,7 @@ class TestStreamProcessorFactory:
         factory = StreamProcessorFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="workflow1",
             version=1,
             title="workflow1",
@@ -274,7 +286,7 @@ class TestStreamProcessorFactory:
         def factory_func():
             return make_dummy_stream_processor()
 
-        workflow_id = "test-instrument/workflow1/1"
+        workflow_id = "test-instrument/test-namespace/workflow1/1"
         assert factory[workflow_id].name == "workflow1"
         assert list(iter(factory)) == [workflow_id]
         assert len(factory) == 1
@@ -286,6 +298,7 @@ class TestStreamProcessorFactory:
         factory = StreamProcessorFactory()
         spec1 = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="same-name",
             version=1,
             title="V1",
@@ -294,6 +307,7 @@ class TestStreamProcessorFactory:
         )
         spec2 = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="same-name",
             version=2,
             title="V2",
@@ -316,7 +330,10 @@ class TestStreamProcessorFactory:
         assert names.count("same-name") == 2
 
         # IDs should be different
-        workflow_ids = ["test-instrument/same-name/1", "test-instrument/same-name/2"]
+        workflow_ids = [
+            "test-instrument/test-namespace/same-name/1",
+            "test-instrument/test-namespace/same-name/2",
+        ]
         assert all(wid in factory for wid in workflow_ids)
 
         # Both workflows should be callable
@@ -331,6 +348,7 @@ class TestStreamProcessorFactory:
         factory = StreamProcessorFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="",
             version=1,
             title="",
@@ -342,7 +360,7 @@ class TestStreamProcessorFactory:
         def factory_func():
             return make_dummy_stream_processor()
 
-        workflow_id = "test-instrument//1"
+        workflow_id = "test-instrument/test-namespace//1"
         stored_spec = factory[workflow_id]
         assert stored_spec.name == ""
 
@@ -356,6 +374,7 @@ class TestStreamProcessorFactory:
         sources = ["Source1", "SOURCE2"]
         spec = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="test-workflow",
             version=1,
             title="test-workflow",
@@ -368,7 +387,7 @@ class TestStreamProcessorFactory:
         def factory_func():
             return make_dummy_stream_processor()
 
-        workflow_id = "test-instrument/test-workflow/1"
+        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         config = WorkflowConfig(identifier=workflow_id)
 
         # These should work
@@ -388,6 +407,7 @@ class TestStreamProcessorFactory:
         factory = StreamProcessorFactory()
         spec1 = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="workflow1",
             version=1,
             title="workflow1",
@@ -397,6 +417,7 @@ class TestStreamProcessorFactory:
         )
         spec2 = WorkflowSpec(
             instrument="test-instrument",
+            namespace="test-namespace",
             name="workflow2",
             version=1,
             title="workflow2",

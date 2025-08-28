@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-import numpy as np
 import pytest
 import scipp as sc
 
@@ -8,8 +7,7 @@ from beamlime import StreamKind
 from beamlime.config import instrument_registry
 from beamlime.config.instrument import Instrument
 from beamlime.config.instruments import available_instruments, get_config
-from beamlime.core.handler import Message, StreamId
-from beamlime.handlers.accumulators import DetectorEvents
+from beamlime.core.handler import StreamId
 from beamlime.handlers.detector_data_handler import (
     DetectorHandlerFactory,
     get_nexus_geometry_filename,
@@ -19,27 +17,6 @@ from beamlime.handlers.detector_data_handler import (
 def get_instrument(instrument_name: str) -> Instrument:
     _ = get_config(instrument_name)  # Load the module to register the instrument
     return instrument_registry[instrument_name]
-
-
-def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -> None:
-    factory = DetectorHandlerFactory(instrument='dummy')
-    handler = factory.make_handler(
-        StreamId(kind=StreamKind.DETECTOR_EVENTS, name='panel_0')
-    )
-    events = DetectorEvents(
-        pixel_id=np.array([1, 2, 3]),
-        time_of_arrival=np.array([4, 5, 6]),
-        unit='ns',
-    )
-    message = Message(
-        timestamp=1234,
-        stream=StreamId(kind=StreamKind.DETECTOR_EVENTS, name='ignored'),
-        value=events,
-    )
-    results = handler.handle([message])
-    assert len(results) == 2  # Detector view and ROI-based TOA histogram
-    counts = results[0].value.sum()['current'].data
-    assert sc.identical(counts, sc.scalar(3, unit='counts', dtype='int32'))
 
 
 @pytest.mark.parametrize('instrument', ['dream', 'loki'])

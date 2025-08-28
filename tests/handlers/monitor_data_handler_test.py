@@ -6,6 +6,7 @@ import scipp as sc
 from scipp.testing import assert_identical
 
 from beamlime import StreamId, StreamKind
+from beamlime.config.instrument import Instrument
 from beamlime.config.workflow_spec import WorkflowConfig
 from beamlime.handlers.accumulators import CollectTOA, Cumulative
 from beamlime.handlers.monitor_data_handler import (
@@ -194,22 +195,25 @@ class TestMonitorStreamProcessor:
         assert result["current"].coords["tof"].unit == 'ms'
 
 
-def test_make_beam_monitor_instrument():
-    """Test make_beam_monitor_instrument function."""
-    name = "test_instrument"
+@pytest.fixture
+def test_instrument():
+    """Create a test instrument for testing."""
+    return Instrument(name="test_instrument")
+
+
+def test_make_beam_monitor_instrument(test_instrument):
+    """Test register_monitor_workflows function."""
     source_names = ["source1", "source2"]
 
-    instrument = register_monitor_workflows(name, source_names)
+    register_monitor_workflows(test_instrument, source_names)
 
-    assert instrument.name == f"{name}_beam_monitors"
-
-    factory = instrument.processor_factory
+    factory = test_instrument.processor_factory
 
     # Currently there is only one workflow registered
     assert len(factory) == 1
     id, spec = next(iter(factory.items()))
     assert id == spec.get_id()
-    assert spec.name == "monitor_data"
+    assert spec.name == "monitor_histogram"
 
     processor = factory.create(
         source_name='source1', config=WorkflowConfig(identifier=id, params={})
@@ -219,9 +223,10 @@ def test_make_beam_monitor_instrument():
 
 class TestMonitorHandlerFactory:
     @pytest.fixture
-    def mock_instrument(self):
+    def mock_instrument(self, test_instrument):
         """Create a mock instrument for testing."""
-        return register_monitor_workflows("test", ["source1"])
+        register_monitor_workflows(test_instrument, ["source1"])
+        return test_instrument
 
     @pytest.fixture
     def factory(self, mock_instrument):
