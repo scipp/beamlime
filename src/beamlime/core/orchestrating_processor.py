@@ -9,7 +9,7 @@ from typing import Any, Generic
 
 from ..config.models import ConfigKey, StartTime
 from ..config.workflow_spec import WorkflowConfig, WorkflowStatus, WorkflowStatusType
-from ..handlers.config_handler import ConfigHandler
+from ..handlers.config_handler import ConfigProcessor
 from .handler import Accumulator, HandlerFactory, HandlerRegistry, output_stream_name
 from .job import (
     DifferentInstrument,
@@ -138,24 +138,8 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
             job_manager=self._job_manager, logger=self._logger
         )
         self._message_batcher = NaiveMessageBatcher()
-
-        # NOTE We intend to extract the relevant functionality from ConfigHandler as the
-        # full mechanism is no longer needed. For now we keep it, so monitor_data and
-        # detector_data services still work. We "extract" the relevant functionality
-        # by registering actions. The dict-like interface of the ConfigHandler is unused
-        # here.
-        config_handler = handler_registry.get(CONFIG_STREAM_ID)
-        if config_handler is None or not isinstance(config_handler, ConfigHandler):
-            raise ValueError(
-                f"Config handler not found in registry for stream {CONFIG_STREAM_ID}"
-            )
-        self._config_handler = config_handler
-        self._config_handler.register_action(
-            key='workflow_config',
-            action=self._job_manager_adapter.set_workflow_with_config,
-        )
-        self._config_handler.register_action(
-            key='start_time', action=self._job_manager_adapter.reset_job
+        self._config_processor = ConfigProcessor(
+            job_manager_adapter=self._job_manager_adapter, logger=self._logger
         )
 
     def process(self) -> None:
@@ -170,9 +154,8 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
             else:
                 data_messages.append(msg)
 
-        # Handle config messages, which can trigger workflow (re)creation, resets, etc.
-        # Pushes WorkflowConfig into JobManager via JobManagerAdapter.
-        result_messages = self._config_handler.handle(config_messages)
+        # Handle config messages
+        result_messages = self._config_processor.process_messages(config_messages)
 
         message_batch = self._message_batcher.batch(data_messages)
         if message_batch is None:

@@ -187,3 +187,104 @@ class ConfigHandler(Handler[bytes, None]):
                 )
             )
         return messages
+
+
+class ConfigProcessor:
+    """
+    Simple config processor that handles workflow_config and start_time messages
+    by delegating directly to JobManagerAdapter.
+    """
+
+    def __init__(
+        self,
+        *,
+        job_manager_adapter: Any,  # JobManagerAdapter
+        logger: logging.Logger | None = None,
+    ) -> None:
+        self._job_manager_adapter = job_manager_adapter
+        self._logger = logger or logging.getLogger(__name__)
+
+    def process_messages(
+        self, messages: list[Message[RawConfigItem]]
+    ) -> list[Message[Any]]:
+        """
+        Process config messages and handle workflow_config and start_time updates.
+
+        Parameters
+        ----------
+        messages:
+            List of messages containing configuration updates
+
+        Returns
+        -------
+        :
+            List of response messages
+        """
+        # Group latest updates by key and source
+        latest_updates: defaultdict[str, dict[str | None, ConfigUpdate]] = defaultdict(
+            dict
+        )
+
+        for message in messages:
+            try:
+                update = ConfigUpdate.from_raw(message.value)
+                source_name = update.source_name
+                config_key = update.key
+                value = update.value
+
+                self._logger.info(
+                    'Processing config message for source_name = %s: %s = %s',
+                    source_name,
+                    config_key,
+                    value,
+                )
+
+                if source_name is None:
+                    # source_name=None overrides all previous source-specific updates
+                    latest_updates[config_key].clear()
+
+                latest_updates[config_key][source_name] = update
+
+            except Exception:
+                self._logger.exception('Error processing config message')
+
+        # Process the latest updates
+        response_messages: list[Message[Any]] = []
+
+        for config_key, source_updates in latest_updates.items():
+            for source_name, update in source_updates.items():
+                self._logger.debug(
+                    'Processing config key %s for source %s', config_key, source_name
+                )
+                try:
+                    if config_key == 'workflow_config':
+                        results = self._job_manager_adapter.set_workflow_with_config(
+                            source_name, update.value
+                        )
+                    elif config_key == 'start_time':
+                        results = self._job_manager_adapter.reset_job(
+                            source_name, update.value
+                        )
+                    else:
+                        self._logger.debug('Unknown config key: %s', config_key)
+                        continue
+
+                    # Convert results to messages
+                    for result_config_key, result_value in results:
+                        response_messages.append(
+                            Message(
+                                stream=CONFIG_STREAM_ID,
+                                value=ConfigUpdate(
+                                    config_key=result_config_key, value=result_value
+                                ),
+                            )
+                        )
+
+                except Exception:
+                    self._logger.exception(
+                        'Error processing config key %s for source %s',
+                        config_key,
+                        source_name,
+                    )
+
+        return response_messages
