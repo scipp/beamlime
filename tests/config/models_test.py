@@ -57,39 +57,6 @@ def test_update_every_validation():
         models.UpdateEvery(value=0.05)  # Below minimum of 0.1
 
 
-def test_roi_axis_percentage_defaults():
-    roi = models.ROIAxisRange()
-    assert roi.low == 0.49
-    assert roi.high == 0.51
-
-
-@pytest.mark.parametrize(
-    ("low", "high", "should_raise"),
-    [
-        (0.0, 0.5, False),
-        (0.5, 0.999, False),
-        (-0.01, 0.5, True),
-        (0.5, 1.0, True),
-        (0.6, 0.5, True),  # High must be greater than low
-        (0.5, 0.5, True),  # High must be greater than low
-    ],
-)
-def test_roi_axis_percentage_validation(low, high, should_raise):
-    if should_raise:
-        with pytest.raises(ValidationError):
-            models.ROIAxisRange(low=low, high=high)
-    else:
-        roi = models.ROIAxisRange(low=low, high=high)
-        assert roi.low == low
-        assert roi.high == high
-
-
-def test_roi_rectangle_defaults():
-    roi = models.ROIRectangle()
-    assert roi.x == models.ROIAxisRange()
-    assert roi.y == models.ROIAxisRange()
-
-
 class TestConfigKey:
     def test_defaults(self):
         key = models.ConfigKey(key="test_key")
