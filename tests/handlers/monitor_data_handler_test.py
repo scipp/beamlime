@@ -145,9 +145,13 @@ class TestMonitorStreamProcessor:
         assert "current" in result
         assert_identical(result["cumulative"], result["current"])
 
-        # After finalize, should not be able to finalize again without new data
-        with pytest.raises(ValueError, match="No data has been added"):
-            processor.finalize()
+        # After finalize, we can finalize again without new data, since empty batches
+        # will be committed.
+        empty_result = processor.finalize()
+        assert empty_result["current"].sum().value == 0
+        assert (
+            empty_result["cumulative"].sum().value == result["cumulative"].sum().value
+        )
 
     def test_finalize_subsequent_calls(self, processor):
         """Test finalize accumulates over multiple calls."""
