@@ -60,10 +60,12 @@ class SimpleMessageBatcher:
         batch = MessageBatch(
             start_time=start_time, end_time=end_time, messages=messages
         )
-        # After the initial batch we align to batch boundaries
+        # After the initial batch we align to batch boundaries.  The next batch starts
+        # immediately after the initial batch ends.
+        next_start = end_time
         self._active_batch = MessageBatch(
-            start_time=end_time,
-            end_time=end_time + self._batch_length_ns,
+            start_time=next_start,
+            end_time=next_start + self._batch_length_ns,
             messages=[],
         )
         return batch
@@ -71,6 +73,8 @@ class SimpleMessageBatcher:
     def _split_messages(
         self, messages: list[Message[Any]], timestamp: int
     ) -> tuple[list[Message[Any]], list[Message[Any]]]:
+        # Note that the batch start time will "lie" if there are late messages, but this
+        # is currently considered acceptable and better than dropping messages.
         before = [msg for msg in messages if msg.timestamp < timestamp]
         after = [msg for msg in messages if msg.timestamp >= timestamp]
         return before, after
