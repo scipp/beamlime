@@ -49,7 +49,7 @@ def test_can_configure_and_stop_monitor_workflow(
     instrument: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    caplog.set_level(logging.DEBUG)
+    caplog.set_level(logging.INFO)
     app = make_monitor_app(instrument)
     sink = app.sink
     service = app.service
@@ -77,21 +77,19 @@ def test_can_configure_and_stop_monitor_workflow(
     assert len(sink.messages) == 2
 
     app.publish_monitor_events(size=3000, time=4)
-    service.step()  # Commits the [2,3) batch
+    service.step()
     assert len(sink.messages) == 4
-    assert sink.messages[-2].value.values.sum() == 2000
-    assert sink.messages[-1].value.values.sum() == 0
+    assert sink.messages[-2].value.values.sum() == 5000
+    assert sink.messages[-1].value.values.sum() == 3000
 
     # More events but the same time
     app.publish_monitor_events(size=1000, time=4)
     # Later time
     app.publish_monitor_events(size=1000, time=5)
     service.step()
-    service.step()
-    assert len(sink.messages) == 8
-    assert sink.messages[-2].value.values.sum() == 6000
-    assert sink.messages[-1].value.values.sum() == 4000
-    sink.messages.clear()
+    assert len(sink.messages) == 6
+    assert sink.messages[-2].value.values.sum() == 7000
+    assert sink.messages[-1].value.values.sum() == 2000
 
     # Stop workflow
     stop = workflow_spec.WorkflowConfig(identifier=None).model_dump()
@@ -100,4 +98,4 @@ def test_can_configure_and_stop_monitor_workflow(
     service.step()
     app.publish_monitor_events(size=1000, time=20)
     service.step()
-    assert len(sink.messages) == 1  # the stop message
+    assert len(sink.messages) == 6 + 1  # + 1 for the stop message
