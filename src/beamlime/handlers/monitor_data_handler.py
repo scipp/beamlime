@@ -73,7 +73,7 @@ class MonitorStreamProcessor(StreamProcessor):
             self._cumulative = current
         else:
             self._cumulative += current
-        self._current = None
+        self._current = sc.zeros_like(current)
         return {'cumulative': self._cumulative, 'current': current}
 
     def clear(self) -> None:
