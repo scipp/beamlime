@@ -29,7 +29,7 @@ from .message import (
     Tin,
     Tout,
 )
-from .message_batcher import MessageBatch, NaiveMessageBatcher
+from .message_batcher import MessageBatch, SimpleMessageBatcher
 
 
 class MessagePreprocessor(Generic[Tin, Tout]):
@@ -104,7 +104,7 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         self._job_manager_adapter = JobManagerAdapter(
             job_manager=self._job_manager, logger=self._logger
         )
-        self._message_batcher = NaiveMessageBatcher()
+        self._message_batcher = SimpleMessageBatcher()
         self._config_processor = ConfigProcessor(
             job_manager_adapter=self._job_manager_adapter, logger=self._logger
         )

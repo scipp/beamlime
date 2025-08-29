@@ -14,66 +14,64 @@ class MessageBatch:
     messages: list[Message[Any]]
 
 
-class NaiveMessageBatcher:
+class SimpleMessageBatcher:
     def __init__(
         self, batch_length_s: float = 1.0, pulse_length_s: float = 1.0 / 14
     ) -> None:
         self._batch_length_ns = int(batch_length_s * 1_000_000_000)
         self._pulse_length_ns = int(pulse_length_s * 1_000_000_000)
-        self._watermark: int | None = None
-        self._buffered_messages: list[Message[Any]] = []
+        self._active_batch: MessageBatch | None = None
+        self._future_messages: list[Message[Any]] = []
+
+    def _make_initial_batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
+        if not messages:
+            return None
+        start_time = min(msg.timestamp for msg in messages)
+        end_time = max(msg.timestamp for msg in messages)
+        batch = MessageBatch(
+            start_time=start_time, end_time=end_time, messages=messages
+        )
+        self._active_batch = MessageBatch(
+            start_time=end_time,
+            end_time=end_time + self._batch_length_ns,
+            messages=[],
+        )
+        return batch
 
     def batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
-        # Unclear if filter needed in practice, but there is a test with bad timestamps.
+        # Filter messages with incompatible (broken) timestamps to avoid issues below.
         messages = [msg for msg in messages if isinstance(msg.timestamp, Number)]
-        if not messages:
-            # Return any buffered messages if we have them and a watermark is set
-            if self._buffered_messages and self._watermark is not None:
-                return self._create_batch_from_buffered()
+
+        # Create and return initial batch including everything
+        if self._active_batch is None:
+            return self._make_initial_batch(messages)
+
+        # We have an active batch, decide which messages belong to it
+        new_active, after = self._split_messages(messages, self._active_batch.end_time)
+        self._active_batch.messages.extend(new_active)
+        self._future_messages.extend(after)
+
+        # No future messages, assume we will get more messages for the active batch.
+        # Note this is different from returning an empty batch.
+        if not self._future_messages:
             return None
 
-        # Add new messages to buffer
-        self._buffered_messages.extend(messages)
-        self._buffered_messages = sorted(self._buffered_messages)
-
-        # Initialize watermark on first call
-        max_timestamp = max(msg.timestamp for msg in self._buffered_messages)
-        if self._watermark is None:
-            self._watermark = max_timestamp
-            return None  # Wait for more messages to potentially advance watermark
-
-        # Check if we should advance watermark
-        next_watermark = self._watermark + self._batch_length_ns
-        if max_timestamp > next_watermark:
-            self._watermark = next_watermark
-
-        return self._create_batch_from_buffered()
-
-    def _create_batch_from_buffered(self) -> MessageBatch | None:
-        """Create a batch from buffered messages before the watermark."""
-        if not self._buffered_messages or self._watermark is None:
-            return None
-
-        # Split messages: before watermark vs after watermark
-        messages_before_watermark = []
-        messages_after_watermark = []
-
-        for msg in self._buffered_messages:
-            if msg.timestamp <= self._watermark:
-                messages_before_watermark.append(msg)
-            else:
-                messages_after_watermark.append(msg)
-
-        # Keep messages after watermark for next batch
-        self._buffered_messages = messages_after_watermark
-
-        if not messages_before_watermark:
-            return None
-
-        # Use watermark directly as end_time
-        end_time = self._watermark
-        start_time = end_time - self._batch_length_ns
-
-        return MessageBatch(
-            start_time=start_time, end_time=end_time, messages=messages_before_watermark
+        # We have future messages, i.e., we assume the active batch is done. This may
+        # return an empty batch, which is desired behavior, i.e., we advance batch by
+        # batch.
+        batch = self._active_batch
+        new_end_time = batch.end_time + self._batch_length_ns
+        new_active, self._future_messages = self._split_messages(
+            self._future_messages, new_end_time
         )
+        self._active_batch = MessageBatch(
+            start_time=batch.end_time, end_time=new_end_time, messages=new_active
+        )
+        return batch
+
+    def _split_messages(
+        self, messages: list[Message[Any]], timestamp: int
+    ) -> tuple[list[Message[Any]], list[Message[Any]]]:
+        before = [msg for msg in messages if msg.timestamp < timestamp]
+        after = [msg for msg in messages if msg.timestamp >= timestamp]
+        return before, after

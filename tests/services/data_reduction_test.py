@@ -68,27 +68,40 @@ def test_can_configure_and_stop_workflow_with_detector(
 
     app.publish_events(size=2000, time=2)
     service.step()
+    # Initial batch [2,2] done, starting [2,3)
     assert len(sink.messages) == 1 * n_target
     if check_counts:
         # Events before workflow config was published should not be included
         assert sink.messages[0].value.values.sum() == 2000
     service.step()
     assert len(sink.messages) == 1 * n_target
+    # Triggers commit of batch [2,3) but no new data so no new result
     app.publish_events(size=3000, time=4)
     service.step()
     assert len(sink.messages) == 2 * n_target
     if check_counts:
-        assert sink.messages[1].value.values.sum() == 5000
+        assert sink.messages[-1].value.values.sum() == 2000
 
-    # More events but the same time
+    # More events but the same time, added to [3,4) batch
     app.publish_events(size=1000, time=4)
-    # Later time
-    app.publish_events(size=1000, time=5)
+    # Later time, commits [3,4) and starts [4,5).
+    app.publish_events(size=1111, time=5)
     service.step()
     assert len(sink.messages) == 3 * n_target
+    # No new data, but buffered time=5 causes commit of [4,5) batch, starting [5,6)
+    service.step()
+    assert len(sink.messages) == 4 * n_target
     if check_counts:
-        # Result should include previous events with duplicate time
-        assert sink.messages[2].value.values.sum() == 7000
+        assert sink.messages[-1].value.values.sum() == 6000
+    # No progress without data, time=5 will not be committed before time=6 arrives
+    service.step()
+    assert len(sink.messages) == 4 * n_target
+
+    app.publish_events(size=2222, time=6)
+    service.step()
+    if check_counts:
+        assert sink.messages[-1].value.values.sum() == 7111
+    sink.messages.clear()
 
     # Stop workflow
     stop = workflow_spec.WorkflowConfig(identifier=None).model_dump()
@@ -97,7 +110,7 @@ def test_can_configure_and_stop_workflow_with_detector(
     service.step()
     app.publish_events(size=1000, time=20)
     service.step()
-    assert len(sink.messages) == 3 * n_target + 1  # + 1 for the stop message
+    assert len(sink.messages) == 1  # the stop message
 
 
 @pytest.mark.parametrize("instrument", ['dream', 'loki'])
