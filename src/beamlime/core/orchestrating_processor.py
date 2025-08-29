@@ -130,6 +130,9 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
             self._sink.publish_messages(result_messages)
             time.sleep(0.1)
             return
+        self._logger.debug(
+            'Processing batch with %d data messages', len(message_batch.messages)
+        )
 
         # Pre-process message batch
         workflow_data = self._message_preprocessor.preprocess_messages(message_batch)
