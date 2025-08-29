@@ -15,28 +15,10 @@ class MessageBatch:
 
 
 class SimpleMessageBatcher:
-    def __init__(
-        self, batch_length_s: float = 1.0, pulse_length_s: float = 1.0 / 14
-    ) -> None:
+    def __init__(self, batch_length_s: float = 1.0) -> None:
         self._batch_length_ns = int(batch_length_s * 1_000_000_000)
-        self._pulse_length_ns = int(pulse_length_s * 1_000_000_000)
         self._active_batch: MessageBatch | None = None
         self._future_messages: list[Message[Any]] = []
-
-    def _make_initial_batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
-        if not messages:
-            return None
-        start_time = min(msg.timestamp for msg in messages)
-        end_time = max(msg.timestamp for msg in messages)
-        batch = MessageBatch(
-            start_time=start_time, end_time=end_time, messages=messages
-        )
-        self._active_batch = MessageBatch(
-            start_time=end_time,
-            end_time=end_time + self._batch_length_ns,
-            messages=[],
-        )
-        return batch
 
     def batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
         # Filter messages with incompatible (broken) timestamps to avoid issues below.
@@ -66,6 +48,23 @@ class SimpleMessageBatcher:
         )
         self._active_batch = MessageBatch(
             start_time=batch.end_time, end_time=new_end_time, messages=new_active
+        )
+        return batch
+
+    def _make_initial_batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
+        """Make initial batch that includes everything."""
+        if not messages:
+            return None
+        start_time = min(msg.timestamp for msg in messages)
+        end_time = max(msg.timestamp for msg in messages)
+        batch = MessageBatch(
+            start_time=start_time, end_time=end_time, messages=messages
+        )
+        # After the initial batch we align to batch boundaries
+        self._active_batch = MessageBatch(
+            start_time=end_time,
+            end_time=end_time + self._batch_length_ns,
+            messages=[],
         )
         return batch
 
