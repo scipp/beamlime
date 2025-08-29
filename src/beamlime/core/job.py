@@ -11,7 +11,7 @@ import scipp as sc
 from beamlime.config.instrument import Instrument
 from beamlime.handlers.workflow_factory import Workflow
 
-from ..config.workflow_spec import JobSchedule, WorkflowConfig
+from ..config.workflow_spec import JobSchedule, WorkflowConfig, WorkflowId
 from .message import StreamId
 
 
@@ -48,9 +48,8 @@ JobId = int
 @dataclass(slots=True, kw_only=True)
 class JobResult:
     job_id: JobId
+    workflow_id: WorkflowId
     source_name: str
-    name: str
-    namespace: str
     start_time: int | None
     end_time: int | None
     data: sc.DataArray | sc.DataGroup | None = None
@@ -73,16 +72,14 @@ class Job:
         self,
         *,
         job_id: JobId,
-        workflow_name: str,
+        workflow_id: WorkflowId,
         source_name: str,
-        namespace: str = '',
         processor: Workflow,
         source_mapping: Mapping[str, Hashable],
     ) -> None:
         self._job_id = job_id
-        self._workflow_name = workflow_name
+        self._workflow_id = workflow_id
         self._source_name = source_name
-        self._namespace = namespace
         self._processor = processor
         self._source_mapping = source_mapping
         self._start_time: int | None = None
@@ -121,22 +118,20 @@ class Job:
             )
             return JobResult(
                 job_id=self._job_id,
+                workflow_id=self._workflow_id,
                 start_time=self.start_time,
                 end_time=self.end_time,
                 source_name=self._source_name,
-                name=self._workflow_name,
-                namespace=self._namespace,
                 data=data,
             )
         except Exception as e:
             error_msg = f"Error finalizing job {self._job_id}: {e}"
             return JobResult(
                 job_id=self._job_id,
+                workflow_id=self._workflow_id,
                 start_time=self.start_time,
                 end_time=self.end_time,
                 source_name=self._source_name,
-                name=self._workflow_name,
-                namespace=self._namespace,
                 error_message=error_msg,
             )
 
@@ -160,6 +155,8 @@ class JobFactory:
 
         factory = self._instrument.workflow_factory
         workflow_id = config.identifier
+        if workflow_id is None:
+            raise ValueError("WorkflowConfig must have an identifier to create a Job")
         if (workflow_spec := factory.get(workflow_id)) is None:
             raise WorkflowNotFoundError(f"WorkflowSpec with Id {workflow_id} not found")
         # Note that this initializes the job immediately, i.e., we pay startup cost now.
@@ -171,9 +168,8 @@ class JobFactory:
         source_mapping[source_name] = source_to_key.get(source_name, source_name)
         return Job(
             job_id=job_id,
-            workflow_name=workflow_spec.name,
+            workflow_id=workflow_id,
             source_name=source_name,
-            namespace=workflow_spec.namespace,
             processor=stream_processor,
             source_mapping=source_mapping,
         )
@@ -294,5 +290,5 @@ class JobManager:
             return f"Job {status.job_id} error: {status.error_message}"
 
         return (
-            f"Job {job._workflow_name}/{job._source_name} error: {status.error_message}"
+            f"Job {job._workflow_id}/{job._source_name} error: {status.error_message}"
         )

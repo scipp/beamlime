@@ -15,7 +15,16 @@ from pydantic import BaseModel, Field
 
 T = TypeVar('T')
 
-WorkflowId = str
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class WorkflowId:
+    instrument: str
+    namespace: str
+    name: str
+    version: int
+
+    def __str__(self) -> str:
+        return f"{self.instrument}/{self.namespace}/{self.name}/{self.version}"
 
 
 class WorkflowSpec(BaseModel):
@@ -54,7 +63,12 @@ class WorkflowSpec(BaseModel):
 
         The identifier is a combination of instrument, namespace, name, and version.
         """
-        return f"{self.instrument}/{self.namespace}/{self.name}/{self.version}"
+        return WorkflowId(
+            instrument=self.instrument,
+            namespace=self.namespace,
+            name=self.name,
+            version=self.version,
+        )
 
 
 @dataclass
