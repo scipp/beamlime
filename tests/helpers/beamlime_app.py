@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 
 import numpy as np
@@ -17,6 +18,8 @@ from beamlime import Service, StreamKind
 from beamlime.config import models
 from beamlime.config.instruments import get_config
 from beamlime.config.streams import stream_kind_to_topic
+from beamlime.core.message_batcher import NaiveMessageBatcher
+from beamlime.core.orchestrating_processor import OrchestratingProcessor
 from beamlime.fakes import FakeMessageSink
 from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
 from beamlime.kafka.sink import UnrollingSinkAdapter
@@ -62,7 +65,9 @@ class BeamlimeApp:
         self._monitor_events: dict[str, bytes] = {}
 
     @staticmethod
-    def from_service_builder(builder: DataServiceBuilder) -> BeamlimeApp:
+    def from_service_builder(
+        builder: DataServiceBuilder, use_naive_message_batcher: bool = True
+    ) -> BeamlimeApp:
         """
         Create a BeamlimeApp from a service builder.
 
@@ -72,6 +77,10 @@ class BeamlimeApp:
         """
         sink = FakeMessageSink()
         consumer = FakeConsumer()
+        if use_naive_message_batcher:
+            builder._processor_cls = partial(
+                OrchestratingProcessor, message_batcher=NaiveMessageBatcher()
+            )
         service = builder.from_consumer(
             consumer=consumer,
             sink=UnrollingSinkAdapter(sink),

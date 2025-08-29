@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from numbers import Number
 from typing import Any
@@ -14,7 +15,43 @@ class MessageBatch:
     messages: list[Message[Any]]
 
 
-class SimpleMessageBatcher:
+class MessageBatcher(ABC):
+    @abstractmethod
+    def batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
+        """Create and return a message batch if possible.
+
+        If no batch can be created (batch incomplete), return None.
+        """
+
+
+class NaiveMessageBatcher(MessageBatcher):
+    def __init__(
+        self, batch_length_s: float = 1.0, pulse_length_s: float = 1.0 / 14
+    ) -> None:
+        # Batch length is currently ignored.
+        self._batch_length_ns = int(batch_length_s * 1_000_000_000)
+        self._pulse_length_ns = int(pulse_length_s * 1_000_000_000)
+
+    def batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
+        # Filter messages with incompatible (broken) timestamps to avoid issues below.
+        messages = [msg for msg in messages if isinstance(msg.timestamp, Number)]
+        if not messages:
+            return None
+        messages = sorted(messages)
+        # start_time is the lower bound of the batch, end_time is the upper bound, both
+        # in multiples of the pulse length.
+        start_time = (
+            messages[0].timestamp // self._pulse_length_ns * self._pulse_length_ns
+        )
+        end_time = (
+            (messages[-1].timestamp + self._pulse_length_ns - 1)
+            // self._pulse_length_ns
+            * self._pulse_length_ns
+        )
+        return MessageBatch(start_time=start_time, end_time=end_time, messages=messages)
+
+
+class SimpleMessageBatcher(MessageBatcher):
     def __init__(self, batch_length_s: float = 1.0) -> None:
         self._batch_length_ns = int(batch_length_s * 1_000_000_000)
         self._active_batch: MessageBatch | None = None

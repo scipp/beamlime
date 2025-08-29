@@ -29,7 +29,7 @@ from .message import (
     Tin,
     Tout,
 )
-from .message_batcher import MessageBatch, SimpleMessageBatcher
+from .message_batcher import MessageBatch, MessageBatcher, SimpleMessageBatcher
 
 
 class MessagePreprocessor(Generic[Tin, Tout]):
@@ -91,6 +91,7 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         source: MessageSource[Message[Tin]],
         sink: MessageSink[Tout],
         handler_registry: HandlerRegistry[Tin, Tout],
+        message_batcher: MessageBatcher | None = None,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._source = source
@@ -104,7 +105,7 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         self._job_manager_adapter = JobManagerAdapter(
             job_manager=self._job_manager, logger=self._logger
         )
-        self._message_batcher = SimpleMessageBatcher()
+        self._message_batcher = message_batcher or SimpleMessageBatcher()
         self._config_processor = ConfigProcessor(
             job_manager_adapter=self._job_manager_adapter, logger=self._logger
         )
