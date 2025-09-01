@@ -8,7 +8,7 @@ import pytest
 import scipp as sc
 
 from beamlime.config.workflow_spec import JobSchedule, WorkflowId
-from beamlime.core.job import Job, JobResult, WorkflowData
+from beamlime.core.job import Job, JobId, JobResult, WorkflowData
 from beamlime.core.message import StreamId
 
 
@@ -62,10 +62,10 @@ def sample_workflow_id():
 
 @pytest.fixture
 def sample_job(fake_processor: FakeProcessor, sample_workflow_id: WorkflowId):
+    job_id = JobId(source_name="test_source", job_number=1)
     return Job(
-        job_id=1,
+        job_id=job_id,
         workflow_id=sample_workflow_id,
-        source_name="test_source",
         processor=fake_processor,
         source_mapping={"test_source": "main", "aux_source": "aux"},
     )
@@ -205,10 +205,10 @@ class TestJob:
 
     def test_add_data_error_handling(self, fake_processor, sample_workflow_id):
         """Test error handling during data processing."""
+        job_id = JobId(source_name="test_source", job_number=1)
         job = Job(
-            job_id=1,
+            job_id=job_id,
             workflow_id=sample_workflow_id,
-            source_name="test_source",
             processor=fake_processor,
             source_mapping={"test_source": "main"},
         )
@@ -224,16 +224,16 @@ class TestJob:
 
         status = job.add(data)
         assert status.has_error
-        assert status.job_id == 1
-        assert "Error processing data for job 1" in status.error_message
+        assert status.job_id == job_id
+        assert f"Error processing data for job {job_id}" in status.error_message
         assert "Accumulate failure" in status.error_message
 
     def test_add_data_error_recovery(self, fake_processor, sample_workflow_id):
         """Test that job can recover after an error."""
+        job_id = JobId(source_name="test_source", job_number=1)
         job = Job(
-            job_id=1,
+            job_id=job_id,
             workflow_id=sample_workflow_id,
-            source_name="test_source",
             processor=fake_processor,
             source_mapping={"test_source": "main"},
         )
@@ -266,8 +266,8 @@ class TestJob:
         result = sample_job.get()
 
         assert isinstance(result, JobResult)
-        assert result.job_id == 1
-        assert result.source_name == "test_source"
+        assert result.job_id.source_name == "test_source"
+        assert result.job_id.job_number == 1
         assert result.workflow_id.name == "test_workflow"
         assert result.start_time == 100
         assert result.end_time == 200
@@ -281,10 +281,10 @@ class TestJob:
 
     def test_get_with_finalize_error(self, fake_processor, sample_workflow_id):
         """Test get() handles finalize errors."""
+        job_id = JobId(source_name="test_source", job_number=1)
         job = Job(
-            job_id=1,
+            job_id=job_id,
             workflow_id=sample_workflow_id,
-            source_name="test_source",
             processor=fake_processor,
             source_mapping={"test_source": "main"},
         )
@@ -302,7 +302,7 @@ class TestJob:
 
         result = job.get()
         assert result.error_message is not None
-        assert "Error finalizing job 1" in result.error_message
+        assert f"Error finalizing job {job_id}" in result.error_message
         assert "Finalize failure" in result.error_message
         assert result.data is None
 
@@ -322,10 +322,10 @@ class TestJob:
 
     def test_can_get_after_error_in_add(self, fake_processor, sample_workflow_id):
         """Adding bad data should not directly affect get()."""
+        job_id = JobId(source_name="test_source", job_number=1)
         job = Job(
-            job_id=1,
+            job_id=job_id,
             workflow_id=sample_workflow_id,
-            source_name="test_source",
             processor=fake_processor,
             source_mapping={"test_source": "main"},
         )

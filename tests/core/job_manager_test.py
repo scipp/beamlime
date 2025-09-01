@@ -26,22 +26,21 @@ class FakeJobFactory(JobFactory):
         self.created_jobs = []
         self.processors: dict[JobId, FakeProcessor] = {}
 
-    def create(self, *, job_id: JobId, source_name: str, config: WorkflowConfig) -> Job:
+    def create(self, *, job_id: JobId, config: WorkflowConfig) -> Job:
         processor = FakeProcessor()
         self.processors[job_id] = processor
 
         # Simple source mapping for testing
-        source_mapping = {source_name: "main_data", "aux_source": "aux_data"}
+        source_mapping = {job_id.source_name: "main_data", "aux_source": "aux_data"}
 
         job = Job(
             job_id=job_id,
             workflow_id=config.identifier,
-            source_name=source_name,
             processor=processor,
             source_mapping=source_mapping,
         )
 
-        self.created_jobs.append((job_id, source_name, config))
+        self.created_jobs.append((job_id, config))
         return job
 
 
@@ -72,9 +71,10 @@ class TestJobManager:
 
         job_id = manager.schedule_job("test_source", config)
 
-        assert job_id == 0
+        assert job_id.job_number == 0
+        assert job_id.source_name == "test_source"
         assert len(fake_job_factory.created_jobs) == 1
-        assert fake_job_factory.created_jobs[0] == (0, "test_source", config)
+        assert fake_job_factory.created_jobs[0] == (job_id, config)
 
     def test_schedule_multiple_jobs_increments_id(self, fake_job_factory):
         """Test that scheduling multiple jobs increments job IDs."""
@@ -91,8 +91,10 @@ class TestJobManager:
         job_id1 = manager.schedule_job("source1", config)
         job_id2 = manager.schedule_job("source2", config)
 
-        assert job_id1 == 0
-        assert job_id2 == 1
+        assert job_id1.job_number == 0
+        assert job_id2.job_number == 1
+        assert job_id1.source_name == "source1"
+        assert job_id2.source_name == "source2"
 
     def test_push_data_activates_scheduled_jobs_with_immediate_start(
         self, fake_job_factory
@@ -897,7 +899,7 @@ class TestJobManager:
             schedule=JobSchedule(end_time=100),
         )
         job_id = manager.schedule_job("test_source", config_valid)
-        assert job_id == 0
+        assert job_id.job_number == 0
 
     def test_job_with_zero_duration_after_immediate_start(self, fake_job_factory):
         """Test behavior of job with immediate start and very early end time."""
