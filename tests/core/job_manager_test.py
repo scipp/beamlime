@@ -4,7 +4,7 @@
 import pytest
 import scipp as sc
 
-from beamlime.config.workflow_spec import JobSchedule, WorkflowConfig
+from beamlime.config.workflow_spec import JobSchedule, WorkflowConfig, WorkflowId
 from beamlime.core.job import (
     Job,
     JobFactory,
@@ -35,7 +35,7 @@ class FakeJobFactory(JobFactory):
 
         job = Job(
             job_id=job_id,
-            workflow_name=f"workflow_{config.identifier}",
+            workflow_id=config.identifier,
             source_name=source_name,
             processor=processor,
             source_mapping=source_mapping,
@@ -61,7 +61,14 @@ class TestJobManager:
     def test_schedule_job_creates_job(self, fake_job_factory):
         """Test that scheduling a job creates it using the factory."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")  # Start immediately
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )  # Start immediately
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -72,7 +79,14 @@ class TestJobManager:
     def test_schedule_multiple_jobs_increments_id(self, fake_job_factory):
         """Test that scheduling multiple jobs increments job IDs."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
 
         job_id1 = manager.schedule_job("source1", config)
         job_id2 = manager.schedule_job("source2", config)
@@ -85,7 +99,14 @@ class TestJobManager:
     ):
         """Test that pushing data activates jobs scheduled to start immediately."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")  # Start immediately
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )  # Start immediately
 
         _ = manager.schedule_job("test_source", config)
         assert len(manager.active_jobs) == 0
@@ -105,7 +126,14 @@ class TestJobManager:
     def test_push_data_returns_job_statuses(self, fake_job_factory):
         """Test that push_data returns status for each active job."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
 
         _ = manager.schedule_job("source1", config)
         _ = manager.schedule_job("source2", config)
@@ -124,7 +152,14 @@ class TestJobManager:
     def test_push_data_handles_job_errors(self, fake_job_factory):
         """Test that push_data handles and reports job errors."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -147,10 +182,22 @@ class TestJobManager:
         """Test that jobs are activated based on their scheduled start time."""
         manager = JobManager(fake_job_factory)
         config1 = WorkflowConfig(
-            identifier="early_workflow", schedule=JobSchedule(start_time=50)
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="early_workflow",
+                version=1,
+            ),
+            schedule=JobSchedule(start_time=50),
         )
         config2 = WorkflowConfig(
-            identifier="late_workflow", schedule=JobSchedule(start_time=150)
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="late_workflow",
+                version=1,
+            ),
+            schedule=JobSchedule(start_time=150),
         )
 
         _ = manager.schedule_job("source1", config1)
@@ -180,7 +227,14 @@ class TestJobManager:
     def test_push_data_feeds_active_jobs(self, fake_job_factory):
         """Test that pushing data feeds all active jobs."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
 
         _ = manager.schedule_job("source1", config)
         _ = manager.schedule_job("source2", config)
@@ -203,7 +257,13 @@ class TestJobManager:
         """Test stopping a scheduled job removes it completely."""
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(
-            identifier="test_workflow", schedule=JobSchedule(start_time=200)
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            ),
+            schedule=JobSchedule(start_time=200),
         )  # Start later
 
         job_id = manager.schedule_job("test_source", config)
@@ -224,7 +284,14 @@ class TestJobManager:
     def test_stop_job_stops_active_immediately(self, fake_job_factory):
         """Test stopping an active job."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -251,7 +318,14 @@ class TestJobManager:
     def test_reset_job_active(self, fake_job_factory):
         """Test resetting an active job calls its reset method."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -278,7 +352,13 @@ class TestJobManager:
         """Test resetting a scheduled job calls its reset method."""
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(
-            identifier="test_workflow", schedule=JobSchedule(start_time=200)
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            ),
+            schedule=JobSchedule(start_time=200),
         )
 
         job_id = manager.schedule_job("test_source", config)
@@ -296,7 +376,14 @@ class TestJobManager:
     def test_compute_results_returns_job_results(self, fake_job_factory):
         """Test that compute_results returns results from all active jobs."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
 
         _ = manager.schedule_job("source1", config)
         _ = manager.schedule_job("source2", config)
@@ -317,7 +404,14 @@ class TestJobManager:
     def test_compute_results_ignores_stopped_jobs(self, fake_job_factory):
         """Test that compute_results removes jobs that were stopped."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -342,10 +436,22 @@ class TestJobManager:
         """Test complete job lifecycle with schedule-based activation."""
         manager = JobManager(fake_job_factory)
         config1 = WorkflowConfig(
-            identifier="workflow1", schedule=JobSchedule(start_time=50, end_time=250)
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="workflow1",
+                version=1,
+            ),
+            schedule=JobSchedule(start_time=50, end_time=250),
         )
         config2 = WorkflowConfig(
-            identifier="workflow2", schedule=JobSchedule(start_time=150, end_time=350)
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="workflow2",
+                version=1,
+            ),
+            schedule=JobSchedule(start_time=150, end_time=350),
         )
 
         # Schedule two jobs with different start times
@@ -389,7 +495,14 @@ class TestJobManager:
     def test_multiple_data_accumulation(self, fake_job_factory):
         """Test that multiple data pushes accumulate correctly in jobs."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
 
         job_id = manager.schedule_job("test_source", config)
 
@@ -424,7 +537,12 @@ class TestJobManager:
         """Test that jobs are marked for finishing based on schedule end_time."""
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(
-            identifier="test_workflow",
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            ),
             schedule=JobSchedule(end_time=175),
         )
 
@@ -456,13 +574,31 @@ class TestJobManager:
         """Test handling multiple jobs with different scheduled end times."""
         manager = JobManager(fake_job_factory)
         config1 = WorkflowConfig(
-            identifier="workflow1", schedule=JobSchedule(end_time=150)
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="workflow1",
+                version=1,
+            ),
+            schedule=JobSchedule(end_time=150),
         )
         config2 = WorkflowConfig(
-            identifier="workflow2", schedule=JobSchedule(end_time=200)
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="workflow2",
+                version=1,
+            ),
+            schedule=JobSchedule(end_time=200),
         )
         config3 = WorkflowConfig(
-            identifier="workflow3", schedule=JobSchedule(end_time=300)
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="workflow3",
+                version=1,
+            ),
+            schedule=JobSchedule(end_time=300),
         )
 
         # Schedule three jobs with different end times
@@ -513,7 +649,12 @@ class TestJobManager:
         """Test job finishing when data start_time is exactly scheduled end_time."""
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(
-            identifier="test_workflow",
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            ),
             schedule=JobSchedule(end_time=200),
         )
 
@@ -545,7 +686,12 @@ class TestJobManager:
         """Test jobs don't finish prematurely when data is before scheduled end_time."""
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(
-            identifier="test_workflow",
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            ),
             schedule=JobSchedule(end_time=300),
         )
 
@@ -580,13 +726,31 @@ class TestJobManager:
         """
         manager = JobManager(fake_job_factory)
         config1 = WorkflowConfig(
-            identifier="workflow1", schedule=JobSchedule(end_time=160)
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="workflow1",
+                version=1,
+            ),
+            schedule=JobSchedule(end_time=160),
         )
         config2 = WorkflowConfig(
-            identifier="workflow2", schedule=JobSchedule(end_time=250)
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="workflow2",
+                version=1,
+            ),
+            schedule=JobSchedule(end_time=250),
         )
         config3 = WorkflowConfig(
-            identifier="workflow3", schedule=JobSchedule(end_time=None)
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="workflow3",
+                version=1,
+            ),
+            schedule=JobSchedule(end_time=None),
         )  # No end time
 
         # Schedule three jobs
@@ -633,7 +797,12 @@ class TestJobManager:
         """Test that jobs without scheduled end_time never finish automatically."""
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(
-            identifier="test_workflow",
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            ),
             schedule=JobSchedule(end_time=None),
         )
 
@@ -658,14 +827,27 @@ class TestJobManager:
         manager = JobManager(fake_job_factory)
 
         # Test immediate start (-1)
-        config_immediate = WorkflowConfig(identifier="immediate")
+        config_immediate = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="immediate",
+                version=1,
+            )
+        )
         # Test future start
         config_future = WorkflowConfig(
-            identifier="future", schedule=JobSchedule(start_time=200)
+            identifier=WorkflowId(
+                instrument="test", namespace="data_reduction", name="future", version=1
+            ),
+            schedule=JobSchedule(start_time=200),
         )
         # Test past start (should activate immediately when data arrives)
         config_past = WorkflowConfig(
-            identifier="past", schedule=JobSchedule(start_time=50)
+            identifier=WorkflowId(
+                instrument="test", namespace="data_reduction", name="past", version=1
+            ),
+            schedule=JobSchedule(start_time=50),
         )
 
         _ = manager.schedule_job("source1", config_immediate)
@@ -706,7 +888,12 @@ class TestJobManager:
 
         # This should be allowed: immediate start with specific end time
         config_valid = WorkflowConfig(
-            identifier="valid_workflow",
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="valid_workflow",
+                version=1,
+            ),
             schedule=JobSchedule(end_time=100),
         )
         job_id = manager.schedule_job("test_source", config_valid)
@@ -716,7 +903,13 @@ class TestJobManager:
         """Test behavior of job with immediate start and very early end time."""
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(
-            identifier="test_workflow", schedule=JobSchedule(end_time=50)
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            ),
+            schedule=JobSchedule(end_time=50),
         )
 
         _ = manager.schedule_job("test_source", config)
@@ -741,7 +934,12 @@ class TestJobManager:
         """
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(
-            identifier="test_workflow",
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            ),
             schedule=JobSchedule(start_time=100, end_time=200),
         )
 
@@ -762,7 +960,12 @@ class TestJobManager:
         """Test job finishing when data end_time exactly matches scheduled end_time."""
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(
-            identifier="test_workflow",
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            ),
             schedule=JobSchedule(end_time=200),
         )
 
@@ -804,7 +1007,12 @@ class TestJobManager:
         """Test multiple jobs with identical start and end times."""
         manager = JobManager(fake_job_factory)
         config = WorkflowConfig(
-            identifier="test_workflow",
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            ),
             schedule=JobSchedule(start_time=100, end_time=200),
         )
 
@@ -844,7 +1052,12 @@ class TestJobManager:
 
         # Negative start times other than -1 should be treated as regular timestamps
         config = WorkflowConfig(
-            identifier="test_workflow",
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            ),
             schedule=JobSchedule(start_time=-100, end_time=200),
         )
         _ = manager.schedule_job("test_source", config)
@@ -861,8 +1074,14 @@ class TestJobManager:
     def test_accumulate_failure_handled_gracefully(self, fake_job_factory):
         """Test that an accumulate failure in the processor is handled gracefully."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
-
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
         job_id = manager.schedule_job("test_source", config)
 
         # Activate the job
@@ -899,8 +1118,14 @@ class TestJobManager:
     def test_finalize_failure_handled_gracefully(self, fake_job_factory):
         """Test that a finalize failure in the processor is handled gracefully."""
         manager = JobManager(fake_job_factory)
-        config = WorkflowConfig(identifier="test_workflow")
-
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
         job_id = manager.schedule_job("test_source", config)
 
         # Activate the job
