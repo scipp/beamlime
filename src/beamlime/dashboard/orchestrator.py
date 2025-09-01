@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import logging
 
+import scipp as sc
+
+from ..config.workflow_spec import ResultKey
 from ..core.message import MessageSource
-from .data_forwarder import DataForwarder
+from .data_service import DataService
 
 
 class Orchestrator:
@@ -21,10 +24,10 @@ class Orchestrator:
     def __init__(
         self,
         message_source: MessageSource,
-        forwarder: DataForwarder,
+        data_service: DataService,
     ) -> None:
         self._message_source = message_source
-        self._forwarder = forwarder
+        self._data_service = data_service
         self._logger = logging.getLogger(__name__)
 
     def update(self) -> None:
@@ -41,8 +44,21 @@ class Orchestrator:
         # - Some listeners depend on multiple streams.
         # - There may be multiple messages for the same stream, only the last one
         #   should trigger an update.
-        with self._forwarder.transaction():
+        with self._data_service.transaction():
             for message in messages:
-                self._forwarder.forward(
-                    stream_name=message.stream.name, value=message.value
-                )
+                self.forward(stream_name=message.stream.name, value=message.value)
+
+    def forward(self, stream_name: str, value: sc.DataArray) -> None:
+        """
+        Forward data to the appropriate data service based on the stream name.
+
+        Parameters
+        ----------
+        stream_name:
+            The name of the stream in the format 'source_name/service_name/suffix'. The
+            suffix may contain additional '/' characters which will be ignored.
+        value:
+            The data to be forwarded.
+        """
+        result_key = ResultKey.model_validate_json(stream_name)
+        self._data_service[result_key] = value
