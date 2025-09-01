@@ -165,7 +165,7 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
                     'Job %d (%s/%s) failed: %s',
                     result.job_id,
                     result.source_name,
-                    result.name,
+                    result.workflow_id,
                     result.error_message,
                 )
             else:
@@ -183,11 +183,12 @@ def _job_result_to_message(result: JobResult) -> Message:
     # We probably want to switch to something like
     #   signal_name=f'{result.name}-{result.job_id}'
     # but for now we keep the legacy signal name for frontend compatibility.
-    service_name = result.namespace
+    workflow_id = result.workflow_id
+    service_name = workflow_id.namespace
     if service_name == 'monitor_data':
         signal_name = ''
     elif service_name == 'detector_data':
-        signal_name = result.name
+        signal_name = workflow_id.name
     else:
         signal_name = f'reduced/{result.source_name}'
 

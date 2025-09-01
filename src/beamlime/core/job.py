@@ -147,16 +147,15 @@ class JobFactory:
         self._instrument = instrument
 
     def create(self, *, job_id: JobId, source_name: str, config: WorkflowConfig) -> Job:
-        if config.get_instrument_namespace() != (
-            self._instrument.name,
-            self._instrument.active_namespace,
+        workflow_id = config.identifier
+        if workflow_id is None:
+            raise ValueError("WorkflowConfig must have an identifier to create a Job")
+        if (workflow_id.instrument != self._instrument.name) or (
+            workflow_id.namespace != self._instrument.active_namespace
         ):
             raise DifferentInstrument()
 
         factory = self._instrument.workflow_factory
-        workflow_id = config.identifier
-        if workflow_id is None:
-            raise ValueError("WorkflowConfig must have an identifier to create a Job")
         if (workflow_spec := factory.get(workflow_id)) is None:
             raise WorkflowNotFoundError(f"WorkflowSpec with Id {workflow_id} not found")
         # Note that this initializes the job immediately, i.e., we pay startup cost now.

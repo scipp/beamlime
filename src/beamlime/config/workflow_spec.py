@@ -124,17 +124,6 @@ class WorkflowConfig(BaseModel):
         description="Parameters for the workflow, as JSON-serialized Pydantic model.",
     )
 
-    def get_instrument_namespace(self) -> tuple[str, str] | None:
-        """
-        Get the instrument name and namespace from the workflow identifier.
-
-        The identifier is expected to be in the format
-        'instrument/namespace/name/version'.
-        """
-        if self.identifier is None or '/' not in self.identifier:
-            return None
-        return tuple(self.identifier.split('/')[0:2])
-
 
 class PersistentWorkflowConfig(BaseModel):
     """

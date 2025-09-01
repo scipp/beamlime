@@ -15,7 +15,7 @@ from tests.helpers.beamlime_app import BeamlimeApp
 
 def _get_workflow_from_registry(
     instrument: str, name: str
-) -> tuple[str, workflow_spec.WorkflowSpec]:
+) -> tuple[workflow_spec.WorkflowId, workflow_spec.WorkflowSpec]:
     instrument_config = instrument_registry[instrument]
     workflow_registry = instrument_config.workflow_factory
     for wid, spec in workflow_registry.items():
