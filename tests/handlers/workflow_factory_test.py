@@ -5,13 +5,24 @@ import sciline
 from ess.reduce.streaming import StreamProcessor
 from pydantic import BaseModel, ValidationError
 
-from beamlime.config.workflow_spec import WorkflowConfig, WorkflowSpec
+from beamlime.config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
 from beamlime.handlers.workflow_factory import WorkflowFactory
 
 
 class MyParams(BaseModel):
     value: int = 42
     name: str = "test"
+
+
+@pytest.fixture
+def workflow_id():
+    """Fixture to create a WorkflowId for testing."""
+    return WorkflowId(
+        instrument="test-instrument",
+        namespace="test-namespace",
+        name="test-workflow",
+        version=1,
+    )
 
 
 def make_dummy_workflow() -> StreamProcessor:
@@ -45,13 +56,13 @@ class TestWorkflowFactory:
         assert len(factory) == 0
         assert list(factory) == []
 
-    def test_register_adds_workflow_spec(self):
+    def test_register_adds_workflow_spec(self, workflow_id):
         factory = WorkflowFactory()
         spec = WorkflowSpec(
-            instrument="test-instrument",
-            namespace="test-namespace",
-            name="test-workflow",
-            version=1,
+            instrument=workflow_id.instrument,
+            namespace=workflow_id.namespace,
+            name=workflow_id.name,
+            version=workflow_id.version,
             title="Pretty name",
             description="Test description",
             params=None,
@@ -62,21 +73,20 @@ class TestWorkflowFactory:
             return make_dummy_workflow()
 
         assert len(factory) == 1
-        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         assert workflow_id in factory
         stored_spec = factory[workflow_id]
         assert stored_spec.name == "test-workflow"
         assert stored_spec.description == "Test description"
         assert stored_spec.source_names == []
 
-    def test_register_with_source_names(self):
+    def test_register_with_source_names(self, workflow_id):
         factory = WorkflowFactory()
         sources = ["source1", "source2"]
         spec = WorkflowSpec(
-            instrument="test-instrument",
-            namespace="test-namespace",
-            name="test-workflow",
-            version=1,
+            instrument=workflow_id.instrument,
+            namespace=workflow_id.namespace,
+            name=workflow_id.name,
+            version=workflow_id.version,
             title="test-workflow",
             description="Test",
             source_names=sources,
@@ -87,17 +97,16 @@ class TestWorkflowFactory:
         def factory_func():
             return make_dummy_workflow()
 
-        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         stored_spec = factory[workflow_id]
         assert stored_spec.source_names == sources
 
-    def test_register_duplicate_id_raises_error(self):
+    def test_register_duplicate_id_raises_error(self, workflow_id):
         factory = WorkflowFactory()
         spec = WorkflowSpec(
-            instrument="test-instrument",
-            namespace="test-namespace",
-            name="test-wf",
-            version=1,
+            instrument=workflow_id.instrument,
+            namespace=workflow_id.namespace,
+            name=workflow_id.name,
+            version=workflow_id.version,
             title="test-workflow",
             description="Test",
             params=None,
@@ -109,18 +118,17 @@ class TestWorkflowFactory:
 
         with pytest.raises(
             ValueError,
-            match="Workflow ID 'test-instrument/test-namespace/test-wf/1' is already "
-            "registered.",
+            match=f"Workflow ID '{workflow_id}' is already registered.",
         ):
             factory.register(spec)(lambda: make_dummy_workflow())
 
-    def test_create_returns_stream_processor(self):
+    def test_create_returns_stream_processor(self, workflow_id):
         factory = WorkflowFactory()
         spec = WorkflowSpec(
-            instrument="test-instrument",
-            namespace="test-namespace",
-            name="test-workflow",
-            version=1,
+            instrument=workflow_id.instrument,
+            namespace=workflow_id.namespace,
+            name=workflow_id.name,
+            version=workflow_id.version,
             title="test-workflow",
             description="Test",
             params=None,
@@ -130,18 +138,23 @@ class TestWorkflowFactory:
         def factory_func():
             return make_dummy_workflow()
 
-        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         config = WorkflowConfig(identifier=workflow_id)
         processor = factory.create(source_name="any-source", config=config)
         assert isinstance(processor, StreamProcessor)
 
     def test_create_with_source_name_parameter(self):
         factory = WorkflowFactory()
-        spec = WorkflowSpec(
+        workflow_id = WorkflowId(
             instrument="test-instrument",
             namespace="test-namespace",
             name="test-workflow",
             version=1,
+        )
+        spec = WorkflowSpec(
+            instrument=workflow_id.instrument,
+            namespace=workflow_id.namespace,
+            name=workflow_id.name,
+            version=workflow_id.version,
             title="test-workflow",
             description="Test",
             source_names=["source1"],
@@ -152,18 +165,23 @@ class TestWorkflowFactory:
         def factory_func(*, source_name):
             return make_dummy_workflow_with_source(source_name=source_name)
 
-        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         config = WorkflowConfig(identifier=workflow_id)
         processor = factory.create(source_name="source1", config=config)
         assert isinstance(processor, StreamProcessor)
 
     def test_create_with_params(self):
         factory = WorkflowFactory()
-        spec = WorkflowSpec(
+        workflow_id = WorkflowId(
             instrument="test-instrument",
             namespace="test-namespace",
             name="test-workflow",
             version=1,
+        )
+        spec = WorkflowSpec(
+            instrument=workflow_id.instrument,
+            namespace=workflow_id.namespace,
+            name=workflow_id.name,
+            version=workflow_id.version,
             title="test-workflow",
             description="Test",
             params=None,
@@ -173,7 +191,6 @@ class TestWorkflowFactory:
         def factory_func(*, params: MyParams):
             return make_dummy_workflow_with_params(params=params)
 
-        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         config = WorkflowConfig(
             identifier=workflow_id, params={"value": 100, "name": "custom"}
         )
@@ -182,11 +199,17 @@ class TestWorkflowFactory:
 
     def test_create_invalid_params_raises_pydantic_error(self):
         factory = WorkflowFactory()
-        spec = WorkflowSpec(
+        workflow_id = WorkflowId(
             instrument="test-instrument",
             namespace="test-namespace",
             name="test-workflow",
             version=1,
+        )
+        spec = WorkflowSpec(
+            instrument=workflow_id.instrument,
+            namespace=workflow_id.namespace,
+            name=workflow_id.name,
+            version=workflow_id.version,
             title="test-workflow",
             description="Test",
             params=None,  # This will be auto-detected by the factory
@@ -196,7 +219,6 @@ class TestWorkflowFactory:
         def factory_func(*, params: MyParams):
             return make_dummy_workflow_with_params(params=params)
 
-        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         config = WorkflowConfig(
             identifier=workflow_id,
             params={"value": "not-an-int", "name": "test"},  # Invalid type for 'value'
@@ -208,18 +230,30 @@ class TestWorkflowFactory:
 
     def test_unknown_workflow_id_raises_key_error(self):
         factory = WorkflowFactory()
-        config = WorkflowConfig(identifier="non-existent-id")
+        non_existent_id = WorkflowId(
+            instrument="non-existent",
+            namespace="non-existent",
+            name="non-existent",
+            version=1,
+        )
+        config = WorkflowConfig(identifier=non_existent_id)
 
         with pytest.raises(KeyError, match="Unknown workflow ID"):
             factory.create(source_name="any-source", config=config)
 
     def test_invalid_source_name_raises_value_error(self):
         factory = WorkflowFactory()
-        spec = WorkflowSpec(
+        workflow_id = WorkflowId(
             instrument="test-instrument",
             namespace="test-namespace",
             name="test-workflow",
             version=1,
+        )
+        spec = WorkflowSpec(
+            instrument=workflow_id.instrument,
+            namespace=workflow_id.namespace,
+            name=workflow_id.name,
+            version=workflow_id.version,
             title="test-workflow",
             description="Test",
             source_names=["allowed-source"],
@@ -230,7 +264,6 @@ class TestWorkflowFactory:
         def factory_func():
             return make_dummy_workflow()
 
-        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         config = WorkflowConfig(identifier=workflow_id)
 
         with pytest.raises(ValueError, match="Source 'invalid-source' is not allowed"):
@@ -238,20 +271,32 @@ class TestWorkflowFactory:
 
     def test_multiple_registrations_create_distinct_entries(self):
         factory = WorkflowFactory()
-        spec1 = WorkflowSpec(
+        workflow_id1 = WorkflowId(
             instrument="test-instrument",
             namespace="test-namespace",
             name="workflow1",
             version=1,
+        )
+        workflow_id2 = WorkflowId(
+            instrument="test-instrument",
+            namespace="test-namespace",
+            name="workflow2",
+            version=1,
+        )
+        spec1 = WorkflowSpec(
+            instrument=workflow_id1.instrument,
+            namespace=workflow_id1.namespace,
+            name=workflow_id1.name,
+            version=workflow_id1.version,
             title="workflow1",
             description="Test 1",
             params=None,
         )
         spec2 = WorkflowSpec(
-            instrument="test-instrument",
-            namespace="test-namespace",
-            name="workflow2",
-            version=1,
+            instrument=workflow_id2.instrument,
+            namespace=workflow_id2.namespace,
+            name=workflow_id2.name,
+            version=workflow_id2.version,
             title="workflow2",
             description="Test 2",
             params=None,
@@ -270,13 +315,13 @@ class TestWorkflowFactory:
         names = [spec.name for spec in specs]
         assert sorted(names) == ["workflow1", "workflow2"]
 
-    def test_mapping_interface(self):
+    def test_mapping_interface(self, workflow_id):
         factory = WorkflowFactory()
         spec = WorkflowSpec(
-            instrument="test-instrument",
-            namespace="test-namespace",
-            name="workflow1",
-            version=1,
+            instrument=workflow_id.instrument,
+            namespace=workflow_id.namespace,
+            name=workflow_id.name,
+            version=workflow_id.version,
             title="workflow1",
             description="Test",
             params=None,
@@ -286,8 +331,7 @@ class TestWorkflowFactory:
         def factory_func():
             return make_dummy_workflow()
 
-        workflow_id = "test-instrument/test-namespace/workflow1/1"
-        assert factory[workflow_id].name == "workflow1"
+        assert factory[workflow_id].name == "test-workflow"
         assert list(iter(factory)) == [workflow_id]
         assert len(factory) == 1
         assert list(factory.keys()) == [workflow_id]
@@ -296,20 +340,32 @@ class TestWorkflowFactory:
 
     def test_duplicate_workflow_names_different_versions(self):
         factory = WorkflowFactory()
-        spec1 = WorkflowSpec(
+        workflow_id1 = WorkflowId(
             instrument="test-instrument",
             namespace="test-namespace",
             name="same-name",
             version=1,
+        )
+        workflow_id2 = WorkflowId(
+            instrument="test-instrument",
+            namespace="test-namespace",
+            name="same-name",
+            version=2,
+        )
+        spec1 = WorkflowSpec(
+            instrument=workflow_id1.instrument,
+            namespace=workflow_id1.namespace,
+            name=workflow_id1.name,
+            version=workflow_id1.version,
             title="V1",
             description="Test 1",
             params=None,
         )
         spec2 = WorkflowSpec(
-            instrument="test-instrument",
-            namespace="test-namespace",
-            name="same-name",
-            version=2,
+            instrument=workflow_id2.instrument,
+            namespace=workflow_id2.namespace,
+            name=workflow_id2.name,
+            version=workflow_id2.version,
             title="V2",
             description="Test 2",
             params=None,
@@ -330,15 +386,12 @@ class TestWorkflowFactory:
         assert names.count("same-name") == 2
 
         # IDs should be different
-        workflow_ids = [
-            "test-instrument/test-namespace/same-name/1",
-            "test-instrument/test-namespace/same-name/2",
-        ]
-        assert all(wid in factory for wid in workflow_ids)
+        assert workflow_id1 in factory
+        assert workflow_id2 in factory
 
         # Both workflows should be callable
-        config1 = WorkflowConfig(identifier=workflow_ids[0])
-        config2 = WorkflowConfig(identifier=workflow_ids[1])
+        config1 = WorkflowConfig(identifier=workflow_id1)
+        config2 = WorkflowConfig(identifier=workflow_id2)
         processor1 = factory.create(source_name="any", config=config1)
         processor2 = factory.create(source_name="any", config=config2)
         assert isinstance(processor1, StreamProcessor)
@@ -346,11 +399,14 @@ class TestWorkflowFactory:
 
     def test_empty_name(self):
         factory = WorkflowFactory()
+        workflow_id = WorkflowId(
+            instrument="test-instrument", namespace="test-namespace", name="", version=1
+        )
         spec = WorkflowSpec(
-            instrument="test-instrument",
-            namespace="test-namespace",
-            name="",
-            version=1,
+            instrument=workflow_id.instrument,
+            namespace=workflow_id.namespace,
+            name=workflow_id.name,
+            version=workflow_id.version,
             title="",
             description="Test",
             params=None,
@@ -360,7 +416,6 @@ class TestWorkflowFactory:
         def factory_func():
             return make_dummy_workflow()
 
-        workflow_id = "test-instrument/test-namespace//1"
         stored_spec = factory[workflow_id]
         assert stored_spec.name == ""
 
@@ -372,11 +427,17 @@ class TestWorkflowFactory:
     def test_case_sensitivity_in_source_names(self):
         factory = WorkflowFactory()
         sources = ["Source1", "SOURCE2"]
-        spec = WorkflowSpec(
+        workflow_id = WorkflowId(
             instrument="test-instrument",
             namespace="test-namespace",
             name="test-workflow",
             version=1,
+        )
+        spec = WorkflowSpec(
+            instrument=workflow_id.instrument,
+            namespace=workflow_id.namespace,
+            name=workflow_id.name,
+            version=workflow_id.version,
             title="test-workflow",
             description="Test",
             source_names=sources,
@@ -387,7 +448,6 @@ class TestWorkflowFactory:
         def factory_func():
             return make_dummy_workflow()
 
-        workflow_id = "test-instrument/test-namespace/test-workflow/1"
         config = WorkflowConfig(identifier=workflow_id)
 
         # These should work
@@ -405,21 +465,33 @@ class TestWorkflowFactory:
 
     def test_source_names_property(self):
         factory = WorkflowFactory()
-        spec1 = WorkflowSpec(
+        workflow_id1 = WorkflowId(
             instrument="test-instrument",
             namespace="test-namespace",
             name="workflow1",
             version=1,
+        )
+        workflow_id2 = WorkflowId(
+            instrument="test-instrument",
+            namespace="test-namespace",
+            name="workflow2",
+            version=1,
+        )
+        spec1 = WorkflowSpec(
+            instrument=workflow_id1.instrument,
+            namespace=workflow_id1.namespace,
+            name=workflow_id1.name,
+            version=workflow_id1.version,
             title="workflow1",
             description="Test",
             source_names=["source1", "source2"],
             params=None,
         )
         spec2 = WorkflowSpec(
-            instrument="test-instrument",
-            namespace="test-namespace",
-            name="workflow2",
-            version=1,
+            instrument=workflow_id2.instrument,
+            namespace=workflow_id2.namespace,
+            name=workflow_id2.name,
+            version=workflow_id2.version,
             title="workflow2",
             description="Test",
             source_names=["source2", "source3"],
