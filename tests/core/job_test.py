@@ -12,6 +12,53 @@ from beamlime.core.job import Job, JobId, JobResult, WorkflowData
 from beamlime.core.message import StreamId
 
 
+class TestJobResult:
+    def test_stream_name(self):
+        workflow_id = WorkflowId(
+            instrument="TEST",
+            namespace="data_reduction",
+            name="test_workflow",
+            version=1,
+        )
+        job_id = JobId(source_name="test_source", job_number=42)
+        result = JobResult(
+            job_id=job_id,
+            workflow_id=workflow_id,
+            start_time=100,
+            end_time=200,
+            data=sc.DataArray(sc.scalar(3.14)),
+            error_message=None,
+        )
+        assert result.stream_name == (
+            '{"workflow_id":{"instrument":"TEST","namespace":"data_reduction",'
+            '"name":"test_workflow","version":1},"job_id":{"source_name":"test_source",'
+            '"job_number":42}}'
+        )
+
+    def test_stream_name_with_output_name(self):
+        workflow_id = WorkflowId(
+            instrument="TEST",
+            namespace="data_reduction",
+            name="test_workflow",
+            version=1,
+        )
+        job_id = JobId(source_name="test_source", job_number=42)
+        result = JobResult(
+            job_id=job_id,
+            workflow_id=workflow_id,
+            output_name="output1",
+            start_time=100,
+            end_time=200,
+            data=sc.DataArray(sc.scalar(3.14)),
+            error_message=None,
+        )
+        assert result.stream_name == (
+            '{"workflow_id":{"instrument":"TEST","namespace":"data_reduction",'
+            '"name":"test_workflow","version":1},"job_id":{"source_name":"test_source",'
+            '"job_number":42}}/output1'
+        )
+
+
 class FakeProcessor:
     """Fake implementation of StreamProcessor for testing."""
 

@@ -114,13 +114,3 @@ class Accumulator(Protocol, Generic[T, U]):
     def get(self) -> U: ...
 
     def clear(self) -> None: ...
-
-
-def output_stream_name(*, service_name: str, stream_name: str, signal_name: str) -> str:
-    """
-    Return the output stream name for a given service name, stream name and signal.
-    """
-    if signal_name:
-        return f'{stream_name}/{service_name}/{signal_name}'
-    else:
-        return f'{stream_name}/{service_name}'

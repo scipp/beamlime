@@ -27,6 +27,24 @@ class WorkflowId:
         return f"{self.instrument}/{self.namespace}/{self.name}/{self.version}"
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class JobId:
+    source_name: str
+    job_number: int
+
+
+class ResultKey(BaseModel, frozen=True):
+    # If the job produced a DataGroup then it will be serialized as multiple da00
+    # messages. Each message corresponds to a single DataArray value the DataGroup.
+    # In the case the output_name is set.
+    workflow_id: WorkflowId = Field(description="Workflow ID")
+    job_id: JobId = Field(description="Job ID")
+    output_name: str | None = Field(
+        default=None,
+        description="Name of the output, if the job produces multiple outputs",
+    )
+
+
 class WorkflowSpec(BaseModel):
     """
     Model for workflow specification.

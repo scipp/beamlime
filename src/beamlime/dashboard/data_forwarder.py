@@ -5,7 +5,7 @@ from contextlib import ExitStack, contextmanager
 
 import scipp as sc
 
-from .data_key import DataKey
+from ..config.workflow_spec import ResultKey
 from .data_service import DataService
 
 
@@ -52,19 +52,6 @@ class DataForwarder:
         value:
             The data to be forwarded.
         """
-        try:
-            source_name, service_name, key = stream_name.split('/', maxsplit=2)
-        except ValueError:
-            raise ValueError(
-                f"Invalid stream name format '{stream_name}'. Expected format: "
-                "'source_name/service_name/key'."
-            ) from None
-        if (service := self._data_services.get(service_name)) is not None:
-            data_key = DataKey(
-                service_name=service_name, source_name=source_name, key=key
-            )
-            service[data_key] = value
-        else:
-            self._logger.debug(
-                "Service '%s' not found for stream '%s'", service_name, stream_name
-            )
+        result_key = ResultKey.model_validate_json(stream_name)
+        service = next(iter(self._data_services.values()))
+        service[result_key] = value

@@ -11,7 +11,13 @@ import scipp as sc
 from beamlime.config.instrument import Instrument
 from beamlime.handlers.workflow_factory import Workflow
 
-from ..config.workflow_spec import JobSchedule, WorkflowConfig, WorkflowId
+from ..config.workflow_spec import (
+    JobId,
+    JobSchedule,
+    ResultKey,
+    WorkflowConfig,
+    WorkflowId,
+)
 from .message import StreamId
 
 
@@ -42,20 +48,25 @@ class WorkflowData:
     data: dict[StreamId, Any]
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class JobId:
-    source_name: str
-    job_number: int
-
-
 @dataclass(slots=True, kw_only=True)
 class JobResult:
     job_id: JobId
     workflow_id: WorkflowId
+    output_name: str | None = None
+    # Should this be included in the data instead?
     start_time: int | None
     end_time: int | None
     data: sc.DataArray | sc.DataGroup | None = None
     error_message: str | None = None
+
+    @property
+    def stream_name(self) -> str:
+        """Get the stream name associated with this job result."""
+        return ResultKey(
+            workflow_id=self.workflow_id,
+            job_id=self.job_id,
+            output_name=self.output_name,
+        ).model_dump_json()
 
 
 @dataclass
