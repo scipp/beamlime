@@ -297,5 +297,5 @@ class JobManager:
 
         return (
             f"Job {job._workflow_id}/{status.job_id.source_name} "
-            "error: {status.error_message}"
+            f"error: {status.error_message}"
         )
