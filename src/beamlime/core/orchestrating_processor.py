@@ -162,9 +162,8 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         for result in results:
             if result.error_message is not None:
                 self._logger.error(
-                    'Job %d (%s/%s) failed: %s',
+                    'Job %s for workflow %s failed: %s',
                     result.job_id,
-                    result.source_name,
                     result.workflow_id,
                     result.error_message,
                 )

@@ -32,7 +32,7 @@ class TestJobResult:
         assert result.stream_name == (
             '{"workflow_id":{"instrument":"TEST","namespace":"data_reduction",'
             '"name":"test_workflow","version":1},"job_id":{"source_name":"test_source",'
-            '"job_number":42}}'
+            '"job_number":42},"output_name":null}'
         )
 
     def test_stream_name_with_output_name(self):
@@ -55,7 +55,7 @@ class TestJobResult:
         assert result.stream_name == (
             '{"workflow_id":{"instrument":"TEST","namespace":"data_reduction",'
             '"name":"test_workflow","version":1},"job_id":{"source_name":"test_source",'
-            '"job_number":42}}/output1'
+            '"job_number":42},"output_name":"output1"}'
         )
 
 
