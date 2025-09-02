@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import argparse
+import itertools
 
 import holoviews as hv
 import panel as pn
@@ -29,31 +30,10 @@ class ReductionApp(DashboardBase):
             port=5009,  # Default port for reduction dashboard
         )
         self._setup_workflow_management('data_reduction')
-        self._setup_reduction_streams()
         self._reset_controller = self._controller_factory.create(
             config_key=keys.REDUCTION_START_TIME.create_key()
         )
         self._logger.info("Reduction dashboard initialized")
-
-    def _setup_reduction_streams(self) -> None:
-        """Initialize streams for reduction data."""
-        source_names = self._processor_factory.source_names
-        self._focussed_d_pipe = self._reduction_stream_manager.get_stream(
-            source_names=source_names,
-            view_name='ess.powder.types.FocussedDataDspacing[ess.reduce.nexus.types.SampleRun]',
-        )
-        self._focussed_d2theta_pipe = self._reduction_stream_manager.get_stream(
-            source_names=source_names,
-            view_name='ess.powder.types.FocussedDataDspacingTwoTheta[ess.reduce.nexus.types.SampleRun]',
-        )
-        self._iofd_pipe = self._reduction_stream_manager.get_stream(
-            source_names=source_names,
-            view_name='ess.powder.types.IofDspacing[ess.reduce.nexus.types.SampleRun]',
-        )
-        self._iofd2theta_pipe = self._reduction_stream_manager.get_stream(
-            source_names=source_names,
-            view_name='ess.powder.types.IofDspacingTwoTheta[ess.reduce.nexus.types.SampleRun]',
-        )
 
     def create_sidebar_content(self) -> pn.viewable.Viewable:
         """Create the sidebar content with workflow controls."""
@@ -65,61 +45,44 @@ class ReductionApp(DashboardBase):
         )
 
     def create_main_content(self) -> pn.viewable.Viewable:
-        """Create the main content area (empty for now)."""
-        self._foccussed_d_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
-        foc_d = hv.DynamicMap(
-            self._foccussed_d_plot.plot_lines,
-            streams=[self._focussed_d_pipe],
-            cache_size=1,
-        ).opts(shared_axes=False)
-        self._foccussed_d2theta_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
-        foc_d2theta = hv.DynamicMap(
-            self._foccussed_d2theta_plot.plot_sum_of_2d,
-            streams=[self._focussed_d2theta_pipe],
-            cache_size=1,
-        ).opts(shared_axes=False)
-        self._iofd_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
-        iofd = hv.DynamicMap(
-            self._iofd_plot.plot_lines,
-            streams=[self._iofd_pipe],
-            cache_size=1,
-        ).opts(shared_axes=False)
-        self._iofd2theta_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
+        """Create the main content area."""
 
-        class WrapPlot:
+        class PlotSumOf2d:
             def __init__(self) -> None:
                 self._plot = plots.AutoscalingPlot(value_margin_factor=0.1)
 
             def __call__(self, data):
                 return self._plot.plot_sum_of_2d(data)
 
-        # iofd2theta = hv.DynamicMap(
-        #    self._iofd2theta_plot.plot_sum_of_2d,
-        #    streams=[self._iofd2theta_pipe],
-        #    cache_size=1,
-        # ).opts(shared_axes=False)
+        class PlotLines:
+            def __init__(self) -> None:
+                self._plot = plots.AutoscalingPlot(value_margin_factor=0.1)
+
+            def __call__(self, data):
+                return self._plot.plot_lines(data)
+
         print(list(self._workflow_registry))
-        self._plot_service.register_plot(
-            workflow_id=WorkflowId(
-                instrument='dream',
-                namespace='data_reduction',
-                name='powder_reduction_with_vanadium',
-                version=1,
-            ),
-            output_name='ess.powder.types.IofDspacingTwoTheta[ess.reduce.nexus.types.SampleRun]',
-            plot_cls=WrapPlot,
-        )
+        workflow_ids = [
+            WorkflowId(
+                instrument='dream', namespace='data_reduction', name=name, version=1
+            )
+            for name in ['powder_reduction', 'powder_reduction_with_vanadium']
+        ]
+
+        plot_clss = {
+            'ess.powder.types.IofDspacing[ess.reduce.nexus.types.SampleRun]': PlotLines,
+            'ess.powder.types.FocussedDataDspacing[ess.reduce.nexus.types.SampleRun]': PlotLines,
+            'ess.powder.types.IofDspacingTwoTheta[ess.reduce.nexus.types.SampleRun]': PlotSumOf2d,
+            'ess.powder.types.FocussedDataDspacingTwoTheta[ess.reduce.nexus.types.SampleRun]': PlotSumOf2d,
+        }
+
+        for workflow_id, (output_name, plot_cls) in itertools.product(
+            workflow_ids, plot_clss.items()
+        ):
+            self._plot_service.register_plot(
+                workflow_id=workflow_id, output_name=output_name, plot_cls=plot_cls
+            )
         return pn.Row()
-        return pn.Tabs(
-            (
-                "I(d) (vanadium normalized)",
-                pn.Column(pn.pane.HoloViews(iofd), pn.pane.HoloViews(iofd2theta)),
-            ),
-            (
-                "Focussed Data (before vanadium normalization)",
-                pn.Column(pn.pane.HoloViews(foc_d), pn.pane.HoloViews(foc_d2theta)),
-            ),
-        )
 
 
 def get_arg_parser() -> argparse.ArgumentParser:

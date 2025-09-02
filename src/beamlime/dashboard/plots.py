@@ -121,7 +121,7 @@ class AutoscalingPlot:
         curves = []
         bounds_changed = False
         for data_key, da in data.items():
-            name = data_key.source_name
+            name = data_key.job_id.source_name
             da = da.assign_coords(dspacing=sc.midpoints(da.coords['dspacing']))
             bounds_changed |= self.update_bounds(da)
             curves.append(to_holoviews(da).relabel(name))
