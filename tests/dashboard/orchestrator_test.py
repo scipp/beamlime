@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+import uuid
+
 import pytest
 import scipp as sc
 
@@ -7,6 +9,11 @@ from beamlime.config.workflow_spec import JobId, ResultKey, WorkflowId
 from beamlime.core.message import Message, StreamId, StreamKind
 from beamlime.dashboard.data_service import DataService
 from beamlime.dashboard.orchestrator import Orchestrator
+
+
+def make_job_number() -> uuid.UUID:
+    """Generate a random UUID for job number."""
+    return uuid.uuid4()
 
 
 class FakeMessageSource:
@@ -52,7 +59,7 @@ class TestOrchestrator:
             name="test_workflow",
             version=1,
         )
-        job_id = JobId(source_name="detector1", job_number=42)
+        job_id = JobId(source_name="detector1", job_number=make_job_number())
         result_key = ResultKey(workflow_id=workflow_id, job_id=job_id)
 
         data = sc.DataArray(sc.array(dims=['x'], values=[1, 2, 3]))
@@ -81,8 +88,8 @@ class TestOrchestrator:
             version=1,
         )
 
-        job_id1 = JobId(source_name="detector1", job_number=1)
-        job_id2 = JobId(source_name="detector2", job_number=2)
+        job_id1 = JobId(source_name="detector1", job_number=make_job_number())
+        job_id2 = JobId(source_name="detector2", job_number=make_job_number())
 
         result_key1 = ResultKey(workflow_id=workflow_id1, job_id=job_id1)
         result_key2 = ResultKey(workflow_id=workflow_id2, job_id=job_id2)
@@ -111,7 +118,7 @@ class TestOrchestrator:
             name="test_workflow",
             version=1,
         )
-        job_id = JobId(source_name="detector1", job_number=1)
+        job_id = JobId(source_name="detector1", job_number=make_job_number())
         result_key = ResultKey(workflow_id=workflow_id, job_id=job_id)
 
         original_data = sc.DataArray(sc.array(dims=['x'], values=[1, 2]))
@@ -138,7 +145,7 @@ class TestOrchestrator:
             name="test_workflow",
             version=1,
         )
-        job_id = JobId(source_name="detector1", job_number=1)
+        job_id = JobId(source_name="detector1", job_number=make_job_number())
         result_key = ResultKey(
             workflow_id=workflow_id, job_id=job_id, output_name="processed_data"
         )
@@ -162,7 +169,7 @@ class TestOrchestrator:
             name="test_workflow",
             version=1,
         )
-        job_id = JobId(source_name="detector1", job_number=1)
+        job_id = JobId(source_name="detector1", job_number=make_job_number())
         result_key = ResultKey(workflow_id=workflow_id, job_id=job_id)
 
         data = sc.DataArray(sc.array(dims=['x'], values=[1, 2, 3]))
@@ -195,9 +202,9 @@ class TestOrchestrator:
             version=1,
         )
 
-        job_id1 = JobId(source_name="detector1", job_number=1)
-        job_id2 = JobId(source_name="detector1", job_number=2)
-        job_id3 = JobId(source_name="detector1", job_number=3)
+        job_id1 = JobId(source_name="detector1", job_number=make_job_number())
+        job_id2 = JobId(source_name="detector1", job_number=make_job_number())
+        job_id3 = JobId(source_name="detector1", job_number=make_job_number())
 
         result_key1 = ResultKey(
             workflow_id=workflow_id, job_id=job_id1, output_name="int_data"
@@ -244,7 +251,7 @@ class TestOrchestrator:
             name="test_workflow",
             version=1,
         )
-        job_id = JobId(source_name="detector1", job_number=1)
+        job_id = JobId(source_name="detector1", job_number=make_job_number())
         result_key = ResultKey(workflow_id=workflow_id, job_id=job_id)
 
         data = sc.DataArray(sc.array(dims=['x'], values=[1, 2, 3]))

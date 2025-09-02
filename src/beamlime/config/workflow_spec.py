@@ -7,6 +7,7 @@ Models for data reduction workflow widget creation and configuration.
 from __future__ import annotations
 
 import time
+import uuid
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, TypeVar
@@ -14,6 +15,8 @@ from typing import Any, TypeVar
 from pydantic import BaseModel, Field
 
 T = TypeVar('T')
+
+JobNumber = uuid.UUID
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -30,7 +33,7 @@ class WorkflowId:
 @dataclass(frozen=True, slots=True, kw_only=True)
 class JobId:
     source_name: str
-    job_number: int
+    job_number: JobNumber
 
 
 class ResultKey(BaseModel, frozen=True):
@@ -133,6 +136,9 @@ class WorkflowConfig(BaseModel):
 
     identifier: WorkflowId | None = Field(
         description="Hash of the workflow, used to identify the workflow."
+    )
+    job_number: JobNumber | None = Field(
+        default=None, description=("Unique identifier to identify jobs and job results")
     )
     schedule: JobSchedule = Field(
         default_factory=JobSchedule, description="Schedule for the workflow."

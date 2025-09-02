@@ -2,6 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+import uuid
 from collections.abc import Hashable, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -192,7 +193,6 @@ class JobManager:
         self._active_jobs: dict[JobId, Job] = {}
         self._scheduled_jobs: dict[JobId, Job] = {}
         self._finishing_jobs: list[JobId] = []
-        self._next_job_number: int = 0
         self._job_schedules: dict[JobId, JobSchedule] = {}
 
     @property
@@ -234,11 +234,12 @@ class JobManager:
         """
         Schedule a new job based on the provided configuration.
         """
-        job_id = JobId(job_number=self._next_job_number, source_name=source_name)
+        job_id = JobId(
+            job_number=config.job_number or uuid.uuid4(), source_name=source_name
+        )
         job = self._job_factory.create(job_id=job_id, config=config)
         self._job_schedules[job_id] = config.schedule
         self._scheduled_jobs[job_id] = job
-        self._next_job_number += 1
         return job_id
 
     def stop_job(self, job_id: JobId) -> None:

@@ -180,8 +180,8 @@ def _job_result_to_message(result: JobResult) -> Message:
     """
     Convert a workflow result to a message for publishing.
 
-    JobId.job_number is unique on its own, but we include the workflow ID and full JobId
-    including source_name to make it easier to identify the job in the frontend.
+    JobId is unique on its own, but we include the workflow ID to make it easier to
+    identify the job in the frontend.
     """
     return Message(
         timestamp=result.start_time or 0,

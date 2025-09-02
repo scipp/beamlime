@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+import uuid
 from collections.abc import Hashable
 from copy import deepcopy
 from typing import Any
@@ -20,7 +21,8 @@ class TestJobResult:
             name="test_workflow",
             version=1,
         )
-        job_id = JobId(source_name="test_source", job_number=42)
+        job_number = uuid.uuid4()
+        job_id = JobId(source_name="test_source", job_number=job_number)
         result = JobResult(
             job_id=job_id,
             workflow_id=workflow_id,
@@ -32,7 +34,7 @@ class TestJobResult:
         assert result.stream_name == (
             '{"workflow_id":{"instrument":"TEST","namespace":"data_reduction",'
             '"name":"test_workflow","version":1},"job_id":{"source_name":"test_source",'
-            '"job_number":42},"output_name":null}'
+            '"job_number":"' + str(job_number) + '"},"output_name":null}'
         )
 
     def test_stream_name_with_output_name(self):
@@ -42,7 +44,8 @@ class TestJobResult:
             name="test_workflow",
             version=1,
         )
-        job_id = JobId(source_name="test_source", job_number=42)
+        job_number = uuid.uuid4()
+        job_id = JobId(source_name="test_source", job_number=job_number)
         result = JobResult(
             job_id=job_id,
             workflow_id=workflow_id,
@@ -55,7 +58,7 @@ class TestJobResult:
         assert result.stream_name == (
             '{"workflow_id":{"instrument":"TEST","namespace":"data_reduction",'
             '"name":"test_workflow","version":1},"job_id":{"source_name":"test_source",'
-            '"job_number":42},"output_name":"output1"}'
+            '"job_number":"' + str(job_number) + '"},"output_name":"output1"}'
         )
 
 

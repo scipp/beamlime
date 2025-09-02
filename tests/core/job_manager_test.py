@@ -104,12 +104,12 @@ class TestJobManager:
 
         job_id = manager.schedule_job("test_source", base_workflow_config)
 
-        assert job_id.job_number == 0
+        assert job_id.job_number is not None
         assert job_id.source_name == "test_source"
         assert len(fake_job_factory.created_jobs) == 1
         assert fake_job_factory.created_jobs[0] == (job_id, base_workflow_config)
 
-    def test_schedule_multiple_jobs_increments_id(
+    def test_schedule_multiple_jobs_gives_unique_ids(
         self, fake_job_factory, base_workflow_config
     ):
         """Test that scheduling multiple jobs increments job IDs."""
@@ -118,8 +118,7 @@ class TestJobManager:
         job_id1 = manager.schedule_job("source1", base_workflow_config)
         job_id2 = manager.schedule_job("source2", base_workflow_config)
 
-        assert job_id1.job_number == 0
-        assert job_id2.job_number == 1
+        assert job_id1.job_number != job_id2.job_number
         assert job_id1.source_name == "source1"
         assert job_id2.source_name == "source2"
 
@@ -832,7 +831,7 @@ class TestJobManager:
             schedule=JobSchedule(end_time=100),
         )
         job_id = manager.schedule_job("test_source", config_valid)
-        assert job_id.job_number == 0
+        assert job_id.source_name == "test_source"
 
     def test_job_with_zero_duration_after_immediate_start(self, fake_job_factory):
         """Test behavior of job with immediate start and very early end time."""
