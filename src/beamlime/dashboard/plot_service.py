@@ -51,12 +51,12 @@ class PlotService:
 
     def get_available_plots(
         self, job_number: JobNumber, output_name: str | None
-    ) -> list[Plot]:
+    ) -> list[type[Plot]]:
         """Get all available plots for a given job and output."""
         workflow_id = self._job_service.job_info[job_number]
         key = (workflow_id, output_name)
-        plot_classes = self._plot_fns.get(key, [])
-        return [plot_cls() for plot_cls in plot_classes]
+        print(key, list(self._plot_fns))
+        return self._plot_fns.get(key, [])
 
     def create_plot(
         self,

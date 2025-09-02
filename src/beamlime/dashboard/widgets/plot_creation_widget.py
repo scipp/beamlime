@@ -33,6 +33,7 @@ class PlotCreationWidget:
         self._job_table = self._create_job_table()
         self._source_selector = self._create_source_selector()
         self._output_selector = self._create_output_selector()
+        self._plot_selector = self._create_plot_selector()
         self._plot_options = self._create_plot_options()
         self._error_pane = pn.pane.HTML("", sizing_mode='stretch_width')
         self._create_button = self._create_plot_button()
@@ -40,6 +41,8 @@ class PlotCreationWidget:
 
         # Set up watchers
         self._job_table.param.watch(self._on_job_selection_change, 'selection')
+        self._source_selector.param.watch(self._on_source_selection_change, 'value')
+        self._output_selector.param.watch(self._on_output_selection_change, 'value')
 
         # Create main widget with tabs
         self._creation_tab = self._create_creation_tab()
@@ -88,6 +91,17 @@ class PlotCreationWidget:
         """Create output name selection widget."""
         return pn.widgets.Select(
             name="Output Name",
+            options=[],
+            value=None,
+            sizing_mode='stretch_width',
+            disabled=True,
+            visible=False,
+        )
+
+    def _create_plot_selector(self) -> pn.widgets.Select:
+        """Create plot type selection widget."""
+        return pn.widgets.Select(
+            name="Plot Type",
             options=[],
             value=None,
             sizing_mode='stretch_width',
@@ -164,6 +178,7 @@ class PlotCreationWidget:
             self._job_table,
             self._source_selector,
             self._output_selector,
+            self._plot_selector,
             self._plot_options,
             self._error_pane,
             self._create_button,
@@ -207,6 +222,14 @@ class PlotCreationWidget:
 
         self._update_dependent_widgets()
 
+    def _on_source_selection_change(self, event) -> None:
+        """Handle source selection change."""
+        self._update_plot_selector()
+
+    def _on_output_selection_change(self, event) -> None:
+        """Handle output selection change."""
+        self._update_plot_selector()
+
     def _update_dependent_widgets(self) -> None:
         """Update source selector and output selector based on job selection."""
         if self._selected_job is None:
@@ -215,6 +238,7 @@ class PlotCreationWidget:
             self._source_selector.value = []
             self._source_selector.disabled = True
             self._output_selector.visible = False
+            self._plot_selector.visible = False
             self._create_button.disabled = True
             return
 
@@ -229,6 +253,9 @@ class PlotCreationWidget:
 
         # Check if we need output selector
         self._update_output_selector()
+
+        # Update plot selector
+        self._update_plot_selector()
 
         # Enable create button if we have sources
         self._create_button.disabled = len(available_sources) == 0
@@ -257,6 +284,42 @@ class PlotCreationWidget:
             self._output_selector.disabled = False
         else:
             self._output_selector.visible = False
+
+    def _update_plot_selector(self) -> None:
+        """Update plot selector based on current job and output selection."""
+        if self._selected_job is None or not self._source_selector.value:
+            self._plot_selector.visible = False
+            return
+
+        output_name = (
+            self._output_selector.value if self._output_selector.visible else None
+        )
+
+        try:
+            available_plots = self._plot_service.get_available_plots(
+                self._selected_job, output_name
+            )
+            print(f"Available plots: {available_plots}")
+
+            if available_plots:
+                # Create options with plot class names
+                plot_options = {}
+
+                for plot_cls in available_plots:
+                    plot_name = plot_cls.__name__
+                    plot_options[plot_name] = plot_cls
+
+                self._plot_selector.options = plot_options
+                self._plot_selector.value = (
+                    next(iter(plot_options)) if plot_options else None
+                )
+                self._plot_selector.visible = True
+                self._plot_selector.disabled = False
+            else:
+                self._plot_selector.visible = False
+        except Exception as e:
+            print(e)
+            self._plot_selector.visible = False
 
     def _on_create_plot(self, event) -> None:
         """Handle create plot button click."""
@@ -290,16 +353,24 @@ class PlotCreationWidget:
         if self._output_selector.visible and self._output_selector.value is None:
             errors.append("Please select an output name.")
 
+        if self._plot_selector.visible and self._plot_selector.value is None:
+            errors.append("Please select a plot type.")
+
         return len(errors) == 0, errors
 
     def _create_plot_via_controller(self) -> None:
         """Create plot via controller and add it as a new tab."""
+        # Get the selected plot instance
+        selected_plot_cls = self._plot_selector.value
+        plot_instance = selected_plot_cls()
+
         dmap = self._plot_service.create_plot(
             job_number=self._selected_job,
             source_names=self._source_selector.value,
             output_name=self._output_selector.value
             if self._output_selector.visible
             else None,
+            plot=plot_instance,
         )
 
         # Create HoloViews pane

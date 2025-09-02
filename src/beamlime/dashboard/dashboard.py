@@ -181,7 +181,7 @@ class DashboardBase(ServiceBase, ABC):
 
     def _setup_workflow_management(self, namespace: str) -> None:
         """Initialize workflow controller and reduction widget."""
-        workflow_registry = {
+        self._workflow_registry = {
             key: workflow
             for key, workflow in self._processor_factory.items()
             if workflow.namespace == namespace
@@ -189,7 +189,7 @@ class DashboardBase(ServiceBase, ABC):
         self._workflow_controller = WorkflowController.from_config_service(
             config_service=self._config_service,
             source_names=sorted(self._processor_factory.source_names),
-            workflow_registry=workflow_registry,
+            workflow_registry=self._workflow_registry,
             data_service=self._data_service,
         )
         self._reduction_widget = ReductionWidget(controller=self._workflow_controller)

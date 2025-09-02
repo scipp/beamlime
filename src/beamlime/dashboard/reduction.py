@@ -7,6 +7,7 @@ import panel as pn
 
 from beamlime import Service
 from beamlime.config import keys
+from beamlime.config.workflow_spec import WorkflowId
 
 from . import plots
 from .dashboard import DashboardBase
@@ -84,12 +85,30 @@ class ReductionApp(DashboardBase):
             cache_size=1,
         ).opts(shared_axes=False)
         self._iofd2theta_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
+
+        class WrapPlot:
+            def __init__(self) -> None:
+                self._plot = plots.AutoscalingPlot(value_margin_factor=0.1)
+
+            def __call__(self, data):
+                return self._plot.plot_sum_of_2d(data)
+
         # iofd2theta = hv.DynamicMap(
         #    self._iofd2theta_plot.plot_sum_of_2d,
         #    streams=[self._iofd2theta_pipe],
         #    cache_size=1,
         # ).opts(shared_axes=False)
-        self._plot_service.plot_fn = self._iofd2theta_plot.plot_sum_of_2d
+        print(list(self._workflow_registry))
+        self._plot_service.register_plot(
+            workflow_id=WorkflowId(
+                instrument='dream',
+                namespace='data_reduction',
+                name='powder_reduction_with_vanadium',
+                version=1,
+            ),
+            output_name='ess.powder.types.IofDspacingTwoTheta[ess.reduce.nexus.types.SampleRun]',
+            plot_cls=WrapPlot,
+        )
         return pn.Row()
         return pn.Tabs(
             (
