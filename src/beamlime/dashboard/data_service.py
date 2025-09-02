@@ -64,6 +64,9 @@ class DataService(UserDict[K, V]):
             The set of data keys that were updated.
         """
         for subscriber in self._subscribers:
+            if not isinstance(subscriber, DataSubscriber):
+                subscriber(updated_keys)
+                continue
             if updated_keys & subscriber.keys:
                 # Pass only the data that the subscriber is interested in
                 subscriber_data = {

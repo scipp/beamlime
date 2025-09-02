@@ -71,7 +71,7 @@ class JobService:
                 all_source_data[source_name] = value
             else:
                 # Multiple outputs, store in a dict
-                source_data = all_source_data.setdefault(source_name, dict)
+                source_data = all_source_data.setdefault(source_name, {})
                 if not isinstance(source_data, dict):
                     # This should never happen in practice, but we check to be safe
                     raise ValueError(

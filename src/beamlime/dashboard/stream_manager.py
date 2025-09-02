@@ -7,6 +7,8 @@ Utilities for connecting subscribers to :py:class:`DataService`
 from collections.abc import Callable, Hashable
 from typing import Any, Generic, TypeVar
 
+from beamlime.config.workflow_spec import ResultKey
+
 from .assemblers import ComponentStreamAssembler, MergingStreamAssembler
 from .data_key import DataKey, DetectorDataKey, MonitorDataKey
 from .data_service import DataService
@@ -22,6 +24,14 @@ class StreamManager(Generic[P]):
         self.data_service = data_service
         self._pipes: dict[Any, P] = {}
         self._pipe_factory = pipe_factory
+
+    def make_merging_stream(self, keys: set[ResultKey]) -> P:
+        """Create a merging stream for the given set of data keys."""
+        assembler = MergingStreamAssembler(keys)
+        pipe = self._pipe_factory()
+        subscriber = DataSubscriber(assembler, pipe)
+        self.data_service.register_subscriber(subscriber)
+        return pipe
 
     def _get_or_create_stream(self, key: Hashable, assembler: StreamAssembler) -> P:
         """Get or create a stream for the given key and assembler."""

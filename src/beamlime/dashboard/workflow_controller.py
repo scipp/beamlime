@@ -7,6 +7,7 @@ Workflow controller implementation backed by a config service.
 from __future__ import annotations
 
 import logging
+import uuid
 from collections.abc import Callable, Mapping
 
 import pydantic
@@ -212,7 +213,7 @@ class WorkflowController:
             return False
 
         workflow_config = WorkflowConfig(
-            identifier=workflow_id, params=config.model_dump()
+            identifier=workflow_id, job_number=uuid.uuid4(), params=config.model_dump()
         )
 
         # Update the config for this workflow, used for restoring widget state

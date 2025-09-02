@@ -9,12 +9,13 @@ import panel as pn
 
 from beamlime.config.workflow_spec import JobNumber
 from beamlime.dashboard.job_service import JobService
+from beamlime.dashboard.plot_service import PlotService
 
 
 class PlotCreationWidget:
     """Widget for creating plots from job data."""
 
-    def __init__(self, job_service: JobService) -> None:
+    def __init__(self, job_service: JobService, plot_service: PlotService) -> None:
         """
         Initialize plot creation widget.
 
@@ -24,7 +25,9 @@ class PlotCreationWidget:
             Service for accessing job data
         """
         self._job_service = job_service
+        self._plot_service = plot_service
         self._selected_job: JobNumber | None = None
+        self._plot_counter = 0  # Counter for unique plot tab names
 
         # Create UI components
         self._job_table = self._create_job_table()
@@ -38,8 +41,12 @@ class PlotCreationWidget:
         # Set up watchers
         self._job_table.param.watch(self._on_job_selection_change, 'selection')
 
-        # Create main widget
-        self._widget = self._create_widget()
+        # Create main widget with tabs
+        self._creation_tab = self._create_creation_tab()
+        self._tabs = pn.Tabs(
+            ("Create Plot", self._creation_tab), sizing_mode='stretch_width'
+        )
+        self._widget = self._tabs
 
         # Initial update
         self._update_job_table()
@@ -56,14 +63,13 @@ class PlotCreationWidget:
             height=300,
             configuration={
                 'columns': [
-                    {'title': 'Job Number', 'field': 'job_number', 'width': 200},
-                    {'title': 'Workflow', 'field': 'workflow_name', 'width': 150},
-                    {'title': 'Version', 'field': 'workflow_version', 'width': 80},
-                    {'title': 'Sources', 'field': 'source_count', 'width': 80},
+                    {'title': 'Job Number', 'field': 'job_number', 'width': 300},
+                    {'title': 'Workflow', 'field': 'workflow_name', 'width': 300},
+                    {'title': 'Source Names', 'field': 'source_names', 'width': 900},
                     # Future columns can be added here:
                     # {'title': 'Status', 'field': 'status', 'width': 100},
                     # {'title': 'Created', 'field': 'created_time', 'width': 150},
-                ]
+                ],
             },
         )
 
@@ -150,8 +156,8 @@ class PlotCreationWidget:
         button.on_click(lambda event: self.refresh())
         return button
 
-    def _create_widget(self) -> pn.Column:
-        """Create the main widget layout."""
+    def _create_creation_tab(self) -> pn.Column:
+        """Create the plot creation tab content."""
         return pn.Column(
             pn.pane.HTML("<h2>Create Plot from Job Data</h2>"),
             pn.Row(self._refresh_button, sizing_mode='stretch_width'),
@@ -171,26 +177,20 @@ class PlotCreationWidget:
             sources = list(self._job_service.job_data.get(job_number, {}).keys())
             job_data.append(
                 {
-                    'job_number': str(job_number),
+                    'job_number': job_number.hex,
                     'workflow_name': workflow_id.name,
-                    'workflow_version': workflow_id.version,
-                    'source_count': len(sources),
+                    'source_names': ', '.join(sources),
                 }
             )
 
         if job_data:
             # Convert to DataFrame for Tabulator widget
-            self._job_table.value = pd.DataFrame(job_data)
+            df = pd.DataFrame(job_data)
+            self._job_table.value = df
         else:
             # Empty DataFrame with correct columns
-            self._job_table.value = pd.DataFrame(
-                columns=[
-                    'job_number',
-                    'workflow_name',
-                    'workflow_version',
-                    'source_count',
-                ]
-            )
+            df = pd.DataFrame(columns=['job_number', 'workflow_name', 'source_names'])
+            self._job_table.value = df
 
     def _on_job_selection_change(self, event) -> None:
         """Handle job selection change."""
@@ -200,9 +200,9 @@ class PlotCreationWidget:
             self._update_dependent_widgets()
             return
 
-        # Get selected job number
+        # Get selected job number from index
         selected_row = selection[0]
-        job_number_str = self._job_table.value.iloc[selected_row]['job_number']
+        job_number_str = self._job_table.value['job_number'].iloc[selected_row]
         self._selected_job = JobNumber(job_number_str)
 
         self._update_dependent_widgets()
@@ -293,19 +293,30 @@ class PlotCreationWidget:
         return len(errors) == 0, errors
 
     def _create_plot_via_controller(self) -> None:
-        """Placeholder for plot creation via controller."""
-        # TODO: Replace with actual controller call
-        # Example of what this might look like:
-        #
-        # plot_config = {
-        #     'job_number': self._selected_job,
-        #     'source_names': self._source_selector.value,
-        #     'output_name': self._output_selector.value if self._output_selector.visible else None,
-        #     'plot_options': self._get_plot_options(),
-        # }
-        #
-        # self._plot_controller.create_plot(plot_config)
-        pass
+        """Create plot via controller and add it as a new tab."""
+        dmap = self._plot_service.create_plot(
+            job_number=self._selected_job,
+            source_names=self._source_selector.value,
+            output_name=self._output_selector.value
+            if self._output_selector.visible
+            else None,
+        )
+
+        # Create HoloViews pane
+        plot_pane = pn.pane.HoloViews(dmap, sizing_mode='stretch_width')
+
+        # Generate tab name
+        self._plot_counter += 1
+        sources_str = "_".join(self._source_selector.value[:2])  # Limit length
+        if len(self._source_selector.value) > 2:
+            sources_str += f"_+{len(self._source_selector.value) - 2}"
+        tab_name = f"Plot {self._plot_counter}: {sources_str}"
+
+        # Add as new tab
+        self._tabs.append((tab_name, plot_pane))
+
+        # Switch to the new plot tab
+        self._tabs.active = len(self._tabs) - 1
 
     def _get_plot_options(self) -> dict[str, Any]:
         """Get current plot configuration options."""
@@ -347,6 +358,6 @@ class PlotCreationWidget:
             self._update_dependent_widgets()
 
     @property
-    def widget(self) -> pn.Column:
+    def widget(self) -> pn.Tabs:
         """Get the Panel widget."""
         return self._widget

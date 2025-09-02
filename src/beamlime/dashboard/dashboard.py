@@ -17,6 +17,7 @@ from beamlime.config.config_loader import load_config
 from beamlime.config.instruments import get_config
 from beamlime.config.schema_registry import get_schema_registry
 from beamlime.config.streams import stream_kind_to_topic
+from beamlime.config.workflow_spec import ResultKey
 from beamlime.core.message import StreamKind
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
@@ -29,17 +30,20 @@ from beamlime.kafka.source import BackgroundMessageSource
 
 from .config_service import ConfigService
 from .controller_factory import ControllerFactory
-from .data_key import DataKey
 from .data_service import DataService
+from .job_service import JobService
 from .kafka_transport import KafkaTransport
 from .message_bridge import BackgroundMessageBridge
 from .orchestrator import Orchestrator
+from .plot_service import PlotService
 from .schema_validator import PydanticSchemaValidator
 from .stream_manager import (
     DetectorStreamManager,
     MonitorStreamManager,
     ReductionStreamManager,
+    StreamManager,
 )
+from .widgets.plot_creation_widget import PlotCreationWidget
 from .widgets.reduction_widget import ReductionWidget
 from .workflow_controller import WorkflowController
 
@@ -121,8 +125,19 @@ class DashboardBase(ServiceBase, ABC):
     def _setup_data_infrastructure(self) -> None:
         """Set up data services, forwarder, and orchestrator."""
         # da00 of backend services converted to scipp.DataArray
-        ScippDataService = DataService[DataKey, sc.DataArray]
+        ScippDataService = DataService[ResultKey, sc.DataArray]
         self._data_service = ScippDataService()
+        self._stream_manager = StreamManager(
+            data_service=self._data_service, pipe_factory=streams.Pipe
+        )
+        self._job_service = JobService(
+            data_service=self._data_service, logger=self._logger
+        )
+        self._plot_service = PlotService(
+            job_service=self._job_service,
+            stream_manager=self._stream_manager,
+            logger=self._logger,
+        )
         self._monitor_stream_manager = MonitorStreamManager(
             data_service=self._data_service, pipe_factory=streams.Pipe
         )
@@ -229,6 +244,9 @@ class DashboardBase(ServiceBase, ABC):
         """Create the basic dashboard layout."""
         main_content = self.create_main_content()
         sidebar_content = self.create_sidebar_content()
+        main_content = PlotCreationWidget(
+            job_service=self._job_service, plot_service=self._plot_service
+        ).widget
 
         template = pn.template.MaterialTemplate(
             title=self.get_dashboard_title(),

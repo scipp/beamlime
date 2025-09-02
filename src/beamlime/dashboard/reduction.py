@@ -84,11 +84,13 @@ class ReductionApp(DashboardBase):
             cache_size=1,
         ).opts(shared_axes=False)
         self._iofd2theta_plot = plots.AutoscalingPlot(value_margin_factor=0.1)
-        iofd2theta = hv.DynamicMap(
-            self._iofd2theta_plot.plot_sum_of_2d,
-            streams=[self._iofd2theta_pipe],
-            cache_size=1,
-        ).opts(shared_axes=False)
+        # iofd2theta = hv.DynamicMap(
+        #    self._iofd2theta_plot.plot_sum_of_2d,
+        #    streams=[self._iofd2theta_pipe],
+        #    cache_size=1,
+        # ).opts(shared_axes=False)
+        self._plot_service.plot_fn = self._iofd2theta_plot.plot_sum_of_2d
+        return pn.Row()
         return pn.Tabs(
             (
                 "I(d) (vanadium normalized)",
