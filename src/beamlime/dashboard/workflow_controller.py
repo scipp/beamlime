@@ -158,9 +158,8 @@ class WorkflowController:
         data_service: DataService[DataKey, object] | None = None,
     ) -> WorkflowController:
         """Create WorkflowController from ConfigService."""
-        adapter = ConfigServiceAdapter(config_service, source_names)
         return cls(
-            service=adapter,
+            service=ConfigServiceAdapter(config_service),
             source_names=source_names,
             workflow_registry=workflow_registry,
             data_service=data_service,
