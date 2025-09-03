@@ -45,6 +45,54 @@ class PlotParams2d(pydantic.BaseModel):
     )
 
 
+class DataRequirements(pydantic.BaseModel):
+    """Specification for data requirements of a plotter."""
+
+    min_dims: int = pydantic.Field(description="Minimum number of dimensions")
+    max_dims: int = pydantic.Field(description="Maximum number of dimensions")
+    required_coords: list[str] = pydantic.Field(
+        default_factory=list, description="Required coordinate names"
+    )
+    data_types: list[str] = pydantic.Field(
+        default_factory=lambda: ["float32", "float64", "int32", "int64"],
+        description="Supported data types",
+    )
+    multiple_datasets: bool = pydantic.Field(
+        default=False, description="Whether plotter supports multiple datasets"
+    )
+
+    def validate_data(self, data: dict[ResultKey, sc.DataArray]) -> bool:
+        """Validate that the data meets these requirements."""
+        if not data:
+            return False
+
+        if not self.multiple_datasets and len(data) > 1:
+            return False
+
+        for dataset in data.values():
+            if not self._validate_dataset(dataset):
+                return False
+
+        return True
+
+    def _validate_dataset(self, dataset: sc.DataArray) -> bool:
+        """Validate a single dataset."""
+        # Check dimensions
+        if dataset.ndim < self.min_dims or dataset.ndim > self.max_dims:
+            return False
+
+        # Check required coordinates
+        for coord in self.required_coords:
+            if coord not in dataset.coords:
+                return False
+
+        # Check data type
+        if str(dataset.dtype) not in self.data_types:
+            return False
+
+        return True
+
+
 class PlotterSpec(pydantic.BaseModel):
     """
     Specification for a plotter.
@@ -61,11 +109,20 @@ class PlotterSpec(pydantic.BaseModel):
     params: type[pydantic.BaseModel] = pydantic.Field(
         description="Pydantic model defining the parameters for the plot."
     )
+    data_requirements: DataRequirements = pydantic.Field(
+        description="Data requirements for this plotter."
+    )
 
 
 # TODO Define plotter protocols for single-item plots and multi-item plots.
 class Plotter(Protocol):
     """Protocol for a plotter function."""
+
+    data_requirements: DataRequirements
+
+    def validate_data(self, data: dict[ResultKey, sc.DataArray]) -> bool:
+        """Validate that the data meets this plotter's requirements."""
+        return self.data_requirements.validate_data(data)
 
     def __call__(self, data: dict[ResultKey, sc.DataArray]) -> Any: ...
 
@@ -91,16 +148,30 @@ class PlotterRegistry(UserDict[str, PlotterEntry]):
             # Use get_type_hints to resolve forward references, in case we used
             # `from __future__ import annotations`.
             type_hints = typing.get_type_hints(factory, globalns=factory.__globals__)
+            # Create a sample plotter to get its data requirements
+            sample_params = type_hints['params']()
+            sample_plotter = factory(sample_params)
             spec = PlotterSpec(
                 name=name,
                 title=title,
                 description=description,
                 params=type_hints['params'],
+                data_requirements=sample_plotter.data_requirements,
             )
             self[name] = PlotterEntry(spec=spec, factory=factory)
             return factory
 
         return decorator
+
+    def get_compatible_plotters(
+        self, data: dict[ResultKey, sc.DataArray]
+    ) -> dict[str, PlotterSpec]:
+        """Get plotters compatible with the given data."""
+        return {
+            name: entry.spec
+            for name, entry in self.items()
+            if entry.spec.data_requirements.validate_data(data)
+        }
 
     def get_specs(self) -> dict[str, PlotterSpec]:
         """Get all plotter specifications for UI display."""
