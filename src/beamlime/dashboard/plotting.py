@@ -28,6 +28,9 @@ class PlotScaleParams(pydantic.BaseModel):
     y_scale: PlotScale = pydantic.Field(
         default=PlotScale.linear, description="Scale for y-axis", title="Y Axis Scale"
     )
+
+
+class PlotScaleParams2d(PlotScaleParams):
     color_scale: PlotScale = pydantic.Field(
         default=PlotScale.log,
         description="Scale for color axis",
@@ -35,11 +38,20 @@ class PlotScaleParams(pydantic.BaseModel):
     )
 
 
-class PlotParams2d(pydantic.BaseModel):
-    """Common parameters for 2d plots."""
+class PlotParams1d(pydantic.BaseModel):
+    """Common parameters for 1d plots."""
 
     plot_scale: PlotScaleParams = pydantic.Field(
         default_factory=PlotScaleParams,
+        description="Scaling options for the plot axes.",
+    )
+
+
+class PlotParams2d(pydantic.BaseModel):
+    """Common parameters for 2d plots."""
+
+    plot_scale: PlotScaleParams2d = pydantic.Field(
+        default_factory=PlotScaleParams2d,
         description="Scaling options for the plot axes.",
     )
 
@@ -188,7 +200,7 @@ plotter_registry.register_plotter(
 )
 
 
-def _plot_lines(params: PlotScaleParams) -> Plotter:
+def _plot_lines(params: PlotParams1d) -> Plotter:
     from . import plots
 
     # TODO Use params
