@@ -3,8 +3,15 @@
 """Plotter definition and registration."""
 
 import enum
+import typing
+from collections import UserDict
+from collections.abc import Callable
+from typing import Protocol
 
 import pydantic
+import scipp as sc
+
+from beamlime.config.workflow_spec import ResultKey
 
 
 class PlotScale(enum.Enum):
@@ -14,7 +21,11 @@ class PlotScale(enum.Enum):
     log = 'log'
 
 
-class PlotParams2d(pydantic.BaseModel):
+class PlotParams(pydantic.BaseModel):
+    pass
+
+
+class PlotParams2d(PlotParams):
     """Common parameters for 2d plots."""
 
     x_scale: PlotScale = pydantic.Field(
@@ -48,20 +59,49 @@ class PlotterSpec(pydantic.BaseModel):
     )
 
 
-def register_plotter(name: str, title: str, description: str):
-    # Get parameters model from function signature
-    params = None
-    spec = PlotterSpec(
-        name=name,
-        title=title,
-        description=description,
-        params=params,  # type: ignore[assignment]
-    )
-    # TODO
-
-
-# TODO subclass
 # Define plotter protocols for single-item plots and multi-item plots.
+class Plotter(Protocol):
+    """
+    Protocol for a plotter function.
+    """
+
+    def __call__(self, data: dict[ResultKey, sc.DataArray]) -> None: ...
+
+
+class PlotterRegistry(UserDict[str, Callable[[PlotParams], Plotter]]):
+    def __init__(self) -> None:
+        super().__init__()
+        self._specs: dict[str, PlotterSpec] = {}
+
+    def register_plotter(
+        self, name: str, title: str, description: str
+    ) -> Callable[[Callable[[PlotParams], Plotter]], Callable[[PlotParams], Plotter]]:
+        def decorator(
+            factory: Callable[[PlotParams], Plotter],
+        ) -> Callable[[PlotParams], Plotter]:
+            # Try to get the type hint of the 'params' argument if it exists
+            # Use get_type_hints to resolve forward references, in case we used
+            # `from __future__ import annotations`.
+            type_hints = typing.get_type_hints(factory, globalns=factory.__globals__)
+            self._specs[name] = PlotterSpec(
+                name=name,
+                title=title,
+                description=description,
+                params=type_hints['params'],
+            )
+            return factory
+
+        return decorator
+
+
+registry = PlotterRegistry()
+
+
+@registry.register_plotter(
+    name='sum_of_2d',
+    title='Sum of 2D',
+    description='Plot the sum over all frames as a 2D image.',
+)
 def make_plot(params: PlotParams2d) -> Plotter:
     from . import plots
 
