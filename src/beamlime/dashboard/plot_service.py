@@ -60,11 +60,12 @@ class PlotService:
         self, job_number: JobNumber, output_name: str | None
     ) -> dict[str, PlotterSpec]:
         """Get all available plots for a given job and output."""
-        workflow_id = self._job_service.job_info[job_number]
-        key = (workflow_id, output_name)
-        # TODO Filter based on data properties?
-        return plotter_registry.get_specs()
-        return self._plot_fns.get(key, [])
+        job_data = self._job_service.job_data[job_number]
+        if output_name is None:
+            data = job_data
+        else:
+            data = {k: v[output_name] for k, v in job_data.items()}
+        return plotter_registry.get_compatible_plotters(data)
 
     def create_plot(
         self,

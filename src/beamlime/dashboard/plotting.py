@@ -4,10 +4,8 @@
 
 import enum
 import typing
-from abc import ABC, abstractmethod
 from collections import UserDict
-from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Generic, Protocol, TypeVar
 
 import pydantic
@@ -46,21 +44,14 @@ class PlotParams2d(pydantic.BaseModel):
     )
 
 
-class DataRequirements(pydantic.BaseModel):
+@dataclass
+class DataRequirements:
     """Specification for data requirements of a plotter."""
 
-    min_dims: int = pydantic.Field(description="Minimum number of dimensions")
-    max_dims: int = pydantic.Field(description="Maximum number of dimensions")
-    required_coords: list[str] = pydantic.Field(
-        default_factory=list, description="Required coordinate names"
-    )
-    data_types: list[str] = pydantic.Field(
-        default_factory=lambda: ["float32", "float64", "int32", "int64"],
-        description="Supported data types",
-    )
-    multiple_datasets: bool = pydantic.Field(
-        default=False, description="Whether plotter supports multiple datasets"
-    )
+    min_dims: int
+    max_dims: int
+    required_coords: list[str] = field(default_factory=list)
+    multiple_datasets: bool = True
 
     def validate_data(self, data: dict[ResultKey, sc.DataArray]) -> bool:
         """Validate that the data meets these requirements."""
@@ -87,10 +78,6 @@ class DataRequirements(pydantic.BaseModel):
             if coord not in dataset.coords:
                 return False
 
-        # Check data type
-        if str(dataset.dtype) not in self.data_types:
-            return False
-
         return True
 
 
@@ -110,6 +97,9 @@ class PlotterSpec(pydantic.BaseModel):
     params: type[pydantic.BaseModel] = pydantic.Field(
         description="Pydantic model defining the parameters for the plot."
     )
+    data_requirements: DataRequirements = pydantic.Field(
+        description="Requirements the data to be plotted must fulfill."
+    )
 
 
 # TODO Define plotter protocols for single-item plots and multi-item plots.
@@ -123,12 +113,7 @@ class Plotter(Protocol):
 P = TypeVar('P', bound=pydantic.BaseModel)
 
 
-class PlotterFactory(ABC, Generic[P]):
-    @property
-    @abstractmethod
-    def data_requirements(self) -> DataRequirements: ...
-
-    @abstractmethod
+class PlotterFactory(Protocol, Generic[P]):
     def __call__(self, params: P) -> Plotter: ...
 
 
@@ -146,15 +131,19 @@ class PlotterRegistry(UserDict[str, PlotterEntry]):
         name: str,
         title: str,
         description: str,
-        factory_cls: type[PlotterFactory[P]],
+        data_requirements: DataRequirements,
+        factory: PlotterFactory[P],
     ) -> None:
         # Try to get the type hint of the 'params' argument if it exists
         # Use get_type_hints to resolve forward references, in case we used
         # `from __future__ import annotations`.
-        factory = factory_cls()
-        type_hints = typing.get_type_hints(factory.__call__)
+        type_hints = typing.get_type_hints(factory)
         spec = PlotterSpec(
-            name=name, title=title, description=description, params=type_hints['params']
+            name=name,
+            title=title,
+            description=description,
+            params=type_hints['params'],
+            data_requirements=data_requirements,
         )
         self[name] = PlotterEntry(spec=spec, factory=factory)
 
@@ -165,7 +154,7 @@ class PlotterRegistry(UserDict[str, PlotterEntry]):
         return {
             name: entry.spec
             for name, entry in self.items()
-            if entry.factory.data_requirements.validate_data(data)
+            if entry.spec.data_requirements.validate_data(data)
         }
 
     def get_specs(self) -> dict[str, PlotterSpec]:
@@ -184,41 +173,33 @@ class PlotterRegistry(UserDict[str, PlotterEntry]):
 plotter_registry = PlotterRegistry()
 
 
-class SumOf2dPlotterFactory(PlotterFactory[PlotParams2d]):
-    @property
-    def data_requirements(self) -> DataRequirements:
-        return DataRequirements(min_dims=2, max_dims=2, multiple_datasets=True)
+def _plot_sum_of_2d(params: PlotParams2d) -> Plotter:
+    from . import plots
 
-    def __call__(self, params: PlotParams2d) -> Plotter:
-        from . import plots
-
-        # TODO Use params
-        return plots.AutoscalingPlot(value_margin_factor=0.1).plot_sum_of_2d
+    # TODO Use params
+    return plots.AutoscalingPlot(value_margin_factor=0.1).plot_sum_of_2d
 
 
 plotter_registry.register_plotter(
     name='sum_of_2d',
     title='Sum of 2D',
     description='Plot the sum over all frames as a 2D image.',
-    factory_cls=SumOf2dPlotterFactory,
+    data_requirements=DataRequirements(min_dims=2, max_dims=2),
+    factory=_plot_sum_of_2d,
 )
 
 
-class LinesPlotterFactory(PlotterFactory[PlotScaleParams]):
-    @property
-    def data_requirements(self) -> DataRequirements:
-        return DataRequirements(min_dims=1, max_dims=1, multiple_datasets=True)
+def _plot_lines(params: PlotScaleParams) -> Plotter:
+    from . import plots
 
-    def __call__(self, params: PlotScaleParams) -> Plotter:
-        from . import plots
-
-        # TODO Use params
-        return plots.AutoscalingPlot(value_margin_factor=0.1).plot_lines
+    # TODO Use params
+    return plots.AutoscalingPlot(value_margin_factor=0.1).plot_lines
 
 
 plotter_registry.register_plotter(
     name='lines',
     title='Lines',
     description='Plot the data as line plots.',
-    factory_cls=LinesPlotterFactory,
+    data_requirements=DataRequirements(min_dims=1, max_dims=1, multiple_datasets=True),
+    factory=_plot_lines,
 )
