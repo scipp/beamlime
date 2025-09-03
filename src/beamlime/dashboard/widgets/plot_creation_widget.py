@@ -27,12 +27,12 @@ class PlotCreationWidget:
         self._job_service = job_service
         self._plot_service = plot_service
         self._selected_job: JobNumber | None = None
+        self._selected_output: str | None = None
         self._plot_counter = 0  # Counter for unique plot tab names
 
         # Create UI components
-        self._job_table = self._create_job_table()
+        self._job_output_table = self._create_job_output_table()
         self._source_selector = self._create_source_selector()
-        self._output_selector = self._create_output_selector()
         self._plot_selector = self._create_plot_selector()
         self._plot_options = self._create_plot_options()
         self._error_pane = pn.pane.HTML("", sizing_mode='stretch_width')
@@ -40,9 +40,10 @@ class PlotCreationWidget:
         self._refresh_button = self._create_refresh_button()
 
         # Set up watchers
-        self._job_table.param.watch(self._on_job_selection_change, 'selection')
+        self._job_output_table.param.watch(
+            self._on_job_output_selection_change, 'selection'
+        )
         self._source_selector.param.watch(self._on_source_selection_change, 'value')
-        self._output_selector.param.watch(self._on_output_selection_change, 'value')
 
         # Create main widget with tabs
         self._creation_tab = self._create_creation_tab()
@@ -52,26 +53,25 @@ class PlotCreationWidget:
         self._widget = self._tabs
 
         # Initial update
-        self._update_job_table()
+        self._update_job_output_table()
 
-    def _create_job_table(self) -> pn.widgets.Tabulator:
-        """Create job selection table."""
+    def _create_job_output_table(self) -> pn.widgets.Tabulator:
+        """Create job and output selection table with grouping."""
         return pn.widgets.Tabulator(
-            name="Available Jobs",
+            name="Available Jobs and Outputs",
             pagination='remote',
-            page_size=10,
+            page_size=20,
             sizing_mode='stretch_width',
             selectable=1,  # Single selection
             disabled=True,
-            height=300,
+            height=400,
+            groupby=['workflow_name', 'job_number'],
             configuration={
                 'columns': [
                     {'title': 'Job Number', 'field': 'job_number', 'width': 300},
-                    {'title': 'Workflow', 'field': 'workflow_name', 'width': 300},
-                    {'title': 'Source Names', 'field': 'source_names', 'width': 900},
-                    # Future columns can be added here:
-                    # {'title': 'Status', 'field': 'status', 'width': 100},
-                    # {'title': 'Created', 'field': 'created_time', 'width': 150},
+                    {'title': 'Workflow', 'field': 'workflow_name', 'width': 200},
+                    {'title': 'Output Name', 'field': 'output_name', 'width': 200},
+                    {'title': 'Source Names', 'field': 'source_names', 'width': 600},
                 ],
             },
         )
@@ -85,17 +85,6 @@ class PlotCreationWidget:
             placeholder="Select source names for plotting",
             sizing_mode='stretch_width',
             disabled=True,
-        )
-
-    def _create_output_selector(self) -> pn.widgets.Select:
-        """Create output name selection widget."""
-        return pn.widgets.Select(
-            name="Output Name",
-            options=[],
-            value=None,
-            sizing_mode='stretch_width',
-            disabled=True,
-            visible=False,
         )
 
     def _create_plot_selector(self) -> pn.widgets.Select:
@@ -175,9 +164,8 @@ class PlotCreationWidget:
         return pn.Column(
             pn.pane.HTML("<h2>Create Plot from Job Data</h2>"),
             pn.Row(self._refresh_button, sizing_mode='stretch_width'),
-            self._job_table,
+            self._job_output_table,
             self._source_selector,
-            self._output_selector,
             self._plot_selector,
             self._plot_options,
             self._error_pane,
@@ -185,40 +173,71 @@ class PlotCreationWidget:
             sizing_mode='stretch_width',
         )
 
-    def _update_job_table(self) -> None:
-        """Update the job table with current job data."""
-        job_data = []
+    def _update_job_output_table(self) -> None:
+        """Update the job and output table with current job data."""
+        job_output_data = []
         for job_number, workflow_id in self._job_service.job_info.items():
-            sources = list(self._job_service.job_data.get(job_number, {}).keys())
-            job_data.append(
-                {
-                    'job_number': job_number.hex,
-                    'workflow_name': workflow_id.name,
-                    'source_names': ', '.join(sources),
-                }
-            )
+            job_data = self._job_service.job_data.get(job_number, {})
+            sources = list(job_data.keys())
 
-        if job_data:
+            # Get output names from any source (they all have the same outputs per backend guarantee)
+            output_names = set()
+            for source_data in job_data.values():
+                if isinstance(source_data, dict):
+                    output_names.update(source_data.keys())
+                    break  # Since all sources have same outputs, we only need to check one
+
+            # If no outputs found, create a row with empty output name
+            if not output_names:
+                job_output_data.append(
+                    {
+                        'output_name': '',
+                        'workflow_name': workflow_id.name,
+                        'source_names': ', '.join(sources),
+                        'job_number': job_number.hex,
+                    }
+                )
+            else:
+                # Create one row per output name
+                job_output_data.extend(
+                    [
+                        {
+                            'output_name': output_name,
+                            'workflow_name': workflow_id.name,
+                            'source_names': ', '.join(sources),
+                            'job_number': job_number.hex,
+                        }
+                        for output_name in sorted(output_names)
+                    ]
+                )
+
+        if job_output_data:
             # Convert to DataFrame for Tabulator widget
-            df = pd.DataFrame(job_data)
-            self._job_table.value = df
+            df = pd.DataFrame(job_output_data)
+            self._job_output_table.value = df
         else:
             # Empty DataFrame with correct columns
-            df = pd.DataFrame(columns=['job_number', 'workflow_name', 'source_names'])
-            self._job_table.value = df
+            df = pd.DataFrame(
+                columns=['job_number', 'workflow_name', 'output_name', 'source_names']
+            )
+            self._job_output_table.value = df
 
-    def _on_job_selection_change(self, event) -> None:
-        """Handle job selection change."""
+    def _on_job_output_selection_change(self, event) -> None:
+        """Handle job and output selection change."""
         selection = event.new
         if not selection:
             self._selected_job = None
+            self._selected_output = None
             self._update_dependent_widgets()
             return
 
-        # Get selected job number from index
+        # Get selected job number and output name from index
         selected_row = selection[0]
-        job_number_str = self._job_table.value['job_number'].iloc[selected_row]
+        job_number_str = self._job_output_table.value['job_number'].iloc[selected_row]
+        output_name = self._job_output_table.value['output_name'].iloc[selected_row]
+
         self._selected_job = JobNumber(job_number_str)
+        self._selected_output = output_name if output_name else None
 
         self._update_dependent_widgets()
 
@@ -226,18 +245,13 @@ class PlotCreationWidget:
         """Handle source selection change."""
         self._update_plot_selector()
 
-    def _on_output_selection_change(self, event) -> None:
-        """Handle output selection change."""
-        self._update_plot_selector()
-
     def _update_dependent_widgets(self) -> None:
-        """Update source selector and output selector based on job selection."""
+        """Update source selector and plot selector based on job and output selection."""
         if self._selected_job is None:
             # No job selected - disable everything
             self._source_selector.options = []
             self._source_selector.value = []
             self._source_selector.disabled = True
-            self._output_selector.visible = False
             self._plot_selector.visible = False
             self._create_button.disabled = True
             return
@@ -251,39 +265,11 @@ class PlotCreationWidget:
         self._source_selector.value = []
         self._source_selector.disabled = len(available_sources) == 0
 
-        # Check if we need output selector
-        self._update_output_selector()
-
         # Update plot selector
         self._update_plot_selector()
 
         # Enable create button if we have sources
         self._create_button.disabled = len(available_sources) == 0
-
-    def _update_output_selector(self) -> None:
-        """Update output selector based on current job and source selection."""
-        if self._selected_job is None:
-            self._output_selector.visible = False
-            return
-
-        # Check if any source has outputs (they all have the same outputs per backend guarantee)
-        job_data = self._job_service.job_data.get(self._selected_job, {})
-        output_names = set()
-
-        for source_data in job_data.values():
-            if isinstance(source_data, dict):
-                output_names.update(source_data.keys())
-                break  # Since all sources have same outputs, we only need to check one
-
-        if output_names:
-            self._output_selector.options = list(output_names)
-            self._output_selector.value = (
-                list(output_names)[0] if output_names else None
-            )
-            self._output_selector.visible = True
-            self._output_selector.disabled = False
-        else:
-            self._output_selector.visible = False
 
     def _update_plot_selector(self) -> None:
         """Update plot selector based on current job and output selection."""
@@ -291,16 +277,10 @@ class PlotCreationWidget:
             self._plot_selector.visible = False
             return
 
-        output_name = (
-            self._output_selector.value if self._output_selector.visible else None
-        )
-
         try:
             available_plots = self._plot_service.get_available_plots(
-                self._selected_job, output_name
+                self._selected_job, self._selected_output
             )
-            print(f"Available plots: {available_plots}")
-
             if available_plots:
                 # Create options with plot class names
                 options = {spec.title: name for name, spec in available_plots.items()}
@@ -330,20 +310,17 @@ class PlotCreationWidget:
             # Show success message
             self._show_success("Plot created successfully!")
         except Exception as e:
-            self._show_errors([f"Failed to create plot: {str(e)}"])
+            self._show_errors([f"Failed to create plot: {e}"])
 
     def _validate_selection(self) -> tuple[bool, list[str]]:
         """Validate current selection."""
         errors = []
 
         if self._selected_job is None:
-            errors.append("Please select a job.")
+            errors.append("Please select a job and output.")
 
         if not self._source_selector.value:
             errors.append("Please select at least one source name.")
-
-        if self._output_selector.visible and self._output_selector.value is None:
-            errors.append("Please select an output name.")
 
         if self._plot_selector.visible and self._plot_selector.value is None:
             errors.append("Please select a plot type.")
@@ -359,9 +336,7 @@ class PlotCreationWidget:
         dmap = self._plot_service.create_plot(
             job_number=self._selected_job,
             source_names=self._source_selector.value,
-            output_name=self._output_selector.value
-            if self._output_selector.visible
-            else None,
+            output_name=self._selected_output,
             plot_name=spec.name,
             params=spec.params(),
         )
@@ -417,7 +392,7 @@ class PlotCreationWidget:
 
     def refresh(self) -> None:
         """Refresh the widget with current job data."""
-        self._update_job_table()
+        self._update_job_output_table()
         if self._selected_job is not None:
             self._update_dependent_widgets()
 
