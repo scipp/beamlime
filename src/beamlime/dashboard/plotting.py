@@ -7,7 +7,7 @@ import typing
 from collections import UserDict
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 
 import pydantic
 import scipp as sc
@@ -20,9 +20,6 @@ class PlotScale(enum.Enum):
 
     linear = 'linear'
     log = 'log'
-
-
-PlotParams = TypeVar('PlotParams', bound=pydantic.BaseModel)
 
 
 class PlotParams2d(pydantic.BaseModel):
@@ -65,7 +62,7 @@ class Plotter(Protocol):
     Protocol for a plotter function.
     """
 
-    def __call__(self, data: dict[ResultKey, sc.DataArray]) -> None: ...
+    def __call__(self, data: dict[ResultKey, sc.DataArray]) -> Any: ...
 
 
 @dataclass
@@ -73,16 +70,18 @@ class PlotterEntry:
     """Entry combining a plotter specification with its factory function."""
 
     spec: PlotterSpec
-    factory: Callable[[PlotParams], Plotter]
+    factory: Callable[[Any], Plotter]  # Use Any since we store different param types
+
+
+# Type variable for parameter types
+P = TypeVar('P', bound=pydantic.BaseModel)
 
 
 class PlotterRegistry(UserDict[str, PlotterEntry]):
     def register_plotter(
         self, name: str, title: str, description: str
-    ) -> Callable[[Callable[[PlotParams], Plotter]], Callable[[PlotParams], Plotter]]:
-        def decorator(
-            factory: Callable[[PlotParams], Plotter],
-        ) -> Callable[[PlotParams], Plotter]:
+    ) -> Callable[[Callable[[P], Plotter]], Callable[[P], Plotter]]:
+        def decorator(factory: Callable[[P], Plotter]) -> Callable[[P], Plotter]:
             # Try to get the type hint of the 'params' argument if it exists
             # Use get_type_hints to resolve forward references, in case we used
             # `from __future__ import annotations`.
@@ -106,15 +105,15 @@ class PlotterRegistry(UserDict[str, PlotterEntry]):
         """Get specification for a specific plotter."""
         return self[name].spec
 
-    def create_plotter(self, name: str, params: PlotParams) -> Plotter:
+    def create_plotter(self, name: str, params: pydantic.BaseModel) -> Plotter:
         """Create a plotter instance with the given parameters."""
         return self[name].factory(params)
 
 
-registry = PlotterRegistry()
+plotter_registry = PlotterRegistry()
 
 
-@registry.register_plotter(
+@plotter_registry.register_plotter(
     name='sum_of_2d',
     title='Sum of 2D',
     description='Plot the sum over all frames as a 2D image.',
