@@ -175,10 +175,13 @@ class PlotCreationWidget:
         """Create the plot creation tab content."""
         return pn.Column(
             pn.pane.HTML("<h2>Create Plot from Job Data</h2>"),
-            pn.Row(self._refresh_button, sizing_mode='stretch_width'),
             self._job_output_table,
-            self._plot_selector,
-            self._create_button,
+            pn.Row(
+                self._refresh_button,
+                self._plot_selector,
+                self._create_button,
+                sizing_mode='stretch_width',
+            ),
             sizing_mode='stretch_width',
         )
 
