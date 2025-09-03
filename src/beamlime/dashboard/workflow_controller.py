@@ -22,7 +22,6 @@ from beamlime.config.workflow_spec import (
     WorkflowStatusType,
 )
 
-from .data_key import DataKey
 from .data_service import DataService
 from .workflow_config_service import ConfigServiceAdapter, WorkflowConfigService
 
@@ -262,15 +261,7 @@ class WorkflowController:
 
         # Remove associated data keys from data service
         if self._data_service is not None:
-            keys_to_remove = [
-                key
-                for key in self._data_service.keys()
-                if (
-                    isinstance(key, DataKey)
-                    and key.service_name == 'data_reduction'
-                    and key.source_name == source_name
-                )
-            ]
+            keys_to_remove = list(self._data_service.keys())
             for key in keys_to_remove:
                 self._logger.debug('Removing data key: %s', key)
                 del self._data_service[key]

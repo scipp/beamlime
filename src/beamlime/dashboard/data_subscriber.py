@@ -60,7 +60,7 @@ class StreamAssembler(ABC, Generic[Key]):
         Parameters
         ----------
         data:
-            A dictionary containing data keyed by DataKey.
+            A dictionary containing data keyed by ResultKey.
 
         Returns
         -------
