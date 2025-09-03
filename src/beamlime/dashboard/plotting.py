@@ -22,9 +22,7 @@ class PlotScale(enum.Enum):
     log = 'log'
 
 
-class PlotParams2d(pydantic.BaseModel):
-    """Common parameters for 2d plots."""
-
+class PlotScaleParams(pydantic.BaseModel):
     x_scale: PlotScale = pydantic.Field(
         default=PlotScale.linear, description="Scale for x-axis", title="X Axis Scale"
     )
@@ -35,6 +33,15 @@ class PlotParams2d(pydantic.BaseModel):
         default=PlotScale.log,
         description="Scale for color axis",
         title="Color Axis Scale",
+    )
+
+
+class PlotParams2d(pydantic.BaseModel):
+    """Common parameters for 2d plots."""
+
+    plot_scale: PlotScaleParams = pydantic.Field(
+        default_factory=PlotScaleParams,
+        description="Scaling options for the plot axes.",
     )
 
 
@@ -56,11 +63,9 @@ class PlotterSpec(pydantic.BaseModel):
     )
 
 
-# Define plotter protocols for single-item plots and multi-item plots.
+# TODO Define plotter protocols for single-item plots and multi-item plots.
 class Plotter(Protocol):
-    """
-    Protocol for a plotter function.
-    """
+    """Protocol for a plotter function."""
 
     def __call__(self, data: dict[ResultKey, sc.DataArray]) -> Any: ...
 

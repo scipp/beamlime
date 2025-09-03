@@ -11,8 +11,9 @@ import numpy as np
 import scipp as sc
 from holoviews import opts
 
+from beamlime.config.workflow_spec import ResultKey
+
 from .assemblers import RawData
-from .data_key import DataKey
 from .scipp_to_holoviews import to_holoviews
 
 
@@ -107,7 +108,7 @@ class AutoscalingPlot:
 
         return changed
 
-    def plot_lines(self, data: dict[DataKey, sc.DataArray]) -> hv.Overlay:
+    def plot_lines(self, data: dict[ResultKey, sc.DataArray]) -> hv.Overlay:
         """Create a line plot from a dictionary of scipp DataArrays."""
         options = opts.Curve(
             responsive=True,
@@ -175,7 +176,7 @@ class AutoscalingPlot:
             clim=(self.value_bounds[0], self.value_bounds[1]),
         )
 
-    def plot_sum_of_2d(self, data: dict[DataKey, sc.DataArray]) -> hv.Image:
+    def plot_sum_of_2d(self, data: dict[ResultKey, sc.DataArray]) -> hv.Image:
         """Create a 2D plot from a dictionary of scipp DataArrays."""
         if data is None:
             return self.plot_2d(data)
