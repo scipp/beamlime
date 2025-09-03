@@ -10,6 +10,7 @@ import panel as pn
 from beamlime.config.workflow_spec import JobNumber
 from beamlime.dashboard.job_service import JobService
 from beamlime.dashboard.plot_service import PlotController
+from beamlime.dashboard.plotting import PlotterSpec
 
 from .configuration_widget import ConfigurationAdapter, ConfigurationModal
 
@@ -21,15 +22,13 @@ class PlotConfigurationAdapter(ConfigurationAdapter):
         self,
         job_number: JobNumber,
         output_name: str | None,
-        plot_name: str,
-        plot_spec,
+        plot_spec: PlotterSpec,
         available_sources: list[str],
         plot_service: PlotController,
         success_callback,
     ):
         self._job_number = job_number
         self._output_name = output_name
-        self._plot_name = plot_name
         self._plot_spec = plot_spec
         self._available_sources = available_sources
         self._plot_service = plot_service
@@ -41,9 +40,7 @@ class PlotConfigurationAdapter(ConfigurationAdapter):
 
     @property
     def description(self) -> str:
-        return (
-            f"Configure plot parameters and select sources for {self._plot_spec.title}"
-        )
+        return self._plot_spec.description
 
     @property
     def model_class(self) -> type:
@@ -59,6 +56,7 @@ class PlotConfigurationAdapter(ConfigurationAdapter):
 
     @property
     def initial_parameter_values(self) -> dict[str, Any]:
+        # We rely on defaults in the Pydantic model
         return {}
 
     def start_action(self, selected_sources: list[str], parameter_values: Any) -> bool:
@@ -67,7 +65,7 @@ class PlotConfigurationAdapter(ConfigurationAdapter):
                 job_number=self._job_number,
                 source_names=selected_sources,
                 output_name=self._output_name,
-                plot_name=self._plot_name,
+                plot_name=self._plot_spec.name,
                 params=parameter_values,
             )
             self._success_callback(dmap, selected_sources)
@@ -99,7 +97,6 @@ class PlotCreationWidget:
         # Create UI components
         self._job_output_table = self._create_job_output_table()
         self._plot_selector = self._create_plot_selector()
-        self._error_pane = pn.pane.HTML("", sizing_mode='stretch_width')
         self._create_button = self._create_plot_button()
         self._refresh_button = self._create_refresh_button()
 
@@ -181,7 +178,6 @@ class PlotCreationWidget:
             pn.Row(self._refresh_button, sizing_mode='stretch_width'),
             self._job_output_table,
             self._plot_selector,
-            self._error_pane,
             self._create_button,
             sizing_mode='stretch_width',
         )
@@ -301,13 +297,9 @@ class PlotCreationWidget:
 
     def _on_create_plot(self, event) -> None:
         """Handle create plot button click."""
-        # Clear previous errors
-        self._error_pane.object = ""
-
         # Validate selection
         is_valid, errors = self._validate_selection()
         if not is_valid:
-            self._show_errors(errors)
             return
 
         # Get available sources
@@ -322,7 +314,6 @@ class PlotCreationWidget:
         config = PlotConfigurationAdapter(
             job_number=self._selected_job,
             output_name=self._selected_output,
-            plot_name=plot_name,
             plot_spec=spec,
             available_sources=available_sources,
             plot_service=self._plot_service,
@@ -330,12 +321,7 @@ class PlotCreationWidget:
         )
 
         # Create and show configuration modal
-        modal = ConfigurationModal(
-            config=config,
-            start_button_text="Create Plot",
-            success_callback=lambda: self._show_success("Plot created successfully!"),
-            error_callback=lambda msg: self._show_errors([msg]),
-        )
+        modal = ConfigurationModal(config=config, start_button_text="Create Plot")
 
         # Add modal to container and show it
         self._modal_container.append(modal.modal)
@@ -370,31 +356,6 @@ class PlotCreationWidget:
             errors.append("Please select a plot type.")
 
         return len(errors) == 0, errors
-
-    def _show_errors(self, errors: list[str]) -> None:
-        """Show validation errors."""
-        error_html = (
-            "<div style='background-color: #f8d7da; border: 1px solid #f5c6cb; "
-            "border-radius: 4px; padding: 10px; margin: 10px 0;'>"
-            "<h6 style='color: #721c24; margin: 0 0 10px 0;'>"
-            "Please fix the following errors:</h6>"
-            "<ul style='color: #721c24; margin: 0; padding-left: 20px;'>"
-        )
-        for error in errors:
-            error_html += f"<li>{error}</li>"
-        error_html += "</ul></div>"
-
-        self._error_pane.object = error_html
-
-    def _show_success(self, message: str) -> None:
-        """Show success message."""
-        success_html = (
-            "<div style='background-color: #d4edda; border: 1px solid #c3e6cb; "
-            "border-radius: 4px; padding: 10px; margin: 10px 0;'>"
-            f"<p style='color: #155724; margin: 0;'>{message}</p>"
-            "</div>"
-        )
-        self._error_pane.object = success_html
 
     def refresh(self) -> None:
         """Refresh the widget with current job data."""
