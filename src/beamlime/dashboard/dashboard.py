@@ -37,12 +37,7 @@ from .message_bridge import BackgroundMessageBridge
 from .orchestrator import Orchestrator
 from .plot_service import PlotController
 from .schema_validator import PydanticSchemaValidator
-from .stream_manager import (
-    DetectorStreamManager,
-    MonitorStreamManager,
-    ReductionStreamManager,
-    StreamManager,
-)
+from .stream_manager import StreamManager
 from .widgets.plot_creation_widget import PlotCreationWidget
 from .widgets.reduction_widget import ReductionWidget
 from .workflow_controller import WorkflowController
@@ -93,7 +88,8 @@ class DashboardBase(ServiceBase, ABC):
     @abstractmethod
     def create_main_content(self) -> pn.viewable.Viewable:
         """Override this method to create the main dashboard content."""
-        pass
+        # Currently unused, should this allow for defining a custom layout where plots
+        # should be placed?
 
     def _setup_config_service(self) -> None:
         """Set up configuration service with Kafka bridge."""
@@ -138,15 +134,6 @@ class DashboardBase(ServiceBase, ABC):
             job_service=self._job_service,
             stream_manager=self._stream_manager,
             logger=self._logger,
-        )
-        self._monitor_stream_manager = MonitorStreamManager(
-            data_service=self._data_service, pipe_factory=streams.Pipe
-        )
-        self._detector_stream_manager = DetectorStreamManager(
-            data_service=self._data_service, pipe_factory=streams.Pipe
-        )
-        self._reduction_stream_manager = ReductionStreamManager(
-            data_service=self._data_service, pipe_factory=streams.Pipe
         )
         self._orchestrator = Orchestrator(
             self._setup_kafka_consumer(), data_service=self._data_service
@@ -238,7 +225,6 @@ class DashboardBase(ServiceBase, ABC):
 
     def create_layout(self) -> pn.template.MaterialTemplate:
         """Create the basic dashboard layout."""
-        main_content = self.create_main_content()
         sidebar_content = self.create_sidebar_content()
         main_content = PlotCreationWidget(
             job_service=self._job_service, plot_service=self._plot_service
