@@ -83,6 +83,7 @@ class DashboardBase(ServiceBase, ABC):
         # Load the module to register the instrument's workflows.
         self._instrument_module = get_config(instrument)
         self._processor_factory = instrument_registry[self._instrument].workflow_factory
+        self._setup_workflow_management()
 
     @abstractmethod
     def create_sidebar_content(self) -> pn.viewable.Viewable:
@@ -179,17 +180,12 @@ class DashboardBase(ServiceBase, ABC):
             ),
         )
 
-    def _setup_workflow_management(self, namespace: str) -> None:
+    def _setup_workflow_management(self) -> None:
         """Initialize workflow controller and reduction widget."""
-        self._workflow_registry = {
-            key: workflow
-            for key, workflow in self._processor_factory.items()
-            if workflow.namespace == namespace
-        }
         self._workflow_controller = WorkflowController.from_config_service(
             config_service=self._config_service,
             source_names=sorted(self._processor_factory.source_names),
-            workflow_registry=self._workflow_registry,
+            workflow_registry=self._processor_factory,
             data_service=self._data_service,
         )
         self._reduction_widget = ReductionWidget(controller=self._workflow_controller)

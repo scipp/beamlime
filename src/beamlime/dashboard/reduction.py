@@ -26,7 +26,6 @@ class ReductionApp(DashboardBase):
             dashboard_name='reduction_dashboard',
             port=5009,  # Default port for reduction dashboard
         )
-        self._setup_workflow_management('data_reduction')
         self._reset_controller = self._controller_factory.create(
             config_key=keys.REDUCTION_START_TIME.create_key()
         )

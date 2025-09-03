@@ -14,6 +14,7 @@ import pydantic
 
 from beamlime.config.workflow_spec import (
     PersistentWorkflowConfig,
+    ResultKey,
     WorkflowConfig,
     WorkflowId,
     WorkflowSpec,
@@ -109,7 +110,7 @@ class WorkflowController:
         service: WorkflowConfigService,
         source_names: list[str],
         workflow_registry: Mapping[WorkflowId, WorkflowSpec],
-        data_service: DataService[DataKey, object] | None = None,
+        data_service: DataService[ResultKey, object] | None = None,
     ) -> None:
         """
         Initialize the workflow controller.
@@ -156,7 +157,7 @@ class WorkflowController:
         config_service,
         source_names: list[str],
         workflow_registry: Mapping[WorkflowId, WorkflowSpec],
-        data_service: DataService[DataKey, object] | None = None,
+        data_service: DataService[ResultKey, object] | None = None,
     ) -> WorkflowController:
         """Create WorkflowController from ConfigService."""
         return cls(
