@@ -51,11 +51,12 @@ class PlotService:
 
     def get_available_plots(
         self, job_number: JobNumber, output_name: str | None
-    ) -> list[type[Plot]]:
+    ) -> dict[str, PlotterSpec]:
         """Get all available plots for a given job and output."""
         workflow_id = self._job_service.job_info[job_number]
         key = (workflow_id, output_name)
-        print(key, list(self._plot_fns))
+        # TODO Filter based on data properties?
+        return plotter_registry.get_specs()
         return self._plot_fns.get(key, [])
 
     def create_plot(
@@ -63,7 +64,7 @@ class PlotService:
         job_number: JobNumber,
         source_names: list[str],
         output_name: str | None,
-        plot: Plot,
+        plot_name: str,
     ) -> hv.DynamicMap:
         workflow_id = self._job_service.job_info[job_number]
         keys = {
@@ -75,5 +76,10 @@ class PlotService:
             for source_name in source_names
         }
         pipe = self._stream_manager.make_merging_stream(keys)
+
+        class Dummy(pydantic.BaseModel):
+            pass
+
+        plot = plotter_registry.create_plotter(plot_name, params=Dummy())
         dmap = hv.DynamicMap(plot, streams=[pipe], cache_size=1).opts(shared_axes=False)
         return dmap

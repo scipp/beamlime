@@ -123,7 +123,20 @@ plotter_registry = PlotterRegistry()
     title='Sum of 2D',
     description='Plot the sum over all frames as a 2D image.',
 )
-def make_plot(params: PlotParams2d) -> Plotter:
+def _sum_of_2d(params: PlotParams2d) -> Plotter:
     from . import plots
 
-    return plots.AutoscalingPlot(**params.model_dump()).plot_sum_of_2d
+    # TODO Use params
+    return plots.AutoscalingPlot(value_margin_factor=0.1).plot_sum_of_2d
+
+
+@plotter_registry.register_plotter(
+    name='lines',
+    title='Lines',
+    description='Plot the data as line plots.',
+)
+def _lines(params: PlotScaleParams) -> Plotter:
+    from . import plots
+
+    # TODO Use params
+    return plots.AutoscalingPlot(value_margin_factor=0.1).plot_lines

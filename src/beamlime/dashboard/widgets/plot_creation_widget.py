@@ -303,16 +303,9 @@ class PlotCreationWidget:
 
             if available_plots:
                 # Create options with plot class names
-                plot_options = {}
-
-                for plot_cls in available_plots:
-                    plot_name = plot_cls.__name__
-                    plot_options[plot_name] = plot_cls
-
-                self._plot_selector.options = plot_options
-                self._plot_selector.value = (
-                    next(iter(plot_options)) if plot_options else None
-                )
+                options = {spec.title: name for name, spec in available_plots.items()}
+                self._plot_selector.options = options
+                self._plot_selector.value = next(iter(options)) if options else None
                 self._plot_selector.visible = True
                 self._plot_selector.disabled = False
             else:
@@ -361,8 +354,7 @@ class PlotCreationWidget:
     def _create_plot_via_controller(self) -> None:
         """Create plot via controller and add it as a new tab."""
         # Get the selected plot instance
-        selected_plot_cls = self._plot_selector.value
-        plot_instance = selected_plot_cls()
+        selected_plot_name = self._plot_selector.value
 
         dmap = self._plot_service.create_plot(
             job_number=self._selected_job,
@@ -370,7 +362,7 @@ class PlotCreationWidget:
             output_name=self._output_selector.value
             if self._output_selector.visible
             else None,
-            plot=plot_instance,
+            plot_name=selected_plot_name,
         )
 
         # Create HoloViews pane
