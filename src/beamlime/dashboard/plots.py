@@ -13,7 +13,6 @@ from holoviews import opts
 
 from beamlime.config.workflow_spec import ResultKey
 
-from .assemblers import RawData
 from .scipp_to_holoviews import to_holoviews
 
 
@@ -188,6 +187,10 @@ class AutoscalingPlot:
         else:
             combined = reducer.nansum()
         return self.plot_2d(combined)
+
+
+# TODO Monitor plots below are currently unused and will be replaced
+RawData = Any
 
 
 def monitor_total_counts_bar_chart(**monitors: RawData | None) -> hv.Bars:
