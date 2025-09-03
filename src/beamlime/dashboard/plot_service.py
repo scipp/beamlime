@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Hashable
-from typing import Protocol, TypeVar
+from typing import TypeVar
 
 import holoviews as hv
 import pydantic
-import scipp as sc
 
-from beamlime.config.workflow_spec import JobId, JobNumber, ResultKey, WorkflowId
+from beamlime.config.workflow_spec import JobId, JobNumber, ResultKey
 
 from .job_service import JobService
 from .plotting import PlotterSpec, plotter_registry
@@ -25,15 +24,7 @@ V = TypeVar('V')
 # - Allow for passing options such as log scale when creating plot, configure in widget
 
 
-class Plot(Protocol):
-    def __init__(self) -> None: ...
-
-    def __call__(
-        self, data: sc.DataArray | dict[ResultKey, sc.DataArray]
-    ) -> hv.Element: ...
-
-
-class PlotService:
+class PlotController:
     def __init__(
         self,
         job_service: JobService,
@@ -43,29 +34,18 @@ class PlotService:
         self._job_service = job_service
         self._stream_manager = stream_manager
         self._logger = logger or logging.getLogger(__name__)
-        self._plot_fns: dict[
-            tuple[WorkflowId, str | None],
-            list[type[Plot]],
-        ] = {}
-
-    def register_plot(
-        self, workflow_id: WorkflowId, output_name: str | None, plot_cls: type[Plot]
-    ) -> None:
-        # output_name = None means the workflow produces a single output
-        key = (workflow_id, output_name)
-        plots = self._plot_fns.setdefault(key, [])
-        plots.append(plot_cls)
 
     def get_available_plots(
         self, job_number: JobNumber, output_name: str | None
     ) -> dict[str, PlotterSpec]:
         """Get all available plots for a given job and output."""
         job_data = self._job_service.job_data[job_number]
-        if output_name is None:
-            data = job_data
-        else:
-            data = {k: v[output_name] for k, v in job_data.items()}
+        data = {k: v[output_name] for k, v in job_data.items()}
         return plotter_registry.get_compatible_plotters(data)
+
+    def get_spec(self, plot_name: str) -> PlotterSpec:
+        """Get the parameter model for a given plotter name."""
+        return plotter_registry.get_spec(plot_name)
 
     def create_plot(
         self,
@@ -73,6 +53,7 @@ class PlotService:
         source_names: list[str],
         output_name: str | None,
         plot_name: str,
+        params: pydantic.BaseModel,
     ) -> hv.DynamicMap:
         workflow_id = self._job_service.job_info[job_number]
         keys = {
@@ -84,10 +65,6 @@ class PlotService:
             for source_name in source_names
         }
         pipe = self._stream_manager.make_merging_stream(keys)
-
-        class Dummy(pydantic.BaseModel):
-            pass
-
-        plot = plotter_registry.create_plotter(plot_name, params=Dummy())
+        plot = plotter_registry.create_plotter(plot_name, params=params)
         dmap = hv.DynamicMap(plot, streams=[pipe], cache_size=1).opts(shared_axes=False)
         return dmap

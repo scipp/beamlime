@@ -35,7 +35,7 @@ from .job_service import JobService
 from .kafka_transport import KafkaTransport
 from .message_bridge import BackgroundMessageBridge
 from .orchestrator import Orchestrator
-from .plot_service import PlotService
+from .plot_service import PlotController
 from .schema_validator import PydanticSchemaValidator
 from .stream_manager import (
     DetectorStreamManager,
@@ -133,7 +133,7 @@ class DashboardBase(ServiceBase, ABC):
         self._job_service = JobService(
             data_service=self._data_service, logger=self._logger
         )
-        self._plot_service = PlotService(
+        self._plot_service = PlotController(
             job_service=self._job_service,
             stream_manager=self._stream_manager,
             logger=self._logger,

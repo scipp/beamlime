@@ -24,7 +24,7 @@ V = TypeVar('V')
 # - Make a new widgets or refactor WorkflowStatusListWidget
 
 SourceName = str
-SourceData = sc.DataArray | dict[str, sc.DataArray]
+SourceData = dict[str | None, sc.DataArray]
 
 
 class JobService:
@@ -66,18 +66,10 @@ class JobService:
                 )
             all_source_data = self._job_data.setdefault(job_number, {})
             # Store in DataService for access by plots etc.
-            if key.output_name is None:
-                # Single output, store directly
-                all_source_data[source_name] = value
-            else:
-                # Multiple outputs, store in a dict
-                source_data = all_source_data.setdefault(source_name, {})
-                if not isinstance(source_data, dict):
-                    # This should never happen in practice, but we check to be safe
-                    raise ValueError(
-                        f"Expected dict for multiple outputs, got {type(source_data)}"
-                    )
-                source_data[key.output_name] = value
+            # Single or multiple outputs, store in a dict. If only one output, then the
+            # output_name is None.
+            source_data = all_source_data.setdefault(source_name, {})
+            source_data[key.output_name] = value
         if notify_job_update:
             self._notify_job_update()
 

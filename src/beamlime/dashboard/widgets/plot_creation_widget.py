@@ -9,13 +9,13 @@ import panel as pn
 
 from beamlime.config.workflow_spec import JobNumber
 from beamlime.dashboard.job_service import JobService
-from beamlime.dashboard.plot_service import PlotService
+from beamlime.dashboard.plot_service import PlotController
 
 
 class PlotCreationWidget:
     """Widget for creating plots from job data."""
 
-    def __init__(self, job_service: JobService, plot_service: PlotService) -> None:
+    def __init__(self, job_service: JobService, plot_service: PlotController) -> None:
         """
         Initialize plot creation widget.
 
@@ -310,8 +310,7 @@ class PlotCreationWidget:
                 self._plot_selector.disabled = False
             else:
                 self._plot_selector.visible = False
-        except Exception as e:
-            print(e)
+        except Exception:
             self._plot_selector.visible = False
 
     def _on_create_plot(self, event) -> None:
@@ -354,7 +353,8 @@ class PlotCreationWidget:
     def _create_plot_via_controller(self) -> None:
         """Create plot via controller and add it as a new tab."""
         # Get the selected plot instance
-        selected_plot_name = self._plot_selector.value
+        spec = self._plot_service.get_spec(self._plot_selector.value)
+        # TODO Make widgets from spec.params
 
         dmap = self._plot_service.create_plot(
             job_number=self._selected_job,
@@ -362,7 +362,8 @@ class PlotCreationWidget:
             output_name=self._output_selector.value
             if self._output_selector.visible
             else None,
-            plot_name=selected_plot_name,
+            plot_name=spec.name,
+            params=spec.params(),
         )
 
         # Create HoloViews pane

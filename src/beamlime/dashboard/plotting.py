@@ -53,7 +53,7 @@ class DataRequirements:
     required_coords: list[str] = field(default_factory=list)
     multiple_datasets: bool = True
 
-    def validate_data(self, data: dict[ResultKey, sc.DataArray]) -> bool:
+    def validate_data(self, data: dict[Any, sc.DataArray]) -> bool:
         """Validate that the data meets these requirements."""
         if not data:
             return False
@@ -102,7 +102,6 @@ class PlotterSpec(pydantic.BaseModel):
     )
 
 
-# TODO Define plotter protocols for single-item plots and multi-item plots.
 class Plotter(Protocol):
     """Protocol for a plotter function."""
 
@@ -148,7 +147,7 @@ class PlotterRegistry(UserDict[str, PlotterEntry]):
         self[name] = PlotterEntry(spec=spec, factory=factory)
 
     def get_compatible_plotters(
-        self, data: dict[ResultKey, sc.DataArray]
+        self, data: dict[Any, sc.DataArray]
     ) -> dict[str, PlotterSpec]:
         """Get plotters compatible with the given data."""
         return {
