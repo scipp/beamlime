@@ -110,9 +110,6 @@ class PlotterSpec(pydantic.BaseModel):
     params: type[pydantic.BaseModel] = pydantic.Field(
         description="Pydantic model defining the parameters for the plot."
     )
-    data_requirements: DataRequirements = pydantic.Field(
-        description="Data requirements for this plotter."
-    )
 
 
 # TODO Define plotter protocols for single-item plots and multi-item plots.
@@ -122,44 +119,44 @@ class Plotter(Protocol):
     def __call__(self, data: dict[ResultKey, sc.DataArray]) -> Any: ...
 
 
-@dataclass
-class PlotterEntry:
-    """Entry combining a plotter specification with its factory function."""
-
-    spec: PlotterSpec
-    factory: Callable[[Any], Plotter]  # Use Any since we store different param types
-
-
 # Type variable for parameter types
 P = TypeVar('P', bound=pydantic.BaseModel)
 
 
+class PlotterFactory(ABC, Generic[P]):
+    @property
+    @abstractmethod
+    def data_requirements(self) -> DataRequirements: ...
+
+    @abstractmethod
+    def __call__(self, params: P) -> Plotter: ...
+
+
+@dataclass
+class PlotterEntry:
+    """Entry combining a plotter specification with its factory."""
+
+    spec: PlotterSpec
+    factory: PlotterFactory[Any]  # Use Any since we store different param types
+
+
 class PlotterRegistry(UserDict[str, PlotterEntry]):
     def register_plotter(
-        self, name: str, title: str, description: str
-    ) -> Callable[[Callable[[P], Plotter]], Callable[[P], Plotter]]:
-        def decorator(factory: Callable[[P], Plotter]) -> Callable[[P], Plotter]:
-            # Try to get the type hint of the 'params' argument if it exists
-            # Use get_type_hints to resolve forward references, in case we used
-            # `from __future__ import annotations`.
-            type_hints = typing.get_type_hints(factory, globalns=factory.__globals__)
-            # Get data requirements from the factory function attribute
-            if not hasattr(factory, 'data_requirements'):
-                raise ValueError(
-                    f"Factory function {factory.__name__} must have a 'data_requirements' attribute"
-                )
-
-            spec = PlotterSpec(
-                name=name,
-                title=title,
-                description=description,
-                params=type_hints['params'],
-                data_requirements=factory.data_requirements,
-            )
-            self[name] = PlotterEntry(spec=spec, factory=factory)
-            return factory
-
-        return decorator
+        self,
+        name: str,
+        title: str,
+        description: str,
+        factory_cls: type[PlotterFactory[P]],
+    ) -> None:
+        # Try to get the type hint of the 'params' argument if it exists
+        # Use get_type_hints to resolve forward references, in case we used
+        # `from __future__ import annotations`.
+        factory = factory_cls()
+        type_hints = typing.get_type_hints(factory.__call__)
+        spec = PlotterSpec(
+            name=name, title=title, description=description, params=type_hints['params']
+        )
+        self[name] = PlotterEntry(spec=spec, factory=factory)
 
     def get_compatible_plotters(
         self, data: dict[ResultKey, sc.DataArray]
@@ -168,7 +165,7 @@ class PlotterRegistry(UserDict[str, PlotterEntry]):
         return {
             name: entry.spec
             for name, entry in self.items()
-            if entry.spec.data_requirements.validate_data(data)
+            if entry.factory.data_requirements.validate_data(data)
         }
 
     def get_specs(self) -> dict[str, PlotterSpec]:
@@ -187,45 +184,41 @@ class PlotterRegistry(UserDict[str, PlotterEntry]):
 plotter_registry = PlotterRegistry()
 
 
-def plotter_factory(data_requirements: DataRequirements):
-    """Decorator to mark a function as a plotter factory with data requirements."""
+class SumOf2dPlotterFactory(PlotterFactory[PlotParams2d]):
+    @property
+    def data_requirements(self) -> DataRequirements:
+        return DataRequirements(min_dims=2, max_dims=2, multiple_datasets=True)
 
-    def decorator(func):
-        func.data_requirements = data_requirements
-        return func
+    def __call__(self, params: PlotParams2d) -> Plotter:
+        from . import plots
 
-    return decorator
-
-
-class PlotterFactory(ABC, Generic[P]):
-    def __init__(self, data_requirements: DataRequirements):
-        self.data_requirements = data_requirements
-
-    @abstractmethod
-    def __call__(self, params: P) -> Plotter: ...
+        # TODO Use params
+        return plots.AutoscalingPlot(value_margin_factor=0.1).plot_sum_of_2d
 
 
-@plotter_registry.register_plotter(
+plotter_registry.register_plotter(
     name='sum_of_2d',
     title='Sum of 2D',
     description='Plot the sum over all frames as a 2D image.',
+    factory_cls=SumOf2dPlotterFactory,
 )
-@plotter_factory(DataRequirements(min_dims=2, max_dims=2))
-def _sum_of_2d(params: PlotParams2d) -> Plotter:
-    from . import plots
-
-    # TODO Use params
-    return plots.AutoscalingPlot(value_margin_factor=0.1).plot_sum_of_2d
 
 
-@plotter_registry.register_plotter(
+class LinesPlotterFactory(PlotterFactory[PlotScaleParams]):
+    @property
+    def data_requirements(self) -> DataRequirements:
+        return DataRequirements(min_dims=1, max_dims=1, multiple_datasets=True)
+
+    def __call__(self, params: PlotScaleParams) -> Plotter:
+        from . import plots
+
+        # TODO Use params
+        return plots.AutoscalingPlot(value_margin_factor=0.1).plot_lines
+
+
+plotter_registry.register_plotter(
     name='lines',
     title='Lines',
     description='Plot the data as line plots.',
+    factory_cls=LinesPlotterFactory,
 )
-@plotter_factory(DataRequirements(min_dims=1, max_dims=1))
-def _lines(params: PlotScaleParams) -> Plotter:
-    from . import plots
-
-    # TODO Use params
-    return plots.AutoscalingPlot(value_margin_factor=0.1).plot_lines
