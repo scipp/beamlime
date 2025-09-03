@@ -4,10 +4,11 @@
 
 import enum
 import typing
+from abc import ABC, abstractmethod
 from collections import UserDict
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Protocol, TypeVar
+from typing import Any, Generic, Protocol, TypeVar
 
 import pydantic
 import scipp as sc
@@ -118,12 +119,6 @@ class PlotterSpec(pydantic.BaseModel):
 class Plotter(Protocol):
     """Protocol for a plotter function."""
 
-    data_requirements: DataRequirements
-
-    def validate_data(self, data: dict[ResultKey, sc.DataArray]) -> bool:
-        """Validate that the data meets this plotter's requirements."""
-        return self.data_requirements.validate_data(data)
-
     def __call__(self, data: dict[ResultKey, sc.DataArray]) -> Any: ...
 
 
@@ -148,15 +143,18 @@ class PlotterRegistry(UserDict[str, PlotterEntry]):
             # Use get_type_hints to resolve forward references, in case we used
             # `from __future__ import annotations`.
             type_hints = typing.get_type_hints(factory, globalns=factory.__globals__)
-            # Create a sample plotter to get its data requirements
-            sample_params = type_hints['params']()
-            sample_plotter = factory(sample_params)
+            # Get data requirements from the factory function attribute
+            if not hasattr(factory, 'data_requirements'):
+                raise ValueError(
+                    f"Factory function {factory.__name__} must have a 'data_requirements' attribute"
+                )
+
             spec = PlotterSpec(
                 name=name,
                 title=title,
                 description=description,
                 params=type_hints['params'],
-                data_requirements=sample_plotter.data_requirements,
+                data_requirements=factory.data_requirements,
             )
             self[name] = PlotterEntry(spec=spec, factory=factory)
             return factory
@@ -189,11 +187,30 @@ class PlotterRegistry(UserDict[str, PlotterEntry]):
 plotter_registry = PlotterRegistry()
 
 
+def plotter_factory(data_requirements: DataRequirements):
+    """Decorator to mark a function as a plotter factory with data requirements."""
+
+    def decorator(func):
+        func.data_requirements = data_requirements
+        return func
+
+    return decorator
+
+
+class PlotterFactory(ABC, Generic[P]):
+    def __init__(self, data_requirements: DataRequirements):
+        self.data_requirements = data_requirements
+
+    @abstractmethod
+    def __call__(self, params: P) -> Plotter: ...
+
+
 @plotter_registry.register_plotter(
     name='sum_of_2d',
     title='Sum of 2D',
     description='Plot the sum over all frames as a 2D image.',
 )
+@plotter_factory(DataRequirements(min_dims=2, max_dims=2))
 def _sum_of_2d(params: PlotParams2d) -> Plotter:
     from . import plots
 
@@ -206,6 +223,7 @@ def _sum_of_2d(params: PlotParams2d) -> Plotter:
     title='Lines',
     description='Plot the data as line plots.',
 )
+@plotter_factory(DataRequirements(min_dims=1, max_dims=1))
 def _lines(params: PlotScaleParams) -> Plotter:
     from . import plots
 

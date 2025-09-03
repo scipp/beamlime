@@ -7,15 +7,22 @@ from collections.abc import Hashable
 from typing import Protocol, TypeVar
 
 import holoviews as hv
+import pydantic
 import scipp as sc
 
 from beamlime.config.workflow_spec import JobId, JobNumber, ResultKey, WorkflowId
 
 from .job_service import JobService
+from .plotting import PlotterSpec, plotter_registry
 from .stream_manager import StreamManager
 
 K = TypeVar('K', bound=Hashable)
 V = TypeVar('V')
+
+# TODO
+# - Add last update column to job table
+# - Add "stop job" button to job table
+# - Allow for passing options such as log scale when creating plot, configure in widget
 
 
 class Plot(Protocol):
