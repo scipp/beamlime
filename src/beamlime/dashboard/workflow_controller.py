@@ -212,6 +212,8 @@ class WorkflowController:
             )
             return False
 
+        # We generate a new job number for the workflow. This will allow for associating
+        # multiple jobs with the same workflow run for different sources.
         workflow_config = WorkflowConfig(
             identifier=workflow_id, job_number=uuid.uuid4(), params=config.model_dump()
         )
@@ -241,8 +243,6 @@ class WorkflowController:
 
         return True
 
-    # TODO This will need to be done by JobId
-    # Move to DataServiceController?
     def stop_workflow_for_source(self, source_name: str) -> None:
         """Stop a running workflow for a specific source."""
         self._logger.info('Stopping workflow for source %s', source_name)
@@ -254,7 +254,6 @@ class WorkflowController:
             WorkflowStatus(source_name=source_name, status=WorkflowStatusType.STOPPING)
         )
 
-    # TODO This will need to be done by JobId
     def remove_workflow_for_source(self, source_name: str) -> None:
         """Remove a stopped workflow from tracking."""
         self._logger.info('Removing workflow for source %s', source_name)

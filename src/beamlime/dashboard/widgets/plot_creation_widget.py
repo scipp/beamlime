@@ -280,7 +280,7 @@ class PlotCreationWidget:
 
         # Update plot selector
         try:
-            available_plots = self._plotting_controller.get_available_plots(
+            available_plots = self._plotting_controller.get_available_plotters(
                 self._selected_job, self._selected_output
             )
             if available_plots:

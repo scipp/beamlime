@@ -30,10 +30,10 @@ class PlottingController:
         self._stream_manager = stream_manager
         self._logger = logger or logging.getLogger(__name__)
 
-    def get_available_plots(
+    def get_available_plotters(
         self, job_number: JobNumber, output_name: str | None
     ) -> dict[str, PlotterSpec]:
-        """Get all available plots for a given job and output."""
+        """Get all available plotters for a given job and output."""
         job_data = self._job_service.job_data[job_number]
         data = {k: v[output_name] for k, v in job_data.items()}
         return plotter_registry.get_compatible_plotters(data)
