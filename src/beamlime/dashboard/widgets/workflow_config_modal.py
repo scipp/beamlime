@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import panel as pn
-import pydantic
 
 from beamlime.dashboard.workflow_controller import BoundWorkflowController
 
-from .param_widget import ParamWidget
+from .model_widget import ModelWidget
 from .workflow_ui_helper import WorkflowUIHelper
 
 
@@ -25,9 +24,13 @@ class WorkflowConfigWidget:
         """
         self._controller = controller
         self._ui_helper = WorkflowUIHelper(controller)
-        self._parameter_widgets: dict[str, ParamWidget] = {}
         self._source_selector = self._create_source_selector()
-        self._parameter_panel = self._create_parameter_panel()
+        self._model_widget = ModelWidget(
+            model_class=controller.params_model_class,
+            initial_values=self._ui_helper.get_initial_parameter_values(),
+            show_descriptions=True,
+            cards_collapsed=False,
+        )
         self._source_error_pane = pn.pane.HTML("", sizing_mode='stretch_width')
         self._widget = self._create_widget()
 
@@ -42,40 +45,6 @@ class WorkflowConfigWidget:
             margin=(0, 0, 0, 0),
         )
 
-    def _create_parameter_panel(self) -> pn.Column:
-        """Create panel containing all parameter widgets."""
-        widget_data = self._ui_helper.get_parameter_widget_data()
-
-        parameter_cards = []
-        for field_name, data in widget_data.items():
-            param_widget = ParamWidget(data['field_type'])
-            param_widget.set_values(data['values'])
-            self._parameter_widgets[field_name] = param_widget
-
-            # Create card content
-            card_content = [param_widget.panel()]
-
-            # Add description if available
-            if data['description']:
-                description_pane = pn.pane.HTML(
-                    "<p style='margin: 0 0 0 0; color: #666; font-size: 0.9em;'>"
-                    f"{data['description']}</p>",
-                    margin=(5, 5),
-                )
-                card_content.insert(0, description_pane)
-
-            card = pn.Card(
-                *card_content,
-                title=data['title'],
-                margin=(3, 0),
-                collapsed=False,
-                width_policy='max',
-                sizing_mode='stretch_width',
-            )
-            parameter_cards.append(card)
-
-        return pn.Column(*parameter_cards, sizing_mode='stretch_width')
-
     def _create_widget(self) -> pn.Column:
         """Create the main configuration widget."""
         title = self._ui_helper.get_workflow_title()
@@ -84,7 +53,7 @@ class WorkflowConfigWidget:
             pn.pane.HTML(f"<h1>{title}</h1><p>{description}</p>"),
             self._source_selector,
             self._source_error_pane,
-            self._parameter_panel,
+            self._model_widget.widget,
         )
 
     @property
@@ -98,13 +67,9 @@ class WorkflowConfigWidget:
         return self._source_selector.value
 
     @property
-    def parameter_values(self) -> pydantic.BaseModel:
-        """Get current parameter values as a dictionary."""
-        widget_values = {
-            name: widget.create_model()
-            for name, widget in self._parameter_widgets.items()
-        }
-        return self._ui_helper.assemble_parameter_values(widget_values)
+    def parameter_values(self):
+        """Get current parameter values as a model instance."""
+        return self._model_widget.parameter_values
 
     def validate_configuration(self) -> tuple[bool, list[str]]:
         """
@@ -125,13 +90,9 @@ class WorkflowConfigWidget:
             self._highlight_source_error(False)
 
         # Validate parameter widgets
-        for field_name, widget in self._parameter_widgets.items():
-            is_valid, error_msg = widget.validate()
-            if not is_valid:
-                errors.append(f"{field_name}: {error_msg}")
-                widget.set_error_state(True, error_msg)
-            else:
-                widget.set_error_state(False, "")
+        param_valid, param_errors = self._model_widget.validate_parameters()
+        if not param_valid:
+            errors.extend(param_errors)
 
         return len(errors) == 0, errors
 
@@ -153,8 +114,7 @@ class WorkflowConfigWidget:
     def clear_validation_errors(self) -> None:
         """Clear all validation error states."""
         self._highlight_source_error(False)
-        for widget in self._parameter_widgets.values():
-            widget.set_error_state(False, "")
+        self._model_widget.clear_validation_errors()
 
 
 class WorkflowConfigModal:
