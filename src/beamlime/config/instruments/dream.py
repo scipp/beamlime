@@ -5,6 +5,7 @@ from typing import NewType
 
 import ess.powder.types  # noqa: F401
 import pydantic
+import sciline
 import scipp as sc
 from ess import dream, powder
 from ess.dream import DreamPowderWorkflow
@@ -136,12 +137,6 @@ def _make_dream_detectors() -> StreamLUT:
     }
 
 
-# Normalization to monitors is partially broken due to some wavelength-range checking
-# in essdiffraction that does not play with TOA-TOF conversion (I think).
-_reduction_workflow = DreamPowderWorkflow(
-    run_norm=powder.RunNormalization.proton_charge
-)
-
 _source_names = [
     'mantle_detector',
     'endcap_backward_detector',
@@ -178,20 +173,24 @@ def _fake_proton_charge(
     return powder.types.AccumulatedProtonCharge[RunType](fake_charge)
 
 
-_reduction_workflow.insert(_total_counts)
-_reduction_workflow.insert(_fake_proton_charge)
-_reduction_workflow[powder.types.CalibrationData] = None
-_reduction_workflow = powder.with_pixel_mask_filenames(_reduction_workflow, [])
-_reduction_workflow[powder.types.UncertaintyBroadcastMode] = (
-    powder.types.UncertaintyBroadcastMode.drop
-)
-_reduction_workflow[powder.types.KeepEvents[SampleRun]] = powder.types.KeepEvents[
-    SampleRun
-](False)
+def _make_reduction_workflow() -> sciline.Pipeline:
+    # Normalization to monitors is partially broken due to some wavelength-range
+    # checking in essdiffraction that does not play with TOA-TOF conversion (I think).
+    wf = DreamPowderWorkflow(run_norm=powder.RunNormalization.proton_charge)
 
-# dream-no-shape is a much smaller file without pixel_shape, which is not needed
-# for data reduction.
-_reduction_workflow[Filename[SampleRun]] = get_nexus_geometry_filename('dream-no-shape')
+    wf.insert(_total_counts)
+    wf.insert(_fake_proton_charge)
+    wf[powder.types.CalibrationData] = None
+    wf = powder.with_pixel_mask_filenames(wf, [])
+    wf[powder.types.UncertaintyBroadcastMode] = (
+        powder.types.UncertaintyBroadcastMode.drop
+    )
+    wf[powder.types.KeepEvents[SampleRun]] = powder.types.KeepEvents[SampleRun](False)
+
+    # dream-no-shape is a much smaller file without pixel_shape, which is not needed
+    # for data reduction.
+    wf[Filename[SampleRun]] = get_nexus_geometry_filename('dream-no-shape')
+    return wf
 
 
 class InstrumentConfiguration(pydantic.BaseModel):
@@ -259,7 +258,7 @@ class PowderWorkflowParams(pydantic.BaseModel):
     source_names=_source_names,
 )
 def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProcessor:
-    wf = _reduction_workflow.copy()
+    wf = _make_reduction_workflow()
     wf[NeXusName[NXdetector]] = source_name
     wf[dream.InstrumentConfiguration] = params.instrument_configuration.value
     wmin = params.wavelength_range.get_start()
@@ -294,7 +293,7 @@ def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamPr
 def _powder_workflow_with_vanadium(
     source_name: str, params: PowderWorkflowParams
 ) -> StreamProcessor:
-    wf = _reduction_workflow.copy()
+    wf = _make_reduction_workflow()
     wf[NeXusName[NXdetector]] = source_name
     wf[Filename[VanadiumRun]] = '268227_00024779_Vana_inc_BC_offset_240_deg_wlgth.hdf'
     wf[dream.InstrumentConfiguration] = params.instrument_configuration.value
