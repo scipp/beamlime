@@ -6,7 +6,8 @@ import enum
 import typing
 from collections import UserDict
 from collections.abc import Callable
-from typing import Protocol
+from dataclasses import dataclass
+from typing import Protocol, TypeVar
 
 import pydantic
 import scipp as sc
@@ -21,11 +22,10 @@ class PlotScale(enum.Enum):
     log = 'log'
 
 
-class PlotParams(pydantic.BaseModel):
-    pass
+PlotParams = TypeVar('PlotParams', bound=pydantic.BaseModel)
 
 
-class PlotParams2d(PlotParams):
+class PlotParams2d(pydantic.BaseModel):
     """Common parameters for 2d plots."""
 
     x_scale: PlotScale = pydantic.Field(
@@ -68,11 +68,15 @@ class Plotter(Protocol):
     def __call__(self, data: dict[ResultKey, sc.DataArray]) -> None: ...
 
 
-class PlotterRegistry(UserDict[str, Callable[[PlotParams], Plotter]]):
-    def __init__(self) -> None:
-        super().__init__()
-        self._specs: dict[str, PlotterSpec] = {}
+@dataclass
+class PlotterEntry:
+    """Entry combining a plotter specification with its factory function."""
 
+    spec: PlotterSpec
+    factory: Callable[[PlotParams], Plotter]
+
+
+class PlotterRegistry(UserDict[str, PlotterEntry]):
     def register_plotter(
         self, name: str, title: str, description: str
     ) -> Callable[[Callable[[PlotParams], Plotter]], Callable[[PlotParams], Plotter]]:
@@ -83,15 +87,28 @@ class PlotterRegistry(UserDict[str, Callable[[PlotParams], Plotter]]):
             # Use get_type_hints to resolve forward references, in case we used
             # `from __future__ import annotations`.
             type_hints = typing.get_type_hints(factory, globalns=factory.__globals__)
-            self._specs[name] = PlotterSpec(
+            spec = PlotterSpec(
                 name=name,
                 title=title,
                 description=description,
                 params=type_hints['params'],
             )
+            self[name] = PlotterEntry(spec=spec, factory=factory)
             return factory
 
         return decorator
+
+    def get_specs(self) -> dict[str, PlotterSpec]:
+        """Get all plotter specifications for UI display."""
+        return {name: entry.spec for name, entry in self.items()}
+
+    def get_spec(self, name: str) -> PlotterSpec:
+        """Get specification for a specific plotter."""
+        return self[name].spec
+
+    def create_plotter(self, name: str, params: PlotParams) -> Plotter:
+        """Create a plotter instance with the given parameters."""
+        return self[name].factory(params)
 
 
 registry = PlotterRegistry()
