@@ -18,13 +18,8 @@ from .stream_manager import StreamManager
 K = TypeVar('K', bound=Hashable)
 V = TypeVar('V')
 
-# TODO
-# - Add last update column to job table
-# - Add "stop job" button to job table
-# - Allow for passing options such as log scale when creating plot, configure in widget
 
-
-class PlotController:
+class PlottingController:
     def __init__(
         self,
         job_service: JobService,

@@ -15,14 +15,6 @@ from .data_service import DataService
 K = TypeVar('K', bound=Hashable)
 V = TypeVar('V')
 
-# Next:
-# - Remove WorkflowConfig.identifier = None "stop mechanism"
-# - Move some methods from WorkflowController to JobService
-# - WorkflowController is for getting workflows and launching jobs
-# - JobService is for tracking jobs and stopping them
-# - Should we have a separate JobController?
-# - Make a new widgets or refactor WorkflowStatusListWidget
-
 SourceName = str
 SourceData = dict[str | None, sc.DataArray]
 

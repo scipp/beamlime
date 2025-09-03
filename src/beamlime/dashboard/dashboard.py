@@ -35,7 +35,7 @@ from .job_service import JobService
 from .kafka_transport import KafkaTransport
 from .message_bridge import BackgroundMessageBridge
 from .orchestrator import Orchestrator
-from .plot_service import PlotController
+from .plotting_controller import PlottingController
 from .schema_validator import PydanticSchemaValidator
 from .stream_manager import StreamManager
 from .widgets.plot_creation_widget import PlotCreationWidget
@@ -130,7 +130,7 @@ class DashboardBase(ServiceBase, ABC):
         self._job_service = JobService(
             data_service=self._data_service, logger=self._logger
         )
-        self._plot_service = PlotController(
+        self._plotting_controller = PlottingController(
             job_service=self._job_service,
             stream_manager=self._stream_manager,
             logger=self._logger,
@@ -227,7 +227,7 @@ class DashboardBase(ServiceBase, ABC):
         """Create the basic dashboard layout."""
         sidebar_content = self.create_sidebar_content()
         main_content = PlotCreationWidget(
-            job_service=self._job_service, plot_service=self._plot_service
+            job_service=self._job_service, plotting_controller=self._plotting_controller
         ).widget
 
         template = pn.template.MaterialTemplate(

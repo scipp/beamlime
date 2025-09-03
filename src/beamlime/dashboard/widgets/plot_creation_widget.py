@@ -9,8 +9,8 @@ import panel as pn
 
 from beamlime.config.workflow_spec import JobNumber
 from beamlime.dashboard.job_service import JobService
-from beamlime.dashboard.plot_service import PlotController
 from beamlime.dashboard.plotting import PlotterSpec
+from beamlime.dashboard.plotting_controller import PlottingController
 
 from .configuration_widget import ConfigurationAdapter, ConfigurationModal
 
@@ -24,14 +24,14 @@ class PlotConfigurationAdapter(ConfigurationAdapter):
         output_name: str | None,
         plot_spec: PlotterSpec,
         available_sources: list[str],
-        plot_service: PlotController,
+        plotting_controller: PlottingController,
         success_callback,
     ):
         self._job_number = job_number
         self._output_name = output_name
         self._plot_spec = plot_spec
         self._available_sources = available_sources
-        self._plot_service = plot_service
+        self._plotting_controller = plotting_controller
         self._success_callback = success_callback
 
     @property
@@ -61,7 +61,7 @@ class PlotConfigurationAdapter(ConfigurationAdapter):
 
     def start_action(self, selected_sources: list[str], parameter_values: Any) -> bool:
         try:
-            dmap = self._plot_service.create_plot(
+            dmap = self._plotting_controller.create_plot(
                 job_number=self._job_number,
                 source_names=selected_sources,
                 output_name=self._output_name,
@@ -71,25 +71,28 @@ class PlotConfigurationAdapter(ConfigurationAdapter):
             self._success_callback(dmap, selected_sources)
             return True
         except Exception:
+            raise
             return False
 
 
 class PlotCreationWidget:
     """Widget for creating plots from job data."""
 
-    def __init__(self, job_service: JobService, plot_service: PlotController) -> None:
+    def __init__(
+        self, job_service: JobService, plotting_controller: PlottingController
+    ) -> None:
         """
         Initialize plot creation widget.
 
         Parameters
         ----------
-        job_service
+        job_service:
             Service for accessing job data
-        plot_service
-            Service for creating plots
+        plotting_controller:
+            Controller for creating plotters
         """
         self._job_service = job_service
-        self._plot_service = plot_service
+        self._plotting_controller = plotting_controller
         self._selected_job: JobNumber | None = None
         self._selected_output: str | None = None
         self._plot_counter = 0  # Counter for unique plot tab names
@@ -277,7 +280,7 @@ class PlotCreationWidget:
 
         # Update plot selector
         try:
-            available_plots = self._plot_service.get_available_plots(
+            available_plots = self._plotting_controller.get_available_plots(
                 self._selected_job, self._selected_output
             )
             if available_plots:
@@ -311,7 +314,7 @@ class PlotCreationWidget:
 
         # Get plot spec
         plot_name = self._plot_selector.value
-        spec = self._plot_service.get_spec(plot_name)
+        spec = self._plotting_controller.get_spec(plot_name)
 
         # Create configuration adapter
         config = PlotConfigurationAdapter(
@@ -319,7 +322,7 @@ class PlotCreationWidget:
             output_name=self._selected_output,
             plot_spec=spec,
             available_sources=available_sources,
-            plot_service=self._plot_service,
+            plotting_controller=self._plotting_controller,
             success_callback=self._on_plot_created,
         )
 

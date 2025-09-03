@@ -75,7 +75,6 @@ class DataService(UserDict[K, V]):
                 subscriber.trigger(subscriber_data)
 
     def __setitem__(self, key: K, value: V) -> None:
-        # print(key)
         super().__setitem__(key, value)
         self._pending_updates.add(key)
         self._notify_if_not_in_transaction(key)
