@@ -106,12 +106,15 @@ class TestInstrument:
             instrument.get_detector_number("detector1"), detector_number
         )
 
-    def test_add_detector_without_number_fails_without_nexus(self):
+    def test_add_detector_without_number_then_get_fails_without_nexus(self):
         """Test adding detector without number fails when no nexus file available."""
         instrument = Instrument(name="nonexistent_instrument")
 
+        # Adding works, detector numbers are loaded lazily on use to avoid file access
+        # during instrument setup.
+        instrument.add_detector("detector1")
         with pytest.raises(ValueError, match="Nexus file not set or found"):
-            instrument.add_detector("detector1")
+            instrument.get_detector_number("detector1")
 
     def test_get_detector_number_for_nonexistent_detector(self):
         """Test getting detector number for non-existent detector raises KeyError."""

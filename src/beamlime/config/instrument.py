@@ -58,7 +58,7 @@ class Instrument:
     )
     source_to_key: dict[str, type] = field(default_factory=dict)
     f144_attribute_registry: dict[str, dict[str, Any]] = field(default_factory=dict)
-    _detector_numbers: dict[str, sc.Variable] = field(default_factory=dict)
+    _detector_numbers: dict[str, sc.Variable | None] = field(default_factory=dict)
     _nexus_file: str | None = None
     active_namespace: str | None = None
 
@@ -86,18 +86,27 @@ class Instrument:
         if detector_number is not None:
             self._detector_numbers[name] = detector_number
             return
-        candidate = snx.load(
-            self.nexus_file, root=f'entry/instrument/{name}/detector_number'
-        )
-        if not isinstance(candidate, sc.Variable):
-            raise ValueError(
-                f"Detector {name} not found in {self.nexus_file}. "
-                "Please provide a detector_number explicitly."
-            )
-        self._detector_numbers[name] = candidate
+        # Store None to indicate lazy loading is needed
+        self._detector_numbers[name] = None
 
     def get_detector_number(self, name: str) -> sc.Variable:
-        return self._detector_numbers[name]
+        if name not in self._detector_numbers:
+            raise KeyError(f"Detector {name} not registered.")
+
+        # Load detector number on first access if it's None
+        if (detector_numbers := self._detector_numbers[name]) is None:
+            candidate = snx.load(
+                self.nexus_file, root=f'entry/instrument/{name}/detector_number'
+            )
+            if not isinstance(candidate, sc.Variable):
+                raise ValueError(
+                    f"Detector {name} not found in {self.nexus_file}. "
+                    "Please provide a detector_number explicitly."
+                )
+            self._detector_numbers[name] = candidate
+            return candidate
+        else:
+            return detector_numbers
 
     def register_workflow(
         self,
