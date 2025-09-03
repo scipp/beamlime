@@ -11,6 +11,70 @@ from beamlime.config.workflow_spec import JobNumber
 from beamlime.dashboard.job_service import JobService
 from beamlime.dashboard.plot_service import PlotController
 
+from .configuration_widget import ConfigurationAdapter, ConfigurationModal
+
+
+class PlotConfigurationAdapter(ConfigurationAdapter):
+    """Adapter for plot configuration modal."""
+
+    def __init__(
+        self,
+        job_number: JobNumber,
+        output_name: str | None,
+        plot_name: str,
+        plot_spec,
+        available_sources: list[str],
+        plot_service: PlotController,
+        success_callback,
+    ):
+        self._job_number = job_number
+        self._output_name = output_name
+        self._plot_name = plot_name
+        self._plot_spec = plot_spec
+        self._available_sources = available_sources
+        self._plot_service = plot_service
+        self._success_callback = success_callback
+
+    @property
+    def title(self) -> str:
+        return f"Configure {self._plot_spec.title}"
+
+    @property
+    def description(self) -> str:
+        return (
+            f"Configure plot parameters and select sources for {self._plot_spec.title}"
+        )
+
+    @property
+    def model_class(self) -> type:
+        return self._plot_spec.params
+
+    @property
+    def source_names(self) -> list[str]:
+        return self._available_sources
+
+    @property
+    def initial_source_names(self) -> list[str]:
+        return self._available_sources
+
+    @property
+    def initial_parameter_values(self) -> dict[str, Any]:
+        return {}
+
+    def start_action(self, selected_sources: list[str], parameter_values: Any) -> bool:
+        try:
+            dmap = self._plot_service.create_plot(
+                job_number=self._job_number,
+                source_names=selected_sources,
+                output_name=self._output_name,
+                plot_name=self._plot_name,
+                params=parameter_values,
+            )
+            self._success_callback(dmap, selected_sources)
+            return True
+        except Exception:
+            return False
+
 
 class PlotCreationWidget:
     """Widget for creating plots from job data."""
@@ -23,6 +87,8 @@ class PlotCreationWidget:
         ----------
         job_service
             Service for accessing job data
+        plot_service
+            Service for creating plots
         """
         self._job_service = job_service
         self._plot_service = plot_service
@@ -32,9 +98,7 @@ class PlotCreationWidget:
 
         # Create UI components
         self._job_output_table = self._create_job_output_table()
-        self._source_selector = self._create_source_selector()
         self._plot_selector = self._create_plot_selector()
-        self._plot_options = self._create_plot_options()
         self._error_pane = pn.pane.HTML("", sizing_mode='stretch_width')
         self._create_button = self._create_plot_button()
         self._refresh_button = self._create_refresh_button()
@@ -43,10 +107,13 @@ class PlotCreationWidget:
         self._job_output_table.param.watch(
             self._on_job_output_selection_change, 'selection'
         )
-        self._source_selector.param.watch(self._on_source_selection_change, 'value')
+        # Container for modals - they need to be part of the served structure
+        self._modal_container = pn.Column()
 
         # Create main widget with tabs
-        self._creation_tab = self._create_creation_tab()
+        self._creation_tab = pn.Column(
+            self._create_creation_tab(), self._modal_container
+        )
         self._tabs = pn.Tabs(
             ("Create Plot", self._creation_tab), sizing_mode='stretch_width'
         )
@@ -76,17 +143,6 @@ class PlotCreationWidget:
             },
         )
 
-    def _create_source_selector(self) -> pn.widgets.MultiChoice:
-        """Create source name selection widget."""
-        return pn.widgets.MultiChoice(
-            name="Source Names",
-            options=[],
-            value=[],
-            placeholder="Select source names for plotting",
-            sizing_mode='stretch_width',
-            disabled=True,
-        )
-
     def _create_plot_selector(self) -> pn.widgets.Select:
         """Create plot type selection widget."""
         return pn.widgets.Select(
@@ -95,53 +151,12 @@ class PlotCreationWidget:
             value=None,
             sizing_mode='stretch_width',
             disabled=True,
-            visible=False,
-        )
-
-    def _create_plot_options(self) -> pn.Card:
-        """Create plot configuration options section."""
-        # Placeholder widgets for plot configuration
-        plot_type_selector = pn.widgets.Select(
-            name="Plot Type",
-            options=["Line Plot", "Scatter Plot", "Heatmap", "Histogram"],
-            value="Line Plot",
-            sizing_mode='stretch_width',
-        )
-
-        axis_config = pn.widgets.TextInput(
-            name="Axis Configuration",
-            placeholder="e.g., x='time', y='counts'",
-            sizing_mode='stretch_width',
-        )
-
-        color_scheme = pn.widgets.Select(
-            name="Color Scheme",
-            options=["viridis", "plasma", "coolwarm", "tab10"],
-            value="viridis",
-            sizing_mode='stretch_width',
-        )
-
-        return pn.Card(
-            pn.Column(
-                plot_type_selector,
-                axis_config,
-                color_scheme,
-                # More options can be added here in the future
-                pn.pane.HTML(
-                    "<p style='color: #666; font-style: italic;'>"
-                    "Additional plot configuration options will be added here.</p>"
-                ),
-                sizing_mode='stretch_width',
-            ),
-            title="Plot Configuration",
-            collapsed=False,
-            sizing_mode='stretch_width',
         )
 
     def _create_plot_button(self) -> pn.widgets.Button:
         """Create the plot creation button."""
         button = pn.widgets.Button(
-            name="Create Plot",
+            name="Configure & Create Plot",
             button_type="primary",
             sizing_mode='stretch_width',
             disabled=True,
@@ -165,9 +180,7 @@ class PlotCreationWidget:
             pn.pane.HTML("<h2>Create Plot from Job Data</h2>"),
             pn.Row(self._refresh_button, sizing_mode='stretch_width'),
             self._job_output_table,
-            self._source_selector,
             self._plot_selector,
-            self._plot_options,
             self._error_pane,
             self._create_button,
             sizing_mode='stretch_width',
@@ -180,12 +193,13 @@ class PlotCreationWidget:
             job_data = self._job_service.job_data.get(job_number, {})
             sources = list(job_data.keys())
 
-            # Get output names from any source (they all have the same outputs per backend guarantee)
+            # Get output names from any source (they all have the same outputs per
+            # #backend guarantee)
             output_names = set()
             for source_data in job_data.values():
                 if isinstance(source_data, dict):
                     output_names.update(source_data.keys())
-                    break  # Since all sources have same outputs, we only need to check one
+                    break  # Since all sources have same outputs, we only check one
 
             # If no outputs found, create a row with empty output name
             if not output_names:
@@ -241,18 +255,13 @@ class PlotCreationWidget:
 
         self._update_dependent_widgets()
 
-    def _on_source_selection_change(self, event) -> None:
-        """Handle source selection change."""
-        self._update_plot_selector()
-
     def _update_dependent_widgets(self) -> None:
-        """Update source selector and plot selector based on job and output selection."""
+        """Update plot selector based on job and output selection."""
         if self._selected_job is None:
             # No job selected - disable everything
-            self._source_selector.options = []
-            self._source_selector.value = []
-            self._source_selector.disabled = True
-            self._plot_selector.visible = False
+            self._plot_selector.options = []
+            self._plot_selector.value = None
+            self._plot_selector.disabled = True
             self._create_button.disabled = True
             return
 
@@ -260,23 +269,14 @@ class PlotCreationWidget:
         job_data = self._job_service.job_data.get(self._selected_job, {})
         available_sources = list(job_data.keys())
 
-        # Update source selector
-        self._source_selector.options = available_sources
-        self._source_selector.value = []
-        self._source_selector.disabled = len(available_sources) == 0
-
-        # Update plot selector
-        self._update_plot_selector()
-
-        # Enable create button if we have sources
-        self._create_button.disabled = len(available_sources) == 0
-
-    def _update_plot_selector(self) -> None:
-        """Update plot selector based on current job and output selection."""
-        if self._selected_job is None or not self._source_selector.value:
-            self._plot_selector.visible = False
+        if not available_sources:
+            self._plot_selector.options = []
+            self._plot_selector.value = None
+            self._plot_selector.disabled = True
+            self._create_button.disabled = True
             return
 
+        # Update plot selector
         try:
             available_plots = self._plot_service.get_available_plots(
                 self._selected_job, self._selected_output
@@ -286,12 +286,18 @@ class PlotCreationWidget:
                 options = {spec.title: name for name, spec in available_plots.items()}
                 self._plot_selector.options = options
                 self._plot_selector.value = next(iter(options)) if options else None
-                self._plot_selector.visible = True
                 self._plot_selector.disabled = False
+                self._create_button.disabled = False
             else:
-                self._plot_selector.visible = False
+                self._plot_selector.options = []
+                self._plot_selector.value = None
+                self._plot_selector.disabled = True
+                self._create_button.disabled = True
         except Exception:
-            self._plot_selector.visible = False
+            self._plot_selector.options = []
+            self._plot_selector.value = None
+            self._plot_selector.disabled = True
+            self._create_button.disabled = True
 
     def _on_create_plot(self, event) -> None:
         """Handle create plot button click."""
@@ -304,51 +310,47 @@ class PlotCreationWidget:
             self._show_errors(errors)
             return
 
-        # Placeholder for plot creation controller call
-        try:
-            self._create_plot_via_controller()
-            # Show success message
-            self._show_success("Plot created successfully!")
-        except Exception as e:
-            self._show_errors([f"Failed to create plot: {e}"])
+        # Get available sources
+        job_data = self._job_service.job_data.get(self._selected_job, {})
+        available_sources = list(job_data.keys())
 
-    def _validate_selection(self) -> tuple[bool, list[str]]:
-        """Validate current selection."""
-        errors = []
+        # Get plot spec
+        plot_name = self._plot_selector.value
+        spec = self._plot_service.get_spec(plot_name)
 
-        if self._selected_job is None:
-            errors.append("Please select a job and output.")
-
-        if not self._source_selector.value:
-            errors.append("Please select at least one source name.")
-
-        if self._plot_selector.visible and self._plot_selector.value is None:
-            errors.append("Please select a plot type.")
-
-        return len(errors) == 0, errors
-
-    def _create_plot_via_controller(self) -> None:
-        """Create plot via controller and add it as a new tab."""
-        # Get the selected plot instance
-        spec = self._plot_service.get_spec(self._plot_selector.value)
-        # TODO Make widgets from spec.params
-
-        dmap = self._plot_service.create_plot(
+        # Create configuration adapter
+        config = PlotConfigurationAdapter(
             job_number=self._selected_job,
-            source_names=self._source_selector.value,
             output_name=self._selected_output,
-            plot_name=spec.name,
-            params=spec.params(),
+            plot_name=plot_name,
+            plot_spec=spec,
+            available_sources=available_sources,
+            plot_service=self._plot_service,
+            success_callback=self._on_plot_created,
         )
 
+        # Create and show configuration modal
+        modal = ConfigurationModal(
+            config=config,
+            start_button_text="Create Plot",
+            success_callback=lambda: self._show_success("Plot created successfully!"),
+            error_callback=lambda msg: self._show_errors([msg]),
+        )
+
+        # Add modal to container and show it
+        self._modal_container.append(modal.modal)
+        modal.show()
+
+    def _on_plot_created(self, dmap, selected_sources: list[str]) -> None:
+        """Handle successful plot creation."""
         # Create HoloViews pane
         plot_pane = pn.pane.HoloViews(dmap, sizing_mode='stretch_width')
 
         # Generate tab name
         self._plot_counter += 1
-        sources_str = "_".join(self._source_selector.value[:2])  # Limit length
-        if len(self._source_selector.value) > 2:
-            sources_str += f"_+{len(self._source_selector.value) - 2}"
+        sources_str = "_".join(selected_sources[:2])  # Limit length
+        if len(selected_sources) > 2:
+            sources_str += f"_+{len(selected_sources) - 2}"
         tab_name = f"Plot {self._plot_counter}: {sources_str}"
 
         # Add as new tab
@@ -357,13 +359,17 @@ class PlotCreationWidget:
         # Switch to the new plot tab
         self._tabs.active = len(self._tabs) - 1
 
-    def _get_plot_options(self) -> dict[str, Any]:
-        """Get current plot configuration options."""
-        # TODO: Extract values from plot options widgets
-        return {
-            'plot_type': 'line',  # placeholder
-            'color_scheme': 'viridis',  # placeholder
-        }
+    def _validate_selection(self) -> tuple[bool, list[str]]:
+        """Validate current selection."""
+        errors = []
+
+        if self._selected_job is None:
+            errors.append("Please select a job and output.")
+
+        if self._plot_selector.value is None:
+            errors.append("Please select a plot type.")
+
+        return len(errors) == 0, errors
 
     def _show_errors(self, errors: list[str]) -> None:
         """Show validation errors."""
