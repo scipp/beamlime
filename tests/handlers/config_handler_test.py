@@ -329,6 +329,9 @@ class MockJobManagerAdapter:
         ]
         self.should_raise_exception = False
 
+    def job_command(self, source_name, command):
+        raise NotImplementedError("Not used by test")
+
     def set_workflow_with_config(self, source_name, config):
         self.workflow_calls.append((source_name, config))
         if self.should_raise_exception:
