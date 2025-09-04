@@ -21,9 +21,9 @@ def remove_bokeh_logo(plot, element):
     plot.state.toolbar.logo = None
 
 
-class AutoscalingPlot:
+class Autoscaler:
     """
-    A plot that automatically adjusts its bounds based on the data.
+    A helper class that automatically adjusts bounds based on data.
 
     Maybe I missed something in the Holoviews docs, but looking, e.g., at
     https://holoviews.org/FAQ.html we need framewise=True to autoscale for streaming
@@ -38,13 +38,9 @@ class AutoscalingPlot:
     good starting guess of bounds.
     """
 
-    def __init__(
-        self,
-        value_margin_factor: float = 0.01,
-        image_opts: dict[str, Any] | None = None,
-    ):
+    def __init__(self, value_margin_factor: float = 0.01):
         """
-        Initialize the plot with empty bounds.
+        Initialize the autoscaler with empty bounds.
 
         Parameters
         ----------
@@ -59,7 +55,6 @@ class AutoscalingPlot:
             lambda: (None, None)
         )
         self.value_bounds = (None, None)
-        self._image_opts = image_opts or {}
 
     def update_bounds(self, data: sc.DataArray) -> bool:
         """Update bounds based on the data, return True if bounds changed."""
@@ -107,7 +102,30 @@ class AutoscalingPlot:
 
         return changed
 
-    def plot_lines(self, data: dict[ResultKey, sc.DataArray]) -> hv.Overlay:
+
+class Plotter:
+    """
+    Base class for plots that support autoscaling.
+    """
+
+    def __init__(self, autoscaler: Autoscaler | None = None, **kwargs):
+        """
+        Initialize the plotter.
+
+        Parameters
+        ----------
+        autoscaler:
+            Autoscaler instance to use for bound tracking. If None, creates a new one.
+        **kwargs:
+            Additional keyword arguments passed to the autoscaler if created.
+        """
+        self.autoscaler = autoscaler if autoscaler is not None else Autoscaler(**kwargs)
+
+
+class LinePlotter(Plotter):
+    """Plotter for line plots from dictionary of scipp DataArrays."""
+
+    def plot(self, data: dict[ResultKey, sc.DataArray]) -> hv.Overlay:
         """Create a line plot from a dictionary of scipp DataArrays."""
         options = opts.Curve(
             responsive=True,
@@ -123,13 +141,38 @@ class AutoscalingPlot:
         for data_key, da in data.items():
             name = data_key.job_id.source_name
             da = da.assign_coords(dspacing=sc.midpoints(da.coords['dspacing']))
-            bounds_changed |= self.update_bounds(da)
+            bounds_changed |= self.autoscaler.update_bounds(da)
             curves.append(to_holoviews(da).relabel(name))
         return (
             hv.Overlay(curves).opts(options).opts(opts.Curve(framewise=bounds_changed))
         )
 
-    def plot_2d(self, data: sc.DataArray | None) -> hv.Image:
+
+class ImagePlotter(Plotter):
+    """Plotter for 2D images from scipp DataArrays."""
+
+    def __init__(
+        self,
+        autoscaler: Autoscaler | None = None,
+        image_opts: dict[str, Any] | None = None,
+        **kwargs,
+    ):
+        """
+        Initialize the image plotter.
+
+        Parameters
+        ----------
+        autoscaler:
+            Autoscaler instance to use for bound tracking.
+        image_opts:
+            Additional options for the image plot.
+        **kwargs:
+            Additional keyword arguments passed to the autoscaler if created.
+        """
+        super().__init__(autoscaler, **kwargs)
+        self._image_opts = image_opts or {}
+
+    def plot(self, data: sc.DataArray | None) -> hv.Image:
         """Create a 2D plot from a scipp DataArray."""
         base_opts = {
             'responsive': True,
@@ -164,7 +207,7 @@ class AutoscalingPlot:
                 data.data,
             )
         )
-        bounds_changed = self.update_bounds(masked)
+        bounds_changed = self.autoscaler.update_bounds(masked)
         # We are using the masked data here since Holoviews (at least with the Bokeh
         # backend) show values below the color limits with the same color as the lowest
         # value in the colormap, which is not what we want for, e.g., zeros on a log
@@ -172,13 +215,17 @@ class AutoscalingPlot:
         histogram = to_holoviews(masked)
         return histogram.opts(options).opts(
             framewise=bounds_changed,
-            clim=(self.value_bounds[0], self.value_bounds[1]),
+            clim=(self.autoscaler.value_bounds[0], self.autoscaler.value_bounds[1]),
         )
 
-    def plot_sum_of_2d(self, data: dict[ResultKey, sc.DataArray]) -> hv.Image:
+
+class SumImagePlotter(ImagePlotter):
+    """Plotter for 2D images created by summing multiple scipp DataArrays."""
+
+    def plot(self, data: dict[ResultKey, sc.DataArray]) -> hv.Image:
         """Create a 2D plot from a dictionary of scipp DataArrays."""
         if data is None:
-            return self.plot_2d(data)
+            return super().plot(data)
         reducer = sc.reduce(list(data.values()))
         # This is not a great check, probably the whole approach is questionable, but
         # this probably does the job for Dream focussed vs. vanadium normalized data.
@@ -186,7 +233,37 @@ class AutoscalingPlot:
             combined = reducer.nanmean()
         else:
             combined = reducer.nansum()
-        return self.plot_2d(combined)
+        return super().plot(combined)
+
+
+# Legacy class for backward compatibility
+class AutoscalingPlot:
+    """
+    Legacy compatibility class. Use specific plotter classes instead.
+    """
+
+    def __init__(
+        self,
+        value_margin_factor: float = 0.01,
+        image_opts: dict[str, Any] | None = None,
+    ):
+        """Initialize with legacy interface."""
+        autoscaler = Autoscaler(value_margin_factor)
+        self._line_plotter = LinePlotter(autoscaler)
+        self._image_plotter = ImagePlotter(autoscaler, image_opts)
+        self._sum_image_plotter = SumImagePlotter(autoscaler, image_opts)
+
+    def plot_lines(self, data: dict[ResultKey, sc.DataArray]) -> hv.Overlay:
+        """Create a line plot from a dictionary of scipp DataArrays."""
+        return self._line_plotter.plot(data)
+
+    def plot_2d(self, data: sc.DataArray | None) -> hv.Image:
+        """Create a 2D plot from a scipp DataArray."""
+        return self._image_plotter.plot(data)
+
+    def plot_sum_of_2d(self, data: dict[ResultKey, sc.DataArray]) -> hv.Image:
+        """Create a 2D plot from a dictionary of scipp DataArrays."""
+        return self._sum_image_plotter.plot(data)
 
 
 # TODO Monitor plots below are currently unused and will be replaced
