@@ -17,11 +17,11 @@ class JobControlWidget:
             name="Workflow Filter",
             value=None,
             options={"All Workflows": None},
-            width=250,
+            width=350,
         )
 
         self._job_select = pn.widgets.MultiSelect(
-            name="Jobs", value=[], options={}, height=150, width=250
+            name="Jobs", value=[], options={}, height=150, width=350
         )
 
         # Action buttons with icons
@@ -47,6 +47,9 @@ class JobControlWidget:
 
         # Set up event handlers
         self._setup_callbacks()
+
+        # Register for job updates
+        self._job_controller.register_update_subscriber(self._on_jobs_updated)
 
         # Initialize data
         self._refresh_data()
@@ -239,3 +242,7 @@ class JobControlWidget:
     def panel(self) -> pn.Column:
         """Get the panel widget for display."""
         return self._layout
+
+    def _on_jobs_updated(self) -> None:
+        """Handle job updates from the controller."""
+        self._refresh_data()

@@ -2,6 +2,8 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from beamlime.config.models import ConfigKey
 from beamlime.config.workflow_spec import JobId, JobNumber, WorkflowId
 from beamlime.core.job import JobAction, JobCommand
@@ -13,6 +15,20 @@ class JobController:
     def __init__(self, config_service: ConfigService, job_service: JobService) -> None:
         self._config_service = config_service
         self._job_service = job_service
+        self._update_subscribers: list[Callable[[], None]] = []
+
+        # Register for job updates from the service
+        self._job_service.register_job_update_subscriber(self._on_jobs_updated)
+
+    def register_update_subscriber(self, callback: Callable[[], None]) -> None:
+        """Register a callback to be called when job data is updated."""
+        self._update_subscribers.append(callback)
+
+    def _on_jobs_updated(self) -> None:
+        """Handle job updates from the job service."""
+        # Notify all UI subscribers that job data has changed
+        for callback in self._update_subscribers:
+            callback()
 
     def _config_key(self, key: str) -> ConfigKey:
         return ConfigKey(key=key)

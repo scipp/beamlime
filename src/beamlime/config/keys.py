@@ -15,10 +15,20 @@ from beamlime.config.workflow_spec import (
     WorkflowConfig,
     WorkflowStatus,
 )
+from beamlime.core.job import JobCommand
 
 from .schema_registry import get_schema_registry
 
 _registry = get_schema_registry()
+
+JOB_COMMAND = _registry.create(
+    key=JobCommand.key,
+    service_name=None,
+    model=JobCommand,
+    description="Command to control jobs (pause, resume, reset, stop)",
+    produced_by={"dashboard"},
+    consumed_by={"monitor_data", "detector_data", "data_reduction"},
+)
 
 MONITOR_START_TIME = _registry.create(
     key="start_time",

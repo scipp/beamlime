@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Hashable
+from collections.abc import Callable, Hashable
 from typing import TypeVar
 
 import scipp as sc
@@ -30,6 +30,7 @@ class JobService:
         self._data_service = data_service
         self._job_data: dict[JobNumber, dict[SourceName, SourceData]] = {}
         self._job_info: dict[JobNumber, WorkflowId] = {}
+        self._job_update_subscribers: list[Callable[[], None]] = []
         self._data_service.register_subscriber(self.data_updated)
 
     @property
@@ -39,6 +40,10 @@ class JobService:
     @property
     def job_info(self) -> dict[JobNumber, WorkflowId]:
         return self._job_info
+
+    def register_job_update_subscriber(self, callback: Callable[[], None]) -> None:
+        """Register a callback to be called when job data is updated."""
+        self._job_update_subscribers.append(callback)
 
     def data_updated(self, updated_keys: set[ResultKey]) -> None:
         notify_job_update = False
@@ -71,6 +76,13 @@ class JobService:
         # sophisticated notification mechanism.
         self._logger.info("Job data updated for jobs: %s", list(self._job_info.keys()))
 
+        # Notify all subscribers
+        for callback in self._job_update_subscribers:
+            try:
+                callback()
+            except Exception as e:
+                self._logger.error("Error in job update callback: %s", e)
+
     def get_jobs_for_workflow(
         self, workflow_id: WorkflowId
     ) -> dict[JobNumber, dict[SourceName, SourceData]]:
@@ -88,4 +100,5 @@ class JobService:
 
     # To move from WorkflowController
     def stop_job(self, job: JobId) -> None: ...
+
     def remove_job(self, job: JobId) -> None: ...

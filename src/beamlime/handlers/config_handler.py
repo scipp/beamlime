@@ -116,7 +116,7 @@ class ConfigProcessor:
                         continue
                     results = action(source_name, update.value)
                     # Convert results to messages
-                    updates = [ConfigUpdate(*result) for result in results]
+                    updates = [ConfigUpdate(*result) for result in results or []]
                     response_messages.extend(
                         Message(stream=CONFIG_STREAM_ID, value=up) for up in updates
                     )
