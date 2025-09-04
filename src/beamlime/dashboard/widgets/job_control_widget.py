@@ -12,35 +12,41 @@ class JobControlWidget:
     def __init__(self, job_controller: JobController) -> None:
         self._job_controller = job_controller
 
+        total_width = 330
+
         # Create UI components
         self._workflow_select = pn.widgets.Select(
             name="Workflow Filter",
             value=None,
             options={"All Workflows": None},
-            width=350,
+            width=total_width,
         )
 
         self._job_select = pn.widgets.MultiSelect(
-            name="Jobs", value=[], options={}, height=150, width=350
+            name="Jobs", value=[], options={}, height=150, width=total_width
         )
 
         btn_opts = {'margin': (0, 5)}
 
         # Action buttons with icons
-        self._pause_btn = pn.widgets.Button(name="⏸️", **btn_opts)
-        self._resume_btn = pn.widgets.Button(name="▶️", **btn_opts)
+        self._pause_btn = pn.widgets.Button(name="⏸️", **btn_opts, disabled=True)
+        self._resume_btn = pn.widgets.Button(name="▶️", **btn_opts, disabled=True)
         self._stop_btn = pn.widgets.Button(name="⏹️", **btn_opts)
         self._reset_btn = pn.widgets.Button(name="️🔁", **btn_opts)
 
         # Global action buttons
-        self._global_pause_btn = pn.widgets.Button(name="⏸️", **btn_opts)
-        self._global_resume_btn = pn.widgets.Button(name="▶️", **btn_opts)
+        self._global_pause_btn = pn.widgets.Button(name="⏸️", **btn_opts, disabled=True)
+        self._global_resume_btn = pn.widgets.Button(name="▶️", **btn_opts, disabled=True)
         self._global_stop_btn = pn.widgets.Button(name="⏹️", **btn_opts)
         self._global_reset_btn = pn.widgets.Button(name="️🔁", **btn_opts)
 
         # Workflow action buttons
-        self._workflow_pause_btn = pn.widgets.Button(name="⏸️", **btn_opts)
-        self._workflow_resume_btn = pn.widgets.Button(name="▶️", **btn_opts)
+        self._workflow_pause_btn = pn.widgets.Button(
+            name="⏸️", **btn_opts, disabled=True
+        )
+        self._workflow_resume_btn = pn.widgets.Button(
+            name="▶️", **btn_opts, disabled=True
+        )
         self._workflow_stop_btn = pn.widgets.Button(name="⏹️", **btn_opts)
         self._workflow_reset_btn = pn.widgets.Button(name="️🔁", **btn_opts)
 

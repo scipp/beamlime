@@ -44,6 +44,11 @@ class JobService:
     def register_job_update_subscriber(self, callback: Callable[[], None]) -> None:
         """Register a callback to be called when job data is updated."""
         self._job_update_subscribers.append(callback)
+        # Immediately notify the new subscriber of current state
+        try:
+            callback()
+        except Exception as e:
+            self._logger.error("Error in job update callback: %s", e)
 
     def data_updated(self, updated_keys: set[ResultKey]) -> None:
         notify_job_update = False
