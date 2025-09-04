@@ -12,15 +12,14 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 T = TypeVar('T')
 
 JobNumber = uuid.UUID
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class WorkflowId:
+class WorkflowId(BaseModel, frozen=True):
     instrument: str
     namespace: str
     name: str
@@ -28,6 +27,19 @@ class WorkflowId:
 
     def __str__(self) -> str:
         return f"{self.instrument}/{self.namespace}/{self.name}/{self.version}"
+
+    @staticmethod
+    def from_string(workflow_id_str: str) -> WorkflowId:
+        """Parse WorkflowId from string representation."""
+        parts = workflow_id_str.split('/')
+        if len(parts) != 4:
+            raise ValueError(f"Invalid WorkflowId string format: {workflow_id_str}")
+        return WorkflowId(
+            instrument=parts[0],
+            namespace=parts[1],
+            name=parts[2],
+            version=int(parts[3]),
+        )
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -178,6 +190,33 @@ class PersistentWorkflowConfigs(BaseModel):
         default_factory=dict,
         description="Persistent configurations indexed by workflow ID",
     )
+
+    @field_serializer('configs')
+    def serialize_configs(
+        self, configs: dict[WorkflowId, PersistentWorkflowConfig]
+    ) -> dict[str, Any]:
+        """Serialize configs by converting WorkflowId keys to strings."""
+        return {str(k): v.model_dump() for k, v in configs.items()}
+
+    @field_validator('configs', mode='before')
+    @classmethod
+    def validate_configs(cls, v: Any) -> dict[WorkflowId, PersistentWorkflowConfig]:
+        """Validate configs by converting string keys back to WorkflowId objects."""
+        if isinstance(v, dict) and v:
+            # Check if keys are strings (during deserialization)
+            first_key = next(iter(v.keys()))
+            if isinstance(first_key, str):
+                result = {}
+                for k, config_data in v.items():
+                    workflow_id = WorkflowId.from_string(k)
+                    # Reconstruct PersistentWorkflowConfig
+                    if isinstance(config_data, dict):
+                        config_data = PersistentWorkflowConfig.model_validate(
+                            config_data
+                        )
+                    result[workflow_id] = config_data
+                return result
+        return v
 
     def cleanup_missing_workflows(self, current_workflow_ids: set[WorkflowId]) -> None:
         """Remove configurations for workflows that no longer exist."""
