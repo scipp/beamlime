@@ -32,7 +32,6 @@ from beamlime.dashboard.workflow_controller import (
 )
 
 from .workflow_config_modal import WorkflowConfigModal
-from .workflow_status_list_widget import WorkflowStatusListWidget
 from .workflow_ui_helper import WorkflowUIHelper
 
 
@@ -125,7 +124,6 @@ class ReductionWidget:
         """
         self._controller = controller
         self._workflow_selector = WorkflowSelectorWidget(controller)
-        self._running_workflows_widget = WorkflowStatusListWidget(controller)
         self._configure_button = pn.widgets.Button(
             name="Configure & Start", button_type="primary", disabled=True
         )
@@ -140,7 +138,6 @@ class ReductionWidget:
             pn.Column(
                 self._workflow_selector.widget, self._configure_button, width=500
             ),
-            pn.Column(self._running_workflows_widget.widget, width=400),
             self._modal_container,  # Add modal container to main structure
         )
 
