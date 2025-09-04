@@ -60,6 +60,9 @@ class PlottingController:
             for source_name in source_names
         }
         pipe = self._stream_manager.make_merging_stream(keys)
-        plot = plotter_registry.create_plotter(plot_name, params=params)
-        dmap = hv.DynamicMap(plot, streams=[pipe], cache_size=1).opts(shared_axes=False)
+        plotter = plotter_registry.create_plotter(plot_name, params=params)
+        plotter.nplot = len(source_names)
+        dmap = hv.DynamicMap(plotter, streams=[pipe], cache_size=1).opts(
+            shared_axes=False
+        )
         return dmap

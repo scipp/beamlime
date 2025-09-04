@@ -14,6 +14,7 @@ from holoviews import opts
 
 from beamlime.config.workflow_spec import ResultKey
 
+from .plot_params import PlotParams1d, PlotParams2d
 from .scipp_to_holoviews import to_holoviews
 
 
@@ -109,7 +110,14 @@ class Plotter(ABC):
     Base class for plots that support autoscaling.
     """
 
-    def __init__(self, autoscaler: Autoscaler | None = None, **kwargs):
+    def __init__(
+        self,
+        autoscaler: Autoscaler | None = None,
+        combine_mode: str = 'layout',  # 'overlay' or 'layout'
+        height: int = 400,
+        responsive: bool = True,
+        **kwargs,
+    ):
         """
         Initialize the plotter.
 
@@ -117,50 +125,94 @@ class Plotter(ABC):
         ----------
         autoscaler:
             Autoscaler instance to use for bound tracking. If None, creates a new one.
+        combine_mode:
+            How to combine multiple datasets: 'overlay' or 'layout'.
+        height:
+            Height of the plot in pixels.
+        responsive:
+            Whether the plot should be responsive.
         **kwargs:
             Additional keyword arguments passed to the autoscaler if created.
         """
         self.autoscaler = autoscaler if autoscaler is not None else Autoscaler(**kwargs)
+        self.combine_mode = combine_mode
+        self.height = height
+        self.responsive = responsive
+        # TODO Hack since DynamicMap Layout needs fixed number of items
+        self.nplot: int = 1
 
-    def __call__(self, data):
-        """Make plotter instances callable, delegating to the plot method."""
-        return self.plot(data)
+    def __call__(self, data: dict[ResultKey, sc.DataArray]) -> Any:
+        """Make plotter instances callable, handling data preprocessing and applying generic options."""
+        if data is None:
+            plots = [self.plot(None)] * self.nplot
+        else:
+            plots = []
+            try:
+                for data_key, da in data.items():
+                    plot_element = self.plot(da)
+                    # Add label from data_key if the plot supports it
+                    if hasattr(plot_element, 'relabel'):
+                        plot_element = plot_element.relabel(data_key.job_id.source_name)
+                    plots.append(plot_element)
+            except Exception as e:
+                print(f"Error while plotting data: {e}")
+                plots = [
+                    hv.Text(0.5, 0.5, f"Error: {e}").opts(
+                        text_align='center', text_baseline='middle'
+                    )
+                ]
+
+        plots = [self._apply_generic_options(p) for p in plots]
+
+        if self.combine_mode == 'overlay':
+            combined = hv.Overlay(plots)
+        else:  # layout
+            combined = hv.Layout(plots)
+        return combined
+
+    def _apply_generic_options(self, plot_element):
+        """Apply generic options like height, responsive, hooks to a plot element."""
+        base_opts = {
+            'responsive': self.responsive,
+            'height': self.height,
+            'hooks': [remove_bokeh_logo],
+        }
+        return plot_element.opts(**base_opts)
+
+    def _update_autoscaler_and_get_framewise(self, data: sc.DataArray | None) -> bool:
+        """Update autoscaler with data and return whether bounds changed."""
+        if data is None:
+            return False
+        return self.autoscaler.update_bounds(data)
 
     @abstractmethod
-    def plot(self, data) -> Any:
+    def plot(self, data: sc.DataArray | None) -> Any:
         """Create a plot from the given data. Must be implemented by subclasses."""
 
 
 class LinePlotter(Plotter):
-    """Plotter for line plots from dictionary of scipp DataArrays."""
+    """Plotter for line plots from scipp DataArrays."""
 
     @classmethod
-    def from_params(cls, params):
+    def from_params(cls, params: PlotParams1d):
         """Create LinePlotter from PlotParams1d."""
         # TODO: Use params to configure the plotter
-        return cls(value_margin_factor=0.1)
+        return cls(value_margin_factor=0.1, combine_mode='overlay')
 
-    def plot(self, data: dict[ResultKey, sc.DataArray]) -> hv.Overlay:
-        """Create a line plot from a dictionary of scipp DataArrays."""
-        options = opts.Curve(
-            responsive=True,
-            height=400,
-            framewise=False,
-            ylim=(0, None),
-            hooks=[remove_bokeh_logo],
-        )
+    def plot(self, data: sc.DataArray | None) -> hv.Curve:
+        """Create a line plot from a scipp DataArray."""
         if data is None:
-            return hv.Overlay([hv.Curve([])]).opts(options)
-        curves = []
-        bounds_changed = False
-        for data_key, da in data.items():
-            name = data_key.job_id.source_name
-            da = da.assign_coords(dspacing=sc.midpoints(da.coords['dspacing']))
-            bounds_changed |= self.autoscaler.update_bounds(da)
-            curves.append(to_holoviews(da).relabel(name))
-        return (
-            hv.Overlay(curves).opts(options).opts(opts.Curve(framewise=bounds_changed))
-        )
+            return hv.Curve([]).opts(framewise=False, ylim=(0, None))
+
+        # Prepare data
+        if data.coords.is_edges(data.dim):
+            da = data.assign_coords({data.dim: sc.midpoints(data.coords[data.dim])})
+        else:
+            da = data
+        framewise = self._update_autoscaler_and_get_framewise(da)
+
+        curve = to_holoviews(da)
+        return curve.opts(framewise=framewise, ylim=(0, None))
 
 
 class ImagePlotter(Plotter):
@@ -182,28 +234,27 @@ class ImagePlotter(Plotter):
         image_opts:
             Additional options for the image plot.
         **kwargs:
-            Additional keyword arguments passed to the autoscaler if created.
+            Additional keyword arguments passed to the base class.
         """
         super().__init__(autoscaler, **kwargs)
         self._image_opts = image_opts or {}
 
+    @classmethod
+    def from_params(cls, params: PlotParams2d):
+        """Create SumImagePlotter from PlotParams2d."""
+        # TODO: Use params to configure the plotter
+        return cls(value_margin_factor=0.1)
+
     def plot(self, data: sc.DataArray | None) -> hv.Image:
         """Create a 2D plot from a scipp DataArray."""
-        base_opts = {
-            'responsive': True,
-            'height': 400,
-            'framewise': False,
-            'logz': True,
-            'colorbar': True,
-            'cmap': 'viridis',
-            'hooks': [remove_bokeh_logo],
-        }
+        base_opts = {'logz': True, 'colorbar': True, 'cmap': 'viridis'}
         base_opts.update(self._image_opts)
-        options = opts.Image(**base_opts)
+
         if data is None:
             # Explicit clim required for initial empty plot with logz=True. Changing to
             # logz=True only when we have data is not supported by Holoviews.
-            return hv.Image([]).opts(options).opts(clim=(0.1, None))
+            return hv.Image([]).opts(framewise=False, clim=(0.1, None), **base_opts)
+
         # With logz=True we need to exclude zero values for two reasons:
         # 1. The value bounds calculation should properly adjust the color limits. Since
         #    zeros can never be included we want to adjust to the lowest positive value.
@@ -222,15 +273,17 @@ class ImagePlotter(Plotter):
                 data.data,
             )
         )
-        bounds_changed = self.autoscaler.update_bounds(masked)
+
+        framewise = self._update_autoscaler_and_get_framewise(masked)
         # We are using the masked data here since Holoviews (at least with the Bokeh
         # backend) show values below the color limits with the same color as the lowest
         # value in the colormap, which is not what we want for, e.g., zeros on a log
         # scale plot. The nan values will be shown as transparent.
         histogram = to_holoviews(masked)
-        return histogram.opts(options).opts(
-            framewise=bounds_changed,
+        return histogram.opts(
+            framewise=framewise,
             clim=(self.autoscaler.value_bounds[0], self.autoscaler.value_bounds[1]),
+            **base_opts,
         )
 
 

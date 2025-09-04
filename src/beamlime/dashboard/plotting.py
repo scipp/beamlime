@@ -2,7 +2,6 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 """Plotter definition and registration."""
 
-import enum
 import typing
 from collections import UserDict
 from dataclasses import dataclass, field
@@ -11,51 +10,7 @@ from typing import Any, Generic, Protocol, TypeVar
 import pydantic
 import scipp as sc
 
-from beamlime.config.workflow_spec import ResultKey
-
-from .plots import LinePlotter, SumImagePlotter
-
-
-class PlotScale(enum.Enum):
-    """Enumeration of plot scales."""
-
-    linear = 'linear'
-    log = 'log'
-
-
-class PlotScaleParams(pydantic.BaseModel):
-    x_scale: PlotScale = pydantic.Field(
-        default=PlotScale.linear, description="Scale for x-axis", title="X Axis Scale"
-    )
-    y_scale: PlotScale = pydantic.Field(
-        default=PlotScale.linear, description="Scale for y-axis", title="Y Axis Scale"
-    )
-
-
-class PlotScaleParams2d(PlotScaleParams):
-    color_scale: PlotScale = pydantic.Field(
-        default=PlotScale.log,
-        description="Scale for color axis",
-        title="Color Axis Scale",
-    )
-
-
-class PlotParams1d(pydantic.BaseModel):
-    """Common parameters for 1d plots."""
-
-    plot_scale: PlotScaleParams = pydantic.Field(
-        default_factory=PlotScaleParams,
-        description="Scaling options for the plot axes.",
-    )
-
-
-class PlotParams2d(pydantic.BaseModel):
-    """Common parameters for 2d plots."""
-
-    plot_scale: PlotScaleParams2d = pydantic.Field(
-        default_factory=PlotScaleParams2d,
-        description="Scaling options for the plot and color axes.",
-    )
+from .plots import ImagePlotter, LinePlotter, Plotter
 
 
 @dataclass
@@ -114,12 +69,6 @@ class PlotterSpec(pydantic.BaseModel):
     data_requirements: DataRequirements = pydantic.Field(
         description="Requirements the data to be plotted must fulfill."
     )
-
-
-class Plotter(Protocol):
-    """Protocol for a plotter function."""
-
-    def __call__(self, data: dict[ResultKey, sc.DataArray]) -> Any: ...
 
 
 # Type variable for parameter types
@@ -191,7 +140,7 @@ plotter_registry.register_plotter(
     title='Sum of 2D',
     description='Plot the sum over all frames as a 2D image.',
     data_requirements=DataRequirements(min_dims=2, max_dims=2),
-    factory=SumImagePlotter.from_params,
+    factory=ImagePlotter.from_params,
 )
 
 
