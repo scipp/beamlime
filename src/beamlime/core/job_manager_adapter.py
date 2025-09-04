@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from ..config.models import ConfigKey, StartTime
+from ..config.models import ConfigKey
 from ..config.workflow_spec import WorkflowConfig, WorkflowStatus, WorkflowStatusType
 from .job import DifferentInstrument, JobCommand, JobId, JobManager
 
@@ -30,18 +30,6 @@ class JobManagerAdapter:
         _ = source_name  # Legacy, not used.
         command = JobCommand.model_validate(value)
         self._job_manager.job_command(command)
-
-    def reset_job(
-        self, source_name: str | None, value: dict
-    ) -> list[tuple[ConfigKey, WorkflowStatus]]:
-        if source_name is None:
-            for source in self._jobs:
-                self.reset_job(source_name=source, value=value)
-            return []
-        # TODO Can we use the start_time or should we change the schema?
-        _ = StartTime.model_validate(value)
-        self._job_manager.reset_job(job_id=self._jobs[source_name])
-        return []
 
     def set_workflow_with_config(
         self, source_name: str | None, value: dict | None

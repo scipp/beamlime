@@ -26,12 +26,6 @@ def test_pixel_weighting_invalid_method():
         models.PixelWeighting(method="invalid")
 
 
-def test_start_time_defaults():
-    model = models.StartTime()
-    assert model.value == 0.0
-    assert model.unit == "ns"
-
-
 def test_update_every_defaults():
     model = models.UpdateEvery()
     assert model.value == 1.0

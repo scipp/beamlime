@@ -57,10 +57,6 @@ class TimeModel(BaseModel):
         return self._value_ns
 
 
-class StartTime(TimeModel):
-    """Setting for the start time of the accumulation period."""
-
-
 class UpdateEvery(TimeModel):
     """Setting for the update frequency of the accumulation period."""
 

@@ -8,7 +8,8 @@ import pytest
 from streaming_data_types import eventdata_ev44
 
 from beamlime.config import instrument_registry, workflow_spec
-from beamlime.config.models import ConfigKey, StartTime
+from beamlime.config.models import ConfigKey
+from beamlime.core.job import JobAction, JobCommand
 from beamlime.services.data_reduction import make_reduction_service_builder
 from tests.helpers.beamlime_app import BeamlimeApp
 
@@ -186,8 +187,8 @@ def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None
     assert len(sink.messages) == 2
     assert sink.messages[-1].value.values.sum() == 5000
 
-    config_key = ConfigKey(key="start_time")
-    model = StartTime(value=5, unit='s')
+    model = JobCommand(action=JobAction.reset)
+    config_key = ConfigKey(key=model.key)
     app.publish_config_message(key=config_key, value=model.model_dump())
 
     app.publish_events(size=1000, time=4)
@@ -197,8 +198,6 @@ def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None
     service.step()
     assert sink.messages[-1].value.values.sum() == 2000
 
-    config_key = ConfigKey(key="start_time")
-    model = StartTime(value=8, unit='s')
     app.publish_config_message(key=config_key, value=model.model_dump())
 
     app.publish_events(size=100, time=9)

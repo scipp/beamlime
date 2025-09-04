@@ -9,7 +9,6 @@ Usage patterns:
 - Creating ConfigKey: WORKFLOW_CONFIG.create_key(source_name="my_source")
 """
 
-from beamlime.config.models import StartTime
 from beamlime.config.workflow_spec import (
     PersistentWorkflowConfigs,
     WorkflowConfig,
@@ -28,33 +27,6 @@ JOB_COMMAND = _registry.create(
     description="Command to control jobs (pause, resume, reset, stop)",
     produced_by={"dashboard"},
     consumed_by={"monitor_data", "detector_data", "data_reduction"},
-)
-
-MONITOR_START_TIME = _registry.create(
-    key="start_time",
-    service_name="monitor_data",
-    model=StartTime,
-    description="Start time for the monitor data",
-    produced_by={"dashboard"},
-    consumed_by={"monitor_data"},
-)
-
-DETECTOR_START_TIME = _registry.create(
-    key="start_time",
-    service_name="detector_data",
-    model=StartTime,
-    description="Start time for the detector data",
-    produced_by={"dashboard"},
-    consumed_by={"detector_data"},
-)
-
-REDUCTION_START_TIME = _registry.create(
-    key="start_time",
-    service_name="data_reduction",
-    model=StartTime,
-    description="Start time for the data reduction",
-    produced_by={"data_reduction"},
-    consumed_by={"dashboard"},
 )
 
 # Data reduction service keys

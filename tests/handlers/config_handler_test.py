@@ -5,6 +5,7 @@ import json
 import pytest
 
 from beamlime.config.models import ConfigKey
+from beamlime.core.job import JobAction, JobCommand
 from beamlime.core.message import CONFIG_STREAM_ID, Message
 from beamlime.handlers.config_handler import ConfigProcessor, ConfigUpdate
 from beamlime.kafka.message_adapter import RawConfigItem
@@ -107,15 +108,16 @@ class TestConfigProcessor:
             assert message.value.config_key == expected_key
             assert message.value.value == expected_value
 
-    def test_process_start_time_message(self):
+    def test_process_job_command_message(self):
         mock_job_manager = MockJobManagerAdapter()
         processor = ConfigProcessor(job_manager_adapter=mock_job_manager)
 
+        job_command = JobCommand(action=JobAction.reset)
         messages = [
             Message(
                 value=RawConfigItem(
-                    key=b'source1/service1/start_time',
-                    value=json.dumps("2023-01-01T00:00:00").encode('utf-8'),
+                    key=b'source1/service1/job_command',
+                    value=json.dumps(job_command.model_dump()).encode('utf-8'),
                 ),
                 timestamp=123456789,
                 stream=CONFIG_STREAM_ID,
@@ -125,11 +127,14 @@ class TestConfigProcessor:
         result_messages = processor.process_messages(messages)
 
         # Verify job manager was called
-        assert len(mock_job_manager.reset_calls) == 1
-        assert mock_job_manager.reset_calls[0] == ("source1", "2023-01-01T00:00:00")
+        assert len(mock_job_manager.job_command_calls) == 1
+        assert mock_job_manager.job_command_calls[0] == (
+            "source1",
+            job_command.model_dump(),
+        )
 
         # Verify response messages
-        assert len(result_messages) == len(mock_job_manager.reset_results)
+        assert len(result_messages) == len(mock_job_manager.job_command_results)
 
     def test_process_unknown_config_key(self):
         mock_job_manager = MockJobManagerAdapter()
@@ -150,13 +155,14 @@ class TestConfigProcessor:
 
         # Should not call job manager for unknown keys
         assert len(mock_job_manager.workflow_calls) == 0
-        assert len(mock_job_manager.reset_calls) == 0
+        assert len(mock_job_manager.job_command_calls) == 0
         assert len(result_messages) == 0
 
     def test_process_multiple_messages_same_batch(self):
         mock_job_manager = MockJobManagerAdapter()
         processor = ConfigProcessor(job_manager_adapter=mock_job_manager)
 
+        job_command = JobCommand(action=JobAction.stop)
         messages = [
             Message(
                 value=RawConfigItem(
@@ -168,8 +174,8 @@ class TestConfigProcessor:
             ),
             Message(
                 value=RawConfigItem(
-                    key=b'source2/service1/start_time',
-                    value=json.dumps("2023-01-01T00:00:00").encode('utf-8'),
+                    key=b'source2/service1/job_command',
+                    value=json.dumps(job_command.model_dump()).encode('utf-8'),
                 ),
                 timestamp=123456790,
                 stream=CONFIG_STREAM_ID,
@@ -180,9 +186,12 @@ class TestConfigProcessor:
 
         # Verify both calls were made
         assert len(mock_job_manager.workflow_calls) == 1
-        assert len(mock_job_manager.reset_calls) == 1
+        assert len(mock_job_manager.job_command_calls) == 1
         assert mock_job_manager.workflow_calls[0] == ("source1", {"workflow": "test1"})
-        assert mock_job_manager.reset_calls[0] == ("source2", "2023-01-01T00:00:00")
+        assert mock_job_manager.job_command_calls[0] == (
+            "source2",
+            job_command.model_dump(),
+        )
 
     def test_process_duplicate_sources_latest_value_wins(self):
         mock_job_manager = MockJobManagerAdapter()
@@ -314,32 +323,29 @@ class TestConfigProcessor:
 class MockJobManagerAdapter:
     def __init__(self):
         self.workflow_calls = []
-        self.reset_calls = []
+        self.job_command_calls = []
         self.workflow_results = [
             (
                 ConfigKey(source_name="test", service_name="test", key="result"),
                 "workflow_result",
             )
         ]
-        self.reset_results = [
+        self.job_command_results = [
             (
                 ConfigKey(source_name="test", service_name="test", key="result"),
-                "reset_result",
+                "job_command_result",
             )
         ]
         self.should_raise_exception = False
 
     def job_command(self, source_name, command):
-        raise NotImplementedError("Not used by test")
+        self.job_command_calls.append((source_name, command))
+        if self.should_raise_exception:
+            raise ValueError("Test exception")
+        return self.job_command_results
 
     def set_workflow_with_config(self, source_name, config):
         self.workflow_calls.append((source_name, config))
         if self.should_raise_exception:
             raise ValueError("Test exception")
         return self.workflow_results
-
-    def reset_job(self, source_name, start_time):
-        self.reset_calls.append((source_name, start_time))
-        if self.should_raise_exception:
-            raise ValueError("Test exception")
-        return self.reset_results

@@ -10,6 +10,7 @@ from typing import Any
 
 from ..config.models import ConfigKey
 from ..core.job import JobCommand
+from ..core.job_manager_adapter import JobManagerAdapter
 from ..core.message import CONFIG_STREAM_ID, Message
 from ..kafka.message_adapter import RawConfigItem
 
@@ -47,14 +48,13 @@ class ConfigProcessor:
     def __init__(
         self,
         *,
-        job_manager_adapter: Any,  # JobManagerAdapter
+        job_manager_adapter: JobManagerAdapter,
         logger: logging.Logger | None = None,
     ) -> None:
         self._job_manager_adapter = job_manager_adapter
         self._actions = {
             'workflow_config': self._job_manager_adapter.set_workflow_with_config,
             JobCommand.key: self._job_manager_adapter.job_command,
-            'start_time': self._job_manager_adapter.reset_job,
         }
         self._logger = logger or logging.getLogger(__name__)
 
