@@ -42,16 +42,6 @@ class JobManagerAdapter:
         )
 
         config = WorkflowConfig.model_validate(value)
-        if config.identifier is None:  # New way to stop/remove a workflow.
-            if (job_id := self._jobs.pop(source_name, None)) is not None:
-                self._job_manager.stop_job(job_id)
-                # TODO Not stopped yet, is returning status here the wrong approach?
-                status = WorkflowStatus(
-                    source_name=source_name, status=WorkflowStatusType.STOPPED
-                )
-                return [(config_key, status)]
-            return []
-
         try:
             job_id = self._job_manager.schedule_job(
                 source_name=source_name, config=config

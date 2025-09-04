@@ -146,7 +146,7 @@ class WorkflowConfig(BaseModel):
     :py:class:`WorkflowSpec`.
     """
 
-    identifier: WorkflowId | None = Field(
+    identifier: WorkflowId = Field(
         description="Hash of the workflow, used to identify the workflow."
     )
     job_number: JobNumber | None = Field(
