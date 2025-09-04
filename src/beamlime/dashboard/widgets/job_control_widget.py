@@ -24,23 +24,25 @@ class JobControlWidget:
             name="Jobs", value=[], options={}, height=150, width=350
         )
 
+        btn_opts = {'margin': (0, 5)}
+
         # Action buttons with icons
-        self._pause_btn = pn.widgets.Button(name="⏸️")
-        self._resume_btn = pn.widgets.Button(name="▶️")
-        self._reset_btn = pn.widgets.Button(name="️🔁")
-        self._stop_btn = pn.widgets.Button(name="⏹️")
+        self._pause_btn = pn.widgets.Button(name="⏸️", **btn_opts)
+        self._resume_btn = pn.widgets.Button(name="▶️", **btn_opts)
+        self._stop_btn = pn.widgets.Button(name="⏹️", **btn_opts)
+        self._reset_btn = pn.widgets.Button(name="️🔁", **btn_opts)
 
         # Global action buttons
-        self._global_pause_btn = pn.widgets.Button(name="⏸️")
-        self._global_resume_btn = pn.widgets.Button(name="▶️")
-        self._global_reset_btn = pn.widgets.Button(name="️🔁")
-        self._global_stop_btn = pn.widgets.Button(name="⏹️")
+        self._global_pause_btn = pn.widgets.Button(name="⏸️", **btn_opts)
+        self._global_resume_btn = pn.widgets.Button(name="▶️", **btn_opts)
+        self._global_stop_btn = pn.widgets.Button(name="⏹️", **btn_opts)
+        self._global_reset_btn = pn.widgets.Button(name="️🔁", **btn_opts)
 
         # Workflow action buttons
-        self._workflow_pause_btn = pn.widgets.Button(name="⏸️")
-        self._workflow_resume_btn = pn.widgets.Button(name="▶️")
-        self._workflow_reset_btn = pn.widgets.Button(name="️🔁")
-        self._workflow_stop_btn = pn.widgets.Button(name="⏹️")
+        self._workflow_pause_btn = pn.widgets.Button(name="⏸️", **btn_opts)
+        self._workflow_resume_btn = pn.widgets.Button(name="▶️", **btn_opts)
+        self._workflow_stop_btn = pn.widgets.Button(name="⏹️", **btn_opts)
+        self._workflow_reset_btn = pn.widgets.Button(name="️🔁", **btn_opts)
 
         # Status display
         self._status_text = pn.pane.HTML("<div>Ready</div>", width=250, height=40)
@@ -102,8 +104,8 @@ class JobControlWidget:
                 pn.Row(
                     self._global_pause_btn,
                     self._global_resume_btn,
-                    self._global_reset_btn,
                     self._global_stop_btn,
+                    self._global_reset_btn,
                     margin=(0, 0, 10, 0),
                 ),
                 margin=(5, 0),
@@ -115,8 +117,8 @@ class JobControlWidget:
                 pn.Row(
                     self._workflow_pause_btn,
                     self._workflow_resume_btn,
-                    self._workflow_reset_btn,
                     self._workflow_stop_btn,
+                    self._workflow_reset_btn,
                     margin=(0, 0, 10, 0),
                 ),
                 margin=(5, 0),
@@ -128,8 +130,8 @@ class JobControlWidget:
                 pn.Row(
                     self._pause_btn,
                     self._resume_btn,
-                    self._reset_btn,
                     self._stop_btn,
+                    self._reset_btn,
                     margin=(0, 0, 10, 0),
                 ),
                 margin=(5, 0),
