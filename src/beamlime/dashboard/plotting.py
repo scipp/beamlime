@@ -13,6 +13,8 @@ import scipp as sc
 
 from beamlime.config.workflow_spec import ResultKey
 
+from .plots import LinePlotter, SumImagePlotter
+
 
 class PlotScale(enum.Enum):
     """Enumeration of plot scales."""
@@ -184,27 +186,13 @@ class PlotterRegistry(UserDict[str, PlotterEntry]):
 plotter_registry = PlotterRegistry()
 
 
-def _plot_sum_of_2d(params: PlotParams2d) -> Plotter:
-    from . import plots
-
-    # TODO Use params
-    return plots.AutoscalingPlot(value_margin_factor=0.1).plot_sum_of_2d
-
-
 plotter_registry.register_plotter(
     name='sum_of_2d',
     title='Sum of 2D',
     description='Plot the sum over all frames as a 2D image.',
     data_requirements=DataRequirements(min_dims=2, max_dims=2),
-    factory=_plot_sum_of_2d,
+    factory=SumImagePlotter.from_params,
 )
-
-
-def _plot_lines(params: PlotParams1d) -> Plotter:
-    from . import plots
-
-    # TODO Use params
-    return plots.AutoscalingPlot(value_margin_factor=0.1).plot_lines
 
 
 plotter_registry.register_plotter(
@@ -212,5 +200,5 @@ plotter_registry.register_plotter(
     title='Lines',
     description='Plot the data as line plots.',
     data_requirements=DataRequirements(min_dims=1, max_dims=1, multiple_datasets=True),
-    factory=_plot_lines,
+    factory=LinePlotter.from_params,
 )

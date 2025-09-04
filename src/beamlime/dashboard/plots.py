@@ -2,6 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 """This file contains utilities for creating plots in the dashboard."""
 
+from abc import ABC, abstractmethod
 from collections import defaultdict
 from math import prod
 from typing import Any
@@ -103,7 +104,7 @@ class Autoscaler:
         return changed
 
 
-class Plotter:
+class Plotter(ABC):
     """
     Base class for plots that support autoscaling.
     """
@@ -121,9 +122,23 @@ class Plotter:
         """
         self.autoscaler = autoscaler if autoscaler is not None else Autoscaler(**kwargs)
 
+    def __call__(self, data):
+        """Make plotter instances callable, delegating to the plot method."""
+        return self.plot(data)
+
+    @abstractmethod
+    def plot(self, data):
+        """Create a plot from the given data. Must be implemented by subclasses."""
+
 
 class LinePlotter(Plotter):
     """Plotter for line plots from dictionary of scipp DataArrays."""
+
+    @classmethod
+    def from_params(cls, params):
+        """Create LinePlotter from PlotParams1d."""
+        # TODO: Use params to configure the plotter
+        return cls(value_margin_factor=0.1)
 
     def plot(self, data: dict[ResultKey, sc.DataArray]) -> hv.Overlay:
         """Create a line plot from a dictionary of scipp DataArrays."""
@@ -221,6 +236,12 @@ class ImagePlotter(Plotter):
 
 class SumImagePlotter(ImagePlotter):
     """Plotter for 2D images created by summing multiple scipp DataArrays."""
+
+    @classmethod
+    def from_params(cls, params):
+        """Create SumImagePlotter from PlotParams2d."""
+        # TODO: Use params to configure the plotter
+        return cls(value_margin_factor=0.1)
 
     def plot(self, data: dict[ResultKey, sc.DataArray]) -> hv.Image:
         """Create a 2D plot from a dictionary of scipp DataArrays."""
