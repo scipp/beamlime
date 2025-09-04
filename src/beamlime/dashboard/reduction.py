@@ -6,7 +6,6 @@ import holoviews as hv
 import panel as pn
 
 from beamlime import Service
-from beamlime.config import keys
 
 from .dashboard import DashboardBase
 
@@ -24,9 +23,6 @@ class ReductionApp(DashboardBase):
             log_level=log_level,
             dashboard_name='reduction_dashboard',
             port=5009,  # Default port for reduction dashboard
-        )
-        self._reset_controller = self._controller_factory.create(
-            config_key=keys.REDUCTION_START_TIME.create_key()
         )
         self._logger.info("Reduction dashboard initialized")
 
