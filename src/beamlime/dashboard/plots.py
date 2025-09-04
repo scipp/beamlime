@@ -127,7 +127,7 @@ class Plotter(ABC):
         return self.plot(data)
 
     @abstractmethod
-    def plot(self, data):
+    def plot(self, data) -> Any:
         """Create a plot from the given data. Must be implemented by subclasses."""
 
 
@@ -255,36 +255,6 @@ class SumImagePlotter(ImagePlotter):
         else:
             combined = reducer.nansum()
         return super().plot(combined)
-
-
-# Legacy class for backward compatibility
-class AutoscalingPlot:
-    """
-    Legacy compatibility class. Use specific plotter classes instead.
-    """
-
-    def __init__(
-        self,
-        value_margin_factor: float = 0.01,
-        image_opts: dict[str, Any] | None = None,
-    ):
-        """Initialize with legacy interface."""
-        autoscaler = Autoscaler(value_margin_factor)
-        self._line_plotter = LinePlotter(autoscaler)
-        self._image_plotter = ImagePlotter(autoscaler, image_opts)
-        self._sum_image_plotter = SumImagePlotter(autoscaler, image_opts)
-
-    def plot_lines(self, data: dict[ResultKey, sc.DataArray]) -> hv.Overlay:
-        """Create a line plot from a dictionary of scipp DataArrays."""
-        return self._line_plotter.plot(data)
-
-    def plot_2d(self, data: sc.DataArray | None) -> hv.Image:
-        """Create a 2D plot from a scipp DataArray."""
-        return self._image_plotter.plot(data)
-
-    def plot_sum_of_2d(self, data: dict[ResultKey, sc.DataArray]) -> hv.Image:
-        """Create a 2D plot from a dictionary of scipp DataArrays."""
-        return self._sum_image_plotter.plot(data)
 
 
 # TODO Monitor plots below are currently unused and will be replaced
