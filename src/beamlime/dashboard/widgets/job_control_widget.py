@@ -17,53 +17,33 @@ class JobControlWidget:
             name="Workflow Filter",
             value=None,
             options={"All Workflows": None},
-            width=300,
+            width=250,
         )
 
         self._job_select = pn.widgets.MultiSelect(
-            name="Jobs", value=[], options={}, height=200, width=400
+            name="Jobs", value=[], options={}, height=150, width=250
         )
 
-        # Action buttons
-        self._pause_btn = pn.widgets.Button(
-            name="Pause", button_type="primary", width=80
-        )
-        self._resume_btn = pn.widgets.Button(
-            name="Resume", button_type="primary", width=80
-        )
-        self._reset_btn = pn.widgets.Button(name="Reset", button_type="light", width=80)
-        self._stop_btn = pn.widgets.Button(name="Stop", button_type="primary", width=80)
+        # Action buttons with icons
+        self._pause_btn = pn.widgets.Button(name="⏸️")
+        self._resume_btn = pn.widgets.Button(name="▶️")
+        self._reset_btn = pn.widgets.Button(name="️🔁")
+        self._stop_btn = pn.widgets.Button(name="⏹️")
 
         # Global action buttons
-        self._global_pause_btn = pn.widgets.Button(
-            name="Pause All", button_type="primary", width=100
-        )
-        self._global_resume_btn = pn.widgets.Button(
-            name="Resume All", button_type="primary", width=100
-        )
-        self._global_reset_btn = pn.widgets.Button(
-            name="Reset All", button_type="light", width=100
-        )
-        self._global_stop_btn = pn.widgets.Button(
-            name="Stop All", button_type="primary", width=100
-        )
+        self._global_pause_btn = pn.widgets.Button(name="⏸️")
+        self._global_resume_btn = pn.widgets.Button(name="▶️")
+        self._global_reset_btn = pn.widgets.Button(name="️🔁")
+        self._global_stop_btn = pn.widgets.Button(name="⏹️")
 
         # Workflow action buttons
-        self._workflow_pause_btn = pn.widgets.Button(
-            name="Pause Workflow", button_type="primary", width=120
-        )
-        self._workflow_resume_btn = pn.widgets.Button(
-            name="Resume Workflow", button_type="primary", width=120
-        )
-        self._workflow_reset_btn = pn.widgets.Button(
-            name="Reset Workflow", button_type="light", width=120
-        )
-        self._workflow_stop_btn = pn.widgets.Button(
-            name="Stop Workflow", button_type="primary", width=120
-        )
+        self._workflow_pause_btn = pn.widgets.Button(name="⏸️")
+        self._workflow_resume_btn = pn.widgets.Button(name="▶️")
+        self._workflow_reset_btn = pn.widgets.Button(name="️🔁")
+        self._workflow_stop_btn = pn.widgets.Button(name="⏹️")
 
         # Status display
-        self._status_text = pn.pane.HTML("<div>Ready</div>", width=400, height=50)
+        self._status_text = pn.pane.HTML("<div>Ready</div>", width=250, height=40)
 
         # Set up event handlers
         self._setup_callbacks()
@@ -115,51 +95,52 @@ class JobControlWidget:
     def _create_layout(self) -> pn.Column:
         """Create the main widget layout."""
         return pn.Column(
-            pn.pane.HTML("<h3>Job Control</h3>"),
-            # Workflow selection section
-            pn.Row(
-                pn.Column(self._workflow_select, margin=(5, 10)),
-                pn.Column(
-                    pn.pane.HTML("<b>Workflow Actions:</b>"),
-                    pn.Row(
-                        self._workflow_pause_btn,
-                        self._workflow_resume_btn,
-                        self._workflow_reset_btn,
-                        self._workflow_stop_btn,
-                    ),
-                    margin=(5, 10),
-                ),
-            ),
-            # Job selection and actions section
-            pn.Row(
-                pn.Column(self._job_select, margin=(5, 10)),
-                pn.Column(
-                    pn.pane.HTML("<b>Selected Job Actions:</b>"),
-                    pn.Row(
-                        self._pause_btn,
-                        self._resume_btn,
-                        self._reset_btn,
-                        self._stop_btn,
-                    ),
-                    margin=(5, 10, 0, 10),
-                ),
-            ),
+            pn.pane.HTML("<h2>Job Control</h2>"),
             # Global actions section
             pn.Column(
-                pn.pane.HTML("<b>Global Actions:</b>"),
+                pn.pane.HTML("Global:", margin=(10, 0, 0, 0)),
                 pn.Row(
                     self._global_pause_btn,
                     self._global_resume_btn,
                     self._global_reset_btn,
                     self._global_stop_btn,
+                    margin=(0, 0, 10, 0),
                 ),
-                margin=(20, 10, 5, 10),
+                margin=(5, 0),
+            ),
+            # Workflow selection section
+            pn.Column(
+                pn.pane.HTML("Workflows:", margin=(5, 0, 0, 0)),
+                self._workflow_select,
+                pn.Row(
+                    self._workflow_pause_btn,
+                    self._workflow_resume_btn,
+                    self._workflow_reset_btn,
+                    self._workflow_stop_btn,
+                    margin=(0, 0, 10, 0),
+                ),
+                margin=(5, 0),
+            ),
+            # Job selection and actions section
+            pn.Column(
+                pn.pane.HTML("Jobs:", margin=(5, 0, 0, 0)),
+                self._job_select,
+                pn.Row(
+                    self._pause_btn,
+                    self._resume_btn,
+                    self._reset_btn,
+                    self._stop_btn,
+                    margin=(0, 0, 10, 0),
+                ),
+                margin=(5, 0),
             ),
             # Status section
             pn.Column(
-                pn.pane.HTML("<b>Status:</b>"), self._status_text, margin=(10, 10)
+                pn.pane.HTML("Status:", margin=(10, 0, 0, 0)),
+                self._status_text,
+                margin=(5, 0),
             ),
-            width=600,
+            width=280,
         )
 
     def _refresh_data(self) -> None:
