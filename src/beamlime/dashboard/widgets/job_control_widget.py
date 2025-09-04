@@ -106,48 +106,38 @@ class JobControlWidget:
             pn.pane.HTML("<h2>Job Control</h2>"),
             # Global actions section
             pn.Column(
-                pn.pane.HTML("Global:", margin=(10, 0, 0, 0)),
+                pn.pane.HTML("Global:"),
                 pn.Row(
                     self._global_pause_btn,
                     self._global_resume_btn,
                     self._global_stop_btn,
                     self._global_reset_btn,
-                    margin=(0, 0, 10, 0),
                 ),
-                margin=(5, 0),
             ),
             # Workflow selection section
             pn.Column(
-                pn.pane.HTML("Workflows:", margin=(5, 0, 0, 0)),
+                pn.pane.HTML("Workflows:"),
                 self._workflow_select,
                 pn.Row(
                     self._workflow_pause_btn,
                     self._workflow_resume_btn,
                     self._workflow_stop_btn,
                     self._workflow_reset_btn,
-                    margin=(0, 0, 10, 0),
                 ),
-                margin=(5, 0),
             ),
             # Job selection and actions section
             pn.Column(
-                pn.pane.HTML("Jobs:", margin=(5, 0, 0, 0)),
+                pn.pane.HTML("Jobs:"),
                 self._job_select,
                 pn.Row(
                     self._pause_btn,
                     self._resume_btn,
                     self._stop_btn,
                     self._reset_btn,
-                    margin=(0, 0, 10, 0),
                 ),
-                margin=(5, 0),
             ),
             # Status section
-            pn.Column(
-                pn.pane.HTML("Status:", margin=(10, 0, 0, 0)),
-                self._status_text,
-                margin=(5, 0),
-            ),
+            pn.Column(pn.pane.HTML("Status:"), self._status_text),
             width=280,
         )
 
