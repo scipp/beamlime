@@ -92,13 +92,15 @@ def test_can_configure_and_stop_workflow_with_detector(
         assert sink.messages[2].value.values.sum() == 7000
 
     # Stop workflow
-    stop = workflow_spec.WorkflowConfig(identifier=None).model_dump()
+    command = JobCommand(action=JobAction.stop)
+    config_key = ConfigKey(key=command.key)
+    stop = command.model_dump()
     app.publish_config_message(key=config_key, value=stop)
     app.publish_events(size=1000, time=10)
     service.step()
     app.publish_events(size=1000, time=20)
     service.step()
-    assert len(sink.messages) == 3 * n_target + 1  # + 1 for the stop message
+    assert len(sink.messages) == 3 * n_target
 
 
 @pytest.mark.parametrize("instrument", ['dream', 'loki'])
@@ -128,7 +130,6 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=workflow_config.model_dump())
     service.step()
-    n_source = len(sink.messages)
     sink.messages.clear()  # Clear the workflow status message(s), one per source name.
 
     app.publish_events(size=2000, time=2)
@@ -156,13 +157,15 @@ def test_can_configure_and_stop_workflow_with_detector_and_monitors(
     assert len(sink.messages) == 3 * n_target
 
     # Stop workflow
-    stop = workflow_spec.WorkflowConfig(identifier=None).model_dump()
+    command = JobCommand(action=JobAction.stop)
+    config_key = ConfigKey(key=command.key)
+    stop = command.model_dump()
     app.publish_config_message(key=config_key, value=stop)
     app.publish_events(size=1000, time=10)
     service.step()
     app.publish_events(size=1000, time=20)
     service.step()
-    assert len(sink.messages) == 3 * n_target + n_source  # + n_source for stop message
+    assert len(sink.messages) == 3 * n_target
 
 
 def test_can_clear_workflow_via_config(caplog: pytest.LogCaptureFixture) -> None:
