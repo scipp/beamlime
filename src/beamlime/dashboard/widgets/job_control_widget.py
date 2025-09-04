@@ -48,14 +48,11 @@ class JobControlWidget:
         # Set up event handlers
         self._setup_callbacks()
 
-        # Register for job updates
-        self._job_controller.register_update_subscriber(self._on_jobs_updated)
-
-        # Initialize data
-        self._refresh_data()
-
         # Create layout
         self._layout = self._create_layout()
+
+        # Register for job updates
+        self._job_controller.register_update_subscriber(self._on_jobs_updated)
 
     def _setup_callbacks(self) -> None:
         """Set up event handlers for widgets."""
@@ -233,10 +230,6 @@ class JobControlWidget:
         }
         color = color_map.get(status_type, "black")
         self._status_text.object = f'<div style="color: {color};">{message}</div>'
-
-    def refresh(self) -> None:
-        """Public method to refresh the widget data."""
-        self._refresh_data()
 
     @property
     def panel(self) -> pn.Column:
