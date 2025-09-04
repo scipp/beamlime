@@ -71,6 +71,21 @@ class JobService:
         # sophisticated notification mechanism.
         self._logger.info("Job data updated for jobs: %s", list(self._job_info.keys()))
 
+    def get_jobs_for_workflow(
+        self, workflow_id: WorkflowId
+    ) -> dict[JobNumber, dict[SourceName, SourceData]]:
+        """Get all job data for a specific workflow ID."""
+        filtered_jobs = {}
+        for job_number, job_workflow_id in self._job_info.items():
+            if job_workflow_id == workflow_id:
+                if job_number in self._job_data:
+                    filtered_jobs[job_number] = self._job_data[job_number]
+        return filtered_jobs
+
+    def get_workflow_for_job(self, job_number: JobNumber) -> WorkflowId | None:
+        """Get the workflow ID for a specific job number."""
+        return self._job_info.get(job_number)
+
     # To move from WorkflowController
     def stop_job(self, job: JobId) -> None: ...
     def remove_job(self, job: JobId) -> None: ...

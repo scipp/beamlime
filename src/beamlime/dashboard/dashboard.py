@@ -31,6 +31,7 @@ from beamlime.kafka.source import BackgroundMessageSource
 from .config_service import ConfigService
 from .controller_factory import ControllerFactory
 from .data_service import DataService
+from .job_controller import JobController
 from .job_service import JobService
 from .kafka_transport import KafkaTransport
 from .message_bridge import BackgroundMessageBridge
@@ -38,6 +39,7 @@ from .orchestrator import Orchestrator
 from .plotting_controller import PlottingController
 from .schema_validator import PydanticSchemaValidator
 from .stream_manager import StreamManager
+from .widgets.job_control_widget import JobControlWidget
 from .widgets.plot_creation_widget import PlotCreationWidget
 from .widgets.reduction_widget import ReductionWidget
 from .workflow_controller import WorkflowController
@@ -129,6 +131,9 @@ class DashboardBase(ServiceBase, ABC):
         )
         self._job_service = JobService(
             data_service=self._data_service, logger=self._logger
+        )
+        self._job_controller = JobController(
+            config_service=self._config_service, job_service=self._job_service
         )
         self._plotting_controller = PlottingController(
             job_service=self._job_service,
@@ -229,6 +234,8 @@ class DashboardBase(ServiceBase, ABC):
         main_content = PlotCreationWidget(
             job_service=self._job_service, plotting_controller=self._plotting_controller
         ).widget
+        job_control = JobControlWidget(self._job_controller).panel
+        sidebar_content.append(job_control)
 
         template = pn.template.MaterialTemplate(
             title=self.get_dashboard_title(),

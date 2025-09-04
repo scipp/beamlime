@@ -6,7 +6,7 @@ import logging
 
 from ..config.models import ConfigKey, StartTime
 from ..config.workflow_spec import WorkflowConfig, WorkflowStatus, WorkflowStatusType
-from .job import DifferentInstrument, JobId, JobManager
+from .job import DifferentInstrument, JobCommand, JobId, JobManager
 
 
 class JobManagerAdapter:
@@ -25,6 +25,11 @@ class JobManagerAdapter:
         self._logger = logger
         self._job_manager = job_manager
         self._jobs: dict[str, JobId] = {}
+
+    def job_command(self, source_name: str, value: dict) -> None:
+        _ = source_name  # Legacy, not used.
+        command = JobCommand.model_validate(value)
+        self._job_manager.job_command(command)
 
     def reset_job(
         self, source_name: str | None, value: dict
