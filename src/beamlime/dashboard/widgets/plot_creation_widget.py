@@ -71,6 +71,7 @@ class PlotConfigurationAdapter(ConfigurationAdapter):
             self._success_callback(dmap, selected_sources)
             return True
         except Exception:
+            raise
             return False
 
 

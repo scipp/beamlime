@@ -13,7 +13,14 @@ from holoviews import opts
 
 from beamlime.config.workflow_spec import ResultKey
 
-from .plot_params import PlotParams1d, PlotParams2d
+from .plot_params import (
+    PlotAspect,
+    PlotAspectType,
+    PlotParams1d,
+    PlotParams2d,
+    PlotScale,
+    PlotScaleParams2d,
+)
 from .scipp_to_holoviews import to_holoviews
 
 
@@ -111,10 +118,10 @@ class Plotter(ABC):
 
     def __init__(
         self,
+        *,
         autoscaler: Autoscaler | None = None,
+        plot_aspect: PlotAspect | None = None,
         combine_mode: str = 'layout',  # 'overlay' or 'layout'
-        height: int = 400,
-        responsive: bool = True,
         **kwargs,
     ):
         """
@@ -126,55 +133,73 @@ class Plotter(ABC):
             Autoscaler instance to use for bound tracking. If None, creates a new one.
         combine_mode:
             How to combine multiple datasets: 'overlay' or 'layout'.
-        height:
-            Height of the plot in pixels.
-        responsive:
-            Whether the plot should be responsive.
         **kwargs:
             Additional keyword arguments passed to the autoscaler if created.
         """
         self.autoscaler = autoscaler if autoscaler is not None else Autoscaler(**kwargs)
         self.combine_mode = combine_mode
-        self.height = height
-        self.responsive = responsive
-        # TODO Hack since DynamicMap Layout needs fixed number of items
-        self.nplot: int = 1
+        plot_aspect = plot_aspect or PlotAspect()
 
-    def __call__(self, data: dict[ResultKey, sc.DataArray]) -> Any:
-        """Make plotter instances callable, handling data preprocessing and applying generic options."""
-        if data is None:
-            plots = [self.plot(None)] * self.nplot
-        else:
-            plots = []
-            try:
-                for data_key, da in data.items():
-                    plot_element = self.plot(da)
-                    # Add label from data_key if the plot supports it
-                    if hasattr(plot_element, 'relabel'):
-                        plot_element = plot_element.relabel(data_key.job_id.source_name)
-                    plots.append(plot_element)
-            except Exception as e:
-                print(f"Error while plotting data: {e}")
-                plots = [
-                    hv.Text(0.5, 0.5, f"Error: {e}").opts(
-                        text_align='center', text_baseline='middle'
-                    )
-                ]
+        # Note: The way Holoviews (or Bokeh?) determines the axes and data sizing seems
+        # to be broken in weird ways. This happens in particular when we return a Layout
+        # of multiple plots. Axis ranges that cover less than one unit in data space are
+        # problematic in particular, but I have not been able to nail down the exact
+        # conditions. Plots will then either have zero frame width or height, or be very
+        # small, etc. It is therefore important to set either width or height when using
+        # data_aspect or aspect='equal'.
+        # However, even that does not solve all problem, for example we can end up with
+        # whitespace between plots in a layout.
+        self._sizing_opts: dict[str, Any]
+        match plot_aspect.aspect_type:
+            case PlotAspectType.free:
+                self._sizing_opts = {}
+            case PlotAspectType.equal:
+                self._sizing_opts = {'aspect': 'equal'}
+            case PlotAspectType.square:
+                self._sizing_opts = {'aspect': 'square'}
+            case PlotAspectType.aspect:
+                self._sizing_opts = {'aspect': plot_aspect.ratio}
+            case PlotAspectType.data_aspect:
+                self._sizing_opts = {'data_aspect': plot_aspect.ratio}
+        if plot_aspect.fix_width:
+            self._sizing_opts['frame_width'] = plot_aspect.width
+        if plot_aspect.fix_height:
+            self._sizing_opts['frame_height'] = plot_aspect.height
+        self._sizing_opts['responsive'] = True
+
+    def __call__(
+        self, data: dict[ResultKey, sc.DataArray]
+    ) -> hv.Overlay | hv.Layout | hv.Element:
+        """Create one or more plots from the given data."""
+        plots: list[hv.Element] = []
+        try:
+            for data_key, da in data.items():
+                plot_element = self.plot(da)
+                # Add label from data_key if the plot supports it
+                if hasattr(plot_element, 'relabel'):
+                    plot_element = plot_element.relabel(data_key.job_id.source_name)
+                plots.append(plot_element)
+        except Exception as e:
+            print(f"Error while plotting data: {e}")
+            plots = [
+                hv.Text(0.5, 0.5, f"Error: {e}").opts(
+                    text_align='center', text_baseline='middle'
+                )
+            ]
 
         plots = [self._apply_generic_options(p) for p in plots]
 
+        if len(plots) == 1:
+            return plots[0]
         if self.combine_mode == 'overlay':
-            combined = hv.Overlay(plots)
-        else:  # layout
-            combined = hv.Layout(plots)
-        return combined
+            return hv.Overlay(plots)
+        return hv.Layout(plots)
 
-    def _apply_generic_options(self, plot_element):
+    def _apply_generic_options(self, plot_element: hv.Element) -> hv.Element:
         """Apply generic options like height, responsive, hooks to a plot element."""
         base_opts = {
-            'responsive': self.responsive,
-            'height': self.height,
             'hooks': [remove_bokeh_logo],
+            **self._sizing_opts,
         }
         return plot_element.opts(**base_opts)
 
@@ -219,8 +244,7 @@ class ImagePlotter(Plotter):
 
     def __init__(
         self,
-        autoscaler: Autoscaler | None = None,
-        image_opts: dict[str, Any] | None = None,
+        scale_opts: PlotScaleParams2d,
         **kwargs,
     ):
         """
@@ -228,36 +252,40 @@ class ImagePlotter(Plotter):
 
         Parameters
         ----------
-        autoscaler:
-            Autoscaler instance to use for bound tracking.
-        image_opts:
-            Additional options for the image plot.
         **kwargs:
             Additional keyword arguments passed to the base class.
         """
-        super().__init__(autoscaler, **kwargs)
-        self._image_opts = image_opts or {}
+        super().__init__(**kwargs)
+        self._base_opts = {
+            'colorbar': True,
+            'cmap': 'viridis',
+            'logx': True if scale_opts.x_scale == PlotScale.log else False,
+            'logy': True if scale_opts.y_scale == PlotScale.log else False,
+            'logz': True,
+        }
 
     @classmethod
     def from_params(cls, params: PlotParams2d):
         """Create SumImagePlotter from PlotParams2d."""
-        # TODO: Use params to configure the plotter
-        return cls(value_margin_factor=0.1)
+        return cls(
+            value_margin_factor=0.1,
+            plot_aspect=params.plot_aspect,
+            scale_opts=params.plot_scale,
+        )
 
     def plot(self, data: sc.DataArray | None) -> hv.Image:
         """Create a 2D plot from a scipp DataArray."""
-        base_opts = {'logz': True, 'colorbar': True, 'cmap': 'viridis'}
-        base_opts.update(self._image_opts)
-
         if data is None:
             # Explicit clim required for initial empty plot with logz=True. Changing to
             # logz=True only when we have data is not supported by Holoviews.
-            return hv.Image([]).opts(framewise=False, clim=(0.1, None), **base_opts)
+            return hv.Image([]).opts(
+                framewise=False, clim=(0.1, None), **self._base_opts
+            )
 
         # With logz=True we need to exclude zero values for two reasons:
         # 1. The value bounds calculation should properly adjust the color limits. Since
         #    zeros can never be included we want to adjust to the lowest positive value.
-        # 2. Holoviews does not seem to all empty `clim` when `logz=True` for empty
+        # 2. Holoviews does not seem to allow empty `clim` when `logz=True` for empty
         #    data, which we are forced to return above since Holoviews does not appear
         #    to support empty holoviews.streams.Pipe, i.e., we some "empty" image needs
         #    to be returned. Since at that time we cannot guess the true limits this
@@ -282,7 +310,7 @@ class ImagePlotter(Plotter):
         return histogram.opts(
             framewise=framewise,
             clim=(self.autoscaler.value_bounds[0], self.autoscaler.value_bounds[1]),
-            **base_opts,
+            **self._base_opts,
         )
 
 
