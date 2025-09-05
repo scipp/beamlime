@@ -18,6 +18,7 @@ from .plot_params import (
     PlotParams1d,
     PlotParams2d,
     PlotScale,
+    PlotScaleParams,
     PlotScaleParams2d,
 )
 from .scipp_to_holoviews import to_holoviews
@@ -214,14 +215,38 @@ class Plotter(ABC):
 class LinePlotter(Plotter):
     """Plotter for line plots from scipp DataArrays."""
 
+    def __init__(
+        self,
+        scale_opts: PlotScaleParams,
+        **kwargs,
+    ):
+        """
+        Initialize the image plotter.
+
+        Parameters
+        ----------
+        **kwargs:
+            Additional keyword arguments passed to the base class.
+        """
+        super().__init__(**kwargs)
+        self._base_opts = {
+            'logx': True if scale_opts.x_scale == PlotScale.log else False,
+            'logy': True if scale_opts.y_scale == PlotScale.log else False,
+        }
+
     @classmethod
     def from_params(cls, params: PlotParams1d):
         """Create LinePlotter from PlotParams1d."""
-        # TODO: Use params to configure the plotter
-        return cls(value_margin_factor=0.1, combine_mode='overlay')
+        return cls(
+            value_margin_factor=0.1,
+            combine_mode='overlay',
+            scale_opts=params.plot_scale,
+        )
 
     def plot(self, data: sc.DataArray) -> hv.Curve:
         """Create a line plot from a scipp DataArray."""
+        # TODO Currently we do not plot histograms or else we get a bar chart that is not
+        # looking great if we have many bins.
         if data.coords.is_edges(data.dim):
             da = data.assign_coords({data.dim: sc.midpoints(data.coords[data.dim])})
         else:
@@ -229,7 +254,7 @@ class LinePlotter(Plotter):
         framewise = self._update_autoscaler_and_get_framewise(da)
 
         curve = to_holoviews(da)
-        return curve.opts(framewise=framewise, ylim=(0, None))
+        return curve.opts(framewise=framewise, **self._base_opts)
 
 
 class ImagePlotter(Plotter):
@@ -300,6 +325,7 @@ class ImagePlotter(Plotter):
         )
 
 
+# TODO This should be implemented using, e.g., a data-transform prior to plotting.
 class SumImagePlotter(ImagePlotter):
     """Plotter for 2D images created by summing multiple scipp DataArrays."""
 
