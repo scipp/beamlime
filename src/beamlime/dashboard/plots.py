@@ -203,14 +203,12 @@ class Plotter(ABC):
         }
         return plot_element.opts(**base_opts)
 
-    def _update_autoscaler_and_get_framewise(self, data: sc.DataArray | None) -> bool:
+    def _update_autoscaler_and_get_framewise(self, data: sc.DataArray) -> bool:
         """Update autoscaler with data and return whether bounds changed."""
-        if data is None:
-            return False
         return self.autoscaler.update_bounds(data)
 
     @abstractmethod
-    def plot(self, data: sc.DataArray | None) -> Any:
+    def plot(self, data: sc.DataArray) -> Any:
         """Create a plot from the given data. Must be implemented by subclasses."""
 
 
@@ -223,12 +221,8 @@ class LinePlotter(Plotter):
         # TODO: Use params to configure the plotter
         return cls(value_margin_factor=0.1, combine_mode='overlay')
 
-    def plot(self, data: sc.DataArray | None) -> hv.Curve:
+    def plot(self, data: sc.DataArray) -> hv.Curve:
         """Create a line plot from a scipp DataArray."""
-        if data is None:
-            return hv.Curve([]).opts(framewise=False, ylim=(0, None))
-
-        # Prepare data
         if data.coords.is_edges(data.dim):
             da = data.assign_coords({data.dim: sc.midpoints(data.coords[data.dim])})
         else:
@@ -273,15 +267,8 @@ class ImagePlotter(Plotter):
             scale_opts=params.plot_scale,
         )
 
-    def plot(self, data: sc.DataArray | None) -> hv.Image:
+    def plot(self, data: sc.DataArray) -> hv.Image:
         """Create a 2D plot from a scipp DataArray."""
-        if data is None:
-            # Explicit clim required for initial empty plot with logz=True. Changing to
-            # logz=True only when we have data is not supported by Holoviews.
-            return hv.Image([]).opts(
-                framewise=False, clim=(0.1, None), **self._base_opts
-            )
-
         # With logz=True we need to exclude zero values for two reasons:
         # 1. The value bounds calculation should properly adjust the color limits. Since
         #    zeros can never be included we want to adjust to the lowest positive value.
