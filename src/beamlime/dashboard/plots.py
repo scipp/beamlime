@@ -181,7 +181,6 @@ class Plotter(ABC):
                     plot_element = plot_element.relabel(data_key.job_id.source_name)
                 plots.append(plot_element)
         except Exception as e:
-            print(f"Error while plotting data: {e}")
             plots = [
                 hv.Text(0.5, 0.5, f"Error: {e}").opts(
                     text_align='center', text_baseline='middle'
