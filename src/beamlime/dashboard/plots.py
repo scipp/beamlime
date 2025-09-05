@@ -295,16 +295,9 @@ class ImagePlotter(Plotter):
 
     def plot(self, data: sc.DataArray) -> hv.Image:
         """Create a 2D plot from a scipp DataArray."""
-        # With logz=True we need to exclude zero values for two reasons:
-        # 1. The value bounds calculation should properly adjust the color limits. Since
-        #    zeros can never be included we want to adjust to the lowest positive value.
-        # 2. Holoviews does not seem to allow empty `clim` when `logz=True` for empty
-        #    data, which we are forced to return above since Holoviews does not appear
-        #    to support empty holoviews.streams.Pipe, i.e., we some "empty" image needs
-        #    to be returned. Since at that time we cannot guess the true limits this
-        #    will always be too low or too high. Once set, it seems it cannot be unset,
-        #    i.e., we cannot rely on the autoscale enabled by `framewise=True` but have
-        #    to set the limits manually. This is ok since they are computed anyway.
+        # With logz=True we need to exclude zero values:
+        # The value bounds calculation should properly adjust the color limits. Since
+        # zeros can never be included we want to adjust to the lowest positive value.
         data = data.to(dtype='float64')
         masked = data.assign(
             sc.where(
@@ -320,11 +313,7 @@ class ImagePlotter(Plotter):
         # value in the colormap, which is not what we want for, e.g., zeros on a log
         # scale plot. The nan values will be shown as transparent.
         histogram = to_holoviews(masked)
-        return histogram.opts(
-            framewise=framewise,
-            clim=(self.autoscaler.value_bounds[0], self.autoscaler.value_bounds[1]),
-            **self._base_opts,
-        )
+        return histogram.opts(framewise=framewise, **self._base_opts)
 
 
 # TODO This should be implemented using, e.g., a data-transform prior to plotting.
