@@ -83,8 +83,8 @@ class ConfigurationWidget:
         """Create source selection widget."""
         return pn.widgets.MultiChoice(
             name="Source Names",
-            options=self._config.source_names,
-            value=self._config.initial_source_names,
+            options=sorted(self._config.source_names),
+            value=sorted(self._config.initial_source_names),
             placeholder="Select source names to apply workflow to",
             sizing_mode='stretch_width',
             margin=(0, 0, 0, 0),

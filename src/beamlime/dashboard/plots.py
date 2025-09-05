@@ -191,7 +191,7 @@ class Plotter(ABC):
             return plots[0]
         if self.layout_params.combine_mode == 'overlay':
             return hv.Overlay(plots)
-        return hv.Layout(plots)
+        return hv.Layout(plots).cols(self.layout_params.layout_columns)
 
     def _apply_generic_options(self, plot_element: hv.Element) -> hv.Element:
         """Apply generic options like height, responsive, hooks to a plot element."""

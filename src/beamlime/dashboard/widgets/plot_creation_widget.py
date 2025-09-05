@@ -134,7 +134,7 @@ class PlotCreationWidget:
             sizing_mode='stretch_width',
             selectable=1,  # Single selection
             disabled=True,
-            height=800,
+            height=600,
             groupby=['workflow_name', 'job_number'],
             configuration={
                 'columns': [

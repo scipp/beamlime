@@ -95,6 +95,13 @@ class LayoutParams(pydantic.BaseModel):
         description="How to combine multiple datasets: overlay or layout.",
         title="Combine Mode",
     )
+    layout_columns: int = pydantic.Field(
+        default=2,
+        description="Number of columns to use when combining plots in layout mode.",
+        title="Layout Columns",
+        ge=1,
+        le=5,
+    )
 
 
 class PlotParamsBase(pydantic.BaseModel):
