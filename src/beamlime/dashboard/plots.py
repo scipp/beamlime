@@ -4,7 +4,6 @@
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from math import prod
 from typing import Any
 
 import holoviews as hv
@@ -373,29 +372,3 @@ def plot_monitor(
         da = da / bin_width  # Convert to distribution
     da = da.assign_coords({dim: sc.midpoints(da.coords[dim])})
     return to_holoviews(da).opts(options)
-
-
-def plot_monitor1(data, view_mode: str = 'Current') -> hv.Curve:
-    """Create monitor 1 plot."""
-    return plot_monitor(data, title="Monitor 1", color='blue', view_mode=view_mode)
-
-
-def plot_monitor2(data, view_mode: str = 'Current') -> hv.Curve:
-    """Create monitor 2 plot."""
-    return plot_monitor(data, title="Monitor 2", color='red', view_mode=view_mode)
-
-
-def plot_monitors_combined(
-    *, view_mode: str = 'Current', **monitors: RawData | None
-) -> hv.Overlay:
-    """Combined plot of monitor1 and monitor2."""
-    plots = [
-        plot_monitor(
-            monitor, title=name, color=color, view_mode=view_mode, normalize=True
-        ).relabel(name)
-        for (name, monitor), color in zip(
-            monitors.items(), monitor_colors, strict=False
-        )
-    ]
-    plot = prod(plots[1:], start=plots[0])
-    return plot.opts(title="Monitors (normalized)")
