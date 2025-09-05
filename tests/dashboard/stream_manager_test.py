@@ -17,9 +17,9 @@ from beamlime.dashboard.stream_manager import StreamManager
 class FakePipe(Pipe):
     """Fake implementation of Pipe for testing."""
 
-    def __init__(self) -> None:
+    def __init__(self, data: Any) -> None:
         self.send_calls: list[Any] = []
-        self.data: Any = None
+        self.data: Any = data
 
     def send(self, data: Any) -> None:
         self.send_calls.append(data)
@@ -45,9 +45,9 @@ class FakePipeFactory:
         self.call_count = 0
         self.created_pipes: list[FakePipe] = []
 
-    def __call__(self) -> FakePipe:
+    def __call__(self, data: Any) -> FakePipe:
         self.call_count += 1
-        pipe = FakePipe()
+        pipe = FakePipe(data)
         self.created_pipes.append(pipe)
         return pipe
 
