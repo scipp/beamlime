@@ -109,14 +109,23 @@ class PlotCreationWidget:
         # Container for modals - they need to be part of the served structure
         self._modal_container = pn.Column()
 
-        # Create main widget with tabs
+        # Create separate tabs container for plots (closable)
+        self._plot_tabs = pn.Tabs(
+            sizing_mode='stretch_width',
+            closable=True,
+        )
+
+        # Create main widget with creation tab (non-closable) and plot tabs
         self._creation_tab = pn.Column(
             self._create_creation_tab(), self._modal_container
         )
-        self._tabs = pn.Tabs(
-            ("Create Plot", self._creation_tab), sizing_mode='stretch_width'
+        self._main_tabs = pn.Tabs(
+            ("Create Plot", self._creation_tab),
+            ("Plots", self._plot_tabs),
+            sizing_mode='stretch_width',
+            closable=False,
         )
-        self._widget = self._tabs
+        self._widget = self._main_tabs
 
         self._job_service.register_job_update_subscriber(self.refresh)
 
@@ -324,11 +333,12 @@ class PlotCreationWidget:
             sources_str += f"_+{len(selected_sources) - 2}"
         tab_name = f"Plot {self._plot_counter}: {sources_str}"
 
-        # Add as new tab
-        self._tabs.append((tab_name, plot_pane))
+        # Add as new tab to the plot tabs container
+        self._plot_tabs.append((tab_name, plot_pane))
 
-        # Switch to the new plot tab
-        self._tabs.active = len(self._tabs) - 1
+        # Switch to the plots tab in main container, then to the new plot
+        self._main_tabs.active = 1  # Switch to "Plots" tab
+        self._plot_tabs.active = len(self._plot_tabs) - 1  # Switch to new plot
 
     def _validate_selection(self) -> tuple[bool, list[str]]:
         """Validate current selection."""
