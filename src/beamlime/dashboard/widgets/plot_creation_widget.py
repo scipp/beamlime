@@ -71,7 +71,6 @@ class PlotConfigurationAdapter(ConfigurationAdapter):
             self._success_callback(dmap, selected_sources)
             return True
         except Exception:
-            raise
             return False
 
 
@@ -110,10 +109,7 @@ class PlotCreationWidget:
         self._modal_container = pn.Column()
 
         # Create separate tabs container for plots (closable)
-        self._plot_tabs = pn.Tabs(
-            sizing_mode='stretch_width',
-            closable=True,
-        )
+        self._plot_tabs = pn.Tabs(sizing_mode='stretch_width', closable=True)
 
         # Create main widget with creation tab (non-closable) and plot tabs
         self._creation_tab = pn.Column(
