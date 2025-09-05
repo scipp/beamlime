@@ -120,7 +120,6 @@ class Plotter(ABC):
     def __init__(
         self,
         *,
-        autoscaler: Autoscaler | None = None,
         aspect_params: PlotAspect | None = None,
         layout_params: LayoutParams | None = None,
         **kwargs,
@@ -130,14 +129,13 @@ class Plotter(ABC):
 
         Parameters
         ----------
-        autoscaler:
-            Autoscaler instance to use for bound tracking. If None, creates a new one.
         layout_params:
             Layout parameters for combining multiple datasets. If None, uses defaults.
         **kwargs:
             Additional keyword arguments passed to the autoscaler if created.
         """
-        self.autoscaler = autoscaler if autoscaler is not None else Autoscaler(**kwargs)
+        self.autoscaler_kwargs = kwargs
+        self.autoscalers: dict[ResultKey, Autoscaler] = {}
         self.layout_params = layout_params or LayoutParams()
         aspect_params = aspect_params or PlotAspect()
 
@@ -175,7 +173,7 @@ class Plotter(ABC):
         plots: list[hv.Element] = []
         try:
             for data_key, da in data.items():
-                plot_element = self.plot(da)
+                plot_element = self.plot(da, data_key)
                 # Add label from data_key if the plot supports it
                 if hasattr(plot_element, 'relabel'):
                     plot_element = plot_element.relabel(data_key.job_id.source_name)
@@ -203,12 +201,16 @@ class Plotter(ABC):
         }
         return plot_element.opts(**base_opts)
 
-    def _update_autoscaler_and_get_framewise(self, data: sc.DataArray) -> bool:
+    def _update_autoscaler_and_get_framewise(
+        self, data: sc.DataArray, data_key: ResultKey
+    ) -> bool:
         """Update autoscaler with data and return whether bounds changed."""
-        return self.autoscaler.update_bounds(data)
+        if data_key not in self.autoscalers:
+            self.autoscalers[data_key] = Autoscaler(**self.autoscaler_kwargs)
+        return self.autoscalers[data_key].update_bounds(data)
 
     @abstractmethod
-    def plot(self, data: sc.DataArray) -> Any:
+    def plot(self, data: sc.DataArray, data_key: ResultKey) -> Any:
         """Create a plot from the given data. Must be implemented by subclasses."""
 
 
@@ -244,7 +246,7 @@ class LinePlotter(Plotter):
             scale_opts=params.plot_scale,
         )
 
-    def plot(self, data: sc.DataArray) -> hv.Curve:
+    def plot(self, data: sc.DataArray, data_key: ResultKey) -> hv.Curve:
         """Create a line plot from a scipp DataArray."""
         # TODO Currently we do not plot histograms or else we get a bar chart that is
         # not looking great if we have many bins.
@@ -252,7 +254,7 @@ class LinePlotter(Plotter):
             da = data.assign_coords({data.dim: sc.midpoints(data.coords[data.dim])})
         else:
             da = data
-        framewise = self._update_autoscaler_and_get_framewise(da)
+        framewise = self._update_autoscaler_and_get_framewise(da, data_key)
 
         curve = to_holoviews(da)
         return curve.opts(framewise=framewise, **self._base_opts)
@@ -293,7 +295,7 @@ class ImagePlotter(Plotter):
             scale_opts=params.plot_scale,
         )
 
-    def plot(self, data: sc.DataArray) -> hv.Image:
+    def plot(self, data: sc.DataArray, data_key: ResultKey) -> hv.Image:
         """Create a 2D plot from a scipp DataArray."""
         # With logz=True we need to exclude zero values:
         # The value bounds calculation should properly adjust the color limits. Since
@@ -307,7 +309,7 @@ class ImagePlotter(Plotter):
             )
         )
 
-        framewise = self._update_autoscaler_and_get_framewise(masked)
+        framewise = self._update_autoscaler_and_get_framewise(masked, data_key)
         # We are using the masked data here since Holoviews (at least with the Bokeh
         # backend) show values below the color limits with the same color as the lowest
         # value in the colormap, which is not what we want for, e.g., zeros on a log
