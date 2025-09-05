@@ -13,6 +13,7 @@ import scipp as sc
 from beamlime.config.workflow_spec import ResultKey
 
 from .plot_params import (
+    LayoutParams,
     PlotAspect,
     PlotAspectType,
     PlotParams1d,
@@ -120,8 +121,8 @@ class Plotter(ABC):
         self,
         *,
         autoscaler: Autoscaler | None = None,
-        plot_aspect: PlotAspect | None = None,
-        combine_mode: str = 'layout',  # 'overlay' or 'layout'
+        aspect_params: PlotAspect | None = None,
+        layout_params: LayoutParams | None = None,
         **kwargs,
     ):
         """
@@ -131,14 +132,14 @@ class Plotter(ABC):
         ----------
         autoscaler:
             Autoscaler instance to use for bound tracking. If None, creates a new one.
-        combine_mode:
-            How to combine multiple datasets: 'overlay' or 'layout'.
+        layout_params:
+            Layout parameters for combining multiple datasets. If None, uses defaults.
         **kwargs:
             Additional keyword arguments passed to the autoscaler if created.
         """
         self.autoscaler = autoscaler if autoscaler is not None else Autoscaler(**kwargs)
-        self.combine_mode = combine_mode
-        plot_aspect = plot_aspect or PlotAspect()
+        self.layout_params = layout_params or LayoutParams()
+        aspect_params = aspect_params or PlotAspect()
 
         # Note: The way Holoviews (or Bokeh?) determines the axes and data sizing seems
         # to be broken in weird ways. This happens in particular when we return a Layout
@@ -150,7 +151,7 @@ class Plotter(ABC):
         # However, even that does not solve all problem, for example we can end up with
         # whitespace between plots in a layout.
         self._sizing_opts: dict[str, Any]
-        match plot_aspect.aspect_type:
+        match aspect_params.aspect_type:
             case PlotAspectType.free:
                 self._sizing_opts = {}
             case PlotAspectType.equal:
@@ -158,13 +159,13 @@ class Plotter(ABC):
             case PlotAspectType.square:
                 self._sizing_opts = {'aspect': 'square'}
             case PlotAspectType.aspect:
-                self._sizing_opts = {'aspect': plot_aspect.ratio}
+                self._sizing_opts = {'aspect': aspect_params.ratio}
             case PlotAspectType.data_aspect:
-                self._sizing_opts = {'data_aspect': plot_aspect.ratio}
-        if plot_aspect.fix_width:
-            self._sizing_opts['frame_width'] = plot_aspect.width
-        if plot_aspect.fix_height:
-            self._sizing_opts['frame_height'] = plot_aspect.height
+                self._sizing_opts = {'data_aspect': aspect_params.ratio}
+        if aspect_params.fix_width:
+            self._sizing_opts['frame_width'] = aspect_params.width
+        if aspect_params.fix_height:
+            self._sizing_opts['frame_height'] = aspect_params.height
         self._sizing_opts['responsive'] = True
 
     def __call__(
@@ -191,7 +192,7 @@ class Plotter(ABC):
 
         if len(plots) == 1:
             return plots[0]
-        if self.combine_mode == 'overlay':
+        if self.layout_params.combine_mode == 'overlay':
             return hv.Overlay(plots)
         return hv.Layout(plots)
 
@@ -239,14 +240,15 @@ class LinePlotter(Plotter):
         """Create LinePlotter from PlotParams1d."""
         return cls(
             value_margin_factor=0.1,
-            combine_mode='overlay',
+            layout_params=params.layout,
+            aspect_params=params.plot_aspect,
             scale_opts=params.plot_scale,
         )
 
     def plot(self, data: sc.DataArray) -> hv.Curve:
         """Create a line plot from a scipp DataArray."""
-        # TODO Currently we do not plot histograms or else we get a bar chart that is not
-        # looking great if we have many bins.
+        # TODO Currently we do not plot histograms or else we get a bar chart that is
+        # not looking great if we have many bins.
         if data.coords.is_edges(data.dim):
             da = data.assign_coords({data.dim: sc.midpoints(data.coords[data.dim])})
         else:
@@ -287,7 +289,8 @@ class ImagePlotter(Plotter):
         """Create SumImagePlotter from PlotParams2d."""
         return cls(
             value_margin_factor=0.1,
-            plot_aspect=params.plot_aspect,
+            layout_params=params.layout,
+            aspect_params=params.plot_aspect,
             scale_opts=params.plot_scale,
         )
 
