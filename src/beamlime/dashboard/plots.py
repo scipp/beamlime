@@ -9,7 +9,6 @@ from typing import Any
 import holoviews as hv
 import numpy as np
 import scipp as sc
-from holoviews import opts
 
 from beamlime.config.workflow_spec import ResultKey
 
@@ -322,68 +321,3 @@ class SumImagePlotter(ImagePlotter):
         else:
             combined = reducer.nansum()
         return super().plot(combined)
-
-
-# TODO Monitor plots below are currently unused and will be replaced
-RawData = Any
-
-
-def monitor_total_counts_bar_chart(**monitors: RawData | None) -> hv.Bars:
-    """Create bar chart showing total counts from all monitors."""
-    totals = [
-        (name, np.nan if monitor is None else np.sum(monitor.current.values))
-        for name, monitor in reversed(monitors.items())
-    ]
-    bars = hv.Bars(totals, kdims='Monitor', vdims='Total Counts')
-
-    return bars.opts(  # pyright: ignore[reportReturnType]
-        opts.Bars(
-            title="",
-            height=50 + 30 * len(totals),
-            color='lightblue',
-            ylabel="Total Counts",
-            xlabel="",
-            invert_axes=True,
-            show_legend=False,
-            toolbar=None,
-            responsive=True,
-            xformatter='%.1e',
-            xrotation=25,
-        )
-    )
-
-
-monitor_colors = ['blue', 'red', 'green', 'orange', 'purple', 'brown', 'pink', 'gray']
-
-
-def plot_monitor(
-    data: RawData | None,
-    *,
-    title: str,
-    color: str = 'blue',
-    view_mode: str = 'Current',
-    normalize: bool = False,
-) -> hv.Curve:
-    """Create a plot for a single monitor."""
-    options = opts.Curve(
-        title=title,
-        color=color,
-        responsive=True,
-        height=400,
-        ylim=(0, None),
-        framewise=True,
-        hooks=[remove_bokeh_logo],
-    )
-    if data is None:
-        return hv.Curve([]).opts(options)
-
-    da = data.cumulative if view_mode == 'Cumulative' else data.current
-    dim = da.dim
-    if normalize:
-        coord = da.coords[dim].to(unit='s')
-        bin_width = coord[1:] - coord[:-1]
-        total_counts = sc.sum(da.data)
-        da = da / total_counts
-        da = da / bin_width  # Convert to distribution
-    da = da.assign_coords({dim: sc.midpoints(da.coords[dim])})
-    return to_holoviews(da).opts(options)
