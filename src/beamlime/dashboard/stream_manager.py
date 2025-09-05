@@ -25,7 +25,12 @@ class MergingStreamAssembler(StreamAssembler):
 class StreamManager(Generic[P]):
     """Base class for managing data streams."""
 
-    def __init__(self, *, data_service: DataService, pipe_factory: Callable[[], P]):
+    def __init__(
+        self,
+        *,
+        data_service: DataService,
+        pipe_factory: Callable[[dict[ResultKey, Any]], P],
+    ):
         self.data_service = data_service
         self._pipe_factory = pipe_factory
 
