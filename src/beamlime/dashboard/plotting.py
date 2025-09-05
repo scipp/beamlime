@@ -136,9 +136,9 @@ plotter_registry = PlotterRegistry()
 
 
 plotter_registry.register_plotter(
-    name='sum_of_2d',
-    title='Sum of 2D',
-    description='Plot the sum over all frames as a 2D image.',
+    name='image',
+    title='Image',
+    description='Plot the data as a images.',
     data_requirements=DataRequirements(min_dims=2, max_dims=2),
     factory=ImagePlotter.from_params,
 )
