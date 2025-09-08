@@ -32,7 +32,9 @@ class StreamMapping:
         detectors: StreamLUT,
         monitors: StreamLUT,
         log_topics: set[KafkaTopic] | None = None,
-        beamline_config_topic: str,
+        beamlime_config_topic: str,
+        beamlime_data_topic: str,
+        beamlime_status_topic: str,
     ) -> None:
         self.instrument = instrument
         self._detectors = detectors
@@ -40,12 +42,24 @@ class StreamMapping:
         # Currently we simply reuse the source_name as the stream name
         self._logs = None
         self._log_topics = log_topics or set()
-        self._beamline_config_topic = beamline_config_topic
+        self._beamlime_config_topic = beamlime_config_topic
+        self._beamlime_data_topic = beamlime_data_topic
+        self._beamlime_status_topic = beamlime_status_topic
 
     @property
-    def beamline_config_topic(self) -> KafkaTopic:
-        """Returns the beamline config topic."""
-        return self._beamline_config_topic
+    def beamlime_config_topic(self) -> KafkaTopic:
+        """Returns the beamlime config topic."""
+        return self._beamlime_config_topic
+
+    @property
+    def beamlime_data_topic(self) -> KafkaTopic:
+        """Returns the beamlime data topic."""
+        return self._beamlime_data_topic
+
+    @property
+    def beamlime_status_topic(self) -> KafkaTopic:
+        """Returns the beamlime status topic."""
+        return self._beamlime_status_topic
 
     @property
     def detector_topics(self) -> set[KafkaTopic]:

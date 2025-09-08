@@ -51,6 +51,17 @@ kafka-topics --create --bootstrap-server kafka:29092 \
   --config max.message.bytes=1048576 \
   --config retention.bytes=-1
 
+# Status/heartbeat topic
+kafka-topics --create --bootstrap-server kafka:29092 \
+  --topic ${BEAMLIME_INSTRUMENT}_beamlime_heartbeat \
+  --config cleanup.policy=delete \
+  --config retention.ms=60000 \
+  --config min.compaction.lag.ms=86400000 \
+  --config min.cleanable.dirty.ratio=0.5 \
+  --config delete.retention.ms=86400000 \
+  --config max.message.bytes=1048576 \
+  --config retention.bytes=-1
+
 kafka-topics --create --bootstrap-server kafka:29092 \
   --topic ${BEAMLIME_INSTRUMENT}_beamlime_data \
   --config cleanup.policy=delete \

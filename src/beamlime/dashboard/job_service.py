@@ -9,6 +9,7 @@ from typing import TypeVar
 import scipp as sc
 
 from beamlime.config.workflow_spec import JobId, JobNumber, ResultKey, WorkflowId
+from beamlime.core.job import JobStatus
 
 from .data_service import DataService
 
@@ -49,6 +50,9 @@ class JobService:
             callback()
         except Exception as e:
             self._logger.error("Error in job update callback: %s", e)
+
+    def status_udated(self, job_status: JobStatus) -> None:
+        self._logger.info("Job status updated: %s", job_status)
 
     def data_updated(self, updated_keys: set[ResultKey]) -> None:
         notify_job_update = False
