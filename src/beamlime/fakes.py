@@ -3,6 +3,7 @@
 from typing import Generic, TypeVar
 
 from .core import Message
+from .core.message import STATUS_STREAM_ID
 
 T = TypeVar('T')
 
@@ -31,6 +32,11 @@ class FakeMessageSink(Generic[T]):
 
     def __init__(self) -> None:
         self.messages: list[Message[T]] = []
+        self.status_messages: list[Message[T]] = []
 
     def publish_messages(self, messages: list[Message[T]]) -> None:
-        self.messages.extend(messages)
+        for msg in messages:
+            if msg.stream == STATUS_STREAM_ID:
+                self.status_messages.append(msg)
+            else:
+                self.messages.append(msg)
