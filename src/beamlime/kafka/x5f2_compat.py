@@ -22,7 +22,11 @@ class ServiceId(pydantic.BaseModel):
     def from_string(cls, service_id: str) -> ServiceId:
         """Parse service_id string in format 'source_name:job_number'."""
         try:
-            source_name, job_number_str = service_id.split(':', 1)
+            # Split on the last colon to handle source names with colons
+            parts = service_id.rsplit(':', 1)
+            if len(parts) != 2:
+                raise ValueError("No colon separator found")
+            source_name, job_number_str = parts
             job_id = JobId(
                 source_name=source_name, job_number=uuid.UUID(job_number_str)
             )
@@ -104,7 +108,7 @@ class StatusMessage(pydantic.BaseModel):
         description="Service identifier defined as source_name:job_number"
     )
     host_name: str = pydantic.Field(default='', description="Host name")
-    process_id: int = pydantic.Field(default=-1, description="Process ID")
+    process_id: int = pydantic.Field(default=0, description="Process ID")
     update_interval: int = pydantic.Field(
         default=1000, description="Update interval in milliseconds"
     )
@@ -120,10 +124,23 @@ class StatusMessage(pydantic.BaseModel):
             return ServiceId.from_string(v)
         return v
 
+    @field_validator('status_json', mode='before')
+    @classmethod
+    def validate_status_json(cls, v):
+        """Convert JSON string to StatusJSON object during validation."""
+        if isinstance(v, str):
+            return StatusJSON.model_validate_json(v)
+        return v
+
     @field_serializer('service_id')
     def serialize_service_id(self, service_id: ServiceId) -> str:
         """Serialize ServiceId to string format."""
         return service_id.to_string()
+
+    @field_serializer('status_json')
+    def serialize_status_json(self, status_json: StatusJSON) -> str:
+        """Serialize StatusJSON to JSON string format."""
+        return status_json.model_dump_json()
 
     @staticmethod
     def from_job_status(status: JobStatus) -> StatusMessage:
@@ -160,11 +177,20 @@ class StatusMessage(pydantic.BaseModel):
 def x5f2_to_job_status(x5f2_status: bytes) -> JobStatus:
     """Deserialize x5f2 status message to JobStatus."""
     status_msg = deserialise_x5f2(x5f2_status)
-    status_message = StatusMessage.model_validate(status_msg)
+    # Manually map namedtuple fields
+    status_message = StatusMessage(
+        software_name=status_msg.software_name,
+        software_version=status_msg.software_version,
+        service_id=status_msg.service_id,  # Will be converted by validator
+        host_name=status_msg.host_name,
+        process_id=status_msg.process_id,
+        update_interval=status_msg.update_interval,
+        status_json=status_msg.status_json,  # Will be converted by validator
+    )
     return status_message.to_job_status()
 
 
 def job_status_to_x5f2(status: JobStatus) -> bytes:
     """Serialize JobStatus to x5f2 status message."""
     status_message = StatusMessage.from_job_status(status)
-    return serialise_x5f2(**status_message.model_dump())
+    return serialise_x5f2(**status_message.model_dump(mode='json'))
