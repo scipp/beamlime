@@ -73,7 +73,7 @@ class JobResult:
 
 
 @dataclass
-class JobStatus:
+class JobError:
     job_id: JobId
     error_message: str | None = None
 
@@ -133,7 +133,7 @@ class Job:
     def end_time(self) -> int | None:
         return self._end_time
 
-    def add(self, data: WorkflowData) -> JobStatus:
+    def add(self, data: WorkflowData) -> JobError:
         try:
             if self._start_time is None:
                 self._start_time = data.start_time
@@ -146,10 +146,10 @@ class Job:
                 update[key] = value
             if update:
                 self._processor.accumulate(update)
-            return JobStatus(job_id=self._job_id)
+            return JobError(job_id=self._job_id)
         except Exception as e:
             error_msg = f"Error processing data for job {self._job_id}: {e}"
-            return JobStatus(job_id=self._job_id, error_message=error_msg)
+            return JobError(job_id=self._job_id, error_message=error_msg)
 
     def get(self) -> JobResult:
         try:
@@ -326,10 +326,10 @@ class JobManager:
         else:
             raise KeyError(f"Job {job_id} not found in active or scheduled jobs.")
 
-    def push_data(self, data: WorkflowData) -> list[JobStatus]:
+    def push_data(self, data: WorkflowData) -> list[JobError]:
         """Push data into the active jobs and return status for each job."""
         self._advance_to_time(data.start_time, data.end_time)
-        job_statuses: list[JobStatus] = []
+        job_statuses: list[JobError] = []
         for job in self.active_jobs:
             status = job.add(data)
             job_statuses.append(status)
@@ -350,7 +350,7 @@ class JobManager:
             _ = self._job_schedules.pop(job_id, None)  # Clean up schedule
         self._finishing_jobs.clear()
 
-    def format_job_error(self, status: JobStatus) -> str:
+    def format_job_error(self, status: JobError) -> str:
         """Format a job error message with meaningful job information."""
         job = self._active_jobs.get(status.job_id) or self._scheduled_jobs.get(
             status.job_id
