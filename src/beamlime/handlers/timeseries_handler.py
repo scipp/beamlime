@@ -12,11 +12,11 @@ from ..config.instrument import Instrument
 from ..core.handler import JobBasedHandlerFactoryBase
 from ..core.message import StreamId
 from .accumulators import LogData
-from .stream_processor_factory import StreamProcessor
+from .stream_processor_factory import Workflow
 from .to_nxlog import ToNXlog
 
 
-class TimeseriesStreamProcessor(StreamProcessor):
+class TimeseriesStreamProcessor(Workflow):
     def __init__(self) -> None:
         self._data: sc.DataArray | None = None
 
@@ -35,7 +35,7 @@ class TimeseriesStreamProcessor(StreamProcessor):
         self._data = None
 
 
-def _timeseries_workflow() -> StreamProcessor:
+def _timeseries_workflow() -> Workflow:
     return TimeseriesStreamProcessor()
 
 

@@ -5,8 +5,8 @@ import scipp as sc
 
 from beamlime.config.instrument import Instrument, InstrumentRegistry
 from beamlime.handlers.stream_processor_factory import (
-    StreamProcessor,
-    StreamProcessorFactory,
+    Workflow,
+    WorkflowFactory,
 )
 
 
@@ -68,7 +68,7 @@ class TestInstrument:
         instrument = Instrument(name="test_instrument")
 
         assert instrument.name == "test_instrument"
-        assert isinstance(instrument.processor_factory, StreamProcessorFactory)
+        assert isinstance(instrument.processor_factory, WorkflowFactory)
         assert instrument.source_to_key == {}
         assert instrument.f144_attribute_registry == {}
         assert instrument.active_namespace is None
@@ -76,7 +76,7 @@ class TestInstrument:
 
     def test_instrument_creation_with_custom_values(self):
         """Test creating instrument with custom values."""
-        custom_factory = StreamProcessorFactory()
+        custom_factory = WorkflowFactory()
         source_to_key = {"source1": str}
         f144_registry = {"attr1": {"key": "value"}}
 
@@ -150,9 +150,9 @@ class TestInstrument:
         instrument = Instrument(name="test_instrument")
 
         # Create a simple factory function
-        def simple_processor_factory(source_name: str) -> StreamProcessor:
+        def simple_processor_factory(source_name: str) -> Workflow:
             # Return a mock processor for testing
-            class MockProcessor(StreamProcessor):
+            class MockProcessor(Workflow):
                 def __call__(self, *args, **kwargs):
                     return {"source": source_name}
 
@@ -192,8 +192,8 @@ class TestInstrument:
         """Test workflow registration with default values."""
         instrument = Instrument(name="test_instrument")
 
-        def simple_factory() -> StreamProcessor:
-            class MockProcessor(StreamProcessor):
+        def simple_factory() -> Workflow:
+            class MockProcessor(Workflow):
                 def __call__(self, *args, **kwargs):
                     return {}
 
@@ -218,15 +218,15 @@ class TestInstrument:
         """Test registering multiple workflows."""
         instrument = Instrument(name="test_instrument")
 
-        def factory1() -> StreamProcessor:
-            class MockProcessor(StreamProcessor):
+        def factory1() -> Workflow:
+            class MockProcessor(Workflow):
                 def __call__(self, *args, **kwargs):
                     return {"workflow": 1}
 
             return MockProcessor()
 
-        def factory2() -> StreamProcessor:
-            class MockProcessor(StreamProcessor):
+        def factory2() -> Workflow:
+            class MockProcessor(Workflow):
                 def __call__(self, *args, **kwargs):
                     return {"workflow": 2}
 

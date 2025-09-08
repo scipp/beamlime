@@ -6,7 +6,7 @@ from ess.reduce.streaming import StreamProcessor
 from pydantic import BaseModel, ValidationError
 
 from beamlime.config.workflow_spec import WorkflowConfig, WorkflowSpec
-from beamlime.handlers.stream_processor_factory import StreamProcessorFactory
+from beamlime.handlers.stream_processor_factory import WorkflowFactory
 
 
 class MyParams(BaseModel):
@@ -41,12 +41,12 @@ def make_dummy_stream_processor_with_params(*, params: MyParams) -> StreamProces
 
 class TestStreamProcessorFactory:
     def test_init_factory_is_empty(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         assert len(factory) == 0
         assert list(factory) == []
 
     def test_register_adds_workflow_spec(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
             namespace="test-namespace",
@@ -70,7 +70,7 @@ class TestStreamProcessorFactory:
         assert stored_spec.source_names == []
 
     def test_register_with_source_names(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         sources = ["source1", "source2"]
         spec = WorkflowSpec(
             instrument="test-instrument",
@@ -92,7 +92,7 @@ class TestStreamProcessorFactory:
         assert stored_spec.source_names == sources
 
     def test_register_duplicate_id_raises_error(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
             namespace="test-namespace",
@@ -115,7 +115,7 @@ class TestStreamProcessorFactory:
             factory.register(spec)(lambda: make_dummy_stream_processor())
 
     def test_create_returns_stream_processor(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
             namespace="test-namespace",
@@ -136,7 +136,7 @@ class TestStreamProcessorFactory:
         assert isinstance(processor, StreamProcessor)
 
     def test_create_with_source_name_parameter(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
             namespace="test-namespace",
@@ -158,7 +158,7 @@ class TestStreamProcessorFactory:
         assert isinstance(processor, StreamProcessor)
 
     def test_create_with_params(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
             namespace="test-namespace",
@@ -181,7 +181,7 @@ class TestStreamProcessorFactory:
         assert isinstance(processor, StreamProcessor)
 
     def test_create_invalid_params_raises_pydantic_error(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
             namespace="test-namespace",
@@ -207,14 +207,14 @@ class TestStreamProcessorFactory:
             factory.create(source_name="any-source", config=config)
 
     def test_unknown_workflow_id_raises_key_error(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         config = WorkflowConfig(identifier="non-existent-id")
 
         with pytest.raises(KeyError, match="Unknown workflow ID"):
             factory.create(source_name="any-source", config=config)
 
     def test_invalid_source_name_raises_value_error(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
             namespace="test-namespace",
@@ -237,7 +237,7 @@ class TestStreamProcessorFactory:
             factory.create(source_name="invalid-source", config=config)
 
     def test_multiple_registrations_create_distinct_entries(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         spec1 = WorkflowSpec(
             instrument="test-instrument",
             namespace="test-namespace",
@@ -271,7 +271,7 @@ class TestStreamProcessorFactory:
         assert sorted(names) == ["workflow1", "workflow2"]
 
     def test_mapping_interface(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
             namespace="test-namespace",
@@ -295,7 +295,7 @@ class TestStreamProcessorFactory:
         assert next(iter(factory.items()))[0] == workflow_id
 
     def test_duplicate_workflow_names_different_versions(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         spec1 = WorkflowSpec(
             instrument="test-instrument",
             namespace="test-namespace",
@@ -345,7 +345,7 @@ class TestStreamProcessorFactory:
         assert isinstance(processor2, StreamProcessor)
 
     def test_empty_name(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         spec = WorkflowSpec(
             instrument="test-instrument",
             namespace="test-namespace",
@@ -370,7 +370,7 @@ class TestStreamProcessorFactory:
         assert isinstance(processor, StreamProcessor)
 
     def test_case_sensitivity_in_source_names(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         sources = ["Source1", "SOURCE2"]
         spec = WorkflowSpec(
             instrument="test-instrument",
@@ -404,7 +404,7 @@ class TestStreamProcessorFactory:
             factory.create(source_name="source2", config=config)
 
     def test_source_names_property(self):
-        factory = StreamProcessorFactory()
+        factory = WorkflowFactory()
         spec1 = WorkflowSpec(
             instrument="test-instrument",
             namespace="test-namespace",
