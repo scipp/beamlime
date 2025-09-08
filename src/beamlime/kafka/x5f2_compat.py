@@ -98,6 +98,13 @@ class StatusJSON(pydantic.BaseModel):
 
 
 class StatusMessage(pydantic.BaseModel):
+    """
+    Status message model corresponding to x5f2 named tuple structure.
+
+    Field types are specific to encode our job status correctly in the generic x5f2
+    format used by the streaming_data_types library.
+    """
+
     software_name: str = pydantic.Field(
         default='beamlime', description="Name of the software"
     )
