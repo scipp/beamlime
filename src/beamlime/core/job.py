@@ -73,7 +73,32 @@ class JobResult:
 
 
 @dataclass
+class JobStatus:
+    """Complete status information for a job."""
+
+    job_id: JobId
+    workflow_id: WorkflowId
+    state: JobState
+    error_message: str | None = None
+    warning_message: str | None = None
+    start_time: int | None = None
+    end_time: int | None = None
+
+    @property
+    def has_error(self) -> bool:
+        """Check if the job status indicates an error."""
+        return self.state == JobState.error
+
+    @property
+    def has_warning(self) -> bool:
+        """Check if the job status indicates a warning."""
+        return self.state == JobState.warning or self.warning_message is not None
+
+
+@dataclass
 class JobError:
+    """Error information for a job operation."""
+
     job_id: JobId
     error_message: str | None = None
 
@@ -81,6 +106,15 @@ class JobError:
     def has_error(self) -> bool:
         """Check if the job status indicates an error."""
         return self.error_message is not None
+
+
+class JobState(str, Enum):
+    scheduled = "scheduled"
+    active = "active"
+    paused = "paused"
+    finishing = "finishing"
+    error = "error"
+    warning = "warning"
 
 
 class JobAction(str, Enum):
@@ -116,6 +150,9 @@ class Job:
         self._source_mapping = source_mapping
         self._start_time: int | None = None
         self._end_time: int | None = None
+        self._state = JobState.scheduled
+        self._error_message: str | None = None
+        self._warning_message: str | None = None
 
     @property
     def job_id(self) -> JobId:
@@ -133,6 +170,22 @@ class Job:
     def end_time(self) -> int | None:
         return self._end_time
 
+    @property
+    def state(self) -> JobState:
+        return self._state
+
+    @property
+    def error_message(self) -> str | None:
+        return self._error_message
+
+    @property
+    def warning_message(self) -> str | None:
+        return self._warning_message
+
+    def _set_state(self, state: JobState) -> None:
+        """Internal method to update job state."""
+        self._state = state
+
     def add(self, data: WorkflowData) -> JobError:
         try:
             if self._start_time is None:
@@ -149,6 +202,8 @@ class Job:
             return JobError(job_id=self._job_id)
         except Exception as e:
             error_msg = f"Error processing data for job {self._job_id}: {e}"
+            self._warning_message = error_msg
+            self._state = JobState.warning
             return JobError(job_id=self._job_id, error_message=error_msg)
 
     def get(self) -> JobResult:
@@ -165,6 +220,8 @@ class Job:
             )
         except Exception as e:
             error_msg = f"Error finalizing job {self._job_id}: {e}"
+            self._error_message = error_msg
+            self._state = JobState.error
             return JobResult(
                 job_id=self._job_id,
                 workflow_id=self._workflow_id,
@@ -178,6 +235,23 @@ class Job:
         self._processor.clear()
         self._start_time = None
         self._end_time = None
+        self._error_message = None
+        self._warning_message = None
+        # Keep current state unless it was error/warning
+        if self._state in (JobState.error, JobState.warning):
+            self._state = JobState.scheduled
+
+    def get_status(self) -> JobStatus:
+        """Get the current status of this job."""
+        return JobStatus(
+            job_id=self._job_id,
+            workflow_id=self._workflow_id,
+            state=self._state,
+            error_message=self._error_message,
+            warning_message=self._warning_message,
+            start_time=self._start_time,
+            end_time=self._end_time,
+        )
 
 
 class JobFactory:
@@ -235,10 +309,11 @@ class JobManager:
 
     def _start_job(self, job_id: JobId) -> None:
         """Start a new job with the given workflow."""
-        workflow = self._scheduled_jobs.pop(job_id, None)
-        if workflow is None:
+        job = self._scheduled_jobs.pop(job_id, None)
+        if job is None:
             raise KeyError(f"Job {job_id} not found in scheduled jobs.")
-        self._active_jobs[job_id] = workflow
+        job._set_state(JobState.active)
+        self._active_jobs[job_id] = job
 
     def _advance_to_time(self, start_time: int, end_time: int) -> None:
         """Activate jobs that should start and mark jobs that should finish."""
@@ -349,6 +424,47 @@ class JobManager:
             _ = self._active_jobs.pop(job_id, None)
             _ = self._job_schedules.pop(job_id, None)  # Clean up schedule
         self._finishing_jobs.clear()
+
+    def get_job_status(self, job_id: JobId) -> JobStatus | None:
+        """Get the status of a specific job by its ID."""
+        job = self._active_jobs.get(job_id) or self._scheduled_jobs.get(job_id)
+        if job is None:
+            return None
+
+        # Update state based on job's location in manager
+        if job_id in self._active_jobs:
+            if job_id in self._finishing_jobs:
+                job._set_state(JobState.finishing)
+            # Keep existing state for active jobs (may be warning/error)
+        elif job_id in self._scheduled_jobs:
+            if job.state not in (JobState.error, JobState.warning):
+                job._set_state(JobState.scheduled)
+
+        return job.get_status()
+
+    def get_all_job_statuses(self) -> list[JobStatus]:
+        """Get the status of all jobs in the manager."""
+        all_job_ids = list(self._active_jobs.keys()) + list(self._scheduled_jobs.keys())
+        statuses = []
+        for job_id in all_job_ids:
+            status = self.get_job_status(job_id)
+            if status is not None:
+                statuses.append(status)
+        return statuses
+
+    def get_jobs_by_workflow(self, workflow_id: WorkflowId) -> list[JobStatus]:
+        """Get all jobs for a specific workflow ID."""
+        return [
+            status
+            for status in self.get_all_job_statuses()
+            if status.workflow_id == workflow_id
+        ]
+
+    def get_jobs_by_state(self, state: JobState) -> list[JobStatus]:
+        """Get all jobs in a specific state."""
+        return [
+            status for status in self.get_all_job_statuses() if status.state == state
+        ]
 
     def format_job_error(self, status: JobError) -> str:
         """Format a job error message with meaningful job information."""
