@@ -157,7 +157,7 @@ class JobFactory:
         ):
             raise DifferentInstrument()
 
-        factory = self._instrument.processor_factory
+        factory = self._instrument.workflow_factory
         workflow_id = config.identifier
         if (workflow_spec := factory.get(workflow_id)) is None:
             raise WorkflowNotFoundError(f"WorkflowSpec with Id {workflow_id} not found")

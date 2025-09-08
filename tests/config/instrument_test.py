@@ -68,7 +68,7 @@ class TestInstrument:
         instrument = Instrument(name="test_instrument")
 
         assert instrument.name == "test_instrument"
-        assert isinstance(instrument.processor_factory, WorkflowFactory)
+        assert isinstance(instrument.workflow_factory, WorkflowFactory)
         assert instrument.source_to_key == {}
         assert instrument.f144_attribute_registry == {}
         assert instrument.active_namespace is None
@@ -82,14 +82,14 @@ class TestInstrument:
 
         instrument = Instrument(
             name="custom_instrument",
-            processor_factory=custom_factory,
+            workflow_factory=custom_factory,
             source_to_key=source_to_key,
             f144_attribute_registry=f144_registry,
             active_namespace="custom_namespace",
         )
 
         assert instrument.name == "custom_instrument"
-        assert instrument.processor_factory is custom_factory
+        assert instrument.workflow_factory is custom_factory
         assert instrument.source_to_key == source_to_key
         assert instrument.f144_attribute_registry == f144_registry
         assert instrument.active_namespace == "custom_namespace"
@@ -176,7 +176,7 @@ class TestInstrument:
         assert registered_factory is simple_processor_factory
 
         # Verify it was registered in the processor factory
-        specs = instrument.processor_factory
+        specs = instrument.workflow_factory
         assert len(specs) == 1
         spec = next(iter(specs.values()))
         assert spec.instrument == "test_instrument"
@@ -206,7 +206,7 @@ class TestInstrument:
         registered_factory = decorator(simple_factory)
         assert registered_factory is simple_factory
 
-        specs = instrument.processor_factory
+        specs = instrument.workflow_factory
         assert len(specs) == 1
         spec = next(iter(specs.values()))
         assert spec.namespace == "data_reduction"  # default
@@ -240,7 +240,7 @@ class TestInstrument:
             factory2
         )
 
-        specs = instrument.processor_factory
+        specs = instrument.workflow_factory
         assert len(specs) == 2
 
         workflow_names = {spec.name for spec in specs.values()}
