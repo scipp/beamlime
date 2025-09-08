@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable, Hashable
 from typing import TypeVar
 
@@ -31,7 +32,10 @@ class JobService:
         self._data_service = data_service
         self._job_data: dict[JobNumber, dict[SourceName, SourceData]] = {}
         self._job_info: dict[JobNumber, WorkflowId] = {}
-        self._job_update_subscribers: list[Callable[[], None]] = []
+        self._job_statuses: dict[JobId, JobStatus] = {}
+        self._last_status_update: dict[JobId, float] = {}
+        self._job_data_update_subscribers: list[Callable[[], None]] = []
+        self._job_status_update_subscribers: list[Callable[[JobStatus], None]] = []
         self._data_service.register_subscriber(self.data_updated)
 
     @property
@@ -42,17 +46,84 @@ class JobService:
     def job_info(self) -> dict[JobNumber, WorkflowId]:
         return self._job_info
 
+    @property
+    def job_statuses(self) -> dict[JobId, JobStatus]:
+        """Access to all stored job statuses."""
+        return self._job_statuses
+
+    def get_job_status(self, job_id: JobId) -> JobStatus | None:
+        """Get the current status of a specific job."""
+        return self._job_statuses.get(job_id)
+
+    def get_last_status_update_time(self, job_id: JobId) -> float | None:
+        """Get the timestamp of the last status update for a job."""
+        return self._last_status_update.get(job_id)
+
+    def is_job_status_stale(
+        self, job_id: JobId, stale_threshold_seconds: float = 300
+    ) -> bool:
+        """
+        Check if a job's status is stale (no updates received for a while).
+
+        Args:
+            job_id: The job to check
+            stale_threshold_seconds: Consider stale if no updates for this many seconds
+
+        Returns:
+            True if the job status is stale, False otherwise
+        """
+        last_update = self._last_status_update.get(job_id)
+        if last_update is None:
+            return False  # No updates yet, not considered stale
+
+        return time.time() - last_update > stale_threshold_seconds
+
+    def get_stale_jobs(self, stale_threshold_seconds: float = 300) -> list[JobId]:
+        """
+        Get all jobs whose status updates are stale.
+
+        Args:
+            stale_threshold_seconds: Consider stale if no updates for this many seconds
+
+        Returns:
+            List of job IDs with stale status updates
+        """
+        stale_jobs = []
+        current_time = time.time()
+
+        for job_id, last_update in self._last_status_update.items():
+            if current_time - last_update > stale_threshold_seconds:
+                stale_jobs.append(job_id)
+
+        return stale_jobs
+
     def register_job_update_subscriber(self, callback: Callable[[], None]) -> None:
         """Register a callback to be called when job data is updated."""
-        self._job_update_subscribers.append(callback)
+        self._job_data_update_subscribers.append(callback)
         # Immediately notify the new subscriber of current state
         try:
             callback()
         except Exception as e:
             self._logger.error("Error in job update callback: %s", e)
 
+    def register_job_status_update_subscriber(
+        self, callback: Callable[[JobStatus], None]
+    ) -> None:
+        """Register a callback to be called when job status is updated."""
+        self._job_status_update_subscribers.append(callback)
+        # Immediately notify the new subscriber of current state
+        try:
+            for job_status in self._job_statuses.values():
+                callback(job_status)
+        except Exception as e:
+            self._logger.error("Error in job status update callback: %s", e)
+
     def status_updated(self, job_status: JobStatus) -> None:
+        """Update the stored job status and track when the update was received."""
         self._logger.info("Job status updated: %s", job_status)
+        self._job_statuses[job_status.job_id] = job_status
+        self._last_status_update[job_status.job_id] = time.time()
+        self._notify_job_status_update()
 
     def data_updated(self, updated_keys: set[ResultKey]) -> None:
         notify_job_data_update = False
@@ -86,11 +157,27 @@ class JobService:
         self._logger.info("Job data updated for jobs: %s", list(self._job_info.keys()))
 
         # Notify all subscribers
-        for callback in self._job_update_subscribers:
+        for callback in self._job_data_update_subscribers:
             try:
                 callback()
             except Exception as e:
                 self._logger.error("Error in job update callback: %s", e)
+
+    def _notify_job_status_update(self) -> None:
+        """Notify listeners about job status updates."""
+        # For now we just log the job status updates. In future we may want to have a
+        # more sophisticated notification mechanism.
+        self._logger.info(
+            "Job statuses updated for jobs: %s", list(self._job_statuses.keys())
+        )
+
+        # Notify all subscribers
+        for callback in self._job_status_update_subscribers:
+            try:
+                for job_status in self._job_statuses.values():
+                    callback(job_status)
+            except Exception as e:
+                self._logger.error("Error in job status update callback: %s", e)
 
     # To move from WorkflowController
     def stop_job(self, job: JobId) -> None: ...

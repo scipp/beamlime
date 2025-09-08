@@ -13,6 +13,7 @@ from beamlime.dashboard.plotting import PlotterSpec
 from beamlime.dashboard.plotting_controller import PlottingController
 
 from .configuration_widget import ConfigurationAdapter, ConfigurationModal
+from .job_status_widget import JobStatusWidget
 
 
 class PlotConfigurationAdapter(ConfigurationAdapter):
@@ -97,6 +98,7 @@ class PlotCreationWidget:
         self._plot_counter = 0  # Counter for unique plot tab names
 
         # Create UI components
+        self._job_status_widget = JobStatusWidget(job_service)
         self._job_output_table = self._create_job_output_table()
         self._plot_selector = self._create_plot_selector()
         self._create_button = self._create_plot_button()
@@ -116,6 +118,7 @@ class PlotCreationWidget:
             self._create_creation_tab(), self._modal_container
         )
         self._main_tabs = pn.Tabs(
+            ("Jobs", self._job_status_widget.panel),
             ("Create Plot", self._creation_tab),
             ("Plots", self._plot_tabs),
             sizing_mode='stretch_width',
