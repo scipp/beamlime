@@ -51,18 +51,18 @@ class JobService:
         except Exception as e:
             self._logger.error("Error in job update callback: %s", e)
 
-    def status_udated(self, job_status: JobStatus) -> None:
+    def status_updated(self, job_status: JobStatus) -> None:
         self._logger.info("Job status updated: %s", job_status)
 
     def data_updated(self, updated_keys: set[ResultKey]) -> None:
-        notify_job_update = False
+        notify_job_data_update = False
         for key in updated_keys:
             value = self._data_service[key]
             job_number = key.job_id.job_number
             source_name = key.job_id.source_name
             if (workflow_id := self._job_info.get(job_number)) is None:
                 self._job_info[job_number] = key.workflow_id
-                notify_job_update = True
+                notify_job_data_update = True
             elif workflow_id != key.workflow_id:
                 self._logger.warning(
                     "Workflow ID mismatch for job %s: existing %s, new %s. ",
@@ -76,10 +76,10 @@ class JobService:
             # output_name is None.
             source_data = all_source_data.setdefault(source_name, {})
             source_data[key.output_name] = value
-        if notify_job_update:
-            self._notify_job_update()
+        if notify_job_data_update:
+            self._notify_job_data_update()
 
-    def _notify_job_update(self) -> None:
+    def _notify_job_data_update(self) -> None:
         """Notify listeners about job updates."""
         # For now we just log the job updates. In future we may want to have a more
         # sophisticated notification mechanism.

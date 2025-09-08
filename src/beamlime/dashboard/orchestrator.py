@@ -63,7 +63,7 @@ class Orchestrator:
             The data to be forwarded.
         """
         if stream_id == STATUS_STREAM_ID:
-            self._job_service.status_udated(value)
+            self._job_service.status_updated(value)
         else:
             result_key = ResultKey.model_validate_json(stream_id.name)
             self._data_service[result_key] = value
