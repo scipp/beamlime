@@ -4,7 +4,7 @@ import pytest
 import scipp as sc
 
 from beamlime.config.instrument import Instrument, InstrumentRegistry
-from beamlime.handlers.stream_processor_factory import (
+from beamlime.handlers.workflow_factory import (
     Workflow,
     WorkflowFactory,
 )

@@ -13,7 +13,7 @@ from ..config.instrument import Instrument
 from ..core.handler import JobBasedHandlerFactoryBase
 from ..core.message import StreamId, StreamKind
 from .accumulators import Accumulator, CollectTOA, Cumulative, MonitorEvents
-from .stream_processor_factory import Workflow
+from .workflow_factory import Workflow
 
 
 class MonitorDataParams(pydantic.BaseModel):

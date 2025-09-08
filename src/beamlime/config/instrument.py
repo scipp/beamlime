@@ -10,10 +10,7 @@ from typing import Any
 import scipp as sc
 import scippnexus as snx
 
-from beamlime.handlers.stream_processor_factory import (
-    Workflow,
-    WorkflowFactory,
-)
+from beamlime.handlers.workflow_factory import Workflow, WorkflowFactory
 
 from .workflow_spec import WorkflowSpec
 

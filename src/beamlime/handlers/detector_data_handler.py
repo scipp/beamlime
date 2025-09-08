@@ -19,7 +19,7 @@ from ..config.instrument import Instrument
 from ..core.handler import Accumulator, JobBasedHandlerFactoryBase
 from ..core.message import StreamId, StreamKind
 from .accumulators import DetectorEvents, GroupIntoPixels, ROIBasedTOAHistogram
-from .stream_processor_factory import Workflow
+from .workflow_factory import Workflow
 
 
 class DetectorViewParams(pydantic.BaseModel):

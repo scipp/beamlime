@@ -12,8 +12,8 @@ from ..config.instrument import Instrument
 from ..core.handler import JobBasedHandlerFactoryBase
 from ..core.message import StreamId
 from .accumulators import LogData
-from .stream_processor_factory import Workflow
 from .to_nxlog import ToNXlog
+from .workflow_factory import Workflow
 
 
 class TimeseriesStreamProcessor(Workflow):

@@ -9,7 +9,7 @@ from typing import Any
 import scipp as sc
 
 from beamlime.config.instrument import Instrument
-from beamlime.handlers.stream_processor_factory import Workflow
+from beamlime.handlers.workflow_factory import Workflow
 
 from ..config.workflow_spec import JobSchedule, WorkflowConfig
 from .message import StreamId
