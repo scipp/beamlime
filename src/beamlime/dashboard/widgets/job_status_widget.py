@@ -71,8 +71,8 @@ class JobStatusWidget:
         if self._job_status.has_error or self._job_status.has_warning:
             self._setup_error_display()
 
-    def _create_action_buttons(self) -> pn.layout.Row:
-        """Create action buttons based on job state."""
+    def _get_button_widgets(self) -> list[pn.widgets.Button]:
+        """Get button widgets based on current job state."""
         buttons = []
 
         # Reset button - always available for non-removed jobs
@@ -130,6 +130,11 @@ class JobStatusWidget:
             )
             stop_btn.on_click(lambda event: self._send_action(JobAction.stop))
             buttons.append(stop_btn)
+        return buttons
+
+    def _create_action_buttons(self) -> pn.layout.Row:
+        """Create action buttons based on job state."""
+        buttons = self._get_button_widgets()
         return pn.Row(*buttons, margin=(5, 5))
 
     def _send_action(self, action: JobAction) -> None:
@@ -234,8 +239,8 @@ class JobStatusWidget:
         # Update status indicator if state changed
         if old_status.state != job_status.state:
             self._update_status_indicator()
-            # Recreate action buttons when state changes
-            self._action_buttons = self._create_action_buttons()
+            # Update action buttons when state changes
+            self._update_action_buttons()
 
         # Update timing info if times changed
         if (
@@ -268,6 +273,15 @@ class JobStatusWidget:
         """Update just the timing information."""
         timing_text = self._format_timing()
         self._timing_info.object = timing_text
+
+    def _update_action_buttons(self) -> None:
+        """Update action buttons in place when job state changes."""
+        # Clear existing buttons
+        self._action_buttons.clear()
+
+        # Add new buttons based on current state
+        new_buttons = self._get_button_widgets()
+        self._action_buttons.extend(new_buttons)
 
     def _update_error_display(self) -> None:
         """Update the error/warning display efficiently."""
