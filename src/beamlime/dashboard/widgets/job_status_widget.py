@@ -127,11 +127,11 @@ class JobStatusWidget:
     def _create_error_display(self) -> pn.pane.HTML:
         """Set up error/warning message display."""
         error_text = self._format_error_message()
-        # TODO Layout options
         return pn.pane.HTML(
             error_text,
             height=UIConstants.ERROR_BRIEF_HEIGHT,
             width=UIConstants.ERROR_BRIEF_WIDTH,
+            margin=UIConstants.ERROR_MARGIN,
         )
 
     def _create_button(self, symbol: str, callback) -> pn.widgets.Button:
@@ -225,7 +225,18 @@ class JobStatusWidget:
             return f"Started: {start_str}"
 
     def _format_error_message(self) -> str:
-        return "Dummy"  # TODO
+        """Format error/warning message to show first line as brief summary."""
+        if self._job_status.error_message:
+            msg = self._job_status.error_message
+            color = UIConstants.ERROR_COLOR
+        elif self._job_status.warning_message:
+            msg = self._job_status.warning_message
+            color = UIConstants.WARNING_COLOR
+        else:
+            return ""  # No error or warning message
+
+        first_line = msg.split('\n')[0].strip()
+        return f'<div style="{self._get_error_style(color)}">Error: {first_line}</div>'
 
     def _get_error_color(self) -> str:
         """Get error color based on error type."""
