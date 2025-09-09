@@ -230,13 +230,12 @@ class PlotCreationWidget:
         if job_output_data:
             # Convert to DataFrame for Tabulator widget
             df = pd.DataFrame(job_output_data)
-            self._job_output_table.value = df
         else:
             # Empty DataFrame with correct columns
             df = pd.DataFrame(
                 columns=['job_number', 'workflow_name', 'output_name', 'source_names']
             )
-            self._job_output_table.value = df
+        self._job_output_table.value = df
 
     def _on_job_output_selection_change(self, event) -> None:
         """Handle job and output selection change."""
