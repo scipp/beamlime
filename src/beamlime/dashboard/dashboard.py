@@ -35,7 +35,6 @@ from .orchestrator import Orchestrator
 from .plotting_controller import PlottingController
 from .schema_validator import PydanticSchemaValidator
 from .stream_manager import StreamManager
-from .widgets.job_control_widget import JobControlWidget
 from .widgets.plot_creation_widget import PlotCreationWidget
 from .widgets.reduction_widget import ReductionWidget
 from .workflow_controller import WorkflowController
@@ -240,8 +239,6 @@ class DashboardBase(ServiceBase, ABC):
             job_controller=self._job_controller,
             plotting_controller=self._plotting_controller,
         ).widget
-        job_control = JobControlWidget(self._job_controller).panel
-        sidebar_content.append(job_control)
 
         template = pn.template.MaterialTemplate(
             title=self.get_dashboard_title(),
