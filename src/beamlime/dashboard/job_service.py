@@ -10,7 +10,7 @@ from typing import TypeVar
 import scipp as sc
 
 from beamlime.config.workflow_spec import JobId, JobNumber, ResultKey, WorkflowId
-from beamlime.core.job import JobStatus
+from beamlime.core.job import JobState, JobStatus
 
 from .data_service import DataService
 
@@ -34,6 +34,7 @@ class JobService:
         self._job_info: dict[JobNumber, WorkflowId] = {}
         self._job_statuses: dict[JobId, JobStatus] = {}
         self._last_status_update: dict[JobId, float] = {}
+        self._removed_jobs: set[JobId] = set()
         self._job_data_update_subscribers: list[Callable[[], None]] = []
         self._job_status_update_subscribers: list[Callable[[], None]] = []
         self._data_service.register_subscriber(self.data_updated)
@@ -119,6 +120,16 @@ class JobService:
 
     def status_updated(self, job_status: JobStatus) -> None:
         """Update the stored job status and track when the update was received."""
+        # Avoid re-adding removed jobs by in-flight status messages from backend.
+        if (
+            job_status.state == JobState.stopped
+            and job_status.job_id in self._removed_jobs
+        ):
+            self._logger.debug(
+                "Ignoring status update for removed job %s", job_status.job_id
+            )
+            return
+
         self._logger.info("Job status updated: %s", job_status)
         self._job_statuses[job_status.job_id] = job_status
         self._last_status_update[job_status.job_id] = time.time()
@@ -177,6 +188,9 @@ class JobService:
 
     def remove_job(self, job_id: JobId) -> None:
         """Remove a job from tracking."""
+        # Mark this job as removed to filter future status updates
+        self._removed_jobs.add(job_id)
+
         # Remove from job statuses
         if job_id in self._job_statuses:
             del self._job_statuses[job_id]
