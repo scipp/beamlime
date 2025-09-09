@@ -70,7 +70,9 @@ class JobStatusWidget:
     def __init__(self, job_status: JobStatus, job_controller: JobController) -> None:
         self._job_status = job_status
         self._job_controller = job_controller
+        self._panel = None  # Store panel reference for dynamic updates
         self._setup_widgets()
+        self._create_panel()
 
     def _setup_widgets(self) -> None:
         """Set up the UI components."""
@@ -251,10 +253,45 @@ class JobStatusWidget:
             else UIConstants.WARNING_COLOR
         )
 
+    def _has_error_or_warning(self) -> bool:
+        """Check if there's an error or warning message to display."""
+        return bool(self._job_status.error_message or self._job_status.warning_message)
+
+    def _create_panel(self) -> None:
+        """Create the panel layout for this widget."""
+        # Main row with job info, status, timing, and actions
+        main_row = pn.Row(
+            self._job_info,
+            self._status_indicator,
+            self._timing_info,
+            self._action_buttons,
+            sizing_mode="stretch_both",
+        )
+
+        # Only include error display if there's an error or warning message
+        components = [main_row]
+        if self._has_error_or_warning():
+            components.append(self._error_display)
+
+        self._panel = pn.Column(
+            *components,
+            styles={
+                "border": "1px solid #dee2e6",
+                "border-radius": "4px",
+                "margin": "2px",
+            },
+            sizing_mode="stretch_both",
+        )
+
     def update_status(self, job_status: JobStatus) -> None:
         """Update the widget with new job status, only changing what's necessary."""
         old_status = self._job_status
         self._job_status = job_status
+
+        # Check if error/warning state changed (affects panel layout)
+        error_state_changed = bool(
+            old_status.error_message or old_status.warning_message
+        ) != bool(job_status.error_message or job_status.warning_message)
 
         # Update status indicator if state changed
         if old_status.state != job_status.state:
@@ -275,6 +312,9 @@ class JobStatusWidget:
             or old_status.warning_message != job_status.warning_message
         ):
             self._update_error_display()
+            # If error state changed, recreate the panel to add/remove error widget
+            if error_state_changed:
+                self._recreate_panel()
 
     def _update_status_indicator(self) -> None:
         """Update just the status indicator."""
@@ -304,14 +344,12 @@ class JobStatusWidget:
         new_buttons = self._get_button_widgets()
         self._action_buttons.extend(new_buttons)
 
-    @property
-    def job_id(self):
-        """Get the job ID for this widget."""
-        return self._job_status.job_id
+    def _recreate_panel(self) -> None:
+        """Recreate the panel layout when error/warning state changes."""
+        # Clear the existing panel
+        self._panel.clear()
 
-    def panel(self) -> pn.layout.Column:
-        """Get the panel layout for this widget."""
-        # Main row with job info, status, timing, and actions
+        # Create new components
         main_row = pn.Row(
             self._job_info,
             self._status_indicator,
@@ -320,16 +358,19 @@ class JobStatusWidget:
             sizing_mode="stretch_both",
         )
 
-        return pn.Column(
-            main_row,
-            self._error_display,
-            styles={
-                "border": "1px solid #dee2e6",
-                "border-radius": "4px",
-                "margin": "2px",
-            },
-            sizing_mode="stretch_both",
-        )
+        # Add components to the panel
+        self._panel.append(main_row)
+        if self._has_error_or_warning():
+            self._panel.append(self._error_display)
+
+    @property
+    def job_id(self):
+        """Get the job ID for this widget."""
+        return self._job_status.job_id
+
+    def panel(self) -> pn.layout.Column:
+        """Get the panel layout for this widget."""
+        return self._panel
 
 
 class JobStatusListWidget:
