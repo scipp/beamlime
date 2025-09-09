@@ -40,7 +40,7 @@ services:
       KAFKA_HEAP_OPTS: "-Xmx3G -Xms3G"
       # More aggressive cleanup to prevent memory buildup
       KAFKA_LOG_RETENTION_BYTES: 1073741824  # 1GB total retention
-      KAFKA_LOG_RETENTION_HOURS: 1           # Keep logs for 1 hours
+      KAFKA_LOG_RETENTION_HOURS: 1           # Keep logs for 1 hour
       KAFKA_LOG_SEGMENT_BYTES: 67108864      # 64MB per segment (smaller for faster cleanup)
       KAFKA_LOG_CLEANUP_POLICY: delete       # Delete old segments
       KAFKA_LOG_CLEANER_MIN_CLEANABLE_RATIO: 0.1
