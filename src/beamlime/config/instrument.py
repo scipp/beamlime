@@ -7,10 +7,10 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from beamlime.handlers.stream_processor_factory import (
-    StreamProcessor,
-    StreamProcessorFactory,
-)
+import scipp as sc
+import scippnexus as snx
+
+from beamlime.handlers.workflow_factory import Workflow, WorkflowFactory
 
 from .workflow_spec import WorkflowSpec
 
@@ -36,7 +36,7 @@ class InstrumentRegistry(UserDict[str, 'Instrument']):
         self[instrument.name] = instrument
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class Instrument:
     """
     Class for instrument configuration.
@@ -50,22 +50,61 @@ class Instrument:
     """
 
     name: str
-    processor_factory: StreamProcessorFactory = field(
-        default_factory=StreamProcessorFactory
-    )
+    workflow_factory: WorkflowFactory = field(default_factory=WorkflowFactory)
     source_to_key: dict[str, type] = field(default_factory=dict)
     f144_attribute_registry: dict[str, dict[str, Any]] = field(default_factory=dict)
+    _detector_numbers: dict[str, sc.Variable] = field(default_factory=dict)
+    _nexus_file: str | None = None
+    active_namespace: str | None = None
+
+    @property
+    def nexus_file(self) -> str:
+        from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
+
+        if self._nexus_file is None:
+            try:
+                self._nexus_file = get_nexus_geometry_filename(self.name)
+            except ValueError as e:
+                raise ValueError(
+                    f"Nexus file not set or found for instrument {self.name}."
+                ) from e
+        return self._nexus_file
+
+    @property
+    def detector_names(self) -> list[str]:
+        """Get the names of all detectors registered in this instrument."""
+        return list(self._detector_numbers.keys())
+
+    def add_detector(
+        self, name: str, detector_number: sc.Variable | None = None
+    ) -> None:
+        if detector_number is not None:
+            self._detector_numbers[name] = detector_number
+            return
+        candidate = snx.load(
+            self.nexus_file, root=f'entry/instrument/{name}/detector_number'
+        )
+        if not isinstance(candidate, sc.Variable):
+            raise ValueError(
+                f"Detector {name} not found in {self.nexus_file}. "
+                "Please provide a detector_number explicitly."
+            )
+        self._detector_numbers[name] = candidate
+
+    def get_detector_number(self, name: str) -> sc.Variable:
+        return self._detector_numbers[name]
 
     def register_workflow(
         self,
         *,
+        namespace: str = 'data_reduction',
         name: str,
         version: int,
         title: str,
         description: str = '',
         source_names: Sequence[str] | None = None,
         aux_source_names: Sequence[str] | None = None,
-    ) -> Callable[[Callable[..., StreamProcessor]], Callable[..., StreamProcessor]]:
+    ) -> Callable[[Callable[..., Workflow]], Callable[..., Workflow]]:
         """
         Decorator to register a factory function for creating StreamProcessors.
 
@@ -103,6 +142,7 @@ class Instrument:
         """
         spec = WorkflowSpec(
             instrument=self.name,
+            namespace=namespace,
             name=name,
             version=version,
             title=title,
@@ -111,7 +151,7 @@ class Instrument:
             params=None,  # placeholder, filled in from type hint later
             aux_source_names=list(aux_source_names or []),
         )
-        return self.processor_factory.register(spec)
+        return self.workflow_factory.register(spec)
 
 
 instrument_registry = InstrumentRegistry()

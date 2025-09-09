@@ -10,28 +10,9 @@ from enum import Enum
 from typing import Any, Literal
 
 import scipp as sc
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 TimeUnit = Literal['ns', 'us', 'μs', 'ms', 's']
-
-
-class TOARange(BaseModel):
-    """Time of arrival range filter settings."""
-
-    enabled: bool = Field(default=False, description="Enable the range filter.")
-    low: float = Field(default=0.0, description="Lower bound of the time window.")
-    high: float = Field(default=72_000.0, description="Upper bound of the time window.")
-    unit: TimeUnit = Field(default="μs", description="Physical unit for time values.")
-
-    @property
-    def range_ns(self) -> tuple[sc.Variable, sc.Variable] | None:
-        """Time window range in nanoseconds as a scipp scalar."""
-        if not self.enabled:
-            return None
-        return (
-            sc.scalar(self.low, unit=self.unit).to(unit='ns'),
-            sc.scalar(self.high, unit=self.unit).to(unit='ns'),
-        )
 
 
 class WeightingMethod(str, Enum):
@@ -85,33 +66,6 @@ class UpdateEvery(TimeModel):
 
     value: float = Field(default=1.0, ge=0.1, description="Time value.")
     unit: TimeUnit = Field(default="s", description="Physical unit for the time value.")
-
-
-class ROIAxisRange(BaseModel):
-    """
-    Setting for the range of an axis to use for a rectangular ROI.
-
-    Low and high are given as fractions of the axis length between 0 and 1.
-    """
-
-    low: float = Field(
-        ge=0.0, lt=1.0, default=0.49, description="Start of the ROI as a fraction."
-    )
-    high: float = Field(
-        ge=0.0, lt=1.0, default=0.51, description="End of the ROI as a fraction."
-    )
-
-    @model_validator(mode='after')
-    def validate_range(self) -> ROIAxisRange:
-        """Validate that low < high."""
-        if self.low >= self.high:
-            raise ValueError('Low value must be less than high value')
-        return self
-
-
-class ROIRectangle(BaseModel):
-    x: ROIAxisRange = Field(default_factory=ROIAxisRange)
-    y: ROIAxisRange = Field(default_factory=ROIAxisRange)
 
 
 class ConfigKey(BaseModel, frozen=True):

@@ -12,24 +12,16 @@ from ess.reduce.streaming import StreamProcessor
 
 from beamlime.config import Instrument, instrument_registry
 from beamlime.config.env import StreamingEnv
-from beamlime.handlers.monitor_data_handler import make_beam_monitor_instrument
+from beamlime.handlers.detector_data_handler import (
+    DetectorLogicalView,
+    LogicalViewConfig,
+)
+from beamlime.handlers.monitor_data_handler import register_monitor_workflows
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
-detectors_config = {
-    'detectors': {
-        'Panel 0': {
-            'detector_name': 'panel_0',
-            'detector_number': sc.arange('yx', 0, 128**2, unit=None).fold(
-                dim='yx', sizes={'y': -1, 'x': 128}
-            ),
-        },
-    },
-    'fakes': {
-        'panel_0': (1, 128**2),
-    },
-}
+detectors_config = {'fakes': {'panel_0': (1, 128**2)}}
 
 
 def _make_dummy_detectors() -> StreamLUT:
@@ -52,13 +44,21 @@ instrument = Instrument(
     name='dummy',
     source_to_key={'panel_0': Events},
 )
-
-_monitor_instrument = make_beam_monitor_instrument(
-    name='dummy', source_names=['monitor1', 'monitor2']
-)
-
+register_monitor_workflows(instrument=instrument, source_names=['monitor1', 'monitor2'])
 instrument_registry.register(instrument)
-instrument_registry.register(_monitor_instrument)
+instrument.add_detector(
+    'panel_0',
+    detector_number=sc.arange('yx', 1, 128**2 + 1, unit=None).fold(
+        dim='yx', sizes={'y': -1, 'x': 128}
+    ),
+)
+_panel_0_config = LogicalViewConfig(
+    name='panel_0_xy',
+    title='Panel 0',
+    description='',
+    source_names=['panel_0'],
+)
+_panel_0_view = DetectorLogicalView(instrument=instrument, config=_panel_0_config)
 
 
 @instrument.register_workflow(

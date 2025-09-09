@@ -9,7 +9,6 @@ from beamlime.core.handler import Accumulator
 from beamlime.handlers.accumulators import (
     CollectTOA,
     Cumulative,
-    ForwardingAccumulator,
     GroupIntoPixels,
     LogData,
     MonitorEvents,
@@ -73,31 +72,6 @@ class TestNullAccumulator:
         accumulator = NullAccumulator()
         accumulator.clear()
         # Should not raise any exceptions
-
-
-class TestForwardingAccumulator:
-    def test_add_stores_data(self) -> None:
-        accumulator = ForwardingAccumulator[str]()
-        accumulator.add(0, "test data")
-        assert accumulator.get() == "test data"
-
-    def test_get_before_add_raises_error(self) -> None:
-        accumulator = ForwardingAccumulator[str]()
-        with pytest.raises(ValueError, match="No data has been added"):
-            accumulator.get()
-
-    def test_add_overwrites_previous_data(self) -> None:
-        accumulator = ForwardingAccumulator[str]()
-        accumulator.add(0, "first")
-        accumulator.add(1, "second")
-        assert accumulator.get() == "second"
-
-    def test_clear_does_nothing(self) -> None:
-        accumulator = ForwardingAccumulator[str]()
-        accumulator.add(0, "test")
-        accumulator.clear()
-        # Clear doesn't affect ForwardingAccumulator behavior
-        assert accumulator.get() == "test"
 
 
 class TestCumulative:
@@ -308,7 +282,7 @@ class TestCollectTOA:
 class TestGroupIntoPixels:
     def test_get_before_add_raises_error(self) -> None:
         detector_number = sc.array(dims=['y', 'x'], values=[[0, 1], [2, 3]], unit=None)
-        grouper = GroupIntoPixels(config={}, detector_number=detector_number)
+        grouper = GroupIntoPixels(detector_number=detector_number)
 
         # Should not raise since it returns empty grouped data
         result = grouper.get()
@@ -316,7 +290,7 @@ class TestGroupIntoPixels:
 
     def test_groups_events_by_pixel_id(self) -> None:
         detector_number = sc.array(dims=['y', 'x'], values=[[0, 1], [2, 3]], unit=None)
-        grouper = GroupIntoPixels(config={}, detector_number=detector_number)
+        grouper = GroupIntoPixels(detector_number=detector_number)
 
         events = DetectorEvents(
             pixel_id=[0, 1, 0, 2],
@@ -341,7 +315,7 @@ class TestGroupIntoPixels:
 
     def test_raises_if_unit_is_not_ns(self) -> None:
         detector_number = sc.array(dims=['x'], values=[0, 1])
-        grouper = GroupIntoPixels(config={}, detector_number=detector_number)
+        grouper = GroupIntoPixels(detector_number=detector_number)
 
         events = DetectorEvents(
             pixel_id=[0, 1], time_of_arrival=[100.0, 200.0], unit='ms'
@@ -352,7 +326,7 @@ class TestGroupIntoPixels:
 
     def test_accumulates_multiple_chunks(self) -> None:
         detector_number = sc.array(dims=['x'], values=[0, 1], unit=None)
-        grouper = GroupIntoPixels(config={}, detector_number=detector_number)
+        grouper = GroupIntoPixels(detector_number=detector_number)
 
         events1 = DetectorEvents(
             pixel_id=[0, 1], time_of_arrival=[100.0, 200.0], unit='ns'
@@ -371,7 +345,7 @@ class TestGroupIntoPixels:
 
     def test_clear(self) -> None:
         detector_number = sc.array(dims=['x'], values=[0, 1], unit=None)
-        grouper = GroupIntoPixels(config={}, detector_number=detector_number)
+        grouper = GroupIntoPixels(detector_number=detector_number)
 
         events = DetectorEvents(
             pixel_id=[0, 1], time_of_arrival=[100.0, 200.0], unit='ns'

@@ -21,8 +21,12 @@ from scippnexus import NXdetector
 
 from beamlime.config import Instrument, instrument_registry
 from beamlime.config.env import StreamingEnv
-from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
-from beamlime.handlers.monitor_data_handler import make_beam_monitor_instrument
+from beamlime.handlers.detector_data_handler import (
+    DetectorLogicalView,
+    LogicalViewConfig,
+    get_nexus_geometry_filename,
+)
+from beamlime.handlers.monitor_data_handler import register_monitor_workflows
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
@@ -37,16 +41,18 @@ def _to_flat_detector_view(da: sc.DataArray) -> sc.DataArray:
 detector_number = sc.arange('detector_number', 1, 5 * 3 * 9 * 100 + 1, unit=None).fold(
     dim='detector_number', sizes={'analyzer': 5, 'tube': 3, 'sector': 9, 'pixel': 100}
 )
-detectors_config = {'detectors': {}}
+detectors_config = {}
 # Each NXdetetor is a He3 tube triplet with shape=(3, 100). Detector numbers in triplet
 # are *not* consecutive:
 # 1...900 with increasing angle (across all sectors)
 # 901 is back to first sector and detector, second tube
-detectors_config['detectors']['unified_detector'] = {
-    'detector_name': 'unified_detector',
-    'projection': _to_flat_detector_view,
-    'detector_number': detector_number,
-}
+_unified_detector_view = LogicalViewConfig(
+    name='unified_detector_view',
+    title='Unified detector view',
+    description='All banks merged into a single detector view.',
+    source_names=['unified_detector'],
+    transform=_to_flat_detector_view,
+)
 
 
 def _bifrost_generator() -> Generator[tuple[str, tuple[int, int]]]:
@@ -179,13 +185,12 @@ instrument = Instrument(
         'detector_rotation': {'units': 'deg'},
     },
 )
-
-_monitor_instrument = make_beam_monitor_instrument(
-    name='bifrost', source_names=['monitor1', 'monitor2']
-)
-
+register_monitor_workflows(instrument=instrument, source_names=['monitor1', 'monitor2'])
+instrument.add_detector('unified_detector', detector_number=detector_number)
 instrument_registry.register(instrument)
-instrument_registry.register(_monitor_instrument)
+_logical_view = DetectorLogicalView(
+    instrument=instrument, config=_unified_detector_view
+)
 
 
 @instrument.register_workflow(

@@ -19,73 +19,16 @@ from scippnexus import NXdetector
 from beamlime import parameter_models
 from beamlime.config import Instrument, instrument_registry
 from beamlime.config.env import StreamingEnv
-from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
-from beamlime.handlers.monitor_data_handler import make_beam_monitor_instrument
+from beamlime.handlers.detector_data_handler import (
+    DetectorProjection,
+    get_nexus_geometry_filename,
+)
+from beamlime.handlers.monitor_data_handler import register_monitor_workflows
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
-_res_scale = 12
-
 detectors_config = {
-    'detectors': {
-        'Rear-detector': {
-            'detector_name': 'loki_detector_0',
-            'resolution': {'y': 12 * _res_scale, 'x': 12 * _res_scale},
-            'projection': 'xy_plane',
-            'pixel_noise': 'cylindrical',
-        },
-        # First window frame
-        'loki_detector_1': {
-            'detector_name': 'loki_detector_1',
-            'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
-            'projection': 'xy_plane',
-            'pixel_noise': 'cylindrical',
-        },
-        'loki_detector_2': {
-            'detector_name': 'loki_detector_2',
-            'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
-            'projection': 'xy_plane',
-            'pixel_noise': 'cylindrical',
-        },
-        'loki_detector_3': {
-            'detector_name': 'loki_detector_3',
-            'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
-            'projection': 'xy_plane',
-            'pixel_noise': 'cylindrical',
-        },
-        'loki_detector_4': {
-            'detector_name': 'loki_detector_4',
-            'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
-            'projection': 'xy_plane',
-            'pixel_noise': 'cylindrical',
-        },
-        # Second window frame
-        'loki_detector_5': {
-            'detector_name': 'loki_detector_5',
-            'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
-            'projection': 'xy_plane',
-            'pixel_noise': 'cylindrical',
-        },
-        'loki_detector_6': {
-            'detector_name': 'loki_detector_6',
-            'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
-            'projection': 'xy_plane',
-            'pixel_noise': 'cylindrical',
-        },
-        'loki_detector_7': {
-            'detector_name': 'loki_detector_7',
-            'resolution': {'y': 3 * _res_scale, 'x': 9 * _res_scale},
-            'projection': 'xy_plane',
-            'pixel_noise': 'cylindrical',
-        },
-        'loki_detector_8': {
-            'detector_name': 'loki_detector_8',
-            'resolution': {'y': 9 * _res_scale, 'x': 3 * _res_scale},
-            'projection': 'xy_plane',
-            'pixel_noise': 'cylindrical',
-        },
-    },
     'fakes': {
         'loki_detector_0': (1, 802816),
         'loki_detector_1': (802817, 1032192),
@@ -98,18 +41,6 @@ detectors_config = {
         'loki_detector_8': (2752513, 3211264),
     },
 }
-
-_source_names = (
-    'loki_detector_0',
-    'loki_detector_1',
-    'loki_detector_2',
-    'loki_detector_3',
-    'loki_detector_4',
-    'loki_detector_5',
-    'loki_detector_6',
-    'loki_detector_7',
-    'loki_detector_8',
-)
 
 
 class SansWorkflowParams(pydantic.BaseModel):
@@ -161,13 +92,29 @@ instrument = Instrument(
         'monitor2': NeXusData[Transmission, SampleRun],
     },
 )
-
-_monitor_instrument = make_beam_monitor_instrument(
-    name='loki', source_names=['monitor1', 'monitor2']
-)
-
+register_monitor_workflows(instrument=instrument, source_names=['monitor1', 'monitor2'])
 instrument_registry.register(instrument)
-instrument_registry.register(_monitor_instrument)
+for bank in range(9):
+    instrument.add_detector(f'loki_detector_{bank}')
+_xy_projection = DetectorProjection(
+    instrument=instrument,
+    projection='xy_plane',
+    pixel_noise='cylindrical',
+    resolution={
+        'loki_detector_0': {'y': 12, 'x': 12},
+        # First window frame
+        'loki_detector_1': {'y': 3, 'x': 9},
+        'loki_detector_2': {'y': 9, 'x': 3},
+        'loki_detector_3': {'y': 3, 'x': 9},
+        'loki_detector_4': {'y': 9, 'x': 3},
+        # Second window frame
+        'loki_detector_5': {'y': 3, 'x': 9},
+        'loki_detector_6': {'y': 9, 'x': 3},
+        'loki_detector_7': {'y': 3, 'x': 9},
+        'loki_detector_8': {'y': 9, 'x': 3},
+    },
+    resolution_scale=12,
+)
 
 
 def _transmission_from_current_run(
@@ -192,7 +139,7 @@ _accumulators = (
     name='i_of_q',
     version=1,
     title='I(Q)',
-    source_names=_source_names,
+    source_names=instrument.detector_names,
     aux_source_names=['monitor1', 'monitor2'],
 )
 def _i_of_q(source_name: str) -> StreamProcessor:
@@ -211,7 +158,7 @@ def _i_of_q(source_name: str) -> StreamProcessor:
     version=1,
     title='I(Q) with params',
     description='I(Q) reduction with configurable parameters.',
-    source_names=_source_names,
+    source_names=instrument.detector_names,
     aux_source_names=['monitor1', 'monitor2'],
 )
 def _i_of_q_with_params(

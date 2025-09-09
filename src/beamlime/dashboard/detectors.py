@@ -15,12 +15,10 @@ from beamlime import Service
 from beamlime.config import keys
 
 from . import plots
-from .controller_factory import RangeController
 from .dashboard import DashboardBase
 from .widgets.start_time_widget import StartTimeWidget
-from .widgets.toa_range_widget import TOARangeWidget
 
-pn.extension('holoviews', template='material')
+pn.extension('holoviews', 'modal', template='material')
 hv.extension('bokeh')
 
 # Rudimentary configuration for detector plots. There is some overlap with the
@@ -30,10 +28,10 @@ hv.extension('bokeh')
 # complex config system. Until we have a better idea of what exactly we will need to
 # configure, we keep it simple and postpone the decision.
 _dream = {
-    'Endcap Backward': ('endcap_backward_detector', 'endcap_backward'),
-    'High Resolution': ('high_resolution_detector', 'High-Res'),
-    'Mantle': ('mantle_detector', 'mantle_projection'),
-    'Endcap Forward': ('endcap_forward_detector', 'endcap_forward'),
+    'Endcap Backward': ('endcap_backward_detector', 'detector_xy_projection'),
+    'High Resolution': ('high_resolution_detector', 'detector_xy_projection'),
+    'Mantle': ('mantle_detector', 'mantle_front_layer'),
+    'Endcap Forward': ('endcap_forward_detector', 'detector_xy_projection'),
 }
 _config = {'dream': _dream}
 
@@ -51,6 +49,7 @@ class DashboardApp(DashboardBase):
         )
         self._config = _config[instrument]
 
+        self._setup_workflow_management('detector_data')
         self._setup_detector_streams()
         self._view_toggle = pn.widgets.RadioBoxGroup(
             value='Current', options=["Current", "Cumulative"], inline=True
@@ -60,10 +59,6 @@ class DashboardApp(DashboardBase):
         )
 
         self._logger.info("Detector dashboard initialized")
-        self._toa_controller = self._controller_factory.create(
-            config_key=keys.DETECTOR_TOA_RANGE.create_key(),
-            controller_cls=RangeController,
-        )
         self._reset_controller = self._controller_factory.create(
             config_key=keys.DETECTOR_START_TIME.create_key()
         )
@@ -83,7 +78,8 @@ class DashboardApp(DashboardBase):
             pn.pane.Markdown("## Controls"),
             self._view_toggle_group,
             StartTimeWidget(self._reset_controller).panel,
-            TOARangeWidget(self._toa_controller).panel,
+            pn.pane.Markdown("## Workflows"),
+            self._reduction_widget.widget,
         )
 
     def create_main_content(self) -> pn.viewable.Viewable:

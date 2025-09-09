@@ -57,7 +57,7 @@ class WorkflowSelectorWidget:
         )
         self._widget = self._create_widget()
         self._setup_callbacks()
-        self._controller.subscribe_to_workflow_updates(self._on_workflows_updated)
+        self._on_workflows_updated(self._controller.get_workflow_specs())
 
     def _create_widget(self) -> pn.Column:
         """Create the main selector widget."""

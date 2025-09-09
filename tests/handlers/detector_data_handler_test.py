@@ -1,39 +1,22 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-import numpy as np
 import pytest
 import scipp as sc
 
+from beamlime import StreamKind
+from beamlime.config import instrument_registry
+from beamlime.config.instrument import Instrument
 from beamlime.config.instruments import available_instruments, get_config
-from beamlime.core.handler import FakeConfigRegistry, Message, StreamId, StreamKind
-from beamlime.handlers.accumulators import DetectorEvents
+from beamlime.core.handler import StreamId
 from beamlime.handlers.detector_data_handler import (
     DetectorHandlerFactory,
     get_nexus_geometry_filename,
 )
 
 
-def test_factory_can_fall_back_to_configured_detector_number_for_LogicalView() -> None:
-    factory = DetectorHandlerFactory(
-        instrument='dummy', config_registry=FakeConfigRegistry()
-    )
-    handler = factory.make_handler(
-        StreamId(kind=StreamKind.DETECTOR_EVENTS, name='panel_0')
-    )
-    events = DetectorEvents(
-        pixel_id=np.array([1, 2, 3]),
-        time_of_arrival=np.array([4, 5, 6]),
-        unit='ns',
-    )
-    message = Message(
-        timestamp=1234,
-        stream=StreamId(kind=StreamKind.DETECTOR_EVENTS, name='ignored'),
-        value=events,
-    )
-    results = handler.handle([message])
-    assert len(results) == 2  # Detector view and ROI-based TOA histogram
-    counts = results[0].value.sum()['current'].data
-    assert sc.identical(counts, sc.scalar(3, unit='counts', dtype='int32'))
+def get_instrument(instrument_name: str) -> Instrument:
+    _ = get_config(instrument_name)  # Load the module to register the instrument
+    return instrument_registry[instrument_name]
 
 
 @pytest.mark.parametrize('instrument', ['dream', 'loki'])
@@ -60,13 +43,11 @@ def test_get_nexus_filename_raises_if_datetime_out_of_range() -> None:
         get_nexus_geometry_filename('dream', date=sc.datetime('2020-01-01T00:00:00'))
 
 
-@pytest.mark.parametrize('instrument', available_instruments())
-def test_factory_can_create_handler(instrument: str) -> None:
-    config = get_config(instrument).detectors_config
-    detectors = {view['detector_name'] for view in config['detectors'].values()}
-    assert len(detectors) > 0
-    factory = DetectorHandlerFactory(
-        instrument=instrument, config_registry=FakeConfigRegistry()
-    )
-    for name in detectors:
-        _ = factory.make_handler(StreamId(kind=StreamKind.DETECTOR_EVENTS, name=name))
+@pytest.mark.parametrize('instrument_name', available_instruments())
+def test_factory_can_create_preprocessor(instrument_name: str) -> None:
+    instrument = get_instrument(instrument_name)
+    factory = DetectorHandlerFactory(instrument=instrument)
+    for name in instrument.detector_names:
+        _ = factory.make_preprocessor(
+            StreamId(kind=StreamKind.DETECTOR_EVENTS, name=name)
+        )

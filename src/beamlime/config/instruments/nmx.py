@@ -4,37 +4,38 @@ import scipp as sc
 
 from beamlime.config import Instrument, instrument_registry
 from beamlime.config.env import StreamingEnv
+from beamlime.handlers.detector_data_handler import (
+    DetectorLogicalView,
+    LogicalViewConfig,
+)
+from beamlime.handlers.monitor_data_handler import register_monitor_workflows
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
 instrument = Instrument(name='nmx')
 instrument_registry.register(instrument)
+register_monitor_workflows(instrument=instrument, source_names=['monitor1', 'monitor2'])
 
 # TODO Unclear if this is transposed or not. Wait for updated files.
 dim = 'detector_number'
 sizes = {'x': 1280, 'y': 1280}
+for panel in range(3):
+    instrument.add_detector(
+        f'detector_panel_{panel}',
+        detector_number=sc.arange(
+            'detector_number', panel * 1280**2 + 1, (panel + 1) * 1280**2 + 1, unit=None
+        ).fold(dim=dim, sizes=sizes),
+    )
+_nmx_panels_config = LogicalViewConfig(
+    name='panel_xy',
+    title='Detector counts',
+    description='Detector counts per pixel.',
+    source_names=instrument.detector_names,
+)
+_nmx_panels_view = DetectorLogicalView(instrument=instrument, config=_nmx_panels_config)
+
 detectors_config = {
-    'detectors': {
-        'Panel 0': {
-            'detector_name': 'detector_panel_0',
-            'detector_number': sc.arange(
-                dim, 0 * 1280**2 + 1, 1 * 1280**2 + 1, unit=None
-            ).fold(dim=dim, sizes=sizes),
-        },
-        'Panel 1': {
-            'detector_name': 'detector_panel_1',
-            'detector_number': sc.arange(
-                dim, 1 * 1280**2 + 1, 2 * 1280**2 + 1, unit=None
-            ).fold(dim=dim, sizes=sizes),
-        },
-        'Panel 2': {
-            'detector_name': 'detector_panel_2',
-            'detector_number': sc.arange(
-                dim, 2 * 1280**2 + 1, 3 * 1280**2 + 1, unit=None
-            ).fold(dim=dim, sizes=sizes),
-        },
-    },
     'fakes': {
         f'detector_panel_{i}': (i * 1280**2 + 1, (i + 1) * 1280**2) for i in range(3)
     },

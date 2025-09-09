@@ -1,203 +1,249 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 
-import time
+import logging
 
-import numpy as np
 import pytest
-from streaming_data_types import eventdata_ev44
 
-from beamlime import StreamKind
-from beamlime.config.instruments import available_instruments, get_config
-from beamlime.config.streams import stream_kind_to_topic
-from beamlime.core.handler import output_stream_name
-from beamlime.fakes import FakeMessageSink
-from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
-from beamlime.kafka.sink import UnrollingSinkAdapter
-from beamlime.kafka.source import KafkaConsumer
+from beamlime.config import instrument_registry, workflow_spec
+from beamlime.config.models import ConfigKey
 from beamlime.services.detector_data import make_detector_service_builder
+from tests.helpers.beamlime_app import BeamlimeApp
 
 
-class EmptyConsumer(KafkaConsumer):
-    def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]:
-        return []
-
-    def close(self) -> None:
-        pass
-
-
-class Ev44Consumer(KafkaConsumer):
-    def __init__(
-        self,
-        instrument: str = 'dummy',
-        events_per_message: int = 1_000,
-        max_events: int = 1_000_000,
-    ) -> None:
-        self._topic = stream_kind_to_topic(
-            instrument=instrument, kind=StreamKind.DETECTOR_EVENTS
-        )
-        self._detector_config = get_config(instrument).detectors_config['fakes']
-        self._events_per_message = events_per_message
-        self._max_events = max_events
-        self._pixel_id = np.ones(events_per_message, dtype=np.int32)
-        self._rng = np.random.default_rng(seed=1234)  # Avoid test flakiness
-
-        self._reference_time = 0
-        self._running = False
-        self._count = 0
-        self._content = [
-            self.make_serialized_ev44(name) for name in self._detector_config
-        ]
-        self._current = 0
-
-    def start(self) -> None:
-        self._running = True
-
-    def reset(self) -> None:
-        self._running = False
-        self._count = 0
-
-    @property
-    def at_end(self) -> bool:
-        return self._count * self._events_per_message >= self._max_events * len(
-            self._detector_config
-        )
-
-    def _make_timestamp(self) -> int:
-        self._reference_time += 1
-        self._count += 1
-        return self._reference_time * 71_000_000 // len(self._detector_config)
-
-    def make_serialized_ev44(self, name: str) -> bytes:
-        time_of_arrival = self._rng.uniform(
-            0, 70_000_000, self._events_per_message
-        ).astype(np.int32)
-        first, last = self._detector_config[name]
-        pixel_id = self._rng.integers(
-            first, last + 1, self._events_per_message, dtype=np.int32
-        )
-        # Note empty reference_time. KafkaToEv44Adapter uses message.timestamp(), which
-        # allows us to reuse the serialized content, to avoid seeing the cost in the
-        # benchmarks.
-        return eventdata_ev44.serialise_ev44(
-            source_name=name,
-            message_id=0,
-            reference_time=[],
-            reference_time_index=0,
-            time_of_flight=time_of_arrival,
-            pixel_id=pixel_id,
-        )
-
-    def consume(self, num_messages: int, timeout: float) -> list[KafkaMessage]:
-        if not self._running or self.at_end:
-            return []
-        remaining_events = (
-            self._max_events * len(self._detector_config)
-            - self._count * self._events_per_message
-        )
-        remaining_messages = remaining_events // self._events_per_message
-        messages_to_produce = min(num_messages, remaining_messages)
-        if messages_to_produce <= 0:
-            return []
-        messages = [
-            FakeKafkaMessage(
-                value=self._content[(self._current + msg) % len(self._content)],
-                topic=self._topic,
-                timestamp=self._make_timestamp(),
-            )
-            for msg in range(messages_to_produce)
-        ]
-        self._current += messages_to_produce
-        return messages
-
-    def close(self) -> None:
-        pass
+def _get_workflow_from_registry(
+    instrument: str,
+) -> tuple[str, workflow_spec.WorkflowSpec]:
+    # Assume we can just use the first registered workflow.
+    namespace = 'detector_data'
+    instrument_config = instrument_registry[instrument]
+    workflow_registry = instrument_config.workflow_factory
+    for wid, spec in workflow_registry.items():
+        if spec.namespace == namespace:
+            return wid, spec
+    raise ValueError(f"Namespace {namespace} not found in specs")
 
 
-def start_and_wait_for_completion(consumer: Ev44Consumer) -> None:
-    consumer.start()
-    while not consumer.at_end:
-        time.sleep(0.01)
-    consumer.reset()
-
-
-@pytest.mark.parametrize('instrument', ['dummy', 'nmx', 'loki', 'dream'])
-@pytest.mark.parametrize('events_per_message', [10_000, 100_000, 1_000_000])
-def test_performance(benchmark, instrument: str, events_per_message: int) -> None:
-    # There is some caveat in this benchmark: Ev44Consumer has no concept of real time.
-    # It is thus always returning messages quickly, which shifts the balance in the
-    # services to a different place than in reality.
+def make_detector_app(instrument: str) -> BeamlimeApp:
     builder = make_detector_service_builder(instrument=instrument)
-    service = builder.from_consumer(
-        consumer=EmptyConsumer(), sink=FakeMessageSink(), raise_on_adapter_error=True
-    )
-
-    sink = FakeMessageSink()
-    consumer = Ev44Consumer(
-        instrument=instrument,
-        events_per_message=events_per_message,
-        max_events=50_000_000,
-    )
-    service = builder.from_consumer(
-        consumer=consumer, sink=sink, raise_on_adapter_error=True
-    )
-    service.start(blocking=False)
-    benchmark(start_and_wait_for_completion, consumer=consumer)
-    service.stop()
-    fake_detectors = get_config(instrument).detectors_config['fakes']
-    assert len(sink.messages) > len(fake_detectors) * 10
+    return BeamlimeApp.from_service_builder(builder)
 
 
-@pytest.mark.parametrize('instrument', available_instruments())
-def test_detector_data_service(instrument: str) -> None:
-    builder = make_detector_service_builder(instrument=instrument)
-    service = builder.from_consumer(
-        consumer=EmptyConsumer(), sink=FakeMessageSink(), raise_on_adapter_error=True
-    )
-    sink = FakeMessageSink()
-    consumer = Ev44Consumer(
-        instrument=instrument, events_per_message=100, max_events=10_000
-    )
-    service = builder.from_consumer(
-        consumer=consumer, sink=UnrollingSinkAdapter(sink), raise_on_adapter_error=True
-    )
-    service.start(blocking=False)
-    start_and_wait_for_completion(consumer=consumer)
-    service.stop()
-    source_names = [msg.stream.name for msg in sink.messages]
+detector_source_name = {
+    'dummy': 'panel_0',
+    'dream': 'mantle_detector',
+    'bifrost': 'unified_detector',
+    'loki': 'loki_detector_0',
+    'nmx': 'detector_panel_0',
+}
 
-    detectors = get_config(instrument).detectors_config['detectors']
-    for view_name, view_config in detectors.items():
-        base_key = output_stream_name(
-            service_name='detector_data',
-            stream_name=view_config['detector_name'],
-            signal_name=view_name,
-        )
-        assert f'{base_key}/cumulative' in source_names
-        assert f'{base_key}/current' in source_names
-        assert f'{base_key}/roi' in source_names
 
-    # Implicitly yields the latest cumulative message for each detector
-    cumulative = {
-        msg.stream.name: msg.value
-        for msg in sink.messages
-        if msg.stream.name.endswith('/cumulative')
-    }
-    assert len(cumulative) == len(detectors)
-    for name, msg in cumulative.items():
-        if instrument == 'dream':
-            if 'mantle_front_layer' in name:
-                # fraction of voxels => fracion of counts
-                assert 50 < msg.sum().value < 500
-            elif 'High-Res' in name:
-                # non-contiguous detector_number, but the fake produces random numbers
-                # in the gaps
-                assert 5000 < msg.sum().value < 8000
-            else:
-                assert msg.sum().value == 10000
-        elif instrument == 'bifrost':
-            # non-contiguous detector_number, but we get them "back" by merging banks
-            ndet = 45
-            assert msg.sum().value == 10000 * ndet
-        else:
-            assert msg.sum().value == 10000
+@pytest.mark.parametrize("instrument", ['bifrost', 'dummy', 'dream', 'loki', 'nmx'])
+def test_can_configure_and_stop_detector_workflow(
+    instrument: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = make_detector_app(instrument)
+    sink = app.sink
+    service = app.service
+    workflow_id, _ = _get_workflow_from_registry(instrument)
+
+    source_name = detector_source_name[instrument]
+    config_key = ConfigKey(
+        source_name=source_name, service_name="detector_data", key="workflow_config"
+    )
+    workflow_config = workflow_spec.WorkflowConfig(identifier=workflow_id)
+    # Trigger workflow start
+    app.publish_config_message(key=config_key, value=workflow_config.model_dump())
+    service.step()
+    assert len(sink.messages) == 1  # Workflow status message
+    sink.messages.clear()
+
+    app.publish_events(size=2000, time=2)
+    service.step()
+    # Each workflow call returns two results: cumulative and current
+    assert len(sink.messages) == 2
+    assert sink.messages[0].value.nansum().values == 2000  # cumulative
+    assert sink.messages[1].value.nansum().values == 2000  # current
+    # No data -> no data published
+    service.step()
+    assert len(sink.messages) == 2
+
+    app.publish_events(size=3000, time=4)
+    service.step()
+    assert len(sink.messages) == 4
+    assert sink.messages[2].value.values.sum() == 5000  # cumulative
+    assert sink.messages[3].value.values.sum() == 3000  # current
+
+    # More events but the same time
+    app.publish_events(size=1000, time=4)
+    # Later time
+    app.publish_events(size=1000, time=5)
+    service.step()
+    assert len(sink.messages) == 6
+    assert sink.messages[4].value.values.sum() == 7000  # cumulative
+    assert sink.messages[5].value.values.sum() == 2000  # current
+
+    # Stop workflow
+    stop = workflow_spec.WorkflowConfig(identifier=None).model_dump()
+    app.publish_config_message(key=config_key, value=stop)
+    app.publish_events(size=1000, time=10)
+    service.step()
+    app.publish_events(size=1000, time=20)
+    service.step()
+    assert len(sink.messages) == 6 + 1  # + 1 for the stop message
+
+
+def test_service_can_recover_after_bad_workflow_id_was_set(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = make_detector_app(instrument='dummy')
+    sink = app.sink
+    service = app.service
+    workflow_id, _ = _get_workflow_from_registry('dummy')
+
+    config_key = ConfigKey(
+        source_name='panel_0', service_name="detector_data", key="workflow_config"
+    )
+    bad_workflow_id = workflow_spec.WorkflowConfig(
+        identifier='dummy/detector_data/abcde12345',  # Invalid workflow ID
+    )
+    # Trigger workflow start
+    app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())
+
+    app.publish_events(size=2000, time=2)
+    service.step()
+    service.step()
+    app.publish_events(size=3000, time=4)
+    service.step()
+
+    assert len(sink.messages) == 1  # Workflow not started, just an error message
+    status = sink.messages[0].value.value
+    assert status.status == workflow_spec.WorkflowStatusType.STARTUP_ERROR
+    sink.messages.clear()  # Clear the error message
+
+    good_workflow_config = workflow_spec.WorkflowConfig(identifier=workflow_id)
+    # Trigger workflow start
+    app.publish_config_message(key=config_key, value=good_workflow_config.model_dump())
+    app.publish_events(size=1000, time=5)
+    service.step()
+    # Service recovered and started the workflow, get status and data
+    assert len(sink.messages) == 3  # status + 2 data messages
+
+
+def test_active_workflow_keeps_running_when_bad_workflow_id_was_set(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    app = make_detector_app(instrument='dummy')
+    sink = app.sink
+    service = app.service
+    workflow_id, _ = _get_workflow_from_registry('dummy')
+
+    # Start a valid workflow first
+    config_key = ConfigKey(
+        source_name=detector_source_name['dummy'],
+        service_name="detector_data",
+        key="workflow_config",
+    )
+    workflow_config = workflow_spec.WorkflowConfig(
+        identifier=workflow_id,
+    )
+    app.publish_config_message(key=config_key, value=workflow_config.model_dump())
+    service.step()
+    sink.messages.clear()  # Clear the workflow status message
+
+    # Add events and verify workflow is running
+    app.publish_events(size=2000, time=2)
+    service.step()
+    assert len(sink.messages) == 2  # cumulative, current
+    assert sink.messages[0].value.values.sum() == 2000
+
+    # Try to set an invalid workflow ID
+    bad_workflow_id = workflow_spec.WorkflowConfig(
+        identifier='dummy/detector_data/abcde12345',  # Invalid workflow ID
+    )
+    app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())
+
+    # Add more events and verify the original workflow is still running
+    app.publish_events(size=3000, time=4)
+    service.step()
+    assert len(sink.messages) == 4 + 1  # + 1 for the workflow status message
+    assert sink.messages[3].value.values.sum() == 5000  # cumulative
+
+
+@pytest.fixture
+def configured_dummy_detector() -> BeamlimeApp:
+    app = make_detector_app(instrument='dummy')
+    sink = app.sink
+    service = app.service
+    workflow_id, _ = _get_workflow_from_registry('dummy')
+
+    config_key = ConfigKey(
+        source_name='panel_0', service_name="detector_data", key="workflow_config"
+    )
+    workflow_config = workflow_spec.WorkflowConfig(identifier=workflow_id)
+    # Trigger workflow start
+    app.publish_config_message(key=config_key, value=workflow_config.model_dump())
+    # Process config message before data arrives. Without calling step() the order of
+    # processing of config vs data messages is not guaranteed.
+    service.step()
+    sink.messages.clear()  # Clear workflow start message
+    return app
+
+
+def test_message_with_unknown_schema_is_ignored(
+    configured_dummy_detector: BeamlimeApp,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = configured_dummy_detector
+    sink = app.sink
+
+    app.publish_events(size=1000, time=0, reuse_events=True)
+    # Unknown schema, should be skipped
+    app.publish_data(topic=app.detector_topic, time=1, data=b'corrupt data')
+    app.publish_events(size=1000, time=1, reuse_events=True)
+
+    app.step()
+    assert len(sink.messages) == 2  # cumulative, current
+    assert sink.messages[0].value.values.sum() == 2000
+
+    # Check log messages for exceptions
+    assert "has an unknown schema. Skipping." in caplog.text
+    warning_records = [
+        r
+        for r in caplog.records
+        if r.levelname == "WARNING" and "beamlime.kafka.message_adapter" in r.name
+    ]
+    assert any("has an unknown schema. Skipping." in r.message for r in warning_records)
+
+
+def test_message_that_cannot_be_decoded_is_ignored(
+    configured_dummy_detector: BeamlimeApp,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO)
+    app = configured_dummy_detector
+    sink = app.sink
+
+    app.publish_events(size=1000, time=0, reuse_events=True)
+    # Correct schema but invalid data, should be skipped
+    app.publish_data(topic=app.detector_topic, time=1, data=b'1234ev44data')
+    app.publish_events(size=1000, time=1, reuse_events=True)
+
+    app.step()
+    assert len(sink.messages) == 2  # cumulative, current
+    assert sink.messages[0].value.values.sum() == 2000
+
+    # Check log messages for exceptions
+    assert "Error adapting message" in caplog.text
+    assert "unpack_from requires a buffer" in caplog.text
+    error_records = [
+        r
+        for r in caplog.records
+        if r.levelname == "ERROR" and "beamlime.kafka.message_adapter" in r.name
+    ]
+    assert any("unpack_from requires a buffer" in r.message for r in error_records)

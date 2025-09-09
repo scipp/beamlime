@@ -17,7 +17,7 @@ def _get_workflow_from_registry(
     instrument: str, name: str
 ) -> tuple[str, workflow_spec.WorkflowSpec]:
     instrument_config = instrument_registry[instrument]
-    workflow_registry = instrument_config.processor_factory
+    workflow_registry = instrument_config.workflow_factory
     for wid, spec in workflow_registry.items():
         if spec.name == name:
             return wid, spec
@@ -222,7 +222,7 @@ def test_service_can_recover_after_bad_workflow_id_was_set(
         source_name='panel_0', service_name="data_reduction", key="workflow_config"
     )
     bad_workflow_id = workflow_spec.WorkflowConfig(
-        identifier='dummy/abcde12345',  # Invalid workflow ID
+        identifier='dummy/data_reduction/abcde12345',  # Invalid workflow ID
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())
@@ -311,7 +311,7 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_or_params_were_set(
 
     # Try to set an invalid workflow ID
     bad_workflow_id = workflow_spec.WorkflowConfig(
-        identifier='dummy/abcde12345',  # Invalid workflow ID
+        identifier='dummy/data_reduction/abcde12345',  # Invalid workflow ID
         params={},
     )
     app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())

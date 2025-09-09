@@ -2,125 +2,239 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-import logging
 import pathlib
 import re
-from typing import Any
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Hashable
+from dataclasses import dataclass, field
+from typing import Any, Literal
 
+import pydantic
 import scipp as sc
 from ess.reduce.live import raw
 
+from .. import parameter_models
 from ..config import models
-from ..config.instruments import get_config
-from ..core.handler import (
-    Accumulator,
-    Config,
-    ConfigModelAccessor,
-    ConfigRegistry,
-    Handler,
-    HandlerFactory,
-    PeriodicAccumulatingHandler,
-)
-from ..core.message import StreamId
-from .accumulators import (
-    DetectorEvents,
-    GroupIntoPixels,
-    NullAccumulator,
-    ROIBasedTOAHistogram,
-)
+from ..config.instrument import Instrument
+from ..core.handler import Accumulator, JobBasedHandlerFactoryBase
+from ..core.message import StreamId, StreamKind
+from .accumulators import DetectorEvents, GroupIntoPixels, ROIBasedTOAHistogram
+from .workflow_factory import Workflow
 
 
-class DetectorHandlerFactory(HandlerFactory[DetectorEvents, sc.DataArray]):
+class DetectorViewParams(pydantic.BaseModel):
+    pixel_weighting: models.PixelWeighting = pydantic.Field(
+        title="Pixel Weighting",
+        description="Whether to apply pixel weighting based on the number of pixels "
+        "contributing to each screen pixel.",
+        default=models.PixelWeighting(
+            enabled=False, method=models.WeightingMethod.PIXEL_NUMBER
+        ),
+    )
+    # TODO split out the enabled flag?
+    toa_range: parameter_models.TOARange = pydantic.Field(
+        title="Time of Arrival Range",
+        description="Time of arrival range for detector data.",
+        default=parameter_models.TOARange(),
+    )
+
+
+@dataclass(frozen=True, kw_only=True)
+class ViewConfig:
+    name: str
+    title: str
+    description: str
+    source_names: list[str] = field(default_factory=list)
+
+
+class DetectorProcessorFactory(ABC):
+    def __init__(self, *, instrument: Instrument, config: ViewConfig) -> None:
+        self._instrument = instrument
+        self._config = config
+        self._window_length = 1
+        self._register_with_instrument(instrument)
+
+    def make_view(self, source_name: str, params: DetectorViewParams) -> DetectorView:
+        """Factory method that will be registered as a workflow creation function."""
+        return DetectorView(
+            params=params, detector_view=self._make_rolling_view(source_name)
+        )
+
+    def make_roi(self, source_name: str, params: ROIHistogramParams) -> ROIHistogram:
+        """Factory method that will be registered as a workflow creation function."""
+        return ROIHistogram(
+            params=params, detector_view=self._make_rolling_view(source_name)
+        )
+
+    def _register_with_instrument(self, instrument: Instrument) -> None:
+        instrument.register_workflow(
+            namespace='detector_data',
+            name=self._config.name,
+            version=1,
+            title=self._config.title,
+            description=self._config.description,
+            source_names=self._config.source_names,
+        )(self.make_view)
+        instrument.register_workflow(
+            namespace='detector_data',
+            name=f'{self._config.name}_roi',
+            version=1,
+            title=f'ROI Histogram: {self._config.title} ',
+            description=f'ROI Histogram for {self._config.description}',
+            source_names=self._config.source_names,
+        )(self.make_roi)
+
+    @abstractmethod
+    def _make_rolling_view(self, source_name: str) -> raw.RollingDetectorView:
+        """Create a RollingDetectorView for the given source name."""
+
+
+class DetectorProjection(DetectorProcessorFactory):
+    def __init__(
+        self,
+        *,
+        instrument: Instrument,
+        projection: Literal['xy_plane', 'cylinder_mantle_z'],
+        pixel_noise: str | sc.Variable | None = None,
+        resolution: dict[str, dict[str, int]],
+        resolution_scale: float = 1,
+    ) -> None:
+        self._projection = projection
+        self._pixel_noise = pixel_noise
+        self._resolution = resolution
+        self._res_scale = resolution_scale
+        source_names = list(resolution.keys())
+        if projection == 'xy_plane':
+            config = ViewConfig(
+                name='detector_xy_projection',
+                title='Detector XY Projection',
+                description='Projection of a detector bank onto an XY-plane.',
+                source_names=source_names,
+            )
+        elif projection == 'cylinder_mantle_z':
+            config = ViewConfig(
+                name='detector_cylinder_mantle_z',
+                title='Detector Cylinder Mantle Z Projection',
+                description='Projection of a detector bank onto a cylinder mantle '
+                'along Z-axis.',
+                source_names=source_names,
+            )
+        else:
+            raise ValueError(f'Unsupported projection: {projection}')
+        super().__init__(instrument=instrument, config=config)
+
+    def _get_resolution(self, source_name: str) -> dict[str, int]:
+        aspect = self._resolution[source_name]
+        return {key: value * self._res_scale for key, value in aspect.items()}
+
+    def _make_rolling_view(self, source_name: str) -> raw.RollingDetectorView:
+        return raw.RollingDetectorView.from_nexus(
+            self._instrument.nexus_file,
+            detector_name=source_name,
+            window=self._window_length,
+            projection=self._projection,
+            resolution=self._get_resolution(source_name),
+            pixel_noise=self._pixel_noise,
+        )
+
+
+@dataclass(frozen=True, kw_only=True)
+class LogicalViewConfig(ViewConfig):
+    # If no projection defined, the shape of the detector_number is used.
+    transform: Callable[[sc.DataArray], sc.DataArray] | None = None
+
+
+class DetectorLogicalView(DetectorProcessorFactory):
+    def __init__(self, *, instrument: Instrument, config: LogicalViewConfig) -> None:
+        super().__init__(instrument=instrument, config=config)
+        self._config = config
+
+    def _make_rolling_view(self, source_name: str) -> raw.RollingDetectorView:
+        return raw.RollingDetectorView(
+            detector_number=self._instrument.get_detector_number(source_name),
+            window=self._window_length,
+            projection=self._config.transform,
+        )
+
+
+class LimitedRange(parameter_models.RangeModel):
+    """Model for a limited range between 0 and 1."""
+
+    start: float = parameter_models.Field(
+        ge=0.0, le=1.0, default=0.0, description="Start of the range."
+    )
+    stop: float = parameter_models.Field(
+        ge=0.0, le=1.0, default=1.0, description="Stop of the range."
+    )
+
+
+class ROIHistogramParams(pydantic.BaseModel):
+    x_range: LimitedRange = pydantic.Field(
+        title="X Range",
+        description="X range of the ROI as a fraction of the viewport.",
+        default=LimitedRange(start=0.0, stop=1.0),
+    )
+    y_range: LimitedRange = pydantic.Field(
+        title="Y Range",
+        description="Y range of the ROI as a fraction of the viewport.",
+        default=LimitedRange(start=0.0, stop=1.0),
+    )
+    toa_edges: parameter_models.TOAEdges = pydantic.Field(
+        title="Time of Arrival Edges",
+        description="Time of arrival edges for histogramming.",
+        default=parameter_models.TOAEdges(
+            start=0.0,
+            stop=1000.0 / 14,
+            num_bins=100,
+            unit=parameter_models.TimeUnit.MS,
+        ),
+    )
+
+
+class ROIHistogram(Workflow):
+    def __init__(
+        self, params: ROIHistogramParams, detector_view: raw.RollingDetectorView
+    ) -> None:
+        self._accumulator = ROIBasedTOAHistogram(
+            toa_edges=params.toa_edges.get_edges(),
+            x_range=params.x_range,
+            y_range=params.y_range,
+            roi_filter=detector_view.make_roi_filter(),
+        )
+
+    def accumulate(self, data: dict[Hashable, Any]) -> None:
+        if len(data) != 1:
+            raise ValueError("ROIHistogram expects exactly one data item.")
+        raw = next(iter(data.values()))
+        self._accumulator.add(0, raw)  # Timestamp not used.
+
+    def finalize(self) -> dict[str, sc.DataArray]:
+        return {'current': self._accumulator.get()}
+
+    def clear(self) -> None:
+        self._accumulator.clear()
+
+
+class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataArray]):
     """
     Factory for detector data handlers.
 
     Handlers are created based on the instrument name in the message key which should
     identify the detector name. Depending on the configured detector views a NeXus file
     with geometry information may be required to setup the view. Currently the NeXus
-    files are always obtained via Pooch. Note that this may need to be refactored to a
-    more dynamic approach in the future.
+    files are always obtained via Pooch.
     """
 
-    def __init__(
-        self,
-        *,
-        instrument: str,
-        logger: logging.Logger | None = None,
-        config_registry: ConfigRegistry,
-    ) -> None:
-        self._logger = logger or logging.getLogger(__name__)
-        self._config_registry = config_registry
-        self._instrument = instrument
-        self._detector_config = get_config(instrument).detectors_config['detectors']
-        self._nexus_file = _try_get_nexus_geometry_filename(instrument)
-        self._window_length = 1
-
-    def _make_view(
-        self, detector_config: dict[str, Any]
-    ) -> raw.RollingDetectorView | None:
-        projection = detector_config.get('projection')
-        if (
-            (self._nexus_file is None or self._instrument == 'bifrost')
-            and (projection is None or not isinstance(projection, str))
-            and (detector_number := detector_config.get('detector_number')) is not None
-        ):
-            return raw.RollingDetectorView(
-                detector_number=detector_number,
-                window=self._window_length,
-                projection=projection,
-            )
-        if self._nexus_file is None:
-            self._logger.error(
-                'NeXus file is required to setup detector view for %s', detector_config
-            )
-            return None
-        return raw.RollingDetectorView.from_nexus(
-            self._nexus_file,
-            detector_name=detector_config['detector_name'],
-            window=self._window_length,
-            projection=detector_config['projection'],
-            resolution=detector_config.get('resolution'),
-            pixel_noise=detector_config.get('pixel_noise'),
-        )
-
-    def make_handler(self, key: StreamId) -> Handler[DetectorEvents, sc.DataArray]:
-        detector_name = key.name
-        candidates = {
-            view_name: self._make_view(detector)
-            for view_name, detector in self._detector_config.items()
-            if detector['detector_name'] == detector_name
-        }
-        views = {name: view for name, view in candidates.items() if view is not None}
-        if not views:
-            self._logger.warning('No views configured for %s', detector_name)
-        detector_number: sc.Variable | None = None
-        accumulators: dict[str, Accumulator[sc.DataArray, sc.DataArray]] = {}
-        config = self._config_registry.get_config(detector_name)
-        for name, view in views.items():
-            detector_number = view.detector_number
-            accumulators[name] = DetectorCounts(
-                logger=self._logger, config=config, detector_view=view
-            )
-            accumulators[f'{name}/roi'] = ROIBasedTOAHistogram(
-                config=config, roi_filter=view.make_roi_filter()
-            )
-        if detector_number is None:
-            preprocessor = NullAccumulator()
-        else:
-            preprocessor = GroupIntoPixels(
-                config=config, detector_number=detector_number
-            )
-
-        return PeriodicAccumulatingHandler(
-            service_name=self._config_registry.service_name,
-            logger=self._logger,
-            config=config,
-            preprocessor=preprocessor,
-            accumulators=accumulators,
-        )
+    def make_preprocessor(self, key: StreamId) -> Accumulator | None:
+        match key.kind:
+            case StreamKind.DETECTOR_EVENTS:
+                detector_number = self._instrument.get_detector_number(key.name)
+                return GroupIntoPixels(detector_number=detector_number)
+            case _:
+                return None
 
 
-class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
+class DetectorView(Workflow):
     """
     Accumulator for detector counts, based on a rolling detector view.
 
@@ -129,65 +243,49 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
 
     def __init__(
         self,
-        logger: logging.Logger,
-        config: Config,
+        params: DetectorViewParams,
         detector_view: raw.RollingDetectorView,
-    ):
-        self._logger = logger
-        self._view = detector_view
-        self._inv_weights = sc.reciprocal(detector_view.transform_weights())
-        self._toa_range = ConfigModelAccessor(
-            config, 'toa_range', model=models.TOARange, convert=self._convert_toa_range
-        )
-        self._use_weights = ConfigModelAccessor(
-            config,
-            'pixel_weighting',
-            model=models.PixelWeighting,
-            convert=self._convert_pixel_weighting,
-        )
-        self._previous: sc.DataArray | None = None
-
-    def _convert_toa_range(
-        self, value: dict[str, Any]
-    ) -> tuple[sc.Variable, sc.Variable] | None:
-        model = models.TOARange.model_validate(value)
-        self.clear()
-        return model.range_ns
-
-    def _convert_pixel_weighting(self, value: dict[str, Any]) -> bool:
-        model = models.PixelWeighting.model_validate(value)
+    ) -> None:
+        self._use_toa_range = params.toa_range.enabled
+        self._toa_range = params.toa_range.range_ns
+        self._use_weights = params.pixel_weighting.enabled
         # Note: Currently we use default weighting based on the number of detector
         # pixels contributing to each screen pixel. In the future more advanced options
         # such as by the signal of a uniform scattered may need to be supported.
-        if model.method != models.WeightingMethod.PIXEL_NUMBER:
-            raise ValueError(f'Unsupported pixel weighting method: {model.method}')
-        return model.enabled
+        weighting = params.pixel_weighting
+        if weighting.method != models.WeightingMethod.PIXEL_NUMBER:
+            raise ValueError(f'Unsupported pixel weighting method: {weighting.method}')
+        self._use_weights = weighting.enabled
+        self._view = detector_view
+        self._inv_weights = sc.reciprocal(detector_view.transform_weights())
+        self._previous: sc.DataArray | None = None
 
     def apply_toa_range(self, data: sc.DataArray) -> sc.DataArray:
-        if (toa_range := self._toa_range()) is None:
+        if not self._use_toa_range:
             return data
-        low, high = toa_range
+        low, high = self._toa_range
         # GroupIntoPixels stores time-of-arrival as the data variable of the bins to
         # avoid allocating weights that are all ones. For filtering we need to turn this
         # into a coordinate, since scipp does not support filtering on data variables.
         return data.bins.assign_coords(toa=data.bins.data).bins['toa', low:high]
 
-    def add(self, timestamp: int, data: sc.DataArray) -> None:
+    def accumulate(self, data: dict[Hashable, Any]) -> None:
         """
         Add data to the accumulator.
 
         Parameters
         ----------
-        timestamp:
-            Timestamp of the data.
         data:
             Data to be added. It is assumed that this is ev44 data that was passed
             through :py:class:`GroupIntoPixels`.
         """
-        data = self.apply_toa_range(data)
-        self._view.add_events(data)
+        if len(data) != 1:
+            raise ValueError("DetectorViewProcessor expects exactly one data item.")
+        raw = next(iter(data.values()))
+        filtered = self.apply_toa_range(raw)
+        self._view.add_events(filtered)
 
-    def get(self) -> sc.DataGroup[sc.DataArray]:
+    def finalize(self) -> dict[str, sc.DataArray]:
         cumulative = self._view.cumulative.copy()
         # This is a hack to get the current counts. Should be updated once
         # ess.reduce.live.raw.RollingDetectorView has been modified to support this.
@@ -196,7 +294,7 @@ class DetectorCounts(Accumulator[sc.DataArray, sc.DataGroup[sc.DataArray]]):
             current = current - self._previous
         self._previous = cumulative
         result = sc.DataGroup(cumulative=cumulative, current=current)
-        return result * self._inv_weights if self._use_weights() else result
+        return dict(result * self._inv_weights if self._use_weights else result)
 
     def clear(self) -> None:
         self._view.clear_counts()
@@ -263,12 +361,3 @@ def get_nexus_geometry_filename(
     except IndexError:
         raise ValueError(f'No geometry file found for given date {date}') from None
     return pathlib.Path(_pooch.fetch(filename))
-
-
-def _try_get_nexus_geometry_filename(
-    instrument: str, date: sc.Variable | None = None
-) -> pathlib.Path | None:
-    try:
-        return get_nexus_geometry_filename(instrument, date)
-    except ValueError:
-        return None

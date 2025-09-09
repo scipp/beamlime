@@ -8,21 +8,22 @@ from typing import Any, Protocol
 from beamlime.config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
 
 
-class StreamProcessor(Protocol):
+class Workflow(Protocol):
     """
-    Protocol matching ess.reduce.streaming.StreamProcessor, used by :py:class:`Job`.
+    A workflow that can process streams of data. Instances are run by a :py:class:`Job`.
 
-    There will be other implementations, in particular for non-data-reduction jobs.
+    This protocol matches ess.reduce.streaming.StreamProcessor. There are other
+    implementations, in particular for non-data-reduction jobs.
     """
 
     def accumulate(self, data: dict[Hashable, Any]) -> None: ...
-    def finalize(self) -> dict[Hashable, Any]: ...
+    def finalize(self) -> dict[str, Any]: ...
     def clear(self) -> None: ...
 
 
-class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
+class WorkflowFactory(Mapping[WorkflowId, WorkflowSpec]):
     def __init__(self) -> None:
-        self._factories: dict[WorkflowId, Callable[[], StreamProcessor]] = {}
+        self._factories: dict[WorkflowId, Callable[[], Workflow]] = {}
         self._workflow_specs: dict[WorkflowId, WorkflowSpec] = {}
 
     def __getitem__(self, key: WorkflowId) -> WorkflowSpec:
@@ -51,9 +52,9 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
 
     def register(
         self, spec: WorkflowSpec
-    ) -> Callable[[Callable[..., StreamProcessor]], Callable[..., StreamProcessor]]:
+    ) -> Callable[[Callable[..., Workflow]], Callable[..., Workflow]]:
         """
-        Decorator to register a factory function for creating StreamProcessors.
+        Decorator to register a factory function for creating workflow instances.
 
         Parameters
         ----------
@@ -69,8 +70,8 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
             raise ValueError(f"Workflow ID '{spec_id}' is already registered.")
 
         def decorator(
-            factory: Callable[..., StreamProcessor],
-        ) -> Callable[..., StreamProcessor]:
+            factory: Callable[..., Workflow],
+        ) -> Callable[..., Workflow]:
             # Try to get the type hint of the 'params' argument if it exists
             # Use get_type_hints to resolve forward references, in case we used
             # `from __future__ import annotations`.
@@ -83,9 +84,9 @@ class StreamProcessorFactory(Mapping[WorkflowId, WorkflowSpec]):
 
         return decorator
 
-    def create(self, *, source_name: str, config: WorkflowConfig) -> StreamProcessor:
+    def create(self, *, source_name: str, config: WorkflowConfig) -> Workflow:
         """
-        Create a StreamProcessor using the registered factory.
+        Create a workflow instance using the registered factory.
 
         Parameters
         ----------

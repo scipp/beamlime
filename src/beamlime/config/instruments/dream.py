@@ -23,8 +23,13 @@ from scippnexus import NXdetector
 from beamlime import parameter_models
 from beamlime.config import Instrument, instrument_registry
 from beamlime.config.env import StreamingEnv
-from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
-from beamlime.handlers.monitor_data_handler import make_beam_monitor_instrument
+from beamlime.handlers.detector_data_handler import (
+    DetectorLogicalView,
+    DetectorProjection,
+    LogicalViewConfig,
+    get_nexus_geometry_filename,
+)
+from beamlime.handlers.monitor_data_handler import register_monitor_workflows
 from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
@@ -39,13 +44,37 @@ instrument = Instrument(
         'monitor1': NeXusData[powder.types.CaveMonitor, SampleRun],
     },
 )
+instrument.add_detector('mantle_detector')
+instrument.add_detector('endcap_backward_detector')
+instrument.add_detector('endcap_forward_detector')
+instrument.add_detector('high_resolution_detector')
+instrument.add_detector('sans_detector')
 
-_monitor_instrument = make_beam_monitor_instrument(
-    name='dream', source_names=['monitor1', 'monitor2']
-)
+register_monitor_workflows(instrument=instrument, source_names=['monitor1', 'monitor2'])
 
 instrument_registry.register(instrument)
-instrument_registry.register(_monitor_instrument)
+
+# We use the arc length instead of phi as it makes it easier to get a correct
+# aspect ratio for the plot if both axes have the same unit.
+_cylinder_projection = DetectorProjection(
+    instrument=instrument,
+    projection='cylinder_mantle_z',
+    pixel_noise=sc.scalar(4.0, unit='mm'),
+    resolution={'mantle_detector': {'arc_length': 10, 'z': 40}},
+    resolution_scale=8,
+)
+# Order in 'resolution' matters so plots have X as horizontal axis and Y as vertical.
+_xy_projection = DetectorProjection(
+    instrument=instrument,
+    projection='xy_plane',
+    pixel_noise=sc.scalar(4.0, unit='mm'),
+    resolution={
+        'endcap_backward_detector': {'y': 30, 'x': 20},
+        'endcap_forward_detector': {'y': 20, 'x': 20},
+        'high_resolution_detector': {'y': 20, 'x': 20},
+    },
+    resolution_scale=8,
+)
 
 
 def _get_mantle_front_layer(da: sc.DataArray) -> sc.DataArray:
@@ -59,46 +88,22 @@ def _get_mantle_front_layer(da: sc.DataArray) -> sc.DataArray:
     )
 
 
-_res_scale = 8
-pixel_noise = sc.scalar(4.0, unit='mm')
+# Different view of the same detector, showing just the front layer instead of
+# a projection.
+_mantle_front_layer_config = LogicalViewConfig(
+    name='mantle_front_layer',
+    title='Mantle front layer',
+    description='All voxels of the front layer of the mantle detector.',
+    source_names=['mantle_detector'],
+    transform=_get_mantle_front_layer,
+)
 
-# Order in 'resolution' matters so plots have X as horizontal axis and Y as vertical.
+_logical_view = DetectorLogicalView(
+    instrument=instrument, config=_mantle_front_layer_config
+)
+
+
 detectors_config = {
-    'detectors': {
-        'endcap_backward': {
-            'detector_name': 'endcap_backward_detector',
-            'resolution': {'y': 30 * _res_scale, 'x': 20 * _res_scale},
-            'projection': 'xy_plane',
-            'pixel_noise': pixel_noise,
-        },
-        'endcap_forward': {
-            'detector_name': 'endcap_forward_detector',
-            'resolution': {'y': 20 * _res_scale, 'x': 20 * _res_scale},
-            'projection': 'xy_plane',
-            'pixel_noise': pixel_noise,
-        },
-        'High-Res': {
-            'detector_name': 'high_resolution_detector',
-            'resolution': {'y': 20 * _res_scale, 'x': 20 * _res_scale},
-            'projection': 'xy_plane',
-            'pixel_noise': pixel_noise,
-        },
-        # We use the arc length instead of phi as it makes it easier to get a correct
-        # aspect ratio for the plot if both axes have the same unit.
-        'mantle_projection': {
-            'detector_name': 'mantle_detector',
-            'resolution': {'arc_length': 10 * _res_scale, 'z': 40 * _res_scale},
-            'projection': 'cylinder_mantle_z',
-            'pixel_noise': pixel_noise,
-        },
-        # Different view of the same detector, showing just the front layer instead of
-        # a projection.
-        'mantle_front_layer': {
-            'detector_name': 'mantle_detector',
-            'detector_number': sc.arange('dummy', 229377, 720897, unit=None),
-            'projection': _get_mantle_front_layer,
-        },
-    },
     'fakes': {
         'mantle_detector': (229377, 720896),
         'endcap_backward_detector': (71618, 229376),

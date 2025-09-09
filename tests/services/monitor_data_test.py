@@ -22,13 +22,13 @@ def _get_workflow_from_registry(
     instrument: str,
 ) -> tuple[str, workflow_spec.WorkflowSpec]:
     # Currently only one workflow for monitor data, so we can hardcode the name.
-    name = 'monitor_data'
-    instrument_config = instrument_registry[f'{instrument}_beam_monitors']
-    workflow_registry = instrument_config.processor_factory
+    namespace = 'monitor_data'
+    instrument_config = instrument_registry[instrument]
+    workflow_registry = instrument_config.workflow_factory
     for wid, spec in workflow_registry.items():
-        if spec.name == name:
+        if spec.namespace == namespace:
             return wid, spec
-    raise ValueError(f"Workflow {name} not found in specs")
+    raise ValueError(f"Namespace {namespace} not found in specs")
 
 
 def make_monitor_app(instrument: str) -> BeamlimeApp:

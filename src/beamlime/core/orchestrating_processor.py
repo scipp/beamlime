@@ -5,11 +5,12 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
+from numbers import Number
 from typing import Any, Generic
 
 from ..config.models import ConfigKey, StartTime
 from ..config.workflow_spec import WorkflowConfig, WorkflowStatus, WorkflowStatusType
-from ..handlers.config_handler import ConfigHandler
+from ..handlers.config_handler import ConfigProcessor
 from .handler import Accumulator, HandlerFactory, HandlerRegistry, output_stream_name
 from .job import (
     DifferentInstrument,
@@ -48,7 +49,7 @@ class NaiveMessageBatcher:
 
     def batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
         # Unclear if filter needed in practice, but there is a test with bad timestamps.
-        messages = [msg for msg in messages if isinstance(msg.timestamp, int)]
+        messages = [msg for msg in messages if isinstance(msg.timestamp, Number)]
         if not messages:
             return None
         messages = sorted(messages)
@@ -138,24 +139,8 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
             job_manager=self._job_manager, logger=self._logger
         )
         self._message_batcher = NaiveMessageBatcher()
-
-        # NOTE We intend to extract the relevant functionality from ConfigHandler as the
-        # full mechanism is no longer needed. For now we keep it, so monitor_data and
-        # detector_data services still work. We "extract" the relevant functionality
-        # by registering actions. The dict-like interface of the ConfigHandler is unused
-        # here.
-        config_handler = handler_registry.get(CONFIG_STREAM_ID)
-        if config_handler is None or not isinstance(config_handler, ConfigHandler):
-            raise ValueError(
-                f"Config handler not found in registry for stream {CONFIG_STREAM_ID}"
-            )
-        self._config_handler = config_handler
-        self._config_handler.register_action(
-            key='workflow_config',
-            action=self._job_manager_adapter.set_workflow_with_config,
-        )
-        self._config_handler.register_action(
-            key='start_time', action=self._job_manager_adapter.reset_job
+        self._config_processor = ConfigProcessor(
+            job_manager_adapter=self._job_manager_adapter, logger=self._logger
         )
 
     def process(self) -> None:
@@ -170,9 +155,8 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
             else:
                 data_messages.append(msg)
 
-        # Handle config messages, which can trigger workflow (re)creation, resets, etc.
-        # Pushes WorkflowConfig into JobManager via JobManagerAdapter.
-        result_messages = self._config_handler.handle(config_messages)
+        # Handle config messages
+        result_messages = self._config_processor.process_messages(config_messages)
 
         message_batch = self._message_batcher.batch(data_messages)
         if message_batch is None:
@@ -220,15 +204,18 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
 
 def _job_result_to_message(result: JobResult) -> Message:
     """Convert a workflow result to a message for publishing."""
+
     # We probably want to switch to something like
     #   signal_name=f'{result.name}-{result.job_id}'
     # but for now we keep the legacy signal name for frontend compatibility.
-    if result.name == 'monitor_data':
-        service_name = 'monitor_data'
+    service_name = result.namespace
+    if service_name == 'monitor_data':
         signal_name = ''
+    elif service_name == 'detector_data':
+        signal_name = result.name
     else:
-        service_name = 'data_reduction'
         signal_name = f'reduced/{result.source_name}'
+
     stream_name = output_stream_name(
         service_name=service_name,
         stream_name=result.source_name,
@@ -296,6 +283,9 @@ class JobManagerAdapter:
             job_id = self._job_manager.schedule_job(
                 source_name=source_name, config=config
             )
+            if source_name in self._jobs:
+                # If we have a job for this source, we stop it first.
+                self._job_manager.stop_job(self._jobs[source_name])
             self._jobs[source_name] = job_id
         except DifferentInstrument:
             # We have multiple backend services that handle jobs, e.g., data_reduction

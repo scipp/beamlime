@@ -6,14 +6,11 @@ import holoviews as hv
 import panel as pn
 
 from beamlime import Service
-from beamlime.config import instrument_registry, keys
-from beamlime.config.instruments import get_config
+from beamlime.config import keys
 
 from . import plots
 from .dashboard import DashboardBase
-from .widgets.reduction_widget import ReductionWidget
 from .widgets.start_time_widget import StartTimeWidget
-from .workflow_controller import WorkflowController
 
 pn.extension('holoviews', 'modal', template='material')
 hv.extension('bokeh')
@@ -30,26 +27,12 @@ class ReductionApp(DashboardBase):
             dashboard_name='reduction_dashboard',
             port=5009,  # Default port for reduction dashboard
         )
-        # Load the module to register the instrument's workflows.
-        self._instrument_module = get_config(instrument)
-        self._processor_factory = instrument_registry[instrument].processor_factory
-
-        self._setup_workflow_management()
+        self._setup_workflow_management('data_reduction')
         self._setup_reduction_streams()
         self._reset_controller = self._controller_factory.create(
             config_key=keys.REDUCTION_START_TIME.create_key()
         )
         self._logger.info("Reduction dashboard initialized")
-
-    def _setup_workflow_management(self) -> None:
-        """Initialize workflow controller and reduction widget."""
-        self._workflow_controller = WorkflowController.from_config_service(
-            config_service=self._config_service,
-            source_names=sorted(self._processor_factory.source_names),
-            workflow_registry=self._processor_factory,
-            data_service=self._data_services['data_reduction'],
-        )
-        self._reduction_widget = ReductionWidget(controller=self._workflow_controller)
 
     def _setup_reduction_streams(self) -> None:
         """Initialize streams for reduction data."""

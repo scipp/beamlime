@@ -9,7 +9,7 @@ from typing import Any
 import scipp as sc
 
 from beamlime.config.instrument import Instrument
-from beamlime.handlers.stream_processor_factory import StreamProcessor
+from beamlime.handlers.workflow_factory import Workflow
 
 from ..config.workflow_spec import JobSchedule, WorkflowConfig
 from .message import StreamId
@@ -50,6 +50,7 @@ class JobResult:
     job_id: JobId
     source_name: str
     name: str
+    namespace: str
     start_time: int | None
     end_time: int | None
     data: sc.DataArray | sc.DataGroup | None = None
@@ -74,12 +75,14 @@ class Job:
         job_id: JobId,
         workflow_name: str,
         source_name: str,
-        processor: StreamProcessor,
+        namespace: str = '',
+        processor: Workflow,
         source_mapping: Mapping[str, Hashable],
     ) -> None:
         self._job_id = job_id
         self._workflow_name = workflow_name
         self._source_name = source_name
+        self._namespace = namespace
         self._processor = processor
         self._source_mapping = source_mapping
         self._start_time: int | None = None
@@ -121,6 +124,7 @@ class Job:
                 end_time=self.end_time,
                 source_name=self._source_name,
                 name=self._workflow_name,
+                namespace=self._namespace,
                 data=data,
             )
         except Exception as e:
@@ -131,6 +135,7 @@ class Job:
                 end_time=self.end_time,
                 source_name=self._source_name,
                 name=self._workflow_name,
+                namespace=self._namespace,
                 error_message=error_msg,
             )
 
@@ -146,10 +151,13 @@ class JobFactory:
         self._instrument = instrument
 
     def create(self, *, job_id: JobId, source_name: str, config: WorkflowConfig) -> Job:
-        if config.get_instrument() != self._instrument.name:
+        if config.get_instrument_namespace() != (
+            self._instrument.name,
+            self._instrument.active_namespace,
+        ):
             raise DifferentInstrument()
 
-        factory = self._instrument.processor_factory
+        factory = self._instrument.workflow_factory
         workflow_id = config.identifier
         if (workflow_spec := factory.get(workflow_id)) is None:
             raise WorkflowNotFoundError(f"WorkflowSpec with Id {workflow_id} not found")
@@ -164,6 +172,7 @@ class JobFactory:
             job_id=job_id,
             workflow_name=workflow_spec.name,
             source_name=source_name,
+            namespace=workflow_spec.namespace,
             processor=stream_processor,
             source_mapping=source_mapping,
         )
