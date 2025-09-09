@@ -411,30 +411,19 @@ class JobStatusListWidget:
         self._header = pn.pane.HTML("<h3>Job Status</h3>", margin=(10, 10, 5, 10))
 
         # Selection controls
+        bnt_margin = (0, 2)
         self._select_all_btn = pn.widgets.Button(
-            name="Select All",
-            button_type="primary",
-            width=80,
-            height=30,
-            margin=(5, 5),
+            name="Select All", button_type="primary", margin=bnt_margin
         )
         self._select_all_btn.on_click(self._select_all)
 
         self._select_none_btn = pn.widgets.Button(
-            name="Select None",
-            button_type="primary",
-            width=80,
-            height=30,
-            margin=(5, 5),
+            name="Select None", button_type="primary", margin=bnt_margin
         )
         self._select_none_btn.on_click(self._select_none)
 
         self._invert_selection_btn = pn.widgets.Button(
-            name="Invert",
-            button_type="primary",
-            width=60,
-            height=30,
-            margin=(5, 5),
+            name="Invert", button_type="primary", margin=bnt_margin
         )
         self._invert_selection_btn.on_click(self._invert_selection)
 
@@ -442,18 +431,14 @@ class JobStatusListWidget:
         self._bulk_reset_btn = pn.widgets.Button(
             name=f"{UIConstants.RESET_SYMBOL} Reset Selected",
             button_type="light",
-            width=120,
-            height=30,
-            margin=(5, 5),
+            margin=bnt_margin,
         )
         self._bulk_reset_btn.on_click(self._bulk_reset)
 
         self._bulk_stop_btn = pn.widgets.Button(
             name=f"{UIConstants.STOP_SYMBOL} Stop Selected",
             button_type="light",
-            width=120,
-            height=30,
-            margin=(5, 5),
+            margin=bnt_margin,
         )
         self._bulk_stop_btn.on_click(self._bulk_stop)
 
