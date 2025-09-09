@@ -35,7 +35,7 @@ class JobService:
         self._job_statuses: dict[JobId, JobStatus] = {}
         self._last_status_update: dict[JobId, float] = {}
         self._job_data_update_subscribers: list[Callable[[], None]] = []
-        self._job_status_update_subscribers: list[Callable[[JobStatus], None]] = []
+        self._job_status_update_subscribers: list[Callable[[], None]] = []
         self._data_service.register_subscriber(self.data_updated)
 
     @property
@@ -107,14 +107,13 @@ class JobService:
             self._logger.error("Error in job update callback: %s", e)
 
     def register_job_status_update_subscriber(
-        self, callback: Callable[[JobStatus], None]
+        self, callback: Callable[[], None]
     ) -> None:
         """Register a callback to be called when job status is updated."""
         self._job_status_update_subscribers.append(callback)
         # Immediately notify the new subscriber of current state
         try:
-            for job_status in self._job_statuses.values():
-                callback(job_status)
+            callback()
         except Exception as e:
             self._logger.error("Error in job status update callback: %s", e)
 
@@ -165,8 +164,6 @@ class JobService:
 
     def _notify_job_status_update(self) -> None:
         """Notify listeners about job status updates."""
-        # For now we just log the job status updates. In future we may want to have a
-        # more sophisticated notification mechanism.
         self._logger.info(
             "Job statuses updated for jobs: %s", list(self._job_statuses.keys())
         )
@@ -174,8 +171,7 @@ class JobService:
         # Notify all subscribers
         for callback in self._job_status_update_subscribers:
             try:
-                for job_status in self._job_statuses.values():
-                    callback(job_status)
+                callback()
             except Exception as e:
                 self._logger.error("Error in job status update callback: %s", e)
 

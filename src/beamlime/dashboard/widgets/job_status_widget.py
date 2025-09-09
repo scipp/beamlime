@@ -5,20 +5,17 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import panel as pn
-import param
 
 from beamlime.core.job import JobState, JobStatus
 from beamlime.dashboard.job_service import JobService
 
 
-class JobStatusWidget(param.Parameterized):
+class JobStatusWidget:
     """Widget to display the status of a job."""
 
-    expanded = param.Boolean(default=False, doc="Whether error details are expanded")
-
-    def __init__(self, job_status: JobStatus, **params) -> None:
-        super().__init__(**params)
+    def __init__(self, job_status: JobStatus) -> None:
         self._job_status = job_status
+        self.expanded = False
         self._setup_widgets()
 
     def _setup_widgets(self) -> None:
@@ -26,14 +23,14 @@ class JobStatusWidget(param.Parameterized):
         # Job info row
         source_name = self._job_status.job_id.source_name
         job_number_short = str(self._job_status.job_id.job_number)[:8]
-        job_id_text = f"{source_name} ({job_number_short}...)"
+        job_id_text = f"{source_name} ({job_number_short})"
 
         workflow_name = self._job_status.workflow_id.name
         workflow_version = self._job_status.workflow_id.version
         workflow_text = f"{workflow_name} v{workflow_version}"
 
         self._job_info = pn.pane.HTML(
-            f"<b>{job_id_text}</b> | {workflow_text}",
+            f"<b>{job_id_text}</b><br>{workflow_text}",
             width=300,
             height=25,
             margin=(5, 10),
@@ -63,10 +60,11 @@ class JobStatusWidget(param.Parameterized):
         # Action buttons placeholder (for future stop/reset buttons)
         self._action_buttons = pn.Spacer(width=100, height=25, margin=(5, 5))
 
-        # Error/warning message handling
-        self._error_brief = None
-        self._error_details = None
-        self._expand_button = None
+        # Error/warning message handling - initialize as None but will be created
+        # if needed
+        self._error_brief: pn.pane.HTML | None = None
+        self._error_details: pn.pane.HTML | None = None
+        self._expand_button: pn.widgets.Button | None = None
 
         if self._job_status.has_error or self._job_status.has_warning:
             self._setup_error_display()
@@ -136,7 +134,8 @@ class JobStatusWidget(param.Parameterized):
     def _toggle_error_details(self, event) -> None:
         """Toggle the display of full error details."""
         self.expanded = not self.expanded
-        self._expand_button.name = "⊟" if self.expanded else "⊞"
+        if self._expand_button is not None:
+            self._expand_button.name = "⊟" if self.expanded else "⊞"
 
         message = self._job_status.error_message or self._job_status.warning_message
         if self.expanded and message:
@@ -160,16 +159,109 @@ class JobStatusWidget(param.Parameterized):
         self._error_details = None
 
     def update_status(self, job_status: JobStatus) -> None:
-        """Update the widget with new job status."""
+        """Update the widget with new job status, only changing what's necessary."""
+        old_status = self._job_status
         self._job_status = job_status
-        self._setup_widgets()
+
+        # Update status indicator if state changed
+        if old_status.state != job_status.state:
+            self._update_status_indicator()
+
+        # Update timing info if times changed
+        if (
+            old_status.start_time != job_status.start_time
+            or old_status.end_time != job_status.end_time
+        ):
+            self._update_timing_info()
+
+        # Update error/warning display if messages changed
+        if (
+            old_status.error_message != job_status.error_message
+            or old_status.warning_message != job_status.warning_message
+        ):
+            self._update_error_display()
+
+    def _update_status_indicator(self) -> None:
+        """Update just the status indicator."""
+        status_color = self._get_status_color(self._job_status.state)
+        status_text = self._job_status.state.value.upper()
+        status_style = (
+            f"background-color: {status_color}; color: white; "
+            f"padding: 2px 8px; border-radius: 3px; text-align: center; "
+            f"font-weight: bold;"
+        )
+        self._status_indicator.object = (
+            f'<div style="{status_style}">{status_text}</div>'
+        )
+
+    def _update_timing_info(self) -> None:
+        """Update just the timing information."""
+        timing_text = self._format_timing()
+        self._timing_info.object = timing_text
+
+    def _update_error_display(self) -> None:
+        """Update the error/warning display efficiently."""
+        has_message = self._job_status.has_error or self._job_status.has_warning
+
+        if not has_message:
+            # Clear error display
+            if self._error_brief is not None:
+                self._error_brief.object = ""
+            if self._error_details is not None:
+                self._error_details.object = ""
+            # Don't set expand button to None as it may be referenced elsewhere
+            return
+
+        message = self._job_status.error_message or self._job_status.warning_message
+        if not message:
+            return
+
+        # Update existing error display or create new one
+        brief_message = message.split('\n')[0]
+        if len(brief_message) > 60:
+            brief_message = brief_message[:57] + "..."
+
+        error_color = "#dc3545" if self._job_status.has_error else "#fd7e14"
+        brief_html = (
+            f'<span style="color: {error_color}; font-size: 12px;">'
+            f'{brief_message}</span>'
+        )
+
+        if self._error_brief is not None:
+            # Update existing brief display
+            self._error_brief.object = brief_html
+        else:
+            # Create new brief display
+            self._error_brief = pn.pane.HTML(
+                brief_html, width=400, height=20, margin=(0, 10)
+            )
+
+        # Handle expand button
+        needs_expand_button = len(message) > len(brief_message) or '\n' in message
+        if needs_expand_button and self._expand_button is None:
+            self._expand_button = pn.widgets.Button(
+                name="⊞",
+                button_type="light",
+                width=25,
+                height=20,
+                margin=(0, 5),
+            )
+            self._expand_button.on_click(self._toggle_error_details)
+
+        # Update error details if currently expanded
+        if self.expanded and self._error_details is not None:
+            details_style = (
+                f"color: {error_color}; font-size: 11px; margin: 5px 0; "
+                "white-space: pre-wrap;"
+            )
+            self._error_details.object = f'<pre style="{details_style}">{message}</pre>'
 
     @property
     def job_id(self):
         """Get the job ID for this widget."""
         return self._job_status.job_id
 
-    def panel(self) -> pn.layout.ListPanel:
+    def panel(self) -> pn.layout.Column:
         """Get the panel layout for this widget."""
         # Main row with job info, status, timing, and actions
         main_row = pn.Row(
@@ -181,11 +273,15 @@ class JobStatusWidget(param.Parameterized):
             height=35,
         )
 
-        layout_items = [main_row]
+        layout_items: list[pn.viewable.Viewable] = [main_row]
 
         # Add error row if present
-        if self._error_brief is not None:
-            error_row_items = [self._error_brief]
+        if (
+            self._error_brief is not None
+            and hasattr(self._error_brief, 'object')
+            and getattr(self._error_brief, 'object', None)
+        ):
+            error_row_items: list[pn.viewable.Viewable] = [self._error_brief]
             if self._expand_button is not None:
                 error_row_items.append(self._expand_button)
 
@@ -193,7 +289,11 @@ class JobStatusWidget(param.Parameterized):
             layout_items.append(error_row)
 
         # Add error details if expanded
-        if self._error_details is not None:
+        if (
+            self._error_details is not None
+            and hasattr(self._error_details, 'object')
+            and getattr(self._error_details, 'object', None)
+        ):
             layout_items.append(self._error_details)
 
         return pn.Column(
@@ -207,13 +307,13 @@ class JobStatusWidget(param.Parameterized):
         )
 
 
-class JobStatusListWidget(param.Parameterized):
+class JobStatusListWidget:
     """Widget to display a list of job statuses with live updates."""
 
-    def __init__(self, job_service: JobService, **params) -> None:
-        super().__init__(**params)
+    def __init__(self, job_service: JobService) -> None:
         self._job_service = job_service
         self._status_widgets: dict[str, JobStatusWidget] = {}
+        self._widget_panels: dict[str, pn.layout.Column] = {}
         self._setup_layout()
 
         # Subscribe to job status updates
@@ -234,7 +334,8 @@ class JobStatusListWidget(param.Parameterized):
         # Get all current job statuses and update widgets accordingly
         current_statuses = self._job_service.job_statuses
         current_job_keys = {
-            str(status.job_id.job_number) for status in current_statuses.values()
+            f"{status.job_id.source_name}:{status.job_id.job_number}"
+            for status in current_statuses.values()
         }
 
         # Remove widgets for jobs that no longer exist
@@ -248,7 +349,7 @@ class JobStatusListWidget(param.Parameterized):
 
     def _add_or_update_job_widget(self, job_status: JobStatus) -> None:
         """Add a new job widget or update an existing one."""
-        job_key = str(job_status.job_id.job_number)
+        job_key = f"{job_status.job_id.source_name}:{job_status.job_id.job_number}"
 
         if job_key in self._status_widgets:
             # Update existing widget
@@ -256,15 +357,23 @@ class JobStatusListWidget(param.Parameterized):
         else:
             # Create new widget
             widget = JobStatusWidget(job_status)
+            widget_panel = widget.panel()
             self._status_widgets[job_key] = widget
-            self._job_list.append(widget.panel())
+            self._widget_panels[job_key] = widget_panel
+            self._job_list.append(widget_panel)
 
-    def _remove_job_widget(self, job_id: str) -> None:
+    def _remove_job_widget(self, job_key: str) -> None:
         """Remove a job widget."""
-        if job_id in self._status_widgets:
-            self._status_widgets.pop(job_id)
-            # Note: Panel removal would be handled by updating the layout
-            # For now, just tracking widgets in the dictionary
+        if job_key in self._status_widgets:
+            self._status_widgets.pop(job_key)
+            if job_key in self._widget_panels:
+                widget_panel = self._widget_panels.pop(job_key)
+                # Remove from the job list
+                try:
+                    self._job_list.remove(widget_panel)
+                except ValueError:
+                    # Panel might not be in the list anymore
+                    pass
 
     def panel(self) -> pn.layout.Column:
         """Get the main panel for this widget."""
