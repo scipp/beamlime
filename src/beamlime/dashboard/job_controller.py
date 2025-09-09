@@ -75,6 +75,11 @@ class JobController:
         command = JobCommand(job_id=job_id, action=action)
         self._config_service.update_config(self._config_key(JobCommand.key), command)
 
+        # If this is a remove action, immediately remove from job service for UI
+        # responsiveness
+        if action == JobAction.remove:
+            self._job_service.remove_job(job_id)
+
     def send_workflow_action(self, workflow_id: WorkflowId, action: JobAction) -> None:
         """Send action for a specific workflow ID."""
         command = JobCommand(workflow_id=workflow_id, action=action)

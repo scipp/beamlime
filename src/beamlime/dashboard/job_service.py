@@ -175,7 +175,31 @@ class JobService:
             except Exception as e:
                 self._logger.error("Error in job status update callback: %s", e)
 
+    def remove_job(self, job_id: JobId) -> None:
+        """Remove a job from tracking."""
+        # Remove from job statuses
+        if job_id in self._job_statuses:
+            del self._job_statuses[job_id]
+
+        # Remove from last status update tracking
+        if job_id in self._last_status_update:
+            del self._last_status_update[job_id]
+
+        # Check if we need to remove job data and info
+        job_number = job_id.job_number
+        source_name = job_id.source_name
+
+        if job_number in self._job_data and source_name in self._job_data[job_number]:
+            del self._job_data[job_number][source_name]
+
+            # If this was the last source for this job number, remove the job entirely
+            if not self._job_data[job_number]:
+                del self._job_data[job_number]
+                if job_number in self._job_info:
+                    del self._job_info[job_number]
+
+        # Notify subscribers of the status update (removal)
+        self._notify_job_status_update()
+
     # To move from WorkflowController
     def stop_job(self, job: JobId) -> None: ...
-
-    def remove_job(self, job: JobId) -> None: ...
