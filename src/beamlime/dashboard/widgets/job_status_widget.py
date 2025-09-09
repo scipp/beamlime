@@ -42,7 +42,7 @@ class UIConstants:
     EXPAND_BUTTON_WIDTH = 25
     EXPAND_BUTTON_HEIGHT = 20
     ERROR_BRIEF_WIDTH = 400
-    ERROR_BRIEF_HEIGHT = 20
+    ERROR_BRIEF_HEIGHT = 30
     ERROR_DETAILS_WIDTH = 600
 
     # Margins
@@ -54,7 +54,6 @@ class UIConstants:
     DETAILS_MARGIN = (5, 10)
 
     # Text
-    BRIEF_MESSAGE_MAX_LENGTH = 60
     JOB_NUMBER_MAX_LENGTH = 8
 
     # Button symbols
@@ -63,8 +62,6 @@ class UIConstants:
     PLAY_SYMBOL = "▶"
     STOP_SYMBOL = "⏹"
     REMOVE_SYMBOL = "🗑"
-    EXPAND_SYMBOL = "⊞"
-    COLLAPSE_SYMBOL = "⊟"
 
 
 class JobStatusWidget:
@@ -73,7 +70,6 @@ class JobStatusWidget:
     def __init__(self, job_status: JobStatus, job_controller: JobController) -> None:
         self._job_status = job_status
         self._job_controller = job_controller
-        self.expanded = False
         self._setup_widgets()
 
     def _setup_widgets(self) -> None:
@@ -100,18 +96,11 @@ class JobStatusWidget:
 
         # Timing info
         self._timing_info = self._create_timing_info()
+        # Error/warning message
+        self._error_display = self._create_error_display()
 
         # Action buttons
         self._action_buttons = self._create_action_buttons()
-
-        # Error/warning message handling - initialize as None but will be created
-        # if needed
-        self._error_brief: pn.pane.HTML | None = None
-        self._error_details: pn.pane.HTML | None = None
-        self._expand_button: pn.widgets.Button | None = None
-
-        if self._job_status.has_error or self._job_status.has_warning:
-            self._setup_error_display()
 
     def _create_status_indicator(self) -> pn.pane.HTML:
         """Create the status indicator widget."""
@@ -133,6 +122,16 @@ class JobStatusWidget:
             width=UIConstants.TIMING_INFO_WIDTH,
             height=UIConstants.TIMING_INFO_HEIGHT,
             margin=UIConstants.STANDARD_MARGIN,
+        )
+
+    def _create_error_display(self) -> pn.pane.HTML:
+        """Set up error/warning message display."""
+        error_text = self._format_error_message()
+        # TODO Layout options
+        return pn.pane.HTML(
+            error_text,
+            height=UIConstants.ERROR_BRIEF_HEIGHT,
+            width=UIConstants.ERROR_BRIEF_WIDTH,
         )
 
     def _create_button(self, symbol: str, callback) -> pn.widgets.Button:
@@ -209,7 +208,7 @@ class JobStatusWidget:
 
     def _get_error_style(self, color: str) -> str:
         """Get CSS style for error details."""
-        return f"color: {color}; font-size: 11px; margin: 5px 0; white-space: pre-wrap;"
+        return f"color: {color}; font-size: 12px; margin: 5px 0; white-space: pre-wrap;"
 
     def _format_timing(self) -> str:
         """Format timing information."""
@@ -225,6 +224,9 @@ class JobStatusWidget:
         else:
             return f"Started: {start_str}"
 
+    def _format_error_message(self) -> str:
+        return "Dummy"  # TODO
+
     def _get_error_color(self) -> str:
         """Get error color based on error type."""
         return (
@@ -232,84 +234,6 @@ class JobStatusWidget:
             if self._job_status.has_error
             else UIConstants.WARNING_COLOR
         )
-
-    def _truncate_error_message(self, message: str) -> str:
-        """Truncate error message for brief display."""
-        brief_message = message.split('\n')[0]
-        if len(brief_message) > UIConstants.BRIEF_MESSAGE_MAX_LENGTH:
-            brief_message = (
-                brief_message[: UIConstants.BRIEF_MESSAGE_MAX_LENGTH - 3] + "..."
-            )
-        return brief_message
-
-    def _setup_error_display(self) -> None:
-        """Set up error/warning message display."""
-        message = self._job_status.error_message or self._job_status.warning_message
-        if not message:
-            return
-
-        # Get first line for brief display
-        brief_message = self._truncate_error_message(message)
-
-        # Brief error display
-        error_color = self._get_error_color()
-        brief_html = (
-            f'<span style="color: {error_color}; font-size: 12px;">'
-            f'{brief_message}</span>'
-        )
-        self._error_brief = pn.pane.HTML(
-            brief_html,
-            width=UIConstants.ERROR_BRIEF_WIDTH,
-            height=UIConstants.ERROR_BRIEF_HEIGHT,
-            margin=UIConstants.ERROR_MARGIN,
-        )
-
-        # Expand button if message is longer than brief
-        if len(message) > len(brief_message) or '\n' in message:
-            self._expand_button = pn.widgets.Button(
-                name=UIConstants.EXPAND_SYMBOL
-                if not self.expanded
-                else UIConstants.COLLAPSE_SYMBOL,
-                button_type="light",
-                width=UIConstants.EXPAND_BUTTON_WIDTH,
-                height=UIConstants.EXPAND_BUTTON_HEIGHT,
-                margin=UIConstants.EXPAND_MARGIN,
-            )
-            self._expand_button.on_click(self._toggle_error_details)
-
-        # Full error details (initially hidden)
-        if self.expanded:
-            self._show_error_details(message)
-
-    def _toggle_error_details(self, event) -> None:
-        """Toggle the display of full error details."""
-        self.expanded = not self.expanded
-        if self._expand_button is not None:
-            self._expand_button.name = (
-                UIConstants.COLLAPSE_SYMBOL
-                if self.expanded
-                else UIConstants.EXPAND_SYMBOL
-            )
-
-        message = self._job_status.error_message or self._job_status.warning_message
-        if self.expanded and message:
-            self._show_error_details(message)
-        else:
-            self._hide_error_details()
-
-    def _show_error_details(self, message: str) -> None:
-        """Show full error details."""
-        error_color = self._get_error_color()
-        details_style = self._get_error_style(error_color)
-        self._error_details = pn.pane.HTML(
-            f'<pre style="{details_style}">{message}</pre>',
-            width=UIConstants.ERROR_DETAILS_WIDTH,
-            margin=UIConstants.DETAILS_MARGIN,
-        )
-
-    def _hide_error_details(self) -> None:
-        """Hide error details."""
-        self._error_details = None
 
     def update_status(self, job_status: JobStatus) -> None:
         """Update the widget with new job status, only changing what's necessary."""
@@ -350,6 +274,11 @@ class JobStatusWidget:
         timing_text = self._format_timing()
         self._timing_info.object = timing_text
 
+    def _update_error_display(self) -> None:
+        """Update just the error display."""
+        error_text = self._format_error_message()
+        self._error_display.object = error_text
+
     def _update_action_buttons(self) -> None:
         """Update action buttons in place when job state changes."""
         # Clear existing buttons
@@ -358,59 +287,6 @@ class JobStatusWidget:
         # Add new buttons based on current state
         new_buttons = self._get_button_widgets()
         self._action_buttons.extend(new_buttons)
-
-    def _update_error_display(self) -> None:
-        """Update the error/warning display efficiently."""
-        has_message = self._job_status.has_error or self._job_status.has_warning
-
-        if not has_message:
-            # Clear error display
-            if self._error_brief is not None:
-                self._error_brief.object = ""
-            if self._error_details is not None:
-                self._error_details.object = ""
-            return
-
-        message = self._job_status.error_message or self._job_status.warning_message
-        if not message:
-            return
-
-        # Update existing error display or create new one
-        brief_message = self._truncate_error_message(message)
-        error_color = self._get_error_color()
-        brief_html = (
-            f'<span style="color: {error_color}; font-size: 12px;">'
-            f'{brief_message}</span>'
-        )
-
-        if self._error_brief is not None:
-            # Update existing brief display
-            self._error_brief.object = brief_html
-        else:
-            # Create new brief display
-            self._error_brief = pn.pane.HTML(
-                brief_html,
-                width=UIConstants.ERROR_BRIEF_WIDTH,
-                height=UIConstants.ERROR_BRIEF_HEIGHT,
-                margin=UIConstants.ERROR_MARGIN,
-            )
-
-        # Handle expand button
-        needs_expand_button = len(message) > len(brief_message) or '\n' in message
-        if needs_expand_button and self._expand_button is None:
-            self._expand_button = pn.widgets.Button(
-                name=UIConstants.EXPAND_SYMBOL,
-                button_type="light",
-                width=UIConstants.EXPAND_BUTTON_WIDTH,
-                height=UIConstants.EXPAND_BUTTON_HEIGHT,
-                margin=UIConstants.EXPAND_MARGIN,
-            )
-            self._expand_button.on_click(self._toggle_error_details)
-
-        # Update error details if currently expanded
-        if self.expanded and self._error_details is not None:
-            details_style = self._get_error_style(error_color)
-            self._error_details.object = f'<pre style="{details_style}">{message}</pre>'
 
     @property
     def job_id(self):
@@ -428,37 +304,15 @@ class JobStatusWidget:
             sizing_mode="stretch_both",
         )
 
-        layout_items: list[pn.viewable.Viewable] = [main_row]
-
-        # Add error row if present
-        if (
-            self._error_brief is not None
-            and hasattr(self._error_brief, 'object')
-            and getattr(self._error_brief, 'object', None)
-        ):
-            error_row_items: list[pn.viewable.Viewable] = [self._error_brief]
-            if self._expand_button is not None:
-                error_row_items.append(self._expand_button)
-
-            error_row = pn.Row(*error_row_items, sizing_mode="stretch_width", height=25)
-            layout_items.append(error_row)
-
-        # Add error details if expanded
-        if (
-            self._error_details is not None
-            and hasattr(self._error_details, 'object')
-            and getattr(self._error_details, 'object', None)
-        ):
-            layout_items.append(self._error_details)
-
         return pn.Column(
-            *layout_items,
+            main_row,
+            self._error_display,
             styles={
                 "border": "1px solid #dee2e6",
                 "border-radius": "4px",
                 "margin": "2px",
             },
-            sizing_mode="stretch_width",
+            sizing_mode="stretch_both",
         )
 
 
