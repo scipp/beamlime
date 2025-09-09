@@ -236,7 +236,9 @@ class DashboardBase(ServiceBase, ABC):
         """Create the basic dashboard layout."""
         sidebar_content = self.create_sidebar_content()
         main_content = PlotCreationWidget(
-            job_service=self._job_service, plotting_controller=self._plotting_controller
+            job_service=self._job_service,
+            job_controller=self._job_controller,
+            plotting_controller=self._plotting_controller,
         ).widget
         job_control = JobControlWidget(self._job_controller).panel
         sidebar_content.append(job_control)

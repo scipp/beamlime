@@ -6,15 +6,17 @@ from datetime import UTC, datetime
 
 import panel as pn
 
-from beamlime.core.job import JobState, JobStatus
+from beamlime.core.job import JobAction, JobState, JobStatus
+from beamlime.dashboard.job_controller import JobController
 from beamlime.dashboard.job_service import JobService
 
 
 class JobStatusWidget:
     """Widget to display the status of a job."""
 
-    def __init__(self, job_status: JobStatus) -> None:
+    def __init__(self, job_status: JobStatus, job_controller: JobController) -> None:
         self._job_status = job_status
+        self._job_controller = job_controller
         self.expanded = False
         self._setup_widgets()
 
@@ -57,8 +59,8 @@ class JobStatusWidget:
             timing_text, width=150, height=25, margin=(5, 5)
         )
 
-        # Action buttons placeholder (for future stop/reset buttons)
-        self._action_buttons = pn.Spacer(width=100, height=25, margin=(5, 5))
+        # Action buttons
+        self._action_buttons = self._create_action_buttons()
 
         # Error/warning message handling - initialize as None but will be created
         # if needed
@@ -68,6 +70,71 @@ class JobStatusWidget:
 
         if self._job_status.has_error or self._job_status.has_warning:
             self._setup_error_display()
+
+    def _create_action_buttons(self) -> pn.layout.Row:
+        """Create action buttons based on job state."""
+        buttons = []
+
+        # Reset button - always available for non-removed jobs
+        reset_btn = pn.widgets.Button(
+            name="↻",
+            button_type="light",
+            width=30,
+            height=25,
+            margin=(0, 2),
+        )
+        reset_btn.on_click(lambda event: self._send_action(JobAction.reset))
+        buttons.append(reset_btn)
+
+        # Pause/Resume button - only for active/paused jobs
+        if self._job_status.state in [JobState.active, JobState.paused]:
+            if self._job_status.state == JobState.active:
+                pause_btn = pn.widgets.Button(
+                    name="⏸",
+                    button_type="light",
+                    width=30,
+                    height=25,
+                    margin=(0, 2),
+                )
+                pause_btn.on_click(lambda event: self._send_action(JobAction.pause))
+                buttons.append(pause_btn)
+            else:  # paused
+                resume_btn = pn.widgets.Button(
+                    name="▶",
+                    button_type="light",
+                    width=30,
+                    height=25,
+                    margin=(0, 2),
+                )
+                resume_btn.on_click(lambda event: self._send_action(JobAction.resume))
+                buttons.append(resume_btn)
+
+        # Stop/Remove button - dual purpose
+        if self._job_status.state == JobState.stopped:
+            remove_btn = pn.widgets.Button(
+                name="🗑",
+                button_type="light",
+                width=30,
+                height=25,
+                margin=(0, 2),
+            )
+            remove_btn.on_click(lambda event: self._send_action(JobAction.remove))
+            buttons.append(remove_btn)
+        elif self._job_status.state not in [JobState.stopped]:
+            stop_btn = pn.widgets.Button(
+                name="⏹",
+                button_type="light",
+                width=30,
+                height=25,
+                margin=(0, 2),
+            )
+            stop_btn.on_click(lambda event: self._send_action(JobAction.stop))
+            buttons.append(stop_btn)
+        return pn.Row(*buttons, margin=(5, 5))
+
+    def _send_action(self, action: JobAction) -> None:
+        """Send job action via the controller."""
+        self._job_controller.send_job_action(self._job_status.job_id, action)
 
     def _get_status_color(self, state: JobState) -> str:
         """Get color for job state."""
@@ -167,6 +234,8 @@ class JobStatusWidget:
         # Update status indicator if state changed
         if old_status.state != job_status.state:
             self._update_status_indicator()
+            # Recreate action buttons when state changes
+            self._action_buttons = self._create_action_buttons()
 
         # Update timing info if times changed
         if (
@@ -310,8 +379,9 @@ class JobStatusWidget:
 class JobStatusListWidget:
     """Widget to display a list of job statuses with live updates."""
 
-    def __init__(self, job_service: JobService) -> None:
+    def __init__(self, job_service: JobService, job_controller: JobController) -> None:
         self._job_service = job_service
+        self._job_controller = job_controller
         self._status_widgets: dict[str, JobStatusWidget] = {}
         self._widget_panels: dict[str, pn.layout.Column] = {}
         self._setup_layout()
@@ -356,7 +426,7 @@ class JobStatusListWidget:
             self._status_widgets[job_key].update_status(job_status)
         else:
             # Create new widget
-            widget = JobStatusWidget(job_status)
+            widget = JobStatusWidget(job_status, self._job_controller)
             widget_panel = widget.panel()
             self._status_widgets[job_key] = widget
             self._widget_panels[job_key] = widget_panel

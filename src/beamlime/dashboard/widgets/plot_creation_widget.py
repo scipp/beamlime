@@ -8,6 +8,7 @@ import pandas as pd
 import panel as pn
 
 from beamlime.config.workflow_spec import JobNumber
+from beamlime.dashboard.job_controller import JobController
 from beamlime.dashboard.job_service import JobService
 from beamlime.dashboard.plotting import PlotterSpec
 from beamlime.dashboard.plotting_controller import PlottingController
@@ -79,7 +80,11 @@ class PlotCreationWidget:
     """Widget for creating plots from job data."""
 
     def __init__(
-        self, job_service: JobService, plotting_controller: PlottingController
+        self,
+        *,
+        job_service: JobService,
+        job_controller: JobController,
+        plotting_controller: PlottingController,
     ) -> None:
         """
         Initialize plot creation widget.
@@ -98,7 +103,9 @@ class PlotCreationWidget:
         self._plot_counter = 0  # Counter for unique plot tab names
 
         # Create UI components
-        self._job_status_widget = JobStatusListWidget(job_service)
+        self._job_status_widget = JobStatusListWidget(
+            job_service=job_service, job_controller=job_controller
+        )
         self._job_output_table = self._create_job_output_table()
         self._plot_selector = self._create_plot_selector()
         self._create_button = self._create_plot_button()
