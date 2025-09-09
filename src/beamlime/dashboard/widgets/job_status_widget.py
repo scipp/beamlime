@@ -32,7 +32,7 @@ class JobStatusWidget:
         self._job_info = pn.pane.HTML(
             f"<b>{job_id_text}</b><br>{workflow_text}",
             width=300,
-            height=25,
+            height=45,
             margin=(5, 10),
         )
 
@@ -76,10 +76,11 @@ class JobStatusWidget:
             JobState.active: "#28a745",  # Green
             JobState.paused: "#ffc107",  # Yellow
             JobState.finishing: "#17a2b8",  # Blue
+            JobState.stopped: "#343a40",  # Dark gray
             JobState.error: "#dc3545",  # Red
             JobState.warning: "#fd7e14",  # Orange
         }
-        return color_map.get(state, "#6c757d")
+        return color_map.get(state, "#C162F4")
 
     def _format_timing(self) -> str:
         """Format timing information."""
@@ -269,8 +270,7 @@ class JobStatusWidget:
             self._status_indicator,
             self._timing_info,
             self._action_buttons,
-            sizing_mode="stretch_width",
-            height=35,
+            sizing_mode="stretch_both",
         )
 
         layout_items: list[pn.viewable.Viewable] = [main_row]
