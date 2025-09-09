@@ -30,8 +30,8 @@ class JobController:
         for callback in self._update_subscribers:
             callback()
 
-    def _config_key(self, key: str) -> ConfigKey:
-        return ConfigKey(key=key)
+    def _config_key(self, key: str, source_name: str) -> ConfigKey:
+        return ConfigKey(key=key, source_name=source_name)
 
     def send_global_action(self, action: JobAction) -> None:
         command = JobCommand(action=action)
@@ -72,8 +72,12 @@ class JobController:
 
     def send_job_action(self, job_id: JobId, action: JobAction) -> None:
         """Send action for a specific job ID."""
+        # Using full JobId as source_name to work around current limitation of compacted
+        # Kafka topic. ConfigKey needs to be overhauled.
         command = JobCommand(job_id=job_id, action=action)
-        self._config_service.update_config(self._config_key(JobCommand.key), command)
+        self._config_service.update_config(
+            self._config_key(JobCommand.key, source_name=str(job_id)), command
+        )
 
         # If this is a remove action, immediately remove from job service for UI
         # responsiveness
@@ -82,5 +86,9 @@ class JobController:
 
     def send_workflow_action(self, workflow_id: WorkflowId, action: JobAction) -> None:
         """Send action for a specific workflow ID."""
+        # Using full WorkflowId as source_name to work around current limitation of
+        # compacted Kafka topic. ConfigKey needs to be overhauled.
         command = JobCommand(workflow_id=workflow_id, action=action)
-        self._config_service.update_config(self._config_key(JobCommand.key), command)
+        self._config_service.update_config(
+            self._config_key(JobCommand.key, source_name=str(workflow_id)), command
+        )
