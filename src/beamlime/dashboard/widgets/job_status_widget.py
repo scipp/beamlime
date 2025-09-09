@@ -156,6 +156,23 @@ class JobStatusWidget:
         )
         buttons.append(reset_btn)
 
+        # Stop/Remove button - dual purpose
+        if self._job_status.state == JobState.stopped:
+            remove_btn = self._create_button(
+                UIConstants.REMOVE_SYMBOL,
+                lambda event: self._send_action(JobAction.remove),
+            )
+            buttons.append(remove_btn)
+        elif self._job_status.state not in [JobState.stopped]:
+            stop_btn = self._create_button(
+                UIConstants.STOP_SYMBOL, lambda event: self._send_action(JobAction.stop)
+            )
+            buttons.append(stop_btn)
+
+        # TODO Do we need to be able to pause jobs that have errors/warnings?
+        # Currently JobState is insufficient to determine if a job is running or
+        # paused while in error/warning state.
+
         # Pause/Resume button - only for active/paused jobs
         if self._job_status.state in [JobState.active, JobState.paused]:
             if self._job_status.state == JobState.active:
@@ -171,18 +188,6 @@ class JobStatusWidget:
                 )
                 buttons.append(resume_btn)
 
-        # Stop/Remove button - dual purpose
-        if self._job_status.state == JobState.stopped:
-            remove_btn = self._create_button(
-                UIConstants.REMOVE_SYMBOL,
-                lambda event: self._send_action(JobAction.remove),
-            )
-            buttons.append(remove_btn)
-        elif self._job_status.state not in [JobState.stopped]:
-            stop_btn = self._create_button(
-                UIConstants.STOP_SYMBOL, lambda event: self._send_action(JobAction.stop)
-            )
-            buttons.append(stop_btn)
         return buttons
 
     def _create_action_buttons(self) -> pn.layout.Row:
