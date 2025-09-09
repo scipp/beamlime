@@ -17,7 +17,6 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
@@ -37,22 +36,41 @@ services:
       KAFKA_SOCKET_RECEIVE_BUFFER_BYTES: 204857600
       KAFKA_SOCKET_REQUEST_MAX_BYTES: 104857600
       KAFKA_MAX_CONNECTIONS_PER_IP: 100
-      # Memory settings
-      KAFKA_HEAP_OPTS: "-Xmx2G -Xms2G"
-      # Disk usage limits
+      # Memory settings - increased to handle group coordinator pressure
+      KAFKA_HEAP_OPTS: "-Xmx3G -Xms3G"
+      # More aggressive cleanup to prevent memory buildup
       KAFKA_LOG_RETENTION_BYTES: 1073741824  # 1GB total retention
       KAFKA_LOG_RETENTION_HOURS: 1           # Keep logs for 1 hours
-      KAFKA_LOG_SEGMENT_BYTES: 134217728     # 128MB per segment
+      KAFKA_LOG_SEGMENT_BYTES: 67108864      # 64MB per segment (smaller for faster cleanup)
       KAFKA_LOG_CLEANUP_POLICY: delete       # Delete old segments
-      KAFKA_LOG_CLEANER_MIN_CLEANABLE_RATIO: 0.5
-      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000  # Check every 5 minutes
+      KAFKA_LOG_CLEANER_MIN_CLEANABLE_RATIO: 0.1
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 30000   # Check every 30 seconds for faster cleanup
+      KAFKA_LOG_CLEANER_ENABLE: true
+      KAFKA_LOG_CLEANER_THREADS: 2
+      # Group coordinator optimizations to prevent rebalancing loops
+      KAFKA_OFFSETS_RETENTION_MINUTES: 60    # Clean up consumer group metadata after 1 hour
+      KAFKA_OFFSETS_RETENTION_CHECK_INTERVAL_MS: 60000
+      KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS: 10  # Reduce from default 50 to lower coordinator load
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_OFFSETS_TOPIC_SEGMENT_BYTES: 104857600
+      KAFKA_OFFSETS_LOAD_BUFFER_SIZE: 5242880
+      KAFKA_OFFSETS_COMMIT_TIMEOUT_MS: 5000
+      KAFKA_OFFSETS_COMMIT_REQUIRED_ACKS: 1
+      # Group coordinator session timeouts to prevent hanging operations
+      KAFKA_GROUP_MIN_SESSION_TIMEOUT_MS: 6000
+      KAFKA_GROUP_MAX_SESSION_TIMEOUT_MS: 1800000
+      KAFKA_GROUP_MAX_SIZE: 100
+      # Additional stability settings
+      KAFKA_CONNECTIONS_MAX_IDLE_MS: 600000
+      KAFKA_REQUEST_TIMEOUT_MS: 30000
+      # Message size limits (keeping as requested)
       KAFKA_MESSAGE_MAX_BYTES: 104857600          # 100MB
       KAFKA_REPLICA_FETCH_MAX_BYTES: 104857600    # 100MB
       KAFKA_REPLICA_SOCKET_RECEIVE_BUFFER_BYTES: 104857600
       KAFKA_FETCH_MESSAGE_MAX_BYTES: 104857600    # 100MB
       KAFKA_MAX_REQUEST_SIZE: 104857600           # 100MB
       KAFKA_MAX_PARTITION_FETCH_BYTES: 104857600  # 100MB
-    mem_limit: 4G
+    mem_limit: 5G
     healthcheck:
       test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
       interval: 30s
