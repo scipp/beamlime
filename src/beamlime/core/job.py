@@ -107,7 +107,8 @@ class Job:
                     continue
                 key = self._source_mapping[stream.name]
                 update[key] = value
-            self._processor.accumulate(update)
+            if update:
+                self._processor.accumulate(update)
             return JobStatus(job_id=self._job_id)
         except Exception as e:
             error_msg = f"Error processing data for job {self._job_id}: {e}"

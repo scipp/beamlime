@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections import defaultdict
-from dataclasses import dataclass
-from numbers import Number
 from typing import Any, Generic
 
 from ..config.models import ConfigKey, StartTime
@@ -30,40 +29,7 @@ from .message import (
     Tin,
     Tout,
 )
-
-
-@dataclass(slots=True, kw_only=True)
-class MessageBatch:
-    start_time: int
-    end_time: int
-    messages: list[Message[Any]]
-
-
-class NaiveMessageBatcher:
-    def __init__(
-        self, batch_length_s: float = 1.0, pulse_length_s: float = 1.0 / 14
-    ) -> None:
-        # Batch length is currently ignored.
-        self._batch_length_ns = int(batch_length_s * 1_000_000_000)
-        self._pulse_length_ns = int(pulse_length_s * 1_000_000_000)
-
-    def batch(self, messages: list[Message[Any]]) -> MessageBatch | None:
-        # Unclear if filter needed in practice, but there is a test with bad timestamps.
-        messages = [msg for msg in messages if isinstance(msg.timestamp, Number)]
-        if not messages:
-            return None
-        messages = sorted(messages)
-        # start_time is the lower bound of the batch, end_time is the upper bound, both
-        # in multiples of the pulse length.
-        start_time = (
-            messages[0].timestamp // self._pulse_length_ns * self._pulse_length_ns
-        )
-        end_time = (
-            (messages[-1].timestamp + self._pulse_length_ns - 1)
-            // self._pulse_length_ns
-            * self._pulse_length_ns
-        )
-        return MessageBatch(start_time=start_time, end_time=end_time, messages=messages)
+from .message_batcher import MessageBatch, MessageBatcher, SimpleMessageBatcher
 
 
 class MessagePreprocessor(Generic[Tin, Tout]):
@@ -125,6 +91,7 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         source: MessageSource[Message[Tin]],
         sink: MessageSink[Tout],
         handler_registry: HandlerRegistry[Tin, Tout],
+        message_batcher: MessageBatcher | None = None,
     ) -> None:
         self._logger = logger or logging.getLogger(__name__)
         self._source = source
@@ -138,7 +105,7 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         self._job_manager_adapter = JobManagerAdapter(
             job_manager=self._job_manager, logger=self._logger
         )
-        self._message_batcher = NaiveMessageBatcher()
+        self._message_batcher = message_batcher or SimpleMessageBatcher()
         self._config_processor = ConfigProcessor(
             job_manager_adapter=self._job_manager_adapter, logger=self._logger
         )
@@ -162,7 +129,15 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         if message_batch is None:
             self._logger.debug('No data messages to process')
             self._sink.publish_messages(result_messages)
+            if not config_messages:
+                # Avoid busy-waiting if there is no data and no config messages.
+                # If there are config messages, we avoid sleeping, since config messages
+                # may trigger costly workflow creation.
+                time.sleep(0.1)
             return
+        self._logger.debug(
+            'Processing batch with %d data messages', len(message_batch.messages)
+        )
 
         # Pre-process message batch
         workflow_data = self._message_preprocessor.preprocess_messages(message_batch)
