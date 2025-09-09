@@ -71,11 +71,20 @@ class JobStatusWidget:
         self._job_status = job_status
         self._job_controller = job_controller
         self._panel = None  # Store panel reference for dynamic updates
+        self._checkbox = None  # Checkbox for multi-selection
         self._setup_widgets()
         self._create_panel()
 
     def _setup_widgets(self) -> None:
         """Set up the UI components."""
+        # Checkbox for multi-selection
+        self._checkbox = pn.widgets.Checkbox(
+            value=False,
+            width=25,
+            height=25,
+            margin=UIConstants.STANDARD_MARGIN,
+        )
+
         # Job info row
         source_name = self._job_status.job_id.source_name
         job_number = str(self._job_status.job_id.job_number)
@@ -259,8 +268,9 @@ class JobStatusWidget:
 
     def _create_panel(self) -> None:
         """Create the panel layout for this widget."""
-        # Main row with job info, status, timing, and actions
+        # Main row with checkbox, job info, status, timing, and actions
         main_row = pn.Row(
+            self._checkbox,
             self._job_info,
             self._status_indicator,
             self._timing_info,
@@ -351,6 +361,7 @@ class JobStatusWidget:
 
         # Create new components
         main_row = pn.Row(
+            self._checkbox,
             self._job_info,
             self._status_indicator,
             self._timing_info,
@@ -367,6 +378,15 @@ class JobStatusWidget:
     def job_id(self):
         """Get the job ID for this widget."""
         return self._job_status.job_id
+
+    @property
+    def is_selected(self) -> bool:
+        """Check if this job is selected via checkbox."""
+        return self._checkbox.value
+
+    def set_selected(self, selected: bool) -> None:
+        """Set the selection state of this job."""
+        self._checkbox.value = selected
 
     def panel(self) -> pn.layout.Column:
         """Get the panel layout for this widget."""
@@ -389,6 +409,64 @@ class JobStatusListWidget:
     def _setup_layout(self) -> None:
         """Set up the main layout."""
         self._header = pn.pane.HTML("<h3>Job Status</h3>", margin=(10, 10, 5, 10))
+
+        # Selection controls
+        self._select_all_btn = pn.widgets.Button(
+            name="Select All",
+            button_type="primary",
+            width=80,
+            height=30,
+            margin=(5, 5),
+        )
+        self._select_all_btn.on_click(self._select_all)
+
+        self._select_none_btn = pn.widgets.Button(
+            name="Select None",
+            button_type="primary",
+            width=80,
+            height=30,
+            margin=(5, 5),
+        )
+        self._select_none_btn.on_click(self._select_none)
+
+        self._invert_selection_btn = pn.widgets.Button(
+            name="Invert",
+            button_type="primary",
+            width=60,
+            height=30,
+            margin=(5, 5),
+        )
+        self._invert_selection_btn.on_click(self._invert_selection)
+
+        # Bulk action buttons
+        self._bulk_reset_btn = pn.widgets.Button(
+            name=f"{UIConstants.RESET_SYMBOL} Reset Selected",
+            button_type="light",
+            width=120,
+            height=30,
+            margin=(5, 5),
+        )
+        self._bulk_reset_btn.on_click(self._bulk_reset)
+
+        self._bulk_stop_btn = pn.widgets.Button(
+            name=f"{UIConstants.STOP_SYMBOL} Stop Selected",
+            button_type="light",
+            width=120,
+            height=30,
+            margin=(5, 5),
+        )
+        self._bulk_stop_btn.on_click(self._bulk_stop)
+
+        # Controls row
+        self._controls = pn.Row(
+            self._select_all_btn,
+            self._select_none_btn,
+            self._invert_selection_btn,
+            pn.Spacer(width=20),
+            self._bulk_reset_btn,
+            self._bulk_stop_btn,
+            margin=(5, 10),
+        )
 
         self._job_list = pn.Column(sizing_mode="stretch_width", margin=(0, 10))
 
@@ -442,6 +520,43 @@ class JobStatusListWidget:
                     # Panel might not be in the list anymore
                     pass
 
+    def _select_all(self, event) -> None:
+        """Select all job widgets."""
+        for widget in self._status_widgets.values():
+            widget.set_selected(True)
+
+    def _select_none(self, event) -> None:
+        """Deselect all job widgets."""
+        for widget in self._status_widgets.values():
+            widget.set_selected(False)
+
+    def _invert_selection(self, event) -> None:
+        """Invert selection of all job widgets."""
+        for widget in self._status_widgets.values():
+            widget.set_selected(not widget.is_selected)
+
+    def _get_selected_job_ids(self) -> list:
+        """Get job IDs for all selected widgets."""
+        return [
+            widget.job_id
+            for widget in self._status_widgets.values()
+            if widget.is_selected
+        ]
+
+    def _bulk_reset(self, event) -> None:
+        """Reset all selected jobs."""
+        selected_job_ids = self._get_selected_job_ids()
+        for job_id in selected_job_ids:
+            self._job_controller.send_job_action(job_id, JobAction.reset)
+
+    def _bulk_stop(self, event) -> None:
+        """Stop all selected jobs."""
+        selected_job_ids = self._get_selected_job_ids()
+        for job_id in selected_job_ids:
+            self._job_controller.send_job_action(job_id, JobAction.stop)
+
     def panel(self) -> pn.layout.Column:
         """Get the main panel for this widget."""
-        return pn.Column(self._header, self._job_list, sizing_mode="stretch_width")
+        return pn.Column(
+            self._header, self._controls, self._job_list, sizing_mode="stretch_width"
+        )
