@@ -62,14 +62,22 @@ class SimpleMessageBatcher(MessageBatcher):
     A simple batcher that creates batches of a fixed length.
 
     The first batch will include all messages received so far, and subsequent batches
-    will be aligned to the configured batch length. I.e., if the first batch ends at
+    will be aligned to the configured batch length. That is, if the first batch ends at
     time T, the next batch will cover [T, T + batch_length), the next
     [T + batch_length, T + 2*batch_length), etc.
+
+    If messages arrive late, they will be included in the next batch. This means that
+    batches may contain messages with timestamps outside (before) the batch time range.
 
     If no messages are available for a given batch, an empty batch is returned.
 
     When the first message for the next batch is received, the current batch is closed
     and returned, even if no messages were received for it.
+
+    Attention: This means that if messages arrive very infrequently, the batcher may
+    return messages very late (or never, if the stream stops). This might cause issues
+    but for now we want to avoid relying on wall-clock time. Instead, raw data messages
+    serve as our clock.
     """
 
     def __init__(self, batch_length_s: float = 1.0) -> None:
