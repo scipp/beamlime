@@ -10,10 +10,7 @@ from typing import Any
 import scipp as sc
 import scippnexus as snx
 
-from beamlime.handlers.stream_processor_factory import (
-    StreamProcessor,
-    StreamProcessorFactory,
-)
+from beamlime.handlers.workflow_factory import Workflow, WorkflowFactory
 
 from .workflow_spec import WorkflowSpec
 
@@ -53,9 +50,7 @@ class Instrument:
     """
 
     name: str
-    processor_factory: StreamProcessorFactory = field(
-        default_factory=StreamProcessorFactory
-    )
+    workflow_factory: WorkflowFactory = field(default_factory=WorkflowFactory)
     source_to_key: dict[str, type] = field(default_factory=dict)
     f144_attribute_registry: dict[str, dict[str, Any]] = field(default_factory=dict)
     _detector_numbers: dict[str, sc.Variable] = field(default_factory=dict)
@@ -109,7 +104,7 @@ class Instrument:
         description: str = '',
         source_names: Sequence[str] | None = None,
         aux_source_names: Sequence[str] | None = None,
-    ) -> Callable[[Callable[..., StreamProcessor]], Callable[..., StreamProcessor]]:
+    ) -> Callable[[Callable[..., Workflow]], Callable[..., Workflow]]:
         """
         Decorator to register a factory function for creating StreamProcessors.
 
@@ -156,7 +151,7 @@ class Instrument:
             params=None,  # placeholder, filled in from type hint later
             aux_source_names=list(aux_source_names or []),
         )
-        return self.processor_factory.register(spec)
+        return self.workflow_factory.register(spec)
 
 
 instrument_registry = InstrumentRegistry()

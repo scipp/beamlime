@@ -13,7 +13,7 @@ from ..config.instrument import Instrument
 from ..core.handler import JobBasedHandlerFactoryBase
 from ..core.message import StreamId, StreamKind
 from .accumulators import Accumulator, CollectTOA, Cumulative, MonitorEvents
-from .stream_processor_factory import StreamProcessor
+from .workflow_factory import Workflow
 
 
 class MonitorDataParams(pydantic.BaseModel):
@@ -29,7 +29,7 @@ class MonitorDataParams(pydantic.BaseModel):
     )
 
 
-class MonitorStreamProcessor(StreamProcessor):
+class MonitorStreamProcessor(Workflow):
     def __init__(self, edges: sc.Variable) -> None:
         self._edges = edges
         self._event_edges = edges.to(unit='ns').values
@@ -81,7 +81,7 @@ class MonitorStreamProcessor(StreamProcessor):
         self._current = None
 
 
-def _monitor_data_workflow(params: MonitorDataParams) -> StreamProcessor:
+def _monitor_data_workflow(params: MonitorDataParams) -> Workflow:
     return MonitorStreamProcessor(edges=params.toa_edges.get_edges())
 
 

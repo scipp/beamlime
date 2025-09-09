@@ -24,7 +24,7 @@ def _get_workflow_from_registry(
     # Currently only one workflow for monitor data, so we can hardcode the name.
     namespace = 'monitor_data'
     instrument_config = instrument_registry[instrument]
-    workflow_registry = instrument_config.processor_factory
+    workflow_registry = instrument_config.workflow_factory
     for wid, spec in workflow_registry.items():
         if spec.namespace == namespace:
             return wid, spec

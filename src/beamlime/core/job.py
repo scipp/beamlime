@@ -9,7 +9,7 @@ from typing import Any
 import scipp as sc
 
 from beamlime.config.instrument import Instrument
-from beamlime.handlers.stream_processor_factory import StreamProcessor
+from beamlime.handlers.workflow_factory import Workflow
 
 from ..config.workflow_spec import JobSchedule, WorkflowConfig
 from .message import StreamId
@@ -76,7 +76,7 @@ class Job:
         workflow_name: str,
         source_name: str,
         namespace: str = '',
-        processor: StreamProcessor,
+        processor: Workflow,
         source_mapping: Mapping[str, Hashable],
     ) -> None:
         self._job_id = job_id
@@ -158,7 +158,7 @@ class JobFactory:
         ):
             raise DifferentInstrument()
 
-        factory = self._instrument.processor_factory
+        factory = self._instrument.workflow_factory
         workflow_id = config.identifier
         if (workflow_spec := factory.get(workflow_id)) is None:
             raise WorkflowNotFoundError(f"WorkflowSpec with Id {workflow_id} not found")

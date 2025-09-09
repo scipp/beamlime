@@ -79,9 +79,7 @@ class DashboardBase(ServiceBase, ABC):
 
         # Load the module to register the instrument's workflows.
         self._instrument_module = get_config(instrument)
-        self._processor_factory = instrument_registry[
-            self._instrument
-        ].processor_factory
+        self._processor_factory = instrument_registry[self._instrument].workflow_factory
 
     @abstractmethod
     def create_sidebar_content(self) -> pn.viewable.Viewable:

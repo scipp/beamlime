@@ -19,7 +19,7 @@ from ..config.instrument import Instrument
 from ..core.handler import Accumulator, JobBasedHandlerFactoryBase
 from ..core.message import StreamId, StreamKind
 from .accumulators import DetectorEvents, GroupIntoPixels, ROIBasedTOAHistogram
-from .stream_processor_factory import StreamProcessor
+from .workflow_factory import Workflow
 
 
 class DetectorViewParams(pydantic.BaseModel):
@@ -51,7 +51,6 @@ class DetectorProcessorFactory(ABC):
     def __init__(self, *, instrument: Instrument, config: ViewConfig) -> None:
         self._instrument = instrument
         self._config = config
-        self._source_names = config.source_names
         self._window_length = 1
         self._register_with_instrument(instrument)
 
@@ -74,7 +73,7 @@ class DetectorProcessorFactory(ABC):
             version=1,
             title=self._config.title,
             description=self._config.description,
-            source_names=self._source_names,
+            source_names=self._config.source_names,
         )(self.make_view)
         instrument.register_workflow(
             namespace='detector_data',
@@ -82,7 +81,7 @@ class DetectorProcessorFactory(ABC):
             version=1,
             title=f'ROI Histogram: {self._config.title} ',
             description=f'ROI Histogram for {self._config.description}',
-            source_names=self._source_names,
+            source_names=self._config.source_names,
         )(self.make_roi)
 
     @abstractmethod
@@ -192,7 +191,7 @@ class ROIHistogramParams(pydantic.BaseModel):
     )
 
 
-class ROIHistogram(StreamProcessor):
+class ROIHistogram(Workflow):
     def __init__(
         self, params: ROIHistogramParams, detector_view: raw.RollingDetectorView
     ) -> None:
@@ -235,7 +234,7 @@ class DetectorHandlerFactory(JobBasedHandlerFactoryBase[DetectorEvents, sc.DataA
                 return None
 
 
-class DetectorView(StreamProcessor):
+class DetectorView(Workflow):
     """
     Accumulator for detector counts, based on a rolling detector view.
 

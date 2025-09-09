@@ -4,9 +4,9 @@ import pytest
 import scipp as sc
 
 from beamlime.config.instrument import Instrument, InstrumentRegistry
-from beamlime.handlers.stream_processor_factory import (
-    StreamProcessor,
-    StreamProcessorFactory,
+from beamlime.handlers.workflow_factory import (
+    Workflow,
+    WorkflowFactory,
 )
 
 
@@ -68,7 +68,7 @@ class TestInstrument:
         instrument = Instrument(name="test_instrument")
 
         assert instrument.name == "test_instrument"
-        assert isinstance(instrument.processor_factory, StreamProcessorFactory)
+        assert isinstance(instrument.workflow_factory, WorkflowFactory)
         assert instrument.source_to_key == {}
         assert instrument.f144_attribute_registry == {}
         assert instrument.active_namespace is None
@@ -76,20 +76,20 @@ class TestInstrument:
 
     def test_instrument_creation_with_custom_values(self):
         """Test creating instrument with custom values."""
-        custom_factory = StreamProcessorFactory()
+        custom_factory = WorkflowFactory()
         source_to_key = {"source1": str}
         f144_registry = {"attr1": {"key": "value"}}
 
         instrument = Instrument(
             name="custom_instrument",
-            processor_factory=custom_factory,
+            workflow_factory=custom_factory,
             source_to_key=source_to_key,
             f144_attribute_registry=f144_registry,
             active_namespace="custom_namespace",
         )
 
         assert instrument.name == "custom_instrument"
-        assert instrument.processor_factory is custom_factory
+        assert instrument.workflow_factory is custom_factory
         assert instrument.source_to_key == source_to_key
         assert instrument.f144_attribute_registry == f144_registry
         assert instrument.active_namespace == "custom_namespace"
@@ -150,9 +150,9 @@ class TestInstrument:
         instrument = Instrument(name="test_instrument")
 
         # Create a simple factory function
-        def simple_processor_factory(source_name: str) -> StreamProcessor:
+        def simple_processor_factory(source_name: str) -> Workflow:
             # Return a mock processor for testing
-            class MockProcessor(StreamProcessor):
+            class MockProcessor(Workflow):
                 def __call__(self, *args, **kwargs):
                     return {"source": source_name}
 
@@ -176,7 +176,7 @@ class TestInstrument:
         assert registered_factory is simple_processor_factory
 
         # Verify it was registered in the processor factory
-        specs = instrument.processor_factory
+        specs = instrument.workflow_factory
         assert len(specs) == 1
         spec = next(iter(specs.values()))
         assert spec.instrument == "test_instrument"
@@ -192,8 +192,8 @@ class TestInstrument:
         """Test workflow registration with default values."""
         instrument = Instrument(name="test_instrument")
 
-        def simple_factory() -> StreamProcessor:
-            class MockProcessor(StreamProcessor):
+        def simple_factory() -> Workflow:
+            class MockProcessor(Workflow):
                 def __call__(self, *args, **kwargs):
                     return {}
 
@@ -206,7 +206,7 @@ class TestInstrument:
         registered_factory = decorator(simple_factory)
         assert registered_factory is simple_factory
 
-        specs = instrument.processor_factory
+        specs = instrument.workflow_factory
         assert len(specs) == 1
         spec = next(iter(specs.values()))
         assert spec.namespace == "data_reduction"  # default
@@ -218,15 +218,15 @@ class TestInstrument:
         """Test registering multiple workflows."""
         instrument = Instrument(name="test_instrument")
 
-        def factory1() -> StreamProcessor:
-            class MockProcessor(StreamProcessor):
+        def factory1() -> Workflow:
+            class MockProcessor(Workflow):
                 def __call__(self, *args, **kwargs):
                     return {"workflow": 1}
 
             return MockProcessor()
 
-        def factory2() -> StreamProcessor:
-            class MockProcessor(StreamProcessor):
+        def factory2() -> Workflow:
+            class MockProcessor(Workflow):
                 def __call__(self, *args, **kwargs):
                     return {"workflow": 2}
 
@@ -240,7 +240,7 @@ class TestInstrument:
             factory2
         )
 
-        specs = instrument.processor_factory
+        specs = instrument.workflow_factory
         assert len(specs) == 2
 
         workflow_names = {spec.name for spec in specs.values()}
