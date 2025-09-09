@@ -130,7 +130,7 @@ class JobService:
             )
             return
 
-        self._logger.info("Job status updated: %s", job_status)
+        self._logger.debug("Job status updated: %s", job_status)
         self._job_statuses[job_status.job_id] = job_status
         self._last_status_update[job_status.job_id] = time.time()
         self._notify_job_status_update()
@@ -164,7 +164,7 @@ class JobService:
         """Notify listeners about job updates."""
         # For now we just log the job updates. In future we may want to have a more
         # sophisticated notification mechanism.
-        self._logger.info("Job data updated for jobs: %s", list(self._job_info.keys()))
+        self._logger.debug("Job data updated for jobs: %s", list(self._job_info.keys()))
 
         # Notify all subscribers
         for callback in self._job_data_update_subscribers:
@@ -175,7 +175,7 @@ class JobService:
 
     def _notify_job_status_update(self) -> None:
         """Notify listeners about job status updates."""
-        self._logger.info(
+        self._logger.debug(
             "Job statuses updated for jobs: %s", list(self._job_statuses.keys())
         )
 
