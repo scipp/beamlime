@@ -129,7 +129,11 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         if message_batch is None:
             self._logger.debug('No data messages to process')
             self._sink.publish_messages(result_messages)
-            time.sleep(0.1)
+            if not config_messages:
+                # Avoid busy-waiting if there is no data and no config messages.
+                # If there are config messages, we avoid sleeping, since config messages
+                # may trigger costly workflow creation.
+                time.sleep(0.1)
             return
         self._logger.debug(
             'Processing batch with %d data messages', len(message_batch.messages)
