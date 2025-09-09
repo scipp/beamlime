@@ -320,7 +320,8 @@ class PlotCreationWidget:
         # Create and show configuration modal
         modal = ConfigurationModal(config=config, start_button_text="Create Plot")
 
-        # Add modal to container and show it
+        # Clear previous modals and add the new one
+        self._modal_container.clear()
         self._modal_container.append(modal.modal)
         modal.show()
 
