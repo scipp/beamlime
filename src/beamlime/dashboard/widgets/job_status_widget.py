@@ -3,12 +3,68 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import ClassVar
 
 import panel as pn
 
 from beamlime.core.job import JobAction, JobState, JobStatus
 from beamlime.dashboard.job_controller import JobController
 from beamlime.dashboard.job_service import JobService
+
+
+# UI Constants
+class UIConstants:
+    """Constants for UI styling and sizing."""
+
+    # Colors
+    COLORS: ClassVar[dict[JobState, str]] = {
+        JobState.scheduled: "#6c757d",  # Gray
+        JobState.active: "#28a745",  # Green
+        JobState.paused: "#ffc107",  # Yellow
+        JobState.finishing: "#17a2b8",  # Blue
+        JobState.stopped: "#343a40",  # Dark gray
+        JobState.error: "#dc3545",  # Red
+        JobState.warning: "#fd7e14",  # Orange
+    }
+    DEFAULT_COLOR = "#C162F4"
+    ERROR_COLOR = "#dc3545"
+    WARNING_COLOR = "#fd7e14"
+
+    # Sizes
+    JOB_INFO_WIDTH = 300
+    JOB_INFO_HEIGHT = 45
+    STATUS_INDICATOR_WIDTH = 90
+    STATUS_INDICATOR_HEIGHT = 25
+    TIMING_INFO_WIDTH = 150
+    TIMING_INFO_HEIGHT = 25
+    BUTTON_WIDTH = 36
+    BUTTON_HEIGHT = 36
+    EXPAND_BUTTON_WIDTH = 25
+    EXPAND_BUTTON_HEIGHT = 20
+    ERROR_BRIEF_WIDTH = 400
+    ERROR_BRIEF_HEIGHT = 20
+    ERROR_DETAILS_WIDTH = 600
+
+    # Margins
+    STANDARD_MARGIN = (5, 5)
+    INFO_MARGIN = (5, 10)
+    ERROR_MARGIN = (0, 10)
+    BUTTON_MARGIN = (0, 2)
+    EXPAND_MARGIN = (0, 5)
+    DETAILS_MARGIN = (5, 10)
+
+    # Text
+    BRIEF_MESSAGE_MAX_LENGTH = 60
+    JOB_NUMBER_MAX_LENGTH = 8
+
+    # Button symbols
+    RESET_SYMBOL = "↻"
+    PAUSE_SYMBOL = "⏸"
+    PLAY_SYMBOL = "▶"
+    STOP_SYMBOL = "⏹"
+    REMOVE_SYMBOL = "🗑"
+    EXPAND_SYMBOL = "⊞"
+    COLLAPSE_SYMBOL = "⊟"
 
 
 class JobStatusWidget:
@@ -24,7 +80,8 @@ class JobStatusWidget:
         """Set up the UI components."""
         # Job info row
         source_name = self._job_status.job_id.source_name
-        job_number_short = str(self._job_status.job_id.job_number)[:8]
+        job_number = str(self._job_status.job_id.job_number)
+        job_number_short = job_number[: UIConstants.JOB_NUMBER_MAX_LENGTH]
         job_id_text = f"{source_name} ({job_number_short})"
 
         workflow_name = self._job_status.workflow_id.name
@@ -33,31 +90,16 @@ class JobStatusWidget:
 
         self._job_info = pn.pane.HTML(
             f"<b>{job_id_text}</b><br>{workflow_text}",
-            width=300,
-            height=45,
-            margin=(5, 10),
+            width=UIConstants.JOB_INFO_WIDTH,
+            height=UIConstants.JOB_INFO_HEIGHT,
+            margin=UIConstants.INFO_MARGIN,
         )
 
         # Status indicator with color
-        status_color = self._get_status_color(self._job_status.state)
-        status_text = self._job_status.state.value.upper()
-        status_style = (
-            f"background-color: {status_color}; color: white; "
-            f"padding: 2px 8px; border-radius: 3px; text-align: center; "
-            f"font-weight: bold;"
-        )
-        self._status_indicator = pn.pane.HTML(
-            f'<div style="{status_style}">{status_text}</div>',
-            width=90,
-            height=25,
-            margin=(5, 5),
-        )
+        self._status_indicator = self._create_status_indicator()
 
         # Timing info
-        timing_text = self._format_timing()
-        self._timing_info = pn.pane.HTML(
-            timing_text, width=150, height=25, margin=(5, 5)
-        )
+        self._timing_info = self._create_timing_info()
 
         # Action buttons
         self._action_buttons = self._create_action_buttons()
@@ -71,71 +113,83 @@ class JobStatusWidget:
         if self._job_status.has_error or self._job_status.has_warning:
             self._setup_error_display()
 
+    def _create_status_indicator(self) -> pn.pane.HTML:
+        """Create the status indicator widget."""
+        status_color = self._get_status_color(self._job_status.state)
+        status_text = self._job_status.state.value.upper()
+        status_style = self._get_status_style(status_color)
+        return pn.pane.HTML(
+            f'<div style="{status_style}">{status_text}</div>',
+            width=UIConstants.STATUS_INDICATOR_WIDTH,
+            height=UIConstants.STATUS_INDICATOR_HEIGHT,
+            margin=UIConstants.STANDARD_MARGIN,
+        )
+
+    def _create_timing_info(self) -> pn.pane.HTML:
+        """Create the timing info widget."""
+        timing_text = self._format_timing()
+        return pn.pane.HTML(
+            timing_text,
+            width=UIConstants.TIMING_INFO_WIDTH,
+            height=UIConstants.TIMING_INFO_HEIGHT,
+            margin=UIConstants.STANDARD_MARGIN,
+        )
+
+    def _create_button(self, symbol: str, callback) -> pn.widgets.Button:
+        """Create a button with consistent styling."""
+        button = pn.widgets.Button(
+            name=symbol,
+            button_type="light",
+            width=UIConstants.BUTTON_WIDTH,
+            height=UIConstants.BUTTON_HEIGHT,
+            margin=UIConstants.BUTTON_MARGIN,
+        )
+        button.on_click(callback)
+        return button
+
     def _get_button_widgets(self) -> list[pn.widgets.Button]:
         """Get button widgets based on current job state."""
         buttons = []
 
         # Reset button - always available for non-removed jobs
-        reset_btn = pn.widgets.Button(
-            name="↻",
-            button_type="light",
-            width=30,
-            height=25,
-            margin=(0, 2),
+        reset_btn = self._create_button(
+            UIConstants.RESET_SYMBOL, lambda event: self._send_action(JobAction.reset)
         )
-        reset_btn.on_click(lambda event: self._send_action(JobAction.reset))
         buttons.append(reset_btn)
 
         # Pause/Resume button - only for active/paused jobs
         if self._job_status.state in [JobState.active, JobState.paused]:
             if self._job_status.state == JobState.active:
-                pause_btn = pn.widgets.Button(
-                    name="⏸",
-                    button_type="light",
-                    width=30,
-                    height=25,
-                    margin=(0, 2),
+                pause_btn = self._create_button(
+                    UIConstants.PAUSE_SYMBOL,
+                    lambda event: self._send_action(JobAction.pause),
                 )
-                pause_btn.on_click(lambda event: self._send_action(JobAction.pause))
                 buttons.append(pause_btn)
             else:  # paused
-                resume_btn = pn.widgets.Button(
-                    name="▶",
-                    button_type="light",
-                    width=30,
-                    height=25,
-                    margin=(0, 2),
+                resume_btn = self._create_button(
+                    UIConstants.PLAY_SYMBOL,
+                    lambda event: self._send_action(JobAction.resume),
                 )
-                resume_btn.on_click(lambda event: self._send_action(JobAction.resume))
                 buttons.append(resume_btn)
 
         # Stop/Remove button - dual purpose
         if self._job_status.state == JobState.stopped:
-            remove_btn = pn.widgets.Button(
-                name="🗑",
-                button_type="light",
-                width=30,
-                height=25,
-                margin=(0, 2),
+            remove_btn = self._create_button(
+                UIConstants.REMOVE_SYMBOL,
+                lambda event: self._send_action(JobAction.remove),
             )
-            remove_btn.on_click(lambda event: self._send_action(JobAction.remove))
             buttons.append(remove_btn)
         elif self._job_status.state not in [JobState.stopped]:
-            stop_btn = pn.widgets.Button(
-                name="⏹",
-                button_type="light",
-                width=30,
-                height=25,
-                margin=(0, 2),
+            stop_btn = self._create_button(
+                UIConstants.STOP_SYMBOL, lambda event: self._send_action(JobAction.stop)
             )
-            stop_btn.on_click(lambda event: self._send_action(JobAction.stop))
             buttons.append(stop_btn)
         return buttons
 
     def _create_action_buttons(self) -> pn.layout.Row:
         """Create action buttons based on job state."""
         buttons = self._get_button_widgets()
-        return pn.Row(*buttons, margin=(5, 5))
+        return pn.Row(*buttons, margin=UIConstants.STANDARD_MARGIN)
 
     def _send_action(self, action: JobAction) -> None:
         """Send job action via the controller."""
@@ -143,16 +197,19 @@ class JobStatusWidget:
 
     def _get_status_color(self, state: JobState) -> str:
         """Get color for job state."""
-        color_map = {
-            JobState.scheduled: "#6c757d",  # Gray
-            JobState.active: "#28a745",  # Green
-            JobState.paused: "#ffc107",  # Yellow
-            JobState.finishing: "#17a2b8",  # Blue
-            JobState.stopped: "#343a40",  # Dark gray
-            JobState.error: "#dc3545",  # Red
-            JobState.warning: "#fd7e14",  # Orange
-        }
-        return color_map.get(state, "#C162F4")
+        return UIConstants.COLORS.get(state, UIConstants.DEFAULT_COLOR)
+
+    def _get_status_style(self, color: str) -> str:
+        """Get CSS style for status indicator."""
+        return (
+            f"background-color: {color}; color: white; "
+            f"padding: 2px 8px; border-radius: 3px; text-align: center; "
+            f"font-weight: bold;"
+        )
+
+    def _get_error_style(self, color: str) -> str:
+        """Get CSS style for error details."""
+        return f"color: {color}; font-size: 11px; margin: 5px 0; white-space: pre-wrap;"
 
     def _format_timing(self) -> str:
         """Format timing information."""
@@ -168,6 +225,23 @@ class JobStatusWidget:
         else:
             return f"Started: {start_str}"
 
+    def _get_error_color(self) -> str:
+        """Get error color based on error type."""
+        return (
+            UIConstants.ERROR_COLOR
+            if self._job_status.has_error
+            else UIConstants.WARNING_COLOR
+        )
+
+    def _truncate_error_message(self, message: str) -> str:
+        """Truncate error message for brief display."""
+        brief_message = message.split('\n')[0]
+        if len(brief_message) > UIConstants.BRIEF_MESSAGE_MAX_LENGTH:
+            brief_message = (
+                brief_message[: UIConstants.BRIEF_MESSAGE_MAX_LENGTH - 3] + "..."
+            )
+        return brief_message
+
     def _setup_error_display(self) -> None:
         """Set up error/warning message display."""
         message = self._job_status.error_message or self._job_status.warning_message
@@ -175,28 +249,31 @@ class JobStatusWidget:
             return
 
         # Get first line for brief display
-        brief_message = message.split('\n')[0]
-        if len(brief_message) > 60:
-            brief_message = brief_message[:57] + "..."
+        brief_message = self._truncate_error_message(message)
 
         # Brief error display
-        error_color = "#dc3545" if self._job_status.has_error else "#fd7e14"
+        error_color = self._get_error_color()
         brief_html = (
             f'<span style="color: {error_color}; font-size: 12px;">'
             f'{brief_message}</span>'
         )
         self._error_brief = pn.pane.HTML(
-            brief_html, width=400, height=20, margin=(0, 10)
+            brief_html,
+            width=UIConstants.ERROR_BRIEF_WIDTH,
+            height=UIConstants.ERROR_BRIEF_HEIGHT,
+            margin=UIConstants.ERROR_MARGIN,
         )
 
         # Expand button if message is longer than brief
         if len(message) > len(brief_message) or '\n' in message:
             self._expand_button = pn.widgets.Button(
-                name="⊞" if not self.expanded else "⊟",
+                name=UIConstants.EXPAND_SYMBOL
+                if not self.expanded
+                else UIConstants.COLLAPSE_SYMBOL,
                 button_type="light",
-                width=25,
-                height=20,
-                margin=(0, 5),
+                width=UIConstants.EXPAND_BUTTON_WIDTH,
+                height=UIConstants.EXPAND_BUTTON_HEIGHT,
+                margin=UIConstants.EXPAND_MARGIN,
             )
             self._expand_button.on_click(self._toggle_error_details)
 
@@ -208,7 +285,11 @@ class JobStatusWidget:
         """Toggle the display of full error details."""
         self.expanded = not self.expanded
         if self._expand_button is not None:
-            self._expand_button.name = "⊟" if self.expanded else "⊞"
+            self._expand_button.name = (
+                UIConstants.COLLAPSE_SYMBOL
+                if self.expanded
+                else UIConstants.EXPAND_SYMBOL
+            )
 
         message = self._job_status.error_message or self._job_status.warning_message
         if self.expanded and message:
@@ -218,13 +299,12 @@ class JobStatusWidget:
 
     def _show_error_details(self, message: str) -> None:
         """Show full error details."""
-        error_color = "#dc3545" if self._job_status.has_error else "#fd7e14"
-        details_style = (
-            f"color: {error_color}; font-size: 11px; margin: 5px 0; "
-            "white-space: pre-wrap;"
-        )
+        error_color = self._get_error_color()
+        details_style = self._get_error_style(error_color)
         self._error_details = pn.pane.HTML(
-            f'<pre style="{details_style}">{message}</pre>', width=600, margin=(5, 10)
+            f'<pre style="{details_style}">{message}</pre>',
+            width=UIConstants.ERROR_DETAILS_WIDTH,
+            margin=UIConstants.DETAILS_MARGIN,
         )
 
     def _hide_error_details(self) -> None:
@@ -260,11 +340,7 @@ class JobStatusWidget:
         """Update just the status indicator."""
         status_color = self._get_status_color(self._job_status.state)
         status_text = self._job_status.state.value.upper()
-        status_style = (
-            f"background-color: {status_color}; color: white; "
-            f"padding: 2px 8px; border-radius: 3px; text-align: center; "
-            f"font-weight: bold;"
-        )
+        status_style = self._get_status_style(status_color)
         self._status_indicator.object = (
             f'<div style="{status_style}">{status_text}</div>'
         )
@@ -293,7 +369,6 @@ class JobStatusWidget:
                 self._error_brief.object = ""
             if self._error_details is not None:
                 self._error_details.object = ""
-            # Don't set expand button to None as it may be referenced elsewhere
             return
 
         message = self._job_status.error_message or self._job_status.warning_message
@@ -301,11 +376,8 @@ class JobStatusWidget:
             return
 
         # Update existing error display or create new one
-        brief_message = message.split('\n')[0]
-        if len(brief_message) > 60:
-            brief_message = brief_message[:57] + "..."
-
-        error_color = "#dc3545" if self._job_status.has_error else "#fd7e14"
+        brief_message = self._truncate_error_message(message)
+        error_color = self._get_error_color()
         brief_html = (
             f'<span style="color: {error_color}; font-size: 12px;">'
             f'{brief_message}</span>'
@@ -317,27 +389,27 @@ class JobStatusWidget:
         else:
             # Create new brief display
             self._error_brief = pn.pane.HTML(
-                brief_html, width=400, height=20, margin=(0, 10)
+                brief_html,
+                width=UIConstants.ERROR_BRIEF_WIDTH,
+                height=UIConstants.ERROR_BRIEF_HEIGHT,
+                margin=UIConstants.ERROR_MARGIN,
             )
 
         # Handle expand button
         needs_expand_button = len(message) > len(brief_message) or '\n' in message
         if needs_expand_button and self._expand_button is None:
             self._expand_button = pn.widgets.Button(
-                name="⊞",
+                name=UIConstants.EXPAND_SYMBOL,
                 button_type="light",
-                width=25,
-                height=20,
-                margin=(0, 5),
+                width=UIConstants.EXPAND_BUTTON_WIDTH,
+                height=UIConstants.EXPAND_BUTTON_HEIGHT,
+                margin=UIConstants.EXPAND_MARGIN,
             )
             self._expand_button.on_click(self._toggle_error_details)
 
         # Update error details if currently expanded
         if self.expanded and self._error_details is not None:
-            details_style = (
-                f"color: {error_color}; font-size: 11px; margin: 5px 0; "
-                "white-space: pre-wrap;"
-            )
+            details_style = self._get_error_style(error_color)
             self._error_details.object = f'<pre style="{details_style}">{message}</pre>'
 
     @property
