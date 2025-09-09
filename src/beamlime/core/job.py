@@ -113,6 +113,7 @@ class JobState(str, Enum):
     active = "active"
     paused = "paused"
     finishing = "finishing"
+    stopped = "stopped"
     error = "error"
     warning = "warning"
 
@@ -122,6 +123,7 @@ class JobAction(str, Enum):
     resume = "resume"
     reset = "reset"
     stop = "stop"
+    remove = "remove"
 
 
 class JobCommand(pydantic.BaseModel):
@@ -254,6 +256,7 @@ class JobManager:
         self._job_factory = job_factory
         self._active_jobs: dict[JobId, Job] = {}
         self._scheduled_jobs: dict[JobId, Job] = {}
+        self._stopped_jobs: dict[JobId, Job] = {}
         self._finishing_jobs: list[JobId] = []
         self._job_schedules: dict[JobId, JobSchedule] = {}
         # Track job states and messages in the manager
@@ -264,7 +267,11 @@ class JobManager:
     @property
     def all_jobs(self) -> list[Job]:
         """Get a list of all jobs, both active and scheduled."""
-        return [*self._active_jobs.values(), *self._scheduled_jobs.values()]
+        return [
+            *self._active_jobs.values(),
+            *self._scheduled_jobs.values(),
+            *self._stopped_jobs.values(),
+        ]
 
     @property
     def active_jobs(self) -> list[Job]:
@@ -316,16 +323,37 @@ class JobManager:
         return job_id
 
     def stop_job(self, job_id: JobId) -> None:
-        """Stop a job with the given ID immediately."""
+        """Stop a job with the given ID immediately and move it to stopped state."""
         was_active = self._active_jobs.pop(job_id, None)
-        _ = self._job_schedules.pop(job_id, None)
         was_schedule = self._scheduled_jobs.pop(job_id, None)
-        # Clean up state tracking
+
+        job = was_active or was_schedule
+        if job is None:
+            raise KeyError(f"Job {job_id} not found in active or scheduled jobs.")
+
+        # Move to stopped jobs and update state
+        self._stopped_jobs[job_id] = job
+        self._job_states[job_id] = JobState.stopped
+
+    def remove_job(self, job_id: JobId) -> None:
+        """Remove a job with the given ID completely from the system."""
+        was_active = self._active_jobs.pop(job_id, None)
+        was_scheduled = self._scheduled_jobs.pop(job_id, None)
+        was_stopped = self._stopped_jobs.pop(job_id, None)
+
+        job = was_active or was_scheduled or was_stopped
+        if job is None:
+            raise KeyError(f"Job {job_id} not found.")
+
+        # Clean up all tracking
+        self._job_schedules.pop(job_id, None)
         self._job_states.pop(job_id, None)
         self._job_error_messages.pop(job_id, None)
         self._job_warning_messages.pop(job_id, None)
-        if was_active is None and was_schedule is None:
-            raise KeyError(f"Job {job_id} not found in active or scheduled jobs.")
+
+        # Remove from finishing jobs if present
+        if job_id in self._finishing_jobs:
+            self._finishing_jobs.remove(job_id)
 
     def job_command(self, command: JobCommand) -> None:
         if command.job_id is not None:
@@ -349,6 +377,8 @@ class JobManager:
                 self.reset_job(job_id)
             case JobAction.stop:
                 self.stop_job(job_id)
+            case JobAction.remove:
+                self.remove_job(job_id)
             case JobAction.pause:
                 raise NotImplementedError("Pause action not implemented yet")
             case JobAction.resume:
@@ -365,8 +395,12 @@ class JobManager:
             job.reset()
         elif (job := self._scheduled_jobs.get(job_id)) is not None:
             job.reset()
+        elif (job := self._stopped_jobs.get(job_id)) is not None:
+            job.reset()
         else:
-            raise KeyError(f"Job {job_id} not found in active or scheduled jobs.")
+            raise KeyError(
+                f"Job {job_id} not found in active, scheduled, or stopped jobs."
+            )
 
         # Clear error/warning state when resetting
         self._job_error_messages.pop(job_id, None)
@@ -422,13 +456,20 @@ class JobManager:
 
     def _finish_jobs(self):
         for job_id in self._finishing_jobs:
-            _ = self._active_jobs.pop(job_id, None)
+            job = self._active_jobs.pop(job_id, None)
+            if job is not None:
+                self._stopped_jobs[job_id] = job
+                self._job_states[job_id] = JobState.stopped
             _ = self._job_schedules.pop(job_id, None)  # Clean up schedule
         self._finishing_jobs.clear()
 
     def get_job_status(self, job_id: JobId) -> JobStatus | None:
         """Get the status of a specific job by its ID."""
-        job = self._active_jobs.get(job_id) or self._scheduled_jobs.get(job_id)
+        job = (
+            self._active_jobs.get(job_id)
+            or self._scheduled_jobs.get(job_id)
+            or self._stopped_jobs.get(job_id)
+        )
         if job is None:
             return None
 
@@ -442,6 +483,8 @@ class JobManager:
         elif job_id in self._scheduled_jobs:
             # Use tracked state (may be error/warning from previous operations)
             current_state = self._job_states.get(job_id, JobState.scheduled)
+        elif job_id in self._stopped_jobs:
+            current_state = JobState.stopped
         else:
             return None
 
@@ -457,7 +500,11 @@ class JobManager:
 
     def get_all_job_statuses(self) -> list[JobStatus]:
         """Get the status of all jobs in the manager."""
-        all_job_ids = list(self._active_jobs.keys()) + list(self._scheduled_jobs.keys())
+        all_job_ids = (
+            list(self._active_jobs.keys())
+            + list(self._scheduled_jobs.keys())
+            + list(self._stopped_jobs.keys())
+        )
         statuses = []
         for job_id in all_job_ids:
             status = self.get_job_status(job_id)
@@ -481,8 +528,10 @@ class JobManager:
 
     def format_job_error(self, status: JobError) -> str:
         """Format a job error message with meaningful job information."""
-        job = self._active_jobs.get(status.job_id) or self._scheduled_jobs.get(
-            status.job_id
+        job = (
+            self._active_jobs.get(status.job_id)
+            or self._scheduled_jobs.get(status.job_id)
+            or self._stopped_jobs.get(status.job_id)
         )
         if job is None:
             return f"Job {status.job_id} error: {status.error_message}"
