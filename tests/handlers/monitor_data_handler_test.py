@@ -207,7 +207,7 @@ def test_make_beam_monitor_instrument(test_instrument):
 
     register_monitor_workflows(test_instrument, source_names)
 
-    factory = test_instrument.processor_factory
+    factory = test_instrument.workflow_factory
 
     # Currently there is only one workflow registered
     assert len(factory) == 1
