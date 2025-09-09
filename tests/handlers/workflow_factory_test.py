@@ -120,7 +120,7 @@ class TestWorkflowFactory:
             ValueError,
             match=f"Workflow ID '{workflow_id}' is already registered.",
         ):
-            factory.register(workflow_spec)(lambda: make_dummy_stream_processor())
+            factory.register(workflow_spec)(lambda: make_dummy_workflow())
 
     def test_create_returns_stream_processor(self, workflow_id, workflow_spec):
         factory = WorkflowFactory()
