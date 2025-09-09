@@ -2,6 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+import traceback
 import uuid
 from collections.abc import Callable, Hashable, Mapping
 from dataclasses import dataclass
@@ -183,9 +184,10 @@ class Job:
             if update:
                 self._processor.accumulate(update)
             return JobError(job_id=self._job_id)
-        except Exception as e:
-            error_msg = f"Error processing data for job {self._job_id}: {e}"
-            return JobError(job_id=self._job_id, error_message=error_msg)
+        except Exception:
+            tb = traceback.format_exc()
+            message = f"Job failed to process latest data.\n\n{tb}"
+            return JobError(job_id=self._job_id, error_message=message)
 
     def get(self) -> JobResult:
         try:
@@ -199,14 +201,15 @@ class Job:
                 end_time=self.end_time,
                 data=data,
             )
-        except Exception as e:
-            error_msg = f"Error finalizing job {self._job_id}: {e}"
+        except Exception:
+            tb = traceback.format_exc()
+            message = f"Job failed to compute result.\n\n{tb}"
             return JobResult(
                 job_id=self._job_id,
                 workflow_id=self._workflow_id,
                 start_time=self.start_time,
                 end_time=self.end_time,
-                error_message=error_msg,
+                error_message=message,
             )
 
     def reset(self) -> None:
