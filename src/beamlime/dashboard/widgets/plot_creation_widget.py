@@ -256,26 +256,24 @@ class PlotCreationWidget:
 
         self._update_dependent_widgets()
 
+    def _with_disabled_selector(self) -> None:
+        """Reset plot selector to default state."""
+        self._plot_selector.options = []
+        self._plot_selector.value = None
+        self._plot_selector.disabled = True
+        self._create_button.disabled = True
+
     def _update_dependent_widgets(self) -> None:
         """Update plot selector based on job and output selection."""
         if self._selected_job is None:
-            # No job selected - disable everything
-            self._plot_selector.options = []
-            self._plot_selector.value = None
-            self._plot_selector.disabled = True
-            self._create_button.disabled = True
-            return
+            return self._with_disabled_selector()
 
         # Get available sources for selected job
         job_data = self._job_service.job_data.get(self._selected_job, {})
         available_sources = list(job_data.keys())
 
         if not available_sources:
-            self._plot_selector.options = []
-            self._plot_selector.value = None
-            self._plot_selector.disabled = True
-            self._create_button.disabled = True
-            return
+            return self._with_disabled_selector()
 
         # Update plot selector
         try:
@@ -290,15 +288,9 @@ class PlotCreationWidget:
                 self._plot_selector.disabled = False
                 self._create_button.disabled = False
             else:
-                self._plot_selector.options = []
-                self._plot_selector.value = None
-                self._plot_selector.disabled = True
-                self._create_button.disabled = True
+                self._with_disabled_selector()
         except Exception:
-            self._plot_selector.options = []
-            self._plot_selector.value = None
-            self._plot_selector.disabled = True
-            self._create_button.disabled = True
+            return self._with_disabled_selector()
 
     def _on_create_plot(self, event) -> None:
         """Handle create plot button click."""
