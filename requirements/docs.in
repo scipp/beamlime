@@ -9,10 +9,3 @@ sphinx
 sphinx-autodoc-typehints
 sphinx-copybutton
 sphinx-design
-sphinxcontrib-mermaid
-ipympl
-pythreejs
-pandas
-plopp
-pyarrow  # Future hard-dependency of pandas, it can be removed from pandas>3.0
-psutil
