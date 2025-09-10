@@ -9,7 +9,6 @@ from typing import Any
 
 import scipp as sc
 import scippnexus as snx
-
 from beamlime.handlers.workflow_factory import Workflow, WorkflowFactory
 
 from .workflow_spec import WorkflowSpec
