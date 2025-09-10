@@ -13,7 +13,7 @@ from tests.helpers.beamlime_app import BeamlimeApp
 
 def _get_workflow_from_registry(
     instrument: str,
-) -> tuple[str, workflow_spec.WorkflowSpec]:
+) -> tuple[workflow_spec.WorkflowId, workflow_spec.WorkflowSpec]:
     # Assume we can just use the first registered workflow.
     namespace = 'detector_data'
     instrument_config = instrument_registry[instrument]
@@ -107,8 +107,11 @@ def test_service_can_recover_after_bad_workflow_id_was_set(
     config_key = ConfigKey(
         source_name='panel_0', service_name="detector_data", key="workflow_config"
     )
+    identifier = workflow_spec.WorkflowId(
+        instrument='dummy', namespace='detector_data', name='abcde12345', version=1
+    )
     bad_workflow_id = workflow_spec.WorkflowConfig(
-        identifier='dummy/detector_data/abcde12345',  # Invalid workflow ID
+        identifier=identifier,  # Invalid workflow ID
     )
     # Trigger workflow start
     app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())
@@ -163,7 +166,9 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_was_set(
 
     # Try to set an invalid workflow ID
     bad_workflow_id = workflow_spec.WorkflowConfig(
-        identifier='dummy/detector_data/abcde12345',  # Invalid workflow ID
+        identifier=workflow_spec.WorkflowId(
+            instrument='dummy', namespace='detector_data', name='abcde12345', version=1
+        )  # Invalid workflow ID
     )
     app.publish_config_message(key=config_key, value=bad_workflow_id.model_dump())
 

@@ -2,6 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+import uuid
 from collections.abc import Hashable, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -11,7 +12,13 @@ import scipp as sc
 from beamlime.config.instrument import Instrument
 from beamlime.handlers.workflow_factory import Workflow
 
-from ..config.workflow_spec import JobSchedule, WorkflowConfig
+from ..config.workflow_spec import (
+    JobId,
+    JobSchedule,
+    ResultKey,
+    WorkflowConfig,
+    WorkflowId,
+)
 from .message import StreamId
 
 
@@ -42,19 +49,25 @@ class WorkflowData:
     data: dict[StreamId, Any]
 
 
-JobId = int
-
-
 @dataclass(slots=True, kw_only=True)
 class JobResult:
     job_id: JobId
-    source_name: str
-    name: str
-    namespace: str
+    workflow_id: WorkflowId
+    output_name: str | None = None
+    # Should this be included in the data instead?
     start_time: int | None
     end_time: int | None
     data: sc.DataArray | sc.DataGroup | None = None
     error_message: str | None = None
+
+    @property
+    def stream_name(self) -> str:
+        """Get the stream name associated with this job result."""
+        return ResultKey(
+            workflow_id=self.workflow_id,
+            job_id=self.job_id,
+            output_name=self.output_name,
+        ).model_dump_json()
 
 
 @dataclass
@@ -73,16 +86,12 @@ class Job:
         self,
         *,
         job_id: JobId,
-        workflow_name: str,
-        source_name: str,
-        namespace: str = '',
+        workflow_id: WorkflowId,
         processor: Workflow,
         source_mapping: Mapping[str, Hashable],
     ) -> None:
         self._job_id = job_id
-        self._workflow_name = workflow_name
-        self._source_name = source_name
-        self._namespace = namespace
+        self._workflow_id = workflow_id
         self._processor = processor
         self._source_mapping = source_mapping
         self._start_time: int | None = None
@@ -121,22 +130,18 @@ class Job:
             )
             return JobResult(
                 job_id=self._job_id,
+                workflow_id=self._workflow_id,
                 start_time=self.start_time,
                 end_time=self.end_time,
-                source_name=self._source_name,
-                name=self._workflow_name,
-                namespace=self._namespace,
                 data=data,
             )
         except Exception as e:
             error_msg = f"Error finalizing job {self._job_id}: {e}"
             return JobResult(
                 job_id=self._job_id,
+                workflow_id=self._workflow_id,
                 start_time=self.start_time,
                 end_time=self.end_time,
-                source_name=self._source_name,
-                name=self._workflow_name,
-                namespace=self._namespace,
                 error_message=error_msg,
             )
 
@@ -151,29 +156,30 @@ class JobFactory:
     def __init__(self, instrument: Instrument) -> None:
         self._instrument = instrument
 
-    def create(self, *, job_id: JobId, source_name: str, config: WorkflowConfig) -> Job:
-        if config.get_instrument_namespace() != (
-            self._instrument.name,
-            self._instrument.active_namespace,
+    def create(self, *, job_id: JobId, config: WorkflowConfig) -> Job:
+        workflow_id = config.identifier
+        if workflow_id is None:
+            raise ValueError("WorkflowConfig must have an identifier to create a Job")
+        if (workflow_id.instrument != self._instrument.name) or (
+            workflow_id.namespace != self._instrument.active_namespace
         ):
             raise DifferentInstrument()
 
         factory = self._instrument.workflow_factory
-        workflow_id = config.identifier
         if (workflow_spec := factory.get(workflow_id)) is None:
             raise WorkflowNotFoundError(f"WorkflowSpec with Id {workflow_id} not found")
         # Note that this initializes the job immediately, i.e., we pay startup cost now.
-        stream_processor = factory.create(source_name=source_name, config=config)
+        stream_processor = factory.create(source_name=job_id.source_name, config=config)
         source_to_key = self._instrument.source_to_key
         source_mapping = {
             source: source_to_key[source] for source in workflow_spec.aux_source_names
         }
-        source_mapping[source_name] = source_to_key.get(source_name, source_name)
+        source_mapping[job_id.source_name] = source_to_key.get(
+            job_id.source_name, job_id.source_name
+        )
         return Job(
             job_id=job_id,
-            workflow_name=workflow_spec.name,
-            source_name=source_name,
-            namespace=workflow_spec.namespace,
+            workflow_id=workflow_id,
             processor=stream_processor,
             source_mapping=source_mapping,
         )
@@ -187,7 +193,6 @@ class JobManager:
         self._active_jobs: dict[JobId, Job] = {}
         self._scheduled_jobs: dict[JobId, Job] = {}
         self._finishing_jobs: list[JobId] = []
-        self._next_job_id: JobId = 0
         self._job_schedules: dict[JobId, JobSchedule] = {}
 
     @property
@@ -195,12 +200,12 @@ class JobManager:
         """Get the list of active jobs."""
         return list(self._active_jobs.values())
 
-    def _start_job(self, job: JobId) -> None:
+    def _start_job(self, job_id: JobId) -> None:
         """Start a new job with the given workflow."""
-        workflow = self._scheduled_jobs.pop(job, None)
+        workflow = self._scheduled_jobs.pop(job_id, None)
         if workflow is None:
-            raise KeyError(f"Job {job} not found in scheduled jobs.")
-        self._active_jobs[job] = workflow
+            raise KeyError(f"Job {job_id} not found in scheduled jobs.")
+        self._active_jobs[job_id] = workflow
 
     def _advance_to_time(self, start_time: int, end_time: int) -> None:
         """Activate jobs that should start and mark jobs that should finish."""
@@ -211,8 +216,8 @@ class JobManager:
         ]
 
         # Activate jobs first
-        for job in to_activate:
-            self._start_job(job)
+        for job_id in to_activate:
+            self._start_job(job_id)
 
         # Now check for jobs to finish (including newly activated ones)
         to_finish = [
@@ -229,14 +234,12 @@ class JobManager:
         """
         Schedule a new job based on the provided configuration.
         """
-        job = self._job_factory.create(
-            job_id=self._next_job_id, source_name=source_name, config=config
+        job_id = JobId(
+            job_number=config.job_number or uuid.uuid4(), source_name=source_name
         )
-        job_id = self._next_job_id
-
+        job = self._job_factory.create(job_id=job_id, config=config)
         self._job_schedules[job_id] = config.schedule
         self._scheduled_jobs[job_id] = job
-        self._next_job_id += 1
         return job_id
 
     def stop_job(self, job_id: JobId) -> None:
@@ -294,5 +297,6 @@ class JobManager:
             return f"Job {status.job_id} error: {status.error_message}"
 
         return (
-            f"Job {job._workflow_name}/{job._source_name} error: {status.error_message}"
+            f"Job {job._workflow_id}/{status.job_id.source_name} "
+            f"error: {status.error_message}"
         )

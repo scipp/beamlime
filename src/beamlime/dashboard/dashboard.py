@@ -29,7 +29,6 @@ from beamlime.kafka.source import BackgroundMessageSource
 
 from .config_service import ConfigService
 from .controller_factory import ControllerFactory
-from .data_forwarder import DataForwarder
 from .data_key import DataKey
 from .data_service import DataService
 from .kafka_transport import KafkaTransport
@@ -123,25 +122,18 @@ class DashboardBase(ServiceBase, ABC):
         """Set up data services, forwarder, and orchestrator."""
         # da00 of backend services converted to scipp.DataArray
         ScippDataService = DataService[DataKey, sc.DataArray]
-        self._data_services = {
-            'monitor_data': ScippDataService(),
-            'detector_data': ScippDataService(),
-            'data_reduction': ScippDataService(),
-        }
+        self._data_service = ScippDataService()
         self._monitor_stream_manager = MonitorStreamManager(
-            data_service=self._data_services['monitor_data'], pipe_factory=streams.Pipe
+            data_service=self._data_service, pipe_factory=streams.Pipe
         )
         self._detector_stream_manager = DetectorStreamManager(
-            data_service=self._data_services['detector_data'], pipe_factory=streams.Pipe
+            data_service=self._data_service, pipe_factory=streams.Pipe
         )
         self._reduction_stream_manager = ReductionStreamManager(
-            data_service=self._data_services['data_reduction'],
-            pipe_factory=streams.Pipe,
+            data_service=self._data_service, pipe_factory=streams.Pipe
         )
-
         self._orchestrator = Orchestrator(
-            self._setup_kafka_consumer(),
-            DataForwarder(data_services=self._data_services),
+            self._setup_kafka_consumer(), data_service=self._data_service
         )
         self._logger.info("Data infrastructure setup complete")
 
@@ -183,7 +175,7 @@ class DashboardBase(ServiceBase, ABC):
             config_service=self._config_service,
             source_names=sorted(self._processor_factory.source_names),
             workflow_registry=workflow_registry,
-            data_service=self._data_services[namespace],
+            data_service=self._data_service,
         )
         self._reduction_widget = ReductionWidget(controller=self._workflow_controller)
 

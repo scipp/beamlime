@@ -10,7 +10,7 @@ from typing import Any, Generic
 from ..config.models import ConfigKey, StartTime
 from ..config.workflow_spec import WorkflowConfig, WorkflowStatus, WorkflowStatusType
 from ..handlers.config_handler import ConfigProcessor
-from .handler import Accumulator, HandlerFactory, HandlerRegistry, output_stream_name
+from .handler import Accumulator, HandlerFactory, HandlerRegistry
 from .job import (
     DifferentInstrument,
     JobFactory,
@@ -162,10 +162,9 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         for result in results:
             if result.error_message is not None:
                 self._logger.error(
-                    'Job %d (%s/%s) failed: %s',
+                    'Job %s for workflow %s failed: %s',
                     result.job_id,
-                    result.source_name,
-                    result.name,
+                    result.workflow_id,
                     result.error_message,
                 )
             else:
@@ -178,28 +177,15 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
 
 
 def _job_result_to_message(result: JobResult) -> Message:
-    """Convert a workflow result to a message for publishing."""
+    """
+    Convert a workflow result to a message for publishing.
 
-    # We probably want to switch to something like
-    #   signal_name=f'{result.name}-{result.job_id}'
-    # but for now we keep the legacy signal name for frontend compatibility.
-    service_name = result.namespace
-    if service_name == 'monitor_data':
-        signal_name = ''
-    elif service_name == 'detector_data':
-        signal_name = result.name
-    else:
-        signal_name = f'reduced/{result.source_name}'
-
-    stream_name = output_stream_name(
-        service_name=service_name,
-        stream_name=result.source_name,
-        signal_name=signal_name,
-    )
-
+    JobId is unique on its own, but we include the workflow ID to make it easier to
+    identify the job in the frontend.
+    """
     return Message(
-        timestamp=result.start_time,
-        stream=StreamId(kind=StreamKind.BEAMLIME_DATA, name=stream_name),
+        timestamp=result.start_time or 0,
+        stream=StreamId(kind=StreamKind.BEAMLIME_DATA, name=result.stream_name),
         value=result.data,
     )
 

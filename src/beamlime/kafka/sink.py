@@ -11,6 +11,7 @@ import scipp as sc
 from streaming_data_types import dataarray_da00, logdata_f144
 
 from ..config.streams import stream_kind_to_topic
+from ..config.workflow_spec import ResultKey
 from ..core.message import CONFIG_STREAM_ID, Message, MessageSink
 from .scipp_da00_compat import scipp_to_da00
 
@@ -116,8 +117,14 @@ class UnrollingSinkAdapter(MessageSink[T | sc.DataGroup[T]]):
         unrolled: list[Message[T]] = []
         for msg in messages:
             if isinstance(msg.value, sc.DataGroup):
+                result_key = ResultKey.model_validate_json(msg.stream.name)
                 for name, value in msg.value.items():
-                    stream = replace(msg.stream, name=f'{msg.stream.name}/{name}')
+                    key = ResultKey(
+                        workflow_id=result_key.workflow_id,
+                        job_id=result_key.job_id,
+                        output_name=name,
+                    )
+                    stream = replace(msg.stream, name=key.model_dump_json())
                     unrolled.append(replace(msg, stream=stream, value=value))
             else:
                 unrolled.append(msg)

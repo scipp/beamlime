@@ -9,6 +9,7 @@ from beamlime.config.workflow_spec import (
     PersistentWorkflowConfig,
     PersistentWorkflowConfigs,
     WorkflowConfig,
+    WorkflowId,
     WorkflowStatus,
     WorkflowStatusType,
 )
@@ -42,17 +43,28 @@ def workflow_config_service(config_service) -> WorkflowConfigService:
 
 
 @pytest.fixture
-def sample_workflow_config():
-    """Create a sample workflow config for testing."""
-    return WorkflowConfig(identifier="test_workflow", params={"param1": "value1"})
+def sample_workflow_id():
+    """Create a sample workflow ID for testing."""
+    return WorkflowId(
+        instrument="INSTR",
+        namespace="data_reduction",
+        name="test_workflow",
+        version=1,
+    )
 
 
 @pytest.fixture
-def sample_workflow_status():
+def sample_workflow_config(sample_workflow_id: WorkflowId):
+    """Create a sample workflow config for testing."""
+    return WorkflowConfig(identifier=sample_workflow_id, params={"param1": "value1"})
+
+
+@pytest.fixture
+def sample_workflow_status(sample_workflow_id):
     """Create a sample workflow status for testing."""
     return WorkflowStatus(
         source_name="source1",
-        workflow_id="test_workflow",
+        workflow_id=sample_workflow_id,
         status=WorkflowStatusType.RUNNING,
         message="Running successfully",
     )
@@ -61,11 +73,14 @@ def sample_workflow_status():
 @pytest.fixture
 def sample_persistent_configs():
     """Create sample persistent configs for testing."""
+    identifier = WorkflowId(
+        instrument="INSTR", namespace="data_reduction", name="saved_workflow", version=1
+    )
     persistent_config = PersistentWorkflowConfig(
         source_names=["source1"],
-        config=WorkflowConfig(identifier="saved_workflow", values={"param": "value"}),
+        config=WorkflowConfig(identifier=identifier, params={"param": "value"}),
     )
-    return PersistentWorkflowConfigs(configs={"saved_workflow": persistent_config})
+    return PersistentWorkflowConfigs(configs={identifier: persistent_config})
 
 
 def test_get_persistent_configs_default(workflow_config_service):
@@ -107,8 +122,8 @@ def test_send_workflow_config(
     assert key.source_name == source_name
     assert key.service_name == WORKFLOW_CONFIG.service_name
     assert key.key == WORKFLOW_CONFIG.key
-    assert value["identifier"] == sample_workflow_config.identifier
-    assert value["params"] == sample_workflow_config.params
+    workflow_config = WorkflowConfig.model_validate(value)
+    assert workflow_config == sample_workflow_config
 
 
 def test_subscribe_to_workflow_status(

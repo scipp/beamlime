@@ -7,6 +7,7 @@ Models for data reduction workflow widget creation and configuration.
 from __future__ import annotations
 
 import time
+import uuid
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, TypeVar
@@ -15,7 +16,36 @@ from pydantic import BaseModel, Field
 
 T = TypeVar('T')
 
-WorkflowId = str
+JobNumber = uuid.UUID
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class WorkflowId:
+    instrument: str
+    namespace: str
+    name: str
+    version: int
+
+    def __str__(self) -> str:
+        return f"{self.instrument}/{self.namespace}/{self.name}/{self.version}"
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class JobId:
+    source_name: str
+    job_number: JobNumber
+
+
+class ResultKey(BaseModel, frozen=True):
+    # If the job produced a DataGroup then it will be serialized as multiple da00
+    # messages. Each message corresponds to a single DataArray value the DataGroup.
+    # In the case the output_name is set.
+    workflow_id: WorkflowId = Field(description="Workflow ID")
+    job_id: JobId = Field(description="Job ID")
+    output_name: str | None = Field(
+        default=None,
+        description="Name of the output, if the job produces multiple outputs",
+    )
 
 
 class WorkflowSpec(BaseModel):
@@ -54,7 +84,12 @@ class WorkflowSpec(BaseModel):
 
         The identifier is a combination of instrument, namespace, name, and version.
         """
-        return f"{self.instrument}/{self.namespace}/{self.name}/{self.version}"
+        return WorkflowId(
+            instrument=self.instrument,
+            namespace=self.namespace,
+            name=self.name,
+            version=self.version,
+        )
 
 
 @dataclass
@@ -102,6 +137,9 @@ class WorkflowConfig(BaseModel):
     identifier: WorkflowId | None = Field(
         description="Hash of the workflow, used to identify the workflow."
     )
+    job_number: JobNumber | None = Field(
+        default=None, description=("Unique identifier to identify jobs and job results")
+    )
     schedule: JobSchedule = Field(
         default_factory=JobSchedule, description="Schedule for the workflow."
     )
@@ -109,17 +147,6 @@ class WorkflowConfig(BaseModel):
         default_factory=dict,
         description="Parameters for the workflow, as JSON-serialized Pydantic model.",
     )
-
-    def get_instrument_namespace(self) -> tuple[str, str] | None:
-        """
-        Get the instrument name and namespace from the workflow identifier.
-
-        The identifier is expected to be in the format
-        'instrument/namespace/name/version'.
-        """
-        if self.identifier is None or '/' not in self.identifier:
-            return None
-        return tuple(self.identifier.split('/')[0:2])
 
 
 class PersistentWorkflowConfig(BaseModel):

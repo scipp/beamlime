@@ -71,16 +71,19 @@ def source_names() -> list[str]:
 @pytest.fixture
 def workflow_id() -> WorkflowId:
     """Test workflow ID."""
-    return "test_workflow"
+    return WorkflowId(
+        instrument='test_instrument', namespace='abc', name="test_workflow", version=1
+    )
 
 
 @pytest.fixture
 def workflow_spec(workflow_id: WorkflowId) -> WorkflowSpec:
     """Test workflow specification."""
     return WorkflowSpec(
-        instrument="test_instrument",
-        name="test_workflow",
-        version=1,
+        instrument=workflow_id.instrument,
+        namespace=workflow_id.namespace,
+        name=workflow_id.name,
+        version=workflow_id.version,
         title="Test Workflow",
         description="A test workflow for unit testing",
         source_names=["detector_1", "detector_2"],
@@ -279,8 +282,6 @@ class TestWorkflowController:
         """Test that multiple workflow configurations can be stored persistently."""
         service = fake_service
 
-        workflow_id_1 = "workflow_1"
-        workflow_id_2 = "workflow_2"
         config_1 = SomeWorkflowParams(threshold=100.0, mode="fast")
         config_2 = SomeWorkflowParams(threshold=200.0, mode="accurate")
         sources_1 = ["detector_1"]
@@ -305,15 +306,12 @@ class TestWorkflowController:
             source_names=sources_2,
             params=SomeWorkflowParams,
         )
+        workflow_id_1 = workflow_spec_1.get_id()
+        workflow_id_2 = workflow_spec_2.get_id()
 
-        registry = {
-            workflow_id_1: workflow_spec_1,
-            workflow_id_2: workflow_spec_2,
-        }
+        registry = {workflow_id_1: workflow_spec_1, workflow_id_2: workflow_spec_2}
         controller = WorkflowController(
-            service=service,
-            source_names=source_names,
-            workflow_registry=registry,
+            service=service, source_names=source_names, workflow_registry=registry
         )
 
         # Start both workflows
