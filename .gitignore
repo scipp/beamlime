@@ -43,12 +43,6 @@ docs/generated/
 *.cif
 *.rcif
 *.ort
-
-# Test outputs
-*.png
-.coverage
-coverate_html
-.benchmarks/
 *.zip
 *.sqw
 *.nxspe

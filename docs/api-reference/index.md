@@ -3,13 +3,20 @@
 ## Classes
 
 ```{eval-rst}
-.. currentmodule:: beamlime
+.. currentmodule:: ess.livedata
 
 .. autosummary::
    :toctree: ../generated/classes
    :template: class-template.rst
    :recursive:
+```
 
+## Top-level functions
+
+```{eval-rst}
+.. autosummary::
+   :toctree: ../generated/functions
+   :recursive:
 ```
 
 ## Submodules
@@ -19,5 +26,4 @@
    :toctree: ../generated/modules
    :template: module-template.rst
    :recursive:
-
 ```

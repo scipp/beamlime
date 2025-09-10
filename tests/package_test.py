@@ -7,7 +7,7 @@ Note that additional imports need to be added for repositories that
 contain multiple packages.
 """
 
-import beamlime as pkg
+from ess import livedata as pkg
 
 
 def test_has_version():
