@@ -2,19 +2,16 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 import pytest
 import scipp as sc
 
-from beamlime.dashboard.data_key import DataKey, MonitorDataKey
+from beamlime.config.workflow_spec import JobId, ResultKey, WorkflowId
 from beamlime.dashboard.data_service import DataService
 from beamlime.dashboard.data_subscriber import Pipe, StreamAssembler
-from beamlime.dashboard.stream_manager import (
-    MonitorStreamManager,
-    ReductionStreamManager,
-    StreamManager,
-)
+from beamlime.dashboard.stream_manager import StreamManager
 
 
 class FakePipe(Pipe):
@@ -79,448 +76,330 @@ def sample_data() -> sc.DataArray:
 class TestStreamManager:
     """Test cases for base StreamManager class."""
 
-    def test_init_stores_data_service_and_pipe_factory(
-        self, data_service: DataService, fake_pipe_factory: FakePipeFactory
-    ) -> None:
-        """Test that initialization stores data service and pipe factory."""
+    def test_make_merging_stream_creates_pipe_and_registers_subscriber(
+        self, data_service, fake_pipe_factory
+    ):
+        """Test that make_merging_stream creates a pipe and registers a subscriber."""
         manager = StreamManager(
             data_service=data_service, pipe_factory=fake_pipe_factory
         )
 
-        assert manager.data_service is data_service
+        keys = {
+            ResultKey(
+                workflow_id=WorkflowId(
+                    instrument="test", namespace="ns", name="wf", version=1
+                ),
+                job_id=JobId(source_name="source1", job_number=uuid.uuid4()),
+            )
+        }
 
+        pipe = manager.make_merging_stream(keys)
 
-class TestMonitorStreamManager:
-    """Test cases for MonitorStreamManager class."""
-
-    def test_get_stream_caches_pipes_by_component(
-        self, data_service: DataService, fake_pipe_factory: FakePipeFactory
-    ) -> None:
-        """Test that get_stream caches pipes by component name."""
-        manager = MonitorStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-
-        # Same component returns same pipe
-        pipe1 = manager.get_stream('test_component')
-        pipe2 = manager.get_stream('test_component')
-        assert pipe1 is pipe2
+        assert isinstance(pipe, FakePipe)
         assert fake_pipe_factory.call_count == 1
+        assert len(data_service._subscribers) == 1
 
-        # Different component creates new pipe
-        pipe3 = manager.get_stream('other_component')
-        assert pipe3 is not pipe1
-        assert fake_pipe_factory.call_count == 2
-
-    def test_data_flow_with_complete_monitor_data(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test data flow through monitor stream with complete data."""
-        manager = MonitorStreamManager(
+    def test_partial_data_updates(self, data_service, fake_pipe_factory, sample_data):
+        """Test handling of partial data updates when only some keys have data."""
+        manager = StreamManager(
             data_service=data_service, pipe_factory=fake_pipe_factory
         )
 
-        pipe = manager.get_stream('test_component')
-        monitor_key = MonitorDataKey(component_name='test_component', view_name='')
+        key1 = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="wf1", version=1
+            ),
+            job_id=JobId(source_name="source1", job_number=uuid.uuid4()),
+        )
+        key2 = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="wf2", version=1
+            ),
+            job_id=JobId(source_name="source2", job_number=uuid.uuid4()),
+        )
 
-        # Set complete data in transaction
-        with data_service.transaction():
-            data_service[monitor_key.cumulative_key()] = sample_data
-            data_service[monitor_key.current_key()] = sample_data * 2
+        keys = {key1, key2}
+        pipe = manager.make_merging_stream(keys)
 
-        # Verify complete data was sent
+        # Send data for only one key
+        data_service[key1] = sample_data
+
+        # Should receive partial data
         assert len(pipe.send_calls) == 1
-        sent_data = pipe.send_calls[0]
-        assert hasattr(sent_data, 'cumulative')
-        assert hasattr(sent_data, 'current')
-        assert sc.identical(sent_data.cumulative, sample_data)
-        assert sc.identical(sent_data.current, sample_data * 2)
+        assert key1 in pipe.send_calls[0]
+        assert key2 not in pipe.send_calls[0]
+        assert sc.identical(pipe.send_calls[0][key1], sample_data)
 
-    def test_monitor_stream_handles_partial_data_updates(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test that monitor stream handles partial data updates correctly."""
-        manager = MonitorStreamManager(
+    def test_stream_independence(self, data_service, fake_pipe_factory, sample_data):
+        """Test that multiple streams operate independently."""
+        manager = StreamManager(
             data_service=data_service, pipe_factory=fake_pipe_factory
         )
 
-        pipe = manager.get_stream('test_component')
-        monitor_key = MonitorDataKey(component_name='test_component', view_name='')
+        # Create two independent streams with different keys
+        key1 = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="wf1", version=1
+            ),
+            job_id=JobId(source_name="source1", job_number=uuid.uuid4()),
+        )
+        key2 = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="wf2", version=1
+            ),
+            job_id=JobId(source_name="source2", job_number=uuid.uuid4()),
+        )
 
-        # Set only cumulative data first
-        data_service[monitor_key.cumulative_key()] = sample_data
+        pipe1 = manager.make_merging_stream({key1})
+        pipe2 = manager.make_merging_stream({key2})
+
+        # Send data for key1
+        data_service[key1] = sample_data
+
+        # Only pipe1 should receive data
+        assert len(pipe1.send_calls) == 1
+        assert len(pipe2.send_calls) == 0
+
+        # Send data for key2
+        data_service[key2] = sample_data
+
+        # Now pipe2 should also have data, pipe1 unchanged
+        assert len(pipe1.send_calls) == 1
+        assert len(pipe2.send_calls) == 1
+
+    def test_single_source_data_flow(
+        self, data_service, fake_pipe_factory, sample_data
+    ):
+        """Test data flow with a single source."""
+        manager = StreamManager(
+            data_service=data_service, pipe_factory=fake_pipe_factory
+        )
+
+        key = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="wf", version=1
+            ),
+            job_id=JobId(source_name="source1", job_number=uuid.uuid4()),
+        )
+
+        pipe = manager.make_merging_stream({key})
+
+        # Publish data
+        data_service[key] = sample_data
+
+        # Verify data received
         assert len(pipe.send_calls) == 1
-        sent_data = pipe.send_calls[0]
-        assert sc.identical(sent_data.cumulative, sample_data)
-        assert sent_data.current is None
+        assert pipe.send_calls[0] == {key: sample_data}
 
-        # Add current data
-        data_service[monitor_key.current_key()] = sample_data * 2
+    def test_multiple_sources_data_flow(
+        self, data_service, fake_pipe_factory, sample_data
+    ):
+        """Test data flow with multiple sources."""
+        manager = StreamManager(
+            data_service=data_service, pipe_factory=fake_pipe_factory
+        )
+
+        key1 = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="wf1", version=1
+            ),
+            job_id=JobId(source_name="source1", job_number=uuid.uuid4()),
+        )
+        key2 = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="wf2", version=1
+            ),
+            job_id=JobId(source_name="source2", job_number=uuid.uuid4()),
+        )
+
+        keys = {key1, key2}
+        pipe = manager.make_merging_stream(keys)
+
+        # Publish data for both keys
+        sample_data2 = sc.DataArray(
+            data=sc.array(dims=['y'], values=[4, 5, 6]),
+            coords={'y': sc.array(dims=['y'], values=[40, 50, 60])},
+        )
+
+        data_service[key1] = sample_data
+        data_service[key2] = sample_data2
+
+        # Should receive data for both keys
         assert len(pipe.send_calls) == 2
-        sent_data = pipe.send_calls[1]
-        assert sc.identical(sent_data.cumulative, sample_data)
-        assert sc.identical(sent_data.current, sample_data * 2)
+        # First call has only key1
+        assert pipe.send_calls[0] == {key1: sample_data}
+        # Second call has both keys
+        assert pipe.send_calls[1] == {key1: sample_data, key2: sample_data2}
 
-    def test_monitor_streams_are_independent(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test that multiple monitor streams are triggered independently."""
-        manager = MonitorStreamManager(
+    def test_incremental_updates(self, data_service, fake_pipe_factory, sample_data):
+        """Test that incremental updates flow through correctly."""
+        manager = StreamManager(
             data_service=data_service, pipe_factory=fake_pipe_factory
         )
 
-        pipe1 = manager.get_stream('component1')
-        pipe2 = manager.get_stream('component2')
-
-        monitor_key1 = MonitorDataKey(component_name='component1', view_name='')
-        monitor_key2 = MonitorDataKey(component_name='component2', view_name='')
-
-        # Update component1 data
-        data_service[monitor_key1.cumulative_key()] = sample_data
-        assert len(pipe1.send_calls) == 1
-        assert len(pipe2.send_calls) == 0
-        # Verify the correct data was sent to pipe1
-        sent_data = pipe1.send_calls[0]
-        assert sc.identical(sent_data.cumulative, sample_data)
-        assert sent_data.current is None
-
-        # Update component2 data
-        data_service[monitor_key2.current_key()] = sample_data * 2
-        assert len(pipe1.send_calls) == 1
-        assert len(pipe2.send_calls) == 1
-        # Verify the correct data was sent to pipe2
-        sent_data = pipe2.send_calls[0]
-        assert sent_data.cumulative is None
-        assert sc.identical(sent_data.current, sample_data * 2)
-
-
-class TestReductionStreamManager:
-    """Test cases for ReductionStreamManager class."""
-
-    def test_get_stream_caches_pipes_by_sources_and_view(
-        self, data_service: DataService, fake_pipe_factory: FakePipeFactory
-    ) -> None:
-        """Test that get_stream caches pipes by source names and view name."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
+        key = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="wf", version=1
+            ),
+            job_id=JobId(source_name="source1", job_number=uuid.uuid4()),
         )
 
-        # Same parameters return same pipe
-        pipe1 = manager.get_stream({'source1', 'source2'}, 'test_view')
-        pipe2 = manager.get_stream(
-            {'source2', 'source1'}, 'test_view'
-        )  # Order doesn't matter
-        assert pipe1 is pipe2
-        assert fake_pipe_factory.call_count == 1
+        pipe = manager.make_merging_stream({key})
 
-        # Different view creates new pipe
-        pipe3 = manager.get_stream({'source1', 'source2'}, 'other_view')
-        assert pipe3 is not pipe1
-        assert fake_pipe_factory.call_count == 2
+        # Send initial data
+        data_service[key] = sample_data
 
-        # Different sources create new pipe
-        pipe4 = manager.get_stream({'source1', 'source3'}, 'test_view')
-        assert pipe4 is not pipe1
-        assert fake_pipe_factory.call_count == 3
-
-    def test_data_flow_with_single_source(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test data flow through reduction stream with single source."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
+        # Send updated data
+        updated_data = sc.DataArray(
+            data=sc.array(dims=['x'], values=[7, 8, 9]),
+            coords={'x': sc.array(dims=['x'], values=[70, 80, 90])},
         )
-        source_names = {'source1'}
-        view_name = 'test_view'
+        data_service[key] = updated_data
 
-        pipe = manager.get_stream(source_names, view_name)
-        data_key = DataKey(
-            service_name='data_reduction',
-            source_name='source1',
-            key='reduced/source1/test_view',
-        )
-
-        # Set data in the service
-        data_service[data_key] = sample_data
-
-        # Verify data was sent through the pipe
-        assert len(pipe.send_calls) == 1
-        # The assembler merges data, so it should be a dict
-        sent_data = pipe.send_calls[0]
-        assert isinstance(sent_data, dict)
-        assert data_key in sent_data
-        assert sc.identical(sent_data[data_key], sample_data)
-
-    def test_data_flow_with_multiple_sources(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test data flow through reduction stream with multiple sources."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-
-        pipe = manager.get_stream({'source1', 'source2'}, 'test_view')
-
-        data_key1 = DataKey(
-            service_name='data_reduction',
-            source_name='source1',
-            key='reduced/source1/test_view',
-        )
-        data_key2 = DataKey(
-            service_name='data_reduction',
-            source_name='source2',
-            key='reduced/source2/test_view',
-        )
-
-        # Set data for both sources in transaction
-        with data_service.transaction():
-            data_service[data_key1] = sample_data
-            data_service[data_key2] = sample_data * 2
-
-        # Verify merged data was sent
-        assert len(pipe.send_calls) == 1
-        sent_data = pipe.send_calls[0]
-        assert isinstance(sent_data, dict)
-        assert data_key1 in sent_data
-        assert data_key2 in sent_data
-        assert sc.identical(sent_data[data_key1], sample_data)
-        assert sc.identical(sent_data[data_key2], sample_data * 2)
-
-    def test_handles_incremental_updates(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test that reduction stream handles incremental source updates correctly."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-
-        pipe = manager.get_stream({'source1', 'source2'}, 'test_view')
-
-        data_key1 = DataKey(
-            service_name='data_reduction',
-            source_name='source1',
-            key='reduced/source1/test_view',
-        )
-        data_key2 = DataKey(
-            service_name='data_reduction',
-            source_name='source2',
-            key='reduced/source2/test_view',
-        )
-
-        # Add sources incrementally
-        data_service[data_key1] = sample_data
-        assert len(pipe.send_calls) == 1
-        sent_data = pipe.send_calls[0]
-        assert isinstance(sent_data, dict)
-        assert data_key1 in sent_data
-        assert data_key2 not in sent_data
-        assert sc.identical(sent_data[data_key1], sample_data)
-
-        data_service[data_key2] = sample_data * 2
+        # Should receive both updates
         assert len(pipe.send_calls) == 2
-        sent_data = pipe.send_calls[1]
-        assert isinstance(sent_data, dict)
-        assert data_key1 in sent_data
-        assert data_key2 in sent_data
-        assert sc.identical(sent_data[data_key1], sample_data)
-        assert sc.identical(sent_data[data_key2], sample_data * 2)
+        assert pipe.send_calls[0] == {key: sample_data}
+        assert pipe.send_calls[1] == {key: updated_data}
 
-        # Update existing source preserves other data
-        data_service[data_key1] = sample_data * 3
-        assert len(pipe.send_calls) == 3
-        sent_data = pipe.send_calls[2]
-        assert isinstance(sent_data, dict)
-        assert data_key1 in sent_data
-        assert data_key2 in sent_data
-        assert sc.identical(sent_data[data_key1], sample_data * 3)
-        assert sc.identical(sent_data[data_key2], sample_data * 2)
-
-    def test_reduction_streams_are_independent(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        manager = ReductionStreamManager(
+    def test_empty_source_set(self, data_service, fake_pipe_factory):
+        """Test behavior with empty source set."""
+        manager = StreamManager(
             data_service=data_service, pipe_factory=fake_pipe_factory
         )
 
-        pipe1 = manager.get_stream({'source1'}, 'view1')
-        pipe2 = manager.get_stream({'source2'}, 'view2')
+        # Create stream with empty key set
+        pipe = manager.make_merging_stream(set())
 
-        data_key1 = DataKey(
-            service_name='data_reduction',
-            source_name='source1',
-            key='reduced/source1/view1',
+        # Publish some data
+        key = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="wf", version=1
+            ),
+            job_id=JobId(source_name="source1", job_number=uuid.uuid4()),
         )
-        data_key2 = DataKey(
-            service_name='data_reduction',
-            source_name='source2',
-            key='reduced/source2/view2',
-        )
-        unrelated_key = DataKey(
-            service_name='data_reduction',
-            source_name='source3',
-            key='reduced/source3/view1',
-        )
+        data_service[key] = sc.DataArray(data=sc.array(dims=[], values=[1]))
 
-        # Update unrelated key - no pipes should be triggered
-        data_service[unrelated_key] = sample_data
-        assert len(pipe1.send_calls) == 0
-        assert len(pipe2.send_calls) == 0
-
-        # Update pipe1's key - only pipe1 should be triggered
-        data_service[data_key1] = sample_data
-        assert len(pipe1.send_calls) == 1
-        assert len(pipe2.send_calls) == 0
-        # Verify pipe1 received the correct data
-        sent_data = pipe1.send_calls[0]
-        assert isinstance(sent_data, dict)
-        assert data_key1 in sent_data
-        assert sc.identical(sent_data[data_key1], sample_data)
-
-        # Update pipe2's key - only pipe2 should be triggered
-        data_service[data_key2] = sample_data * 2
-        assert len(pipe1.send_calls) == 1
-        assert len(pipe2.send_calls) == 1
-        # Verify pipe2 received the correct data
-        sent_data = pipe2.send_calls[0]
-        assert isinstance(sent_data, dict)
-        assert data_key2 in sent_data
-        assert sc.identical(sent_data[data_key2], sample_data * 2)
-
-    def test_empty_source_set_never_triggered(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test reduction stream with empty source set."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-
-        # Empty source set
-        pipe_empty = manager.get_stream(set(), 'test_view')
-        assert isinstance(pipe_empty, FakePipe)
-
-        # Test that empty source pipe is never triggered by any data
-        unrelated_key = DataKey(
-            service_name='data_reduction',
-            source_name='source1',
-            key='reduced/source1/test_view',
-        )
-
-        data_service[unrelated_key] = sample_data
-
-        # Empty source pipe should not be triggered by any key
-        assert len(pipe_empty.send_calls) == 0
-
-        # Try another unrelated key
-        another_key = DataKey(
-            service_name='data_reduction',
-            source_name='source2',
-            key='reduced/source2/test_view',
-        )
-
-        data_service[another_key] = sample_data * 2
-
-        # Empty source pipe should still not be triggered
-        assert len(pipe_empty.send_calls) == 0
-
-    def test_streams_with_shared_source_are_both_triggered(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test that streams with a shared source are both triggered by an update."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-        view_name = 'test_view'
-
-        # Two streams with one source in common
-        pipe1 = manager.get_stream({'source1', 'source2'}, view_name)
-        pipe2 = manager.get_stream({'source1', 'source3'}, view_name)
-
-        assert pipe1 is not pipe2
-        assert fake_pipe_factory.call_count == 2
-
-        # Test that updating the shared source triggers both pipes
-        data_key = DataKey(
-            service_name='data_reduction',
-            source_name='source1',
-            key='reduced/source1/test_view',
-        )
-
-        data_service[data_key] = sample_data
-
-        # Both pipes should be triggered
-        assert len(pipe1.send_calls) == 1
-        assert len(pipe2.send_calls) == 1
-
-        # Verify the data was sent to both pipes
-        assert data_key in pipe1.send_calls[0]
-        assert data_key in pipe2.send_calls[0]
-        assert sc.identical(pipe1.send_calls[0][data_key], sample_data)
-        assert sc.identical(pipe2.send_calls[0][data_key], sample_data)
-
-    def test_unrelated_key_updates_dont_trigger(
-        self,
-        data_service: DataService,
-        fake_pipe_factory: FakePipeFactory,
-        sample_data: sc.DataArray,
-    ) -> None:
-        """Test that unrelated key updates don't trigger reduction streams."""
-        manager = ReductionStreamManager(
-            data_service=data_service, pipe_factory=fake_pipe_factory
-        )
-
-        pipe = manager.get_stream({'source1'}, 'view1')
-
-        unrelated_key = DataKey(
-            service_name='data_reduction',
-            source_name='source2',
-            key='reduced/source2/view1',
-        )
-
-        # Update unrelated key
-        data_service[unrelated_key] = sample_data
-
-        # Pipe should not be triggered
+        # Should not receive any data
         assert len(pipe.send_calls) == 0
 
-        # Update the correct key
-        correct_key = DataKey(
-            service_name='data_reduction',
-            source_name='source1',
-            key='reduced/source1/view1',
+    def test_shared_source_triggering(
+        self, data_service, fake_pipe_factory, sample_data
+    ):
+        """Test that shared sources trigger multiple streams appropriately."""
+        manager = StreamManager(
+            data_service=data_service, pipe_factory=fake_pipe_factory
         )
-        data_service[correct_key] = sample_data
 
-        # Now pipe should be triggered
+        # Create shared key
+        shared_key = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="shared", version=1
+            ),
+            job_id=JobId(source_name="shared_source", job_number=uuid.uuid4()),
+        )
+
+        # Create two streams that both include the shared key
+        pipe1 = manager.make_merging_stream({shared_key})
+        pipe2 = manager.make_merging_stream({shared_key})
+
+        # Publish data to shared key
+        data_service[shared_key] = sample_data
+
+        # Both pipes should receive the data
+        assert len(pipe1.send_calls) == 1
+        assert len(pipe2.send_calls) == 1
+        assert pipe1.send_calls[0] == {shared_key: sample_data}
+        assert pipe2.send_calls[0] == {shared_key: sample_data}
+
+    def test_unrelated_key_filtering(
+        self, data_service, fake_pipe_factory, sample_data
+    ):
+        """Test that unrelated keys are filtered out."""
+        manager = StreamManager(
+            data_service=data_service, pipe_factory=fake_pipe_factory
+        )
+
+        # Create stream with specific key
+        target_key = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="target", version=1
+            ),
+            job_id=JobId(source_name="target_source", job_number=uuid.uuid4()),
+        )
+
+        unrelated_key = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="unrelated", version=1
+            ),
+            job_id=JobId(source_name="unrelated_source", job_number=uuid.uuid4()),
+        )
+
+        pipe = manager.make_merging_stream({target_key})
+
+        # Publish data for unrelated key
+        data_service[unrelated_key] = sample_data
+
+        # Should not receive any data
+        assert len(pipe.send_calls) == 0
+
+        # Publish data for target key
+        data_service[target_key] = sample_data
+
+        # Should receive data now
         assert len(pipe.send_calls) == 1
-        # Verify the correct data was sent
-        sent_data = pipe.send_calls[0]
-        assert isinstance(sent_data, dict)
-        assert correct_key in sent_data
-        assert sc.identical(sent_data[correct_key], sample_data)
+        assert pipe.send_calls[0] == {target_key: sample_data}
+
+    def test_complex_multi_stream_scenario(self, data_service, fake_pipe_factory):
+        """Test complex scenario with multiple streams and overlapping keys."""
+        manager = StreamManager(
+            data_service=data_service, pipe_factory=fake_pipe_factory
+        )
+
+        # Create multiple keys
+        key_a = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="a", version=1
+            ),
+            job_id=JobId(source_name="source_a", job_number=uuid.uuid4()),
+        )
+        key_b = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="b", version=1
+            ),
+            job_id=JobId(source_name="source_b", job_number=uuid.uuid4()),
+        )
+        key_c = ResultKey(
+            workflow_id=WorkflowId(
+                instrument="test", namespace="ns", name="c", version=1
+            ),
+            job_id=JobId(source_name="source_c", job_number=uuid.uuid4()),
+        )
+
+        # Create streams with overlapping keys
+        pipe1 = manager.make_merging_stream({key_a, key_b})  # a, b
+        pipe2 = manager.make_merging_stream({key_b, key_c})  # b, c
+        pipe3 = manager.make_merging_stream({key_a})  # a only
+
+        # Create sample data
+        data_a = sc.DataArray(data=sc.array(dims=[], values=[1]))
+        data_b = sc.DataArray(data=sc.array(dims=[], values=[2]))
+        data_c = sc.DataArray(data=sc.array(dims=[], values=[3]))
+
+        # Publish data in sequence
+        data_service[key_a] = data_a
+        data_service[key_b] = data_b
+        data_service[key_c] = data_c
+
+        # Verify pipe1 (keys a, b)
+        assert len(pipe1.send_calls) == 2
+        assert pipe1.send_calls[0] == {key_a: data_a}
+        assert pipe1.send_calls[1] == {key_a: data_a, key_b: data_b}
+
+        # Verify pipe2 (keys b, c)
+        assert len(pipe2.send_calls) == 2
+        assert pipe2.send_calls[0] == {key_b: data_b}
+        assert pipe2.send_calls[1] == {key_b: data_b, key_c: data_c}
+
+        # Verify pipe3 (key a only)
+        assert len(pipe3.send_calls) == 1
+        assert pipe3.send_calls[0] == {key_a: data_a}

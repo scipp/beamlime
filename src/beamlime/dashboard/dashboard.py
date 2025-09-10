@@ -17,6 +17,7 @@ from beamlime.config.config_loader import load_config
 from beamlime.config.instruments import get_config
 from beamlime.config.schema_registry import get_schema_registry
 from beamlime.config.streams import stream_kind_to_topic
+from beamlime.config.workflow_spec import ResultKey
 from beamlime.core.message import StreamKind
 from beamlime.kafka import consumer as kafka_consumer
 from beamlime.kafka.message_adapter import (
@@ -29,17 +30,15 @@ from beamlime.kafka.source import BackgroundMessageSource
 
 from .config_service import ConfigService
 from .controller_factory import ControllerFactory
-from .data_key import DataKey
 from .data_service import DataService
+from .job_service import JobService
 from .kafka_transport import KafkaTransport
 from .message_bridge import BackgroundMessageBridge
 from .orchestrator import Orchestrator
+from .plotting_controller import PlottingController
 from .schema_validator import PydanticSchemaValidator
-from .stream_manager import (
-    DetectorStreamManager,
-    MonitorStreamManager,
-    ReductionStreamManager,
-)
+from .stream_manager import StreamManager
+from .widgets.plot_creation_widget import PlotCreationWidget
 from .widgets.reduction_widget import ReductionWidget
 from .workflow_controller import WorkflowController
 
@@ -79,6 +78,7 @@ class DashboardBase(ServiceBase, ABC):
         # Load the module to register the instrument's workflows.
         self._instrument_module = get_config(instrument)
         self._processor_factory = instrument_registry[self._instrument].workflow_factory
+        self._setup_workflow_management()
 
     @abstractmethod
     def create_sidebar_content(self) -> pn.viewable.Viewable:
@@ -88,7 +88,8 @@ class DashboardBase(ServiceBase, ABC):
     @abstractmethod
     def create_main_content(self) -> pn.viewable.Viewable:
         """Override this method to create the main dashboard content."""
-        pass
+        # Currently unused, should this allow for defining a custom layout where plots
+        # should be placed?
 
     def _setup_config_service(self) -> None:
         """Set up configuration service with Kafka bridge."""
@@ -121,16 +122,18 @@ class DashboardBase(ServiceBase, ABC):
     def _setup_data_infrastructure(self) -> None:
         """Set up data services, forwarder, and orchestrator."""
         # da00 of backend services converted to scipp.DataArray
-        ScippDataService = DataService[DataKey, sc.DataArray]
+        ScippDataService = DataService[ResultKey, sc.DataArray]
         self._data_service = ScippDataService()
-        self._monitor_stream_manager = MonitorStreamManager(
+        self._stream_manager = StreamManager(
             data_service=self._data_service, pipe_factory=streams.Pipe
         )
-        self._detector_stream_manager = DetectorStreamManager(
-            data_service=self._data_service, pipe_factory=streams.Pipe
+        self._job_service = JobService(
+            data_service=self._data_service, logger=self._logger
         )
-        self._reduction_stream_manager = ReductionStreamManager(
-            data_service=self._data_service, pipe_factory=streams.Pipe
+        self._plotting_controller = PlottingController(
+            job_service=self._job_service,
+            stream_manager=self._stream_manager,
+            logger=self._logger,
         )
         self._orchestrator = Orchestrator(
             self._setup_kafka_consumer(), data_service=self._data_service
@@ -164,17 +167,12 @@ class DashboardBase(ServiceBase, ABC):
             ),
         )
 
-    def _setup_workflow_management(self, namespace: str) -> None:
+    def _setup_workflow_management(self) -> None:
         """Initialize workflow controller and reduction widget."""
-        workflow_registry = {
-            key: workflow
-            for key, workflow in self._processor_factory.items()
-            if workflow.namespace == namespace
-        }
         self._workflow_controller = WorkflowController.from_config_service(
             config_service=self._config_service,
             source_names=sorted(self._processor_factory.source_names),
-            workflow_registry=workflow_registry,
+            workflow_registry=self._processor_factory,
             data_service=self._data_service,
         )
         self._reduction_widget = ReductionWidget(controller=self._workflow_controller)
@@ -227,8 +225,10 @@ class DashboardBase(ServiceBase, ABC):
 
     def create_layout(self) -> pn.template.MaterialTemplate:
         """Create the basic dashboard layout."""
-        main_content = self.create_main_content()
         sidebar_content = self.create_sidebar_content()
+        main_content = PlotCreationWidget(
+            job_service=self._job_service, plotting_controller=self._plotting_controller
+        ).widget
 
         template = pn.template.MaterialTemplate(
             title=self.get_dashboard_title(),

@@ -48,9 +48,8 @@ class ConfigServiceAdapter(WorkflowConfigService):
     Adapter to make ConfigService compatible with WorkflowConfigService protocol.
     """
 
-    def __init__(self, config_service: ConfigService, source_names: list[str]):
+    def __init__(self, config_service: ConfigService):
         self._config_service = config_service
-        self._source_names = source_names
 
     def get_persistent_configs(self) -> PersistentWorkflowConfigs:
         """Get persistent workflow configurations."""

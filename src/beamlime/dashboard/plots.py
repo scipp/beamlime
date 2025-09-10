@@ -11,8 +11,8 @@ import numpy as np
 import scipp as sc
 from holoviews import opts
 
-from .assemblers import RawData
-from .data_key import DataKey
+from beamlime.config.workflow_spec import ResultKey
+
 from .scipp_to_holoviews import to_holoviews
 
 
@@ -107,7 +107,7 @@ class AutoscalingPlot:
 
         return changed
 
-    def plot_lines(self, data: dict[DataKey, sc.DataArray]) -> hv.Overlay:
+    def plot_lines(self, data: dict[ResultKey, sc.DataArray]) -> hv.Overlay:
         """Create a line plot from a dictionary of scipp DataArrays."""
         options = opts.Curve(
             responsive=True,
@@ -121,7 +121,7 @@ class AutoscalingPlot:
         curves = []
         bounds_changed = False
         for data_key, da in data.items():
-            name = data_key.source_name
+            name = data_key.job_id.source_name
             da = da.assign_coords(dspacing=sc.midpoints(da.coords['dspacing']))
             bounds_changed |= self.update_bounds(da)
             curves.append(to_holoviews(da).relabel(name))
@@ -175,7 +175,7 @@ class AutoscalingPlot:
             clim=(self.value_bounds[0], self.value_bounds[1]),
         )
 
-    def plot_sum_of_2d(self, data: dict[DataKey, sc.DataArray]) -> hv.Image:
+    def plot_sum_of_2d(self, data: dict[ResultKey, sc.DataArray]) -> hv.Image:
         """Create a 2D plot from a dictionary of scipp DataArrays."""
         if data is None:
             return self.plot_2d(data)
@@ -187,6 +187,10 @@ class AutoscalingPlot:
         else:
             combined = reducer.nansum()
         return self.plot_2d(combined)
+
+
+# TODO Monitor plots below are currently unused and will be replaced
+RawData = Any
 
 
 def monitor_total_counts_bar_chart(**monitors: RawData | None) -> hv.Bars:

@@ -7,12 +7,14 @@ Workflow controller implementation backed by a config service.
 from __future__ import annotations
 
 import logging
+import uuid
 from collections.abc import Callable, Mapping
 
 import pydantic
 
 from beamlime.config.workflow_spec import (
     PersistentWorkflowConfig,
+    ResultKey,
     WorkflowConfig,
     WorkflowId,
     WorkflowSpec,
@@ -20,7 +22,6 @@ from beamlime.config.workflow_spec import (
     WorkflowStatusType,
 )
 
-from .data_key import DataKey
 from .data_service import DataService
 from .workflow_config_service import ConfigServiceAdapter, WorkflowConfigService
 
@@ -108,7 +109,7 @@ class WorkflowController:
         service: WorkflowConfigService,
         source_names: list[str],
         workflow_registry: Mapping[WorkflowId, WorkflowSpec],
-        data_service: DataService[DataKey, object] | None = None,
+        data_service: DataService[ResultKey, object] | None = None,
     ) -> None:
         """
         Initialize the workflow controller.
@@ -155,12 +156,11 @@ class WorkflowController:
         config_service,
         source_names: list[str],
         workflow_registry: Mapping[WorkflowId, WorkflowSpec],
-        data_service: DataService[DataKey, object] | None = None,
+        data_service: DataService[ResultKey, object] | None = None,
     ) -> WorkflowController:
         """Create WorkflowController from ConfigService."""
-        adapter = ConfigServiceAdapter(config_service, source_names)
         return cls(
-            service=adapter,
+            service=ConfigServiceAdapter(config_service),
             source_names=source_names,
             workflow_registry=workflow_registry,
             data_service=data_service,
@@ -212,8 +212,10 @@ class WorkflowController:
             )
             return False
 
+        # We generate a new job number for the workflow. This will allow for associating
+        # multiple jobs with the same workflow run for different sources.
         workflow_config = WorkflowConfig(
-            identifier=workflow_id, params=config.model_dump()
+            identifier=workflow_id, job_number=uuid.uuid4(), params=config.model_dump()
         )
 
         # Update the config for this workflow, used for restoring widget state
@@ -258,15 +260,7 @@ class WorkflowController:
 
         # Remove associated data keys from data service
         if self._data_service is not None:
-            keys_to_remove = [
-                key
-                for key in self._data_service.keys()
-                if (
-                    isinstance(key, DataKey)
-                    and key.service_name == 'data_reduction'
-                    and key.source_name == source_name
-                )
-            ]
+            keys_to_remove = list(self._data_service.keys())
             for key in keys_to_remove:
                 self._logger.debug('Removing data key: %s', key)
                 del self._data_service[key]

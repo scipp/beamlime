@@ -38,8 +38,7 @@ def config_service(fake_message_bridge):
 @pytest.fixture
 def workflow_config_service(config_service) -> WorkflowConfigService:
     """Create a ConfigServiceAdapter for testing."""
-    source_names = ["source1", "source2"]
-    return ConfigServiceAdapter(config_service, source_names)
+    return ConfigServiceAdapter(config_service)
 
 
 @pytest.fixture
