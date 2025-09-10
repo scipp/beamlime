@@ -175,6 +175,12 @@ class SpectrumViewParams(pydantic.BaseModel):
         return v
 
 
+class BifrostWorkflowParams(pydantic.BaseModel):
+    spectrum_view: SpectrumViewParams = pydantic.Field(
+        title='Spectrum view parameters', default_factory=SpectrumViewParams
+    )
+
+
 instrument = Instrument(
     name='bifrost',
     source_to_key={
@@ -200,10 +206,11 @@ _logical_view = DetectorLogicalView(
     description='Spectrum view with configurable time bins and pixels per tube.',
     source_names=_source_names,
 )
-def _spectrum_view_new(params: SpectrumViewParams) -> StreamProcessor:
+def _spectrum_view_new(params: BifrostWorkflowParams) -> StreamProcessor:
     wf = _reduction_workflow.copy()
-    wf[_SpectrumViewTimeBins] = params.time_bins
-    wf[_SpectrumViewPixelsPerTube] = params.pixels_per_tube
+    view_params = params.spectrum_view
+    wf[_SpectrumViewTimeBins] = view_params.time_bins
+    wf[_SpectrumViewPixelsPerTube] = view_params.pixels_per_tube
     return StreamProcessor(
         wf,
         dynamic_keys=(NeXusData[NXdetector, SampleRun],),
@@ -234,10 +241,11 @@ def _counts_per_angle() -> StreamProcessor:
     title='Spectrum view and counts per angle',
     source_names=_source_names,
 )
-def _all(params: SpectrumViewParams) -> StreamProcessor:
+def _all(params: BifrostWorkflowParams) -> StreamProcessor:
     wf = _reduction_workflow.copy()
-    wf[_SpectrumViewTimeBins] = params.time_bins
-    wf[_SpectrumViewPixelsPerTube] = params.pixels_per_tube
+    view_params = params.spectrum_view
+    wf[_SpectrumViewTimeBins] = view_params.time_bins
+    wf[_SpectrumViewPixelsPerTube] = view_params.pixels_per_tube
     return StreamProcessor(
         wf,
         dynamic_keys=(NeXusData[NXdetector, SampleRun],),
