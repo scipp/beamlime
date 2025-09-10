@@ -4,8 +4,8 @@ import time
 
 import pytest
 
-from beamlime.dashboard.message_transport import FakeTransport
-from beamlime.dashboard.throttling_message_handler import ThrottlingMessageHandler
+from ess.livedata.dashboard.message_transport import FakeTransport
+from ess.livedata.dashboard.throttling_message_handler import ThrottlingMessageHandler
 
 
 class TestThrottlingMessageHandler:

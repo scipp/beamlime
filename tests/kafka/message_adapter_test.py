@@ -8,15 +8,15 @@ import scipp as sc
 from streaming_data_types import dataarray_da00, eventdata_ev44, logdata_f144
 from streaming_data_types.exceptions import WrongSchemaException
 
-from beamlime.core.message import (
+from ess.livedata.core.message import (
     CONFIG_STREAM_ID,
     Message,
     MessageSource,
     StreamId,
     StreamKind,
 )
-from beamlime.handlers.accumulators import DetectorEvents
-from beamlime.kafka.message_adapter import (
+from ess.livedata.handlers.accumulators import DetectorEvents
+from ess.livedata.kafka.message_adapter import (
     AdaptingMessageSource,
     BeamlimeConfigMessageAdapter,
     ChainedAdapter,

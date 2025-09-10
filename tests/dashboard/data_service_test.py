@@ -6,8 +6,8 @@ from typing import Any
 
 import pytest
 
-from beamlime.dashboard.data_service import DataService
-from beamlime.dashboard.data_subscriber import DataSubscriber, Pipe, StreamAssembler
+from ess.livedata.dashboard.data_service import DataService
+from ess.livedata.dashboard.data_subscriber import DataSubscriber, Pipe, StreamAssembler
 
 
 class FakeDataAssembler(StreamAssembler[str]):

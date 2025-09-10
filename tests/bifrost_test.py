@@ -2,10 +2,10 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 
 import scipp as sc
-from ess.reduce.nexus.types import CalibratedBeamline, SampleRun
 from scipp.testing import assert_identical
 
-from beamlime.config.instruments import bifrost
+from ess.livedata.config.instruments import bifrost
+from ess.reduce.nexus.types import CalibratedBeamline, SampleRun
 
 
 def test_workflow_produces_detector_with_consecutive_detector_number():

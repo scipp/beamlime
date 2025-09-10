@@ -7,10 +7,10 @@ import numpy as np
 import pytest
 from streaming_data_types import eventdata_ev44
 
-from beamlime.config import instrument_registry, workflow_spec
-from beamlime.config.models import ConfigKey
-from beamlime.core.job import JobAction, JobCommand
-from beamlime.services.data_reduction import make_reduction_service_builder
+from ess.livedata.config import instrument_registry, workflow_spec
+from ess.livedata.config.models import ConfigKey
+from ess.livedata.core.job import JobAction, JobCommand
+from ess.livedata.services.data_reduction import make_reduction_service_builder
 from tests.helpers.beamlime_app import BeamlimeApp
 
 

@@ -5,10 +5,10 @@ import logging
 
 import pytest
 
-from beamlime.config import instrument_registry, workflow_spec
-from beamlime.config.models import ConfigKey
-from beamlime.core.job import JobAction, JobCommand
-from beamlime.services.detector_data import make_detector_service_builder
+from ess.livedata.config import instrument_registry, workflow_spec
+from ess.livedata.config.models import ConfigKey
+from ess.livedata.core.job import JobAction, JobCommand
+from ess.livedata.services.detector_data import make_detector_service_builder
 from tests.helpers.beamlime_app import BeamlimeApp
 
 

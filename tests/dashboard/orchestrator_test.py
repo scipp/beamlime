@@ -5,11 +5,11 @@ import uuid
 import pytest
 import scipp as sc
 
-from beamlime.config.workflow_spec import JobId, ResultKey, WorkflowId
-from beamlime.core.message import Message, StreamId, StreamKind
-from beamlime.dashboard.data_service import DataService
-from beamlime.dashboard.job_service import JobService
-from beamlime.dashboard.orchestrator import Orchestrator
+from ess.livedata.config.workflow_spec import JobId, ResultKey, WorkflowId
+from ess.livedata.core.message import Message, StreamId, StreamKind
+from ess.livedata.dashboard.data_service import DataService
+from ess.livedata.dashboard.job_service import JobService
+from ess.livedata.dashboard.orchestrator import Orchestrator
 
 
 def make_job_number() -> uuid.UUID:

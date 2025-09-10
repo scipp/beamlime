@@ -2,8 +2,8 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import pytest
 
-from beamlime.config import config_names
-from beamlime.config.config_loader import load_config
+from ess.livedata.config import config_names
+from ess.livedata.config.config_loader import load_config
 
 
 @pytest.fixture

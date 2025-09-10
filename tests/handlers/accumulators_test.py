@@ -5,8 +5,8 @@ import pytest
 import scipp as sc
 from streaming_data_types import logdata_f144
 
-from beamlime.core.handler import Accumulator
-from beamlime.handlers.accumulators import (
+from ess.livedata.core.handler import Accumulator
+from ess.livedata.handlers.accumulators import (
     CollectTOA,
     Cumulative,
     GroupIntoPixels,
@@ -14,7 +14,7 @@ from beamlime.handlers.accumulators import (
     MonitorEvents,
     NullAccumulator,
 )
-from beamlime.handlers.to_nxevent_data import DetectorEvents, ToNXevent_data
+from ess.livedata.handlers.to_nxevent_data import DetectorEvents, ToNXevent_data
 
 
 def test_LogData_from_f144() -> None:

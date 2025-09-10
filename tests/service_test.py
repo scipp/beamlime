@@ -2,7 +2,7 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 import time
 
-from beamlime import Service
+from ess.livedata import Service
 
 
 class FakeProcessor:

@@ -2,10 +2,10 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import pytest
 
-from beamlime.config.keys import WORKFLOW_CONFIG, WORKFLOW_STATUS
-from beamlime.config.models import ConfigKey
-from beamlime.config.schema_registry import get_schema_registry
-from beamlime.config.workflow_spec import (
+from ess.livedata.config.keys import WORKFLOW_CONFIG, WORKFLOW_STATUS
+from ess.livedata.config.models import ConfigKey
+from ess.livedata.config.schema_registry import get_schema_registry
+from ess.livedata.config.workflow_spec import (
     PersistentWorkflowConfig,
     PersistentWorkflowConfigs,
     WorkflowConfig,
@@ -13,10 +13,10 @@ from beamlime.config.workflow_spec import (
     WorkflowStatus,
     WorkflowStatusType,
 )
-from beamlime.dashboard.config_service import ConfigService
-from beamlime.dashboard.message_bridge import FakeMessageBridge
-from beamlime.dashboard.schema_validator import PydanticSchemaValidator
-from beamlime.dashboard.workflow_config_service import (
+from ess.livedata.dashboard.config_service import ConfigService
+from ess.livedata.dashboard.message_bridge import FakeMessageBridge
+from ess.livedata.dashboard.schema_validator import PydanticSchemaValidator
+from ess.livedata.dashboard.workflow_config_service import (
     ConfigServiceAdapter,
     WorkflowConfigService,
 )

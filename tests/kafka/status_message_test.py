@@ -7,9 +7,9 @@ import uuid
 import pytest
 from streaming_data_types import deserialise_x5f2, serialise_x5f2
 
-from beamlime.config.workflow_spec import JobId, WorkflowId
-from beamlime.core.job import JobState, JobStatus
-from beamlime.kafka.x5f2_compat import (
+from ess.livedata.config.workflow_spec import JobId, WorkflowId
+from ess.livedata.core.job import JobState, JobStatus
+from ess.livedata.kafka.x5f2_compat import (
     Message,
     NicosStatus,
     ServiceId,

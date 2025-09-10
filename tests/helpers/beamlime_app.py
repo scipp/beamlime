@@ -14,17 +14,17 @@ from typing import Any
 import numpy as np
 from streaming_data_types import eventdata_ev44
 
-from beamlime import Service, StreamKind
-from beamlime.config import models
-from beamlime.config.instruments import get_config
-from beamlime.config.streams import stream_kind_to_topic
-from beamlime.core.message_batcher import NaiveMessageBatcher
-from beamlime.core.orchestrating_processor import OrchestratingProcessor
-from beamlime.fakes import FakeMessageSink
-from beamlime.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
-from beamlime.kafka.sink import UnrollingSinkAdapter
-from beamlime.kafka.source import KafkaConsumer
-from beamlime.service_factory import DataServiceBuilder
+from ess.livedata import Service, StreamKind
+from ess.livedata.config import models
+from ess.livedata.config.instruments import get_config
+from ess.livedata.config.streams import stream_kind_to_topic
+from ess.livedata.core.message_batcher import NaiveMessageBatcher
+from ess.livedata.core.orchestrating_processor import OrchestratingProcessor
+from ess.livedata.fakes import FakeMessageSink
+from ess.livedata.kafka.message_adapter import FakeKafkaMessage, KafkaMessage
+from ess.livedata.kafka.sink import UnrollingSinkAdapter
+from ess.livedata.kafka.source import KafkaConsumer
+from ess.livedata.service_factory import DataServiceBuilder
 
 
 class FakeConsumer(KafkaConsumer):

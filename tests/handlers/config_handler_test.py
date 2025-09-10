@@ -4,11 +4,11 @@ import json
 
 import pytest
 
-from beamlime.config.models import ConfigKey
-from beamlime.core.job import JobAction, JobCommand
-from beamlime.core.message import CONFIG_STREAM_ID, Message
-from beamlime.handlers.config_handler import ConfigProcessor, ConfigUpdate
-from beamlime.kafka.message_adapter import RawConfigItem
+from ess.livedata.config.models import ConfigKey
+from ess.livedata.core.job import JobAction, JobCommand
+from ess.livedata.core.message import CONFIG_STREAM_ID, Message
+from ess.livedata.handlers.config_handler import ConfigProcessor, ConfigUpdate
+from ess.livedata.kafka.message_adapter import RawConfigItem
 
 
 class TestConfigUpdate:
