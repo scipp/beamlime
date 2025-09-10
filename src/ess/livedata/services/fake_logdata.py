@@ -6,12 +6,12 @@ from typing import NoReturn, TypeVar
 import numpy as np
 import scipp as sc
 
-from beamlime import Handler, Message, MessageSource, Service, StreamId, StreamKind
-from beamlime.config import config_names
-from beamlime.config.config_loader import load_config
-from beamlime.core.handler import CommonHandlerFactory
-from beamlime.kafka.sink import KafkaSink, serialize_dataarray_to_f144
-from beamlime.service_factory import DataServiceBuilder
+from ess.livedata import Handler, Message, MessageSource, Service, StreamId, StreamKind
+from ess.livedata.config import config_names
+from ess.livedata.config.config_loader import load_config
+from ess.livedata.core.handler import CommonHandlerFactory
+from ess.livedata.kafka.sink import KafkaSink, serialize_dataarray_to_f144
+from ess.livedata.service_factory import DataServiceBuilder
 
 
 def _make_ramp(size: int) -> sc.DataArray:

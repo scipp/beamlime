@@ -8,8 +8,8 @@ Usage:
     BEAMLIME_INSTRUMENT=dummy gunicorn beamlime.dashboard.reduction_wsgi:application
 """
 
-from beamlime.core.service import get_env_defaults
-from beamlime.dashboard.reduction import ReductionApp, get_arg_parser
+from ess.livedata.core.service import get_env_defaults
+from ess.livedata.dashboard.reduction import ReductionApp, get_arg_parser
 
 _args = get_env_defaults(parser=get_arg_parser(), prefix='BEAMLIME')
 _app = ReductionApp(**_args)

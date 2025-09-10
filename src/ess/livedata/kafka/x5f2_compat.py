@@ -11,8 +11,8 @@ import pydantic
 from pydantic import field_serializer, field_validator
 from streaming_data_types import deserialise_x5f2, serialise_x5f2
 
-from beamlime.config.workflow_spec import WorkflowId
-from beamlime.core.job import JobId, JobState, JobStatus
+from ess.livedata.config.workflow_spec import WorkflowId
+from ess.livedata.core.job import JobId, JobState, JobStatus
 
 
 class ServiceId(pydantic.BaseModel):

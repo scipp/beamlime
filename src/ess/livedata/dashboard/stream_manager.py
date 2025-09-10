@@ -7,7 +7,7 @@ Utilities for connecting subscribers to :py:class:`DataService`
 from collections.abc import Callable
 from typing import Any, Generic, TypeVar
 
-from beamlime.config.workflow_spec import ResultKey
+from ess.livedata.config.workflow_spec import ResultKey
 
 from .data_service import DataService
 from .data_subscriber import DataSubscriber, Pipe, StreamAssembler

@@ -9,7 +9,8 @@ from typing import Any
 
 import scipp as sc
 import scippnexus as snx
-from beamlime.handlers.workflow_factory import Workflow, WorkflowFactory
+
+from ess.livedata.handlers.workflow_factory import Workflow, WorkflowFactory
 
 from .workflow_spec import WorkflowSpec
 
@@ -58,7 +59,9 @@ class Instrument:
 
     @property
     def nexus_file(self) -> str:
-        from beamlime.handlers.detector_data_handler import get_nexus_geometry_filename
+        from ess.livedata.handlers.detector_data_handler import (
+            get_nexus_geometry_filename,
+        )
 
         if self._nexus_file is None:
             try:

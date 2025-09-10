@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from numbers import Number
 from typing import Any
 
-from beamlime.core.message import Message
+from ess.livedata.core.message import Message
 
 
 @dataclass(slots=True, kw_only=True)

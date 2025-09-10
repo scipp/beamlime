@@ -6,17 +6,17 @@ from typing import NoReturn
 import numpy as np
 from streaming_data_types import eventdata_ev44
 
-from beamlime import CommonHandlerFactory, Service, StreamProcessor
-from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
-from beamlime.kafka.message_adapter import (
+from ess.livedata import CommonHandlerFactory, Service, StreamProcessor
+from ess.livedata.handlers.monitor_data_handler import create_monitor_data_handler
+from ess.livedata.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
     Ev44ToMonitorEventsAdapter,
     FakeKafkaMessage,
     KafkaToEv44Adapter,
 )
-from beamlime.kafka.source import KafkaConsumer, KafkaMessageSource
-from beamlime.sinks import PlotToPngSink
+from ess.livedata.kafka.source import KafkaConsumer, KafkaMessageSource
+from ess.livedata.sinks import PlotToPngSink
 
 
 class FakeMonitorEventKafkaConsumer(KafkaConsumer):

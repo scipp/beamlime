@@ -9,7 +9,7 @@ from typing import TypeVar
 import holoviews as hv
 import pydantic
 
-from beamlime.config.workflow_spec import JobId, JobNumber, ResultKey
+from ess.livedata.config.workflow_spec import JobId, JobNumber, ResultKey
 
 from .job_service import JobService
 from .plotting import PlotterSpec, plotter_registry

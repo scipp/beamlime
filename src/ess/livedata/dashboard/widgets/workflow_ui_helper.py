@@ -2,8 +2,8 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from typing import Any
 
-from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec
-from beamlime.dashboard.workflow_controller import BoundWorkflowController
+from ess.livedata.config.workflow_spec import WorkflowId, WorkflowSpec
+from ess.livedata.dashboard.workflow_controller import BoundWorkflowController
 
 
 class WorkflowUIHelper:

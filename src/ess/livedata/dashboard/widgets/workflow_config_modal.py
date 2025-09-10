@@ -6,7 +6,7 @@ from typing import Any
 
 import panel as pn
 
-from beamlime.dashboard.workflow_controller import BoundWorkflowController
+from ess.livedata.dashboard.workflow_controller import BoundWorkflowController
 
 from .configuration_widget import (
     ConfigurationAdapter,

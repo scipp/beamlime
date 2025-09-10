@@ -8,7 +8,7 @@ import pydantic
 import scipp as sc
 from pydantic_core import PydanticUndefined
 
-from beamlime.config.schema_registry import SchemaRegistryBase
+from ess.livedata.config.schema_registry import SchemaRegistryBase
 
 from .config_service import ConfigService
 

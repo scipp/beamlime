@@ -5,13 +5,13 @@
 import logging
 from typing import NoReturn
 
-from beamlime.config import instrument_registry
-from beamlime.config.instruments import get_config
-from beamlime.config.streams import get_stream_mapping
-from beamlime.core.orchestrating_processor import OrchestratingProcessor
-from beamlime.handlers.data_reduction_handler import ReductionHandlerFactory
-from beamlime.kafka.routes import RoutingAdapterBuilder
-from beamlime.service_factory import DataServiceBuilder, DataServiceRunner
+from ess.livedata.config import instrument_registry
+from ess.livedata.config.instruments import get_config
+from ess.livedata.config.streams import get_stream_mapping
+from ess.livedata.core.orchestrating_processor import OrchestratingProcessor
+from ess.livedata.handlers.data_reduction_handler import ReductionHandlerFactory
+from ess.livedata.kafka.routes import RoutingAdapterBuilder
+from ess.livedata.service_factory import DataServiceBuilder, DataServiceRunner
 
 
 def make_reduction_service_builder(

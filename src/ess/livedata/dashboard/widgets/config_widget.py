@@ -7,7 +7,7 @@ from typing import Any
 
 import panel as pn
 
-from beamlime.dashboard.controller_factory import Controller
+from ess.livedata.dashboard.controller_factory import Controller
 
 
 class ConfigWidget(ABC):

@@ -7,11 +7,11 @@ from typing import Any
 import pandas as pd
 import panel as pn
 
-from beamlime.config.workflow_spec import JobNumber
-from beamlime.dashboard.job_controller import JobController
-from beamlime.dashboard.job_service import JobService
-from beamlime.dashboard.plotting import PlotterSpec
-from beamlime.dashboard.plotting_controller import PlottingController
+from ess.livedata.config.workflow_spec import JobNumber
+from ess.livedata.dashboard.job_controller import JobController
+from ess.livedata.dashboard.job_service import JobService
+from ess.livedata.dashboard.plotting import PlotterSpec
+from ess.livedata.dashboard.plotting_controller import PlottingController
 
 from .configuration_widget import ConfigurationAdapter, ConfigurationModal
 from .job_status_widget import JobStatusListWidget

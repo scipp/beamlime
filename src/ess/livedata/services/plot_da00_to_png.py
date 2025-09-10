@@ -5,18 +5,24 @@ from typing import NoReturn
 
 import scipp as sc
 
-from beamlime import CommonHandlerFactory, Handler, Message, Service, StreamProcessor
-from beamlime.config import config_names
-from beamlime.config.config_loader import load_config
-from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.message_adapter import (
+from ess.livedata import (
+    CommonHandlerFactory,
+    Handler,
+    Message,
+    Service,
+    StreamProcessor,
+)
+from ess.livedata.config import config_names
+from ess.livedata.config.config_loader import load_config
+from ess.livedata.kafka import consumer as kafka_consumer
+from ess.livedata.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
     Da00ToScippAdapter,
     KafkaToDa00Adapter,
 )
-from beamlime.kafka.source import KafkaMessageSource
-from beamlime.sinks import PlotToPngSink
+from ess.livedata.kafka.source import KafkaMessageSource
+from ess.livedata.sinks import PlotToPngSink
 
 
 class IdentityHandler(Handler[sc.DataArray, sc.DataArray]):

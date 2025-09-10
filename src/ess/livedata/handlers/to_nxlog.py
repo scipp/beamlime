@@ -3,8 +3,8 @@ from typing import Any
 import numpy as np
 import scipp as sc
 
-from beamlime.core.handler import Accumulator
-from beamlime.handlers.accumulators import LogData
+from ess.livedata.core.handler import Accumulator
+from ess.livedata.handlers.accumulators import LogData
 
 
 class ToNXlog(Accumulator[LogData, sc.DataArray]):

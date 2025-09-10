@@ -10,7 +10,7 @@ import holoviews as hv
 import numpy as np
 import scipp as sc
 
-from beamlime.config.workflow_spec import ResultKey
+from ess.livedata.config.workflow_spec import ResultKey
 
 from .plot_params import (
     LayoutParams,

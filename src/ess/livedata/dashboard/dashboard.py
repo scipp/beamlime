@@ -11,18 +11,18 @@ import panel as pn
 import scipp as sc
 from holoviews import Dimension, streams
 
-from beamlime import ServiceBase
-from beamlime.config import config_names, instrument_registry
-from beamlime.config.config_loader import load_config
-from beamlime.config.instruments import get_config
-from beamlime.config.schema_registry import get_schema_registry
-from beamlime.config.streams import get_stream_mapping, stream_kind_to_topic
-from beamlime.config.workflow_spec import ResultKey
-from beamlime.core.message import StreamKind
-from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.message_adapter import AdaptingMessageSource
-from beamlime.kafka.routes import RoutingAdapterBuilder
-from beamlime.kafka.source import BackgroundMessageSource
+from ess.livedata import ServiceBase
+from ess.livedata.config import config_names, instrument_registry
+from ess.livedata.config.config_loader import load_config
+from ess.livedata.config.instruments import get_config
+from ess.livedata.config.schema_registry import get_schema_registry
+from ess.livedata.config.streams import get_stream_mapping, stream_kind_to_topic
+from ess.livedata.config.workflow_spec import ResultKey
+from ess.livedata.core.message import StreamKind
+from ess.livedata.kafka import consumer as kafka_consumer
+from ess.livedata.kafka.message_adapter import AdaptingMessageSource
+from ess.livedata.kafka.routes import RoutingAdapterBuilder
+from ess.livedata.kafka.source import BackgroundMessageSource
 
 from .config_service import ConfigService
 from .controller_factory import ControllerFactory

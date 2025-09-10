@@ -11,8 +11,8 @@ the implementation and testing of :py:class:`WorkflowController`.
 from collections.abc import Callable
 from typing import Protocol
 
-import beamlime.config.keys as keys
-from beamlime.config.workflow_spec import (
+import ess.livedata.config.keys as keys
+from ess.livedata.config.workflow_spec import (
     PersistentWorkflowConfigs,
     WorkflowConfig,
     WorkflowStatus,

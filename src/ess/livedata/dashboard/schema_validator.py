@@ -5,7 +5,7 @@ from typing import Any, Generic, TypeVar
 
 import pydantic
 
-from beamlime.config.schema_registry import SchemaRegistryBase
+from ess.livedata.config.schema_registry import SchemaRegistryBase
 
 K = TypeVar('K')
 V = TypeVar('V')

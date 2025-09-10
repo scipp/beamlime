@@ -7,9 +7,9 @@ from typing import ClassVar
 
 import panel as pn
 
-from beamlime.core.job import JobAction, JobState, JobStatus
-from beamlime.dashboard.job_controller import JobController
-from beamlime.dashboard.job_service import JobService
+from ess.livedata.core.job import JobAction, JobState, JobStatus
+from ess.livedata.dashboard.job_controller import JobController
+from ess.livedata.dashboard.job_service import JobService
 
 
 # UI Constants

@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from beamlime import StreamKind
-from beamlime.config.streams import stream_kind_to_topic
-from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
+from ess.livedata import StreamKind
+from ess.livedata.config.streams import stream_kind_to_topic
+from ess.livedata.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 
 def _make_cbm_monitors(instrument: str, monitor_count: int = 10) -> StreamLUT:

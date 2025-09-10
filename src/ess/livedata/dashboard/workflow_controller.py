@@ -12,7 +12,7 @@ from collections.abc import Callable, Mapping
 
 import pydantic
 
-from beamlime.config.workflow_spec import (
+from ess.livedata.config.workflow_spec import (
     PersistentWorkflowConfig,
     ResultKey,
     WorkflowConfig,

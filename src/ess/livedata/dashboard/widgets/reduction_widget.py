@@ -25,8 +25,8 @@ from __future__ import annotations
 
 import panel as pn
 
-from beamlime.config.workflow_spec import WorkflowId, WorkflowSpec
-from beamlime.dashboard.workflow_controller import (
+from ess.livedata.config.workflow_spec import WorkflowId, WorkflowSpec
+from ess.livedata.dashboard.workflow_controller import (
     BoundWorkflowController,
     WorkflowController,
 )

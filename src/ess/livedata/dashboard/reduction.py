@@ -5,7 +5,7 @@ import argparse
 import holoviews as hv
 import panel as pn
 
-from beamlime import Service
+from ess.livedata import Service
 
 from .dashboard import DashboardBase
 

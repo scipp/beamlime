@@ -9,17 +9,17 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from beamlime import Handler, Message, MessageSource, Service, StreamId, StreamKind
-from beamlime.config import config_names
-from beamlime.config.config_loader import load_config
-from beamlime.core.handler import CommonHandlerFactory
-from beamlime.kafka.message_adapter import MessageAdapter
-from beamlime.kafka.sink import (
+from ess.livedata import Handler, Message, MessageSource, Service, StreamId, StreamKind
+from ess.livedata.config import config_names
+from ess.livedata.config.config_loader import load_config
+from ess.livedata.core.handler import CommonHandlerFactory
+from ess.livedata.kafka.message_adapter import MessageAdapter
+from ess.livedata.kafka.sink import (
     KafkaSink,
     SerializationError,
     serialize_dataarray_to_da00,
 )
-from beamlime.service_factory import DataServiceBuilder
+from ess.livedata.service_factory import DataServiceBuilder
 
 
 class FakeMonitorSource(MessageSource[sc.Variable]):

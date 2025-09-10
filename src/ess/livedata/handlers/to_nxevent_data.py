@@ -10,7 +10,7 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import eventdata_ev44
 
-from beamlime.core.handler import Accumulator
+from ess.livedata.core.handler import Accumulator
 
 
 def _require_single_pulse(ev44: eventdata_ev44.EventData) -> None:

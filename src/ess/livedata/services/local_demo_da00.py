@@ -7,18 +7,18 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import dataarray_da00
 
-from beamlime import CommonHandlerFactory, Service, StreamProcessor
-from beamlime.handlers.monitor_data_handler import create_monitor_data_handler
-from beamlime.kafka.message_adapter import (
+from ess.livedata import CommonHandlerFactory, Service, StreamProcessor
+from ess.livedata.handlers.monitor_data_handler import create_monitor_data_handler
+from ess.livedata.kafka.message_adapter import (
     AdaptingMessageSource,
     ChainedAdapter,
     Da00ToScippAdapter,
     FakeKafkaMessage,
     KafkaToDa00Adapter,
 )
-from beamlime.kafka.scipp_da00_compat import scipp_to_da00
-from beamlime.kafka.source import KafkaConsumer, KafkaMessageSource
-from beamlime.sinks import PlotToPngSink
+from ess.livedata.kafka.scipp_da00_compat import scipp_to_da00
+from ess.livedata.kafka.source import KafkaConsumer, KafkaMessageSource
+from ess.livedata.sinks import PlotToPngSink
 
 
 class FakeMonitorDa00KafkaConsumer(KafkaConsumer):

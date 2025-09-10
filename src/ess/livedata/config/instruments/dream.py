@@ -3,11 +3,24 @@
 
 from typing import NewType
 
-import ess.powder.types  # noqa: F401
 import pydantic
 import scipp as sc
+from scippnexus import NXdetector
+
+import ess.powder.types  # noqa: F401
 from ess import dream, powder
 from ess.dream import DreamPowderWorkflow
+from ess.livedata import parameter_models
+from ess.livedata.config import Instrument, instrument_registry
+from ess.livedata.config.env import StreamingEnv
+from ess.livedata.handlers.detector_data_handler import (
+    DetectorLogicalView,
+    DetectorProjection,
+    LogicalViewConfig,
+    get_nexus_geometry_filename,
+)
+from ess.livedata.handlers.monitor_data_handler import register_monitor_workflows
+from ess.livedata.kafka import InputStreamKey, StreamLUT, StreamMapping
 from ess.reduce.nexus.types import (
     DetectorData,
     Filename,
@@ -18,19 +31,6 @@ from ess.reduce.nexus.types import (
     VanadiumRun,
 )
 from ess.reduce.streaming import StreamProcessor
-from scippnexus import NXdetector
-
-from beamlime import parameter_models
-from beamlime.config import Instrument, instrument_registry
-from beamlime.config.env import StreamingEnv
-from beamlime.handlers.detector_data_handler import (
-    DetectorLogicalView,
-    DetectorProjection,
-    LogicalViewConfig,
-    get_nexus_geometry_filename,
-)
-from beamlime.handlers.monitor_data_handler import register_monitor_workflows
-from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 

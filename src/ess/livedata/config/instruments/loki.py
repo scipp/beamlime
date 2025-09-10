@@ -1,8 +1,19 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-import ess.loki.live  # noqa: F401
 import pydantic
+from scippnexus import NXdetector
+
+import ess.loki.live  # noqa: F401
 from ess import loki
+from ess.livedata import parameter_models
+from ess.livedata.config import Instrument, instrument_registry
+from ess.livedata.config.env import StreamingEnv
+from ess.livedata.handlers.detector_data_handler import (
+    DetectorProjection,
+    get_nexus_geometry_filename,
+)
+from ess.livedata.handlers.monitor_data_handler import register_monitor_workflows
+from ess.livedata.kafka import InputStreamKey, StreamLUT, StreamMapping
 from ess.reduce.nexus.types import NeXusData, NeXusDetectorName, SampleRun
 from ess.reduce.streaming import StreamProcessor
 from ess.sans import types as params
@@ -14,17 +25,6 @@ from ess.sans.types import (
     ReducedQ,
     Transmission,
 )
-from scippnexus import NXdetector
-
-from beamlime import parameter_models
-from beamlime.config import Instrument, instrument_registry
-from beamlime.config.env import StreamingEnv
-from beamlime.handlers.detector_data_handler import (
-    DetectorProjection,
-    get_nexus_geometry_filename,
-)
-from beamlime.handlers.monitor_data_handler import register_monitor_workflows
-from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 

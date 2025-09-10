@@ -9,8 +9,8 @@ from typing import TypeVar
 
 import scipp as sc
 
-from beamlime.config.workflow_spec import JobId, JobNumber, ResultKey, WorkflowId
-from beamlime.core.job import JobState, JobStatus
+from ess.livedata.config.workflow_spec import JobId, JobNumber, ResultKey, WorkflowId
+from ess.livedata.core.job import JobState, JobStatus
 
 from .data_service import DataService
 

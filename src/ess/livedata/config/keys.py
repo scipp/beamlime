@@ -9,12 +9,12 @@ Usage patterns:
 - Creating ConfigKey: WORKFLOW_CONFIG.create_key(source_name="my_source")
 """
 
-from beamlime.config.workflow_spec import (
+from ess.livedata.config.workflow_spec import (
     PersistentWorkflowConfigs,
     WorkflowConfig,
     WorkflowStatus,
 )
-from beamlime.core.job import JobCommand
+from ess.livedata.core.job import JobCommand
 
 from .schema_registry import get_schema_registry
 

@@ -11,13 +11,13 @@ import scipp as sc
 import scippnexus as snx
 from streaming_data_types import eventdata_ev44
 
-from beamlime import Handler, Message, MessageSource, Service, StreamId, StreamKind
-from beamlime.config import config_names
-from beamlime.config.config_loader import load_config
-from beamlime.config.instruments import get_config
-from beamlime.core.handler import CommonHandlerFactory
-from beamlime.kafka.sink import KafkaSink, SerializationError
-from beamlime.service_factory import DataServiceBuilder
+from ess.livedata import Handler, Message, MessageSource, Service, StreamId, StreamKind
+from ess.livedata.config import config_names
+from ess.livedata.config.config_loader import load_config
+from ess.livedata.config.instruments import get_config
+from ess.livedata.core.handler import CommonHandlerFactory
+from ess.livedata.kafka.sink import KafkaSink, SerializationError
+from ess.livedata.service_factory import DataServiceBuilder
 
 
 def events_from_nexus(file_path: str) -> dict[str, sc.DataGroup]:

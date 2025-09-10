@@ -5,7 +5,7 @@ import typing
 from collections.abc import Callable, Hashable, Iterator, Mapping
 from typing import Any, Protocol
 
-from beamlime.config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
+from ess.livedata.config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
 
 
 class Workflow(Protocol):

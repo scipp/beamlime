@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from beamlime.config.models import ConfigKey
-from beamlime.config.workflow_spec import JobId, JobNumber, WorkflowId
-from beamlime.core.job import JobAction, JobCommand
-from beamlime.dashboard.config_service import ConfigService
-from beamlime.dashboard.job_service import JobService
+from ess.livedata.config.models import ConfigKey
+from ess.livedata.config.workflow_spec import JobId, JobNumber, WorkflowId
+from ess.livedata.core.job import JobAction, JobCommand
+from ess.livedata.dashboard.config_service import ConfigService
+from ess.livedata.dashboard.job_service import JobService
 
 
 class JobController:

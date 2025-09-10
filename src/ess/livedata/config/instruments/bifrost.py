@@ -7,6 +7,17 @@ from typing import NewType
 
 import pydantic
 import scipp as sc
+from scippnexus import NXdetector
+
+from ess.livedata.config import Instrument, instrument_registry
+from ess.livedata.config.env import StreamingEnv
+from ess.livedata.handlers.detector_data_handler import (
+    DetectorLogicalView,
+    LogicalViewConfig,
+    get_nexus_geometry_filename,
+)
+from ess.livedata.handlers.monitor_data_handler import register_monitor_workflows
+from ess.livedata.kafka import InputStreamKey, StreamLUT, StreamMapping
 from ess.reduce.nexus.types import (
     CalibratedBeamline,
     DetectorData,
@@ -17,17 +28,6 @@ from ess.reduce.nexus.types import (
 )
 from ess.reduce.streaming import StreamProcessor
 from ess.spectroscopy.indirect.time_of_flight import TofWorkflow
-from scippnexus import NXdetector
-
-from beamlime.config import Instrument, instrument_registry
-from beamlime.config.env import StreamingEnv
-from beamlime.handlers.detector_data_handler import (
-    DetectorLogicalView,
-    LogicalViewConfig,
-    get_nexus_geometry_filename,
-)
-from beamlime.handlers.monitor_data_handler import register_monitor_workflows
-from beamlime.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 

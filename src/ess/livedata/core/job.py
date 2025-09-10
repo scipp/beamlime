@@ -12,8 +12,8 @@ from typing import Any, ClassVar
 import pydantic
 import scipp as sc
 
-from beamlime.config.instrument import Instrument
-from beamlime.handlers.workflow_factory import Workflow
+from ess.livedata.config.instrument import Instrument
+from ess.livedata.handlers.workflow_factory import Workflow
 
 from ..config.workflow_spec import (
     JobId,

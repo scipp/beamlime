@@ -11,8 +11,8 @@ use this mapping to assign a unique stream name to each (topic, source name) pai
 
 from __future__ import annotations
 
-from beamlime import StreamKind
-from beamlime.kafka import StreamMapping
+from ess.livedata import StreamKind
+from ess.livedata.kafka import StreamMapping
 
 from .env import StreamingEnv
 from .instruments import get_config

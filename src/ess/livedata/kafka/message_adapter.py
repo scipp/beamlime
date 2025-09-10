@@ -11,7 +11,7 @@ import streaming_data_types.exceptions
 from streaming_data_types import dataarray_da00, eventdata_ev44, logdata_f144
 from streaming_data_types.fbschemas.eventdata_ev44 import Event44Message
 
-from beamlime.core.job import JobStatus
+from ess.livedata.core.job import JobStatus
 
 from ..core.message import (
     CONFIG_STREAM_ID,
