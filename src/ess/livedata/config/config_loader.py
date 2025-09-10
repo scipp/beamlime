@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import os
 from importlib import resources
 
@@ -38,7 +38,7 @@ def load_config(*, namespace: str, env: str | None = None) -> dict:
     config_file = f'{namespace}{env}.yaml'
     template_file = f'{namespace}{env}.yaml.jinja'
 
-    config_path = resources.files('beamlime.config.defaults')
+    config_path = resources.files('ess.livedata.config.defaults')
 
     # Try direct YAML first
     try:

@@ -452,7 +452,7 @@ def test_message_with_unknown_schema_is_ignored(
     warning_records = [
         r
         for r in caplog.records
-        if r.levelname == "WARNING" and "beamlime.kafka.message_adapter" in r.name
+        if r.levelname == "WARNING" and "ess.livedata.kafka.message_adapter" in r.name
     ]
     assert any("has an unknown schema. Skipping." in r.message for r in warning_records)
 
@@ -480,7 +480,7 @@ def test_message_that_cannot_be_decoded_is_ignored(
     error_records = [
         r
         for r in caplog.records
-        if r.levelname == "ERROR" and "beamlime.kafka.message_adapter" in r.name
+        if r.levelname == "ERROR" and "ess.livedata.kafka.message_adapter" in r.name
     ]
     assert any("unpack_from requires a buffer" in r.message for r in error_records)
 
