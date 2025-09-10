@@ -243,31 +243,6 @@ class WorkflowController:
 
         return True
 
-    def stop_workflow_for_source(self, source_name: str) -> None:
-        """Stop a running workflow for a specific source."""
-        self._logger.info('Stopping workflow for source %s', source_name)
-
-        # Send None to stop the workflow
-        self._service.send_workflow_config(source_name, WorkflowConfig(identifier=None))
-        # Update status to STOPPING for immediate UI feedback
-        self._update_workflow_status(
-            WorkflowStatus(source_name=source_name, status=WorkflowStatusType.STOPPING)
-        )
-
-    def remove_workflow_for_source(self, source_name: str) -> None:
-        """Remove a stopped workflow from tracking."""
-        self._logger.info('Removing workflow for source %s', source_name)
-
-        # Remove associated data keys from data service
-        if self._data_service is not None:
-            keys_to_remove = list(self._data_service.keys())
-            for key in keys_to_remove:
-                self._logger.debug('Removing data key: %s', key)
-                del self._data_service[key]
-
-        # Reset status to UNKNOWN (back to initial state)
-        self._update_workflow_status(WorkflowStatus(source_name=source_name))
-
     def get_workflow_specs(self) -> dict[WorkflowId, WorkflowSpec]:
         """Get the current workflow specifications sorted by title."""
         return dict(

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Hashable, Mapping
+from collections.abc import Callable, Hashable, Mapping
 from dataclasses import dataclass
-from typing import Any
+from enum import Enum
+from typing import Any, ClassVar
 
+import pydantic
 import scipp as sc
 
 from beamlime.config.instrument import Instrument
@@ -81,6 +83,24 @@ class JobStatus:
         return self.error_message is not None
 
 
+class JobAction(str, Enum):
+    pause = "pause"
+    resume = "resume"
+    reset = "reset"
+    stop = "stop"
+
+
+class JobCommand(pydantic.BaseModel):
+    key: ClassVar[str] = "job_command"
+    job_id: JobId | None = pydantic.Field(
+        default=None, description="ID of the job to control."
+    )
+    workflow_id: WorkflowId | None = pydantic.Field(
+        default=None, description="Workflow ID to cancel jobs for."
+    )
+    action: JobAction = pydantic.Field(description="Action to perform on the job.")
+
+
 class Job:
     def __init__(
         self,
@@ -96,6 +116,14 @@ class Job:
         self._source_mapping = source_mapping
         self._start_time: int | None = None
         self._end_time: int | None = None
+
+    @property
+    def job_id(self) -> JobId:
+        return self._job_id
+
+    @property
+    def workflow_id(self) -> WorkflowId:
+        return self._workflow_id
 
     @property
     def start_time(self) -> int | None:
@@ -196,6 +224,11 @@ class JobManager:
         self._job_schedules: dict[JobId, JobSchedule] = {}
 
     @property
+    def all_jobs(self) -> list[Job]:
+        """Get a list of all jobs, both active and scheduled."""
+        return [*self._active_jobs.values(), *self._scheduled_jobs.values()]
+
+    @property
     def active_jobs(self) -> list[Job]:
         """Get the list of active jobs."""
         return list(self._active_jobs.values())
@@ -249,6 +282,35 @@ class JobManager:
         was_schedule = self._scheduled_jobs.pop(job_id, None)
         if was_active is None and was_schedule is None:
             raise KeyError(f"Job {job_id} not found in active or scheduled jobs.")
+
+    def job_command(self, command: JobCommand) -> None:
+        if command.job_id is not None:
+            self._perform_job_action(job_id=command.job_id, action=command.action)
+        elif command.workflow_id is not None:
+            self._perform_action(
+                action=command.action,
+                sel=lambda job: job.workflow_id == command.workflow_id,
+            )
+        else:
+            self._perform_action(action=command.action, sel=lambda job: True)
+
+    def _perform_action(self, action: JobAction, sel: Callable[[Job], bool]) -> None:
+        jobs_to_control = [job.job_id for job in self.active_jobs if sel(job)]
+        for job_id in jobs_to_control:
+            self._perform_job_action(job_id=job_id, action=action)
+
+    def _perform_job_action(self, job_id: JobId, action: JobAction) -> None:
+        match action:
+            case JobAction.reset:
+                self.reset_job(job_id)
+            case JobAction.stop:
+                self.stop_job(job_id)
+            case JobAction.pause:
+                raise NotImplementedError("Pause action not implemented yet")
+            case JobAction.resume:
+                raise NotImplementedError("Resume action not implemented yet")
+            case _:
+                raise ValueError(f"Unknown job action: {action}")
 
     def reset_job(self, job_id: JobId) -> None:
         """

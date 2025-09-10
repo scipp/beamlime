@@ -7,6 +7,7 @@ import pytest
 
 from beamlime.config import instrument_registry, workflow_spec
 from beamlime.config.models import ConfigKey
+from beamlime.core.job import JobAction, JobCommand
 from beamlime.services.detector_data import make_detector_service_builder
 from tests.helpers.beamlime_app import BeamlimeApp
 
@@ -86,13 +87,15 @@ def test_can_configure_and_stop_detector_workflow(
     assert sink.messages[5].value.values.sum() == 2000  # current
 
     # Stop workflow
-    stop = workflow_spec.WorkflowConfig(identifier=None).model_dump()
+    command = JobCommand(action=JobAction.stop)
+    config_key = ConfigKey(key=command.key)
+    stop = command.model_dump()
     app.publish_config_message(key=config_key, value=stop)
     app.publish_events(size=1000, time=10)
     service.step()
     app.publish_events(size=1000, time=20)
     service.step()
-    assert len(sink.messages) == 6 + 1  # + 1 for the stop message
+    assert len(sink.messages) == 6
 
 
 def test_service_can_recover_after_bad_workflow_id_was_set(

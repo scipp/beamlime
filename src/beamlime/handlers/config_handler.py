@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..config.models import ConfigKey
+from ..core.job import JobCommand
+from ..core.job_manager_adapter import JobManagerAdapter
 from ..core.message import CONFIG_STREAM_ID, Message
 from ..kafka.message_adapter import RawConfigItem
 
@@ -46,13 +48,13 @@ class ConfigProcessor:
     def __init__(
         self,
         *,
-        job_manager_adapter: Any,  # JobManagerAdapter
+        job_manager_adapter: JobManagerAdapter,
         logger: logging.Logger | None = None,
     ) -> None:
         self._job_manager_adapter = job_manager_adapter
         self._actions = {
             'workflow_config': self._job_manager_adapter.set_workflow_with_config,
-            'start_time': self._job_manager_adapter.reset_job,
+            JobCommand.key: self._job_manager_adapter.job_command,
         }
         self._logger = logger or logging.getLogger(__name__)
 
@@ -114,7 +116,7 @@ class ConfigProcessor:
                         continue
                     results = action(source_name, update.value)
                     # Convert results to messages
-                    updates = [ConfigUpdate(*result) for result in results]
+                    updates = [ConfigUpdate(*result) for result in results or []]
                     response_messages.extend(
                         Message(stream=CONFIG_STREAM_ID, value=up) for up in updates
                     )

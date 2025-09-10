@@ -71,7 +71,6 @@ class PlotConfigurationAdapter(ConfigurationAdapter):
             self._success_callback(dmap, selected_sources)
             return True
         except Exception:
-            raise
             return False
 
 
@@ -101,7 +100,6 @@ class PlotCreationWidget:
         self._job_output_table = self._create_job_output_table()
         self._plot_selector = self._create_plot_selector()
         self._create_button = self._create_plot_button()
-        self._refresh_button = self._create_refresh_button()
 
         # Set up watchers
         self._job_output_table.param.watch(
@@ -119,8 +117,7 @@ class PlotCreationWidget:
         )
         self._widget = self._tabs
 
-        # Initial update
-        self._update_job_output_table()
+        self._job_service.register_job_update_subscriber(self.refresh)
 
     def _create_job_output_table(self) -> pn.widgets.Tabulator:
         """Create job and output selection table with grouping."""
@@ -164,23 +161,12 @@ class PlotCreationWidget:
         button.on_click(self._on_create_plot)
         return button
 
-    def _create_refresh_button(self) -> pn.widgets.Button:
-        """Create the refresh button."""
-        button = pn.widgets.Button(
-            name="Refresh Jobs",
-            button_type="default",
-            sizing_mode='stretch_width',
-        )
-        button.on_click(lambda event: self.refresh())
-        return button
-
     def _create_creation_tab(self) -> pn.Column:
         """Create the plot creation tab content."""
         return pn.Column(
             pn.pane.HTML("<h2>Create Plot from Job Data</h2>"),
             self._job_output_table,
             pn.Row(
-                self._refresh_button,
                 self._plot_selector,
                 self._create_button,
                 sizing_mode='stretch_width',

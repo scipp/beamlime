@@ -6,10 +6,8 @@ import holoviews as hv
 import panel as pn
 
 from beamlime import Service
-from beamlime.config import keys
 
 from .dashboard import DashboardBase
-from .widgets.start_time_widget import StartTimeWidget
 
 pn.extension('holoviews', 'modal', template='material')
 hv.extension('bokeh')
@@ -26,16 +24,11 @@ class ReductionApp(DashboardBase):
             dashboard_name='reduction_dashboard',
             port=5009,  # Default port for reduction dashboard
         )
-        self._reset_controller = self._controller_factory.create(
-            config_key=keys.REDUCTION_START_TIME.create_key()
-        )
         self._logger.info("Reduction dashboard initialized")
 
     def create_sidebar_content(self) -> pn.viewable.Viewable:
         """Create the sidebar content with workflow controls."""
         return pn.Column(
-            pn.pane.Markdown("## Controls"),
-            StartTimeWidget(self._reset_controller).panel,
             pn.pane.Markdown("## Data Reduction"),
             self._reduction_widget.widget,
         )
