@@ -182,7 +182,7 @@ class TestJobManager:
         assert len(statuses) == 1
         assert statuses[0].has_error
         assert statuses[0].job_id == job_id
-        assert "Error processing data" in statuses[0].error_message
+        assert "Job failed to process latest data" in statuses[0].error_message
 
     def test_push_data_activates_jobs_based_on_schedule(self, fake_job_factory):
         """Test that jobs are activated based on their scheduled start time."""
