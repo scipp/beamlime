@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+"""Compatibility with x5f2 status messages used by ECDC and interop with NICOS."""
+
 from __future__ import annotations
 
 import uuid
@@ -14,7 +16,14 @@ from beamlime.core.job import JobId, JobState, JobStatus
 
 
 class ServiceId(pydantic.BaseModel):
-    """Helper class for handling service_id in source_name:job_number format."""
+    """
+    Helper class for handling service_id in source_name:job_number format.
+
+    NICOS expects a format of device_name:signal_name. In our case the device is our
+    internal name for the stream (often the source_name, but sometimes derived also from
+    the Kafka topic name). We use the job_number (UUID) as the signal name to report one
+    status per job. Note that each job may produce multiple outputs.
+    """
 
     job_id: JobId = pydantic.Field(description="Job identifier")
 
@@ -51,6 +60,8 @@ class ServiceId(pydantic.BaseModel):
 
 
 class Message(pydantic.BaseModel):
+    """Helper to define the 'message' field in StatusJSON, for inclusion in x5f2."""
+
     state: JobState = pydantic.Field(description="Current state of the job")
     warning: str | None = pydantic.Field(
         default=None, description="Warning message if any"
@@ -69,8 +80,10 @@ class Message(pydantic.BaseModel):
 class NicosStatus(int, Enum):
     OK = 200
     WARNING = 210
-    ERROR = 240
+    BUSY = 220  # not used by us
+    NOTREACHED = 230  # not used by us
     DISABLED = 235
+    ERROR = 240
     UNKNOWN = 999
 
 
@@ -95,6 +108,8 @@ def job_state_to_nicos_status_constant(state: JobState) -> NicosStatus:
 
 
 class StatusJSON(pydantic.BaseModel):
+    """Status JSON model corresponding to the 'status_json' field in x5f2."""
+
     status: NicosStatus = pydantic.Field(description="Status code")
     message: Message = pydantic.Field(description="Status message")
 
