@@ -14,7 +14,11 @@ from beamlime.core.message import StreamId
 
 
 class TestJobResult:
-    def test_stream_name(self):
+    @pytest.mark.parametrize(
+        ("output_name", "expected"),
+        [("output1", '"output1"'), (None, "null")],
+    )
+    def test_stream_name(self, output_name: str | None, expected: str):
         workflow_id = WorkflowId(
             instrument="TEST",
             namespace="data_reduction",
@@ -26,6 +30,7 @@ class TestJobResult:
         result = JobResult(
             job_id=job_id,
             workflow_id=workflow_id,
+            output_name=output_name,
             start_time=100,
             end_time=200,
             data=sc.DataArray(sc.scalar(3.14)),
@@ -34,31 +39,7 @@ class TestJobResult:
         assert result.stream_name == (
             '{"workflow_id":{"instrument":"TEST","namespace":"data_reduction",'
             '"name":"test_workflow","version":1},"job_id":{"source_name":"test_source",'
-            '"job_number":"' + str(job_number) + '"},"output_name":null}'
-        )
-
-    def test_stream_name_with_output_name(self):
-        workflow_id = WorkflowId(
-            instrument="TEST",
-            namespace="data_reduction",
-            name="test_workflow",
-            version=1,
-        )
-        job_number = uuid.uuid4()
-        job_id = JobId(source_name="test_source", job_number=job_number)
-        result = JobResult(
-            job_id=job_id,
-            workflow_id=workflow_id,
-            output_name="output1",
-            start_time=100,
-            end_time=200,
-            data=sc.DataArray(sc.scalar(3.14)),
-            error_message=None,
-        )
-        assert result.stream_name == (
-            '{"workflow_id":{"instrument":"TEST","namespace":"data_reduction",'
-            '"name":"test_workflow","version":1},"job_id":{"source_name":"test_source",'
-            '"job_number":"' + str(job_number) + '"},"output_name":"output1"}'
+            '"job_number":"' + str(job_number) + '"},"output_name":' + expected + '}'
         )
 
 
