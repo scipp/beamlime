@@ -131,5 +131,5 @@ class PlotParams2d(PlotParamsBase):
 
     plot_scale: PlotScaleParams2d = pydantic.Field(
         default_factory=PlotScaleParams2d,
-        description="Scaling options for the plot axes.",
+        description="Scaling options for the plot and color axes.",
     )
