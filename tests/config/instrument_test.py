@@ -3,8 +3,8 @@
 import pytest
 import scipp as sc
 
-from beamlime.config.instrument import Instrument, InstrumentRegistry
-from beamlime.handlers.workflow_factory import (
+from ess.livedata.config.instrument import Instrument, InstrumentRegistry
+from ess.livedata.handlers.workflow_factory import (
     Workflow,
     WorkflowFactory,
 )

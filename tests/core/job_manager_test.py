@@ -4,8 +4,8 @@
 import pytest
 import scipp as sc
 
-from beamlime.config.workflow_spec import JobSchedule, WorkflowConfig, WorkflowId
-from beamlime.core.job import (
+from ess.livedata.config.workflow_spec import JobSchedule, WorkflowConfig, WorkflowId
+from ess.livedata.core.job import (
     Job,
     JobError,
     JobFactory,
@@ -14,7 +14,7 @@ from beamlime.core.job import (
     JobResult,
     WorkflowData,
 )
-from beamlime.core.message import StreamId
+from ess.livedata.core.message import StreamId
 
 from .job_test import FakeProcessor
 

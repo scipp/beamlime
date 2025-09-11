@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
-from beamlime.core.message import Message, StreamId, StreamKind
-from beamlime.core.message_batcher import SimpleMessageBatcher
+from ess.livedata.core.message import Message, StreamId, StreamKind
+from ess.livedata.core.message_batcher import SimpleMessageBatcher
 
 
 def make_message(timestamp_ns: int, value: str = "test") -> Message[str]:

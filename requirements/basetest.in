@@ -3,8 +3,6 @@
 # Add more dependencies in the ``test`` list
 # under ``[project.optional-dependencies]`` section, in ``pyproject.toml``
 
-pytest-cov
-pytest-xdist
 # Anything above "--- END OF CUSTOM SECTION ---"
 # will not be touched by ``make_base.py``
 # --- END OF CUSTOM SECTION ---

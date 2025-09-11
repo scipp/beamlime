@@ -5,11 +5,11 @@ import uuid
 import pytest
 import scipp as sc
 
-from beamlime.config.workflow_spec import JobId, ResultKey, WorkflowId
-from beamlime.core.message import Message, StreamId, StreamKind
-from beamlime.dashboard.data_service import DataService
-from beamlime.dashboard.job_service import JobService
-from beamlime.dashboard.orchestrator import Orchestrator
+from ess.livedata.config.workflow_spec import JobId, ResultKey, WorkflowId
+from ess.livedata.core.message import Message, StreamId, StreamKind
+from ess.livedata.dashboard.data_service import DataService
+from ess.livedata.dashboard.job_service import JobService
+from ess.livedata.dashboard.orchestrator import Orchestrator
 
 
 def make_job_number() -> uuid.UUID:
@@ -27,7 +27,7 @@ class FakeMessageSource:
         """Add a message to be returned by get_messages."""
         message = Message(
             timestamp=timestamp,
-            stream=StreamId(kind=StreamKind.BEAMLIME_DATA, name=stream_name),
+            stream=StreamId(kind=StreamKind.LIVEDATA_DATA, name=stream_name),
             value=data,
         )
         self._messages.append(message)
@@ -211,7 +211,7 @@ class TestOrchestrator:
         # JSON parsing or Pydantic validation error
         with pytest.raises(ValueError, match="Invalid JSON"):
             orchestrator.forward(
-                StreamId(kind=StreamKind.BEAMLIME_DATA, name="invalid_json"), data
+                StreamId(kind=StreamKind.LIVEDATA_DATA, name="invalid_json"), data
             )
 
     def test_forward_with_different_data_types(self) -> None:
@@ -294,4 +294,4 @@ class TestOrchestrator:
 
 
 def _data_stream_id(key: ResultKey) -> StreamId:
-    return StreamId(kind=StreamKind.BEAMLIME_DATA, name=key.model_dump_json())
+    return StreamId(kind=StreamKind.LIVEDATA_DATA, name=key.model_dump_json())

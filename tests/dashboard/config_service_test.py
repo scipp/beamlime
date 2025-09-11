@@ -4,11 +4,14 @@
 import pydantic
 import pytest
 
-from beamlime.config.schema_registry import FakeSchemaRegistry
-from beamlime.dashboard.config_service import ConfigService
-from beamlime.dashboard.message_bridge import FakeMessageBridge
-from beamlime.dashboard.schema_validator import PydanticSchemaValidator, SchemaValidator
-from beamlime.parameter_models import TOARange
+from ess.livedata.config.schema_registry import FakeSchemaRegistry
+from ess.livedata.dashboard.config_service import ConfigService
+from ess.livedata.dashboard.message_bridge import FakeMessageBridge
+from ess.livedata.dashboard.schema_validator import (
+    PydanticSchemaValidator,
+    SchemaValidator,
+)
+from ess.livedata.parameter_models import TOARange
 
 
 # Test models for more comprehensive testing

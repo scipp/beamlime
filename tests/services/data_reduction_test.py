@@ -7,11 +7,11 @@ import numpy as np
 import pytest
 from streaming_data_types import eventdata_ev44
 
-from beamlime.config import instrument_registry, workflow_spec
-from beamlime.config.models import ConfigKey
-from beamlime.core.job import JobAction, JobCommand
-from beamlime.services.data_reduction import make_reduction_service_builder
-from tests.helpers.beamlime_app import BeamlimeApp
+from ess.livedata.config import instrument_registry, workflow_spec
+from ess.livedata.config.models import ConfigKey
+from ess.livedata.core.job import JobAction, JobCommand
+from ess.livedata.services.data_reduction import make_reduction_service_builder
+from tests.helpers.livedata_app import LivedataApp
 
 
 def _get_workflow_from_registry(
@@ -25,9 +25,9 @@ def _get_workflow_from_registry(
     raise ValueError(f"Workflow {name} not found in specs")
 
 
-def make_reduction_app(instrument: str) -> BeamlimeApp:
+def make_reduction_app(instrument: str) -> LivedataApp:
     builder = make_reduction_service_builder(instrument=instrument)
-    return BeamlimeApp.from_service_builder(builder)
+    return LivedataApp.from_service_builder(builder)
 
 
 first_source_name = {
@@ -385,7 +385,7 @@ def test_workflow_starts_with_specific_source_name(
 
 
 @pytest.fixture
-def configured_dummy_reduction() -> BeamlimeApp:
+def configured_dummy_reduction() -> LivedataApp:
     app = make_reduction_app(instrument='dummy')
     sink = app.sink
     service = app.service
@@ -409,7 +409,7 @@ def configured_dummy_reduction() -> BeamlimeApp:
 def test_fully_consumes_long_chain_of_event_messages(
     n_msg: int,
     n_event: int,
-    configured_dummy_reduction: BeamlimeApp,
+    configured_dummy_reduction: LivedataApp,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.DEBUG)
@@ -431,7 +431,7 @@ def test_fully_consumes_long_chain_of_event_messages(
 
 
 def test_message_with_unknown_schema_is_ignored(
-    configured_dummy_reduction: BeamlimeApp,
+    configured_dummy_reduction: LivedataApp,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
@@ -452,13 +452,13 @@ def test_message_with_unknown_schema_is_ignored(
     warning_records = [
         r
         for r in caplog.records
-        if r.levelname == "WARNING" and "beamlime.kafka.message_adapter" in r.name
+        if r.levelname == "WARNING" and "ess.livedata.kafka.message_adapter" in r.name
     ]
     assert any("has an unknown schema. Skipping." in r.message for r in warning_records)
 
 
 def test_message_that_cannot_be_decoded_is_ignored(
-    configured_dummy_reduction: BeamlimeApp,
+    configured_dummy_reduction: LivedataApp,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
@@ -480,13 +480,13 @@ def test_message_that_cannot_be_decoded_is_ignored(
     error_records = [
         r
         for r in caplog.records
-        if r.levelname == "ERROR" and "beamlime.kafka.message_adapter" in r.name
+        if r.levelname == "ERROR" and "ess.livedata.kafka.message_adapter" in r.name
     ]
     assert any("unpack_from requires a buffer" in r.message for r in error_records)
 
 
 def test_message_with_bad_ev44_is_ignored(
-    configured_dummy_reduction: BeamlimeApp,
+    configured_dummy_reduction: LivedataApp,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
@@ -513,7 +513,7 @@ def test_message_with_bad_ev44_is_ignored(
 
 
 def test_message_with_bad_timestamp_is_ignored(
-    configured_dummy_reduction: BeamlimeApp,
+    configured_dummy_reduction: LivedataApp,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)

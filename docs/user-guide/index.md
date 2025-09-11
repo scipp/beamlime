@@ -20,8 +20,10 @@ installation
 ```
 
 ```{toctree}
+---
 caption: Examples
 maxdepth: 1
+---
 
 dream-demo
 ```

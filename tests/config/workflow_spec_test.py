@@ -2,7 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import pytest
 
-from beamlime.config.workflow_spec import (
+from ess.livedata.config.workflow_spec import (
     PersistentWorkflowConfig,
     PersistentWorkflowConfigs,
     WorkflowConfig,

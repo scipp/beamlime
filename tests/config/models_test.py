@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from beamlime.config import models
+from ess.livedata.config import models
 
 
 def test_weighting_method_values():

@@ -8,10 +8,10 @@ from typing import Any
 import pytest
 import scipp as sc
 
-from beamlime.config.workflow_spec import JobId, ResultKey, WorkflowId
-from beamlime.dashboard.data_service import DataService
-from beamlime.dashboard.data_subscriber import Pipe, StreamAssembler
-from beamlime.dashboard.stream_manager import StreamManager
+from ess.livedata.config.workflow_spec import JobId, ResultKey, WorkflowId
+from ess.livedata.dashboard.data_service import DataService
+from ess.livedata.dashboard.data_subscriber import Pipe, StreamAssembler
+from ess.livedata.dashboard.stream_manager import StreamManager
 
 
 class FakePipe(Pipe):

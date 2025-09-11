@@ -8,9 +8,9 @@ from typing import Any
 import pytest
 import scipp as sc
 
-from beamlime.config.workflow_spec import JobSchedule, WorkflowId
-from beamlime.core.job import Job, JobId, JobResult, WorkflowData
-from beamlime.core.message import StreamId
+from ess.livedata.config.workflow_spec import JobSchedule, WorkflowId
+from ess.livedata.core.job import Job, JobId, JobResult, WorkflowData
+from ess.livedata.core.message import StreamId
 
 
 class TestJobResult:

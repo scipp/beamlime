@@ -4,15 +4,15 @@
 import pydantic
 import pytest
 
-from beamlime.config.schema_registry import FakeSchemaRegistry
-from beamlime.dashboard.config_service import ConfigService
-from beamlime.dashboard.controller_factory import (
+from ess.livedata.config.schema_registry import FakeSchemaRegistry
+from ess.livedata.dashboard.config_service import ConfigService
+from ess.livedata.dashboard.controller_factory import (
     Controller,
     ControllerFactory,
     RangeController,
 )
-from beamlime.dashboard.message_bridge import FakeMessageBridge
-from beamlime.dashboard.schema_validator import (
+from ess.livedata.dashboard.message_bridge import FakeMessageBridge
+from ess.livedata.dashboard.schema_validator import (
     JSONSerialized,
     PydanticSchemaValidator,
     SchemaValidator,

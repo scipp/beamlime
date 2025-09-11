@@ -1,16 +1,16 @@
 # Installation
 
-To install Beamlime and all of its dependencies, use
+To install ESSlivedata and all of its dependencies, use
 
 `````{tab-set}
 ````{tab-item} pip
 ```sh
-pip install beamlime
+pip install esslivedata
 ```
 ````
 ````{tab-item} conda
 ```sh
-conda install -c conda-forge beamlime
+conda install -c conda-forge esslivedata
 ```
 ````
 `````

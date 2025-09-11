@@ -3,7 +3,7 @@
 
 import time
 
-from beamlime import Message, StreamId, StreamKind, compact_messages
+from ess.livedata import Message, StreamId, StreamKind, compact_messages
 
 
 class TestMessage:

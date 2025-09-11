@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from beamlime.dashboard.data_subscriber import DataSubscriber, Pipe, StreamAssembler
+from ess.livedata.dashboard.data_subscriber import DataSubscriber, Pipe, StreamAssembler
 
 
 class FakeStreamAssembler(StreamAssembler[str]):

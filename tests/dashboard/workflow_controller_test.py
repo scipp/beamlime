@@ -5,7 +5,7 @@ from collections.abc import Callable
 import pydantic
 import pytest
 
-from beamlime.config.workflow_spec import (
+from ess.livedata.config.workflow_spec import (
     PersistentWorkflowConfigs,
     WorkflowConfig,
     WorkflowId,
@@ -13,8 +13,8 @@ from beamlime.config.workflow_spec import (
     WorkflowStatus,
     WorkflowStatusType,
 )
-from beamlime.dashboard.workflow_config_service import WorkflowConfigService
-from beamlime.dashboard.workflow_controller import WorkflowController
+from ess.livedata.dashboard.workflow_config_service import WorkflowConfigService
+from ess.livedata.dashboard.workflow_controller import WorkflowController
 
 
 class SomeWorkflowParams(pydantic.BaseModel):

@@ -3,9 +3,9 @@
 import pydantic
 import pytest
 
-from beamlime.config.schema_registry import FakeSchemaRegistry
-from beamlime.dashboard.schema_validator import PydanticSchemaValidator
-from beamlime.parameter_models import TOARange
+from ess.livedata.config.schema_registry import FakeSchemaRegistry
+from ess.livedata.dashboard.schema_validator import PydanticSchemaValidator
+from ess.livedata.parameter_models import TOARange
 
 
 class SimpleModel(pydantic.BaseModel):
