@@ -37,13 +37,13 @@ The dashboard services can be run in production mode using gunicorn:
 
 ```sh
 # Monitors dashboard (runs on port 5007)
-BEAMLIME_INSTRUMENT=dummy gunicorn ess.livedata.dashboard.monitors_wsgi:application
+LIVEDATA_INSTRUMENT=dummy gunicorn ess.livedata.dashboard.monitors_wsgi:application
 
 # Detectors dashboard (runs on port 5008)
-BEAMLIME_INSTRUMENT=dummy gunicorn ess.livedata.dashboard.detectors_wsgi:application
+LIVEDATA_INSTRUMENT=dummy gunicorn ess.livedata.dashboard.detectors_wsgi:application
 
 # Reduction dashboard (runs on port 5009)
-BEAMLIME_INSTRUMENT=dummy gunicorn ess.livedata.dashboard.reduction_wsgi:application
+LIVEDATA_INSTRUMENT=dummy gunicorn ess.livedata.dashboard.reduction_wsgi:application
 ```
 
 Navigate to `http://localhost:5007` for the monitors dashboard, `http://localhost:5008` for the detectors dashboard, or `http://localhost:5009` for the reduction dashboard.
@@ -65,7 +65,7 @@ python -m ess.livedata.services.fake_logdata --instrument dummy
 Services can be found in `ess.livedata.services`.
 Configuration is in `ess.livedata.config.defaults`.
 By default the files with the `dev` suffix are used.
-Set `BEAMLIME_ENV` to, e.g., `staging` to use the `staging` configuration.
+Set `LIVEDATA_ENV` to, e.g., `staging` to use the `staging` configuration.
 
 For a local demo, run the fake monitor data producer:
 
@@ -86,7 +86,7 @@ Run the monitors dashboard service:
 python -m ess.livedata.dashboard.monitors --instrument dummy
 
 # Or production mode with gunicorn
-BEAMLIME_INSTRUMENT=dummy gunicorn ess.livedata.dashboard.monitors_wsgi:application
+LIVEDATA_INSTRUMENT=dummy gunicorn ess.livedata.dashboard.monitors_wsgi:application
 ```
 
 Navigate to `http://localhost:5007` to see the dashboard.
@@ -99,7 +99,7 @@ You can also run all the services using Docker.
 Use the provided `docker-compose-ess.livedata.yml` file to start Kafka:
 
 ```sh
-BEAMLIME_INSTRUMENT=dummy docker-compose -f docker-compose-ess.livedata.yml up
+LIVEDATA_INSTRUMENT=dummy docker-compose -f docker-compose-ess.livedata.yml up
 ```
 
 This will start the Zookeeper, Kafka broker.
@@ -109,13 +109,13 @@ Alternatively, you can use profiles to start specific service groups:
 
 ```sh
 # Start monitor services (includes fake data, monitor processing, and monitors dashboard)
-BEAMLIME_INSTRUMENT=dummy docker-compose --profile monitor -f docker-compose-ess.livedata.yml up
+LIVEDATA_INSTRUMENT=dummy docker-compose --profile monitor -f docker-compose.yml up
 
 # Start detector services (includes fake data and detector processing)
-BEAMLIME_INSTRUMENT=dummy docker-compose --profile detector -f docker-compose-ess.livedata.yml up
+LIVEDATA_INSTRUMENT=dummy docker-compose --profile detector -f docker-compose.yml up
 
 # Start reduction dashboard
-BEAMLIME_INSTRUMENT=dummy docker-compose --profile reduction -f docker-compose-ess.livedata.yml up
+LIVEDATA_INSTRUMENT=dummy docker-compose --profile reduction -f docker-compose-ess.livedata.yml up
 ```
 
 It will take a minute or two for the services to start fully.
@@ -128,7 +128,7 @@ Both dashboard profiles can be run simultaneously:
 
 ```sh
 # Run both monitors and reduction dashboards
-BEAMLIME_INSTRUMENT=dummy docker-compose --profile monitor --profile reduction -f docker-compose-ess.livedata.yml up
+LIVEDATA_INSTRUMENT=dummy docker-compose --profile monitor --profile reduction -f docker-compose-ess.livedata.yml up
 ```
 
 ### Kafka Configuration

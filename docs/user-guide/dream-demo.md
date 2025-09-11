@@ -25,7 +25,7 @@ I usually run the Docker containers in a detached screen session, so I can reatt
 
 ```sh
 screen -S kafka
-BEAMLIME_INSTRUMENT=dream docker compose -f docker-compose-beamlime.yml up
+LIVEDATA_INSTRUMENT=dream docker compose -f docker-compose.yml up
 ```
 
 Press `Ctrl + A` then `D` to detach from the screen session.
