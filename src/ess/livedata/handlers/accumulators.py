@@ -7,8 +7,9 @@ from typing import Any
 
 import numpy as np
 import scipp as sc
-from ess.reduce.live.roi import ROIFilter
 from streaming_data_types import logdata_f144
+
+from ess.reduce.live.roi import ROIFilter
 
 from ..core.handler import Accumulator, Config
 from ..parameter_models import RangeModel
