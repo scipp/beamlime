@@ -71,7 +71,7 @@ dashboard = [
 ]
 
 [project.scripts]
-beamlime-make-geometry-nexus = "beamlime.scripts.make_geometry_nexus:main"
+ess-livedata-make-geometry-nexus = "ess.livedata.scripts.make_geometry_nexus:main"
 
 [project.urls]
 "Bug Tracker" = "https://github.com/scipp/esslivedata/issues"
@@ -144,7 +144,7 @@ enable_error_code = [
 warn_unreachable = true
 
 [tool.setuptools.package-data]
-"beamlime.config.defaults" = ["*.yaml", "*.yaml.jinja"]
+"ess.livedata.config.defaults" = ["*.yaml", "*.yaml.jinja"]
 
 [tool.codespell]
 ignore-words-list = [

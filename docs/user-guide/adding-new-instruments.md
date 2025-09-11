@@ -1,12 +1,12 @@
 # Adding New Instruments
 
-This guide explains how to add support for a new instrument in Beamlime.
+This guide explains how to add support for a new instrument in ESSlivedata.
 
 ## Required Steps
 
 1. Create a new configuration file in `src/ess/livedata/config/instruments/<instrument>.py`
    - The filename will be used as the instrument identifier
-   - Beamlime automatically detects and loads all Python files in this directory
+   - ESSlivedata automatically detects and loads all Python files in this directory
 2. Import and create an instance of the `Instrument` class in the new file.
 3. Add detector configuration including:
    - Detector names and pixel ID ranges
@@ -23,7 +23,7 @@ from ess.livedata.config import Instrument
 instrument = Instrument(name='instrument_name')
 ```
 
-Creating the instance registers the instrument with Beamlime and makes it available for use.
+Creating the instance registers the instrument with ESSlivedata and makes it available for use.
 The variable name (`instrument`) is irrelevant.
 The instrument instance provides further configuration options as well as a decorator for registering data reduction workflows.
 We refer to the API documentation for the `Instrument` class for more details.
@@ -75,7 +75,7 @@ To enable development without real detector data, you can add your instrument to
 
 ### View Types
 
-Beamlime supports different view types for detectors:
+ESSlivedata supports different view types for detectors:
 
 - `raw.LogicalView`: Go-to solution for regular 2-D detectors, or for viewing individual layers or slices of 3-D detectors.
 - `xy_plane`: 2D projection onto XY plane, used when geometric information is needed.
@@ -92,7 +92,7 @@ The geometry files are currently also used by the `data_reduction` service.
 Otherwise, you need to provide a NeXus geometry file for the instrument:
 
 1. Create a NeXus geometry file following the naming convention: `geometry-<instrument>-<date>.nxs`.
-   The script `beamlime-make-geometry-nexus` can be used to create the geometry file from a "regular" NeXus file by stripping non-geometry data.
+   The script `ess-livedata-make-geometry-nexus` can be used to create the geometry file from a "regular" NeXus file by stripping non-geometry data.
    The date should be the first date the geometry file is used in production.
 2. Add the file's MD5 hash to the `_registry` in `detector_data_handler.py`
 3. Upload the file to the Scipp HTML server so it is available in https://public.esss.dk/groups/scipp/beamlime/geometry/.
@@ -108,4 +108,4 @@ See existing instrument configurations for reference implementations:
 - LOKI: Multiple detector panels with standard XY projections
 - NMX: Example of logical view configuration
 
-For more details about specific detector configurations, refer to the corresponding files in `src/ess.livedata/config/instruments/`.
+For more details about specific detector configurations, refer to the corresponding files in `src/ess/livedata/config/instruments/`.

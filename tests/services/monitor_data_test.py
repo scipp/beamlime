@@ -16,7 +16,7 @@ from ess.livedata.config import instrument_registry, workflow_spec
 from ess.livedata.config.models import ConfigKey
 from ess.livedata.core.job import JobAction, JobCommand
 from ess.livedata.services.monitor_data import make_monitor_service_builder
-from tests.helpers.beamlime_app import LivedataApp
+from tests.helpers.livedata_app import LivedataApp
 
 
 def _get_workflow_from_registry(
