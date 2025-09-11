@@ -4,7 +4,7 @@ This guide explains how to add support for a new instrument in Beamlime.
 
 ## Required Steps
 
-1. Create a new configuration file in `src/beamlime/config/instruments/<instrument>.py`
+1. Create a new configuration file in `src/ess/livedata/config/instruments/<instrument>.py`
    - The filename will be used as the instrument identifier
    - Beamlime automatically detects and loads all Python files in this directory
 2. Import and create an instance of the `Instrument` class in the new file.
@@ -18,7 +18,7 @@ This guide explains how to add support for a new instrument in Beamlime.
 Example of creating an instrument instance:
 
 ```python
-from beamlime.config import Instrument
+from ess.livedata.config import Instrument
 
 instrument = Instrument(name='instrument_name')
 ```
@@ -108,4 +108,4 @@ See existing instrument configurations for reference implementations:
 - LOKI: Multiple detector panels with standard XY projections
 - NMX: Example of logical view configuration
 
-For more details about specific detector configurations, refer to the corresponding files in `src/beamlime/config/instruments/`.
+For more details about specific detector configurations, refer to the corresponding files in `src/ess.livedata/config/instruments/`.

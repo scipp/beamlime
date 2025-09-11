@@ -1,5 +1,10 @@
 # About
 
+```{toctree}
+
+ess-instruments
+```
+
 ## Development
 
 ESSlivedata is an open source project by the [European Spallation Source ERIC](https://ess.eu/) (ESS).
