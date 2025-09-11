@@ -24,7 +24,7 @@ class InstrumentRegistry(UserDict[str, 'Instrument']):
     settings for different instruments.
 
     Note that in practice instruments are registered only when their module, creating
-    an :py:class:`Instrument`, is imported. Beamlime does currently not import all
+    an :py:class:`Instrument`, is imported. ESSlivedata does currently not import all
     instrument modules but only the requested one (since importing can be slow). This
     means that the registry will typically contain only a single instrument.
     """

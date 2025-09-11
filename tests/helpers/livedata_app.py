@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 """
-Helper class for testing Beamlime services.
+Helper class for testing ESSlivedata services.
 """
 
 from __future__ import annotations
@@ -69,7 +69,7 @@ class LivedataApp:
         builder: DataServiceBuilder, use_naive_message_batcher: bool = True
     ) -> LivedataApp:
         """
-        Create a BeamlimeApp from a service builder.
+        Create a LivedataApp from a service builder.
 
         The app is created with a fake sink that allows to inspect the messages sent to
         the sink. The consumer is a fake consumer that can be filled with custom

@@ -35,7 +35,7 @@ You can later reattach to the session with:
 screen -r kafka
 ```
 
-### Beamlime
+### ESSlivedata
 
 In individual terminal windows, run (make sure to `source dream-demo/bin/activate` in each):
 
@@ -92,7 +92,7 @@ The fake monitors are not based on a simulation but simply show a Gaussian distr
 
 ## Troubleshooting
 
-Beamlime persists some config in Kafka.
+ESSlivedata persists some config in Kafka.
 In case this is causing hard-to-debug issues, you can clear the Kafka topics.
 First, cancel all the services, otherwise some topics are automatically recreated (with incorrect settings).
 Then run:

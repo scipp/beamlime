@@ -85,8 +85,8 @@ class KafkaAdapter(MessageAdapter[KafkaMessage, Message[T]]):
     Base class for Kafka adapters.
 
     This provides a common interface for converting the unique (topic, source_name) to
-    the Beamlime-internal stream ID. The actual conversion is done by the subclasses.
-    This conversion serves as a mechanism to isolate Beamlime from irrelevant details of
+    the Livedata-internal stream ID. The actual conversion is done by the subclasses.
+    This conversion serves as a mechanism to isolate Livedata from irrelevant details of
     the Kafka topics.
     """
 
@@ -252,14 +252,14 @@ class RawConfigItem:
     value: bytes
 
 
-class BeamlimeConfigMessageAdapter(
+class LivedataConfigMessageAdapter(
     MessageAdapter[KafkaMessage, Message[RawConfigItem]]
 ):
-    """Adapts a Kafka message to a Beamlime config message."""
+    """Adapts a Kafka message to a Livedata config message."""
 
     def adapt(self, message: KafkaMessage) -> Message[RawConfigItem]:
         timestamp = message.timestamp()[1]
-        # Beamlime configuration uses a compacted Kafka topic. The Kafka message key
+        # Livedata configuration uses a compacted Kafka topic. The Kafka message key
         # is the encoded string representation of a :py:class:`ConfigKey` object.
         item = RawConfigItem(key=message.key(), value=message.value())
         return Message(stream=CONFIG_STREAM_ID, timestamp=timestamp, value=item)

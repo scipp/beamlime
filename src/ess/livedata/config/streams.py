@@ -5,7 +5,7 @@ Mappings from (topic, source_name) to internal stream identifier.
 
 Raw data is received from Kafka on a variety of topics. Each message has a source name.
 The latter is not unique (not event within an instrument), only the combination of topic
-and source name is. To isolate Beamlime code from the details of the Kafka topics, we
+and source name is. To isolate ESSlivedata code from the details of the Kafka topics, we
 use this mapping to assign a unique stream name to each (topic, source name) pair.
 """
 

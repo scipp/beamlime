@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Scipp contributors (https://github.com/scipp)
 # SPDX-License-Identifier: BSD-3-Clause
 """
-Models for configuration values that can be used to control Beamlime services via Kafka.
+Models for configuration values that can be used to control services via Kafka.
 """
 
 from __future__ import annotations

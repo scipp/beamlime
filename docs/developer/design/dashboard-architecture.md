@@ -1,4 +1,4 @@
-# Beamlime Dashboard Architecture
+# Livedata Dashboard Architecture
 
 ## Table of Contents
 
@@ -13,7 +13,7 @@
 
 ## Overview
 
-The Beamlime dashboard is a real-time data visualization system that follows a layered architecture with clear separation of concerns between presentation, application logic, and infrastructure. The system is designed for live display of raw and processed detector data with configurable processing parameters, using dependency injection patterns for testability and maintainability.
+The Livedata dashboard is a real-time data visualization system that follows a layered architecture with clear separation of concerns between presentation, application logic, and infrastructure. The system is designed for live display of raw and processed detector data with configurable processing parameters, using dependency injection patterns for testability and maintainability.
 
 A key architectural principle is the separation between **Pydantic models** (used for Kafka message validation and backend communication) and **Param models** (used for GUI widgets and user interaction).
 
@@ -21,21 +21,21 @@ The dashboard processes 1-D and 2-D data displayed using Holoviews with update r
 
 ## System Context: Dashboard and Kafka Integration
 
-The Beamlime dashboard operates within a Kafka-based system, interacting with multiple backend services via Kafka topics for both data and configuration.
+The Livedata dashboard operates within a Kafka-based system, interacting with multiple backend services via Kafka topics for both data and configuration.
 
 ```mermaid
 flowchart TD
-    ConfigTopic(["Beamlime Config Topic"])
-    DataTopic(["Beamlime Data Topic"])
+    ConfigTopic(["Livedata Config Topic"])
+    DataTopic(["Livedata Data Topic"])
     ECDCTopic(["ECDC Topics"])
 
-    subgraph BackendServices["Beamlime Backend Services"]
+    subgraph BackendServices["Livedata Backend Services"]
         MonitorData["monitor_data service"]
         DetectorData["detector_data service"]
         DataReduction["data_reduction service"]
     end
 
-    DashboardApp["Beamlime Dashboard"]
+    DashboardApp["Livedata Dashboard"]
 
     %% Raw data from ECDC topics
     ECDCTopic --> BackendServices
@@ -75,7 +75,7 @@ flowchart TD
 
 ```mermaid
 graph TD
-    subgraph "Beamlime Backend Services"
+    subgraph "Livedata Backend Services"
         K1[Kafka Data Streams]
         K2[Kafka Config Topic]
     end

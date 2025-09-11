@@ -18,9 +18,9 @@ StreamLUT = dict[InputStreamKey, str]
 
 class StreamMapping:
     """
-    Helper for mapping input streams to Beamlime-internal stream names.
+    Helper for mapping input streams to ESSlivedata-internal stream names.
 
-    This isolates the internals of Beamlimes from the input stream identifiers,
+    This isolates the internals of ESSlivedata from the input stream identifiers,
     which may contain irrelevant information as well as implementation details
     such as split topics.
     """

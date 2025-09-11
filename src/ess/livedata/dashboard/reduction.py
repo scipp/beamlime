@@ -39,7 +39,7 @@ class ReductionApp(DashboardBase):
 
 
 def get_arg_parser() -> argparse.ArgumentParser:
-    return Service.setup_arg_parser(description='Beamlime Reduction Dashboard')
+    return Service.setup_arg_parser(description='ESSlivedata Dashboard')
 
 
 def main() -> None:

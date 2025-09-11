@@ -64,9 +64,8 @@ class WorkflowSpec(BaseModel):
     """
     Model for workflow specification.
 
-    This model is used to define a workflow and its parameters. Beamlime publishes
-    workflow specifications to Kafka, which can be used to create user interfaces for
-    configuring workflows.
+    This model is used to define a workflow and its parameters. The ESSlivedata
+    dashboard uses these to create user interfaces for configuring workflows.
     """
 
     instrument: str = Field(

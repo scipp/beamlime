@@ -4,7 +4,6 @@ from typing import Self
 
 from ..core.message import StreamKind
 from .message_adapter import (
-    BeamlimeConfigMessageAdapter,
     ChainedAdapter,
     Da00ToScippAdapter,
     Ev44ToDetectorEventsAdapter,
@@ -13,6 +12,7 @@ from .message_adapter import (
     KafkaToEv44Adapter,
     KafkaToF144Adapter,
     KafkaToMonitorEventsAdapter,
+    LivedataConfigMessageAdapter,
     MessageAdapter,
     RouteBySchemaAdapter,
     RouteByTopicAdapter,
@@ -86,7 +86,7 @@ class RoutingAdapterBuilder:
     def with_livedata_config_route(self) -> Self:
         """Adds the livedata config route."""
         self._routes[self._stream_mapping.livedata_config_topic] = (
-            BeamlimeConfigMessageAdapter()
+            LivedataConfigMessageAdapter()
         )
         return self
 

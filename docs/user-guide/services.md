@@ -133,7 +133,8 @@ LIVEDATA_INSTRUMENT=dummy docker-compose --profile monitor --profile reduction -
 
 ### Kafka Configuration
 
-The services can be configured to connect to different Kafka brokers using environment variables. There may be two distinct Kafka brokers: one upstream with raw data and one downstream for processed data and Beamlime control.
+The services can be configured to connect to different Kafka brokers using environment variables.
+There may be two distinct Kafka brokers: one upstream with raw data and one downstream for processed data and ESSlivedata control.
 
 - `KAFKA_BOOTSTRAP_SERVERS`: Bootstrap servers for the upstream Kafka broker.
 - `KAFKA_SECURITY_PROTOCOL`: Security protocol for the upstream Kafka broker.

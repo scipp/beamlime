@@ -23,7 +23,7 @@ class ConfigService(Generic[K, Serialized, V]):
     """
     Service for configuration data with schema validation and message publishing.
 
-    This service initializes from Beamlime's Kafka config topic into a local dictionary
+    This service initializes from Livedata's Kafka config topic into a local dictionary
     of the latest state. The connection to Kafka is implemented via an implementation of
     :py:class:`MessageBridge`.
 
