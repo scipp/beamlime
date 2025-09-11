@@ -12,6 +12,16 @@ class Pipe(Protocol):
     Protocol for downstream pipes that can receive data from upstream pipes.
     """
 
+    def __init__(self, data: Any) -> None:
+        """
+        Initialize the pipe with its data.
+
+        Parameters
+        ----------
+        data:
+            The initial data for the pipe.
+        """
+
     def send(self, data: Any) -> None:
         """
         Send data to the downstream pipe.

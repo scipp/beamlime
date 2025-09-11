@@ -51,15 +51,16 @@ class PlottingController:
         params: pydantic.BaseModel,
     ) -> hv.DynamicMap:
         workflow_id = self._job_service.job_info[job_number]
-        keys = {
+        items = {
             ResultKey(
                 workflow_id=workflow_id,
                 job_id=JobId(job_number=job_number, source_name=source_name),
                 output_name=output_name,
-            )
+            ): self._job_service.job_data[job_number][source_name][output_name]
             for source_name in source_names
         }
-        pipe = self._stream_manager.make_merging_stream(keys)
-        plot = plotter_registry.create_plotter(plot_name, params=params)
-        dmap = hv.DynamicMap(plot, streams=[pipe], cache_size=1).opts(shared_axes=False)
-        return dmap
+        pipe = self._stream_manager.make_merging_stream(items)
+        plotter = plotter_registry.create_plotter(plot_name, params=params)
+        return hv.DynamicMap(plotter, streams=[pipe], cache_size=1).opts(
+            shared_axes=False
+        )
