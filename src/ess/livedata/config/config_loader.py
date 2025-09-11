@@ -30,10 +30,10 @@ def load_config(*, namespace: str, env: str | None = None) -> dict:
         Configuration namespace (e.g. 'monitor_data')
     env:
         Environment name ('dev', 'staging', 'prod').
-        Defaults to value of BEAMLIME_ENV environment variable. Set to an empty string
+        Defaults to value of LIVEDATA_ENV environment variable. Set to an empty string
         if the config file is independent of an environment.
     """
-    env = env if env is not None else os.getenv('BEAMLIME_ENV', 'dev')
+    env = env if env is not None else os.getenv('LIVEDATA_ENV', 'dev')
     env = f'_{env}' if env else ''
     config_file = f'{namespace}{env}.yaml'
     template_file = f'{namespace}{env}.yaml.jinja'

@@ -11,6 +11,7 @@ from typing import Any, Literal
 
 import pydantic
 import scipp as sc
+
 from ess.reduce.live import raw
 
 from .. import parameter_models
@@ -321,7 +322,7 @@ def _make_pooch():
 
     return pooch.create(
         path=pooch.os_cache('beamlime'),
-        env='BEAMLIME_DATA_DIR',
+        env='LIVEDATA_DATA_DIR',
         retry_if_failed=3,
         base_url='https://public.esss.dk/groups/scipp/beamlime/geometry/',
         version='0',

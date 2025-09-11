@@ -46,14 +46,14 @@ def make_dev_stream_mapping(instrument: str, detectors: list[str]) -> StreamMapp
         detectors=_make_dev_detectors(instrument=instrument, detectors=detectors),
         monitors=_make_dev_beam_monitors(instrument),
         log_topics=log_topics,
-        beamlime_config_topic=stream_kind_to_topic(
-            instrument=instrument, kind=StreamKind.BEAMLIME_CONFIG
+        livedata_config_topic=stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.LIVEDATA_CONFIG
         ),
-        beamlime_data_topic=stream_kind_to_topic(
-            instrument=instrument, kind=StreamKind.BEAMLIME_DATA
+        livedata_data_topic=stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.LIVEDATA_DATA
         ),
-        beamlime_status_topic=stream_kind_to_topic(
-            instrument=instrument, kind=StreamKind.BEAMLIME_STATUS
+        livedata_status_topic=stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.LIVEDATA_STATUS
         ),
     )
 
@@ -63,13 +63,13 @@ def make_common_stream_mapping_inputs(instrument: str) -> dict[str, Any]:
         'instrument': instrument,
         'monitors': _make_cbm_monitors(instrument),
         'log_topics': None,
-        'beamlime_config_topic': stream_kind_to_topic(
-            instrument=instrument, kind=StreamKind.BEAMLIME_CONFIG
+        'livedata_config_topic': stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.LIVEDATA_CONFIG
         ),
-        'beamlime_data_topic': stream_kind_to_topic(
-            instrument=instrument, kind=StreamKind.BEAMLIME_DATA
+        'livedata_data_topic': stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.LIVEDATA_DATA
         ),
-        'beamlime_status_topic': stream_kind_to_topic(
-            instrument=instrument, kind=StreamKind.BEAMLIME_STATUS
+        'livedata_status_topic': stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.LIVEDATA_STATUS
         ),
     }

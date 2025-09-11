@@ -44,7 +44,7 @@ class FakeConsumer(KafkaConsumer):
 
 
 @dataclass(kw_only=True)
-class BeamlimeApp:
+class LivedataApp:
     """A testable "application" with a fake consumer and sink."""
 
     service: Service
@@ -67,7 +67,7 @@ class BeamlimeApp:
     @staticmethod
     def from_service_builder(
         builder: DataServiceBuilder, use_naive_message_batcher: bool = True
-    ) -> BeamlimeApp:
+    ) -> LivedataApp:
         """
         Create a BeamlimeApp from a service builder.
 
@@ -87,7 +87,7 @@ class BeamlimeApp:
             raise_on_adapter_error=False,
             use_background_source=False,
         )
-        return BeamlimeApp(
+        return LivedataApp(
             service=service, consumer=consumer, sink=sink, instrument=builder.instrument
         )
 
@@ -100,7 +100,7 @@ class BeamlimeApp:
             key=str(key).encode('utf-8'),
             value=json.dumps(value).encode('utf-8'),
             topic=stream_kind_to_topic(
-                instrument=self.instrument, kind=StreamKind.BEAMLIME_CONFIG
+                instrument=self.instrument, kind=StreamKind.LIVEDATA_CONFIG
             ),
             timestamp=0,
         )

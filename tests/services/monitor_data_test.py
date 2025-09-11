@@ -16,7 +16,7 @@ from ess.livedata.config import instrument_registry, workflow_spec
 from ess.livedata.config.models import ConfigKey
 from ess.livedata.core.job import JobAction, JobCommand
 from ess.livedata.services.monitor_data import make_monitor_service_builder
-from tests.helpers.beamlime_app import BeamlimeApp
+from tests.helpers.beamlime_app import LivedataApp
 
 
 def _get_workflow_from_registry(
@@ -32,9 +32,9 @@ def _get_workflow_from_registry(
     raise ValueError(f"Namespace {namespace} not found in specs")
 
 
-def make_monitor_app(instrument: str) -> BeamlimeApp:
+def make_monitor_app(instrument: str) -> LivedataApp:
     builder = make_monitor_service_builder(instrument=instrument)
-    return BeamlimeApp.from_service_builder(builder)
+    return LivedataApp.from_service_builder(builder)
 
 
 first_monitor_source_name = {

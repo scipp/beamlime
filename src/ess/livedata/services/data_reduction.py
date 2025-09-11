@@ -23,7 +23,7 @@ def make_reduction_service_builder(
         .with_beam_monitor_route()
         .with_detector_route()
         .with_logdata_route()
-        .with_beamlime_config_route()
+        .with_livedata_config_route()
         .build()
     )
     _ = get_config(instrument)  # Load the module to register the instrument

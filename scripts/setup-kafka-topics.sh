@@ -42,7 +42,7 @@ kafka-topics --create --bootstrap-server kafka:29092 \
   --config segment.ms=60000
 
 kafka-topics --create --bootstrap-server kafka:29092 \
-  --topic ${BEAMLIME_INSTRUMENT}_beamlime_commands \
+  --topic ${BEAMLIME_INSTRUMENT}_livedata_commands \
   --config cleanup.policy=compact \
   --config retention.ms=-1 \
   --config min.compaction.lag.ms=86400000 \
@@ -53,7 +53,7 @@ kafka-topics --create --bootstrap-server kafka:29092 \
 
 # Status/heartbeat topic
 kafka-topics --create --bootstrap-server kafka:29092 \
-  --topic ${BEAMLIME_INSTRUMENT}_beamlime_heartbeat \
+  --topic ${BEAMLIME_INSTRUMENT}_livedata_heartbeat \
   --config cleanup.policy=delete \
   --config retention.ms=60000 \
   --config min.compaction.lag.ms=86400000 \
@@ -63,7 +63,7 @@ kafka-topics --create --bootstrap-server kafka:29092 \
   --config retention.bytes=-1
 
 kafka-topics --create --bootstrap-server kafka:29092 \
-  --topic ${BEAMLIME_INSTRUMENT}_beamlime_data \
+  --topic ${BEAMLIME_INSTRUMENT}_livedata_data \
   --config cleanup.policy=delete \
   --config delete.retention.ms=60000 \
   --config max.message.bytes=104857600 \

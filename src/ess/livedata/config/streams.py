@@ -23,7 +23,7 @@ def stream_kind_to_topic(instrument: str, kind: StreamKind) -> str:
     Convert a StreamKind to a topic name.
 
     Used for constructing the topic name from the StreamKind when publishing to Kafka.
-    The non-beamlime topics are thus only used when using our fake data generators.
+    The non-livedata topics are thus only used when using our fake data generators.
     """
     match kind:
         case StreamKind.MONITOR_COUNTS:
@@ -34,12 +34,12 @@ def stream_kind_to_topic(instrument: str, kind: StreamKind) -> str:
             return f'{instrument}_detector'
         case StreamKind.LOG:
             return f'{instrument}_motion'
-        case StreamKind.BEAMLIME_DATA:
-            return f'{instrument}_beamlime_data'
-        case StreamKind.BEAMLIME_CONFIG:
-            return f'{instrument}_beamlime_commands'
-        case StreamKind.BEAMLIME_STATUS:
-            return f'{instrument}_beamlime_heartbeat'  # Expected by Nicos
+        case StreamKind.LIVEDATA_DATA:
+            return f'{instrument}_livedata_data'
+        case StreamKind.LIVEDATA_CONFIG:
+            return f'{instrument}_livedata_commands'
+        case StreamKind.LIVEDATA_STATUS:
+            return f'{instrument}_livedata_heartbeat'  # Expected by Nicos
         case _:
             raise ValueError(f'Unknown stream kind: {kind}')
 

@@ -26,7 +26,7 @@ def make_timeseries_service_builder(
     adapter = (
         RoutingAdapterBuilder(stream_mapping=stream_mapping)
         .with_logdata_route()
-        .with_beamlime_config_route()
+        .with_livedata_config_route()
         .build()
     )
     _ = get_config(instrument)  # Load the module to register the instrument

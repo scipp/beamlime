@@ -12,7 +12,7 @@ class DeduplicatingMessageStore(Generic[K, V]):
     Thread-safe message store that deduplicates by key.
 
     This is meant to be used with
-    :py:class:`~beamlime.dashboard.kafka_bridge.KafkaBridge`. The idea is that it
+    :py:class:`~ess.livedata.dashboard.kafka_bridge.KafkaBridge`. The idea is that it
     prevents flooding Kafka with repeated messages for the same key. Note that this is
     not full protection on its own, i.e., the Kafka bridge still needs to ensure it is
     not retrieving messages too frequently. Furthermore, we have enabled throttling in

@@ -195,7 +195,7 @@ def _job_result_to_message(result: JobResult) -> Message:
     """
     return Message(
         timestamp=result.start_time or 0,
-        stream=StreamId(kind=StreamKind.BEAMLIME_DATA, name=result.stream_name),
+        stream=StreamId(kind=StreamKind.LIVEDATA_DATA, name=result.stream_name),
         value=result.data,
     )
 

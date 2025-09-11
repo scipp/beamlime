@@ -151,10 +151,10 @@ class DashboardBase(ServiceBase, ABC):
         )
         kafka_downstream_config = load_config(namespace=config_names.kafka_downstream)
         data_topic = stream_kind_to_topic(
-            instrument=self._instrument, kind=StreamKind.BEAMLIME_DATA
+            instrument=self._instrument, kind=StreamKind.LIVEDATA_DATA
         )
         status_topic = stream_kind_to_topic(
-            instrument=self._instrument, kind=StreamKind.BEAMLIME_STATUS
+            instrument=self._instrument, kind=StreamKind.LIVEDATA_STATUS
         )
         consumer = self._exit_stack.enter_context(
             kafka_consumer.make_consumer_from_config(
@@ -169,8 +169,8 @@ class DashboardBase(ServiceBase, ABC):
         stream_mapping = get_stream_mapping(instrument=instrument, dev=dev)
         adapter = (
             RoutingAdapterBuilder(stream_mapping=stream_mapping)
-            .with_beamlime_data_route()
-            .with_beamlime_status_route()
+            .with_livedata_data_route()
+            .with_livedata_status_route()
             .build()
         )
         return AdaptingMessageSource(source=source, adapter=adapter)

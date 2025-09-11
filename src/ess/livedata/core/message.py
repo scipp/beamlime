@@ -20,9 +20,9 @@ class StreamKind(str, Enum):
     MONITOR_EVENTS = "monitor_events"
     DETECTOR_EVENTS = "detector_events"
     LOG = "log"
-    BEAMLIME_CONFIG = "beamlime_config"
-    BEAMLIME_DATA = "beamlime_data"
-    BEAMLIME_STATUS = "beamlime_status"
+    LIVEDATA_CONFIG = "livedata_config"
+    LIVEDATA_DATA = "livedata_data"
+    LIVEDATA_STATUS = "livedata_status"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -31,8 +31,8 @@ class StreamId:
     name: str
 
 
-CONFIG_STREAM_ID = StreamId(kind=StreamKind.BEAMLIME_CONFIG, name='')
-STATUS_STREAM_ID = StreamId(kind=StreamKind.BEAMLIME_STATUS, name='')
+CONFIG_STREAM_ID = StreamId(kind=StreamKind.LIVEDATA_CONFIG, name='')
+STATUS_STREAM_ID = StreamId(kind=StreamKind.LIVEDATA_STATUS, name='')
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

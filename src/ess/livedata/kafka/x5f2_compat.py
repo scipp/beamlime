@@ -123,7 +123,7 @@ class StatusMessage(pydantic.BaseModel):
     """
 
     software_name: str = pydantic.Field(
-        default='beamlime', description="Name of the software"
+        default='livedata', description="Name of the software"
     )
     software_version: str = pydantic.Field(
         default='0.0.0', description="Version of the software"

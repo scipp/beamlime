@@ -205,7 +205,7 @@ class Service(ServiceBase):
 
 
 def get_env_defaults(
-    *, parser: argparse.ArgumentParser, prefix: str = 'BEAMLIME'
+    *, parser: argparse.ArgumentParser, prefix: str = 'LIVEDATA'
 ) -> dict[str, Any]:
     """Get defaults from environment variables based on parser arguments."""
     env_defaults = {}
@@ -215,7 +215,7 @@ def get_env_defaults(
         # Start with the parser's default value
         default_value = action.default
 
-        # Convert --arg-name to BEAMLIME_ARG_NAME
+        # Convert --arg-name to LIVEDATA_ARG_NAME
         env_name = f"{prefix}_{action.dest.upper().replace('-', '_')}"
         env_val = os.getenv(env_name)
 

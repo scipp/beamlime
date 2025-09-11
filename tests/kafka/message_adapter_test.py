@@ -486,7 +486,7 @@ class TestBeamlimeConfigMessageAdapter:
         key = b'my_source/my_service/my_key'
         encoded = json.dumps('my_value').encode('utf-8')
         message = FakeKafkaMessage(
-            key=key, value=encoded, topic="dummy_beamlime_commands"
+            key=key, value=encoded, topic="dummy_livedata_commands"
         )
         adapter = BeamlimeConfigMessageAdapter()
         adapted_message = adapter.adapt(message)

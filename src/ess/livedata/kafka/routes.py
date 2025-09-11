@@ -75,24 +75,24 @@ class RoutingAdapterBuilder:
             self._routes[topic] = adapter
         return self
 
-    def with_beamlime_data_route(self) -> Self:
-        """Adds the beamlime data route."""
-        self._routes[self._stream_mapping.beamlime_data_topic] = ChainedAdapter(
-            first=KafkaToDa00Adapter(stream_kind=StreamKind.BEAMLIME_DATA),
+    def with_livedata_data_route(self) -> Self:
+        """Adds the livedata data route."""
+        self._routes[self._stream_mapping.livedata_data_topic] = ChainedAdapter(
+            first=KafkaToDa00Adapter(stream_kind=StreamKind.LIVEDATA_DATA),
             second=Da00ToScippAdapter(),
         )
         return self
 
-    def with_beamlime_config_route(self) -> Self:
-        """Adds the beamlime config route."""
-        self._routes[self._stream_mapping.beamlime_config_topic] = (
+    def with_livedata_config_route(self) -> Self:
+        """Adds the livedata config route."""
+        self._routes[self._stream_mapping.livedata_config_topic] = (
             BeamlimeConfigMessageAdapter()
         )
         return self
 
-    def with_beamlime_status_route(self) -> Self:
-        """Adds the beamlime status route."""
-        self._routes[self._stream_mapping.beamlime_status_topic] = (
+    def with_livedata_status_route(self) -> Self:
+        """Adds the livedata status route."""
+        self._routes[self._stream_mapping.livedata_status_topic] = (
             X5f2ToJobStatusAdapter()
         )
         return self

@@ -32,9 +32,9 @@ class StreamMapping:
         detectors: StreamLUT,
         monitors: StreamLUT,
         log_topics: set[KafkaTopic] | None = None,
-        beamlime_config_topic: str,
-        beamlime_data_topic: str,
-        beamlime_status_topic: str,
+        livedata_config_topic: str,
+        livedata_data_topic: str,
+        livedata_status_topic: str,
     ) -> None:
         self.instrument = instrument
         self._detectors = detectors
@@ -42,24 +42,24 @@ class StreamMapping:
         # Currently we simply reuse the source_name as the stream name
         self._logs = None
         self._log_topics = log_topics or set()
-        self._beamlime_config_topic = beamlime_config_topic
-        self._beamlime_data_topic = beamlime_data_topic
-        self._beamlime_status_topic = beamlime_status_topic
+        self._livedata_config_topic = livedata_config_topic
+        self._livedata_data_topic = livedata_data_topic
+        self._livedata_status_topic = livedata_status_topic
 
     @property
-    def beamlime_config_topic(self) -> KafkaTopic:
-        """Returns the beamlime config topic."""
-        return self._beamlime_config_topic
+    def livedata_config_topic(self) -> KafkaTopic:
+        """Returns the livedata config topic."""
+        return self._livedata_config_topic
 
     @property
-    def beamlime_data_topic(self) -> KafkaTopic:
-        """Returns the beamlime data topic."""
-        return self._beamlime_data_topic
+    def livedata_data_topic(self) -> KafkaTopic:
+        """Returns the livedata data topic."""
+        return self._livedata_data_topic
 
     @property
-    def beamlime_status_topic(self) -> KafkaTopic:
-        """Returns the beamlime status topic."""
-        return self._beamlime_status_topic
+    def livedata_status_topic(self) -> KafkaTopic:
+        """Returns the livedata status topic."""
+        return self._livedata_status_topic
 
     @property
     def detector_topics(self) -> set[KafkaTopic]:

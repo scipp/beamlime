@@ -166,7 +166,7 @@ class TestStatusMessage:
         job_status = self.create_sample_job_status()
         status_msg = StatusMessage.from_job_status(job_status)
 
-        assert status_msg.software_name == "beamlime"
+        assert status_msg.software_name == "livedata"
         assert status_msg.software_version == "0.0.0"
         assert status_msg.service_id.job_id == job_status.job_id
         assert status_msg.host_name == ""
@@ -569,7 +569,7 @@ class TestX5F2Integration:
         assert hasattr(raw_data, 'service_id')
         assert hasattr(raw_data, 'status_json')
         assert hasattr(raw_data, 'software_name')
-        assert raw_data.software_name == "beamlime"
+        assert raw_data.software_name == "livedata"
 
         # Validate nested structure - status_json is a string that needs parsing
         status_json = json.loads(raw_data.status_json)
