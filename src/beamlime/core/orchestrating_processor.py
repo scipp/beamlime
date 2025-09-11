@@ -9,10 +9,11 @@ from typing import Any, Generic
 
 from ..handlers.config_handler import ConfigProcessor
 from .handler import Accumulator, HandlerFactory, HandlerRegistry
-from .job import JobFactory, JobManager, JobResult, WorkflowData
+from .job import JobFactory, JobManager, JobResult, JobStatus, WorkflowData
 from .job_manager_adapter import JobManagerAdapter
 from .message import (
     CONFIG_STREAM_ID,
+    STATUS_STREAM_ID,
     Message,
     MessageSink,
     MessageSource,
@@ -101,6 +102,8 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         self._config_processor = ConfigProcessor(
             job_manager_adapter=self._job_manager_adapter, logger=self._logger
         )
+        self._last_status_update: int | None = None
+        self._status_update_interval = 2_000_000_000  # 2 seconds
 
     def process(self) -> None:
         messages = self._source.get_messages()
@@ -116,6 +119,8 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
 
         # Handle config messages
         result_messages = self._config_processor.process_messages(config_messages)
+
+        self._report_status()
 
         message_batch = self._message_batcher.batch(data_messages)
         if message_batch is None:
@@ -135,12 +140,12 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         workflow_data = self._message_preprocessor.preprocess_messages(message_batch)
 
         # Handle data messages with the workflow manager, accumulating data as needed.
-        job_statuses = self._job_manager.push_data(workflow_data)
+        job_errors = self._job_manager.push_data(workflow_data)
 
         # Log any errors from data processing
-        for status in job_statuses:
-            if status.has_error:
-                self._logger.error(self._job_manager.format_job_error(status))
+        for error in job_errors:
+            if error.has_error:
+                self._logger.error(self._job_manager.format_job_error(error))
 
         # We used to compute results only after 1-N accumulation calls, reasoning that
         # processing data (partially) immediately (instead of waiting for more data)
@@ -167,6 +172,19 @@ class OrchestratingProcessor(Generic[Tin, Tout]):
         )
         self._sink.publish_messages(result_messages)
 
+    def _report_status(self) -> None:
+        timestamp = time.time_ns()
+        if self._last_status_update is not None:
+            if timestamp - self._last_status_update < self._status_update_interval:
+                return
+        self._last_status_update = timestamp
+        job_statuses = self._job_manager.get_all_job_statuses()
+        messages = [
+            _job_status_to_message(status, timestamp=timestamp)
+            for status in job_statuses
+        ]
+        self._sink.publish_messages(messages)
+
 
 def _job_result_to_message(result: JobResult) -> Message:
     """
@@ -180,3 +198,7 @@ def _job_result_to_message(result: JobResult) -> Message:
         stream=StreamId(kind=StreamKind.BEAMLIME_DATA, name=result.stream_name),
         value=result.data,
     )
+
+
+def _job_status_to_message(status: JobStatus, timestamp: int) -> Message:
+    return Message(timestamp=timestamp, stream=STATUS_STREAM_ID, value=status)

@@ -11,8 +11,11 @@ import streaming_data_types.exceptions
 from streaming_data_types import dataarray_da00, eventdata_ev44, logdata_f144
 from streaming_data_types.fbschemas.eventdata_ev44 import Event44Message
 
+from beamlime.core.job import JobStatus
+
 from ..core.message import (
     CONFIG_STREAM_ID,
+    STATUS_STREAM_ID,
     Message,
     MessageSource,
     StreamId,
@@ -21,6 +24,7 @@ from ..core.message import (
 from ..handlers.accumulators import DetectorEvents, LogData, MonitorEvents
 from .scipp_da00_compat import da00_to_scipp
 from .stream_mapping import InputStreamKey, StreamLUT
+from .x5f2_compat import x5f2_to_job_status
 
 T = TypeVar('T')
 U = TypeVar('U')
@@ -155,6 +159,15 @@ class Ev44ToMonitorEventsAdapter(
             timestamp=message.timestamp,
             stream=message.stream,
             value=MonitorEvents.from_ev44(message.value),
+        )
+
+
+class X5f2ToJobStatusAdapter(MessageAdapter[KafkaMessage, Message[JobStatus]]):
+    def adapt(self, message: KafkaMessage) -> Message[JobStatus]:
+        return Message(
+            timestamp=message.timestamp()[1],
+            stream=STATUS_STREAM_ID,
+            value=x5f2_to_job_status(message.value()),
         )
 
 

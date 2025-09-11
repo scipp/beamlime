@@ -16,16 +16,12 @@ from beamlime.config import config_names, instrument_registry
 from beamlime.config.config_loader import load_config
 from beamlime.config.instruments import get_config
 from beamlime.config.schema_registry import get_schema_registry
-from beamlime.config.streams import stream_kind_to_topic
+from beamlime.config.streams import get_stream_mapping, stream_kind_to_topic
 from beamlime.config.workflow_spec import ResultKey
 from beamlime.core.message import StreamKind
 from beamlime.kafka import consumer as kafka_consumer
-from beamlime.kafka.message_adapter import (
-    AdaptingMessageSource,
-    ChainedAdapter,
-    Da00ToScippAdapter,
-    KafkaToDa00Adapter,
-)
+from beamlime.kafka.message_adapter import AdaptingMessageSource
+from beamlime.kafka.routes import RoutingAdapterBuilder
 from beamlime.kafka.source import BackgroundMessageSource
 
 from .config_service import ConfigService
@@ -39,7 +35,6 @@ from .orchestrator import Orchestrator
 from .plotting_controller import PlottingController
 from .schema_validator import PydanticSchemaValidator
 from .stream_manager import StreamManager
-from .widgets.job_control_widget import JobControlWidget
 from .widgets.plot_creation_widget import PlotCreationWidget
 from .widgets.reduction_widget import ReductionWidget
 from .workflow_controller import WorkflowController
@@ -71,7 +66,7 @@ class DashboardBase(ServiceBase, ABC):
 
         self._callback = None
         self._setup_config_service()
-        self._setup_data_infrastructure()
+        self._setup_data_infrastructure(instrument=instrument, dev=dev)
         self._logger.info("%s initialized", self.__class__.__name__)
 
         # Global unit format.
@@ -121,7 +116,7 @@ class DashboardBase(ServiceBase, ABC):
         )
         self._logger.info("Config service setup complete")
 
-    def _setup_data_infrastructure(self) -> None:
+    def _setup_data_infrastructure(self, instrument: str, dev: bool) -> None:
         """Set up data services, forwarder, and orchestrator."""
         # da00 of backend services converted to scipp.DataArray
         ScippDataService = DataService[ResultKey, sc.DataArray]
@@ -141,11 +136,15 @@ class DashboardBase(ServiceBase, ABC):
             logger=self._logger,
         )
         self._orchestrator = Orchestrator(
-            self._setup_kafka_consumer(), data_service=self._data_service
+            self._setup_kafka_consumer(instrument=instrument, dev=dev),
+            data_service=self._data_service,
+            job_service=self._job_service,
         )
         self._logger.info("Data infrastructure setup complete")
 
-    def _setup_kafka_consumer(self) -> AdaptingMessageSource:
+    def _setup_kafka_consumer(
+        self, instrument: str, dev: bool
+    ) -> AdaptingMessageSource:
         """Set up Kafka consumer for data streams."""
         consumer_config = load_config(
             namespace=config_names.reduced_data_consumer, env=''
@@ -154,9 +153,12 @@ class DashboardBase(ServiceBase, ABC):
         data_topic = stream_kind_to_topic(
             instrument=self._instrument, kind=StreamKind.BEAMLIME_DATA
         )
+        status_topic = stream_kind_to_topic(
+            instrument=self._instrument, kind=StreamKind.BEAMLIME_STATUS
+        )
         consumer = self._exit_stack.enter_context(
             kafka_consumer.make_consumer_from_config(
-                topics=[data_topic],
+                topics=[data_topic, status_topic],
                 config={**consumer_config, **kafka_downstream_config},
                 group='dashboard',
             )
@@ -164,13 +166,14 @@ class DashboardBase(ServiceBase, ABC):
         source = self._exit_stack.enter_context(
             BackgroundMessageSource(consumer=consumer)
         )
-        return AdaptingMessageSource(
-            source=source,
-            adapter=ChainedAdapter(
-                first=KafkaToDa00Adapter(stream_kind=StreamKind.BEAMLIME_DATA),
-                second=Da00ToScippAdapter(),
-            ),
+        stream_mapping = get_stream_mapping(instrument=instrument, dev=dev)
+        adapter = (
+            RoutingAdapterBuilder(stream_mapping=stream_mapping)
+            .with_beamlime_data_route()
+            .with_beamlime_status_route()
+            .build()
         )
+        return AdaptingMessageSource(source=source, adapter=adapter)
 
     def _setup_workflow_management(self) -> None:
         """Initialize workflow controller and reduction widget."""
@@ -232,10 +235,10 @@ class DashboardBase(ServiceBase, ABC):
         """Create the basic dashboard layout."""
         sidebar_content = self.create_sidebar_content()
         main_content = PlotCreationWidget(
-            job_service=self._job_service, plotting_controller=self._plotting_controller
+            job_service=self._job_service,
+            job_controller=self._job_controller,
+            plotting_controller=self._plotting_controller,
         ).widget
-        job_control = JobControlWidget(self._job_controller).panel
-        sidebar_content.append(job_control)
 
         template = pn.template.MaterialTemplate(
             title=self.get_dashboard_title(),

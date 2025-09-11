@@ -12,8 +12,9 @@ from streaming_data_types import dataarray_da00, logdata_f144
 
 from ..config.streams import stream_kind_to_topic
 from ..config.workflow_spec import ResultKey
-from ..core.message import CONFIG_STREAM_ID, Message, MessageSink
+from ..core.message import CONFIG_STREAM_ID, STATUS_STREAM_ID, Message, MessageSink
 from .scipp_da00_compat import scipp_to_da00
+from .x5f2_compat import job_status_to_x5f2
 
 T = TypeVar("T")
 
@@ -81,6 +82,9 @@ class KafkaSink(MessageSink[T]):
                 if msg.stream == CONFIG_STREAM_ID:
                     key_bytes = str(msg.value.config_key).encode('utf-8')
                     value = json.dumps(msg.value.value.model_dump()).encode('utf-8')
+                elif msg.stream == STATUS_STREAM_ID:
+                    key_bytes = None
+                    value = job_status_to_x5f2(msg.value)
                 else:
                     key_bytes = None
                     value = self._serializer(msg)

@@ -256,7 +256,7 @@ class TestJob:
         status = job.add(data)
         assert status.has_error
         assert status.job_id == job_id
-        assert f"Error processing data for job {job_id}" in status.error_message
+        assert "Job failed to process latest data" in status.error_message
         assert "Accumulate failure" in status.error_message
 
     def test_add_data_error_recovery(self, fake_processor, sample_workflow_id):
@@ -333,7 +333,7 @@ class TestJob:
 
         result = job.get()
         assert result.error_message is not None
-        assert f"Error finalizing job {job_id}" in result.error_message
+        assert "Job failed to compute result" in result.error_message
         assert "Finalize failure" in result.error_message
         assert result.data is None
 

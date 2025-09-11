@@ -16,6 +16,7 @@ from .message_adapter import (
     MessageAdapter,
     RouteBySchemaAdapter,
     RouteByTopicAdapter,
+    X5f2ToJobStatusAdapter,
 )
 from .stream_mapping import StreamMapping
 
@@ -74,9 +75,24 @@ class RoutingAdapterBuilder:
             self._routes[topic] = adapter
         return self
 
+    def with_beamlime_data_route(self) -> Self:
+        """Adds the beamlime data route."""
+        self._routes[self._stream_mapping.beamlime_data_topic] = ChainedAdapter(
+            first=KafkaToDa00Adapter(stream_kind=StreamKind.BEAMLIME_DATA),
+            second=Da00ToScippAdapter(),
+        )
+        return self
+
     def with_beamlime_config_route(self) -> Self:
         """Adds the beamlime config route."""
-        self._routes[self._stream_mapping.beamline_config_topic] = (
+        self._routes[self._stream_mapping.beamlime_config_topic] = (
             BeamlimeConfigMessageAdapter()
+        )
+        return self
+
+    def with_beamlime_status_route(self) -> Self:
+        """Adds the beamlime status route."""
+        self._routes[self._stream_mapping.beamlime_status_topic] = (
+            X5f2ToJobStatusAdapter()
         )
         return self

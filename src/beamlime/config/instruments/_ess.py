@@ -46,8 +46,14 @@ def make_dev_stream_mapping(instrument: str, detectors: list[str]) -> StreamMapp
         detectors=_make_dev_detectors(instrument=instrument, detectors=detectors),
         monitors=_make_dev_beam_monitors(instrument),
         log_topics=log_topics,
-        beamline_config_topic=stream_kind_to_topic(
+        beamlime_config_topic=stream_kind_to_topic(
             instrument=instrument, kind=StreamKind.BEAMLIME_CONFIG
+        ),
+        beamlime_data_topic=stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.BEAMLIME_DATA
+        ),
+        beamlime_status_topic=stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.BEAMLIME_STATUS
         ),
     )
 
@@ -57,7 +63,13 @@ def make_common_stream_mapping_inputs(instrument: str) -> dict[str, Any]:
         'instrument': instrument,
         'monitors': _make_cbm_monitors(instrument),
         'log_topics': None,
-        'beamline_config_topic': stream_kind_to_topic(
+        'beamlime_config_topic': stream_kind_to_topic(
             instrument=instrument, kind=StreamKind.BEAMLIME_CONFIG
+        ),
+        'beamlime_data_topic': stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.BEAMLIME_DATA
+        ),
+        'beamlime_status_topic': stream_kind_to_topic(
+            instrument=instrument, kind=StreamKind.BEAMLIME_STATUS
         ),
     }

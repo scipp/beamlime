@@ -38,6 +38,8 @@ def stream_kind_to_topic(instrument: str, kind: StreamKind) -> str:
             return f'{instrument}_beamlime_data'
         case StreamKind.BEAMLIME_CONFIG:
             return f'{instrument}_beamlime_commands'
+        case StreamKind.BEAMLIME_STATUS:
+            return f'{instrument}_beamlime_heartbeat'  # Expected by Nicos
         case _:
             raise ValueError(f'Unknown stream kind: {kind}')
 
