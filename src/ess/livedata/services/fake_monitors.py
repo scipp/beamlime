@@ -25,12 +25,18 @@ from ess.livedata.service_factory import DataServiceBuilder
 class FakeMonitorSource(MessageSource[sc.Variable]):
     """Fake message source that generates random monitor events."""
 
-    def __init__(self, *, interval_ns: int = int(1e9 / 14), instrument: str):
+    def __init__(
+        self,
+        *,
+        interval_ns: int = int(1e9 / 14),
+        instrument: str,
+        num_monitors: int = 2,
+    ):
         self._rng = np.random.default_rng()
         self._interval_ns = interval_ns
+        self._num_monitors = max(1, min(10, num_monitors))  # Clamp between 1 and 10
         self._last_message_time = {
-            "monitor1": time.time_ns(),
-            "monitor2": time.time_ns(),
+            f"monitor{i + 1}": time.time_ns() for i in range(self._num_monitors)
         }
 
     def _make_normal(self, mean: float, std: float, size: int) -> np.ndarray:
@@ -40,12 +46,19 @@ class FakeMonitorSource(MessageSource[sc.Variable]):
         current_time = time.time_ns()
         messages = []
 
-        for name, size, mean_ms in [("monitor1", 10000, 30), ("monitor2", 1000, 40)]:
+        # Generate monitor parameters with decreasing counts and increasing means
+        for i in range(self._num_monitors):
+            name = f"monitor{i + 1}"
+            # Start with 10000 counts, decrease by ~30% each monitor
+            size = max(100, int(10000 * (0.7**i)))
+            # Mean goes from 20ms to 50ms across monitors
+            mean_ms = 20 + (30 * i / max(1, self._num_monitors - 1))
+
             elapsed = current_time - self._last_message_time[name]
             num_intervals = int(elapsed // self._interval_ns)
 
-            for i in range(num_intervals):
-                msg_time = self._last_message_time[name] + (i + 1) * self._interval_ns
+            for j in range(num_intervals):
+                msg_time = self._last_message_time[name] + (j + 1) * self._interval_ns
                 messages.append(
                     self._make_message(
                         name=name, size=size, timestamp=msg_time, mean_ms=mean_ms
@@ -110,7 +123,11 @@ def serialize_variable_to_monitor_ev44(msg: Message[sc.Variable]) -> bytes:
 
 
 def run_service(
-    *, instrument: str, mode: Literal['ev44', 'da00'], log_level: int = logging.INFO
+    *,
+    instrument: str,
+    mode: Literal['ev44', 'da00'],
+    num_monitors: int = 2,
+    log_level: int = logging.INFO,
 ) -> NoReturn:
     kafka_config = load_config(namespace=config_names.kafka_upstream)
     if mode == 'ev44':
@@ -129,7 +146,7 @@ def run_service(
         handler_factory=CommonHandlerFactory(handler_cls=IdentityHandler),
     )
     service = builder.from_source(
-        source=FakeMonitorSource(instrument=instrument),
+        source=FakeMonitorSource(instrument=instrument, num_monitors=num_monitors),
         sink=KafkaSink(
             instrument=instrument, kafka_config=kafka_config, serializer=serializer
         ),
@@ -146,6 +163,14 @@ def main() -> NoReturn:
         choices=['ev44', 'da00'],
         required=True,
         help='Select mode: ev44 or da00',
+    )
+    parser.add_argument(
+        '--num-monitors',
+        type=int,
+        default=2,
+        choices=range(1, 11),
+        metavar='1-10',
+        help='Number of monitors to simulate (1-10, default: 2)',
     )
     run_service(**vars(parser.parse_args()))
 
