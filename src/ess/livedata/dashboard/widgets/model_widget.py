@@ -59,7 +59,12 @@ class ModelWidget:
         self._show_descriptions = show_descriptions
         self._cards_collapsed = cards_collapsed
         self._parameter_widgets: dict[str, ParamWidget] = {}
-        self._widget = self._create_widget()
+        try:
+            self._widget = self._create_widget()
+        except Exception as e:
+            raise ValueError(
+                f"Failed to create ModelWidget for {model_class}: {e}"
+            ) from e
 
     def _create_widget(self) -> pn.Column:
         """Create the main model configuration widget."""
