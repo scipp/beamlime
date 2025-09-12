@@ -73,6 +73,7 @@ class JobManagerAdapter:
             # But maybe the key insight is that status-reporting should be decoupled
             # from reply messages. Maybe status should just be emitted periodically for
             # all jobs?
+            self._logger.exception("Failed to start workflow %s", config.identifier)
             status = WorkflowStatus(
                 source_name=source_name,
                 status=WorkflowStatusType.STARTUP_ERROR,

@@ -30,6 +30,20 @@ def _make_dev_detectors(*, instrument: str, detectors: list[str]) -> StreamLUT:
 def _make_dev_beam_monitors(instrument: str) -> StreamLUT:
     # Might also be MONITOR_COUNTS, but topic is supposedly the same.
     topic = stream_kind_to_topic(instrument=instrument, kind=StreamKind.MONITOR_EVENTS)
+    if instrument == 'bifrost':
+        return {
+            InputStreamKey(topic=topic, source_name=f'monitor{monitor + 1}'): name
+            for monitor, name in enumerate(
+                [
+                    '007_frame_0',
+                    '090_frame_1',
+                    '097_frame_2',
+                    '110_frame_3',
+                    '111_psd0',
+                    '113_psd1',
+                ]
+            )
+        }
     return {
         InputStreamKey(
             topic=topic, source_name=f'monitor{monitor}'
