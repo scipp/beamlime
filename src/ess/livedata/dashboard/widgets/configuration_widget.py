@@ -322,12 +322,12 @@ class NoParamsWidget:
 
     @property
     def parameter_values(self) -> pydantic.BaseModel:
-        """Return None for no parameters."""
+        """Return empty model serializing to empty dict."""
         return self.EmptyModel()
 
-    def validate_parameters(self):
+    def validate_parameters(self) -> tuple[bool, list[str]]:
         """Always valid when no parameters."""
         return True, []
 
-    def clear_validation_errors(self):
+    def clear_validation_errors(self) -> None:
         """No-op for no parameters."""
