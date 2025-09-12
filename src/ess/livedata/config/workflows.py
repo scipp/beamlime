@@ -54,24 +54,42 @@ def _get_interval(
 class TimeseriesAccumulator(streaming.Accumulator[sc.DataArray]):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self._value: sc.DataArray | None = None
+        self._buffer: sc.DataGroup | None = None
+        self._size: int = 0
 
     @property
     def is_empty(self) -> bool:
-        return self._value is None
+        return self._buffer is None
 
     def _get_value(self) -> sc.DataArray:
-        return self._value.copy()
+        if self._buffer is None:
+            raise ValueError("No data accumulated")
+        return sc.DataArray(
+            data=self._buffer['data']['time', : self._size].copy(),
+            coords={'time': self._buffer['time']['time', : self._size].copy()},
+        )
+
+    def _unpack(self, value: sc.DataArray) -> sc.DataGroup:
+        return sc.DataGroup(data=value.data, time=value.coords['time'])
 
     def _do_push(self, value: sc.DataArray) -> None:
-        if self._value is None:
-            self._value = value.copy()
+        if self._buffer is None:
+            # Initialize buffer with the first value and ensure we have 'time' dim
+            self._buffer = sc.concat([self._unpack(value)] * 2, 'time')
+            self._size = 1
         else:
-            self._value = sc.concat([self._value, value], 'time')
+            # Check if we need to expand the buffer
+            if self._size >= self._buffer['data'].sizes['time']:
+                # Double the buffer size by concatenating with itself
+                self._buffer = sc.concat([self._buffer, self._buffer], 'time')
+
+            # Insert the new value at the current size position
+            self._buffer['data']['time', self._size] = value.data
+            self._buffer['time']['time', self._size] = value.coords['time']
+            self._size += 1
 
     def clear(self) -> None:
-        """Clear the accumulated value."""
-        self._value = None if self._value is None else self._value[0]
+        self._size = 0
 
 
 def _prepare_workflow(instrument: Instrument, monitor_name: str) -> sciline.Pipeline:
