@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+import pydantic
 import pytest
 
 from ess.livedata.config import instrument_registry
@@ -37,9 +38,7 @@ class FakeConfigurationAdapter(ConfigurationAdapter):
         return self._spec.description
 
     @property
-    def model_class(self) -> type:
-        if self._spec.params is None:
-            raise ValueError("No parameters defined in spec")
+    def model_class(self) -> type[pydantic.BaseModel] | None:
         return self._spec.params
 
     @property
@@ -69,4 +68,5 @@ class TestWorkflowParams:
         Expected to fail if an incompatible Pydantic model is used as workflow params.
         """
         adapter = FakeConfigurationAdapter(spec)
+        # This will raise if there is an issue
         _ = ConfigurationWidget(adapter)
