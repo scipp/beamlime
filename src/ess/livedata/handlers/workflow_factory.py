@@ -17,6 +17,12 @@ class Workflow(Protocol):
     """
 
     def accumulate(self, chunks: dict[Hashable, Any]) -> None: ...
+    def set_context(self, context: dict[Hashable, Any]) -> None:
+        # This will never be called unless the workflow was registered incorrectly.
+        raise NotImplementedError(
+            "Workflow with aux_source_names must implement set_context"
+        )
+
     def finalize(self) -> dict[str, Any]: ...
     def clear(self) -> None: ...
 
