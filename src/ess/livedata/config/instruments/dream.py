@@ -20,7 +20,7 @@ from ess.livedata.handlers.detector_data_handler import (
     get_nexus_geometry_filename,
 )
 from ess.livedata.handlers.monitor_data_handler import register_monitor_workflows
-from ess.livedata.handlers.workflow_adapter import WorkflowAdapter
+from ess.livedata.handlers.stream_processor_workflow import StreamProcessorWorkflow
 from ess.livedata.handlers.workflow_factory import Workflow
 from ess.livedata.kafka import InputStreamKey, StreamLUT, StreamMapping
 from ess.reduce.nexus.types import (
@@ -269,7 +269,7 @@ def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> Workflow
     wf[powder.types.WavelengthMask] = lambda w: (w < wmin) | (w > wmax)
     wf[powder.types.TwoThetaBins] = params.two_theta_edges.get_edges()
     wf[powder.types.DspacingBins] = params.dspacing_edges.get_edges()
-    return WorkflowAdapter.create(
+    return StreamProcessorWorkflow(
         wf,
         dynamic_keys={
             source_name: NeXusData[NXdetector, SampleRun],
