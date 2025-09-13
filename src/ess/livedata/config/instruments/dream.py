@@ -20,6 +20,8 @@ from ess.livedata.handlers.detector_data_handler import (
     get_nexus_geometry_filename,
 )
 from ess.livedata.handlers.monitor_data_handler import register_monitor_workflows
+from ess.livedata.handlers.workflow_adapter import WorkflowAdapter
+from ess.livedata.handlers.workflow_factory import Workflow
 from ess.livedata.kafka import InputStreamKey, StreamLUT, StreamMapping
 from ess.reduce.nexus.types import (
     DetectorData,
@@ -258,7 +260,7 @@ class PowderWorkflowParams(pydantic.BaseModel):
     description='Powder reduction without vanadium normalization.',
     source_names=_source_names,
 )
-def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProcessor:
+def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> Workflow:
     wf = _reduction_workflow.copy()
     wf[NeXusName[NXdetector]] = source_name
     wf[dream.InstrumentConfiguration] = params.instrument_configuration.value
@@ -267,12 +269,12 @@ def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamPr
     wf[powder.types.WavelengthMask] = lambda w: (w < wmin) | (w > wmax)
     wf[powder.types.TwoThetaBins] = params.two_theta_edges.get_edges()
     wf[powder.types.DspacingBins] = params.dspacing_edges.get_edges()
-    return StreamProcessor(
+    return WorkflowAdapter.create(
         wf,
-        dynamic_keys=(
-            NeXusData[NXdetector, SampleRun],
-            NeXusData[powder.types.CaveMonitor, SampleRun],
-        ),
+        dynamic_keys={
+            source_name: NeXusData[NXdetector, SampleRun],
+            'monitor1': NeXusData[powder.types.CaveMonitor, SampleRun],
+        },
         target_keys=(
             powder.types.FocussedDataDspacing[SampleRun],
             powder.types.FocussedDataDspacingTwoTheta[SampleRun],

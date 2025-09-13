@@ -175,14 +175,11 @@ class Job:
     def add(self, data: WorkflowData) -> JobError:
         try:
             update: dict[Hashable, Any] = {}
-            context: dict[Hashable, Any] = {}
             for stream, value in data.data.items():
                 if stream.name == self._source_name:
                     update[stream.name] = value
                 elif stream.name in self._aux_source_names:
-                    context[stream.name] = value
-            if context:
-                self._processor.set_context(context)
+                    update[stream.name] = value
             if update:
                 # Only "start" on first valid data
                 if self._start_time is None:
