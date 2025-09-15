@@ -318,7 +318,7 @@ def _powder_workflow_with_vanadium(
 
 stream_mapping = {
     StreamingEnv.DEV: make_dev_stream_mapping(
-        'dream', detectors=list(detectors_config['fakes'])
+        'dream', detector_names=list(detectors_config['fakes'])
     ),
     StreamingEnv.PROD: StreamMapping(
         **make_common_stream_mapping_inputs(instrument='dream'),

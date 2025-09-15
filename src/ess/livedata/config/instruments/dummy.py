@@ -77,7 +77,7 @@ def _total_counts_processor() -> StreamProcessorWorkflow:
 
 stream_mapping = {
     StreamingEnv.DEV: make_dev_stream_mapping(
-        'dummy', detectors=list(detectors_config['fakes'])
+        'dummy', detector_names=list(detectors_config['fakes'])
     ),
     StreamingEnv.PROD: StreamMapping(
         **make_common_stream_mapping_inputs(instrument='dummy'),

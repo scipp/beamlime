@@ -42,7 +42,7 @@ def _make_odin_detectors() -> StreamLUT:
 
 stream_mapping = {
     StreamingEnv.DEV: make_dev_stream_mapping(
-        'odin', detectors=list(detectors_config['fakes'])
+        'odin', detector_names=list(detectors_config['fakes'])
     ),
     StreamingEnv.PROD: StreamMapping(
         **make_common_stream_mapping_inputs(instrument='odin'),

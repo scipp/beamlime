@@ -182,13 +182,24 @@ class BifrostWorkflowParams(pydantic.BaseModel):
     )
 
 
+# Monitor names matching group names in Nexus files
+monitor_names = [
+    '007_frame_0',
+    '090_frame_1',
+    '097_frame_2',
+    '110_frame_3',
+    '111_psd0',
+    '113_psd1',
+]
+
+
 instrument = Instrument(
     name='bifrost',
     f144_attribute_registry={
         'detector_rotation': {'units': 'deg'},
     },
 )
-register_monitor_workflows(instrument=instrument, source_names=['monitor1', 'monitor2'])
+register_monitor_workflows(instrument=instrument, source_names=monitor_names)
 instrument.add_detector('unified_detector', detector_number=detector_number)
 instrument_registry.register(instrument)
 _logical_view = DetectorLogicalView(
@@ -276,10 +287,14 @@ def _make_bifrost_detectors() -> StreamLUT:
 
 stream_mapping = {
     StreamingEnv.DEV: make_dev_stream_mapping(
-        'bifrost', detectors=list(detectors_config['fakes'])
+        'bifrost',
+        detector_names=list(detectors_config['fakes']),
+        monitor_names=monitor_names,
     ),
     StreamingEnv.PROD: StreamMapping(
-        **make_common_stream_mapping_inputs(instrument='bifrost'),
+        **make_common_stream_mapping_inputs(
+            instrument='bifrost', monitor_names=monitor_names
+        ),
         detectors=_make_bifrost_detectors(),
     ),
 }

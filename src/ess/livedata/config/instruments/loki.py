@@ -191,7 +191,7 @@ def _make_loki_detectors() -> StreamLUT:
 
 stream_mapping = {
     StreamingEnv.DEV: make_dev_stream_mapping(
-        'loki', detectors=list(detectors_config['fakes'])
+        'loki', detector_names=list(detectors_config['fakes'])
     ),
     StreamingEnv.PROD: StreamMapping(
         **make_common_stream_mapping_inputs(instrument='loki'),

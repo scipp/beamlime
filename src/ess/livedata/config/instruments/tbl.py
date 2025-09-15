@@ -56,7 +56,7 @@ def _make_tbl_detectors() -> StreamLUT:
 
 stream_mapping = {
     StreamingEnv.DEV: make_dev_stream_mapping(
-        'tbl', detectors=list(detectors_config['fakes'])
+        'tbl', detector_names=list(detectors_config['fakes'])
     ),
     StreamingEnv.PROD: StreamMapping(
         **make_common_stream_mapping_inputs(instrument='tbl'),
