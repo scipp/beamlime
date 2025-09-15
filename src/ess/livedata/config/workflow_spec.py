@@ -81,7 +81,7 @@ class WorkflowSpec(BaseModel):
     description: str = Field(description="Description of the workflow.")
     source_names: list[str] = Field(
         default_factory=list,
-        description="List of detectors the workflow can be applied to.",
+        description="List of detector/other streams the workflow can be applied to.",
     )
     aux_source_names: list[str] = Field(
         default_factory=list,
