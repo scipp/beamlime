@@ -285,7 +285,7 @@ def _all(params: BifrostWorkflowParams) -> StreamProcessorWorkflow:
     )
 
 
-register_monitor_timeseries_workflows(instrument, source_names=['111_psd0', '113_psd1'])
+register_monitor_timeseries_workflows(instrument, source_names=monitor_names)
 
 
 def _make_bifrost_detectors() -> StreamLUT:
