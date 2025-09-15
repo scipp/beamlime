@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import uuid
-from collections.abc import Hashable
 from copy import deepcopy
 from typing import Any
 
@@ -11,6 +10,7 @@ import scipp as sc
 from ess.livedata.config.workflow_spec import JobSchedule, WorkflowId
 from ess.livedata.core.job import Job, JobId, JobResult, WorkflowData
 from ess.livedata.core.message import StreamId
+from ess.livedata.handlers.workflow_factory import Workflow
 
 
 class TestJobResult:
@@ -43,18 +43,18 @@ class TestJobResult:
         )
 
 
-class FakeProcessor:
-    """Fake implementation of StreamProcessor for testing."""
+class FakeProcessor(Workflow):
+    """Fake implementation of Workflow for testing."""
 
     def __init__(self):
-        self.data: dict[Hashable, Any] = {}
+        self.data: dict[str, Any] = {}
         self.accumulate_calls = []
         self.finalize_calls = 0
         self.clear_calls = 0
         self.should_fail_accumulate = False
         self.should_fail_finalize = False
 
-    def accumulate(self, data: dict[Hashable, Any]) -> None:
+    def accumulate(self, data: dict[str, Any]) -> None:
         if self.should_fail_accumulate:
             raise RuntimeError("Accumulate failure")
         self.accumulate_calls.append(data.copy())
@@ -64,7 +64,7 @@ class FakeProcessor:
             else:
                 self.data[key] = deepcopy(value)
 
-    def finalize(self) -> dict[Hashable, Any]:
+    def finalize(self) -> dict[str, Any]:
         if self.should_fail_finalize:
             raise RuntimeError("Finalize failure")
         self.finalize_calls += 1
@@ -98,7 +98,8 @@ def sample_job(fake_processor: FakeProcessor, sample_workflow_id: WorkflowId):
         job_id=job_id,
         workflow_id=sample_workflow_id,
         processor=fake_processor,
-        source_mapping={"test_source": "main", "aux_source": "aux"},
+        source_names=["test_source"],
+        aux_source_names=["aux_source"],
     )
 
 
@@ -227,12 +228,14 @@ class TestJob:
         # Check that processor received only mapped data
         assert len(fake_processor.accumulate_calls) == 1
         accumulated = fake_processor.accumulate_calls[0]
-        assert "main" in accumulated
-        assert "aux" in accumulated
-        assert accumulated["main"] == sc.scalar(42.0)
-        assert accumulated["aux"] == sc.scalar(10.0)
+        assert "test_source" in accumulated
+        assert "aux_source" in accumulated
+        assert accumulated["test_source"] == sc.scalar(42.0)
+        assert accumulated["aux_source"] == sc.scalar(10.0)
         # unmapped_source should not appear
-        assert len(accumulated) == 2  # Only main and aux should be present
+        assert (
+            len(accumulated) == 2
+        )  # Only test_source and aux_source should be present
 
     def test_add_data_error_handling(self, fake_processor, sample_workflow_id):
         """Test error handling during data processing."""
@@ -241,7 +244,7 @@ class TestJob:
             job_id=job_id,
             workflow_id=sample_workflow_id,
             processor=fake_processor,
-            source_mapping={"test_source": "main"},
+            source_names=["test_source"],
         )
 
         # Make processor fail
@@ -266,7 +269,7 @@ class TestJob:
             job_id=job_id,
             workflow_id=sample_workflow_id,
             processor=fake_processor,
-            source_mapping={"test_source": "main"},
+            source_names=["test_source"],
         )
 
         data = WorkflowData(
@@ -317,7 +320,7 @@ class TestJob:
             job_id=job_id,
             workflow_id=sample_workflow_id,
             processor=fake_processor,
-            source_mapping={"test_source": "main"},
+            source_names=["test_source"],
         )
 
         # Add some data successfully
@@ -358,7 +361,7 @@ class TestJob:
             job_id=job_id,
             workflow_id=sample_workflow_id,
             processor=fake_processor,
-            source_mapping={"test_source": "main"},
+            source_names=["test_source"],
         )
 
         # Cause an error
