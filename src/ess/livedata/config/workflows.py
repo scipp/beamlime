@@ -4,8 +4,7 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
-from typing import Any, Hashable, NewType
+from typing import Any, NewType
 
 import pydantic
 import sciline
@@ -13,6 +12,7 @@ import scipp as sc
 
 from ess.livedata import parameter_models
 from ess.livedata.config import Instrument
+from ess.livedata.handlers.stream_processor_workflow import StreamProcessorWorkflow
 from ess.reduce import streaming
 from ess.reduce.nexus.types import Filename, MonitorData, NeXusData, NeXusName
 from ess.reduce.time_of_flight import GenericTofWorkflow
@@ -27,9 +27,6 @@ class MonitorTimeseriesParams(pydantic.BaseModel):
         default=parameter_models.TOARange(),
     )
 
-
-# TODO Instrument.source_to_key??
-# TODO How to get current time?
 
 CustomMonitor = NewType('CustomMonitor', int)
 CurrentRun = NewType('CurrentRun', int)
@@ -47,7 +44,6 @@ def _get_interval(
         counts = data['event_time_offset', start:stop].sum()
         # TODO start_time from WorkflowData in Job?
         # counts.coords['time'] = data.coords['start_time']
-    print(counts)
     return MonitorCountsInInterval(counts)
 
 
@@ -100,23 +96,6 @@ def _prepare_workflow(instrument: Instrument, monitor_name: str) -> sciline.Pipe
     return workflow
 
 
-# TODO
-# remove source_to_key
-# add wrappers in all instruments
-# Can the wrapper be created once per instrument, then create wrappings once per processor?
-
-
-class WorkflowKeyAdapter(streaming.StreamProcessor):
-    def __init__(self, dynamic_key_map: dict[Hashable, sciline.typing.Key], **kwargs):
-        super().__init__(**kwargs)
-        self._dynamic_key_map = dynamic_key_map
-
-    def accumulate(self, chunks: dict[Hashable, Any]) -> None:
-        super().accumulate(
-            {self._dynamic_key_map.get(k, k): v for k, v in chunks.items()}
-        )
-
-
 def register_monitor_timeseries_workflows(
     instrument: Instrument, source_names: list[str]
 ) -> None:
@@ -151,14 +130,13 @@ def register_monitor_timeseries_workflows(
     )
     def monitor_timeseries_workflow(
         source_name: str, params: MonitorTimeseriesParams
-    ) -> WorkflowKeyAdapter:
+    ) -> StreamProcessorWorkflow:
         wf = _prepare_workflow(instrument, monitor_name=source_name)
         wf[parameter_models.TOARange] = params.toa_range
-        return WorkflowKeyAdapter(
+        return StreamProcessorWorkflow(
             base_workflow=wf,
-            dynamic_key_map={source_name: NeXusData[CustomMonitor, CurrentRun]},
-            dynamic_keys=(NeXusData[CustomMonitor, CurrentRun],),
-            context_keys=(),  # the logs to plot against
+            dynamic_keys={source_name: NeXusData[CustomMonitor, CurrentRun]},
+            context_keys={},  # the logs to plot against
             target_keys=(MonitorCountsInInterval,),
             accumulators={MonitorCountsInInterval: TimeseriesAccumulator},
         )
