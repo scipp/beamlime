@@ -145,15 +145,31 @@ class Job:
         job_id: JobId,
         workflow_id: WorkflowId,
         processor: Workflow,
-        source_name: str,
+        source_names: list[str],
         aux_source_names: list[str] | None = None,
     ) -> None:
+        """
+        Initialize a Job with the given parameters.
+
+        Parameters
+        ----------
+        job_id:
+            The unique identifier for this job.
+        workflow_id:
+            The identifier of the workflow this job is running.
+        processor:
+            The Workflow instance that will process data for this job.
+        source_names:
+            The names of the primary data sources for this job.
+        aux_source_names:
+            The names of any auxiliary data sources for this job.
+        """
         self._job_id = job_id
         self._workflow_id = workflow_id
         self._processor = processor
         self._start_time: int | None = None
         self._end_time: int | None = None
-        self._source_name = source_name
+        self._source_names = source_names
         self._aux_source_names = aux_source_names or []
 
     @property
@@ -174,18 +190,20 @@ class Job:
 
     def add(self, data: WorkflowData) -> JobError:
         try:
-            update: dict[Hashable, Any] = {}
+            primary: dict[Hashable, Any] = {}
+            aux: dict[Hashable, Any] = {}
             for stream, value in data.data.items():
-                if stream.name == self._source_name:
-                    update[stream.name] = value
+                if stream.name in self._source_names:
+                    primary[stream.name] = value
                 elif stream.name in self._aux_source_names:
-                    update[stream.name] = value
-            if update:
+                    aux[stream.name] = value
+            if primary:
                 # Only "start" on first valid data
                 if self._start_time is None:
                     self._start_time = data.start_time
                 self._end_time = data.end_time
-                self._processor.accumulate(update)
+            if primary or aux:
+                self._processor.accumulate({**primary, **aux})
             return JobError(job_id=self._job_id)
         except Exception:
             tb = traceback.format_exc()
@@ -244,7 +262,7 @@ class JobFactory:
             job_id=job_id,
             workflow_id=workflow_id,
             processor=stream_processor,
-            source_name=job_id.source_name,
+            source_names=[job_id.source_name],
             aux_source_names=workflow_spec.aux_source_names,
         )
 
