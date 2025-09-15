@@ -11,7 +11,6 @@ from scippnexus import NXdetector
 
 from ess.livedata.config import Instrument, instrument_registry
 from ess.livedata.config.env import StreamingEnv
-from ess.livedata.config.workflows import register_monitor_timeseries_workflows
 from ess.livedata.handlers.detector_data_handler import (
     DetectorLogicalView,
     LogicalViewConfig,
@@ -263,9 +262,6 @@ def _all(params: BifrostWorkflowParams) -> StreamProcessorWorkflow:
         target_keys=(CountsPerAngle, SpectrumView),
         accumulators=(CountsPerAngle, SpectrumView),
     )
-
-
-register_monitor_timeseries_workflows(instrument, source_names=['111_psd0', '113_psd1'])
 
 
 def _make_bifrost_detectors() -> StreamLUT:
