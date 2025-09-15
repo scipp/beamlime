@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Hashable
 from typing import Any
 
 import sciline
@@ -46,7 +45,7 @@ class StreamProcessorWorkflow(Workflow):
             **kwargs,
         )
 
-    def accumulate(self, data: dict[Hashable, Any]) -> None:
+    def accumulate(self, data: dict[str, Any]) -> None:
         context = {
             sciline_key: data[key]
             for key, sciline_key in self._context_keys.items()
