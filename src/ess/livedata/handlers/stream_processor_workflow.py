@@ -26,8 +26,8 @@ class StreamProcessorWorkflow(Workflow):
         self,
         base_workflow: sciline.Pipeline,
         *,
-        dynamic_keys: dict[Hashable, sciline.typing.Key],
-        context_keys: dict[Hashable, sciline.typing.Key] | None = None,
+        dynamic_keys: dict[str, sciline.typing.Key],
+        context_keys: dict[str, sciline.typing.Key] | None = None,
         target_keys: dict[str, sciline.typing.Key] | tuple[sciline.typing.Key, ...],
         **kwargs: Any,
     ) -> None:

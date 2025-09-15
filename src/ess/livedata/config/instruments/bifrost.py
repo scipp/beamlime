@@ -18,6 +18,7 @@ from ess.livedata.handlers.detector_data_handler import (
     get_nexus_geometry_filename,
 )
 from ess.livedata.handlers.monitor_data_handler import register_monitor_workflows
+from ess.livedata.handlers.stream_processor_workflow import StreamProcessorWorkflow
 from ess.livedata.kafka import InputStreamKey, StreamLUT, StreamMapping
 from ess.reduce.nexus.types import (
     CalibratedBeamline,
@@ -27,7 +28,6 @@ from ess.reduce.nexus.types import (
     NeXusName,
     SampleRun,
 )
-from ess.reduce.streaming import StreamProcessor
 from ess.spectroscopy.indirect.time_of_flight import TofWorkflow
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
@@ -184,10 +184,6 @@ class BifrostWorkflowParams(pydantic.BaseModel):
 
 instrument = Instrument(
     name='bifrost',
-    source_to_key={
-        'unified_detector': NeXusData[NXdetector, SampleRun],
-        'detector_rotation': DetectorRotation,
-    },
     f144_attribute_registry={
         'detector_rotation': {'units': 'deg'},
     },
@@ -207,14 +203,14 @@ _logical_view = DetectorLogicalView(
     description='Spectrum view with configurable time bins and pixels per tube.',
     source_names=_source_names,
 )
-def _spectrum_view_new(params: BifrostWorkflowParams) -> StreamProcessor:
+def _spectrum_view_new(params: BifrostWorkflowParams) -> StreamProcessorWorkflow:
     wf = _reduction_workflow.copy()
     view_params = params.spectrum_view
     wf[_SpectrumViewTimeBins] = view_params.time_bins
     wf[_SpectrumViewPixelsPerTube] = view_params.pixels_per_tube
-    return StreamProcessor(
+    return StreamProcessorWorkflow(
         wf,
-        dynamic_keys=(NeXusData[NXdetector, SampleRun],),
+        dynamic_keys={'unified_detector': NeXusData[NXdetector, SampleRun]},
         target_keys=(SpectrumView,),
         accumulators=(SpectrumView,),
     )
@@ -225,12 +221,13 @@ def _spectrum_view_new(params: BifrostWorkflowParams) -> StreamProcessor:
     version=1,
     title='Counts per angle',
     source_names=_source_names,
+    aux_source_names=['detector_rotation'],
 )
-def _counts_per_angle() -> StreamProcessor:
-    return StreamProcessor(
+def _counts_per_angle() -> StreamProcessorWorkflow:
+    return StreamProcessorWorkflow(
         _reduction_workflow.copy(),
-        dynamic_keys=(NeXusData[NXdetector, SampleRun],),
-        context_keys=(DetectorRotation,),
+        dynamic_keys={'unified_detector': NeXusData[NXdetector, SampleRun]},
+        context_keys={'detector_rotation': DetectorRotation},
         target_keys=(CountsPerAngle,),
         accumulators=(CountsPerAngle,),
     )
@@ -241,16 +238,17 @@ def _counts_per_angle() -> StreamProcessor:
     version=1,
     title='Spectrum view and counts per angle',
     source_names=_source_names,
+    aux_source_names=['detector_rotation'],
 )
-def _all(params: BifrostWorkflowParams) -> StreamProcessor:
+def _all(params: BifrostWorkflowParams) -> StreamProcessorWorkflow:
     wf = _reduction_workflow.copy()
     view_params = params.spectrum_view
     wf[_SpectrumViewTimeBins] = view_params.time_bins
     wf[_SpectrumViewPixelsPerTube] = view_params.pixels_per_tube
-    return StreamProcessor(
+    return StreamProcessorWorkflow(
         wf,
-        dynamic_keys=(NeXusData[NXdetector, SampleRun],),
-        context_keys=(DetectorRotation,),
+        dynamic_keys={'unified_detector': NeXusData[NXdetector, SampleRun]},
+        context_keys={'detector_rotation': DetectorRotation},
         target_keys=(CountsPerAngle, SpectrumView),
         accumulators=(CountsPerAngle, SpectrumView),
     )

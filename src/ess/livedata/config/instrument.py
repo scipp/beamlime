@@ -51,7 +51,6 @@ class Instrument:
 
     name: str
     workflow_factory: WorkflowFactory = field(default_factory=WorkflowFactory)
-    source_to_key: dict[str, type] = field(default_factory=dict)
     f144_attribute_registry: dict[str, dict[str, Any]] = field(default_factory=dict)
     _detector_numbers: dict[str, sc.Variable] = field(default_factory=dict)
     _nexus_file: str | None = None

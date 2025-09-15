@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import pydantic
+import sciline
+import sciline.typing
 from scippnexus import NXdetector
 
 import ess.loki.live  # noqa: F401
@@ -13,9 +15,9 @@ from ess.livedata.handlers.detector_data_handler import (
     get_nexus_geometry_filename,
 )
 from ess.livedata.handlers.monitor_data_handler import register_monitor_workflows
+from ess.livedata.handlers.stream_processor_workflow import StreamProcessorWorkflow
 from ess.livedata.kafka import InputStreamKey, StreamLUT, StreamMapping
 from ess.reduce.nexus.types import NeXusData, NeXusDetectorName, SampleRun
-from ess.reduce.streaming import StreamProcessor
 from ess.sans import types as params
 from ess.sans.types import (
     Filename,
@@ -76,22 +78,7 @@ class SansWorkflowParams(pydantic.BaseModel):
 _base_workflow = loki.live._configured_Larmor_AgBeh_workflow()
 _base_workflow[Filename[SampleRun]] = get_nexus_geometry_filename('loki')
 
-instrument = Instrument(
-    name='loki',
-    source_to_key={
-        'loki_detector_0': NeXusData[NXdetector, SampleRun],
-        'loki_detector_1': NeXusData[NXdetector, SampleRun],
-        'loki_detector_2': NeXusData[NXdetector, SampleRun],
-        'loki_detector_3': NeXusData[NXdetector, SampleRun],
-        'loki_detector_4': NeXusData[NXdetector, SampleRun],
-        'loki_detector_5': NeXusData[NXdetector, SampleRun],
-        'loki_detector_6': NeXusData[NXdetector, SampleRun],
-        'loki_detector_7': NeXusData[NXdetector, SampleRun],
-        'loki_detector_8': NeXusData[NXdetector, SampleRun],
-        'monitor1': NeXusData[Incident, SampleRun],
-        'monitor2': NeXusData[Transmission, SampleRun],
-    },
-)
+instrument = Instrument(name='loki')
 register_monitor_workflows(instrument=instrument, source_names=['monitor1', 'monitor2'])
 instrument_registry.register(instrument)
 for bank in range(9):
@@ -123,11 +110,14 @@ def _transmission_from_current_run(
     return data
 
 
-_dynamic_keys = (
-    NeXusData[NXdetector, SampleRun],
-    NeXusData[Incident, SampleRun],
-    NeXusData[Transmission, SampleRun],
-)
+def _dynamic_keys(source_name: str) -> dict[str, sciline.typing.Key]:
+    return {
+        source_name: NeXusData[NXdetector, SampleRun],
+        'monitor1': NeXusData[Incident, SampleRun],
+        'monitor2': NeXusData[Transmission, SampleRun],
+    }
+
+
 _accumulators = (
     ReducedQ[SampleRun, Numerator],
     params.CleanMonitor[SampleRun, Incident],
@@ -142,12 +132,12 @@ _accumulators = (
     source_names=instrument.detector_names,
     aux_source_names=['monitor1', 'monitor2'],
 )
-def _i_of_q(source_name: str) -> StreamProcessor:
+def _i_of_q(source_name: str) -> StreamProcessorWorkflow:
     wf = _base_workflow.copy()
     wf[NeXusDetectorName] = source_name
-    return StreamProcessor(
+    return StreamProcessorWorkflow(
         wf,
-        dynamic_keys=_dynamic_keys,
+        dynamic_keys=_dynamic_keys(source_name),
         target_keys=(IofQ[SampleRun],),
         accumulators=_accumulators,
     )
@@ -163,7 +153,7 @@ def _i_of_q(source_name: str) -> StreamProcessor:
 )
 def _i_of_q_with_params(
     source_name: str, params: SansWorkflowParams
-) -> StreamProcessor:
+) -> StreamProcessorWorkflow:
     wf = _base_workflow.copy()
     wf[NeXusDetectorName] = source_name
 
@@ -176,9 +166,9 @@ def _i_of_q_with_params(
     else:
         # Transmission fraction is static, do not display
         target_keys = (IofQ[SampleRun],)
-    return StreamProcessor(
+    return StreamProcessorWorkflow(
         wf,
-        dynamic_keys=_dynamic_keys,
+        dynamic_keys=_dynamic_keys(source_name),
         target_keys=target_keys,
         accumulators=_accumulators,
     )
