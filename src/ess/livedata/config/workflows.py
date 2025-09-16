@@ -108,16 +108,6 @@ def register_monitor_timeseries_workflows(
     source_names
         The source names (monitor names) for which to register the workflows.
     """
-    # Auto-gen the param model?
-    # Or just use XEdges and YEdges? What about unit?
-    # Current WorkflowSpec cannot deal with aux-source-name selector. Can it be extended
-    # or can we use a factory instead, to make them on the fly?
-    # Can we extend WorkflowConfig?
-    # Or can we pass aux_source_names in the params?
-    # No, pass it in WorkflowConfig?
-    # "instantiate with WorkflowSpec with these source names"?
-    #
-    # Ok, but how to we get/display the unit in the UI?
 
     @instrument.register_workflow(
         name='monitor_interval_timeseries',
@@ -136,7 +126,6 @@ def register_monitor_timeseries_workflows(
         return StreamProcessorWorkflow(
             base_workflow=wf,
             dynamic_keys={source_name: NeXusData[CustomMonitor, CurrentRun]},
-            context_keys={},  # the logs to plot against
             target_keys=(MonitorCountsInInterval,),
             accumulators={MonitorCountsInInterval: TimeseriesAccumulator},
         )
