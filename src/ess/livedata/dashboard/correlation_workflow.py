@@ -2,10 +2,8 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
-import abc
 import uuid
 from collections.abc import Callable
-from enum import Enum
 from typing import Any
 
 import numpy as np
@@ -20,79 +18,40 @@ from .stream_manager import StreamManager
 from .widgets.configuration_widget import ConfigurationAdapter
 
 
-class EdgesWithUnit(EdgesModel, abc.ABC):
-    @property
-    @abc.abstractmethod
-    def unit(self) -> str:
-        """Unit for the edges."""
+class EdgesWithUnit(EdgesModel):
+    # Frozen so it cannot be changed in the UI. If we wanted to auto-generate an enum
+    # to get a dropdown menu, we probably cannot write generic code below, since we
+    # would need to create all the models on the fly.
+    unit: str = pydantic.Field(..., description="Unit for the edges", frozen=True)
 
 
-def make_params_1d(coords: dict[str, sc.DataArray]) -> type[pydantic.BaseModel]:
-    x_name, x_data = next(iter(coords.items()))
-    xunit = x_data.unit
-    xlow = x_data.nanmin().value
-    xhigh = np.nextafter(x_data.nanmax().value, np.inf)
+def _make_edges_field(name: str, coord: sc.DataArray) -> Any:
+    unit = str(coord.unit)
+    low = coord.nanmin().value
+    high = np.nextafter(coord.nanmax().value, np.inf)
+    return pydantic.Field(
+        default=EdgesWithUnit(start=low, stop=high, num_bins=50, unit=unit),
+        title=f"{name} Edges",
+        description=f"Bin edges for the {name} axis",
+    )
 
-    class XUnit(str, Enum):
-        ONLY_OPTION = xunit
 
-    class XEdgesModel(EdgesModel):
-        unit: XUnit = pydantic.Field(
-            default=XUnit.ONLY_OPTION, description=f"Unit for {x_name} edges"
-        )
+def make_params(coords: dict[str, sc.DataArray]) -> type[pydantic.BaseModel]:
+    fields = [_make_edges_field(name, coord) for name, coord in coords.items()]
+    if not (0 < len(fields) < 3):
+        raise ValueError("Expected 1 or 2 coordinates for correlation histogram.")
 
-    class CorrelationHistogramParams(pydantic.BaseModel):
+    class CorrelationHistogram1dParams(pydantic.BaseModel):
         # TODO Add start_time, normalize
-        x_edges: XEdgesModel = pydantic.Field(
-            default=XEdgesModel(start=xlow, stop=xhigh, num_bins=50),
-            title=f"{x_name} Edges",
-            description=f"Bin edges for the {x_name} axis",
-        )
+        x_edges: EdgesWithUnit = fields[0]
 
-    return CorrelationHistogramParams
+    if len(fields) == 1:
+        return CorrelationHistogram1dParams
 
+    class CorrelationHistogram2dParams(CorrelationHistogram1dParams):
+        y_edges: EdgesWithUnit = fields[1]
 
-def make_params_2d(coords: dict[str, sc.DataArray]) -> type[pydantic.BaseModel]:
-    it = iter(coords.items())
-    x_name, x_data = next(it)
-    y_name, y_data = next(it)
-    xunit = x_data.unit
-    xlow = x_data.nanmin().value
-    xhigh = np.nextafter(x_data.nanmax().value, np.inf)
-    yunit = y_data.unit
-    ylow = y_data.nanmin().value
-    yhigh = np.nextafter(y_data.nanmax().value, np.inf)
-
-    class XUnit(str, Enum):
-        ONLY_OPTION = xunit
-
-    class YUnit(str, Enum):
-        ONLY_OPTION = yunit
-
-    class XEdgesModel(EdgesModel):
-        unit: XUnit = pydantic.Field(
-            default=XUnit.ONLY_OPTION, description=f"Unit for {x_name} edges"
-        )
-
-    class YEdgesModel(EdgesModel):
-        unit: YUnit = pydantic.Field(
-            default=YUnit.ONLY_OPTION, description=f"Unit for {y_name} edges"
-        )
-
-    class CorrelationHistogramParams(pydantic.BaseModel):
-        # TODO Add start_time, normalize
-        x_edges: XEdgesModel = pydantic.Field(
-            default=XEdgesModel(start=xlow, stop=xhigh, num_bins=50),
-            title=f"{x_name} Edges",
-            description=f"Bin edges for the {x_name} axis",
-        )
-        y_edges: YEdgesModel = pydantic.Field(
-            default=YEdgesModel(start=ylow, stop=yhigh, num_bins=50),
-            title=f"{y_name} Edges",
-            description=f"Bin edges for the {y_name} axis",
-        )
-
-    return CorrelationHistogramParams
+    return CorrelationHistogram2dParams
 
 
 class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter):
@@ -184,7 +143,6 @@ class CorrelationHistogramController:
         self, axis_keys: list[ResultKey]
     ) -> CorrelationHistogramConfigurationAdapter:
         result_keys = [key for key in self.get_timeseries() if key not in axis_keys]
-        make_params = {1: make_params_1d, 2: make_params_2d}[len(axis_keys)]
         coords = {key.job_id.source_name: self._data_service[key] for key in axis_keys}
         ndim = len(coords)
         return CorrelationHistogramConfigurationAdapter(
@@ -202,10 +160,10 @@ class CorrelationHistogramController:
         axis_keys: list[ResultKey],
         params: pydantic.BaseModel,
     ) -> None:
-        # TODO JobStatus reporting?? How to stop?
+        # TODO JobStatus reporting? How to stop?
         data = {key: self._data_service[key] for key in data_keys}
         axes = {key: self._data_service[key] for key in axis_keys}
-        job_number = uuid.uuid4()  # New unique job number
+        job_number = uuid.uuid4()  # New unique job number shared by all workflows
         for key, value in data.items():
             builder = CorrelationHistogrammerBuilder(
                 data_key=key,
@@ -260,7 +218,7 @@ class UpdateHistogram:
         else:
             raise ValueError("Only 1D and 2D correlation histograms are supported.")
 
-    def send(self, data: Any) -> None:
+    def send(self, data: dict[ResultKey, sc.DataArray]) -> None:
         coords = {name: data[key] for key, name in self._coords.items()}
         result = self._histogrammer(data[self._data_key], coords=coords)
         # TODO Ensure still in transaction, or fix DataService
@@ -282,7 +240,7 @@ class CorrelationHistogrammerBuilder:
         self._job_number = job_number
         self._data_service = data_service
 
-    def create_pipe(self, data: Any) -> UpdateHistogram:
+    def create_pipe(self, data: dict[ResultKey, sc.DataArray]) -> UpdateHistogram:
         update = UpdateHistogram(
             data_key=self._data_key,
             coord_keys=self._coord_keys,
