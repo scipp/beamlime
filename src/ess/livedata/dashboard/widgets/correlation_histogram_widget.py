@@ -8,6 +8,7 @@ import pandas as pd
 import panel as pn
 
 from ess.livedata.config.workflow_spec import ResultKey
+
 from ..correlation_workflow import CorrelationHistogramController
 from ..plotting_controller import PlottingController
 from .configuration_widget import ConfigurationModal
@@ -59,8 +60,6 @@ class CorrelationHistogramWidget:
     def _update_timeseries_list(self) -> None:
         """Update the tabulator with current timeseries data."""
         timeseries_keys = self._correlation_histogram_controller.get_timeseries()
-        print(f"Updating timeseries list: {timeseries_keys}")
-
         data = pd.DataFrame(
             [
                 {
@@ -99,7 +98,6 @@ class CorrelationHistogramWidget:
         selected_data = self._tabulator.value.iloc[selection]
 
         if len(selection) == 1:
-            print(selected_data.index)
             key = self._result_key.iloc[selected_data.index[0]]
             config = self._correlation_histogram_controller.create_config_1d(key)
 
