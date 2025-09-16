@@ -113,22 +113,12 @@ class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter):
         return True
 
 
-class Pipe:
-    def __init__(self, data: Any) -> None:
-        pass
-
-    def send(self, data: Any) -> None:
-        pass
-
-
 class CorrelationHistogramController:
     def __init__(self, data_service: DataService[ResultKey, sc.DataArray]) -> None:
         self._data_service = data_service
-        self._stream_manager = StreamManager(
-            data_service=data_service, pipe_factory=Pipe
-        )
         self._update_subscribers: list[Callable[[], None]] = []
         self._data_service.subscribe_to_changed_keys(self._on_data_keys_updated)
+        self._pipes: list[Any] = []
 
     def register_update_subscriber(self, callback: Callable[[], None]) -> None:
         """Register a callback to be called when job data is updated."""
@@ -175,39 +165,97 @@ class CorrelationHistogramController:
         # TODO JobStatus reporting?? How to stop?
         data = {key: self._data_service[key] for key in data_keys}
         axes = {key: self._data_service[key] for key in axis_keys}
-        x_name = next(iter(axes)).job_id.source_name
-
-        # Feed back into data service, or plotting preprocessor?
-        with self._data_service.transaction():
-            job_number = uuid.uuid4()  # New unique job number
-            for key, value in data.items():
-                pipe = self._stream_manager.make_merging_stream({key: value, **axes})
-                histogrammer = CorrelationHistogrammer(edges={x_name: params.x_edges})
-                hist = histogrammer(
-                    data=value,
-                    coords={
-                        axis_key.job_id.source_name: axis
-                        for axis_key, axis in axes.items()
-                    },
-                )
-                result_key = ResultKey(
-                    workflow_id=WorkflowId(
-                        instrument=key.workflow_id.instrument,
-                        namespace='correlation',
-                        name=f'correlation_histogram_{x_name}',
-                        version=1,
-                    ),
-                    job_id=JobId(
-                        source_name=key.job_id.source_name, job_number=job_number
-                    ),
-                    output_name=None,
-                )
-                # TODO Add static result directly. This it NOT what we want, just testing.
-                self._data_service[result_key] = hist
+        job_number = uuid.uuid4()  # New unique job number
+        for key, value in data.items():
+            builder = CorrelationHistogrammerBuilder(
+                data_key=key,
+                coord_keys=axis_keys,
+                params=params,
+                job_number=job_number,
+                data_service=self._data_service,
+            )
+            stream_manager = StreamManager(
+                data_service=self._data_service, pipe_factory=builder.create_pipe
+            )
+            pipe = stream_manager.make_merging_stream({key: value, **axes})
+            self._pipes.append(pipe)  # Keep a reference to avoid garbage collection
 
 
 def _is_timeseries(da: sc.DataArray) -> bool:
     return da.dims == ('time',) and 'time' in da.coords
+
+
+class UpdateHistogram:
+    def __init__(
+        self,
+        data_key: ResultKey,
+        coord_keys: list[ResultKey],
+        params: pydantic.BaseModel,
+        job_number: JobNumber,
+        data_service: DataService[ResultKey, sc.DataArray],
+    ) -> None:
+        self._data_key = data_key
+        self._data_service = data_service
+        self._coords = {key: key.job_id.source_name for key in coord_keys}
+
+        print(data_key.job_id.source_name)
+        self._result_key = ResultKey(
+            workflow_id=WorkflowId(
+                instrument=data_key.workflow_id.instrument,
+                namespace='correlation',
+                name=f'correlation_histogram_{"_".join(self._coords.values())}',
+                version=1,
+            ),
+            job_id=JobId(
+                source_name=data_key.job_id.source_name, job_number=job_number
+            ),
+            output_name=None,
+        )
+        if len(self._coords) == 1:
+            x_name = next(iter(self._coords.values()))
+            self._histogrammer = CorrelationHistogrammer(edges={x_name: params.x_edges})
+        elif len(self._coords) == 2:
+            x_name, y_name = list(self._coords.values())
+            self._histogrammer = CorrelationHistogrammer(
+                edges={x_name: params.x_edges, y_name: params.y_edges}
+            )
+        else:
+            raise ValueError("Only 1D and 2D correlation histograms are supported.")
+
+    def send(self, data: Any) -> None:
+        print(f'Updating {self._result_key}')
+        coords = {name: data[key] for key, name in self._coords.items()}
+        result = self._histogrammer(data[self._data_key], coords=coords)
+        # This is bad since it will cause notifications to everything
+        print(f'{self._result_key.job_id.source_name} -> {result.max().value}')
+        self._data_service[self._result_key] = result
+
+
+class CorrelationHistogrammerBuilder:
+    def __init__(
+        self,
+        data_key: ResultKey,
+        coord_keys: list[ResultKey],
+        params: pydantic.BaseModel,
+        job_number: JobNumber,
+        data_service: DataService[ResultKey, sc.DataArray],
+    ) -> None:
+        self._data_key = data_key
+        self._coord_keys = coord_keys
+        self._params = params
+        self._job_number = job_number
+        self._data_service = data_service
+
+    def create_pipe(self, data: Any) -> UpdateHistogram:
+        update = UpdateHistogram(
+            data_key=self._data_key,
+            coord_keys=self._coord_keys,
+            params=self._params,
+            job_number=self._job_number,
+            data_service=self._data_service,
+        )
+        update.send(data)
+        return update
 
 
 class CorrelationHistogrammer:
@@ -220,7 +268,7 @@ class CorrelationHistogrammer:
     def __call__(
         self, data: sc.DataArray, coords: dict[str, sc.DataArray]
     ) -> sc.DataArray:
-        dependent = data.copy()
+        dependent = data.copy(deep=False)
         for dim in self._edges:
             lut = sc.lookup(sc.values(coords[dim]), mode='previous')
             dependent.coords[dim] = lut[dependent.coords['time']]
