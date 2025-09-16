@@ -37,13 +37,17 @@ class DataService(UserDict[K, V]):
         try:
             yield
         finally:
+            # Stay in transaction until notifications are done
+            if self._transaction_depth == 1:
+                # Some updates may have been added while notifying
+                while self._pending_updates:
+                    pending = set(self._pending_updates)
+                    self._pending_updates.clear()
+                    self._notify_subscribers(pending)
+                    self._notify_key_change_subscribers()
+                    self._pending_key_additions.clear()
+                    self._pending_key_removals.clear()
             self._transaction_depth -= 1
-            if self._transaction_depth == 0 and self._pending_updates:
-                self._notify_subscribers(self._pending_updates)
-                self._notify_key_change_subscribers()
-                self._pending_updates.clear()
-                self._pending_key_additions.clear()
-                self._pending_key_removals.clear()
 
     @property
     def _in_transaction(self) -> bool:
@@ -121,7 +125,7 @@ class DataService(UserDict[K, V]):
     def _notify_if_not_in_transaction(self, key: K) -> None:
         """Notify subscribers if not in a transaction."""
         if not self._in_transaction:
-            self._notify_subscribers({key})
+            self._notify_subscribers({key, *self._pending_updates})
             self._notify_key_change_subscribers()
             self._pending_updates.clear()
             self._pending_key_additions.clear()
