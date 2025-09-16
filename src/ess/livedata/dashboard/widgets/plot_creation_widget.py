@@ -16,8 +16,8 @@ from ess.livedata.dashboard.plotting_controller import PlottingController
 
 from ..correlation_workflow import CorrelationHistogramController
 from .configuration_widget import ConfigurationAdapter, ConfigurationModal
-from .job_status_widget import JobStatusListWidget
 from .correlation_histogram_widget import CorrelationHistogramWidget
+from .job_status_widget import JobStatusListWidget
 
 
 class PlotConfigurationAdapter(ConfigurationAdapter):
@@ -152,7 +152,7 @@ class PlotCreationWidget:
             pagination='remote',
             page_size=20,
             sizing_mode='stretch_width',
-            selectable='checkbox-single',
+            selectable=1,  # Single selection
             disabled=True,
             height=600,
             groupby=['workflow_name', 'job_number'],
