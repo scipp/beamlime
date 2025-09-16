@@ -7,10 +7,7 @@ from typing import Any
 import pandas as pd
 import panel as pn
 
-from ess.livedata.config.workflow_spec import ResultKey
-
 from ..correlation_workflow import CorrelationHistogramController
-from ..plotting_controller import PlottingController
 from .configuration_widget import ConfigurationModal
 
 
@@ -18,13 +15,9 @@ class CorrelationHistogramWidget:
     """Widget for configuring a correlatio histogram."""
 
     def __init__(
-        self,
-        *,
-        correlation_histogram_controller: CorrelationHistogramController,
-        # plotting_controller: PlottingController,
+        self, *, correlation_histogram_controller: CorrelationHistogramController
     ) -> None:
         self._correlation_histogram_controller = correlation_histogram_controller
-        # self._plotting_controller = plotting_controller
 
         # Create the tabulator widget
         self._tabulator = pn.widgets.Tabulator(
@@ -95,20 +88,10 @@ class CorrelationHistogramWidget:
     def _on_config_button_click(self, event: Any) -> None:
         """Handle configuration button clicks."""
         selection = self._tabulator.selection
-        selected_data = self._tabulator.value.iloc[selection]
-
-        if len(selection) == 1:
-            key = self._result_key.iloc[selected_data.index[0]]
-            config = self._correlation_histogram_controller.create_config_1d(key)
-
-        elif len(selection) == 2:
-            x_key = self._result_key.iloc[selected_data.index[0]]
-            y_key = self._result_key.iloc[selected_data.index[1]]
-            config = self._correlation_histogram_controller.create_config_2d(
-                x_key, y_key
-            )
-        else:
-            return  # Should not happen due to button state
+        indices = self._tabulator.value.iloc[selection].index
+        config = self._correlation_histogram_controller.create_config(
+            [self._result_key.iloc[i] for i in indices]
+        )
 
         # Create and show configuration modal
         modal = ConfigurationModal(
