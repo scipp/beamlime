@@ -14,9 +14,10 @@ from ess.livedata.dashboard.job_service import JobService
 from ess.livedata.dashboard.plotting import PlotterSpec
 from ess.livedata.dashboard.plotting_controller import PlottingController
 
+from ..correlation_workflow import CorrelationHistogramController
 from .configuration_widget import ConfigurationAdapter, ConfigurationModal
 from .job_status_widget import JobStatusListWidget
-from ..correlation_workflow import CorrelationHistogramController
+from .correlation_histogram_widget import CorrelationHistogramWidget
 
 
 class PlotConfigurationAdapter(ConfigurationAdapter):
@@ -106,6 +107,9 @@ class PlotCreationWidget:
         self._correlation_controller = CorrelationHistogramController(
             self._job_service._data_service
         )
+        self._correlation_widget = CorrelationHistogramWidget(
+            correlation_histogram_controller=self._correlation_controller
+        )
 
         # Create UI components
         self._job_status_widget = JobStatusListWidget(
@@ -132,6 +136,7 @@ class PlotCreationWidget:
         self._main_tabs = pn.Tabs(
             ("Jobs", self._job_status_widget.panel()),
             ("Create Plot", self._creation_tab),
+            ("Create Correlation Histograms", self._correlation_widget.panel),
             ("Plots", self._plot_tabs),
             sizing_mode='stretch_width',
             closable=False,
@@ -348,7 +353,7 @@ class PlotCreationWidget:
         self._plot_tabs.append((tab_name, plot_pane))
 
         # Switch to the plots tab in main container, then to the new plot
-        self._main_tabs.active = 2  # Switch to "Plots" tab
+        self._main_tabs.active = len(self._main_tabs) - 1  # Switch to "Plots" tab
         self._plot_tabs.active = len(self._plot_tabs) - 1  # Switch to new plot
 
     def _validate_selection(self) -> tuple[bool, list[str]]:
