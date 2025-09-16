@@ -27,7 +27,8 @@ class EdgesWithUnit(EdgesModel, abc.ABC):
         """Unit for the edges."""
 
 
-def make_params_1d(*, x_name: str, x_data: sc.DataArray) -> type[pydantic.BaseModel]:
+def make_params_1d(coords: dict[str, sc.DataArray]) -> type[pydantic.BaseModel]:
+    x_name, x_data = next(iter(coords.items()))
     xunit = x_data.unit
     xlow = x_data.nanmin().value
     xhigh = np.nextafter(x_data.nanmax().value, np.inf)
@@ -51,9 +52,10 @@ def make_params_1d(*, x_name: str, x_data: sc.DataArray) -> type[pydantic.BaseMo
     return CorrelationHistogramParams
 
 
-def make_params_2d(
-    *, x_name: str, y_name: str, x_data: sc.DataArray, y_data: sc.DataArray
-) -> type[pydantic.BaseModel]:
+def make_params_2d(coords: dict[str, sc.DataArray]) -> type[pydantic.BaseModel]:
+    it = iter(coords.items())
+    x_name, x_data = next(it)
+    y_name, y_data = next(it)
     xunit = x_data.unit
     xlow = x_data.nanmin().value
     xhigh = np.nextafter(x_data.nanmax().value, np.inf)
@@ -178,39 +180,19 @@ class CorrelationHistogramController:
     def get_timeseries(self) -> list[ResultKey]:
         return [key for key, da in self._data_service.items() if _is_timeseries(da)]
 
-    def create_config_1d(
-        self, x_key: ResultKey
+    def create_config(
+        self, axis_keys: list[ResultKey]
     ) -> CorrelationHistogramConfigurationAdapter:
-        x_data = self._data_service[x_key]
-        x_name = x_key.job_id.source_name
-        result_keys = [key for key in self.get_timeseries() if key != x_key]
+        result_keys = [key for key in self.get_timeseries() if key not in axis_keys]
+        make_params = {1: make_params_1d, 2: make_params_2d}[len(axis_keys)]
+        coords = {key.job_id.source_name: self._data_service[key] for key in axis_keys}
+        ndim = len(coords)
         return CorrelationHistogramConfigurationAdapter(
-            title="1D Correlation Histogram",
-            description="Configure parameters for a 1D correlation histogram.",
-            model_class=make_params_1d(x_name=x_name, x_data=x_data),
+            title=f"{ndim}D Correlation Histogram",
+            description=f"Configure parameters for a {ndim}D correlation histogram.",
+            model_class=make_params(coords),
             result_keys=result_keys,
-            axis_keys=[x_key],
-            start_action=self.start_workflows,
-        )
-
-    def create_config_2d(
-        self, x_key: ResultKey, y_key: ResultKey
-    ) -> CorrelationHistogramConfigurationAdapter:
-        x_data = self._data_service[x_key]
-        y_data = self._data_service[y_key]
-        x_name = x_key.job_id.source_name
-        y_name = y_key.job_id.source_name
-        result_keys = [
-            key for key in self.get_timeseries() if key not in (x_key, y_key)
-        ]
-        return CorrelationHistogramConfigurationAdapter(
-            title="2D Correlation Histogram",
-            description="Configure parameters for a 2D correlation histogram.",
-            model_class=make_params_2d(
-                x_name=x_name, y_name=y_name, x_data=x_data, y_data=y_data
-            ),
-            result_keys=result_keys,
-            axis_keys=[x_key, y_key],
+            axis_keys=axis_keys,
             start_action=self.start_workflows,
         )
 
