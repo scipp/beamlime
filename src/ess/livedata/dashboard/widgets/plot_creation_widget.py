@@ -16,6 +16,7 @@ from ess.livedata.dashboard.plotting_controller import PlottingController
 
 from .configuration_widget import ConfigurationAdapter, ConfigurationModal
 from .job_status_widget import JobStatusListWidget
+from ..correlation_workflow import CorrelationHistogramController
 
 
 class PlotConfigurationAdapter(ConfigurationAdapter):
@@ -102,6 +103,9 @@ class PlotCreationWidget:
         self._selected_job: JobNumber | None = None
         self._selected_output: str | None = None
         self._plot_counter = 0  # Counter for unique plot tab names
+        self._correlation_controller = CorrelationHistogramController(
+            self._job_service._data_service
+        )
 
         # Create UI components
         self._job_status_widget = JobStatusListWidget(
@@ -143,7 +147,7 @@ class PlotCreationWidget:
             pagination='remote',
             page_size=20,
             sizing_mode='stretch_width',
-            selectable=1,  # Single selection
+            selectable='checkbox-single',
             disabled=True,
             height=600,
             groupby=['workflow_name', 'job_number'],
@@ -243,7 +247,7 @@ class PlotCreationWidget:
     def _on_job_output_selection_change(self, event) -> None:
         """Handle job and output selection change."""
         selection = event.new
-        if not selection:
+        if len(selection) != 1:
             self._selected_job = None
             self._selected_output = None
             self._update_dependent_widgets()
