@@ -255,8 +255,6 @@ class UpdateHistogram:
         self._data_key = data_key
         self._data_service = data_service
         self._coords = {key: key.job_id.source_name for key in coord_keys}
-
-        print(data_key.job_id.source_name)
         self._result_key = ResultKey(
             workflow_id=WorkflowId(
                 instrument=data_key.workflow_id.instrument,
@@ -281,11 +279,9 @@ class UpdateHistogram:
             raise ValueError("Only 1D and 2D correlation histograms are supported.")
 
     def send(self, data: Any) -> None:
-        print(f'Updating {self._result_key}')
         coords = {name: data[key] for key, name in self._coords.items()}
         result = self._histogrammer(data[self._data_key], coords=coords)
-        # This is bad since it will cause notifications to everything
-        print(f'{self._result_key.job_id.source_name} -> {result.max().value}')
+        # TODO Ensure still in transaction, or fix DataService
         self._data_service[self._result_key] = result
 
 
