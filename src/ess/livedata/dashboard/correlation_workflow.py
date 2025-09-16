@@ -51,6 +51,48 @@ def make_params_1d(*, x_name: str, x_data: sc.DataArray) -> type[pydantic.BaseMo
     return CorrelationHistogramParams
 
 
+def make_params_2d(
+    *, x_name: str, y_name: str, x_data: sc.DataArray, y_data: sc.DataArray
+) -> type[pydantic.BaseModel]:
+    xunit = x_data.unit
+    xlow = x_data.nanmin().value
+    xhigh = np.nextafter(x_data.nanmax().value, np.inf)
+    yunit = y_data.unit
+    ylow = y_data.nanmin().value
+    yhigh = np.nextafter(y_data.nanmax().value, np.inf)
+
+    class XUnit(str, Enum):
+        ONLY_OPTION = xunit
+
+    class YUnit(str, Enum):
+        ONLY_OPTION = yunit
+
+    class XEdgesModel(EdgesModel):
+        unit: XUnit = pydantic.Field(
+            default=XUnit.ONLY_OPTION, description=f"Unit for {x_name} edges"
+        )
+
+    class YEdgesModel(EdgesModel):
+        unit: YUnit = pydantic.Field(
+            default=YUnit.ONLY_OPTION, description=f"Unit for {y_name} edges"
+        )
+
+    class CorrelationHistogramParams(pydantic.BaseModel):
+        # TODO Add start_time, normalize
+        x_edges: XEdgesModel = pydantic.Field(
+            default=XEdgesModel(start=xlow, stop=xhigh, num_bins=50),
+            title=f"{x_name} Edges",
+            description=f"Bin edges for the {x_name} axis",
+        )
+        y_edges: YEdgesModel = pydantic.Field(
+            default=YEdgesModel(start=ylow, stop=yhigh, num_bins=50),
+            title=f"{y_name} Edges",
+            description=f"Bin edges for the {y_name} axis",
+        )
+
+    return CorrelationHistogramParams
+
+
 class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter):
     def __init__(
         self,
@@ -148,15 +190,31 @@ class CorrelationHistogramController:
             model_class=make_params_1d(x_name=x_name, x_data=x_data),
             result_keys=result_keys,
             axis_keys=[x_key],
-            start_action=self.start_workflows_1d,
+            start_action=self.start_workflows,
         )
 
     def create_config_2d(
         self, x_key: ResultKey, y_key: ResultKey
     ) -> CorrelationHistogramConfigurationAdapter:
-        raise NotImplementedError("2D correlation histograms are not yet implemented.")
+        x_data = self._data_service[x_key]
+        y_data = self._data_service[y_key]
+        x_name = x_key.job_id.source_name
+        y_name = y_key.job_id.source_name
+        result_keys = [
+            key for key in self.get_timeseries() if key not in (x_key, y_key)
+        ]
+        return CorrelationHistogramConfigurationAdapter(
+            title="2D Correlation Histogram",
+            description="Configure parameters for a 2D correlation histogram.",
+            model_class=make_params_2d(
+                x_name=x_name, y_name=y_name, x_data=x_data, y_data=y_data
+            ),
+            result_keys=result_keys,
+            axis_keys=[x_key, y_key],
+            start_action=self.start_workflows,
+        )
 
-    def start_workflows_1d(
+    def start_workflows(
         self,
         data_keys: list[ResultKey],
         axis_keys: list[ResultKey],
