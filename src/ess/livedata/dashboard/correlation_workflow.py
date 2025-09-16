@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import abc
+import uuid
 from collections.abc import Callable
 from enum import Enum
 from typing import Any
@@ -177,9 +178,32 @@ class CorrelationHistogramController:
         x_name = next(iter(axes)).job_id.source_name
 
         # Feed back into data service, or plotting preprocessor?
-        histogrammer = CorrelationHistogrammer(edges={x_name: params.x_edges})
-        for key, value in data.items():
-            pipe = self._stream_manager.make_merging_stream({key: value, **axes})
+        with self._data_service.transaction():
+            job_number = uuid.uuid4()  # New unique job number
+            for key, value in data.items():
+                pipe = self._stream_manager.make_merging_stream({key: value, **axes})
+                histogrammer = CorrelationHistogrammer(edges={x_name: params.x_edges})
+                hist = histogrammer(
+                    data=value,
+                    coords={
+                        axis_key.job_id.source_name: axis
+                        for axis_key, axis in axes.items()
+                    },
+                )
+                result_key = ResultKey(
+                    workflow_id=WorkflowId(
+                        instrument=key.workflow_id.instrument,
+                        namespace='correlation',
+                        name=f'correlation_histogram_{x_name}',
+                        version=1,
+                    ),
+                    job_id=JobId(
+                        source_name=key.job_id.source_name, job_number=job_number
+                    ),
+                    output_name=None,
+                )
+                # TODO Add static result directly. This it NOT what we want, just testing.
+                self._data_service[result_key] = hist
 
 
 def _is_timeseries(da: sc.DataArray) -> bool:
@@ -198,6 +222,6 @@ class CorrelationHistogrammer:
     ) -> sc.DataArray:
         dependent = data.copy()
         for dim in self._edges:
-            lut = sc.lookup(coords[dim], mode='previous')
+            lut = sc.lookup(sc.values(coords[dim]), mode='previous')
             dependent.coords[dim] = lut[dependent.coords['time']]
         return dependent.hist(**self._edges)
