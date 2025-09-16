@@ -2,6 +2,8 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 from __future__ import annotations
 
+import abc
+from collections.abc import Callable
 from enum import Enum
 from typing import Any
 
@@ -10,11 +12,18 @@ import pydantic
 import scipp as sc
 
 from ess.livedata.config.workflow_spec import JobId, JobNumber, ResultKey, WorkflowId
-from ess.livedata.parameter_models import EdgesModel
+from ess.livedata.parameter_models import EdgesModel, make_edges
 
 from .data_service import DataService
 from .stream_manager import StreamManager
 from .widgets.configuration_widget import ConfigurationAdapter
+
+
+class EdgesWithUnit(EdgesModel, abc.ABC):
+    @property
+    @abc.abstractmethod
+    def unit(self) -> str:
+        """Unit for the edges."""
 
 
 def make_params_1d(*, x_name: str, x_data: sc.DataArray) -> type[pydantic.BaseModel]:
@@ -49,8 +58,11 @@ class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter):
         description: str,
         model_class: type[pydantic.BaseModel],
         result_keys: list[ResultKey],
+        axis_keys: list[ResultKey],
         initial_parameter_values: dict[str, pydantic.BaseModel] | None = None,
-        data_service: DataService,
+        start_action: Callable[
+            [list[ResultKey], list[ResultKey], pydantic.BaseModel], None
+        ],
     ) -> None:
         self._title = title
         self._description = description
@@ -58,8 +70,9 @@ class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter):
         self._source_names = {
             result_key.job_id.source_name: result_key for result_key in result_keys
         }
+        self._axis_keys = axis_keys
         self._initial_parameter_values = initial_parameter_values or {}
-        self._data_service = data_service
+        self._start_action = start_action
 
     @property
     def title(self) -> str:
@@ -91,6 +104,11 @@ class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter):
         selected_result_keys = [
             self._source_names[source_name] for source_name in selected_sources
         ]
+        self._start_action(
+            data_keys=selected_result_keys,
+            axis_keys=self._axis_keys,
+            params=parameter_values,
+        )
         return True
 
 
@@ -109,13 +127,12 @@ class CorrelationHistogramController:
             data_service=data_service, pipe_factory=Pipe
         )
 
-        # dict[ResultKey, sc.DataArray]
-        pipe = self._stream_manager.make_merging_stream(items)
-
     def get_timeseries(self) -> list[ResultKey]:
         return [key for key, da in self._data_service.items() if _is_timeseries(da)]
 
-    def create_1d(self, x_key: ResultKey) -> CorrelationHistogramConfigurationAdapter:
+    def create_config_1d(
+        self, x_key: ResultKey
+    ) -> CorrelationHistogramConfigurationAdapter:
         x_data = self._data_service[x_key]
         x_name = x_key.job_id.source_name
         result_keys = [key for key in self.get_timeseries() if key != x_key]
@@ -124,9 +141,44 @@ class CorrelationHistogramController:
             description="Configure parameters for a 1D correlation histogram.",
             model_class=make_params_1d(x_name=x_name, x_data=x_data),
             result_keys=result_keys,
-            data_service=self._data_service,
+            axis_keys=[x_key],
+            start_action=self.start_workflows_1d,
         )
+
+    def start_workflows_1d(
+        self,
+        data_keys: list[ResultKey],
+        axis_keys: list[ResultKey],
+        params: pydantic.BaseModel,
+    ) -> None:
+        # TODO JobStatus reporting?? How to stop?
+        data = {key: self._data_service[key] for key in data_keys}
+        axes = {key: self._data_service[key] for key in axis_keys}
+        x_name = next(iter(axes)).job_id.source_name
+
+        # Feed back into data service, or plotting preprocessor?
+        #
+        histogrammer = CorrelationHistogrammer(edges={x_name: params.x_edges})
+        for key, value in data.items():
+            pipe = self._stream_manager.make_merging_stream({key: value, **axes})
 
 
 def _is_timeseries(da: sc.DataArray) -> bool:
     return da.dims == ('time',) and 'time' in da.coords
+
+
+class CorrelationHistogrammer:
+    def __init__(self, edges: dict[str, EdgesWithUnit]) -> None:
+        self._edges = {
+            name: make_edges(model=model, dim=name, unit=model.unit)
+            for name, model in edges.items()
+        }
+
+    def __call__(
+        self, data: sc.DataArray, coords: dict[str, sc.DataArray]
+    ) -> sc.DataArray:
+        dependent = data.copy()
+        for dim in self._edges:
+            lut = sc.lookup(coords[dim], mode='previous')
+            dependent.coords[dim] = lut[dependent.coords['time']]
+        return dependent.hist(**self._edges)
