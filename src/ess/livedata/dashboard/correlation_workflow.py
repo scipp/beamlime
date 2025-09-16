@@ -121,11 +121,26 @@ class Pipe:
 
 
 class CorrelationHistogramController:
-    def __init__(self, data_service: DataService) -> None:
+    def __init__(self, data_service: DataService[ResultKey, sc.DataArray]) -> None:
         self._data_service = data_service
         self._stream_manager = StreamManager(
             data_service=data_service, pipe_factory=Pipe
         )
+        self._update_subscribers: list[Callable[[], None]] = []
+        self._data_service.subscribe_to_changed_keys(self._on_data_keys_updated)
+
+    def register_update_subscriber(self, callback: Callable[[], None]) -> None:
+        """Register a callback to be called when job data is updated."""
+        self._update_subscribers.append(callback)
+
+    def _on_data_keys_updated(
+        self, added: set[ResultKey], removed: set[ResultKey]
+    ) -> None:
+        """Handle job updates from the job service."""
+        _ = added
+        _ = removed
+        for callback in self._update_subscribers:
+            callback()
 
     def get_timeseries(self) -> list[ResultKey]:
         return [key for key, da in self._data_service.items() if _is_timeseries(da)]
@@ -145,6 +160,11 @@ class CorrelationHistogramController:
             start_action=self.start_workflows_1d,
         )
 
+    def create_config_2d(
+        self, x_key: ResultKey, y_key: ResultKey
+    ) -> CorrelationHistogramConfigurationAdapter:
+        raise NotImplementedError("2D correlation histograms are not yet implemented.")
+
     def start_workflows_1d(
         self,
         data_keys: list[ResultKey],
@@ -157,7 +177,6 @@ class CorrelationHistogramController:
         x_name = next(iter(axes)).job_id.source_name
 
         # Feed back into data service, or plotting preprocessor?
-        #
         histogrammer = CorrelationHistogrammer(edges={x_name: params.x_edges})
         for key, value in data.items():
             pipe = self._stream_manager.make_merging_stream({key: value, **axes})

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import UserDict
 from collections.abc import Hashable
 from contextlib import contextmanager
-from typing import TypeVar
+from typing import TypeVar, Callable
 
 from .data_subscriber import DataSubscriber
 
@@ -24,7 +24,10 @@ class DataService(UserDict[K, V]):
     def __init__(self) -> None:
         super().__init__()
         self._subscribers: list[DataSubscriber[K]] = []
+        self._key_change_subscribers: list[Callable[[set[K], set[K]], None]] = []
         self._pending_updates: set[K] = set()
+        self._pending_key_additions: set[K] = set()
+        self._pending_key_removals: set[K] = set()
         self._transaction_depth = 0
 
     @contextmanager
@@ -37,7 +40,10 @@ class DataService(UserDict[K, V]):
             self._transaction_depth -= 1
             if self._transaction_depth == 0 and self._pending_updates:
                 self._notify_subscribers(self._pending_updates)
+                self._notify_key_change_subscribers()
                 self._pending_updates.clear()
+                self._pending_key_additions.clear()
+                self._pending_key_removals.clear()
 
     @property
     def _in_transaction(self) -> bool:
@@ -53,6 +59,20 @@ class DataService(UserDict[K, V]):
             The subscriber to register. Must implement the DataSubscriber interface.
         """
         self._subscribers.append(subscriber)
+
+    def subscribe_to_changed_keys(
+        self, subscriber: Callable[[set[K], set[K]], None]
+    ) -> None:
+        """
+        Register a subscriber for key change updates (additions/removals).
+
+        Parameters
+        ----------
+        subscriber:
+            A callable that accepts two sets: added_keys and removed_keys.
+        """
+        self._key_change_subscribers.append(subscriber)
+        subscriber(set(self.data.keys()), set())
 
     def _notify_subscribers(self, updated_keys: set[K]) -> None:
         """
@@ -74,18 +94,35 @@ class DataService(UserDict[K, V]):
                 }
                 subscriber.trigger(subscriber_data)
 
+    def _notify_key_change_subscribers(self) -> None:
+        """Notify subscribers about key changes (additions/removals)."""
+        if not self._pending_key_additions and not self._pending_key_removals:
+            return
+
+        for subscriber in self._key_change_subscribers:
+            subscriber(
+                self._pending_key_additions.copy(), self._pending_key_removals.copy()
+            )
+
     def __setitem__(self, key: K, value: V) -> None:
+        is_new_key = key not in self.data
         super().__setitem__(key, value)
         self._pending_updates.add(key)
+        if is_new_key:
+            self._pending_key_additions.add(key)
         self._notify_if_not_in_transaction(key)
 
     def __delitem__(self, key: K) -> None:
         super().__delitem__(key)
         self._pending_updates.add(key)
+        self._pending_key_removals.add(key)
         self._notify_if_not_in_transaction(key)
 
     def _notify_if_not_in_transaction(self, key: K) -> None:
         """Notify subscribers if not in a transaction."""
         if not self._in_transaction:
             self._notify_subscribers({key})
+            self._notify_key_change_subscribers()
             self._pending_updates.clear()
+            self._pending_key_additions.clear()
+            self._pending_key_removals.clear()
