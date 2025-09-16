@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from collections import UserDict
-from collections.abc import Hashable
+from collections.abc import Callable, Hashable
 from contextlib import contextmanager
-from typing import TypeVar, Callable
+from typing import TypeVar
 
 from .data_subscriber import DataSubscriber
 
@@ -37,16 +37,11 @@ class DataService(UserDict[K, V]):
         try:
             yield
         finally:
-            # Stay in transaction until notifications are done
+            # Stay in transaction until notifications are done. This ensures that
+            # subscribers that make further updates during their notification do not
+            # trigger intermediate notifications.
             if self._transaction_depth == 1:
-                # Some updates may have been added while notifying
-                while self._pending_updates:
-                    pending = set(self._pending_updates)
-                    self._pending_updates.clear()
-                    self._notify_subscribers(pending)
-                    self._notify_key_change_subscribers()
-                    self._pending_key_additions.clear()
-                    self._pending_key_removals.clear()
+                self._notify()
             self._transaction_depth -= 1
 
     @property
@@ -114,19 +109,25 @@ class DataService(UserDict[K, V]):
         self._pending_updates.add(key)
         if is_new_key:
             self._pending_key_additions.add(key)
-        self._notify_if_not_in_transaction(key)
+        self._notify_if_not_in_transaction()
 
     def __delitem__(self, key: K) -> None:
         super().__delitem__(key)
         self._pending_updates.add(key)
         self._pending_key_removals.add(key)
-        self._notify_if_not_in_transaction(key)
+        self._notify_if_not_in_transaction()
 
-    def _notify_if_not_in_transaction(self, key: K) -> None:
+    def _notify_if_not_in_transaction(self) -> None:
         """Notify subscribers if not in a transaction."""
         if not self._in_transaction:
-            self._notify_subscribers({key, *self._pending_updates})
-            self._notify_key_change_subscribers()
+            self._notify()
+
+    def _notify(self) -> None:
+        # Some updates may have been added while notifying
+        while self._pending_updates:
+            pending = set(self._pending_updates)
             self._pending_updates.clear()
+            self._notify_subscribers(pending)
+            self._notify_key_change_subscribers()
             self._pending_key_additions.clear()
             self._pending_key_removals.clear()
