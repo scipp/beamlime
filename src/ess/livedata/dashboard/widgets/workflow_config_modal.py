@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import panel as pn
+import pydantic
 
 from ess.livedata.dashboard.workflow_controller import BoundWorkflowController
 
@@ -35,7 +36,7 @@ class WorkflowConfigurationAdapter(ConfigurationAdapter):
         return self._ui_helper.get_workflow_description()
 
     @property
-    def model_class(self) -> type:
+    def model_class(self) -> type[pydantic.BaseModel] | None:
         """Get workflow parameters model class."""
         return self._controller.params_model_class
 

@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 import panel as pn
+import pydantic
 
 from .model_widget import ModelWidget
 
@@ -26,7 +27,7 @@ class ConfigurationAdapter(ABC):
 
     @property
     @abstractmethod
-    def model_class(self) -> type:
+    def model_class(self) -> type[pydantic.BaseModel] | None:
         """Pydantic model class for parameters."""
 
     @property
@@ -70,11 +71,15 @@ class ConfigurationWidget:
         """
         self._config = config
         self._source_selector = self._create_source_selector()
-        self._model_widget = ModelWidget(
-            model_class=config.model_class,
-            initial_values=config.initial_parameter_values,
-            show_descriptions=True,
-            cards_collapsed=False,
+        self._model_widget = (
+            NoParamsWidget()
+            if config.model_class is None
+            else ModelWidget(
+                model_class=config.model_class,
+                initial_values=config.initial_parameter_values,
+                show_descriptions=True,
+                cards_collapsed=False,
+            )
         )
         self._source_error_pane = pn.pane.HTML("", sizing_mode='stretch_width')
         self._widget = self._create_widget()
@@ -300,3 +305,29 @@ class ConfigurationModal:
     def modal(self) -> pn.Modal:
         """Get the modal widget."""
         return self._modal
+
+
+class NoParamsWidget:
+    class EmptyModel(pydantic.BaseModel): ...
+
+    def __init__(self):
+        self.widget = pn.pane.HTML(
+            "<div style='padding: 20px; text-align: center; color: #666; "
+            "font-style: italic; border: 1px solid #ddd; border-radius: 4px; "
+            "background-color: #f9f9f9;'>"
+            "There are no parameters to configure."
+            "</div>",
+            sizing_mode='stretch_width',
+        )
+
+    @property
+    def parameter_values(self) -> pydantic.BaseModel:
+        """Return empty model serializing to empty dict."""
+        return self.EmptyModel()
+
+    def validate_parameters(self) -> tuple[bool, list[str]]:
+        """Always valid when no parameters."""
+        return True, []
+
+    def clear_validation_errors(self) -> None:
+        """No-op for no parameters."""

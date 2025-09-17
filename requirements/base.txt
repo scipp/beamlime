@@ -112,7 +112,7 @@ scippnexus==25.6.0
     # via
     #   essreduce
     #   scippneutron
-scipy==1.16.1
+scipy==1.16.2
     # via
     #   scippneutron
     #   scippnexus
