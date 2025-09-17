@@ -154,12 +154,12 @@ class PlotCreationWidget:
             sizing_mode='stretch_width',
             selectable=1,  # Single selection
             disabled=True,
-            height=600,
+            height=500,
             groupby=['workflow_name', 'job_number'],
             configuration={
                 'columns': [
-                    {'title': 'Job Number', 'field': 'job_number', 'width': 300},
-                    {'title': 'Workflow', 'field': 'workflow_name', 'width': 200},
+                    {'title': 'Job Number', 'field': 'job_number', 'width': 100},
+                    {'title': 'Workflow', 'field': 'workflow_name', 'width': 100},
                     {'title': 'Output Name', 'field': 'output_name', 'width': 200},
                     {'title': 'Source Names', 'field': 'source_names', 'width': 600},
                 ],
@@ -220,8 +220,8 @@ class PlotCreationWidget:
                 job_output_data.append(
                     {
                         'output_name': '',
-                        'workflow_name': workflow_id.name,
                         'source_names': ', '.join(sources),
+                        'workflow_name': workflow_id.name,
                         'job_number': job_number.hex,
                     }
                 )
@@ -231,23 +231,16 @@ class PlotCreationWidget:
                     [
                         {
                             'output_name': output_name,
-                            'workflow_name': workflow_id.name,
                             'source_names': ', '.join(sources),
+                            'workflow_name': workflow_id.name,
                             'job_number': job_number.hex,
                         }
                         for output_name in sorted(output_names)
                     ]
                 )
 
-        if job_output_data:
-            # Convert to DataFrame for Tabulator widget
-            df = pd.DataFrame(job_output_data)
-        else:
-            # Empty DataFrame with correct columns
-            df = pd.DataFrame(
-                columns=['job_number', 'workflow_name', 'output_name', 'source_names']
-            )
-        self._job_output_table.value = df
+        # Convert to DataFrame for Tabulator widget
+        self._job_output_table.value = pd.DataFrame(job_output_data)
 
     def _on_job_output_selection_change(self, event) -> None:
         """Handle job and output selection change."""
