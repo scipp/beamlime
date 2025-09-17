@@ -24,6 +24,9 @@ class EdgesWithUnit(EdgesModel):
     # would need to create all the models on the fly.
     unit: str = pydantic.Field(..., description="Unit for the edges", frozen=True)
 
+    def make_edges(self, dim: str) -> sc.Variable:
+        return make_edges(model=self, dim=dim, unit=self.unit)
+
 
 def _make_edges_field(name: str, coord: sc.DataArray) -> Any:
     unit = str(coord.unit)
@@ -31,41 +34,65 @@ def _make_edges_field(name: str, coord: sc.DataArray) -> Any:
     high = np.nextafter(coord.nanmax().value, np.inf)
     return pydantic.Field(
         default=EdgesWithUnit(start=low, stop=high, num_bins=50, unit=unit),
-        title=f"{name} Edges",
-        description=f"Bin edges for the {name} axis",
+        title=f"{name} bins",
+        description=f"Define the bin edges for histogramming in {name}.",
     )
 
 
-def make_params(coords: dict[str, sc.DataArray]) -> type[pydantic.BaseModel]:
-    fields = [_make_edges_field(name, coord) for name, coord in coords.items()]
+class CorrelationHistogramParams(pydantic.BaseModel):
+    _x_dim: str
+    _y_dim: str | None
+
+    def get_all_edges(self) -> dict[str, sc.Variable]:
+        if (x_edges := getattr(self, 'x_edges', None)) is None:
+            raise ValueError("x_edges is not set.")
+        edges = {self._x_dim: x_edges.make_edges(dim=self._x_dim)}
+        if self._y_dim is None:
+            return edges
+        if (y_edges := getattr(self, 'y_edges', None)) is None:
+            raise ValueError("y_edges is not set.")
+        edges[self._y_dim] = y_edges.make_edges(dim=self._y_dim)
+        return edges
+
+
+def make_params(coords: dict[str, sc.DataArray]) -> type[CorrelationHistogramParams]:
+    fields = [(name, _make_edges_field(name, coord)) for name, coord in coords.items()]
     if not (0 < len(fields) < 3):
         raise ValueError("Expected 1 or 2 coordinates for correlation histogram.")
 
-    class CorrelationHistogram1dParams(pydantic.BaseModel):
+    x_dim, x_field = fields[0]
+
+    class CorrelationHistogram1dParams(CorrelationHistogramParams):
         # TODO Add start_time, normalize
-        x_edges: EdgesWithUnit = fields[0]
+        _x_dim: str = x_dim
+        x_edges: EdgesWithUnit = x_field
 
     if len(fields) == 1:
         return CorrelationHistogram1dParams
 
+    y_dim, y_field = fields[1]
+
     class CorrelationHistogram2dParams(CorrelationHistogram1dParams):
-        y_edges: EdgesWithUnit = fields[1]
+        _y_dim: str | None = y_dim
+        y_edges: EdgesWithUnit = y_field
 
     return CorrelationHistogram2dParams
 
 
-class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter):
+class CorrelationHistogramConfigurationAdapter(
+    ConfigurationAdapter[CorrelationHistogramParams]
+):
     def __init__(
         self,
         *,
         title: str,
         description: str,
-        model_class: type[pydantic.BaseModel],
+        model_class: type[CorrelationHistogramParams],
         result_keys: list[ResultKey],
         axis_keys: list[ResultKey],
         initial_parameter_values: dict[str, pydantic.BaseModel] | None = None,
         start_action: Callable[
-            [list[ResultKey], list[ResultKey], pydantic.BaseModel], None
+            [list[ResultKey], list[ResultKey], CorrelationHistogramParams], None
         ],
     ) -> None:
         self._title = title
@@ -87,7 +114,7 @@ class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter):
         return self._description
 
     @property
-    def model_class(self) -> type[pydantic.BaseModel]:
+    def model_class(self) -> type[CorrelationHistogramParams]:
         return self._model_class
 
     @property
@@ -96,14 +123,16 @@ class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter):
 
     @property
     def initial_source_names(self) -> list[str]:
-        return self.source_names
+        # In practice we may have many timeseries. We do not want to auto-populate the
+        # selection since typically the user will want to select just one or a few.
+        return []
 
     @property
     def initial_parameter_values(self) -> dict[str, Any]:
         return self._initial_parameter_values
 
     def start_action(
-        self, selected_sources: list[str], parameter_values: pydantic.BaseModel
+        self, selected_sources: list[str], parameter_values: CorrelationHistogramParams
     ) -> bool:
         selected_result_keys = [
             self._source_names[source_name] for source_name in selected_sources
@@ -158,7 +187,7 @@ class CorrelationHistogramController:
         self,
         data_keys: list[ResultKey],
         axis_keys: list[ResultKey],
-        params: pydantic.BaseModel,
+        params: CorrelationHistogramParams,
     ) -> None:
         # TODO JobStatus reporting? How to stop?
         data = {key: self._data_service[key] for key in data_keys}
@@ -188,12 +217,13 @@ class UpdateHistogram:
         self,
         data_key: ResultKey,
         coord_keys: list[ResultKey],
-        params: pydantic.BaseModel,
+        histogrammer: CorrelationHistogrammer,
         job_number: JobNumber,
         data_service: DataService[ResultKey, sc.DataArray],
     ) -> None:
         self._data_key = data_key
         self._data_service = data_service
+        self._histogrammer = histogrammer
         self._coords = {key: key.job_id.source_name for key in coord_keys}
         self._result_key = ResultKey(
             workflow_id=WorkflowId(
@@ -207,16 +237,6 @@ class UpdateHistogram:
             ),
             output_name=None,
         )
-        if len(self._coords) == 1:
-            x_name = next(iter(self._coords.values()))
-            self._histogrammer = CorrelationHistogrammer(edges={x_name: params.x_edges})
-        elif len(self._coords) == 2:
-            x_name, y_name = list(self._coords.values())
-            self._histogrammer = CorrelationHistogrammer(
-                edges={x_name: params.x_edges, y_name: params.y_edges}
-            )
-        else:
-            raise ValueError("Only 1D and 2D correlation histograms are supported.")
 
     def send(self, data: dict[ResultKey, sc.DataArray]) -> None:
         coords = {name: data[key] for key, name in self._coords.items()}
@@ -230,7 +250,7 @@ class CorrelationHistogrammerBuilder:
         self,
         data_key: ResultKey,
         coord_keys: list[ResultKey],
-        params: pydantic.BaseModel,
+        params: CorrelationHistogramParams,
         job_number: JobNumber,
         data_service: DataService[ResultKey, sc.DataArray],
     ) -> None:
@@ -241,10 +261,11 @@ class CorrelationHistogrammerBuilder:
         self._data_service = data_service
 
     def create_pipe(self, data: dict[ResultKey, sc.DataArray]) -> UpdateHistogram:
+        histogrammer = CorrelationHistogrammer(edges=self._params.get_all_edges())
         update = UpdateHistogram(
             data_key=self._data_key,
             coord_keys=self._coord_keys,
-            params=self._params,
+            histogrammer=histogrammer,
             job_number=self._job_number,
             data_service=self._data_service,
         )
@@ -253,16 +274,20 @@ class CorrelationHistogrammerBuilder:
 
 
 class CorrelationHistogrammer:
-    def __init__(self, edges: dict[str, EdgesWithUnit]) -> None:
-        self._edges = {
-            name: make_edges(model=model, dim=name, unit=model.unit)
-            for name, model in edges.items()
-        }
+    def __init__(self, edges: dict[str, sc.Variable]) -> None:
+        self._edges = edges
 
     def __call__(
         self, data: sc.DataArray, coords: dict[str, sc.DataArray]
     ) -> sc.DataArray:
         dependent = data.copy(deep=False)
+        # Note that this implementation is naive and inefficient as timeseries grow.
+        # An alternative approach, streaming only the new data and directly updating
+        # only the target bin may need to be considered in the future. This would have
+        # the downside of not being able to recreate the histogram for past data though,
+        # unless we replay the Kafka topic.
+        # For now, if we expect timeseries to not update more than once per second, this
+        # should be acceptable.
         for dim in self._edges:
             lut = sc.lookup(sc.values(coords[dim]), mode='previous')
             dependent.coords[dim] = lut[dependent.coords['time']]
