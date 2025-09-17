@@ -194,7 +194,7 @@ class CorrelationHistogramController:
         axes = {key: self._data_service[key] for key in axis_keys}
         job_number = uuid.uuid4()  # New unique job number shared by all workflows
         for key, value in data.items():
-            builder = CorrelationHistogrammerBuilder(
+            pipe_factory = make_correlation_histogrammer_pipe_factory(
                 data_key=key,
                 coord_keys=axis_keys,
                 params=params,
@@ -202,7 +202,7 @@ class CorrelationHistogramController:
                 data_service=self._data_service,
             )
             stream_manager = StreamManager(
-                data_service=self._data_service, pipe_factory=builder.create_pipe
+                data_service=self._data_service, pipe_factory=pipe_factory
             )
             pipe = stream_manager.make_merging_stream({key: value, **axes})
             self._pipes.append(pipe)  # Keep a reference to avoid garbage collection
@@ -212,65 +212,42 @@ def _is_timeseries(da: sc.DataArray) -> bool:
     return da.dims == ('time',) and 'time' in da.coords
 
 
-class UpdateHistogram:
-    def __init__(
-        self,
-        data_key: ResultKey,
-        coord_keys: list[ResultKey],
-        histogrammer: CorrelationHistogrammer,
-        job_number: JobNumber,
-        data_service: DataService[ResultKey, sc.DataArray],
-    ) -> None:
-        self._data_key = data_key
-        self._data_service = data_service
-        self._histogrammer = histogrammer
-        self._coords = {key: key.job_id.source_name for key in coord_keys}
-        self._result_key = ResultKey(
-            workflow_id=WorkflowId(
-                instrument=data_key.workflow_id.instrument,
-                namespace='correlation',
-                name=f'correlation_histogram_{"_".join(self._coords.values())}',
-                version=1,
-            ),
-            job_id=JobId(
-                source_name=data_key.job_id.source_name, job_number=job_number
-            ),
-            output_name=None,
-        )
+def make_correlation_histogrammer_pipe_factory(
+    data_key: ResultKey,
+    coord_keys: list[ResultKey],
+    params: CorrelationHistogramParams,
+    job_number: JobNumber,
+    data_service: DataService[ResultKey, sc.DataArray],
+) -> Any:
+    class CorrelationHistogrammerPipe:
+        """Connector of Pipe expected by StreamManager to CorrelationHistogrammer."""
 
-    def send(self, data: dict[ResultKey, sc.DataArray]) -> None:
-        coords = {name: data[key] for key, name in self._coords.items()}
-        result = self._histogrammer(data[self._data_key], coords=coords)
-        # TODO Ensure still in transaction, or fix DataService
-        self._data_service[self._result_key] = result
+        def __init__(self, data: dict[ResultKey, sc.DataArray]) -> None:
+            self._data_key = data_key
+            self._data_service = data_service
+            self._histogrammer = CorrelationHistogrammer(edges=params.get_all_edges())
+            self._coords = {key: key.job_id.source_name for key in coord_keys}
+            self._result_key = ResultKey(
+                workflow_id=WorkflowId(
+                    instrument=data_key.workflow_id.instrument,
+                    namespace='correlation',
+                    name=f'correlation_histogram_{"_".join(self._coords.values())}',
+                    version=1,
+                ),
+                job_id=JobId(
+                    source_name=data_key.job_id.source_name, job_number=job_number
+                ),
+                output_name=None,
+            )
+            self.send(data)
 
+        def send(self, data: dict[ResultKey, sc.DataArray]) -> None:
+            coords = {name: data[key] for key, name in self._coords.items()}
+            result = self._histogrammer(data[self._data_key], coords=coords)
+            # TODO Ensure still in transaction, or fix DataService
+            self._data_service[self._result_key] = result
 
-class CorrelationHistogrammerBuilder:
-    def __init__(
-        self,
-        data_key: ResultKey,
-        coord_keys: list[ResultKey],
-        params: CorrelationHistogramParams,
-        job_number: JobNumber,
-        data_service: DataService[ResultKey, sc.DataArray],
-    ) -> None:
-        self._data_key = data_key
-        self._coord_keys = coord_keys
-        self._params = params
-        self._job_number = job_number
-        self._data_service = data_service
-
-    def create_pipe(self, data: dict[ResultKey, sc.DataArray]) -> UpdateHistogram:
-        histogrammer = CorrelationHistogrammer(edges=self._params.get_all_edges())
-        update = UpdateHistogram(
-            data_key=self._data_key,
-            coord_keys=self._coord_keys,
-            histogrammer=histogrammer,
-            job_number=self._job_number,
-            data_service=self._data_service,
-        )
-        update.send(data)
-        return update
+    return CorrelationHistogrammerPipe
 
 
 class CorrelationHistogrammer:
