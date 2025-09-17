@@ -5,6 +5,7 @@ Bifrost with all banks merged into a single one.
 from collections.abc import Generator
 from typing import NewType
 
+import numpy as np
 import pydantic
 import scipp as sc
 from scippnexus import NXdetector
@@ -32,10 +33,29 @@ from ess.spectroscopy.indirect.time_of_flight import TofWorkflow
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
 
-def _to_flat_detector_view(da: sc.DataArray) -> sc.DataArray:
-    return da.flatten(dims=('analyzer', 'tube'), to='analyzer/tube').flatten(
-        dims=('sector', 'pixel'), to='sector/pixel'
+def _to_flat_detector_view(obj: sc.Variable | sc.DataArray) -> sc.DataArray:
+    da = sc.DataArray(obj) if isinstance(obj, sc.Variable) else obj
+    # Add fake coords until we can serialize string labels, or plot without coords.
+    da = da.to(dtype='float32')
+    # Padding between sectors to make gaps visible
+    pad_pix = 10
+    da = sc.concat([da, sc.full_like(da['pixel', :pad_pix], value=np.nan)], dim='pixel')
+    # Padding between analyzers to make gaps visible
+    pad_tube = 1
+    da = sc.concat([da, sc.full_like(da['tube', :pad_tube], value=np.nan)], dim='tube')
+    coords = {dim: sc.arange(dim, size) for dim, size in da.sizes.items()}
+    da = (
+        da.assign_coords(
+            {
+                'analyzer/tube': da.sizes['tube'] * coords['analyzer'] + coords['tube'],
+                'sector/pixel': da.sizes['pixel'] * coords['sector'] + coords['pixel'],
+            }
+        )
+        .flatten(dims=('analyzer', 'tube'), to='analyzer/tube')
+        .flatten(dims=('sector', 'pixel'), to='sector/pixel')
     )
+    # Remove last padding
+    return da['sector/pixel', :-pad_pix]['analyzer/tube', :-pad_tube]
 
 
 detector_number = sc.arange('detector_number', 1, 5 * 3 * 9 * 100 + 1, unit=None).fold(
