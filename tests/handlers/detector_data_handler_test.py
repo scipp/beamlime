@@ -3,12 +3,12 @@
 import pytest
 import scipp as sc
 
-from beamlime import StreamKind
-from beamlime.config import instrument_registry
-from beamlime.config.instrument import Instrument
-from beamlime.config.instruments import available_instruments, get_config
-from beamlime.core.handler import StreamId
-from beamlime.handlers.detector_data_handler import (
+from ess.livedata import StreamKind
+from ess.livedata.config import instrument_registry
+from ess.livedata.config.instrument import Instrument
+from ess.livedata.config.instruments import available_instruments, get_config
+from ess.livedata.core.handler import StreamId
+from ess.livedata.handlers.detector_data_handler import (
     DetectorHandlerFactory,
     get_nexus_geometry_filename,
 )

@@ -5,7 +5,7 @@ import scipp as sc
 from scipp.testing import assert_identical
 from streaming_data_types import eventdata_ev44
 
-from beamlime.handlers.to_nxevent_data import (
+from ess.livedata.handlers.to_nxevent_data import (
     DetectorEvents,
     MonitorEvents,
     ToNXevent_data,

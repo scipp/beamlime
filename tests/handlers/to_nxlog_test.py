@@ -3,8 +3,8 @@
 import scipp as sc
 from scipp.testing import assert_identical
 
-from beamlime.handlers.accumulators import LogData
-from beamlime.handlers.to_nxlog import ToNXlog
+from ess.livedata.handlers.accumulators import LogData
+from ess.livedata.handlers.to_nxlog import ToNXlog
 
 
 def test_to_nxlog_initialization():

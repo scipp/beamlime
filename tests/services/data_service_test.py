@@ -3,15 +3,15 @@
 
 import time
 
-from beamlime import CommonHandlerFactory, Handler, Message, StreamId
-from beamlime.fakes import FakeMessageSink
-from beamlime.kafka.message_adapter import (
+from ess.livedata import CommonHandlerFactory, Handler, Message, StreamId
+from ess.livedata.fakes import FakeMessageSink
+from ess.livedata.kafka.message_adapter import (
     FakeKafkaMessage,
     KafkaMessage,
     MessageAdapter,
 )
-from beamlime.kafka.source import KafkaConsumer
-from beamlime.service_factory import DataServiceBuilder
+from ess.livedata.kafka.source import KafkaConsumer
+from ess.livedata.service_factory import DataServiceBuilder
 
 
 def fake_message_with_value(message: KafkaMessage, value: str) -> Message[str]:

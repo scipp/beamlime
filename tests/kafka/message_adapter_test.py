@@ -8,17 +8,16 @@ import scipp as sc
 from streaming_data_types import dataarray_da00, eventdata_ev44, logdata_f144
 from streaming_data_types.exceptions import WrongSchemaException
 
-from beamlime.core.message import (
+from ess.livedata.core.message import (
     CONFIG_STREAM_ID,
     Message,
     MessageSource,
     StreamId,
     StreamKind,
 )
-from beamlime.handlers.accumulators import DetectorEvents
-from beamlime.kafka.message_adapter import (
+from ess.livedata.handlers.accumulators import DetectorEvents
+from ess.livedata.kafka.message_adapter import (
     AdaptingMessageSource,
-    BeamlimeConfigMessageAdapter,
     ChainedAdapter,
     Da00ToScippAdapter,
     Ev44ToDetectorEventsAdapter,
@@ -31,6 +30,7 @@ from beamlime.kafka.message_adapter import (
     KafkaToEv44Adapter,
     KafkaToF144Adapter,
     KafkaToMonitorEventsAdapter,
+    LivedataConfigMessageAdapter,
     RawConfigItem,
     RouteBySchemaAdapter,
     RouteByTopicAdapter,
@@ -481,14 +481,14 @@ def fake_message_with_value(message: KafkaMessage, value: str) -> Message[str]:
     return Message(timestamp=1234, stream=StreamId(name="dummy"), value=value)
 
 
-class TestBeamlimeConfigMessageAdapter:
+class TestLivedataConfigMessageAdapter:
     def test_adapter(self) -> None:
         key = b'my_source/my_service/my_key'
         encoded = json.dumps('my_value').encode('utf-8')
         message = FakeKafkaMessage(
-            key=key, value=encoded, topic="dummy_beamlime_commands"
+            key=key, value=encoded, topic="dummy_livedata_commands"
         )
-        adapter = BeamlimeConfigMessageAdapter()
+        adapter = LivedataConfigMessageAdapter()
         adapted_message = adapter.adapt(message)
         # So it gets routed to config handler
         assert adapted_message.stream == CONFIG_STREAM_ID

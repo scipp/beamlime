@@ -7,9 +7,9 @@ import uuid
 import pytest
 from streaming_data_types import deserialise_x5f2, serialise_x5f2
 
-from beamlime.config.workflow_spec import JobId, WorkflowId
-from beamlime.core.job import JobState, JobStatus
-from beamlime.kafka.x5f2_compat import (
+from ess.livedata.config.workflow_spec import JobId, WorkflowId
+from ess.livedata.core.job import JobState, JobStatus
+from ess.livedata.kafka.x5f2_compat import (
     Message,
     NicosStatus,
     ServiceId,
@@ -166,7 +166,7 @@ class TestStatusMessage:
         job_status = self.create_sample_job_status()
         status_msg = StatusMessage.from_job_status(job_status)
 
-        assert status_msg.software_name == "beamlime"
+        assert status_msg.software_name == "livedata"
         assert status_msg.software_version == "0.0.0"
         assert status_msg.service_id.job_id == job_status.job_id
         assert status_msg.host_name == ""
@@ -569,7 +569,7 @@ class TestX5F2Integration:
         assert hasattr(raw_data, 'service_id')
         assert hasattr(raw_data, 'status_json')
         assert hasattr(raw_data, 'software_name')
-        assert raw_data.software_name == "beamlime"
+        assert raw_data.software_name == "livedata"
 
         # Validate nested structure - status_json is a string that needs parsing
         status_json = json.loads(raw_data.status_json)

@@ -5,17 +5,17 @@ import pytest
 import scipp as sc
 from scipp.testing import assert_identical
 
-from beamlime import StreamId, StreamKind
-from beamlime.config.instrument import Instrument
-from beamlime.config.workflow_spec import WorkflowConfig
-from beamlime.handlers.accumulators import CollectTOA, Cumulative
-from beamlime.handlers.monitor_data_handler import (
+from ess.livedata import StreamId, StreamKind
+from ess.livedata.config.instrument import Instrument
+from ess.livedata.config.workflow_spec import WorkflowConfig
+from ess.livedata.handlers.accumulators import CollectTOA, Cumulative
+from ess.livedata.handlers.monitor_data_handler import (
     MonitorDataParams,
     MonitorHandlerFactory,
     MonitorStreamProcessor,
     register_monitor_workflows,
 )
-from beamlime.parameter_models import TimeUnit, TOAEdges
+from ess.livedata.parameter_models import TimeUnit, TOAEdges
 
 
 class TestMonitorDataParams:

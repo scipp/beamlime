@@ -2,8 +2,8 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import pytest
 
-from beamlime.config import streams
-from beamlime.config.instruments import available_instruments
+from ess.livedata.config import streams
+from ess.livedata.config.instruments import available_instruments
 
 
 @pytest.mark.parametrize('instrument', available_instruments())

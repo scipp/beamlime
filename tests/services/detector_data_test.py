@@ -5,11 +5,11 @@ import logging
 
 import pytest
 
-from beamlime.config import instrument_registry, workflow_spec
-from beamlime.config.models import ConfigKey
-from beamlime.core.job import JobAction, JobCommand
-from beamlime.services.detector_data import make_detector_service_builder
-from tests.helpers.beamlime_app import BeamlimeApp
+from ess.livedata.config import instrument_registry, workflow_spec
+from ess.livedata.config.models import ConfigKey
+from ess.livedata.core.job import JobAction, JobCommand
+from ess.livedata.services.detector_data import make_detector_service_builder
+from tests.helpers.livedata_app import LivedataApp
 
 
 def _get_workflow_from_registry(
@@ -25,9 +25,9 @@ def _get_workflow_from_registry(
     raise ValueError(f"Namespace {namespace} not found in specs")
 
 
-def make_detector_app(instrument: str) -> BeamlimeApp:
+def make_detector_app(instrument: str) -> LivedataApp:
     builder = make_detector_service_builder(instrument=instrument)
-    return BeamlimeApp.from_service_builder(builder)
+    return LivedataApp.from_service_builder(builder)
 
 
 detector_source_name = {
@@ -183,7 +183,7 @@ def test_active_workflow_keeps_running_when_bad_workflow_id_was_set(
 
 
 @pytest.fixture
-def configured_dummy_detector() -> BeamlimeApp:
+def configured_dummy_detector() -> LivedataApp:
     app = make_detector_app(instrument='dummy')
     sink = app.sink
     service = app.service
@@ -203,7 +203,7 @@ def configured_dummy_detector() -> BeamlimeApp:
 
 
 def test_message_with_unknown_schema_is_ignored(
-    configured_dummy_detector: BeamlimeApp,
+    configured_dummy_detector: LivedataApp,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
@@ -224,13 +224,13 @@ def test_message_with_unknown_schema_is_ignored(
     warning_records = [
         r
         for r in caplog.records
-        if r.levelname == "WARNING" and "beamlime.kafka.message_adapter" in r.name
+        if r.levelname == "WARNING" and "ess.livedata.kafka.message_adapter" in r.name
     ]
     assert any("has an unknown schema. Skipping." in r.message for r in warning_records)
 
 
 def test_message_that_cannot_be_decoded_is_ignored(
-    configured_dummy_detector: BeamlimeApp,
+    configured_dummy_detector: LivedataApp,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     caplog.set_level(logging.INFO)
@@ -252,6 +252,6 @@ def test_message_that_cannot_be_decoded_is_ignored(
     error_records = [
         r
         for r in caplog.records
-        if r.levelname == "ERROR" and "beamlime.kafka.message_adapter" in r.name
+        if r.levelname == "ERROR" and "ess.livedata.kafka.message_adapter" in r.name
     ]
     assert any("unpack_from requires a buffer" in r.message for r in error_records)

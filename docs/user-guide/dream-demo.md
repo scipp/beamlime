@@ -25,7 +25,7 @@ I usually run the Docker containers in a detached screen session, so I can reatt
 
 ```sh
 screen -S kafka
-BEAMLIME_INSTRUMENT=dream docker compose -f docker-compose-beamlime.yml up
+LIVEDATA_INSTRUMENT=dream docker compose -f docker-compose.yml up
 ```
 
 Press `Ctrl + A` then `D` to detach from the screen session.
@@ -35,22 +35,22 @@ You can later reattach to the session with:
 screen -r kafka
 ```
 
-### Beamlime
+### ESSlivedata
 
 In individual terminal windows, run (make sure to `source dream-demo/bin/activate` in each):
 
 ```sh
-python -m beamlime.services.fake_detectors --instrument dream --nexus-file 268227_00024779_Si_BC_offset_240_deg_wlgth.hdf
-python -m beamlime.services.data_reduction --instrument=dream --dev
-python -m beamlime.dashboard.reduction --instrument=dream
+python -m ess.livedata.services.fake_detectors --instrument dream --nexus-file 268227_00024779_Si_BC_offset_240_deg_wlgth.hdf
+python -m ess.livedata.services.data_reduction --instrument=dream --dev
+python -m ess.livedata.dashboard.reduction --instrument=dream
 ```
 
 You can also run the monitor-related services:
 
 ```sh
-python -m beamlime.services.fake_monitors --instrument dream --mode da00
-python -m beamlime.services.monitor_data --instrument=dream --dev
-python -m beamlime.dashboard.monitors --instrument=dream
+python -m ess.livedata.services.fake_monitors --instrument dream --mode da00
+python -m ess.livedata.services.monitor_data --instrument=dream --dev
+python -m ess.livedata.dashboard.monitors --instrument=dream
 ```
 
 ## Usage
@@ -92,7 +92,7 @@ The fake monitors are not based on a simulation but simply show a Gaussian distr
 
 ## Troubleshooting
 
-Beamlime persists some config in Kafka.
+ESSlivedata persists some config in Kafka.
 In case this is causing hard-to-debug issues, you can clear the Kafka topics.
 First, cancel all the services, otherwise some topics are automatically recreated (with incorrect settings).
 Then run:

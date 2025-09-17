@@ -6,8 +6,8 @@ from queue import Queue
 
 import pytest
 
-from beamlime.kafka.message_adapter import FakeKafkaMessage
-from beamlime.kafka.source import BackgroundMessageSource, KafkaMessageSource
+from ess.livedata.kafka.message_adapter import FakeKafkaMessage
+from ess.livedata.kafka.source import BackgroundMessageSource, KafkaMessageSource
 
 
 class FakeKafkaConsumer:

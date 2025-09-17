@@ -4,7 +4,7 @@ import numpy as np
 import scipp as sc
 from streaming_data_types import dataarray_da00
 
-from beamlime.kafka.scipp_da00_compat import da00_to_scipp, scipp_to_da00
+from ess.livedata.kafka.scipp_da00_compat import da00_to_scipp, scipp_to_da00
 
 
 def test_scipp_to_da00_basic():

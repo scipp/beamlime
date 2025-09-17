@@ -2,16 +2,16 @@
 # Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
 from typing import TypeVar
 
-from beamlime.core.handler import (
+from ess.livedata.core.handler import (
     CommonHandlerFactory,
     Config,
     Handler,
     HandlerFactory,
     HandlerRegistry,
 )
-from beamlime.core.message import Message, StreamId
-from beamlime.core.processor import StreamProcessor
-from beamlime.fakes import FakeMessageSink, FakeMessageSource
+from ess.livedata.core.message import Message, StreamId
+from ess.livedata.core.processor import StreamProcessor
+from ess.livedata.fakes import FakeMessageSink, FakeMessageSource
 
 T = TypeVar('T')
 
