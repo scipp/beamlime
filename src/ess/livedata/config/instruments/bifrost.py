@@ -248,27 +248,6 @@ def _counts_per_angle() -> StreamProcessorWorkflow:
     )
 
 
-@instrument.register_workflow(
-    name='all',
-    version=1,
-    title='Spectrum view and counts per angle',
-    source_names=_source_names,
-    aux_source_names=['detector_rotation'],
-)
-def _all(params: BifrostWorkflowParams) -> StreamProcessorWorkflow:
-    wf = _reduction_workflow.copy()
-    view_params = params.spectrum_view
-    wf[_SpectrumViewTimeBins] = view_params.time_bins
-    wf[_SpectrumViewPixelsPerTube] = view_params.pixels_per_tube
-    return StreamProcessorWorkflow(
-        wf,
-        dynamic_keys={'unified_detector': NeXusData[NXdetector, SampleRun]},
-        context_keys={'detector_rotation': DetectorRotation},
-        target_keys=(CountsPerAngle, SpectrumView),
-        accumulators=(CountsPerAngle, SpectrumView),
-    )
-
-
 register_monitor_timeseries_workflows(instrument, source_names=monitor_names)
 
 
