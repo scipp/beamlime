@@ -19,24 +19,13 @@ from .widgets.configuration_widget import ConfigurationAdapter
 
 
 class EdgesWithUnit(EdgesModel):
-    # Frozen so it cannot be changed in the UI. If we wanted to auto-generate an enum
-    # to get a dropdown menu, we probably cannot write generic code below, since we
-    # would need to create all the models on the fly.
+    # Frozen so it cannot be changed in the UI but allows us to display the unit. If we
+    # wanted to auto-generate an enum to get a dropdown menu, we probably cannot write
+    # generic code below, since we would need to create all the models on the fly.
     unit: str = pydantic.Field(..., description="Unit for the edges", frozen=True)
 
     def make_edges(self, dim: str) -> sc.Variable:
         return make_edges(model=self, dim=dim, unit=self.unit)
-
-
-def _make_edges_field(name: str, coord: sc.DataArray) -> Any:
-    unit = str(coord.unit)
-    low = coord.nanmin().value
-    high = np.nextafter(coord.nanmax().value, np.inf)
-    return pydantic.Field(
-        default=EdgesWithUnit(start=low, stop=high, num_bins=50, unit=unit),
-        title=f"{name} bins",
-        description=f"Define the bin edges for histogramming in {name}.",
-    )
 
 
 class CorrelationHistogramParams(pydantic.BaseModel):
@@ -79,9 +68,26 @@ def make_params(coords: dict[str, sc.DataArray]) -> type[CorrelationHistogramPar
     return CorrelationHistogram2dParams
 
 
+def _make_edges_field(name: str, coord: sc.DataArray) -> Any:
+    unit = str(coord.unit)
+    low = coord.nanmin().value
+    high = np.nextafter(coord.nanmax().value, np.inf)
+    return pydantic.Field(
+        default=EdgesWithUnit(start=low, stop=high, num_bins=50, unit=unit),
+        title=f"{name} bins",
+        description=f"Define the bin edges for histogramming in {name}.",
+    )
+
+
 class CorrelationHistogramConfigurationAdapter(
     ConfigurationAdapter[CorrelationHistogramParams]
 ):
+    """
+    Configuration adapter for correlation histogram.
+
+    Used to auto-generate a modal using the generic :py:class:`ConfigurationWidget`.
+    """
+
     def __init__(
         self,
         *,
@@ -171,6 +177,7 @@ class CorrelationHistogramController:
     def create_config(
         self, axis_keys: list[ResultKey]
     ) -> CorrelationHistogramConfigurationAdapter:
+        """Called by widget to get configuration for modal creation."""
         result_keys = [key for key in self.get_timeseries() if key not in axis_keys]
         coords = {key.job_id.source_name: self._data_service[key] for key in axis_keys}
         ndim = len(coords)
@@ -189,7 +196,23 @@ class CorrelationHistogramController:
         axis_keys: list[ResultKey],
         params: CorrelationHistogramParams,
     ) -> None:
-        # TODO JobStatus reporting? How to stop?
+        """
+        Called by widget when user starts the workflow with concrete params.
+
+        Note: Currently the "correlation" jobs run in the frontend process, essentially
+        as a postprocessing step when new data arrives. There are consideration around
+        moving this into a separate backend service, after the primary services.
+
+        Parameters
+        ----------
+        data_keys:
+            The data keys to run the correlation histogram on. One result per key will
+            be generated.
+        axis_keys:
+            The axis keys to use for all of the correlation histograms.
+        params:
+            The parameters to use for the correlation histograms.
+        """
         data = {key: self._data_service[key] for key in data_keys}
         axes = {key: self._data_service[key] for key in axis_keys}
         job_number = uuid.uuid4()  # New unique job number shared by all workflows
@@ -204,6 +227,7 @@ class CorrelationHistogramController:
             stream_manager = StreamManager(
                 data_service=self._data_service, pipe_factory=pipe_factory
             )
+            # Subscribes to DataService internally
             pipe = stream_manager.make_merging_stream({key: value, **axes})
             self._pipes.append(pipe)  # Keep a reference to avoid garbage collection
 
@@ -220,7 +244,12 @@ def make_correlation_histogrammer_pipe_factory(
     data_service: DataService[ResultKey, sc.DataArray],
 ) -> Any:
     class CorrelationHistogrammerPipe:
-        """Connector of Pipe expected by StreamManager to CorrelationHistogrammer."""
+        """
+        Connector of Pipe expected by StreamManager to CorrelationHistogrammer.
+
+        When data is sent to the pipe, it runs the histogrammer and writes the result
+        back to the DataService.
+        """
 
         def __init__(self, data: dict[ResultKey, sc.DataArray]) -> None:
             self._data_key = data_key
