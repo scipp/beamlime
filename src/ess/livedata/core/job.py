@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import traceback
 import uuid
-from collections.abc import Callable, Hashable, Mapping
+from collections.abc import Callable, Hashable
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, ClassVar
@@ -145,14 +145,32 @@ class Job:
         job_id: JobId,
         workflow_id: WorkflowId,
         processor: Workflow,
-        source_mapping: Mapping[str, Hashable],
+        source_names: list[str],
+        aux_source_names: list[str] | None = None,
     ) -> None:
+        """
+        Initialize a Job with the given parameters.
+
+        Parameters
+        ----------
+        job_id:
+            The unique identifier for this job.
+        workflow_id:
+            The identifier of the workflow this job is running.
+        processor:
+            The Workflow instance that will process data for this job.
+        source_names:
+            The names of the primary data sources for this job.
+        aux_source_names:
+            The names of any auxiliary data sources for this job.
+        """
         self._job_id = job_id
         self._workflow_id = workflow_id
         self._processor = processor
-        self._source_mapping = source_mapping
         self._start_time: int | None = None
         self._end_time: int | None = None
+        self._source_names = source_names
+        self._aux_source_names = aux_source_names or []
 
     @property
     def job_id(self) -> JobId:
@@ -172,17 +190,20 @@ class Job:
 
     def add(self, data: WorkflowData) -> JobError:
         try:
-            if self._start_time is None:
-                self._start_time = data.start_time
-            self._end_time = data.end_time
-            update: dict[Hashable, Any] = {}
+            primary: dict[Hashable, Any] = {}
+            aux: dict[Hashable, Any] = {}
             for stream, value in data.data.items():
-                if stream.name not in self._source_mapping:
-                    continue
-                key = self._source_mapping[stream.name]
-                update[key] = value
-            if update:
-                self._processor.accumulate(update)
+                if stream.name in self._source_names:
+                    primary[stream.name] = value
+                elif stream.name in self._aux_source_names:
+                    aux[stream.name] = value
+            if primary:
+                # Only "start" on first valid data
+                if self._start_time is None:
+                    self._start_time = data.start_time
+                self._end_time = data.end_time
+            if primary or aux:
+                self._processor.accumulate({**primary, **aux})
             return JobError(job_id=self._job_id)
         except Exception:
             tb = traceback.format_exc()
@@ -237,18 +258,12 @@ class JobFactory:
             raise WorkflowNotFoundError(f"WorkflowSpec with Id {workflow_id} not found")
         # Note that this initializes the job immediately, i.e., we pay startup cost now.
         stream_processor = factory.create(source_name=job_id.source_name, config=config)
-        source_to_key = self._instrument.source_to_key
-        source_mapping = {
-            source: source_to_key[source] for source in workflow_spec.aux_source_names
-        }
-        source_mapping[job_id.source_name] = source_to_key.get(
-            job_id.source_name, job_id.source_name
-        )
         return Job(
             job_id=job_id,
             workflow_id=workflow_id,
             processor=stream_processor,
-            source_mapping=source_mapping,
+            source_names=[job_id.source_name],
+            aux_source_names=workflow_spec.aux_source_names,
         )
 
 

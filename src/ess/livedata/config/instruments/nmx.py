@@ -59,7 +59,7 @@ def _make_nmx_detectors() -> StreamLUT:
 
 stream_mapping = {
     StreamingEnv.DEV: make_dev_stream_mapping(
-        'nmx', detectors=list(detectors_config['fakes'])
+        'nmx', detector_names=list(detectors_config['fakes'])
     ),
     StreamingEnv.PROD: StreamMapping(
         **make_common_stream_mapping_inputs(instrument='nmx'),

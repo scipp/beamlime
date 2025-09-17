@@ -30,14 +30,12 @@ class FakeJobFactory(JobFactory):
         processor = FakeProcessor()
         self.processors[job_id] = processor
 
-        # Simple source mapping for testing
-        source_mapping = {job_id.source_name: "main_data", "aux_source": "aux_data"}
-
         job = Job(
             job_id=job_id,
             workflow_id=config.identifier,
             processor=processor,
-            source_mapping=source_mapping,
+            source_names=[job_id.source_name],
+            aux_source_names=["aux_source"],
         )
 
         self.created_jobs.append((job_id, config))
@@ -235,7 +233,7 @@ class TestJobManager:
         manager = JobManager(fake_job_factory)
 
         _ = manager.schedule_job("source1", base_workflow_config)
-        _ = manager.schedule_job("source2", base_workflow_config)
+        _ = manager.schedule_job("source1", base_workflow_config)
 
         data = WorkflowData(
             start_time=100,
@@ -465,14 +463,18 @@ class TestJobManager:
         # Verify processor received both accumulate calls
         processor = fake_job_factory.processors[job_id]
         assert len(processor.accumulate_calls) == 2
-        assert sc.identical(processor.accumulate_calls[0]["main_data"], sc.scalar(10.0))
-        assert sc.identical(processor.accumulate_calls[1]["main_data"], sc.scalar(20.0))
+        assert sc.identical(
+            processor.accumulate_calls[0]["test_source"], sc.scalar(10.0)
+        )
+        assert sc.identical(
+            processor.accumulate_calls[1]["test_source"], sc.scalar(20.0)
+        )
 
         # Verify accumulated data (our fake processor sums numeric values)
         results = manager.compute_results()
         assert len(results) == 1
         # The accumulated value should be 30.0 (10.0 + 20.0)
-        assert processor.data["main_data"] == 30.0
+        assert processor.data["test_source"] == 30.0
 
     def test_jobs_finish_based_on_schedule_end_time(self, fake_job_factory):
         """Test that jobs are marked for finishing based on schedule end_time."""

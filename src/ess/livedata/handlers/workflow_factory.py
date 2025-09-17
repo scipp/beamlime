@@ -2,7 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import inspect
 import typing
-from collections.abc import Callable, Hashable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from typing import Any, Protocol
 
 from ess.livedata.config.workflow_spec import WorkflowConfig, WorkflowId, WorkflowSpec
@@ -16,7 +16,7 @@ class Workflow(Protocol):
     implementations, in particular for non-data-reduction jobs.
     """
 
-    def accumulate(self, data: dict[Hashable, Any]) -> None: ...
+    def accumulate(self, data: dict[str, Any]) -> None: ...
     def finalize(self) -> dict[str, Any]: ...
     def clear(self) -> None: ...
 

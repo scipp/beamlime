@@ -69,7 +69,6 @@ class TestInstrument:
 
         assert instrument.name == "test_instrument"
         assert isinstance(instrument.workflow_factory, WorkflowFactory)
-        assert instrument.source_to_key == {}
         assert instrument.f144_attribute_registry == {}
         assert instrument.active_namespace is None
         assert instrument.detector_names == []
@@ -77,20 +76,17 @@ class TestInstrument:
     def test_instrument_creation_with_custom_values(self):
         """Test creating instrument with custom values."""
         custom_factory = WorkflowFactory()
-        source_to_key = {"source1": str}
         f144_registry = {"attr1": {"key": "value"}}
 
         instrument = Instrument(
             name="custom_instrument",
             workflow_factory=custom_factory,
-            source_to_key=source_to_key,
             f144_attribute_registry=f144_registry,
             active_namespace="custom_namespace",
         )
 
         assert instrument.name == "custom_instrument"
         assert instrument.workflow_factory is custom_factory
-        assert instrument.source_to_key == source_to_key
         assert instrument.f144_attribute_registry == f144_registry
         assert instrument.active_namespace == "custom_namespace"
 

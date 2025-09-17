@@ -16,8 +16,8 @@ from ess.livedata.handlers.detector_data_handler import (
     LogicalViewConfig,
 )
 from ess.livedata.handlers.monitor_data_handler import register_monitor_workflows
+from ess.livedata.handlers.stream_processor_workflow import StreamProcessorWorkflow
 from ess.livedata.kafka import InputStreamKey, StreamLUT, StreamMapping
-from ess.reduce.streaming import StreamProcessor
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
@@ -40,10 +40,7 @@ def _total_counts(events: Events) -> TotalCounts:
 
 _total_counts_workflow = sciline.Pipeline((_total_counts,))
 
-instrument = Instrument(
-    name='dummy',
-    source_to_key={'panel_0': Events},
-)
+instrument = Instrument(name='dummy')
 register_monitor_workflows(instrument=instrument, source_names=['monitor1', 'monitor2'])
 instrument_registry.register(instrument)
 instrument.add_detector(
@@ -68,11 +65,11 @@ _panel_0_view = DetectorLogicalView(instrument=instrument, config=_panel_0_confi
     description='Dummy workflow that simply computes the total counts.',
     source_names=['panel_0'],
 )
-def _total_counts_processor() -> StreamProcessor:
+def _total_counts_processor() -> StreamProcessorWorkflow:
     """Dummy processor for development and testing."""
-    return StreamProcessor(
+    return StreamProcessorWorkflow(
         base_workflow=_total_counts_workflow.copy(),
-        dynamic_keys=(Events,),
+        dynamic_keys={'panel_0': Events},
         target_keys=(TotalCounts,),
         accumulators=(TotalCounts,),
     )
@@ -80,7 +77,7 @@ def _total_counts_processor() -> StreamProcessor:
 
 stream_mapping = {
     StreamingEnv.DEV: make_dev_stream_mapping(
-        'dummy', detectors=list(detectors_config['fakes'])
+        'dummy', detector_names=list(detectors_config['fakes'])
     ),
     StreamingEnv.PROD: StreamMapping(
         **make_common_stream_mapping_inputs(instrument='dummy'),

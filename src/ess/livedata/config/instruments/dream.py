@@ -20,6 +20,8 @@ from ess.livedata.handlers.detector_data_handler import (
     get_nexus_geometry_filename,
 )
 from ess.livedata.handlers.monitor_data_handler import register_monitor_workflows
+from ess.livedata.handlers.stream_processor_workflow import StreamProcessorWorkflow
+from ess.livedata.handlers.workflow_factory import Workflow
 from ess.livedata.kafka import InputStreamKey, StreamLUT, StreamMapping
 from ess.reduce.nexus.types import (
     DetectorData,
@@ -30,20 +32,10 @@ from ess.reduce.nexus.types import (
     SampleRun,
     VanadiumRun,
 )
-from ess.reduce.streaming import StreamProcessor
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
-instrument = Instrument(
-    name='dream',
-    source_to_key={
-        'mantle_detector': NeXusData[NXdetector, SampleRun],
-        'endcap_backward_detector': NeXusData[NXdetector, SampleRun],
-        'endcap_forward_detector': NeXusData[NXdetector, SampleRun],
-        'high_resolution_detector': NeXusData[NXdetector, SampleRun],
-        'monitor1': NeXusData[powder.types.CaveMonitor, SampleRun],
-    },
-)
+instrument = Instrument(name='dream')
 instrument.add_detector('mantle_detector')
 instrument.add_detector('endcap_backward_detector')
 instrument.add_detector('endcap_forward_detector')
@@ -257,8 +249,9 @@ class PowderWorkflowParams(pydantic.BaseModel):
     title='Powder reduction',
     description='Powder reduction without vanadium normalization.',
     source_names=_source_names,
+    aux_source_names=['monitor1'],
 )
-def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamProcessor:
+def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> Workflow:
     wf = _reduction_workflow.copy()
     wf[NeXusName[NXdetector]] = source_name
     wf[dream.InstrumentConfiguration] = params.instrument_configuration.value
@@ -267,12 +260,12 @@ def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamPr
     wf[powder.types.WavelengthMask] = lambda w: (w < wmin) | (w > wmax)
     wf[powder.types.TwoThetaBins] = params.two_theta_edges.get_edges()
     wf[powder.types.DspacingBins] = params.dspacing_edges.get_edges()
-    return StreamProcessor(
+    return StreamProcessorWorkflow(
         wf,
-        dynamic_keys=(
-            NeXusData[NXdetector, SampleRun],
-            NeXusData[powder.types.CaveMonitor, SampleRun],
-        ),
+        dynamic_keys={
+            source_name: NeXusData[NXdetector, SampleRun],
+            'monitor1': NeXusData[powder.types.CaveMonitor, SampleRun],
+        },
         target_keys=(
             powder.types.FocussedDataDspacing[SampleRun],
             powder.types.FocussedDataDspacingTwoTheta[SampleRun],
@@ -290,10 +283,11 @@ def _powder_workflow(source_name: str, params: PowderWorkflowParams) -> StreamPr
     title='Powder reduction (with vanadium)',
     description='Powder reduction with vanadium normalization.',
     source_names=_source_names,
+    aux_source_names=['monitor1'],
 )
 def _powder_workflow_with_vanadium(
     source_name: str, params: PowderWorkflowParams
-) -> StreamProcessor:
+) -> StreamProcessorWorkflow:
     wf = _reduction_workflow.copy()
     wf[NeXusName[NXdetector]] = source_name
     wf[Filename[VanadiumRun]] = '268227_00024779_Vana_inc_BC_offset_240_deg_wlgth.hdf'
@@ -303,12 +297,12 @@ def _powder_workflow_with_vanadium(
     wf[powder.types.WavelengthMask] = lambda w: (w < wmin) | (w > wmax)
     wf[powder.types.TwoThetaBins] = params.two_theta_edges.get_edges()
     wf[powder.types.DspacingBins] = params.dspacing_edges.get_edges()
-    return StreamProcessor(
+    return StreamProcessorWorkflow(
         wf,
-        dynamic_keys=(
-            NeXusData[NXdetector, SampleRun],
-            NeXusData[powder.types.CaveMonitor, SampleRun],
-        ),
+        dynamic_keys={
+            source_name: NeXusData[NXdetector, SampleRun],
+            'monitor1': NeXusData[powder.types.CaveMonitor, SampleRun],
+        },
         target_keys=(
             powder.types.FocussedDataDspacing[SampleRun],
             powder.types.FocussedDataDspacingTwoTheta[SampleRun],
@@ -324,7 +318,7 @@ def _powder_workflow_with_vanadium(
 
 stream_mapping = {
     StreamingEnv.DEV: make_dev_stream_mapping(
-        'dream', detectors=list(detectors_config['fakes'])
+        'dream', detector_names=list(detectors_config['fakes'])
     ),
     StreamingEnv.PROD: StreamMapping(
         **make_common_stream_mapping_inputs(instrument='dream'),
