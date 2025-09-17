@@ -6,6 +6,7 @@ from typing import Any
 
 import pandas as pd
 import panel as pn
+import pydantic
 
 from ess.livedata.config.workflow_spec import JobNumber
 from ess.livedata.dashboard.job_controller import JobController
@@ -45,7 +46,7 @@ class PlotConfigurationAdapter(ConfigurationAdapter):
         return self._plot_spec.description
 
     @property
-    def model_class(self) -> type:
+    def model_class(self) -> type[pydantic.BaseModel] | None:
         return self._plot_spec.params
 
     @property

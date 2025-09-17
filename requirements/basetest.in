@@ -10,6 +10,7 @@
 essdiffraction>=25.08.0
 esssans
 essspectroscopy>=25.05.0
+panel
 param
 pytest
 pytest-benchmark

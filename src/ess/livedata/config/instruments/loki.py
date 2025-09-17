@@ -43,6 +43,14 @@ detectors_config = {
 }
 
 
+class SansWorkflowOptions(pydantic.BaseModel):
+    use_transmission_run: bool = pydantic.Field(
+        title='Use transmission run',
+        description='Use transmission run instead of monitor readings of sample run',
+        default=False,
+    )
+
+
 class SansWorkflowParams(pydantic.BaseModel):
     q_edges: parameter_models.QEdges = pydantic.Field(
         title='Q bins',
@@ -64,10 +72,10 @@ class SansWorkflowParams(pydantic.BaseModel):
             unit=parameter_models.WavelengthUnit.ANGSTROM,
         ),
     )
-    use_transmission_run: bool = pydantic.Field(
-        title='Use transmission run',
-        description='Use transmission run instead of monitor readings of sample run',
-        default=False,
+    options: SansWorkflowOptions = pydantic.Field(
+        title='Options',
+        description='Options for the SANS workflow.',
+        default=SansWorkflowOptions(),
     )
 
 
@@ -170,7 +178,7 @@ def _i_of_q_with_params(
     wf[params.QBins] = params.q_edges.get_edges()
     wf[params.WavelengthBins] = params.wavelength_edges.get_edges()
 
-    if not params.use_transmission_run:
+    if not params.options.use_transmission_run:
         target_keys = (IofQ[SampleRun], params.TransmissionFraction[SampleRun])
         wf.insert(_transmission_from_current_run)
     else:
