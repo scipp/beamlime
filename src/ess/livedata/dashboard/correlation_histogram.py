@@ -85,7 +85,8 @@ class CorrelationHistogramConfigurationAdapter(
     """
     Configuration adapter for correlation histogram.
 
-    Used to auto-generate a modal using the generic :py:class:`ConfigurationWidget`.
+    Used to auto-generate a widget for configuring the histogram using the generic
+    :py:class:`ConfigurationWidget`.
     """
 
     def __init__(
@@ -177,7 +178,22 @@ class CorrelationHistogramController:
     def create_config(
         self, axis_keys: list[ResultKey]
     ) -> CorrelationHistogramConfigurationAdapter:
-        """Called by widget to get configuration for modal creation."""
+        """
+        Called by widget to get configuration for modal creation.
+
+        Parameters
+        ----------
+        axis_keys:
+            The keys of the timeseries in the DataService to use for mapping a timestamp
+            of a dependent variable to a value of the coordinate variable. At this point
+            it is not know which dependent timeseries the user will want to histogram,
+            but the axis keys can be used to configure the bin edges for the (one or
+            two) dimensions of the correlation histogram. The axis keys will also be
+            forwarded to the workflow when started so that the correlation histogram
+            can be computed.
+        """
+        # All timeseries except the axis keys can be used as dependent variables. These
+        # will thus be shown by the widget in the "source selection" menu.
         result_keys = [key for key in self.get_timeseries() if key not in axis_keys]
         coords = {key.job_id.source_name: self._data_service[key] for key in axis_keys}
         ndim = len(coords)
@@ -200,7 +216,7 @@ class CorrelationHistogramController:
         Called by widget when user starts the workflow with concrete params.
 
         Note: Currently the "correlation" jobs run in the frontend process, essentially
-        as a postprocessing step when new data arrives. There are consideration around
+        as a postprocessing step when new data arrives. There are considerations around
         moving this into a separate backend service, after the primary services.
 
         Parameters
