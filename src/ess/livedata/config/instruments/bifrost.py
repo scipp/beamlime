@@ -19,6 +19,7 @@ from ess.livedata.handlers.detector_data_handler import (
 )
 from ess.livedata.handlers.monitor_data_handler import register_monitor_workflows
 from ess.livedata.handlers.stream_processor_workflow import StreamProcessorWorkflow
+from ess.livedata.handlers.timeseries_handler import register_timeseries_workflows
 from ess.livedata.kafka import InputStreamKey, StreamLUT, StreamMapping
 from ess.reduce.nexus.types import (
     CalibratedBeamline,
@@ -192,14 +193,16 @@ monitor_names = [
     '113_psd1',
 ]
 
+f144_attribute_registry = {
+    'detector_rotation': {'units': 'deg'},
+    'sample_rotation': {'units': 'deg'},
+    'sample_temperature': {'units': 'K'},
+}
 
-instrument = Instrument(
-    name='bifrost',
-    f144_attribute_registry={
-        'detector_rotation': {'units': 'deg'},
-    },
-)
+instrument = Instrument(name='bifrost', f144_attribute_registry=f144_attribute_registry)
+
 register_monitor_workflows(instrument=instrument, source_names=monitor_names)
+register_timeseries_workflows(instrument, source_names=list(f144_attribute_registry))
 instrument.add_detector('unified_detector', detector_number=detector_number)
 instrument_registry.register(instrument)
 _logical_view = DetectorLogicalView(
