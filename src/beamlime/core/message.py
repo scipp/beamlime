@@ -22,6 +22,7 @@ class StreamKind(str, Enum):
     LOG = "log"
     BEAMLIME_CONFIG = "beamlime_config"
     BEAMLIME_DATA = "beamlime_data"
+    BEAMLIME_STATUS = "beamlime_status"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -31,6 +32,7 @@ class StreamId:
 
 
 CONFIG_STREAM_ID = StreamId(kind=StreamKind.BEAMLIME_CONFIG, name='')
+STATUS_STREAM_ID = StreamId(kind=StreamKind.BEAMLIME_STATUS, name='')
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

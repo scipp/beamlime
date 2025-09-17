@@ -8,6 +8,7 @@ import scipp as sc
 from beamlime.config.workflow_spec import JobId, ResultKey, WorkflowId
 from beamlime.core.message import Message, StreamId, StreamKind
 from beamlime.dashboard.data_service import DataService
+from beamlime.dashboard.job_service import JobService
 from beamlime.dashboard.orchestrator import Orchestrator
 
 
@@ -42,7 +43,10 @@ class TestOrchestrator:
     def test_update_with_no_messages(self) -> None:
         source = FakeMessageSource()
         data_service = DataService()
-        orchestrator = Orchestrator(source, data_service)
+        job_service = JobService(data_service=data_service)
+        orchestrator = Orchestrator(
+            message_source=source, data_service=data_service, job_service=job_service
+        )
 
         orchestrator.update()
 
@@ -51,7 +55,10 @@ class TestOrchestrator:
     def test_update_with_single_message(self) -> None:
         source = FakeMessageSource()
         data_service = DataService()
-        orchestrator = Orchestrator(source, data_service)
+        job_service = JobService(data_service=data_service)
+        orchestrator = Orchestrator(
+            message_source=source, data_service=data_service, job_service=job_service
+        )
 
         workflow_id = WorkflowId(
             instrument="test_instrument",
@@ -73,7 +80,10 @@ class TestOrchestrator:
     def test_update_with_multiple_messages(self) -> None:
         source = FakeMessageSource()
         data_service = DataService()
-        orchestrator = Orchestrator(source, data_service)
+        job_service = JobService(data_service=data_service)
+        orchestrator = Orchestrator(
+            message_source=source, data_service=data_service, job_service=job_service
+        )
 
         workflow_id1 = WorkflowId(
             instrument="test_instrument",
@@ -110,7 +120,10 @@ class TestOrchestrator:
     def test_update_overwrites_existing_data(self) -> None:
         source = FakeMessageSource()
         data_service = DataService()
-        orchestrator = Orchestrator(source, data_service)
+        job_service = JobService(data_service=data_service)
+        orchestrator = Orchestrator(
+            message_source=source, data_service=data_service, job_service=job_service
+        )
 
         workflow_id = WorkflowId(
             instrument="test_instrument",
@@ -137,7 +150,10 @@ class TestOrchestrator:
     def test_update_with_output_name(self) -> None:
         source = FakeMessageSource()
         data_service = DataService()
-        orchestrator = Orchestrator(source, data_service)
+        job_service = JobService(data_service=data_service)
+        orchestrator = Orchestrator(
+            message_source=source, data_service=data_service, job_service=job_service
+        )
 
         workflow_id = WorkflowId(
             instrument="test_instrument",
@@ -161,7 +177,10 @@ class TestOrchestrator:
     def test_forward_with_valid_result_key(self) -> None:
         source = FakeMessageSource()
         data_service = DataService()
-        orchestrator = Orchestrator(source, data_service)
+        job_service = JobService(data_service=data_service)
+        orchestrator = Orchestrator(
+            message_source=source, data_service=data_service, job_service=job_service
+        )
 
         workflow_id = WorkflowId(
             instrument="test_instrument",
@@ -174,7 +193,7 @@ class TestOrchestrator:
 
         data = sc.DataArray(sc.array(dims=['x'], values=[1, 2, 3]))
 
-        orchestrator.forward(result_key.model_dump_json(), data)
+        orchestrator.forward(_data_stream_id(result_key), data)
 
         assert result_key in data_service
         assert sc.identical(data_service[result_key], data)
@@ -182,18 +201,26 @@ class TestOrchestrator:
     def test_forward_with_invalid_json(self) -> None:
         source = FakeMessageSource()
         data_service = DataService()
-        orchestrator = Orchestrator(source, data_service)
+        job_service = JobService(data_service=data_service)
+        orchestrator = Orchestrator(
+            message_source=source, data_service=data_service, job_service=job_service
+        )
 
         data = sc.DataArray(sc.array(dims=['x'], values=[1, 2, 3]))
 
         # JSON parsing or Pydantic validation error
         with pytest.raises(ValueError, match="Invalid JSON"):
-            orchestrator.forward("invalid_json", data)
+            orchestrator.forward(
+                StreamId(kind=StreamKind.BEAMLIME_DATA, name="invalid_json"), data
+            )
 
     def test_forward_with_different_data_types(self) -> None:
         source = FakeMessageSource()
         data_service = DataService()
-        orchestrator = Orchestrator(source, data_service)
+        job_service = JobService(data_service=data_service)
+        orchestrator = Orchestrator(
+            message_source=source, data_service=data_service, job_service=job_service
+        )
 
         workflow_id = WorkflowId(
             instrument="test_instrument",
@@ -220,9 +247,9 @@ class TestOrchestrator:
         float_data = sc.DataArray(sc.array(dims=['y'], values=[1.5, 2.5]))
         string_data = sc.DataArray(sc.array(dims=['z'], values=['a', 'b']))
 
-        orchestrator.forward(result_key1.model_dump_json(), int_data)
-        orchestrator.forward(result_key2.model_dump_json(), float_data)
-        orchestrator.forward(result_key3.model_dump_json(), string_data)
+        orchestrator.forward(_data_stream_id(result_key1), int_data)
+        orchestrator.forward(_data_stream_id(result_key2), float_data)
+        orchestrator.forward(_data_stream_id(result_key3), string_data)
 
         assert sc.identical(data_service[result_key1], int_data)
         assert sc.identical(data_service[result_key2], float_data)
@@ -232,7 +259,10 @@ class TestOrchestrator:
         """Test that updates are batched in transactions."""
         source = FakeMessageSource()
         data_service = DataService()
-        orchestrator = Orchestrator(source, data_service)
+        job_service = JobService(data_service=data_service)
+        orchestrator = Orchestrator(
+            message_source=source, data_service=data_service, job_service=job_service
+        )
 
         # Track transaction calls
         transaction_started = False
@@ -261,3 +291,7 @@ class TestOrchestrator:
 
         assert transaction_started
         assert result_key in data_service
+
+
+def _data_stream_id(key: ResultKey) -> StreamId:
+    return StreamId(kind=StreamKind.BEAMLIME_DATA, name=key.model_dump_json())

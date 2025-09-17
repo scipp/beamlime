@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import logging
-
-import scipp as sc
+from typing import Any
 
 from ..config.workflow_spec import ResultKey
-from ..core.message import MessageSource
+from ..core.message import STATUS_STREAM_ID, MessageSource, StreamId
 from .data_service import DataService
+from .job_service import JobService
 
 
 class Orchestrator:
@@ -25,9 +25,11 @@ class Orchestrator:
         self,
         message_source: MessageSource,
         data_service: DataService,
+        job_service: JobService,
     ) -> None:
         self._message_source = message_source
         self._data_service = data_service
+        self._job_service = job_service
         self._logger = logging.getLogger(__name__)
 
     def update(self) -> None:
@@ -46,9 +48,9 @@ class Orchestrator:
         #   should trigger an update.
         with self._data_service.transaction():
             for message in messages:
-                self.forward(stream_name=message.stream.name, value=message.value)
+                self.forward(stream_id=message.stream, value=message.value)
 
-    def forward(self, stream_name: str, value: sc.DataArray) -> None:
+    def forward(self, stream_id: StreamId, value: Any) -> None:
         """
         Forward data to the appropriate data service based on the stream name.
 
@@ -60,5 +62,8 @@ class Orchestrator:
         value:
             The data to be forwarded.
         """
-        result_key = ResultKey.model_validate_json(stream_name)
-        self._data_service[result_key] = value
+        if stream_id == STATUS_STREAM_ID:
+            self._job_service.status_updated(value)
+        else:
+            result_key = ResultKey.model_validate_json(stream_id.name)
+            self._data_service[result_key] = value

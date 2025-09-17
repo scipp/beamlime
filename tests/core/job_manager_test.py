@@ -7,11 +7,11 @@ import scipp as sc
 from beamlime.config.workflow_spec import JobSchedule, WorkflowConfig, WorkflowId
 from beamlime.core.job import (
     Job,
+    JobError,
     JobFactory,
     JobId,
     JobManager,
     JobResult,
-    JobStatus,
     WorkflowData,
 )
 from beamlime.core.message import StreamId
@@ -160,7 +160,7 @@ class TestJobManager:
         statuses = manager.push_data(data)
 
         assert len(statuses) == 2
-        assert all(isinstance(status, JobStatus) for status in statuses)
+        assert all(isinstance(status, JobError) for status in statuses)
         assert all(not status.has_error for status in statuses)
 
     def test_push_data_handles_job_errors(self, fake_job_factory, base_workflow_config):
@@ -182,7 +182,7 @@ class TestJobManager:
         assert len(statuses) == 1
         assert statuses[0].has_error
         assert statuses[0].job_id == job_id
-        assert "Error processing data" in statuses[0].error_message
+        assert "Job failed to process latest data" in statuses[0].error_message
 
     def test_push_data_activates_jobs_based_on_schedule(self, fake_job_factory):
         """Test that jobs are activated based on their scheduled start time."""
