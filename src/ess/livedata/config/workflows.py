@@ -12,7 +12,9 @@ import scipp as sc
 
 from ess.livedata import parameter_models
 from ess.livedata.config import Instrument
+from ess.livedata.handlers.accumulators import LogData
 from ess.livedata.handlers.stream_processor_workflow import StreamProcessorWorkflow
+from ess.livedata.handlers.to_nxlog import ToNXlog
 from ess.reduce import streaming
 from ess.reduce.nexus.types import Filename, MonitorData, NeXusData, NeXusName
 from ess.reduce.time_of_flight import GenericTofWorkflow
@@ -50,42 +52,29 @@ def _get_interval(
 class TimeseriesAccumulator(streaming.Accumulator[sc.DataArray]):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self._buffer: sc.DataGroup | None = None
-        self._size: int = 0
+        # Use ToNXlog which is used as a preprocessor elsewhere (for raw f144). The
+        # interface is similar but not identical, so we wrap instead of inheriting.
+        self._to_nxlog: ToNXlog | None = None
 
     @property
     def is_empty(self) -> bool:
-        return self._buffer is None
+        return self._to_nxlog is None
 
     def _get_value(self) -> sc.DataArray:
-        if self._buffer is None:
+        if self._to_nxlog is None:
             raise ValueError("No data accumulated")
-        return sc.DataArray(
-            data=self._buffer['data']['time', : self._size].copy(),
-            coords={'time': self._buffer['time']['time', : self._size].copy()},
-        )
-
-    def _unpack(self, value: sc.DataArray) -> sc.DataGroup:
-        return sc.DataGroup(data=value.data, time=value.coords['time'])
+        return self._to_nxlog.get()
 
     def _do_push(self, value: sc.DataArray) -> None:
-        if self._buffer is None:
-            # Initialize buffer with the first value and ensure we have 'time' dim
-            self._buffer = sc.concat([self._unpack(value)] * 2, 'time')
-            self._size = 1
-        else:
-            # Check if we need to expand the buffer
-            if self._size >= self._buffer['data'].sizes['time']:
-                # Double the buffer size by concatenating with itself
-                self._buffer = sc.concat([self._buffer, self._buffer], 'time')
-
-            # Insert the new value at the current size position
-            self._buffer['data']['time', self._size] = value.data
-            self._buffer['time']['time', self._size] = value.coords['time']
-            self._size += 1
+        if self._to_nxlog is None:
+            self._to_nxlog = ToNXlog(attrs={'units': str(value.unit)})
+        self._to_nxlog.add(
+            0, LogData(time=value.coords['time'].value, value=value.values)
+        )
 
     def clear(self) -> None:
-        self._size = 0
+        if self._to_nxlog is not None:
+            self._to_nxlog.clear()
 
 
 def _prepare_workflow(instrument: Instrument, monitor_name: str) -> sciline.Pipeline:
