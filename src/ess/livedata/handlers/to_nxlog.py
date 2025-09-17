@@ -33,7 +33,7 @@ class ToNXlog(Accumulator[LogData, sc.DataArray]):
         self._end = 0
 
     @property
-    def unit(self) -> str | None:
+    def unit(self) -> sc.Unit | None:
         return self._unit
 
     def _at_capacity(self) -> bool:
