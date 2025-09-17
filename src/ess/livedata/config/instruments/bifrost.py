@@ -218,7 +218,7 @@ _logical_view = DetectorLogicalView(
     description='Spectrum view with configurable time bins and pixels per tube.',
     source_names=_source_names,
 )
-def _spectrum_view_new(params: BifrostWorkflowParams) -> StreamProcessorWorkflow:
+def _spectrum_view(params: BifrostWorkflowParams) -> StreamProcessorWorkflow:
     wf = _reduction_workflow.copy()
     view_params = params.spectrum_view
     wf[_SpectrumViewTimeBins] = view_params.time_bins
