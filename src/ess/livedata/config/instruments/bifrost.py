@@ -100,23 +100,20 @@ def _combine_banks(*bank: sc.DataArray) -> sc.DataArray:
 
 
 SpectrumView = NewType('SpectrumView', sc.DataArray)
-DetectorRotation = NewType('DetectorRotation', sc.DataArray)
-CountsPerAngle = NewType('CountsPerAngle', sc.DataArray)
-
-_SpectrumViewTimeBins = NewType('_SpectrumViewTimeBins', int)
-_SpectrumViewPixelsPerTube = NewType('_SpectrumViewPixelsPerTube', int)
+SpectrumViewTimeBins = NewType('SpectrumViewTimeBins', int)
+SpectrumViewPixelsPerTube = NewType('SpectrumViewPixelsPerTube', int)
 
 
 def _make_spectrum_view(
     data: DetectorData[SampleRun],
-    time_bins: _SpectrumViewTimeBins,
-    pixels_per_tube: _SpectrumViewPixelsPerTube,
+    time_bins: SpectrumViewTimeBins,
+    pixels_per_tube: SpectrumViewPixelsPerTube,
 ) -> SpectrumView:
     edges = sc.linspace(
         'event_time_offset', 0, 71_000_000, num=time_bins + 1, unit='ns'
     )
     # Combine, e.g., 10 pixels into 1, so we have tubes with 10 pixels each
-    return (
+    return SpectrumView(
         data.fold('pixel', sizes={'pixel': pixels_per_tube, 'subpixel': -1})
         .drop_coords(tuple(data.coords))
         .bins.concat('subpixel')
@@ -124,19 +121,6 @@ def _make_spectrum_view(
         .hist(event_time_offset=edges)
         .assign_coords(event_time_offset=edges.to(unit='ms'))
     )
-
-
-def _make_counts_per_angle(
-    data: DetectorData[SampleRun], rotation: DetectorRotation
-) -> CountsPerAngle:
-    edges = sc.linspace('angle', 0, 91, num=46, unit='deg')
-    da = sc.DataArray(
-        sc.zeros(dims=['angle'], shape=[45], unit='counts'), coords={'angle': edges}
-    )
-    counts = sc.values(data.sum().data)
-    if rotation is not None:
-        da['angle', rotation.data[-1]] += counts
-    return CountsPerAngle(da)
 
 
 _reduction_workflow = TofWorkflow(run_types=(SampleRun,), monitor_types=())
@@ -147,10 +131,9 @@ _reduction_workflow[CalibratedBeamline[SampleRun]] = (
     .reduce(func=_combine_banks)
 )
 
-_reduction_workflow[_SpectrumViewTimeBins] = 500
-_reduction_workflow[_SpectrumViewPixelsPerTube] = 10
+_reduction_workflow[SpectrumViewTimeBins] = 500
+_reduction_workflow[SpectrumViewPixelsPerTube] = 10
 _reduction_workflow.insert(_make_spectrum_view)
-_reduction_workflow.insert(_make_counts_per_angle)
 
 _source_names = ('unified_detector',)
 
@@ -221,30 +204,13 @@ _logical_view = DetectorLogicalView(
 def _spectrum_view(params: BifrostWorkflowParams) -> StreamProcessorWorkflow:
     wf = _reduction_workflow.copy()
     view_params = params.spectrum_view
-    wf[_SpectrumViewTimeBins] = view_params.time_bins
-    wf[_SpectrumViewPixelsPerTube] = view_params.pixels_per_tube
+    wf[SpectrumViewTimeBins] = view_params.time_bins
+    wf[SpectrumViewPixelsPerTube] = view_params.pixels_per_tube
     return StreamProcessorWorkflow(
         wf,
         dynamic_keys={'unified_detector': NeXusData[NXdetector, SampleRun]},
         target_keys=(SpectrumView,),
         accumulators=(SpectrumView,),
-    )
-
-
-@instrument.register_workflow(
-    name='counts_per_angle',
-    version=1,
-    title='Counts per angle',
-    source_names=_source_names,
-    aux_source_names=['detector_rotation'],
-)
-def _counts_per_angle() -> StreamProcessorWorkflow:
-    return StreamProcessorWorkflow(
-        _reduction_workflow.copy(),
-        dynamic_keys={'unified_detector': NeXusData[NXdetector, SampleRun]},
-        context_keys={'detector_rotation': DetectorRotation},
-        target_keys=(CountsPerAngle,),
-        accumulators=(CountsPerAngle,),
     )
 
 
