@@ -104,17 +104,16 @@ class DataService(UserDict[K, V]):
             )
 
     def __setitem__(self, key: K, value: V) -> None:
-        is_new_key = key not in self.data
+        if key not in self.data:
+            self._pending_key_additions.add(key)
         super().__setitem__(key, value)
         self._pending_updates.add(key)
-        if is_new_key:
-            self._pending_key_additions.add(key)
         self._notify_if_not_in_transaction()
 
     def __delitem__(self, key: K) -> None:
+        self._pending_key_removals.add(key)
         super().__delitem__(key)
         self._pending_updates.add(key)
-        self._pending_key_removals.add(key)
         self._notify_if_not_in_transaction()
 
     def _notify_if_not_in_transaction(self) -> None:
@@ -128,6 +127,6 @@ class DataService(UserDict[K, V]):
             pending = set(self._pending_updates)
             self._pending_updates.clear()
             self._notify_subscribers(pending)
-            self._notify_key_change_subscribers()
-            self._pending_key_additions.clear()
-            self._pending_key_removals.clear()
+        self._notify_key_change_subscribers()
+        self._pending_key_additions.clear()
+        self._pending_key_removals.clear()
