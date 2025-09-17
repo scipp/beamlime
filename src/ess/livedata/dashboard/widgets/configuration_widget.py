@@ -4,15 +4,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 import panel as pn
 import pydantic
 
 from .model_widget import ModelWidget
 
+Model = TypeVar('Model')
 
-class ConfigurationAdapter(ABC):
+
+class ConfigurationAdapter(ABC, Generic[Model]):
     """Abstract adapter for providing configuration data to generic widgets."""
 
     @property
@@ -27,7 +29,7 @@ class ConfigurationAdapter(ABC):
 
     @property
     @abstractmethod
-    def model_class(self) -> type[pydantic.BaseModel] | None:
+    def model_class(self) -> type[Model] | None:
         """Pydantic model class for parameters."""
 
     @property
@@ -46,7 +48,9 @@ class ConfigurationAdapter(ABC):
         """Initial parameter values."""
 
     @abstractmethod
-    def start_action(self, selected_sources: list[str], parameter_values: Any) -> bool:
+    def start_action(
+        self, selected_sources: list[str], parameter_values: Model
+    ) -> bool:
         """
         Execute the start action with selected sources and parameters.
 
