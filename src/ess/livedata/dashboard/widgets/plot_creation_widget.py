@@ -14,7 +14,7 @@ from ess.livedata.dashboard.job_service import JobService
 from ess.livedata.dashboard.plotting import PlotterSpec
 from ess.livedata.dashboard.plotting_controller import PlottingController
 
-from ..correlation_workflow import CorrelationHistogramController
+from ..correlation_histogram import CorrelationHistogramController
 from .configuration_widget import ConfigurationAdapter, ConfigurationModal
 from .correlation_histogram_widget import CorrelationHistogramWidget
 from .job_status_widget import JobStatusListWidget

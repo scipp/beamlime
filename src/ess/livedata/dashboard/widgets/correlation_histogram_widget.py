@@ -7,7 +7,7 @@ from typing import Any
 import pandas as pd
 import panel as pn
 
-from ..correlation_workflow import CorrelationHistogramController
+from ..correlation_histogram import CorrelationHistogramController
 from .configuration_widget import ConfigurationModal
 
 
