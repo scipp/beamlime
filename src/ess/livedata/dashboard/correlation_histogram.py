@@ -30,7 +30,7 @@ class EdgesWithUnit(EdgesModel):
 
 class CorrelationHistogramParams(pydantic.BaseModel):
     _x_dim: str
-    _y_dim: str | None
+    _y_dim: str | None = None
 
     def get_all_edges(self) -> dict[str, sc.Variable]:
         if (x_edges := getattr(self, 'x_edges', None)) is None:

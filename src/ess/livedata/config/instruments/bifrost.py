@@ -193,6 +193,7 @@ monitor_names = [
     '113_psd1',
 ]
 
+# Some example motions used for testing, probably not reflecting reality
 f144_attribute_registry = {
     'detector_rotation': {'units': 'deg'},
     'sample_rotation': {'units': 'deg'},
