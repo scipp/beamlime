@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from collections.abc import Callable
 from enum import Enum
-from typing import ClassVar
+from typing import Any, ClassVar
 
 import pydantic
 
@@ -88,6 +88,8 @@ class JobManager:
         self._job_states: dict[JobId, JobState] = {}
         self._job_error_messages: dict[JobId, str] = {}
         self._job_warning_messages: dict[JobId, str] = {}
+        # Track which jobs received primary data since last compute_results
+        self._jobs_with_primary_data: set[JobId] = set()
 
     @property
     def all_jobs(self) -> list[Job]:
@@ -239,29 +241,54 @@ class JobManager:
     def push_data(self, data: WorkflowData) -> list[JobError]:
         """Push data into the active jobs and return status for each job."""
         self._advance_to_time(data.start_time, data.end_time)
-        job_statuses: list[JobError] = []
-        for job in self.active_jobs:
-            status = job.add(data)
-            job_statuses.append(status)
-            # Track warnings from job operations, or clear them on success
-            if status.has_error and status.error_message is not None:
-                self._job_warning_messages[job.job_id] = status.error_message
-                self._job_states[job.job_id] = JobState.warning
-            else:
-                # Clear warning state on successful data processing
-                self._job_warning_messages.pop(job.job_id, None)
-                # Only update state if it was warning (preserve error state)
-                if self._job_states.get(job.job_id) == JobState.warning:
-                    self._job_states[job.job_id] = JobState.active
-        return job_statuses
+        maybe_errors = [self._push_data_to_job(job, data) for job in self.active_jobs]
+        return [error for error in maybe_errors if error is not None]
+
+    def _push_data_to_job(self, job: Job, data: WorkflowData) -> JobError | None:
+        # Filter data for this specific job
+        primary_data: dict[str, Any] = {}
+        aux_data: dict[str, Any] = {}
+
+        for stream, value in data.data.items():
+            if stream.name in job.source_names:
+                primary_data[stream.name] = value
+            elif stream.name in job.aux_source_names:
+                aux_data[stream.name] = value
+
+        # Only process if we have relevant data
+        if not (primary_data or aux_data):
+            return None
+
+        # Update job times and track primary data updates
+        if primary_data:
+            job.update_times(data.start_time, data.end_time)
+            self._jobs_with_primary_data.add(job.job_id)
+
+        combined_data = {**primary_data, **aux_data}
+        error = job.add(combined_data)
+
+        # Track warnings from job operations, or clear them on success
+        if error.has_error and error.error_message is not None:
+            self._job_warning_messages[job.job_id] = error.error_message
+            self._job_states[job.job_id] = JobState.warning
+        else:
+            # Clear warning state on successful data processing
+            self._job_warning_messages.pop(job.job_id, None)
+            # Only update state if it was warning (preserve error state)
+            if self._job_states.get(job.job_id) == JobState.warning:
+                self._job_states[job.job_id] = JobState.active
+        return error
 
     def compute_results(self) -> list[JobResult]:
         """
-        Compute results from the accumulated data and return them as messages.
+        Compute results from jobs that received primary data since last call.
         This may include processing the accumulated data and preparing it for output.
         """
         results = []
-        for job in self.active_jobs:
+        # Only compute results for jobs that received primary data
+        for job in self._active_jobs.values():
+            if job.job_id not in self._jobs_with_primary_data:
+                continue
             result = job.get()
             results.append(result)
             # Track errors from job finalization, or clear them on success
@@ -276,6 +303,9 @@ class JobManager:
                     self._job_states[job.job_id] = JobState.warning
                 else:
                     self._job_states[job.job_id] = JobState.active
+
+        # Clear the tracking set after computing results
+        self._jobs_with_primary_data.clear()
         self._finish_jobs()
         return results
 

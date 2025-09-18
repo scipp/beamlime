@@ -146,27 +146,28 @@ class Job:
     def end_time(self) -> int | None:
         return self._end_time
 
-    def add(self, data: WorkflowData) -> JobError:
+    @property
+    def source_names(self) -> list[str]:
+        return self._source_names
+
+    @property
+    def aux_source_names(self) -> list[str]:
+        return self._aux_source_names
+
+    def add(self, data: dict[str, Any]) -> JobError:
         try:
-            primary: dict[str, Any] = {}
-            aux: dict[str, Any] = {}
-            for stream, value in data.data.items():
-                if stream.name in self._source_names:
-                    primary[stream.name] = value
-                elif stream.name in self._aux_source_names:
-                    aux[stream.name] = value
-            if primary:
-                # Only "start" on first valid data
-                if self._start_time is None:
-                    self._start_time = data.start_time
-                self._end_time = data.end_time
-            if primary or aux:
-                self._processor.accumulate({**primary, **aux})
+            self._processor.accumulate(data)
             return JobError(job_id=self._job_id)
         except Exception:
             tb = traceback.format_exc()
             message = f"Job failed to process latest data.\n\n{tb}"
             return JobError(job_id=self._job_id, error_message=message)
+
+    def update_times(self, start_time: int, end_time: int) -> None:
+        """Update the start and end times for this job."""
+        if self._start_time is None:
+            self._start_time = start_time
+        self._end_time = end_time
 
     def get(self) -> JobResult:
         try:
