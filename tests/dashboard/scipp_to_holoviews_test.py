@@ -1,0 +1,296 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+import holoviews as hv
+import numpy as np
+import pytest
+import scipp as sc
+
+from ess.livedata.dashboard import scipp_to_holoviews
+
+
+class TestHelperFunctions:
+    @pytest.mark.parametrize("unit", ['m', 'dimensionless', None])
+    def test_coord_to_dimension(self, unit: str | None):
+        coord = sc.Variable(dims=['x'], values=[1, 2, 3], unit=unit)
+        dim = scipp_to_holoviews.coord_to_dimension(coord)
+
+        assert dim.name == 'x'
+        assert dim.label == 'x'
+        assert dim.unit == unit
+
+    @pytest.mark.parametrize("unit", ['m', 'dimensionless', None])
+    def test_value_dimension_with_name_and_unit(self, unit: str | None):
+        data = sc.DataArray(
+            data=sc.Variable(dims=['x'], values=[1, 2, 3], unit=unit),
+            coords={'x': sc.Variable(dims=['x'], values=[0, 1, 2])},
+            name='intensity',
+        )
+        dim = scipp_to_holoviews.create_value_dimension(data)
+
+        assert dim.name == 'values'
+        assert dim.label == 'intensity'
+        assert dim.unit == unit
+
+    def test_value_dimension_without_name(self):
+        data = sc.DataArray(
+            data=sc.Variable(dims=['x'], values=[1, 2, 3], unit='m/s'),
+            coords={'x': sc.Variable(dims=['x'], values=[0, 1, 2])},
+        )
+        dim = scipp_to_holoviews.create_value_dimension(data)
+
+        assert dim.name == 'values'
+        assert dim.label == 'values'
+        assert dim.unit == 'm/s'
+
+
+class TestConvertHistogram1d:
+    def test_basic_conversion(self):
+        # Create histogram data with bin edges
+        edges = sc.Variable(dims=['x'], values=[0, 1, 2, 3], unit='m')
+        values = sc.Variable(dims=['x'], values=[10, 20, 30], unit='counts')
+        data = sc.DataArray(data=values, coords={'x': edges})
+
+        result = scipp_to_holoviews.convert_histogram_1d(data)
+
+        assert isinstance(result, hv.Histogram)
+        assert len(result.kdims) == 1
+        assert len(result.vdims) == 1
+        assert result.kdims[0].name == 'x'
+        assert result.kdims[0].unit == 'm'
+        assert result.vdims[0].unit == 'counts'
+
+        # Check data - holoviews data is accessed by column names
+        hist_data = result.data
+        np.testing.assert_array_equal(hist_data['x'], [0, 1, 2, 3])
+        np.testing.assert_array_equal(hist_data['values'], [10, 20, 30])
+
+    def test_with_named_data(self):
+        edges = sc.Variable(dims=['energy'], values=[0, 1, 2, 3], unit='eV')
+        values = sc.Variable(dims=['energy'], values=[100, 200, 300], unit='Hz')
+        data = sc.DataArray(data=values, coords={'energy': edges}, name='spectrum')
+
+        result = scipp_to_holoviews.convert_histogram_1d(data)
+
+        assert result.vdims[0].label == 'spectrum'
+        assert result.kdims[0].name == 'energy'
+
+
+class TestConvertCurve1d:
+    def test_basic_conversion(self):
+        x_coord = sc.Variable(dims=['x'], values=[1, 2, 3, 4], unit='s')
+        y_values = sc.Variable(dims=['x'], values=[10, 15, 20, 25], unit='V')
+        data = sc.DataArray(data=y_values, coords={'x': x_coord})
+
+        result = scipp_to_holoviews.convert_curve_1d(data)
+
+        assert isinstance(result, hv.Curve)
+        assert len(result.kdims) == 1
+        assert len(result.vdims) == 1
+        assert result.kdims[0].name == 'x'
+        assert result.kdims[0].unit == 's'
+        assert result.vdims[0].unit == 'V'
+
+        # Check data - holoviews data is accessed by column names
+        curve_data = result.data
+        np.testing.assert_array_equal(curve_data['x'], [1, 2, 3, 4])
+        np.testing.assert_array_equal(curve_data['values'], [10, 15, 20, 25])
+
+    def test_with_named_data(self):
+        coord = sc.Variable(dims=['time'], values=[0, 1, 2])
+        values = sc.Variable(dims=['time'], values=[5, 10, 15])
+        data = sc.DataArray(data=values, coords={'time': coord}, name='signal')
+
+        result = scipp_to_holoviews.convert_curve_1d(data)
+
+        assert result.vdims[0].label == 'signal'
+
+
+class TestConvertQuadMesh2d:
+    def test_basic_conversion(self):
+        x_coord = sc.Variable(dims=['x'], values=[1, 2, 3], unit='m')
+        y_coord = sc.Variable(dims=['y'], values=[4, 5], unit='s')
+        values = sc.Variable(
+            dims=['y', 'x'], values=[[10, 20, 30], [40, 50, 60]], unit='K'
+        )
+        data = sc.DataArray(data=values, coords={'x': x_coord, 'y': y_coord})
+
+        result = scipp_to_holoviews.convert_quadmesh_2d(data)
+
+        assert isinstance(result, hv.QuadMesh)
+        assert len(result.kdims) == 2
+        assert len(result.vdims) == 1
+
+        # Dimensions should be reversed (x first, then y)
+        assert result.kdims[0].name == 'x'
+        assert result.kdims[0].unit == 'm'
+        assert result.kdims[1].name == 'y'
+        assert result.kdims[1].unit == 's'
+        assert result.vdims[0].unit == 'K'
+
+    def test_irregular_coordinates(self):
+        # Non-evenly spaced coordinates
+        x_coord = sc.Variable(dims=['x'], values=[1, 3, 10], unit='mm')
+        y_coord = sc.Variable(dims=['y'], values=[0, 2, 5, 20], unit='Hz')
+        values = sc.Variable(
+            dims=['y', 'x'], values=[[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]]
+        )
+        data = sc.DataArray(data=values, coords={'x': x_coord, 'y': y_coord})
+
+        result = scipp_to_holoviews.convert_quadmesh_2d(data)
+
+        assert isinstance(result, hv.QuadMesh)
+        mesh_data = result.data
+        np.testing.assert_array_equal(mesh_data['x'], [1, 3, 10])  # x coords
+        np.testing.assert_array_equal(mesh_data['y'], [0, 2, 5, 20])  # y coords
+
+
+class TestConvertImage2d:
+    def test_basic_conversion(self):
+        x_coord = sc.Variable(dims=['x'], values=[0, 1, 2], unit='m')
+        y_coord = sc.Variable(dims=['y'], values=[10, 20], unit='s')
+        values = sc.Variable(
+            dims=['y', 'x'], values=[[1, 2, 3], [4, 5, 6]], unit='counts'
+        )
+        data = sc.DataArray(data=values, coords={'x': x_coord, 'y': y_coord})
+
+        result = scipp_to_holoviews.convert_image_2d(data)
+
+        assert isinstance(result, hv.Image)
+        assert len(result.kdims) == 2
+        assert len(result.vdims) == 1
+
+        # Check dimension order (reversed)
+        assert result.kdims[0].name == 'x'
+        assert result.kdims[1].name == 'y'
+
+    def test_with_bin_edges(self):
+        # Test with bin edges
+        x_edges = sc.Variable(dims=['x'], values=[0, 1, 2, 3], unit='m')
+        y_edges = sc.Variable(dims=['y'], values=[0, 10, 20], unit='s')
+        values = sc.Variable(
+            dims=['y', 'x'], values=[[1, 2, 3], [4, 5, 6]], unit='counts'
+        )
+        data = sc.DataArray(data=values, coords={'x': x_edges, 'y': y_edges})
+
+        result = scipp_to_holoviews.convert_image_2d(data)
+
+        assert isinstance(result, hv.Image)
+        # Should use midpoints for coordinates
+        image_data = result.data
+        np.testing.assert_array_equal(image_data['x'], [0.5, 1.5, 2.5])  # x midpoints
+        np.testing.assert_array_equal(image_data['y'], [5, 15])  # y midpoints
+
+
+class TestToHoloviews:
+    def test_1d_histogram(self):
+        edges = sc.Variable(dims=['x'], values=[0, 1, 2, 3])
+        values = sc.Variable(dims=['x'], values=[10, 20, 30])
+        data = sc.DataArray(data=values, coords={'x': edges})
+
+        result = scipp_to_holoviews.to_holoviews(data)
+
+        assert isinstance(result, hv.Histogram)
+
+    def test_1d_curve(self):
+        coord = sc.Variable(dims=['x'], values=[0, 1, 2])
+        values = sc.Variable(dims=['x'], values=[10, 20, 30])
+        data = sc.DataArray(data=values, coords={'x': coord})
+
+        result = scipp_to_holoviews.to_holoviews(data)
+
+        assert isinstance(result, hv.Curve)
+
+    def test_2d_image_evenly_spaced(self):
+        x_coord = sc.linspace('x', 0, 2, 3)
+        y_coord = sc.linspace('y', 0, 10, 2)
+        values = sc.Variable(dims=['y', 'x'], values=[[1, 2, 3], [4, 5, 6]])
+        data = sc.DataArray(data=values, coords={'x': x_coord, 'y': y_coord})
+
+        result = scipp_to_holoviews.to_holoviews(data)
+
+        assert isinstance(result, hv.Image)
+
+    def test_2d_quadmesh_irregular(self):
+        x_coord = sc.Variable(dims=['x'], values=[0, 1, 5])  # Non-evenly spaced
+        y_coord = sc.Variable(dims=['y'], values=[0, 10])
+        values = sc.Variable(dims=['y', 'x'], values=[[1, 2, 3], [4, 5, 6]])
+        data = sc.DataArray(data=values, coords={'x': x_coord, 'y': y_coord})
+
+        result = scipp_to_holoviews.to_holoviews(data)
+
+        assert isinstance(result, hv.QuadMesh)
+
+    def test_0d_raises_error(self):
+        data = sc.DataArray(data=sc.scalar(42.0))
+
+        with pytest.raises(
+            ValueError, match="Input DataArray must have at least one dimension"
+        ):
+            scipp_to_holoviews.to_holoviews(data)
+
+    def test_3d_raises_error(self):
+        x_coord = sc.Variable(dims=['x'], values=[0, 1])
+        y_coord = sc.Variable(dims=['y'], values=[0, 1])
+        z_coord = sc.Variable(dims=['z'], values=[0, 1])
+        values = sc.Variable(
+            dims=['z', 'y', 'x'], values=[[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
+        )
+        data = sc.DataArray(
+            data=values, coords={'x': x_coord, 'y': y_coord, 'z': z_coord}
+        )
+
+        with pytest.raises(ValueError, match="Only 1D and 2D data are supported"):
+            scipp_to_holoviews.to_holoviews(data)
+
+
+class TestAllCoordsEvenlySpaced:
+    def test_evenly_spaced_returns_true(self):
+        x_coord = sc.linspace('x', 0, 10, 5)
+        y_coord = sc.linspace('y', -5, 5, 3)
+        values = sc.zeros(dims=['y', 'x'], shape=[3, 5])
+        data = sc.DataArray(data=values, coords={'x': x_coord, 'y': y_coord})
+
+        result = scipp_to_holoviews._all_coords_evenly_spaced(data)
+
+        assert result is True
+
+    def test_irregular_spacing_returns_false(self):
+        x_coord = sc.Variable(dims=['x'], values=[0, 1, 3, 10])  # Not evenly spaced
+        y_coord = sc.linspace('y', 0, 5, 3)
+        values = sc.zeros(dims=['y', 'x'], shape=[3, 4])
+        data = sc.DataArray(data=values, coords={'x': x_coord, 'y': y_coord})
+
+        result = scipp_to_holoviews._all_coords_evenly_spaced(data)
+
+        assert result is False
+
+    def test_single_dimension_evenly_spaced_returns_true(self):
+        x_coord = sc.linspace('x', 0, 10, 5)
+        values = sc.zeros(dims=['x'], shape=[5])
+        data = sc.DataArray(data=values, coords={'x': x_coord})
+
+        result = scipp_to_holoviews._all_coords_evenly_spaced(data)
+
+        assert result is True
+
+
+class TestGetMidpoints:
+    def test_with_bin_edges(self):
+        edges = sc.Variable(dims=['x'], values=[0, 1, 2, 3])
+        values = sc.Variable(dims=['x'], values=[10, 20, 30])
+        data = sc.DataArray(data=values, coords={'x': edges})
+
+        result = scipp_to_holoviews._get_midpoints(data, 'x')
+
+        expected = sc.midpoints(edges, 'x')
+        assert sc.identical(result, expected)
+
+    def test_with_point_coordinates(self):
+        coord = sc.Variable(dims=['x'], values=[1, 2, 3])
+        values = sc.Variable(dims=['x'], values=[10, 20, 30])
+        data = sc.DataArray(data=values, coords={'x': coord})
+
+        result = scipp_to_holoviews._get_midpoints(data, 'x')
+
+        # Should return the original coordinate
+        assert sc.identical(result, coord)

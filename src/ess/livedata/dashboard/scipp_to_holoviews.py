@@ -4,14 +4,14 @@ import holoviews as hv
 import scipp as sc
 
 
-def _coord_to_dimension(var: sc.Variable) -> hv.Dimension:
+def coord_to_dimension(var: sc.Variable) -> hv.Dimension:
     """Create a Holoviews Dimension for the coordinate."""
     dim = var.dim
     unit = str(var.unit) if var.unit is not None else None
     return hv.Dimension(dim, label=dim, unit=unit)
 
 
-def _create_value_dimension(data: sc.DataArray) -> hv.Dimension:
+def create_value_dimension(data: sc.DataArray) -> hv.Dimension:
     """Create a Holoviews Dimension for the values."""
     label = data.name if data.name else 'values'
     unit = str(data.unit) if data.unit is not None else None
@@ -29,8 +29,8 @@ def convert_histogram_1d(data: sc.DataArray) -> hv.Histogram:
     """
     dim = data.dim
     coord = data.coords[dim]
-    kdims = [_coord_to_dimension(coord)]
-    vdims = [_create_value_dimension(data)]
+    kdims = [coord_to_dimension(coord)]
+    vdims = [create_value_dimension(data)]
 
     return hv.Histogram(data=(coord.values, data.values), kdims=kdims, vdims=vdims)
 
@@ -46,8 +46,8 @@ def convert_curve_1d(data: sc.DataArray) -> hv.Curve:
     """
     dim = data.dim
     coord = data.coords[dim]
-    kdims = [_coord_to_dimension(coord)]
-    vdims = [_create_value_dimension(data)]
+    kdims = [coord_to_dimension(coord)]
+    vdims = [create_value_dimension(data)]
 
     return hv.Curve(data=(coord.values, data.values), kdims=kdims, vdims=vdims)
 
@@ -63,8 +63,8 @@ def convert_quadmesh_2d(data: sc.DataArray) -> hv.QuadMesh:
     hv.QuadMesh
         A Holoviews QuadMesh object.
     """
-    kdims = [_coord_to_dimension(data.coords[dim]) for dim in reversed(data.dims)]
-    vdims = [_create_value_dimension(data)]
+    kdims = [coord_to_dimension(data.coords[dim]) for dim in reversed(data.dims)]
+    vdims = [create_value_dimension(data)]
     coords = [data.coords[dim].values for dim in reversed(data.dims)]
 
     # QuadMesh expects (x, y, values) format
@@ -89,8 +89,8 @@ def convert_image_2d(data: sc.DataArray) -> hv.Image:
     hv.Image
         A Holoviews Image object.
     """
-    kdims = [_coord_to_dimension(data.coords[dim]) for dim in reversed(data.dims)]
-    vdims = [_create_value_dimension(data)]
+    kdims = [coord_to_dimension(data.coords[dim]) for dim in reversed(data.dims)]
+    vdims = [create_value_dimension(data)]
     return hv.Image(
         data=(
             _get_midpoints(data, data.dims[1]).values,
