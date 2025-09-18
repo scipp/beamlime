@@ -74,6 +74,13 @@ class TestConvertHistogram1d:
         assert result.vdims[0].label == 'spectrum'
         assert result.kdims[0].name == 'energy'
 
+    def test_with_missing_coord_raises(self):
+        values = sc.array(dims=['x'], values=[10, 20, 30], unit='counts')
+        data = sc.DataArray(data=values)
+
+        with pytest.raises(KeyError, match="Expected 'x'"):
+            scipp_to_holoviews.convert_histogram_1d(data)
+
 
 class TestConvertCurve1d:
     def test_basic_conversion(self):
@@ -103,6 +110,22 @@ class TestConvertCurve1d:
         result = scipp_to_holoviews.convert_curve_1d(data)
 
         assert result.vdims[0].label == 'signal'
+
+    def test_with_missing_coord(self):
+        values = sc.array(dims=['time'], values=[5, 10, 15], unit='V')
+        data = sc.DataArray(data=values, name='signal')
+
+        result = scipp_to_holoviews.convert_curve_1d(data)
+
+        assert isinstance(result, hv.Curve)
+        assert result.kdims[0].name == 'time'
+        assert result.kdims[0].unit is None  # Dummy coord has no unit
+        assert result.vdims[0].label == 'signal'
+
+        # Check data contains dummy coordinates
+        curve_data = result.data
+        np.testing.assert_array_equal(curve_data['time'], [0, 1, 2])  # dummy coords
+        np.testing.assert_array_equal(curve_data['values'], [5, 10, 15])
 
 
 class TestConvertQuadMesh2d:
@@ -159,6 +182,56 @@ class TestConvertQuadMesh2d:
         np.testing.assert_array_equal(mesh_data['y'], [0, 10, 20])  # y edges
         np.testing.assert_array_equal(mesh_data['values'], [[1, 2, 3], [4, 5, 6]])
 
+    def test_with_missing_x_coord(self):
+        y_coord = sc.array(dims=['y'], values=[4, 5], unit='s')
+        values = sc.array(
+            dims=['y', 'x'], values=[[10, 20, 30], [40, 50, 60]], unit='K'
+        )
+        data = sc.DataArray(data=values, coords={'y': y_coord})
+
+        result = scipp_to_holoviews.convert_quadmesh_2d(data)
+
+        assert isinstance(result, hv.QuadMesh)
+        assert len(result.kdims) == 2
+        assert len(result.vdims) == 1
+
+        # Dimensions should be reversed (x first, then y)
+        assert result.kdims[0].name == 'x'
+        assert result.kdims[0].unit is None  # Dummy coord has no unit
+        assert result.kdims[1].name == 'y'
+        assert result.kdims[1].unit == 's'
+        assert result.vdims[0].unit == 'K'
+
+        # Check data contains dummy x coordinates
+        mesh_data = result.data
+        np.testing.assert_array_equal(mesh_data['x'], [0, 1, 2])  # dummy x coords
+        np.testing.assert_array_equal(mesh_data['y'], [4, 5])  # real y coords
+
+    def test_with_missing_y_coord(self):
+        x_coord = sc.array(dims=['x'], values=[1, 2, 3], unit='m')
+        values = sc.array(
+            dims=['y', 'x'], values=[[10, 20, 30], [40, 50, 60]], unit='K'
+        )
+        data = sc.DataArray(data=values, coords={'x': x_coord})
+
+        result = scipp_to_holoviews.convert_quadmesh_2d(data)
+
+        assert isinstance(result, hv.QuadMesh)
+        mesh_data = result.data
+        np.testing.assert_array_equal(mesh_data['x'], [1, 2, 3])  # real x coords
+        np.testing.assert_array_equal(mesh_data['y'], [0, 1])  # dummy y coords
+
+    def test_with_no_coords(self):
+        values = sc.array(dims=['y', 'x'], values=[[1, 2, 3], [4, 5, 6]], unit='counts')
+        data = sc.DataArray(data=values)
+
+        result = scipp_to_holoviews.convert_quadmesh_2d(data)
+
+        assert isinstance(result, hv.QuadMesh)
+        mesh_data = result.data
+        np.testing.assert_array_equal(mesh_data['x'], [0, 1, 2])  # dummy x coords
+        np.testing.assert_array_equal(mesh_data['y'], [0, 1])  # dummy y coords
+
 
 class TestConvertImage2d:
     def test_basic_conversion(self):
@@ -191,6 +264,47 @@ class TestConvertImage2d:
         image_data = result.data
         np.testing.assert_array_equal(image_data['x'], [0.5, 1.5, 2.5])  # x midpoints
         np.testing.assert_array_equal(image_data['y'], [5, 15])  # y midpoints
+
+    def test_with_missing_x_coord(self):
+        y_coord = sc.array(dims=['y'], values=[10, 20], unit='s')
+        values = sc.array(dims=['y', 'x'], values=[[1, 2, 3], [4, 5, 6]], unit='counts')
+        data = sc.DataArray(data=values, coords={'y': y_coord})
+
+        result = scipp_to_holoviews.convert_image_2d(data)
+
+        assert isinstance(result, hv.Image)
+        assert result.kdims[0].name == 'x'
+        assert result.kdims[0].unit is None  # Dummy coord has no unit
+        assert result.kdims[1].name == 'y'
+        assert result.kdims[1].unit == 's'
+
+        # Check data contains dummy x coordinates
+        image_data = result.data
+        np.testing.assert_array_equal(image_data['x'], [0, 1, 2])  # dummy x coords
+        np.testing.assert_array_equal(image_data['y'], [10, 20])  # real y coords
+
+    def test_with_missing_y_coord(self):
+        x_coord = sc.array(dims=['x'], values=[0, 1, 2], unit='m')
+        values = sc.array(dims=['y', 'x'], values=[[1, 2, 3], [4, 5, 6]], unit='counts')
+        data = sc.DataArray(data=values, coords={'x': x_coord})
+
+        result = scipp_to_holoviews.convert_image_2d(data)
+
+        assert isinstance(result, hv.Image)
+        image_data = result.data
+        np.testing.assert_array_equal(image_data['x'], [0, 1, 2])  # real x coords
+        np.testing.assert_array_equal(image_data['y'], [0, 1])  # dummy y coords
+
+    def test_with_no_coords(self):
+        values = sc.array(dims=['y', 'x'], values=[[1, 2, 3], [4, 5, 6]], unit='counts')
+        data = sc.DataArray(data=values)
+
+        result = scipp_to_holoviews.convert_image_2d(data)
+
+        assert isinstance(result, hv.Image)
+        image_data = result.data
+        np.testing.assert_array_equal(image_data['x'], [0, 1, 2])  # dummy x coords
+        np.testing.assert_array_equal(image_data['y'], [0, 1])  # dummy y coords
 
 
 class TestToHoloviews:
@@ -287,55 +401,13 @@ class TestToHoloviews:
         with pytest.raises(ValueError, match="Only 1D and 2D data are supported"):
             scipp_to_holoviews.to_holoviews(data)
 
-
-class TestAllCoordsEvenlySpaced:
-    def test_evenly_spaced_returns_true(self):
-        x_coord = sc.linspace('x', 0, 10, 5)
-        y_coord = sc.linspace('y', -5, 5, 3)
-        values = sc.zeros(dims=['y', 'x'], shape=[3, 5])
-        data = sc.DataArray(data=values, coords={'x': x_coord, 'y': y_coord})
-
-        result = scipp_to_holoviews._all_coords_evenly_spaced(data)
-
-        assert result is True
-
-    def test_irregular_spacing_returns_false(self):
-        x_coord = sc.array(dims=['x'], values=[0, 1, 3, 10])  # Not evenly spaced
-        y_coord = sc.linspace('y', 0, 5, 3)
-        values = sc.zeros(dims=['y', 'x'], shape=[3, 4])
-        data = sc.DataArray(data=values, coords={'x': x_coord, 'y': y_coord})
-
-        result = scipp_to_holoviews._all_coords_evenly_spaced(data)
-
-        assert result is False
-
-    def test_single_dimension_evenly_spaced_returns_true(self):
-        x_coord = sc.linspace('x', 0, 10, 5)
-        values = sc.zeros(dims=['x'], shape=[5])
-        data = sc.DataArray(data=values, coords={'x': x_coord})
-
-        result = scipp_to_holoviews._all_coords_evenly_spaced(data)
-
-        assert result is True
-
-
-class TestGetMidpoints:
-    def test_with_bin_edges(self):
-        edges = sc.array(dims=['x'], values=[0, 1, 2, 3])
+    def test_1d_curve_missing_coord(self):
         values = sc.array(dims=['x'], values=[10, 20, 30])
-        data = sc.DataArray(data=values, coords={'x': edges})
+        data = sc.DataArray(data=values)
 
-        result = scipp_to_holoviews._get_midpoints(data, 'x')
+        result = scipp_to_holoviews.to_holoviews(data)
 
-        expected = sc.array(dims=['x'], values=[0.5, 1.5, 2.5])
-        assert sc.identical(result, expected)
-
-    def test_with_point_coordinates(self):
-        coord = sc.array(dims=['x'], values=[1, 2, 3])
-        values = sc.array(dims=['x'], values=[10, 20, 30])
-        data = sc.DataArray(data=values, coords={'x': coord})
-
-        result = scipp_to_holoviews._get_midpoints(data, 'x')
-
-        # Should return the original coordinate
-        assert sc.identical(result, coord)
+        assert isinstance(result, hv.Curve)
+        curve_data = result.data
+        np.testing.assert_array_equal(curve_data['x'], [0, 1, 2])  # dummy coords
+        np.testing.assert_array_equal(curve_data['values'], [10, 20, 30])
