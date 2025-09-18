@@ -1,16 +1,18 @@
 # SPDX-License-Identifier: BSD-3-Clause
-# Copyright (c) 2024 Scipp contributors (https://github.com/scipp)
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 import numpy as np
+import pytest
 import scipp as sc
 from streaming_data_types import dataarray_da00
 
 from ess.livedata.kafka.scipp_da00_compat import da00_to_scipp, scipp_to_da00
 
 
-def test_scipp_to_da00_basic():
+@pytest.mark.parametrize("unit", [None, 'm', 's', 'counts'])
+def test_scipp_to_da00_basic(unit: str | None):
     # Create simple DataArray
     da = sc.DataArray(
-        data=sc.array(dims=['x'], values=[1, 2, 3], unit='counts'),
+        data=sc.array(dims=['x'], values=[1, 2, 3], unit=unit),
         coords={'x': sc.array(dims=['x'], values=[10, 20, 30], unit='m')},
     )
 
@@ -22,7 +24,7 @@ def test_scipp_to_da00_basic():
     data_var = next(var for var in variables if var.name == 'signal')
     x_var = next(var for var in variables if var.name == 'x')
 
-    assert data_var.unit == 'counts'
+    assert data_var.unit == unit
     assert np.array_equal(data_var.data, [1, 2, 3])
     assert data_var.axes == ['x']
 
