@@ -74,7 +74,8 @@ def convert_quadmesh_2d(data: sc.DataArray) -> hv.QuadMesh:
 def _get_midpoints(data: sc.DataArray, dim: str) -> sc.Variable:
     coord = data.coords[dim]
     if data.coords.is_edges(dim):
-        return sc.midpoints(coord, dim)
+        # See https://github.com/scipp/scipp/issues/3765 for why we convert to float64
+        return sc.midpoints(coord.to(dtype='float64', copy=False), dim)
     return coord
 
 
@@ -113,14 +114,19 @@ def _all_coords_evenly_spaced(data: sc.DataArray) -> bool:
 
 def to_holoviews(
     data: sc.DataArray,
+    preserve_edges: bool = False,
 ) -> hv.Histogram | hv.Curve | hv.QuadMesh | hv.Image:
     """
     Convert a scipp DataArray to a Holoviews object.
 
     Parameters
     ----------
-    data : sc.DataArray
+    data:
         The input scipp DataArray to convert.
+    preserve_edges:
+        If True, use QuadMesh for 2D data with bin edges instead of Image.
+        Default is False, which favors Image for better plotting performance.
+        Edges are always preserved for 1D histogram data.
 
     Returns
     -------
@@ -136,7 +142,11 @@ def to_holoviews(
         else:
             return convert_curve_1d(data)
     elif len(data.dims) == 2:
-        if _all_coords_evenly_spaced(data):
+        # Check if we have bin edges and user favors QuadMesh
+        has_bin_edges = any(data.coords.is_edges(dim) for dim in data.dims)
+        if preserve_edges and has_bin_edges:
+            return convert_quadmesh_2d(data)
+        elif _all_coords_evenly_spaced(data):
             return convert_image_2d(data)
         else:
             return convert_quadmesh_2d(data)
