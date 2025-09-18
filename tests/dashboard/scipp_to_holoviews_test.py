@@ -182,6 +182,22 @@ class TestConvertQuadMesh2d:
         np.testing.assert_array_equal(mesh_data['y'], [0, 10, 20])  # y edges
         np.testing.assert_array_equal(mesh_data['values'], [[1, 2, 3], [4, 5, 6]])
 
+    def test_with_mixed_midpoints_and_bin_edges(self):
+        # Test with bin edges (N+1 coordinates for N bins) only along y
+        x_edges = sc.array(dims=['x'], values=[0, 1, 2], unit='m')
+        y_edges = sc.array(dims=['y'], values=[0, 10, 20], unit='s')
+        values = sc.array(dims=['y', 'x'], values=[[1, 2, 3], [4, 5, 6]], unit='counts')
+        data = sc.DataArray(data=values, coords={'x': x_edges, 'y': y_edges})
+
+        result = scipp_to_holoviews.convert_quadmesh_2d(data)
+
+        assert isinstance(result, hv.QuadMesh)
+        mesh_data = result.data
+        # QuadMesh should preserve the bin edges
+        np.testing.assert_array_equal(mesh_data['x'], [0, 1, 2])  # x midpoints
+        np.testing.assert_array_equal(mesh_data['y'], [0, 10, 20])  # y edges
+        np.testing.assert_array_equal(mesh_data['values'], [[1, 2, 3], [4, 5, 6]])
+
     def test_with_missing_x_coord(self):
         y_coord = sc.array(dims=['y'], values=[4, 5], unit='s')
         values = sc.array(
@@ -263,6 +279,21 @@ class TestConvertImage2d:
         # Should use midpoints for coordinates
         image_data = result.data
         np.testing.assert_array_equal(image_data['x'], [0.5, 1.5, 2.5])  # x midpoints
+        np.testing.assert_array_equal(image_data['y'], [5, 15])  # y midpoints
+
+    def test_with_mixed_midpoints_and_bin_edges(self):
+        # Test with bin edges only along y
+        x_edges = sc.array(dims=['x'], values=[0, 1, 2], unit='m')
+        y_edges = sc.array(dims=['y'], values=[0, 10, 20], unit='s')
+        values = sc.array(dims=['y', 'x'], values=[[1, 2, 3], [4, 5, 6]], unit='counts')
+        data = sc.DataArray(data=values, coords={'x': x_edges, 'y': y_edges})
+
+        result = scipp_to_holoviews.convert_image_2d(data)
+
+        assert isinstance(result, hv.Image)
+        # Should use midpoints for coordinates
+        image_data = result.data
+        np.testing.assert_array_equal(image_data['x'], [0, 1, 2])  # x preserved
         np.testing.assert_array_equal(image_data['y'], [5, 15])  # y midpoints
 
     def test_with_missing_x_coord(self):
