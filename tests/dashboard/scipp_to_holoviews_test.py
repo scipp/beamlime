@@ -187,7 +187,7 @@ class TestConvertQuadMesh2d:
         x_coord = sc.array(dims=['x'], values=[0, 1, 2], unit='m')
         y_edges = sc.array(dims=['y'], values=[0, 10, 20], unit='s')
         values = sc.array(dims=['y', 'x'], values=[[1, 2, 3], [4, 5, 6]], unit='counts')
-        data = sc.DataArray(data=values, coords={'x': x_edges, 'y': y_edges})
+        data = sc.DataArray(data=values, coords={'x': x_coord, 'y': y_edges})
 
         result = scipp_to_holoviews.convert_quadmesh_2d(data)
 
@@ -286,7 +286,7 @@ class TestConvertImage2d:
         x_coord = sc.array(dims=['x'], values=[0, 1, 2], unit='m')
         y_edges = sc.array(dims=['y'], values=[0, 10, 20], unit='s')
         values = sc.array(dims=['y', 'x'], values=[[1, 2, 3], [4, 5, 6]], unit='counts')
-        data = sc.DataArray(data=values, coords={'x': x_edges, 'y': y_edges})
+        data = sc.DataArray(data=values, coords={'x': x_coord, 'y': y_edges})
 
         result = scipp_to_holoviews.convert_image_2d(data)
 
