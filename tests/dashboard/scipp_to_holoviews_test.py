@@ -184,7 +184,7 @@ class TestConvertQuadMesh2d:
 
     def test_with_mixed_midpoints_and_bin_edges(self):
         # Test with bin edges (N+1 coordinates for N bins) only along y
-        x_edges = sc.array(dims=['x'], values=[0, 1, 2], unit='m')
+        x_coord = sc.array(dims=['x'], values=[0, 1, 2], unit='m')
         y_edges = sc.array(dims=['y'], values=[0, 10, 20], unit='s')
         values = sc.array(dims=['y', 'x'], values=[[1, 2, 3], [4, 5, 6]], unit='counts')
         data = sc.DataArray(data=values, coords={'x': x_edges, 'y': y_edges})
