@@ -9,7 +9,8 @@ from typing import Any, Generic
 
 from ..handlers.config_handler import ConfigProcessor
 from .handler import Accumulator, HandlerFactory, HandlerRegistry
-from .job import JobFactory, JobManager, JobResult, JobStatus, WorkflowData
+from .job import JobResult, JobStatus, WorkflowData
+from .job_manager import JobFactory, JobManager
 from .job_manager_adapter import JobManagerAdapter
 from .message import (
     CONFIG_STREAM_ID,

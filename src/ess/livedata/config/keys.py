@@ -14,7 +14,7 @@ from ess.livedata.config.workflow_spec import (
     WorkflowConfig,
     WorkflowStatus,
 )
-from ess.livedata.core.job import JobCommand
+from ess.livedata.core.job_manager import JobCommand
 
 from .schema_registry import get_schema_registry
 
