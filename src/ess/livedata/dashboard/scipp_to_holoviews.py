@@ -144,8 +144,10 @@ def to_holoviews(
         The input scipp DataArray to convert.
     preserve_edges:
         If True, use QuadMesh for 2D data with bin edges instead of Image.
-        Default is False, which favors Image for better plotting performance.
-        Edges are always preserved for 1D histogram data.
+        Default is False, which favors Image for better plotting performance. An Image
+        can only be used with "midpoint" coords so this is slightly lossy. This option
+        allows for preserving edges when needed.
+        Edges are always preserved for 1D histogram data and this option is ignored.
 
     Returns
     -------
