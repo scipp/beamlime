@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import traceback
-from collections.abc import Hashable
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -149,8 +148,8 @@ class Job:
 
     def add(self, data: WorkflowData) -> JobError:
         try:
-            primary: dict[Hashable, Any] = {}
-            aux: dict[Hashable, Any] = {}
+            primary: dict[str, Any] = {}
+            aux: dict[str, Any] = {}
             for stream, value in data.data.items():
                 if stream.name in self._source_names:
                     primary[stream.name] = value
