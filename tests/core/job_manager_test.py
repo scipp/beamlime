@@ -5,8 +5,8 @@ import pytest
 import scipp as sc
 
 from ess.livedata.config.workflow_spec import JobSchedule, WorkflowConfig, WorkflowId
-from ess.livedata.core.job import Job, JobError, JobId, JobResult, WorkflowData
-from ess.livedata.core.job_manager import JobFactory, JobManager
+from ess.livedata.core.job import Job, JobError, JobId, JobResult
+from ess.livedata.core.job_manager import JobFactory, JobManager, WorkflowData
 from ess.livedata.core.message import StreamId
 
 from .job_test import FakeProcessor

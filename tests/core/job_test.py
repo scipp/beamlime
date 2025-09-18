@@ -8,7 +8,7 @@ import pytest
 import scipp as sc
 
 from ess.livedata.config.workflow_spec import JobSchedule, WorkflowId
-from ess.livedata.core.job import Job, JobId, JobResult, WorkflowData
+from ess.livedata.core.job import Job, JobData, JobId, JobResult
 from ess.livedata.core.message import StreamId
 from ess.livedata.handlers.workflow_factory import Workflow
 

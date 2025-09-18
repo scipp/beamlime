@@ -12,21 +12,22 @@ import scipp as sc
 from ess.livedata.handlers.workflow_factory import Workflow
 
 from ..config.workflow_spec import JobId, ResultKey, WorkflowId
-from .message import StreamId
 
 
 @dataclass(slots=True, kw_only=True)
-class WorkflowData:
-    """
-    Data to be processed by a workflow.
-
-    All timestamps are in nanoseconds since the epoch (UTC) and reference the timestamps
-    of the raw data being processed (as opposed to when it was processed).
-    """
-
+class JobData:
     start_time: int
     end_time: int
-    data: dict[StreamId, Any]
+    primary_data: dict[str, Any]
+    aux_data: dict[str, Any]
+
+    def is_empty(self) -> bool:
+        """Check if there is no data in both primary and auxiliary data."""
+        return not (self.primary_data or self.aux_data)
+
+    def is_active(self) -> bool:
+        """Check if there is any primary data, meaning the job is truly "active"."""
+        return bool(self.primary_data)
 
 
 @dataclass(slots=True, kw_only=True)
@@ -154,20 +155,18 @@ class Job:
     def aux_source_names(self) -> list[str]:
         return self._aux_source_names
 
-    def add(self, data: dict[str, Any]) -> JobError:
+    def add(self, data: JobData) -> JobError:
         try:
-            self._processor.accumulate(data)
+            self._processor.accumulate({**data.primary_data, **data.aux_data})
+            if data.is_active():
+                if self._start_time is None:
+                    self._start_time = data.start_time
+                self._end_time = data.end_time
             return JobError(job_id=self._job_id)
         except Exception:
             tb = traceback.format_exc()
             message = f"Job failed to process latest data.\n\n{tb}"
             return JobError(job_id=self._job_id, error_message=message)
-
-    def update_times(self, start_time: int, end_time: int) -> None:
-        """Update the start and end times for this job."""
-        if self._start_time is None:
-            self._start_time = start_time
-        self._end_time = end_time
 
     def get(self) -> JobResult:
         try:

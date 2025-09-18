@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, ClassVar
 
@@ -12,7 +13,22 @@ import pydantic
 from ess.livedata.config.instrument import Instrument
 
 from ..config.workflow_spec import JobId, JobSchedule, WorkflowConfig, WorkflowId
-from .job import Job, JobError, JobResult, JobState, JobStatus, WorkflowData
+from .job import Job, JobData, JobError, JobResult, JobState, JobStatus
+from .message import StreamId
+
+
+@dataclass(slots=True, kw_only=True)
+class WorkflowData:
+    """
+    Data to be processed by a workflow.
+
+    All timestamps are in nanoseconds since the epoch (UTC) and reference the timestamps
+    of the raw data being processed (as opposed to when it was processed).
+    """
+
+    start_time: int
+    end_time: int
+    data: dict[StreamId, Any]
 
 
 class DifferentInstrument(Exception):
@@ -246,26 +262,27 @@ class JobManager:
 
     def _push_data_to_job(self, job: Job, data: WorkflowData) -> JobError | None:
         # Filter data for this specific job
-        primary_data: dict[str, Any] = {}
-        aux_data: dict[str, Any] = {}
+        job_data = JobData(
+            start_time=data.start_time,
+            end_time=data.end_time,
+            primary_data={},
+            aux_data={},
+        )
 
         for stream, value in data.data.items():
             if stream.name in job.source_names:
-                primary_data[stream.name] = value
+                job_data.primary_data[stream.name] = value
             elif stream.name in job.aux_source_names:
-                aux_data[stream.name] = value
+                job_data.aux_data[stream.name] = value
 
         # Only process if we have relevant data
-        if not (primary_data or aux_data):
+        if job_data.is_empty():
             return None
 
-        # Update job times and track primary data updates
-        if primary_data:
-            job.update_times(data.start_time, data.end_time)
+        # Track primary data updates
+        if job_data.is_active():
             self._jobs_with_primary_data.add(job.job_id)
-
-        combined_data = {**primary_data, **aux_data}
-        error = job.add(combined_data)
+        error = job.add(job_data)
 
         # Track warnings from job operations, or clear them on success
         if error.has_error and error.error_message is not None:
