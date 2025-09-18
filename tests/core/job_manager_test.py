@@ -1102,3 +1102,157 @@ class TestJobManager:
         results = manager.compute_results()
         assert len(results) == 1
         assert results[0].error_message is None
+
+    def test_jobs_with_finalize_errors_will_compute_again_without_new_primary_data(
+        self, fake_job_factory
+    ):
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
+        job_id = manager.schedule_job("test_source", config)
+
+        # Activate job and push data
+        data = WorkflowData(
+            start_time=100,
+            end_time=200,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+        manager.push_data(data)
+
+        # Induce finalize failure
+        processor = fake_job_factory.processors[job_id]
+        processor.should_fail_finalize = True
+
+        results = manager.compute_results()
+        assert len(results) == 1
+        assert results[0].error_message is not None
+
+        # Fix the processor and call compute_results again without new data
+        processor.should_fail_finalize = False
+        results = manager.compute_results()
+        assert len(results) == 1
+        assert results[0].error_message is None
+
+    def test_successful_jobs_will_not_compute_again_without_new_primary_data(
+        self, fake_job_factory
+    ):
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
+        job_id = manager.schedule_job("test_source", config)
+
+        # Activate job and push data
+        data = WorkflowData(
+            start_time=100,
+            end_time=200,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+        manager.push_data(data)
+        assert len(manager.active_jobs) == 1
+        assert manager.active_jobs[0].job_id == job_id
+
+        # Compute results successfully
+        results = manager.compute_results()
+        assert len(results) == 1
+        assert results[0].error_message is None
+
+        # Calling compute_results again should not include this job
+        results = manager.compute_results()
+        assert len(results) == 0
+
+    def test_jobs_without_primary_data_not_included_in_compute_results(
+        self, fake_job_factory
+    ):
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
+        job_id1 = manager.schedule_job("source1", config)
+        job_id2 = manager.schedule_job("source2", config)
+
+        # Activate both jobs with initial data
+        initial_data = WorkflowData(
+            start_time=100,
+            end_time=150,
+            data={
+                StreamId(name="source1"): sc.scalar(10.0),
+                StreamId(name="source2"): sc.scalar(20.0),
+            },
+        )
+        manager.push_data(initial_data)
+        assert len(manager.active_jobs) == 2
+        assert {job.job_id for job in manager.active_jobs} == {job_id1, job_id2}
+
+        # Compute results - both jobs should be processed
+        results = manager.compute_results()
+        assert len(results) == 2
+
+        # Push data for only one job
+        new_data = WorkflowData(
+            start_time=151,
+            end_time=200,
+            data={StreamId(name="source1"): sc.scalar(15.0)},
+        )
+        manager.push_data(new_data)
+
+        # Compute results - only job1 should be processed
+        results = manager.compute_results()
+        assert len(results) == 1
+        assert results[0].job_id == job_id1
+
+    def test_auxiliary_data_only_does_not_trigger_compute_results(
+        self, fake_job_factory
+    ):
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
+        job_id = manager.schedule_job("test_source", config)
+
+        # Activate job with initial primary data
+        initial_data = WorkflowData(
+            start_time=100,
+            end_time=150,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+        manager.push_data(initial_data)
+        assert len(manager.active_jobs) == 1
+        assert manager.active_jobs[0].job_id == job_id
+
+        # Compute results
+        results = manager.compute_results()
+        assert len(results) == 1
+
+        # Push only auxiliary data
+        aux_data = WorkflowData(
+            start_time=151,
+            end_time=200,
+            data={StreamId(name="aux_source"): sc.scalar(99.0)},
+        )
+        manager.push_data(aux_data)
+
+        # Compute results should not include this job
+        results = manager.compute_results()
+        assert len(results) == 0
