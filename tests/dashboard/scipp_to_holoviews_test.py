@@ -194,7 +194,7 @@ class TestConvertQuadMesh2d:
         assert isinstance(result, hv.QuadMesh)
         mesh_data = result.data
         # QuadMesh should preserve the bin edges
-        np.testing.assert_array_equal(mesh_data['x'], [0, 1, 2])  # x midpoints
+        np.testing.assert_array_equal(mesh_data['x'], [0, 1, 2])  # x preserved
         np.testing.assert_array_equal(mesh_data['y'], [0, 10, 20])  # y edges
         np.testing.assert_array_equal(mesh_data['values'], [[1, 2, 3], [4, 5, 6]])
 
