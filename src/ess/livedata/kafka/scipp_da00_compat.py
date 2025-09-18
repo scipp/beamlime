@@ -49,7 +49,7 @@ def _to_da00_variable(name: str, var: sc.Variable) -> dataarray_da00.Variable:
         data=var.values,
         axes=list(var.dims),
         shape=var.shape,
-        unit=str(var.unit),
+        unit=None if var.unit is None else str(var.unit),
     )
 
 
