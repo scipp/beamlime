@@ -298,8 +298,7 @@ class JobManager:
 
     def compute_results(self) -> list[JobResult]:
         """
-        Compute results from jobs that received primary data since last call.
-        This may include processing the accumulated data and preparing it for output.
+        Compute results from jobs that received primary data since last successful call.
         """
         results = []
         # Only compute results for jobs that received primary data
@@ -320,9 +319,12 @@ class JobManager:
                     self._job_states[job.job_id] = JobState.warning
                 else:
                     self._job_states[job.job_id] = JobState.active
+                # Remove from the tracking set only of we successfully computed results.
+                # If there was an error we keep it in the set to retry next time, which
+                # can be important of a job has not yet initialized itself with the
+                # first auxiliary data yet.
+                self._jobs_with_primary_data.remove(job.job_id)
 
-        # Clear the tracking set after computing results
-        self._jobs_with_primary_data.clear()
         self._finish_jobs()
         return results
 
