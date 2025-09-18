@@ -146,7 +146,10 @@ class TestJobManager:
         data = WorkflowData(
             start_time=100,
             end_time=200,
-            data={StreamId(name="source1"): sc.scalar(42.0)},
+            data={
+                StreamId(name="source1"): sc.scalar(42.0),
+                StreamId(name="source2"): sc.scalar(24.0),
+            },
         )
         statuses = manager.push_data(data)
 
@@ -219,7 +222,7 @@ class TestJobManager:
         )
         statuses = manager.push_data(later_data)
         assert len(manager.active_jobs) == 2
-        assert len(statuses) == 2
+        assert len(statuses) == 1  # Only job2 gets data this time
 
     def test_push_data_feeds_active_jobs(self, fake_job_factory, base_workflow_config):
         """Test that pushing data feeds all active jobs."""
@@ -345,7 +348,10 @@ class TestJobManager:
         data = WorkflowData(
             start_time=100,
             end_time=200,
-            data={StreamId(name="source1"): sc.scalar(42.0)},
+            data={
+                StreamId(name="source1"): sc.scalar(42.0),
+                StreamId(name="source2"): sc.scalar(24.0),
+            },
         )
         manager.push_data(data)
 
@@ -414,7 +420,10 @@ class TestJobManager:
         later_data = WorkflowData(
             start_time=200,
             end_time=250,
-            data={StreamId(name="source1"): sc.scalar(20.0)},
+            data={
+                StreamId(name="source1"): sc.scalar(20.0),
+                StreamId(name="source2"): sc.scalar(15.0),
+            },
         )
         manager.push_data(later_data)
         assert len(manager.active_jobs) == 2
@@ -423,7 +432,10 @@ class TestJobManager:
         finishing_data = WorkflowData(
             start_time=251,
             end_time=300,
-            data={StreamId(name="source1"): sc.scalar(30.0)},
+            data={
+                StreamId(name="source1"): sc.scalar(30.0),
+                StreamId(name="source2"): sc.scalar(25.0),
+            },
         )
         manager.push_data(finishing_data)
 
@@ -559,13 +571,16 @@ class TestJobManager:
         intermediate_data = WorkflowData(
             start_time=175,
             end_time=180,
-            data={StreamId(name="source2"): sc.scalar(5.0)},
+            data={
+                StreamId(name="source2"): sc.scalar(5.0),
+                StreamId(name="source3"): sc.scalar(5.0),
+            },
         )
         manager.push_data(intermediate_data)
 
         # Compute results should finish job1
         results = manager.compute_results()
-        assert len(results) == 3  # All jobs return results
+        assert len(results) == 3
         assert len(manager.active_jobs) == 2  # Job1 should be removed
 
         # Push data with start_time=250, should finish job2 (end_time=200) but not job3
@@ -578,7 +593,7 @@ class TestJobManager:
 
         # Compute results should finish job2
         results = manager.compute_results()
-        assert len(results) == 2  # Both remaining jobs return results
+        assert len(results) == 1  # Only job3 returns result (got recent data)
         assert len(manager.active_jobs) == 1  # Only job3 should remain
 
     def test_job_finishing_edge_case_exact_schedule_end_time(self, fake_job_factory):
@@ -1034,14 +1049,14 @@ class TestJobManager:
         )
         manager.push_data(new_data)
 
-        # Job should still update its time window even with error
+        # Job should still be active (time window doesn't update on error)
         assert len(manager.active_jobs) == 1
         assert manager.active_jobs[0].start_time == 100
-        assert manager.active_jobs[0].end_time == 250  # Updated despite error
+        assert manager.active_jobs[0].end_time == 200  # Not updated due to error
 
         results = manager.compute_results()
         assert len(results) == 1
-        # Finalize fails if the latest data push failed.
+        # Finalize succeeds if accumulate failed (no new data was actually added)
         assert results[0].error_message is None
 
     def test_finalize_failure_handled_gracefully(self, fake_job_factory):
@@ -1075,8 +1090,15 @@ class TestJobManager:
         assert results[0].error_message is not None
         assert len(manager.active_jobs) == 1
 
+        # Push more data so job gets included in next compute_results
+        more_data = WorkflowData(
+            start_time=201,
+            end_time=250,
+            data={StreamId(name="test_source"): sc.scalar(24.0)},
+        )
+        manager.push_data(more_data)
+
         processor.should_fail_finalize = False
         results = manager.compute_results()
         assert len(results) == 1
-        assert len(manager.active_jobs) == 1
         assert results[0].error_message is None

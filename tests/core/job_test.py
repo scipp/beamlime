@@ -9,7 +9,6 @@ import scipp as sc
 
 from ess.livedata.config.workflow_spec import JobSchedule, WorkflowId
 from ess.livedata.core.job import Job, JobData, JobId, JobResult
-from ess.livedata.core.message import StreamId
 from ess.livedata.handlers.workflow_factory import Workflow
 
 
@@ -104,15 +103,12 @@ def sample_job(fake_processor: FakeProcessor, sample_workflow_id: WorkflowId):
 
 
 @pytest.fixture
-def sample_workflow_data():
-    return WorkflowData(
+def sample_job_data():
+    return JobData(
         start_time=100,
         end_time=200,
-        data={
-            StreamId(name="test_source"): sc.scalar(42.0),
-            StreamId(name="aux_source"): sc.scalar(10.0),
-            StreamId(name="unknown_source"): sc.scalar(99.0),  # Should be ignored
-        },
+        primary_data={"test_source": sc.scalar(42.0)},
+        aux_data={"aux_source": sc.scalar(10.0)},
     )
 
 
@@ -178,9 +174,9 @@ class TestJob:
         assert sample_job.start_time is None
         assert sample_job.end_time is None
 
-    def test_add_data_sets_times(self, sample_job, sample_workflow_data):
+    def test_add_data_sets_times(self, sample_job, sample_job_data):
         """Test that adding data sets start and end times."""
-        status = sample_job.add(sample_workflow_data)
+        status = sample_job.add(sample_job_data)
 
         assert not status.has_error
         assert status.error_message is None
@@ -189,15 +185,17 @@ class TestJob:
 
     def test_add_data_multiple_times_updates_end_time(self, sample_job):
         """Test that adding data multiple times only updates end time."""
-        data1 = WorkflowData(
+        data1 = JobData(
             start_time=100,
             end_time=150,
-            data={StreamId(name="test_source"): sc.scalar(10.0)},
+            primary_data={"test_source": sc.scalar(10.0)},
+            aux_data={},
         )
-        data2 = WorkflowData(
+        data2 = JobData(
             start_time=120,
             end_time=250,
-            data={StreamId(name="test_source"): sc.scalar(20.0)},
+            primary_data={"test_source": sc.scalar(20.0)},
+            aux_data={},
         )
 
         status1 = sample_job.add(data1)
@@ -210,32 +208,41 @@ class TestJob:
         assert sample_job.start_time == 100  # Should not change
         assert sample_job.end_time == 250  # Should update
 
-    def test_add_data_filters_by_source_mapping(self, sample_job, fake_processor):
-        """Test that add() only processes data from mapped sources."""
-        data = WorkflowData(
+    def test_add_data_processes_all_provided_data(self, sample_job, fake_processor):
+        """Test that add() processes all provided data."""
+        data = JobData(
             start_time=100,
             end_time=200,
-            data={
-                StreamId(name="test_source"): sc.scalar(42.0),
-                StreamId(name="aux_source"): sc.scalar(10.0),
-                StreamId(name="unmapped_source"): sc.scalar(99.0),
-            },
+            primary_data={"test_source": sc.scalar(42.0)},
+            aux_data={"aux_source": sc.scalar(10.0)},
         )
 
         status = sample_job.add(data)
         assert not status.has_error
 
-        # Check that processor received only mapped data
+        # Check that processor received all data
         assert len(fake_processor.accumulate_calls) == 1
         accumulated = fake_processor.accumulate_calls[0]
         assert "test_source" in accumulated
         assert "aux_source" in accumulated
         assert accumulated["test_source"] == sc.scalar(42.0)
         assert accumulated["aux_source"] == sc.scalar(10.0)
-        # unmapped_source should not appear
-        assert (
-            len(accumulated) == 2
-        )  # Only test_source and aux_source should be present
+        assert len(accumulated) == 2
+
+    def test_add_data_with_no_primary_data_does_not_set_times(self, sample_job):
+        """Test that adding data with no primary data doesn't set start/end times."""
+        data = JobData(
+            start_time=100,
+            end_time=200,
+            primary_data={},
+            aux_data={"aux_source": sc.scalar(10.0)},
+        )
+
+        status = sample_job.add(data)
+        assert not status.has_error
+        # Times should remain None since no primary data was provided
+        assert sample_job.start_time is None
+        assert sample_job.end_time is None
 
     def test_add_data_error_handling(self, fake_processor, sample_workflow_id):
         """Test error handling during data processing."""
@@ -250,10 +257,11 @@ class TestJob:
         # Make processor fail
         fake_processor.should_fail_accumulate = True
 
-        data = WorkflowData(
+        data = JobData(
             start_time=100,
             end_time=200,
-            data={StreamId(name="test_source"): sc.scalar(42.0)},
+            primary_data={"test_source": sc.scalar(42.0)},
+            aux_data={},
         )
 
         status = job.add(data)
@@ -272,10 +280,11 @@ class TestJob:
             source_names=["test_source"],
         )
 
-        data = WorkflowData(
+        data = JobData(
             start_time=100,
             end_time=200,
-            data={StreamId(name="test_source"): sc.scalar(42.0)},
+            primary_data={"test_source": sc.scalar(42.0)},
+            aux_data={},
         )
 
         # First, cause an error
@@ -294,9 +303,9 @@ class TestJob:
         assert result.error_message is None
         assert result.data is not None
 
-    def test_get_returns_job_result(self, sample_job, sample_workflow_data):
+    def test_get_returns_job_result(self, sample_job, sample_job_data):
         """Test that get() returns a proper JobResult."""
-        sample_job.add(sample_workflow_data)
+        sample_job.add(sample_job_data)
         result = sample_job.get()
 
         assert isinstance(result, JobResult)
@@ -324,10 +333,11 @@ class TestJob:
         )
 
         # Add some data successfully
-        data = WorkflowData(
+        data = JobData(
             start_time=100,
             end_time=200,
-            data={StreamId(name="test_source"): sc.scalar(42.0)},
+            primary_data={"test_source": sc.scalar(42.0)},
+            aux_data={},
         )
         job.add(data)
 
@@ -341,10 +351,10 @@ class TestJob:
         assert result.data is None
 
     def test_reset_clears_processor_and_times(
-        self, sample_job, sample_workflow_data, fake_processor
+        self, sample_job, sample_job_data, fake_processor
     ):
         """Test that reset() clears processor and resets times."""
-        sample_job.add(sample_workflow_data)
+        sample_job.add(sample_job_data)
         assert sample_job.start_time == 100
         assert sample_job.end_time == 200
 
@@ -366,10 +376,11 @@ class TestJob:
 
         # Cause an error
         fake_processor.should_fail_accumulate = True
-        data = WorkflowData(
+        data = JobData(
             start_time=100,
             end_time=200,
-            data={StreamId(name="test_source"): sc.scalar(42.0)},
+            primary_data={"test_source": sc.scalar(42.0)},
+            aux_data={},
         )
         job.add(data)
 
