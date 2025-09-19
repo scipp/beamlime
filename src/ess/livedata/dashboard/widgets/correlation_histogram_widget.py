@@ -61,9 +61,11 @@ class CorrelationHistogramWidget:
                     'output_name': key.output_name or '',
                     'result_key': key,
                 }
-                for key in set(timeseries_keys) - {'result_key'}
+                for key in timeseries_keys
             ]
         )
+        if timeseries_keys:
+            self._result_key = data.pop('result_key')
         self._tabulator.value = data
         self._on_selection_change()  # Update button state
 
