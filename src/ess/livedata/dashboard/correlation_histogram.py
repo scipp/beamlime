@@ -10,7 +10,13 @@ import numpy as np
 import pydantic
 import scipp as sc
 
-from ess.livedata.config.workflow_spec import JobId, JobNumber, ResultKey, WorkflowId
+from ess.livedata.config.workflow_spec import (
+    JobId,
+    JobNumber,
+    ResultKey,
+    WorkflowId,
+    WorkflowSpec,
+)
 from ess.livedata.parameter_models import EdgesModel, make_edges
 
 from .data_service import DataService
@@ -41,6 +47,28 @@ class CorrelationHistogram1dParams(CorrelationHistogramParams):
 class CorrelationHistogram2dParams(CorrelationHistogramParams):
     x_edges: EdgesWithUnit
     y_edges: EdgesWithUnit
+
+
+# Next: Pass WorkflowId from this into BoundCorrelationHistogramController so that
+# it could launch job on backend?
+
+
+def make_workflow_spec(
+    source_names: list[str], aux_source_names: list[str]
+) -> WorkflowSpec:
+    ndim = len(aux_source_names)
+    params = {1: CorrelationHistogram1dParams, 2: CorrelationHistogram2dParams}
+    return WorkflowSpec(
+        instrument='frontend',  # As long as we are running in the frontend
+        namespace='correlation',
+        name=f'correlation_histogram_{ndim}d',
+        title=f'{ndim}D Correlation Histogram',
+        version=1,
+        description=f'{ndim}D correlation histogram workflow',
+        source_names=source_names,
+        aux_source_names=aux_source_names,
+        params=params[ndim],
+    )
 
 
 def _make_edges_field(name: str, coord: sc.DataArray) -> Any:
