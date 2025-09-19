@@ -43,9 +43,12 @@ def _get_interval(
         counts = data.bins['event_time_offset', start:stop].sum()
         counts.coords['time'] = data.coords['event_time_zero'][0]
     else:
-        counts = data['event_time_offset', start:stop].sum()
-        # TODO start_time from WorkflowData in Job?
-        # counts.coords['time'] = data.coords['start_time']
+        # Include the full time(of arrival) bin at start and stop. Do we need more
+        # precision here?
+        # Note the current ECDC convention: time is the time offset w.r.t. the frame,
+        # i.e., the pulse, frame_time is the absolute time (since epoch).
+        counts = data['time', start:stop].sum()
+        counts.coords['time'] = data.coords['frame_time'][0]
     return MonitorCountsInInterval(counts)
 
 
