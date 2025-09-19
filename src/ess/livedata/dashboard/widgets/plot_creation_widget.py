@@ -239,8 +239,15 @@ class PlotCreationWidget:
                     ]
                 )
 
-        # Convert to DataFrame for Tabulator widget
-        self._job_output_table.value = pd.DataFrame(job_output_data)
+        if job_output_data:
+            # Convert to DataFrame for Tabulator widget
+            df = pd.DataFrame(job_output_data)
+        else:
+            # Empty DataFrame with correct columns
+            df = pd.DataFrame(
+                columns=['job_number', 'workflow_name', 'output_name', 'source_names']
+            )
+        self._job_output_table.value = df
 
     def _on_job_output_selection_change(self, event) -> None:
         """Handle job and output selection change."""
