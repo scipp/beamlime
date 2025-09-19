@@ -319,10 +319,10 @@ class JobManager:
                     self._job_states[job.job_id] = JobState.warning
                 else:
                     self._job_states[job.job_id] = JobState.active
-                # Remove from the tracking set only of we successfully computed results.
+                # Remove from the tracking set only if we successfully computed results.
                 # If there was an error we keep it in the set to retry next time, which
-                # can be important of a job has not yet initialized itself with the
-                # first auxiliary data yet.
+                # can be important if a job has not yet initialized itself with the
+                # first auxiliary data.
                 self._jobs_with_primary_data.remove(job.job_id)
 
         self._finish_jobs()
