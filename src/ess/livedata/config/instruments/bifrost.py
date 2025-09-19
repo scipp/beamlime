@@ -33,6 +33,7 @@ from ess.reduce.nexus.types import (
 from ess.spectroscopy.indirect.time_of_flight import TofWorkflow
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
+from ._bifrost_reduction import register_qcut_workflows
 
 
 def _to_flat_detector_view(obj: sc.Variable | sc.DataArray) -> sc.DataArray:
@@ -234,6 +235,7 @@ def _spectrum_view(params: BifrostWorkflowParams) -> StreamProcessorWorkflow:
     )
 
 
+register_qcut_workflows(instrument)
 register_monitor_timeseries_workflows(instrument, source_names=monitor_names)
 
 
