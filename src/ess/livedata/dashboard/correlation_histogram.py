@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 import numpy as np
 import pydantic
@@ -29,43 +29,18 @@ class EdgesWithUnit(EdgesModel):
 
 
 class CorrelationHistogramParams(pydantic.BaseModel):
-    _x_dim: str
-    _y_dim: str | None = None
-
-    def get_all_edges(self) -> dict[str, sc.Variable]:
-        if (x_edges := getattr(self, 'x_edges', None)) is None:
-            raise ValueError("x_edges is not set.")
-        edges = {self._x_dim: x_edges.make_edges(dim=self._x_dim)}
-        if self._y_dim is None:
-            return edges
-        if (y_edges := getattr(self, 'y_edges', None)) is None:
-            raise ValueError("y_edges is not set.")
-        edges[self._y_dim] = y_edges.make_edges(dim=self._y_dim)
-        return edges
+    # For now this is empty, will likely add params for, e.g., start_time and
+    # normalization in the future.
+    pass
 
 
-def make_params(coords: dict[str, sc.DataArray]) -> type[CorrelationHistogramParams]:
-    fields = [(name, _make_edges_field(name, coord)) for name, coord in coords.items()]
-    if not (0 < len(fields) < 3):
-        raise ValueError("Expected 1 or 2 coordinates for correlation histogram.")
+class CorrelationHistogram1dParams(CorrelationHistogramParams):
+    x_edges: EdgesWithUnit
 
-    x_dim, x_field = fields[0]
 
-    class CorrelationHistogram1dParams(CorrelationHistogramParams):
-        # TODO Add start_time, normalize
-        _x_dim: str = x_dim
-        x_edges: EdgesWithUnit = x_field
-
-    if len(fields) == 1:
-        return CorrelationHistogram1dParams
-
-    y_dim, y_field = fields[1]
-
-    class CorrelationHistogram2dParams(CorrelationHistogram1dParams):
-        _y_dim: str | None = y_dim
-        y_edges: EdgesWithUnit = y_field
-
-    return CorrelationHistogram2dParams
+class CorrelationHistogram2dParams(CorrelationHistogramParams):
+    x_edges: EdgesWithUnit
+    y_edges: EdgesWithUnit
 
 
 def _make_edges_field(name: str, coord: sc.DataArray) -> Any:
@@ -79,9 +54,10 @@ def _make_edges_field(name: str, coord: sc.DataArray) -> Any:
     )
 
 
-class CorrelationHistogramConfigurationAdapter(
-    ConfigurationAdapter[CorrelationHistogramParams]
-):
+Params = TypeVar('Params', bound=CorrelationHistogramParams)
+
+
+class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter[Params]):
     """
     Configuration adapter for correlation histogram.
 
@@ -94,21 +70,15 @@ class CorrelationHistogramConfigurationAdapter(
         *,
         title: str,
         description: str,
-        model_class: type[CorrelationHistogramParams],
-        result_keys: list[ResultKey],
-        axis_keys: list[ResultKey],
+        model_class: type[Params],
+        source_names: list[str],
         initial_parameter_values: dict[str, pydantic.BaseModel] | None = None,
-        start_action: Callable[
-            [list[ResultKey], list[ResultKey], CorrelationHistogramParams], None
-        ],
+        start_action: Callable[[list[str], Params], None],
     ) -> None:
         self._title = title
         self._description = description
         self._model_class = model_class
-        self._source_names = {
-            result_key.job_id.source_name: result_key for result_key in result_keys
-        }
-        self._axis_keys = axis_keys
+        self._source_names = source_names
         self._initial_parameter_values = initial_parameter_values or {}
         self._start_action = start_action
 
@@ -121,7 +91,7 @@ class CorrelationHistogramConfigurationAdapter(
         return self._description
 
     @property
-    def model_class(self) -> type[CorrelationHistogramParams]:
+    def model_class(self) -> type[Params]:
         return self._model_class
 
     @property
@@ -139,16 +109,9 @@ class CorrelationHistogramConfigurationAdapter(
         return self._initial_parameter_values
 
     def start_action(
-        self, selected_sources: list[str], parameter_values: CorrelationHistogramParams
+        self, selected_sources: list[str], parameter_values: Params
     ) -> bool:
-        selected_result_keys = [
-            self._source_names[source_name] for source_name in selected_sources
-        ]
-        self._start_action(
-            data_keys=selected_result_keys,
-            axis_keys=self._axis_keys,
-            params=parameter_values,
-        )
+        self._start_action(selected_sources=selected_sources, params=parameter_values)
         return True
 
 
@@ -195,23 +158,64 @@ class CorrelationHistogramController:
         # All timeseries except the axis keys can be used as dependent variables. These
         # will thus be shown by the widget in the "source selection" menu.
         result_keys = [key for key in self.get_timeseries() if key not in axis_keys]
+        source_names = [key.job_id.source_name for key in result_keys]
         coords = {key.job_id.source_name: self._data_service[key] for key in axis_keys}
         ndim = len(coords)
-        return CorrelationHistogramConfigurationAdapter(
-            title=f"{ndim}D Correlation Histogram",
-            description=f"Configure parameters for a {ndim}D correlation histogram.",
-            model_class=make_params(coords),
-            result_keys=result_keys,
-            axis_keys=axis_keys,
-            start_action=self.start_workflows,
-        )
+        fields = [_make_edges_field(name, coord) for name, coord in coords.items()]
+        match ndim:
+            case 1:
 
-    def start_workflows(
+                class Configured1dParams(CorrelationHistogram1dParams):
+                    x_edges: EdgesWithUnit = fields[0]
+
+                bound_controller = BoundCorrelationHistogramController[
+                    CorrelationHistogram1dParams
+                ](data_keys=result_keys, axis_keys=axis_keys, controller=self)
+                return CorrelationHistogramConfigurationAdapter[
+                    CorrelationHistogram1dParams
+                ](
+                    title=f"{ndim}D Correlation Histogram",
+                    description=f"Configure parameters for a {ndim}D correlation histogram.",
+                    model_class=Configured1dParams,
+                    source_names=source_names,
+                    start_action=bound_controller.start_workflows,
+                )
+            case 2:
+
+                class Configured2dParams(CorrelationHistogram2dParams):
+                    x_edges: EdgesWithUnit = fields[0]
+                    y_edges: EdgesWithUnit = fields[1]
+
+                bound_controller = BoundCorrelationHistogramController[
+                    CorrelationHistogram2dParams
+                ](data_keys=result_keys, axis_keys=axis_keys, controller=self)
+                return CorrelationHistogramConfigurationAdapter[
+                    CorrelationHistogram2dParams
+                ](
+                    title=f"{ndim}D Correlation Histogram",
+                    description=f"Configure parameters for a {ndim}D correlation histogram.",
+                    model_class=Configured2dParams,
+                    source_names=source_names,
+                    start_action=bound_controller.start_workflows,
+                )
+            case _:
+                raise ValueError(
+                    "Expected 1 or 2 coordinates for correlation histogram."
+                )
+
+
+class BoundCorrelationHistogramController(Generic[Params]):
+    def __init__(
         self,
         data_keys: list[ResultKey],
         axis_keys: list[ResultKey],
-        params: CorrelationHistogramParams,
+        controller: CorrelationHistogramController,
     ) -> None:
+        self._data_keys = data_keys
+        self._axis_keys = axis_keys
+        self._controller = controller
+
+    def start_workflows(self, selected_sources: list[str], params: Params) -> None:
         """
         Called by widget when user starts the workflow with concrete params.
 
@@ -229,23 +233,39 @@ class CorrelationHistogramController:
         params:
             The parameters to use for the correlation histograms.
         """
-        data = {key: self._data_service[key] for key in data_keys}
-        axes = {key: self._data_service[key] for key in axis_keys}
+        data_keys = [
+            key for key in self._data_keys if key.job_id.source_name in selected_sources
+        ]
+        data = {key: self._controller._data_service[key] for key in data_keys}
+        axes = {key: self._controller._data_service[key] for key in self._axis_keys}
         job_number = uuid.uuid4()  # New unique job number shared by all workflows
+
+        # Note: If we switch to running correlation histogramming in a separate
+        # service, at this point we would create a WorkflowConfig (for each data key),
+        # with the axis keys as auxiliary source names and submit it. What follows is a
+        # local setup and run of the correlation histogrammer workflow.
+
+        if isinstance(params, CorrelationHistogram1dParams):
+            edges = [params.x_edges]
+        elif isinstance(params, CorrelationHistogram2dParams):
+            edges = [params.x_edges, params.y_edges]
+        else:
+            raise ValueError("Expected 1d or 2d correlation histogram parameters.")
         for key, value in data.items():
             pipe_factory = make_correlation_histogrammer_pipe_factory(
                 data_key=key,
-                coord_keys=axis_keys,
-                params=params,
+                coord_keys=self._axis_keys,
+                edges_params=edges,
                 job_number=job_number,
-                data_service=self._data_service,
+                data_service=self._controller._data_service,
             )
             stream_manager = StreamManager(
-                data_service=self._data_service, pipe_factory=pipe_factory
+                data_service=self._controller._data_service, pipe_factory=pipe_factory
             )
             # Subscribes to DataService internally
             pipe = stream_manager.make_merging_stream({key: value, **axes})
-            self._pipes.append(pipe)  # Keep a reference to avoid garbage collection
+            # Keep a reference to avoid garbage collection
+            self._controller._pipes.append(pipe)
 
 
 def _is_timeseries(da: sc.DataArray) -> bool:
@@ -255,7 +275,7 @@ def _is_timeseries(da: sc.DataArray) -> bool:
 def make_correlation_histogrammer_pipe_factory(
     data_key: ResultKey,
     coord_keys: list[ResultKey],
-    params: CorrelationHistogramParams,
+    edges_params: list[EdgesWithUnit],
     job_number: JobNumber,
     data_service: DataService[ResultKey, sc.DataArray],
 ) -> Any:
@@ -270,12 +290,22 @@ def make_correlation_histogrammer_pipe_factory(
         def __init__(self, data: dict[ResultKey, sc.DataArray]) -> None:
             self._data_key = data_key
             self._data_service = data_service
-            self._histogrammer = CorrelationHistogrammer(edges=params.get_all_edges())
             self._coords = {key: key.job_id.source_name for key in coord_keys}
+            edges = {
+                dim: edge.make_edges(dim=dim)
+                for dim, edge in zip(self._coords.values(), edges_params, strict=True)
+            }
+            self._histogrammer = CorrelationHistogrammer(edges=edges)
             self._result_key = ResultKey(
                 workflow_id=WorkflowId(
                     instrument=data_key.workflow_id.instrument,
                     namespace='correlation',
+                    # Name includes coords to avoid collisions. This won't work if the
+                    # backend wants to translate from a WorkflowId to a WorkflowSpec.
+                    # Ultimately we want the WorkflowSpec.aux_source_names to carry this
+                    # information, instead of having workflows created dynamically.
+                    # As the backend is job-based and we have a UUID for the job number,
+                    # this should not be a problem.
                     name=f'correlation_histogram_{"_".join(self._coords.values())}',
                     version=1,
                 ),
@@ -289,7 +319,6 @@ def make_correlation_histogrammer_pipe_factory(
         def send(self, data: dict[ResultKey, sc.DataArray]) -> None:
             coords = {name: data[key] for key, name in self._coords.items()}
             result = self._histogrammer(data[self._data_key], coords=coords)
-            # TODO Ensure still in transaction, or fix DataService
             self._data_service[self._result_key] = result
 
     return CorrelationHistogrammerPipe
