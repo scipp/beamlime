@@ -65,6 +65,7 @@ class ParamWidget:
             'description': description,
             'sizing_mode': 'stretch_width',
             'margin': (0, 5),
+            'disabled': field_info.frozen or False,
         }
 
         # Create widget based on type

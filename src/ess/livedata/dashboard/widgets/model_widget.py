@@ -106,6 +106,8 @@ class ModelWidget:
         widget_data = {}
 
         for field_name, field_info in self._model_class.model_fields.items():
+            if field_name.startswith('_'):
+                continue  # Skip private fields
             field_type: type[pydantic.BaseModel] = field_info.annotation  # type: ignore[assignment]
             values = get_defaults(field_type)
             values.update(root_defaults.get(field_name, {}))

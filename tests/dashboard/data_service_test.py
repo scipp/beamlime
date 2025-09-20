@@ -365,3 +365,369 @@ def test_transaction_multiple_operations_same_key(data_service: DataService[str,
     assert len(pipe.sent_data) == 1
     assert pipe.sent_data[0] == {"key1": 40}
     assert data_service["key1"] == 40
+
+
+class TestDataServiceUpdatingSubscribers:
+    """Test complex subscriber behavior where subscribers update the DataService."""
+
+    def test_subscriber_updates_service_immediately(self):
+        """Test subscriber updating service outside of transaction."""
+        service = DataService[str, int]()
+
+        class UpdatingSubscriber(DataSubscriber[str]):
+            def __init__(self, keys: set[str], service: DataService[str, int]):
+                super().__init__(FakeDataAssembler(keys), FakePipe())
+                self._service = service
+
+            def trigger(self, store: dict[str, int]) -> None:
+                super().trigger(store)
+                # Update derived data based on received data
+                if "input" in store:
+                    self._service["derived"] = store["input"] * 2
+
+        subscriber = UpdatingSubscriber({"input"}, service)
+        service.register_subscriber(subscriber)
+
+        # This should trigger the subscriber, which updates "derived"
+        service["input"] = 10
+
+        assert service["input"] == 10
+        assert service["derived"] == 20
+
+    def test_subscriber_updates_service_in_transaction(self):
+        """Test subscriber updating service at end of transaction."""
+        service = DataService[str, int]()
+
+        class UpdatingSubscriber(DataSubscriber[str]):
+            def __init__(self, keys: set[str], service: DataService[str, int]):
+                super().__init__(FakeDataAssembler(keys), FakePipe())
+                self._service = service
+
+            def trigger(self, store: dict[str, int]) -> None:
+                super().trigger(store)
+                if "input" in store:
+                    self._service["derived"] = store["input"] * 2
+
+        subscriber = UpdatingSubscriber({"input"}, service)
+        service.register_subscriber(subscriber)
+
+        with service.transaction():
+            service["input"] = 10
+            # "derived" should not exist yet during transaction
+            assert "derived" not in service
+
+        # After transaction, both keys should exist
+        assert service["input"] == 10
+        assert service["derived"] == 20
+
+    def test_multiple_subscribers_update_service(self):
+        """Test multiple subscribers updating different derived data."""
+        service = DataService[str, int]()
+
+        class MultiplierSubscriber(DataSubscriber[str]):
+            def __init__(
+                self,
+                keys: set[str],
+                service: DataService[str, int],
+                multiplier: int,
+            ):
+                super().__init__(FakeDataAssembler(keys), FakePipe())
+                self._service = service
+                self._multiplier = multiplier
+
+            def trigger(self, store: dict[str, int]) -> None:
+                super().trigger(store)
+                if "input" in store:
+                    key = f"derived_{self._multiplier}x"
+                    self._service[key] = store["input"] * self._multiplier
+
+        sub1 = MultiplierSubscriber({"input"}, service, 2)
+        sub2 = MultiplierSubscriber({"input"}, service, 3)
+        service.register_subscriber(sub1)
+        service.register_subscriber(sub2)
+
+        service["input"] = 10
+
+        assert service["input"] == 10
+        assert service["derived_2x"] == 20
+        assert service["derived_3x"] == 30
+
+    def test_cascading_subscriber_updates(self):
+        """Test subscribers that depend on derived data from other subscribers."""
+        service = DataService[str, int]()
+
+        class FirstLevelSubscriber(DataSubscriber[str]):
+            def __init__(self, service: DataService[str, int]):
+                super().__init__(FakeDataAssembler({"input"}), FakePipe())
+                self._service = service
+
+            def trigger(self, store: dict[str, int]) -> None:
+                super().trigger(store)
+                if "input" in store:
+                    self._service["level1"] = store["input"] * 2
+
+        class SecondLevelSubscriber(DataSubscriber[str]):
+            def __init__(self, service: DataService[str, int]):
+                super().__init__(FakeDataAssembler({"level1"}), FakePipe())
+                self._service = service
+
+            def trigger(self, store: dict[str, int]) -> None:
+                super().trigger(store)
+                if "level1" in store:
+                    self._service["level2"] = store["level1"] * 3
+
+        sub1 = FirstLevelSubscriber(service)
+        sub2 = SecondLevelSubscriber(service)
+        service.register_subscriber(sub1)
+        service.register_subscriber(sub2)
+
+        service["input"] = 5
+
+        assert service["input"] == 5
+        assert service["level1"] == 10
+        assert service["level2"] == 30
+
+    def test_cascading_updates_in_transaction(self):
+        """Test cascading updates within a transaction."""
+        service = DataService[str, int]()
+
+        class FirstLevelSubscriber(DataSubscriber[str]):
+            def __init__(self, service: DataService[str, int]):
+                super().__init__(FakeDataAssembler({"input"}), FakePipe())
+                self._service = service
+
+            def trigger(self, store: dict[str, int]) -> None:
+                super().trigger(store)
+                if "input" in store:
+                    self._service["level1"] = store["input"] * 2
+
+        class SecondLevelSubscriber(DataSubscriber[str]):
+            def __init__(self, service: DataService[str, int]):
+                super().__init__(FakeDataAssembler({"level1"}), FakePipe())
+                self._service = service
+
+            def trigger(self, store: dict[str, int]) -> None:
+                super().trigger(store)
+                if "level1" in store:
+                    self._service["level2"] = store["level1"] * 3
+
+        sub1 = FirstLevelSubscriber(service)
+        sub2 = SecondLevelSubscriber(service)
+        service.register_subscriber(sub1)
+        service.register_subscriber(sub2)
+
+        with service.transaction():
+            service["input"] = 5
+            service["other"] = 100
+            # No derived data should exist during transaction
+            assert "level1" not in service
+            assert "level2" not in service
+
+        # All data should exist after transaction
+        assert service["input"] == 5
+        assert service["other"] == 100
+        assert service["level1"] == 10
+        assert service["level2"] == 30
+
+    def test_subscriber_updates_multiple_keys(self):
+        """Test subscriber that updates multiple derived keys at once."""
+        service = DataService[str, int]()
+
+        class MultiUpdateSubscriber(DataSubscriber[str]):
+            def __init__(self, service: DataService[str, int]):
+                super().__init__(FakeDataAssembler({"input"}), FakePipe())
+                self._service = service
+
+            def trigger(self, store: dict[str, int]) -> None:
+                super().trigger(store)
+                if "input" in store:
+                    # Update multiple derived values
+                    with self._service.transaction():
+                        self._service["double"] = store["input"] * 2
+                        self._service["triple"] = store["input"] * 3
+                        self._service["square"] = store["input"] ** 2
+
+        subscriber = MultiUpdateSubscriber(service)
+        service.register_subscriber(subscriber)
+
+        service["input"] = 4
+
+        assert service["input"] == 4
+        assert service["double"] == 8
+        assert service["triple"] == 12
+        assert service["square"] == 16
+
+    def test_subscriber_updates_existing_keys(self):
+        """Test subscriber updating keys that already exist."""
+        service = DataService[str, int]()
+        service["existing"] = 100
+
+        class OverwriteSubscriber(DataSubscriber[str]):
+            def __init__(self, service: DataService[str, int]):
+                super().__init__(FakeDataAssembler({"input"}), FakePipe())
+                self._service = service
+
+            def trigger(self, store: dict[str, int]) -> None:
+                super().trigger(store)
+                if "input" in store:
+                    self._service["existing"] = store["input"] * 10
+
+        subscriber = OverwriteSubscriber(service)
+        service.register_subscriber(subscriber)
+
+        service["input"] = 5
+
+        assert service["input"] == 5
+        assert service["existing"] == 50  # Overwritten, not 100
+
+    def test_circular_dependency_protection(self):
+        """Test handling of potential circular dependencies."""
+        service = DataService[str, int]()
+        update_count = {"count": 0}
+
+        class CircularSubscriber(DataSubscriber[str]):
+            def __init__(self, service: DataService[str, int]):
+                super().__init__(FakeDataAssembler({"input", "output"}), FakePipe())
+                self._service = service
+
+            def trigger(self, store: dict[str, int]) -> None:
+                super().trigger(store)
+                update_count["count"] += 1
+                if update_count["count"] < 5:  # Prevent infinite recursion in test
+                    if "input" in store and "output" not in store:
+                        self._service["output"] = store["input"] + 1
+                    elif "output" in store and store["output"] < 10:
+                        self._service["output"] = store["output"] + 1
+
+        subscriber = CircularSubscriber(service)
+        service.register_subscriber(subscriber)
+
+        service["input"] = 1
+
+        # Should handle the circular updates gracefully
+        assert service["input"] == 1
+        assert "output" in service
+        assert update_count["count"] > 1  # Multiple updates occurred
+
+    def test_subscriber_deletes_keys_during_update(self):
+        """Test subscriber that deletes keys during notification."""
+        service = DataService[str, int]()
+        service["to_delete"] = 999
+
+        class DeletingSubscriber(DataSubscriber[str]):
+            def __init__(self, service: DataService[str, int]):
+                super().__init__(FakeDataAssembler({"trigger"}), FakePipe())
+                self._service = service
+
+            def trigger(self, store: dict[str, int]) -> None:
+                super().trigger(store)
+                if "trigger" in store and "to_delete" in self._service:
+                    del self._service["to_delete"]
+                    self._service["deleted_flag"] = 1
+
+        subscriber = DeletingSubscriber(service)
+        service.register_subscriber(subscriber)
+
+        service["trigger"] = 1
+
+        assert service["trigger"] == 1
+        assert "to_delete" not in service
+        assert service["deleted_flag"] == 1
+
+    def test_subscriber_complex_transaction_updates(self):
+        """Test complex scenario with nested transactions and subscriber updates."""
+        service = DataService[str, int]()
+
+        class ComplexSubscriber(DataSubscriber[str]):
+            def __init__(self, service: DataService[str, int]):
+                super().__init__(FakeDataAssembler({"input"}), FakePipe())
+                self._service = service
+
+            def trigger(self, store: dict[str, int]) -> None:
+                super().trigger(store)
+                if "input" in store:
+                    # Subscriber uses its own transaction
+                    with self._service.transaction():
+                        self._service["derived1"] = store["input"] * 2
+                        with self._service.transaction():
+                            self._service["derived2"] = store["input"] * 3
+                        self._service["derived3"] = store["input"] * 4
+
+        subscriber = ComplexSubscriber(service)
+        service.register_subscriber(subscriber)
+
+        with service.transaction():
+            service["input"] = 5
+            service["other"] = 100
+            # No derived data during transaction
+            assert "derived1" not in service
+
+        # All data should exist after transaction
+        assert service["input"] == 5
+        assert service["other"] == 100
+        assert service["derived1"] == 10
+        assert service["derived2"] == 15
+        assert service["derived3"] == 20
+
+    def test_multiple_update_rounds(self):
+        """Test scenario requiring multiple notification rounds."""
+        service = DataService[str, int]()
+
+        class ChainSubscriber(DataSubscriber[str]):
+            def __init__(
+                self, input_key: str, output_key: str, service: DataService[str, int]
+            ):
+                super().__init__(FakeDataAssembler({input_key}), FakePipe())
+                self._input_key = input_key
+                self._output_key = output_key
+                self._service = service
+
+            def trigger(self, store: dict[str, int]) -> None:
+                super().trigger(store)
+                if self._input_key in store:
+                    self._service[self._output_key] = store[self._input_key] + 1
+
+        # Create a chain: input -> step1 -> step2 -> step3
+        sub1 = ChainSubscriber("input", "step1", service)
+        sub2 = ChainSubscriber("step1", "step2", service)
+        sub3 = ChainSubscriber("step2", "step3", service)
+
+        service.register_subscriber(sub1)
+        service.register_subscriber(sub2)
+        service.register_subscriber(sub3)
+
+        service["input"] = 10
+
+        assert service["input"] == 10
+        assert service["step1"] == 11
+        assert service["step2"] == 12
+        assert service["step3"] == 13
+
+    def test_subscriber_updates_with_mixed_immediate_and_transaction(self):
+        """Test mixing immediate updates with transactional updates from subscribers."""
+        service = DataService[str, int]()
+
+        class MixedSubscriber(DataSubscriber[str]):
+            def __init__(self, service: DataService[str, int]):
+                super().__init__(FakeDataAssembler({"input"}), FakePipe())
+                self._service = service
+
+            def trigger(self, store: dict[str, int]) -> None:
+                super().trigger(store)
+                if "input" in store:
+                    # Immediate update
+                    self._service["immediate"] = store["input"] * 2
+                    # Transaction update
+                    with self._service.transaction():
+                        self._service["transactional1"] = store["input"] * 3
+                        self._service["transactional2"] = store["input"] * 4
+
+        subscriber = MixedSubscriber(service)
+        service.register_subscriber(subscriber)
+
+        service["input"] = 5
+
+        assert service["input"] == 5
+        assert service["immediate"] == 10
+        assert service["transactional1"] == 15
+        assert service["transactional2"] == 20

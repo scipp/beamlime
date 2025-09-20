@@ -143,7 +143,6 @@ class JobService:
             source_name = key.job_id.source_name
             if (workflow_id := self._job_info.get(job_number)) is None:
                 self._job_info[job_number] = key.workflow_id
-                notify_job_data_update = True
             elif workflow_id != key.workflow_id:
                 self._logger.warning(
                     "Workflow ID mismatch for job %s: existing %s, new %s. ",
@@ -155,6 +154,8 @@ class JobService:
             # Store in DataService for access by plots etc.
             # Single or multiple outputs, store in a dict. If only one output, then the
             # output_name is None.
+            if source_name not in all_source_data:
+                notify_job_data_update = True
             source_data = all_source_data.setdefault(source_name, {})
             source_data[key.output_name] = value
         if notify_job_data_update:
