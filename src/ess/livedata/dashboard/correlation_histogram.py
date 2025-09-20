@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 import numpy as np
 import pydantic
@@ -49,10 +49,9 @@ class CorrelationHistogram2dParams(CorrelationHistogramParams):
     y_edges: EdgesWithUnit
 
 
-# Next: Pass WorkflowId from this into BoundCorrelationHistogramController so that
-# it could launch job on backend?
-
-
+# Note: make_workflow_spec encapsulates workflow configuration in the widely-used
+# WorkflowSpec format. In the future, this can be converted to WorkflowConfig and
+# submitted to a separate backend service for execution.
 def make_workflow_spec(
     source_names: list[str], aux_source_names: list[str]
 ) -> WorkflowSpec:
@@ -82,49 +81,83 @@ def _make_edges_field(name: str, coord: sc.DataArray) -> Any:
     )
 
 
-Params = TypeVar('Params', bound=CorrelationHistogramParams)
-
-
-class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter[Params]):
+class CorrelationHistogramWorkflow(ConfigurationAdapter[CorrelationHistogramParams]):
     """
-    Configuration adapter for correlation histogram.
+    Combined configuration adapter and workflow controller for correlation histograms.
 
-    Used to auto-generate a widget for configuring the histogram using the generic
-    :py:class:`ConfigurationWidget`.
+    This class both generates the UI configuration for correlation histograms and
+    handles workflow execution. It implements the ConfigurationAdapter interface
+    for UI generation while also managing the actual computation workflow.
     """
 
     def __init__(
         self,
-        *,
-        title: str,
-        description: str,
-        model_class: type[Params],
-        source_names: list[str],
-        initial_parameter_values: dict[str, pydantic.BaseModel] | None = None,
-        start_action: Callable[[list[str], Params], None],
+        data_keys: list[ResultKey],
+        axis_keys: list[ResultKey],
+        controller: CorrelationHistogramController,
     ) -> None:
-        self._title = title
-        self._description = description
-        self._model_class = model_class
-        self._source_names = source_names
-        self._initial_parameter_values = initial_parameter_values or {}
-        self._start_action = start_action
+        self._data_keys = data_keys
+        self._axis_keys = axis_keys
+        self._controller = controller
+
+        # Create workflow spec to derive configuration
+        aux_source_names = [key.job_id.source_name for key in axis_keys]
+        source_names = [key.job_id.source_name for key in data_keys]
+        self._workflow_spec = make_workflow_spec(source_names, aux_source_names)
+
+        # Generate dynamic parameter model with bin edges
+        coords = {
+            key.job_id.source_name: controller._data_service[key] for key in axis_keys
+        }
+        self._model_class = self._create_dynamic_model_class(coords)
+
+    def _create_dynamic_model_class(
+        self, coords: dict[str, sc.DataArray]
+    ) -> type[CorrelationHistogramParams]:
+        """Create dynamic parameter model class with appropriate bin edge fields."""
+        ndim = len(coords)
+        fields = {
+            f'{dim}_edges': _make_edges_field(dim, coord)
+            for dim, coord in coords.items()
+        }
+
+        if ndim == 1:
+
+            class DynamicParams(CorrelationHistogram1dParams):
+                x_edges: EdgesWithUnit = fields[0]
+
+            # Dynamically add the x_edges field
+            dim_name = list(coords.keys())[0]
+            setattr(DynamicParams, 'x_edges', fields[f'{dim_name}_edges'])
+        elif ndim == 2:
+
+            class DynamicParams(CorrelationHistogram2dParams):
+                pass
+
+            # Dynamically add the x_edges and y_edges fields
+            dim_names = list(coords.keys())
+            setattr(DynamicParams, 'x_edges', fields[f'{dim_names[0]}_edges'])
+            setattr(DynamicParams, 'y_edges', fields[f'{dim_names[1]}_edges'])
+        else:
+            raise ValueError("Expected 1 or 2 coordinates for correlation histogram.")
+
+        return DynamicParams
 
     @property
     def title(self) -> str:
-        return self._title
+        return self._workflow_spec.title
 
     @property
     def description(self) -> str:
-        return self._description
+        return self._workflow_spec.description
 
     @property
-    def model_class(self) -> type[Params]:
+    def model_class(self) -> type[CorrelationHistogramParams]:
         return self._model_class
 
     @property
     def source_names(self) -> list[str]:
-        return list(self._source_names)
+        return self._workflow_spec.source_names
 
     @property
     def initial_source_names(self) -> list[str]:
@@ -134,13 +167,57 @@ class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter[Params]):
 
     @property
     def initial_parameter_values(self) -> dict[str, Any]:
-        return self._initial_parameter_values
+        return {}
 
     def start_action(
-        self, selected_sources: list[str], parameter_values: Params
+        self, selected_sources: list[str], parameter_values: CorrelationHistogramParams
     ) -> bool:
-        self._start_action(selected_sources=selected_sources, params=parameter_values)
+        """
+        Execute the correlation histogram workflow with the given parameters.
+
+        Note: Currently the "correlation" jobs run in the frontend process, essentially
+        as a postprocessing step when new data arrives. There are considerations around
+        moving this into a separate backend service, after the primary services, where
+        the WorkflowSpec could be converted to WorkflowConfig for submission.
+        """
+        self._start_workflows(
+            selected_sources=selected_sources, params=parameter_values
+        )
         return True
+
+    def _start_workflows(
+        self, selected_sources: list[str], params: CorrelationHistogramParams
+    ) -> None:
+        """Internal workflow execution logic."""
+        data_keys = [
+            key for key in self._data_keys if key.job_id.source_name in selected_sources
+        ]
+        data = {key: self._controller._data_service[key] for key in data_keys}
+        axes = {key: self._controller._data_service[key] for key in self._axis_keys}
+        job_number = uuid.uuid4()  # New unique job number shared by all workflows
+
+        if isinstance(params, CorrelationHistogram1dParams):
+            edges = [params.x_edges]
+        elif isinstance(params, CorrelationHistogram2dParams):
+            edges = [params.x_edges, params.y_edges]
+        else:
+            raise ValueError("Expected 1d or 2d correlation histogram parameters.")
+
+        for key, value in data.items():
+            pipe_factory = make_correlation_histogrammer_pipe_factory(
+                data_key=key,
+                coord_keys=self._axis_keys,
+                edges_params=edges,
+                job_number=job_number,
+                data_service=self._controller._data_service,
+            )
+            stream_manager = StreamManager(
+                data_service=self._controller._data_service, pipe_factory=pipe_factory
+            )
+            # Subscribes to DataService internally
+            pipe = stream_manager.make_merging_stream({key: value, **axes})
+            # Keep a reference to avoid garbage collection
+            self._controller._pipes.append(pipe)
 
 
 class CorrelationHistogramController:
@@ -166,9 +243,7 @@ class CorrelationHistogramController:
     def get_timeseries(self) -> list[ResultKey]:
         return [key for key, da in self._data_service.items() if _is_timeseries(da)]
 
-    def create_config(
-        self, axis_keys: list[ResultKey]
-    ) -> CorrelationHistogramConfigurationAdapter:
+    def create_config(self, axis_keys: list[ResultKey]) -> CorrelationHistogramWorkflow:
         """
         Called by widget to get configuration for modal creation.
 
@@ -186,114 +261,12 @@ class CorrelationHistogramController:
         # All timeseries except the axis keys can be used as dependent variables. These
         # will thus be shown by the widget in the "source selection" menu.
         result_keys = [key for key in self.get_timeseries() if key not in axis_keys]
-        source_names = [key.job_id.source_name for key in result_keys]
-        coords = {key.job_id.source_name: self._data_service[key] for key in axis_keys}
-        ndim = len(coords)
-        fields = [_make_edges_field(name, coord) for name, coord in coords.items()]
-        match ndim:
-            case 1:
 
-                class Configured1dParams(CorrelationHistogram1dParams):
-                    x_edges: EdgesWithUnit = fields[0]
-
-                bound_controller = BoundCorrelationHistogramController[
-                    CorrelationHistogram1dParams
-                ](data_keys=result_keys, axis_keys=axis_keys, controller=self)
-                return CorrelationHistogramConfigurationAdapter[
-                    CorrelationHistogram1dParams
-                ](
-                    title=f"{ndim}D Correlation Histogram",
-                    description=f"Configure parameters for a {ndim}D correlation histogram.",
-                    model_class=Configured1dParams,
-                    source_names=source_names,
-                    start_action=bound_controller.start_workflows,
-                )
-            case 2:
-
-                class Configured2dParams(CorrelationHistogram2dParams):
-                    x_edges: EdgesWithUnit = fields[0]
-                    y_edges: EdgesWithUnit = fields[1]
-
-                bound_controller = BoundCorrelationHistogramController[
-                    CorrelationHistogram2dParams
-                ](data_keys=result_keys, axis_keys=axis_keys, controller=self)
-                return CorrelationHistogramConfigurationAdapter[
-                    CorrelationHistogram2dParams
-                ](
-                    title=f"{ndim}D Correlation Histogram",
-                    description=f"Configure parameters for a {ndim}D correlation histogram.",
-                    model_class=Configured2dParams,
-                    source_names=source_names,
-                    start_action=bound_controller.start_workflows,
-                )
-            case _:
-                raise ValueError(
-                    "Expected 1 or 2 coordinates for correlation histogram."
-                )
-
-
-class BoundCorrelationHistogramController(Generic[Params]):
-    def __init__(
-        self,
-        data_keys: list[ResultKey],
-        axis_keys: list[ResultKey],
-        controller: CorrelationHistogramController,
-    ) -> None:
-        self._data_keys = data_keys
-        self._axis_keys = axis_keys
-        self._controller = controller
-
-    def start_workflows(self, selected_sources: list[str], params: Params) -> None:
-        """
-        Called by widget when user starts the workflow with concrete params.
-
-        Note: Currently the "correlation" jobs run in the frontend process, essentially
-        as a postprocessing step when new data arrives. There are considerations around
-        moving this into a separate backend service, after the primary services.
-
-        Parameters
-        ----------
-        data_keys:
-            The data keys to run the correlation histogram on. One result per key will
-            be generated.
-        axis_keys:
-            The axis keys to use for all of the correlation histograms.
-        params:
-            The parameters to use for the correlation histograms.
-        """
-        data_keys = [
-            key for key in self._data_keys if key.job_id.source_name in selected_sources
-        ]
-        data = {key: self._controller._data_service[key] for key in data_keys}
-        axes = {key: self._controller._data_service[key] for key in self._axis_keys}
-        job_number = uuid.uuid4()  # New unique job number shared by all workflows
-
-        # Note: If we switch to running correlation histogramming in a separate
-        # service, at this point we would create a WorkflowConfig (for each data key),
-        # with the axis keys as auxiliary source names and submit it. What follows is a
-        # local setup and run of the correlation histogrammer workflow.
-
-        if isinstance(params, CorrelationHistogram1dParams):
-            edges = [params.x_edges]
-        elif isinstance(params, CorrelationHistogram2dParams):
-            edges = [params.x_edges, params.y_edges]
-        else:
-            raise ValueError("Expected 1d or 2d correlation histogram parameters.")
-        for key, value in data.items():
-            pipe_factory = make_correlation_histogrammer_pipe_factory(
-                data_key=key,
-                coord_keys=self._axis_keys,
-                edges_params=edges,
-                job_number=job_number,
-                data_service=self._controller._data_service,
-            )
-            stream_manager = StreamManager(
-                data_service=self._controller._data_service, pipe_factory=pipe_factory
-            )
-            # Subscribes to DataService internally
-            pipe = stream_manager.make_merging_stream({key: value, **axes})
-            # Keep a reference to avoid garbage collection
-            self._controller._pipes.append(pipe)
+        return CorrelationHistogramWorkflow(
+            data_keys=result_keys,
+            axis_keys=axis_keys,
+            controller=self,
+        )
 
 
 def _is_timeseries(da: sc.DataArray) -> bool:
