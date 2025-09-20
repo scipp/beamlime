@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 from ess.livedata.config.models import ConfigKey
 from ess.livedata.config.workflow_spec import JobId, JobNumber, WorkflowId
-from ess.livedata.core.job import JobAction, JobCommand
+from ess.livedata.core.job_manager import JobAction, JobCommand
 from ess.livedata.dashboard.config_service import ConfigService
 from ess.livedata.dashboard.job_service import JobService
 

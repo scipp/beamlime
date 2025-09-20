@@ -5,15 +5,8 @@ import pytest
 import scipp as sc
 
 from ess.livedata.config.workflow_spec import JobSchedule, WorkflowConfig, WorkflowId
-from ess.livedata.core.job import (
-    Job,
-    JobError,
-    JobFactory,
-    JobId,
-    JobManager,
-    JobResult,
-    WorkflowData,
-)
+from ess.livedata.core.job import Job, JobError, JobId, JobResult
+from ess.livedata.core.job_manager import JobFactory, JobManager, WorkflowData
 from ess.livedata.core.message import StreamId
 
 from .job_test import FakeProcessor
@@ -153,7 +146,10 @@ class TestJobManager:
         data = WorkflowData(
             start_time=100,
             end_time=200,
-            data={StreamId(name="source1"): sc.scalar(42.0)},
+            data={
+                StreamId(name="source1"): sc.scalar(42.0),
+                StreamId(name="source2"): sc.scalar(24.0),
+            },
         )
         statuses = manager.push_data(data)
 
@@ -226,7 +222,7 @@ class TestJobManager:
         )
         statuses = manager.push_data(later_data)
         assert len(manager.active_jobs) == 2
-        assert len(statuses) == 2
+        assert len(statuses) == 1  # Only job2 gets data this time
 
     def test_push_data_feeds_active_jobs(self, fake_job_factory, base_workflow_config):
         """Test that pushing data feeds all active jobs."""
@@ -352,7 +348,10 @@ class TestJobManager:
         data = WorkflowData(
             start_time=100,
             end_time=200,
-            data={StreamId(name="source1"): sc.scalar(42.0)},
+            data={
+                StreamId(name="source1"): sc.scalar(42.0),
+                StreamId(name="source2"): sc.scalar(24.0),
+            },
         )
         manager.push_data(data)
 
@@ -421,7 +420,10 @@ class TestJobManager:
         later_data = WorkflowData(
             start_time=200,
             end_time=250,
-            data={StreamId(name="source1"): sc.scalar(20.0)},
+            data={
+                StreamId(name="source1"): sc.scalar(20.0),
+                StreamId(name="source2"): sc.scalar(15.0),
+            },
         )
         manager.push_data(later_data)
         assert len(manager.active_jobs) == 2
@@ -430,7 +432,10 @@ class TestJobManager:
         finishing_data = WorkflowData(
             start_time=251,
             end_time=300,
-            data={StreamId(name="source1"): sc.scalar(30.0)},
+            data={
+                StreamId(name="source1"): sc.scalar(30.0),
+                StreamId(name="source2"): sc.scalar(25.0),
+            },
         )
         manager.push_data(finishing_data)
 
@@ -566,13 +571,16 @@ class TestJobManager:
         intermediate_data = WorkflowData(
             start_time=175,
             end_time=180,
-            data={StreamId(name="source2"): sc.scalar(5.0)},
+            data={
+                StreamId(name="source2"): sc.scalar(5.0),
+                StreamId(name="source3"): sc.scalar(5.0),
+            },
         )
         manager.push_data(intermediate_data)
 
         # Compute results should finish job1
         results = manager.compute_results()
-        assert len(results) == 3  # All jobs return results
+        assert len(results) == 3
         assert len(manager.active_jobs) == 2  # Job1 should be removed
 
         # Push data with start_time=250, should finish job2 (end_time=200) but not job3
@@ -585,7 +593,7 @@ class TestJobManager:
 
         # Compute results should finish job2
         results = manager.compute_results()
-        assert len(results) == 2  # Both remaining jobs return results
+        assert len(results) == 1  # Only job3 returns result (got recent data)
         assert len(manager.active_jobs) == 1  # Only job3 should remain
 
     def test_job_finishing_edge_case_exact_schedule_end_time(self, fake_job_factory):
@@ -1041,14 +1049,14 @@ class TestJobManager:
         )
         manager.push_data(new_data)
 
-        # Job should still update its time window even with error
+        # Job should still be active (time window doesn't update on error)
         assert len(manager.active_jobs) == 1
         assert manager.active_jobs[0].start_time == 100
-        assert manager.active_jobs[0].end_time == 250  # Updated despite error
+        assert manager.active_jobs[0].end_time == 200  # Not updated due to error
 
         results = manager.compute_results()
         assert len(results) == 1
-        # Finalize fails if the latest data push failed.
+        # Finalize succeeds if accumulate failed (no new data was actually added)
         assert results[0].error_message is None
 
     def test_finalize_failure_handled_gracefully(self, fake_job_factory):
@@ -1082,8 +1090,169 @@ class TestJobManager:
         assert results[0].error_message is not None
         assert len(manager.active_jobs) == 1
 
+        # Push more data so job gets included in next compute_results
+        more_data = WorkflowData(
+            start_time=201,
+            end_time=250,
+            data={StreamId(name="test_source"): sc.scalar(24.0)},
+        )
+        manager.push_data(more_data)
+
         processor.should_fail_finalize = False
         results = manager.compute_results()
         assert len(results) == 1
-        assert len(manager.active_jobs) == 1
         assert results[0].error_message is None
+
+    def test_jobs_with_finalize_errors_will_compute_again_without_new_primary_data(
+        self, fake_job_factory
+    ):
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
+        job_id = manager.schedule_job("test_source", config)
+
+        # Activate job and push data
+        data = WorkflowData(
+            start_time=100,
+            end_time=200,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+        manager.push_data(data)
+
+        # Induce finalize failure
+        processor = fake_job_factory.processors[job_id]
+        processor.should_fail_finalize = True
+
+        results = manager.compute_results()
+        assert len(results) == 1
+        assert results[0].error_message is not None
+
+        # Fix the processor and call compute_results again without new data
+        processor.should_fail_finalize = False
+        results = manager.compute_results()
+        assert len(results) == 1
+        assert results[0].error_message is None
+
+    def test_successful_jobs_will_not_compute_again_without_new_primary_data(
+        self, fake_job_factory
+    ):
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
+        job_id = manager.schedule_job("test_source", config)
+
+        # Activate job and push data
+        data = WorkflowData(
+            start_time=100,
+            end_time=200,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+        manager.push_data(data)
+        assert len(manager.active_jobs) == 1
+        assert manager.active_jobs[0].job_id == job_id
+
+        # Compute results successfully
+        results = manager.compute_results()
+        assert len(results) == 1
+        assert results[0].error_message is None
+
+        # Calling compute_results again should not include this job
+        results = manager.compute_results()
+        assert len(results) == 0
+
+    def test_jobs_without_primary_data_not_included_in_compute_results(
+        self, fake_job_factory
+    ):
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
+        job_id1 = manager.schedule_job("source1", config)
+        job_id2 = manager.schedule_job("source2", config)
+
+        # Activate both jobs with initial data
+        initial_data = WorkflowData(
+            start_time=100,
+            end_time=150,
+            data={
+                StreamId(name="source1"): sc.scalar(10.0),
+                StreamId(name="source2"): sc.scalar(20.0),
+            },
+        )
+        manager.push_data(initial_data)
+        assert len(manager.active_jobs) == 2
+        assert {job.job_id for job in manager.active_jobs} == {job_id1, job_id2}
+
+        # Compute results - both jobs should be processed
+        results = manager.compute_results()
+        assert len(results) == 2
+
+        # Push data for only one job
+        new_data = WorkflowData(
+            start_time=151,
+            end_time=200,
+            data={StreamId(name="source1"): sc.scalar(15.0)},
+        )
+        manager.push_data(new_data)
+
+        # Compute results - only job1 should be processed
+        results = manager.compute_results()
+        assert len(results) == 1
+        assert results[0].job_id == job_id1
+
+    def test_auxiliary_data_only_does_not_trigger_compute_results(
+        self, fake_job_factory
+    ):
+        manager = JobManager(fake_job_factory)
+        config = WorkflowConfig(
+            identifier=WorkflowId(
+                instrument="test",
+                namespace="data_reduction",
+                name="test_workflow",
+                version=1,
+            )
+        )
+        job_id = manager.schedule_job("test_source", config)
+
+        # Activate job with initial primary data
+        initial_data = WorkflowData(
+            start_time=100,
+            end_time=150,
+            data={StreamId(name="test_source"): sc.scalar(42.0)},
+        )
+        manager.push_data(initial_data)
+        assert len(manager.active_jobs) == 1
+        assert manager.active_jobs[0].job_id == job_id
+
+        # Compute results
+        results = manager.compute_results()
+        assert len(results) == 1
+
+        # Push only auxiliary data
+        aux_data = WorkflowData(
+            start_time=151,
+            end_time=200,
+            data={StreamId(name="aux_source"): sc.scalar(99.0)},
+        )
+        manager.push_data(aux_data)
+
+        # Compute results should not include this job
+        results = manager.compute_results()
+        assert len(results) == 0

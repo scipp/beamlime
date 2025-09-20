@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..config.models import ConfigKey
-from ..core.job import JobCommand
+from ..core.job_manager import JobCommand
 from ..core.job_manager_adapter import JobManagerAdapter
 from ..core.message import CONFIG_STREAM_ID, Message
 from ..kafka.message_adapter import RawConfigItem
