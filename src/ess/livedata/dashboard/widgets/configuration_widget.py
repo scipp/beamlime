@@ -86,10 +86,17 @@ class ConfigurationWidget:
 
     def _create_source_selector(self) -> pn.widgets.MultiChoice:
         """Create source selection widget."""
+        if (
+            not self._config.initial_source_names
+            and len(self._config.source_names) == 1
+        ):
+            initial_source_names = self._config.source_names
+        else:
+            initial_source_names = self._config.initial_source_names
         return pn.widgets.MultiChoice(
             name="Source Names",
             options=sorted(self._config.source_names),
-            value=sorted(self._config.initial_source_names),
+            value=sorted(initial_source_names),
             placeholder="Select source names to apply workflow to",
             sizing_mode='stretch_width',
             margin=(0, 0, 0, 0),
@@ -217,7 +224,7 @@ class ConfigurationModal:
             name=f"Configure {self._config.title}",
             margin=20,
             width=800,
-            height=900,
+            height=800,
         )
 
         # Watch for modal close events to clean up
