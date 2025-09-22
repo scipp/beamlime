@@ -116,32 +116,23 @@ class CorrelationHistogramWorkflow(ConfigurationAdapter[CorrelationHistogramPara
     ) -> type[CorrelationHistogramParams]:
         """Create dynamic parameter model class with appropriate bin edge fields."""
         ndim = len(coords)
-        fields = {
-            f'{dim}_edges': _make_edges_field(dim, coord)
-            for dim, coord in coords.items()
-        }
+        fields = [_make_edges_field(dim, coord) for dim, coord in coords.items()]
 
         if ndim == 1:
 
-            class DynamicParams(CorrelationHistogram1dParams):
+            class Configured1dParams(CorrelationHistogram1dParams):
                 x_edges: EdgesWithUnit = fields[0]
 
-            # Dynamically add the x_edges field
-            dim_name = list(coords.keys())[0]
-            setattr(DynamicParams, 'x_edges', fields[f'{dim_name}_edges'])
-        elif ndim == 2:
+            return Configured1dParams
+        if ndim == 2:
 
-            class DynamicParams(CorrelationHistogram2dParams):
-                pass
+            class Configured2dParams(CorrelationHistogram2dParams):
+                x_edges: EdgesWithUnit = fields[0]
+                y_edges: EdgesWithUnit = fields[1]
 
-            # Dynamically add the x_edges and y_edges fields
-            dim_names = list(coords.keys())
-            setattr(DynamicParams, 'x_edges', fields[f'{dim_names[0]}_edges'])
-            setattr(DynamicParams, 'y_edges', fields[f'{dim_names[1]}_edges'])
-        else:
-            raise ValueError("Expected 1 or 2 coordinates for correlation histogram.")
+            return Configured2dParams
 
-        return DynamicParams
+        raise ValueError("Expected 1 or 2 coordinates for correlation histogram.")
 
     @property
     def title(self) -> str:
