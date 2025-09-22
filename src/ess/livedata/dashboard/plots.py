@@ -67,10 +67,12 @@ class Autoscaler:
 
     def update_bounds(self, data: sc.DataArray) -> bool:
         """Update bounds based on the data, return True if bounds changed."""
-        coords = [data.coords[dim] for dim in data.dims]
         changed = False
-        for coord in coords:
-            changed |= self._update_coord_bounds(coord)
+        for dim in data.dims:
+            if (coord := data.coords.get(dim)) is not None:
+                changed |= self._update_coord_bounds(coord)
+            else:
+                changed |= self._update_from_size(dim, data.sizes[dim])
         changed |= self._update_value_bounds(data.data)
         return changed
 
@@ -88,6 +90,14 @@ class Autoscaler:
             self.coord_bounds[name] = (self.coord_bounds[name][0], high)
             changed = True
 
+        return changed
+
+    def _update_from_size(self, dim: str, size: int) -> bool:
+        """Update bounds for a dimension without coordinates, using its size."""
+        changed = False
+        if self.coord_bounds[dim] != (0, size):
+            self.coord_bounds[dim] = (0, size)
+            changed = True
         return changed
 
     def _update_value_bounds(self, data: sc.Variable) -> bool:

@@ -7,7 +7,8 @@ from typing import ClassVar
 
 import panel as pn
 
-from ess.livedata.core.job import JobAction, JobState, JobStatus
+from ess.livedata.core.job import JobState, JobStatus
+from ess.livedata.core.job_manager import JobAction
 from ess.livedata.dashboard.job_controller import JobController
 from ess.livedata.dashboard.job_service import JobService
 

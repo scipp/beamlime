@@ -5,7 +5,7 @@ import json
 import pytest
 
 from ess.livedata.config.models import ConfigKey
-from ess.livedata.core.job import JobAction, JobCommand
+from ess.livedata.core.job_manager import JobAction, JobCommand
 from ess.livedata.core.message import CONFIG_STREAM_ID, Message
 from ess.livedata.handlers.config_handler import ConfigProcessor, ConfigUpdate
 from ess.livedata.kafka.message_adapter import RawConfigItem

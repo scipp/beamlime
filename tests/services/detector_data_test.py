@@ -7,7 +7,7 @@ import pytest
 
 from ess.livedata.config import instrument_registry, workflow_spec
 from ess.livedata.config.models import ConfigKey
-from ess.livedata.core.job import JobAction, JobCommand
+from ess.livedata.core.job_manager import JobAction, JobCommand
 from ess.livedata.services.detector_data import make_detector_service_builder
 from tests.helpers.livedata_app import LivedataApp
 
@@ -65,8 +65,8 @@ def test_can_configure_and_stop_detector_workflow(
     service.step()
     # Each workflow call returns two results: cumulative and current
     assert len(sink.messages) == 2
-    assert sink.messages[0].value.nansum().values == 2000  # cumulative
-    assert sink.messages[1].value.nansum().values == 2000  # current
+    assert sink.messages[0].value.nansum().value == 2000  # cumulative
+    assert sink.messages[1].value.nansum().value == 2000  # current
     # No data -> no data published
     service.step()
     assert len(sink.messages) == 2
@@ -74,8 +74,8 @@ def test_can_configure_and_stop_detector_workflow(
     app.publish_events(size=3000, time=4)
     service.step()
     assert len(sink.messages) == 4
-    assert sink.messages[2].value.values.sum() == 5000  # cumulative
-    assert sink.messages[3].value.values.sum() == 3000  # current
+    assert sink.messages[2].value.nansum().value == 5000  # cumulative
+    assert sink.messages[3].value.nansum().value == 3000  # current
 
     # More events but the same time
     app.publish_events(size=1000, time=4)
@@ -83,8 +83,8 @@ def test_can_configure_and_stop_detector_workflow(
     app.publish_events(size=1000, time=5)
     service.step()
     assert len(sink.messages) == 6
-    assert sink.messages[4].value.values.sum() == 7000  # cumulative
-    assert sink.messages[5].value.values.sum() == 2000  # current
+    assert sink.messages[4].value.nansum().value == 7000  # cumulative
+    assert sink.messages[5].value.nansum().value == 2000  # current
 
     # Stop workflow
     command = JobCommand(action=JobAction.stop)
