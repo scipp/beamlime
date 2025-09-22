@@ -1,6 +1,6 @@
-"""
-Bifrost with all banks merged into a single one.
-"""
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
+"""Bifrost Q-map workflows."""
 
 from enum import Enum
 
@@ -130,7 +130,7 @@ class BifrostElasticQMapParams(pydantic.BaseModel):
     )
 
 
-def register_qcut_workflows(
+def register_qmap_workflows(
     instrument: Instrument,
 ) -> None:
     @instrument.register_workflow(
