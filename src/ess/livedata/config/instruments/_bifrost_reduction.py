@@ -2,57 +2,36 @@
 Bifrost with all banks merged into a single one.
 """
 
-from collections.abc import Generator
 from enum import Enum
-from typing import NewType
 
 import pydantic
-import scipp as sc
-from scippnexus import NXdetector
-
-from ess.livedata.parameter_models import EdgesModel, QUnit, QEdges, EnergyEdges
-from ess.livedata.config import Instrument, instrument_registry
-from ess.livedata.config.env import StreamingEnv
-from ess.livedata.config.workflows import register_monitor_timeseries_workflows
-from ess.livedata.handlers.detector_data_handler import (
-    DetectorLogicalView,
-    LogicalViewConfig,
-    get_nexus_geometry_filename,
-)
-from ess.livedata.handlers.stream_processor_workflow import StreamProcessorWorkflow
-from ess.reduce.nexus.types import (
-    CalibratedBeamline,
-    DetectorData,
-    Filename,
-    NeXusData,
-    NeXusName,
-    SampleRun,
-)
-from ess.spectroscopy.indirect.time_of_flight import TofWorkflow
-from ess.spectroscopy.types import InstrumentAngle, SampleAngle
-from ess.bifrost import BifrostWorkflow
-from ess.bifrost.live import CutAxis, CutAxis1, CutAxis2, CutData, BifrostQCutWorkflow
-
-from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
-import scipp as sc
 import sciline
-import time
-from ess.spectroscopy.types import *
+import scipp as sc
 import scippnexus as snx
+from scippnexus import NXdetector
 
 from ess.bifrost.data import (
     simulated_elastic_incoherent_with_phonon,
     tof_lookup_table_simulation,
 )
+from ess.bifrost.live import BifrostQCutWorkflow, CutAxis, CutAxis1, CutAxis2, CutData
+from ess.livedata.config import Instrument
+from ess.livedata.handlers.stream_processor_workflow import StreamProcessorWorkflow
+from ess.livedata.parameter_models import EnergyEdges, QEdges
+from ess.reduce.nexus.types import Filename, NeXusData, SampleRun
+from ess.spectroscopy.types import (
+    InstrumentAngle,
+    PreopenNeXusFile,
+    SampleAngle,
+    TimeOfFlightLookupTableFilename,
+)
 
 fname = simulated_elastic_incoherent_with_phonon()
 with snx.File(fname) as f:
     detector_names = list(f['entry/instrument'][snx.NXdetector])
-detector_names = detector_names[:2]
-print(f'{fname=}')
 
 workflow = BifrostQCutWorkflow(detector_names)
-workflow[Filename[SampleRun]] = simulated_elastic_incoherent_with_phonon()
+workflow[Filename[SampleRun]] = fname
 workflow[TimeOfFlightLookupTableFilename] = tof_lookup_table_simulation()
 workflow[PreopenNeXusFile] = PreopenNeXusFile(True)
 
