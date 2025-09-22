@@ -26,7 +26,7 @@ class PipeBase(Protocol):
 
 
 class Pipe(PipeBase):
-    """Protocol forholoviews pipes, which need to be initialized with data."""
+    """Protocol for holoviews pipes, which need to be initialized with data."""
 
     def __init__(self, data: Any) -> None:
         """
