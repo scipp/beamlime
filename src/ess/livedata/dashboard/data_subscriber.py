@@ -6,21 +6,13 @@ from abc import ABC, abstractmethod
 from collections.abc import Hashable
 from typing import Any, Generic, Protocol, TypeVar
 
+from ess.livedata.config.workflow_spec import ResultKey
 
-class Pipe(Protocol):
+
+class PipeBase(Protocol):
     """
     Protocol for downstream pipes that can receive data from upstream pipes.
     """
-
-    def __init__(self, data: Any) -> None:
-        """
-        Initialize the pipe with its data.
-
-        Parameters
-        ----------
-        data:
-            The initial data for the pipe.
-        """
 
     def send(self, data: Any) -> None:
         """
@@ -30,6 +22,20 @@ class Pipe(Protocol):
         ----------
         data:
             The data to be sent.
+        """
+
+
+class Pipe(PipeBase):
+    """Protocol forholoviews pipes, which need to be initialized with data."""
+
+    def __init__(self, data: Any) -> None:
+        """
+        Initialize the pipe with its data.
+
+        Parameters
+        ----------
+        data:
+            The initial data for the pipe.
         """
 
 
@@ -82,7 +88,7 @@ class StreamAssembler(ABC, Generic[Key]):
 class DataSubscriber(Generic[Key]):
     """Unified subscriber that uses a StreamAssembler to process data."""
 
-    def __init__(self, assembler: StreamAssembler[Key], pipe: Pipe) -> None:
+    def __init__(self, assembler: StreamAssembler[Key], pipe: PipeBase) -> None:
         """
         Initialize the subscriber with an assembler and pipe.
 
@@ -113,3 +119,10 @@ class DataSubscriber(Generic[Key]):
         data = {key: store[key] for key in self.keys if key in store}
         assembled_data = self._assembler.assemble(data)
         self._pipe.send(assembled_data)
+
+
+class MergingStreamAssembler(StreamAssembler):
+    """Assembler for merging data from multiple sources into a dict."""
+
+    def assemble(self, data: dict[ResultKey, Any]) -> dict[ResultKey, Any]:
+        return {key: data[key] for key in self.keys if key in data}

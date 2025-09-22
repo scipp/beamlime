@@ -10,16 +10,9 @@ from typing import Any, Generic, TypeVar
 from ess.livedata.config.workflow_spec import ResultKey
 
 from .data_service import DataService
-from .data_subscriber import DataSubscriber, Pipe, StreamAssembler
+from .data_subscriber import DataSubscriber, MergingStreamAssembler, Pipe
 
 P = TypeVar('P', bound=Pipe)
-
-
-class MergingStreamAssembler(StreamAssembler):
-    """Assembler for merging data from multiple sources into a dict."""
-
-    def assemble(self, data: dict[ResultKey, Any]) -> dict[ResultKey, Any]:
-        return {key: data[key] for key in self.keys if key in data}
 
 
 class StreamManager(Generic[P]):

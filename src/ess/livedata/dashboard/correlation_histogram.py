@@ -14,7 +14,7 @@ from ess.livedata.config.workflow_spec import JobId, JobNumber, ResultKey, Workf
 from ess.livedata.parameter_models import EdgesModel, make_edges
 
 from .data_service import DataService
-from .stream_manager import StreamManager
+from .data_subscriber import DataSubscriber, MergingStreamAssembler
 from .widgets.configuration_widget import ConfigurationAdapter
 
 
@@ -102,9 +102,7 @@ class CorrelationHistogramConfigurationAdapter(
         self._workflow_spec = make_workflow_spec(source_names, aux_source_names)
 
         # Generate dynamic parameter model with bin edges
-        coords = {
-            key.job_id.source_name: controller._data_service[key] for key in axis_keys
-        }
+        coords = {key.job_id.source_name: controller.get_data(key) for key in axis_keys}
         self._model_class = self._create_dynamic_model_class(coords)
 
     def _create_dynamic_model_class(
@@ -167,43 +165,31 @@ class CorrelationHistogramConfigurationAdapter(
         moving this into a separate backend service, after the primary services, where
         the WorkflowSpec could be converted to WorkflowConfig for submission.
         """
-        self._start_workflows(
-            selected_sources=selected_sources, params=parameter_values
-        )
-        return True
-
-    def _start_workflows(
-        self, selected_sources: list[str], params: CorrelationHistogramParams
-    ) -> None:
-        """Internal workflow execution logic."""
         data_keys = [
             key for key in self._data_keys if key.job_id.source_name in selected_sources
         ]
-        data = {key: self._controller._data_service[key] for key in data_keys}
-        axes = {key: self._controller._data_service[key] for key in self._axis_keys}
+        data = {key: self._controller.get_data(key) for key in data_keys}
+        axes = {key: self._controller.get_data(key) for key in self._axis_keys}
         job_number = uuid.uuid4()  # New unique job number shared by all workflows
 
-        if isinstance(params, CorrelationHistogram1dParams):
-            edges = [params.x_edges]
-        elif isinstance(params, CorrelationHistogram2dParams):
-            edges = [params.x_edges, params.y_edges]
+        if isinstance(parameter_values, CorrelationHistogram1dParams):
+            edges = [parameter_values.x_edges]
+        elif isinstance(parameter_values, CorrelationHistogram2dParams):
+            edges = [parameter_values.x_edges, parameter_values.y_edges]
         else:
+            # Raising instead of returning False, since this should not happen if the
+            # implementation is correct.
             raise ValueError("Expected 1d or 2d correlation histogram parameters.")
 
         for key, value in data.items():
-            pipe_factory = make_correlation_histogrammer_pipe_factory(
+            processor = CorrelationHistogramProcessor(
                 data_key=key,
                 coord_keys=self._axis_keys,
                 edges_params=edges,
                 result_callback=self._create_result_callback(key, job_number),
             )
-            stream_manager = StreamManager(
-                data_service=self._controller._data_service, pipe_factory=pipe_factory
-            )
-            # Subscribes to DataService internally
-            pipe = stream_manager.make_merging_stream({key: value, **axes})
-            # Keep a reference to avoid garbage collection
-            self._controller._pipes.append(pipe)
+            self._controller.add_correlation_processor(processor, {key: value, **axes})
+        return True
 
     def _create_result_callback(
         self, data_key: ResultKey, job_number: JobNumber
@@ -218,7 +204,7 @@ class CorrelationHistogramConfigurationAdapter(
         )
 
         def callback(result: sc.DataArray) -> None:
-            self._controller._data_service[result_key] = result
+            self._controller.set_data(result_key, result)
 
         return callback
 
@@ -228,7 +214,28 @@ class CorrelationHistogramController:
         self._data_service = data_service
         self._update_subscribers: list[Callable[[], None]] = []
         self._data_service.subscribe_to_changed_keys(self._on_data_keys_updated)
-        self._pipes: list[Any] = []
+        self._processors: list[CorrelationHistogramProcessor] = []
+
+    def get_data(self, key: ResultKey) -> sc.DataArray:
+        """Get data for a given key."""
+        return self._data_service[key]
+
+    def set_data(self, key: ResultKey, data: sc.DataArray) -> None:
+        """Set data for a given key."""
+        self._data_service[key] = data
+
+    def add_correlation_processor(
+        self,
+        processor: CorrelationHistogramProcessor,
+        items: dict[ResultKey, sc.DataArray],
+    ) -> None:
+        """Add a correlation histogram processor with DataService subscription."""
+        self._processors.append(processor)
+
+        # Create subscriber that merges data and sends to processor
+        assembler = MergingStreamAssembler(set(items))
+        subscriber = DataSubscriber(assembler, processor)
+        self._data_service.register_subscriber(subscriber)
 
     def register_update_subscriber(self, callback: Callable[[], None]) -> None:
         """Register a callback to be called when job data is updated."""
@@ -266,7 +273,6 @@ class CorrelationHistogramController:
         # All timeseries except the axis keys can be used as dependent variables. These
         # will thus be shown by the widget in the "source selection" menu.
         result_keys = [key for key in self.get_timeseries() if key not in axis_keys]
-
         return CorrelationHistogramConfigurationAdapter(
             data_keys=result_keys, axis_keys=axis_keys, controller=self
         )
@@ -276,37 +282,30 @@ def _is_timeseries(da: sc.DataArray) -> bool:
     return da.dims == ('time',) and 'time' in da.coords
 
 
-def make_correlation_histogrammer_pipe_factory(
-    data_key: ResultKey,
-    coord_keys: list[ResultKey],
-    edges_params: list[EdgesWithUnit],
-    result_callback: Callable[[sc.DataArray], None],
-) -> Any:
-    class CorrelationHistogrammerPipe:
-        """
-        Connector of Pipe expected by StreamManager to CorrelationHistogrammer.
+class CorrelationHistogramProcessor:
+    """Processes correlation histogram updates when data changes."""
 
-        When data is sent to the pipe, it runs the histogrammer and sends the result
-        via the provided callback.
-        """
+    def __init__(
+        self,
+        data_key: ResultKey,
+        coord_keys: list[ResultKey],
+        edges_params: list[EdgesWithUnit],
+        result_callback: Callable[[sc.DataArray], None],
+    ) -> None:
+        self._data_key = data_key
+        self._result_callback = result_callback
+        self._coords = {key: key.job_id.source_name for key in coord_keys}
+        edges = {
+            dim: edge.make_edges(dim=dim)
+            for dim, edge in zip(self._coords.values(), edges_params, strict=True)
+        }
+        self._histogrammer = CorrelationHistogrammer(edges=edges)
 
-        def __init__(self, data: dict[ResultKey, sc.DataArray]) -> None:
-            self._data_key = data_key
-            self._result_callback = result_callback
-            self._coords = {key: key.job_id.source_name for key in coord_keys}
-            edges = {
-                dim: edge.make_edges(dim=dim)
-                for dim, edge in zip(self._coords.values(), edges_params, strict=True)
-            }
-            self._histogrammer = CorrelationHistogrammer(edges=edges)
-            self.send(data)
-
-        def send(self, data: dict[ResultKey, sc.DataArray]) -> None:
-            coords = {name: data[key] for key, name in self._coords.items()}
-            result = self._histogrammer(data[self._data_key], coords=coords)
-            self._result_callback(result)
-
-    return CorrelationHistogrammerPipe
+    def send(self, data: dict[ResultKey, sc.DataArray]) -> None:
+        """Called when data is updated - processes the correlation histogram."""
+        coords = {name: data[key] for key, name in self._coords.items()}
+        result = self._histogrammer(data[self._data_key], coords=coords)
+        self._result_callback(result)
 
 
 class CorrelationHistogrammer:
