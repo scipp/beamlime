@@ -127,9 +127,11 @@ class ParamWidget:
         """Get current values from all widgets."""
         values = {}
         for field_name, widget in self.widgets.items():
+            field_type = self.model_class.model_fields[field_name].annotation
+            if field_type is bool:
+                widget = widget[0]
             value = widget.value
             # Convert Path strings back to Path objects
-            field_type = self.model_class.model_fields[field_name].annotation
             if field_type == Path and isinstance(value, str):
                 value = Path(value) if value else None
             # Handle enum values - widget.value will be the enum instance for Select
