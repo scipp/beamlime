@@ -31,11 +31,7 @@ class LogData:
 
     @staticmethod
     def from_f144(f144: logdata_f144.LogData) -> LogData:
-        return LogData(
-            time=f144.timestamp_unix_ns,
-            value=f144.value,
-            variances=getattr(f144, 'variances', None),
-        )
+        return LogData(time=f144.timestamp_unix_ns, value=f144.value)
 
 
 class NullAccumulator(Accumulator[Any, None]):
