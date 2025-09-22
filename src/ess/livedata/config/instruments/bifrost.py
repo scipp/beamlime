@@ -261,8 +261,6 @@ def _spectrum_view(params: BifrostWorkflowParams) -> StreamProcessorWorkflow:
         accumulators={
             SpectrumView: EternalAccumulator,
             AnalyzerCounts: TimeseriesAccumulator,
-            BankCounts: TimeseriesAccumulator,
-            DetectorCounts: TimeseriesAccumulator,
         },
     )
 

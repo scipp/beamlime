@@ -28,10 +28,22 @@ class EdgesWithUnit(EdgesModel):
         return make_edges(model=self, dim=dim, unit=self.unit)
 
 
+class NormalizationParams(pydantic.BaseModel):
+    per_second: bool = pydantic.Field(
+        default=False,
+        description="Divide data by time bin width to obtain a rate. When enabled, "
+        "each histogram bin represents a rate (rather than counts), computed as a mean "
+        "instead of a sum over all contributions.",
+    )
+
+
 class CorrelationHistogramParams(pydantic.BaseModel):
-    # For now this is empty, will likely add params for, e.g., start_time and
-    # normalization in the future.
-    pass
+    # Do we want a start_time param here as well?
+    normalization: NormalizationParams = pydantic.Field(
+        default_factory=NormalizationParams,
+        title="Normalization",
+        description="Options for normalizing the correlation histogram.",
+    )
 
 
 class CorrelationHistogram1dParams(CorrelationHistogramParams):
@@ -186,6 +198,7 @@ class CorrelationHistogramConfigurationAdapter(
                 data_key=key,
                 coord_keys=self._axis_keys,
                 edges_params=edges,
+                normalize=parameter_values.normalization.per_second,
                 result_callback=self._create_result_callback(key, job_number),
             )
             self._controller.add_correlation_processor(processor, {key: value, **axes})
@@ -290,6 +303,7 @@ class CorrelationHistogramProcessor:
         data_key: ResultKey,
         coord_keys: list[ResultKey],
         edges_params: list[EdgesWithUnit],
+        normalize: bool,
         result_callback: Callable[[sc.DataArray], None],
     ) -> None:
         self._data_key = data_key
@@ -299,7 +313,7 @@ class CorrelationHistogramProcessor:
             dim: edge.make_edges(dim=dim)
             for dim, edge in zip(self._coords.values(), edges_params, strict=True)
         }
-        self._histogrammer = CorrelationHistogrammer(edges=edges)
+        self._histogrammer = CorrelationHistogrammer(edges=edges, normalize=normalize)
 
     def send(self, data: dict[ResultKey, sc.DataArray]) -> None:
         """Called when data is updated - processes the correlation histogram."""
@@ -309,9 +323,9 @@ class CorrelationHistogramProcessor:
 
 
 class CorrelationHistogrammer:
-    def __init__(self, edges: dict[str, sc.Variable]) -> None:
+    def __init__(self, edges: dict[str, sc.Variable], normalize: bool = True) -> None:
         self._edges = edges
-        self._normalize: bool = True
+        self._normalize: bool = normalize
 
     def __call__(
         self, data: sc.DataArray, coords: dict[str, sc.DataArray]
