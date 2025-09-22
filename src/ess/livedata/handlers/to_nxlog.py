@@ -16,7 +16,9 @@ class ToNXlog(Accumulator[LogData, sc.DataArray]):
     until explicitly requested.
     """
 
-    def __init__(self, attrs: dict[str, Any]) -> None:
+    def __init__(
+        self, *, attrs: dict[str, Any], data_dims: tuple[str, ...] = ()
+    ) -> None:
         self._attrs = attrs
         # Values with no unit are ok
         maybe_unit = self._attrs.get('units')
@@ -31,6 +33,7 @@ class ToNXlog(Accumulator[LogData, sc.DataArray]):
         # Initialize with None, will be created on first add
         self._timeseries: sc.DataArray | None = None
         self._end = 0
+        self._data_dims = data_dims
 
     @property
     def unit(self) -> sc.Unit | None:
@@ -44,7 +47,10 @@ class ToNXlog(Accumulator[LogData, sc.DataArray]):
             # Initialize with initial capacity of 2
             arr = np.asarray(data)
             values = sc.zeros(
-                dims=['time'], shape=[2, *arr.shape], unit=self._unit, dtype=arr.dtype
+                dims=['time', *self._data_dims],
+                shape=[2, *arr.shape],
+                unit=self._unit,
+                dtype=arr.dtype,
             )
             times = sc.zeros(
                 dims=['time'], shape=[2], unit=self._time_unit, dtype='int64'
