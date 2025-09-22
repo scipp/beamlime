@@ -17,6 +17,7 @@ from ess.livedata.handlers.detector_data_handler import (
 )
 from ess.livedata.handlers.monitor_data_handler import register_monitor_workflows
 from ess.livedata.handlers.stream_processor_workflow import StreamProcessorWorkflow
+from ess.livedata.handlers.timeseries_handler import register_timeseries_workflows
 from ess.livedata.kafka import InputStreamKey, StreamLUT, StreamMapping
 
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
@@ -40,8 +41,12 @@ def _total_counts(events: Events) -> TotalCounts:
 
 _total_counts_workflow = sciline.Pipeline((_total_counts,))
 
-instrument = Instrument(name='dummy')
+instrument = Instrument(
+    name='dummy', f144_attribute_registry={'motion1': {'units': 'mm'}}
+)
 register_monitor_workflows(instrument=instrument, source_names=['monitor1', 'monitor2'])
+register_timeseries_workflows(instrument=instrument, source_names=['motion1'])
+
 instrument_registry.register(instrument)
 instrument.add_detector(
     'panel_0',

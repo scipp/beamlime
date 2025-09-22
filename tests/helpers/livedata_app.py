@@ -12,7 +12,7 @@ from functools import partial
 from typing import Any
 
 import numpy as np
-from streaming_data_types import eventdata_ev44
+from streaming_data_types import eventdata_ev44, logdata_f144
 
 from ess.livedata import Service, StreamKind
 from ess.livedata.config import models
@@ -103,6 +103,21 @@ class LivedataApp:
                 instrument=self.instrument, kind=StreamKind.LIVEDATA_CONFIG
             ),
             timestamp=0,
+        )
+        self.consumer.add_message(message)
+
+    def publish_log_message(
+        self, *, source_name: str, time: float, value: float
+    ) -> None:
+        """Publish a log message to the consumer."""
+        message = FakeKafkaMessage(
+            value=logdata_f144.serialise_f144(
+                source_name=source_name,
+                value=value,
+                timestamp_unix_ns=int(time * 1_000_000_000),
+            ),
+            topic=stream_kind_to_topic(instrument=self.instrument, kind=StreamKind.LOG),
+            timestamp=int(time * 1_000_000_000),
         )
         self.consumer.add_message(message)
 
