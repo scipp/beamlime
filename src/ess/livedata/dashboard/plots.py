@@ -293,6 +293,7 @@ class ImagePlotter(Plotter):
             'logx': True if scale_opts.x_scale == PlotScale.log else False,
             'logy': True if scale_opts.y_scale == PlotScale.log else False,
             'logz': True,
+            'width': 500,  # Default width was too large to fit on screen
         }
 
     @classmethod

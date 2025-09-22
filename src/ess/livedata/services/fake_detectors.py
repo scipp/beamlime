@@ -25,7 +25,13 @@ def events_from_nexus(file_path: str) -> dict[str, sc.DataGroup]:
     with snx.File(file_path, 'r', definitions={}) as f:
         entry = next(iter(f[snx.NXentry].values()))
         instrument = next(iter(entry[snx.NXinstrument].values()))
-        detectors = instrument[snx.NXdetector]
+
+        # Odin file does not have the 'NXentry/NXinstrument/NXdetector' path
+        # but 'NXentry/NXinstrument/NXdetector_group/NXdetector'
+        detector_groups = instrument[snx.NXdetector_group]
+        detector_group = detector_groups['event_mode_detectors']
+        detectors = detector_group[snx.NXdetector]
+
         event_data = {name: det[snx.NXevent_data] for name, det in detectors.items()}
         return {
             name: next(iter(eg.values()))[...]
