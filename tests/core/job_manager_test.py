@@ -5,7 +5,7 @@ import pytest
 import scipp as sc
 
 from ess.livedata.config.workflow_spec import JobSchedule, WorkflowConfig, WorkflowId
-from ess.livedata.core.job import Job, JobError, JobId, JobResult
+from ess.livedata.core.job import Job, JobId, JobReply, JobResult
 from ess.livedata.core.job_manager import JobFactory, JobManager, WorkflowData
 from ess.livedata.core.message import StreamId
 
@@ -154,7 +154,7 @@ class TestJobManager:
         statuses = manager.push_data(data)
 
         assert len(statuses) == 2
-        assert all(isinstance(status, JobError) for status in statuses)
+        assert all(isinstance(status, JobReply) for status in statuses)
         assert all(not status.has_error for status in statuses)
 
     def test_push_data_handles_job_errors(self, fake_job_factory, base_workflow_config):

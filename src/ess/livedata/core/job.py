@@ -75,15 +75,15 @@ class JobStatus:
 
 
 @dataclass
-class JobError:
-    """Error information for a job operation."""
+class JobReply:
+    """Reply of a job to adding new data, in particular an error message."""
 
     job_id: JobId
     error_message: str | None = None
 
     @property
     def has_error(self) -> bool:
-        """Check if the job status indicates an error."""
+        """Check if the job reply indicates an error."""
         return self.error_message is not None
 
 
@@ -155,18 +155,18 @@ class Job:
     def aux_source_names(self) -> list[str]:
         return self._aux_source_names
 
-    def add(self, data: JobData) -> JobError:
+    def add(self, data: JobData) -> JobReply:
         try:
             self._processor.accumulate({**data.primary_data, **data.aux_data})
             if data.is_active():
                 if self._start_time is None:
                     self._start_time = data.start_time
                 self._end_time = data.end_time
-            return JobError(job_id=self._job_id)
+            return JobReply(job_id=self._job_id)
         except Exception:
             tb = traceback.format_exc()
             message = f"Job failed to process latest data.\n\n{tb}"
-            return JobError(job_id=self._job_id, error_message=message)
+            return JobReply(job_id=self._job_id, error_message=message)
 
     def get(self) -> JobResult:
         try:

@@ -13,7 +13,7 @@ import pydantic
 from ess.livedata.config.instrument import Instrument
 
 from ..config.workflow_spec import JobId, JobSchedule, WorkflowConfig, WorkflowId
-from .job import Job, JobData, JobError, JobResult, JobState, JobStatus
+from .job import Job, JobData, JobReply, JobResult, JobState, JobStatus
 from .message import StreamId
 
 
@@ -254,13 +254,13 @@ class JobManager:
         else:
             self._job_states[job_id] = JobState.scheduled
 
-    def push_data(self, data: WorkflowData) -> list[JobError]:
+    def push_data(self, data: WorkflowData) -> list[JobReply]:
         """Push data into the active jobs and return status for each job."""
         self._advance_to_time(data.start_time, data.end_time)
-        maybe_errors = [self._push_data_to_job(job, data) for job in self.active_jobs]
-        return [error for error in maybe_errors if error is not None]
+        replies = [self._push_data_to_job(job, data) for job in self.active_jobs]
+        return [reply for reply in replies if reply is not None]
 
-    def _push_data_to_job(self, job: Job, data: WorkflowData) -> JobError | None:
+    def _push_data_to_job(self, job: Job, data: WorkflowData) -> JobReply | None:
         # Filter data for this specific job
         job_data = JobData(
             start_time=data.start_time,
@@ -282,11 +282,13 @@ class JobManager:
         # Track primary data updates
         if job_data.is_active():
             self._jobs_with_primary_data.add(job.job_id)
-        error = job.add(job_data)
+        reply = job.add(job_data)
 
         # Track warnings from job operations, or clear them on success
-        if error.has_error and error.error_message is not None:
-            self._job_warning_messages[job.job_id] = error.error_message
+        if reply.has_error and reply.error_message is not None:
+            # Pushing new data puts the job into "warning" state: Processing the latest
+            # data failed, but the job may still be able to finalize previous data.
+            self._job_warning_messages[job.job_id] = reply.error_message
             self._job_states[job.job_id] = JobState.warning
         else:
             # Clear warning state on successful data processing
@@ -294,7 +296,7 @@ class JobManager:
             # Only update state if it was warning (preserve error state)
             if self._job_states.get(job.job_id) == JobState.warning:
                 self._job_states[job.job_id] = JobState.active
-        return error
+        return reply
 
     def compute_results(self) -> list[JobResult]:
         """
@@ -309,6 +311,7 @@ class JobManager:
             results.append(result)
             # Track errors from job finalization, or clear them on success
             if result.error_message is not None:
+                # Finalizing failed, put job into error state, cannot compute results.
                 self._job_error_messages[job.job_id] = result.error_message
                 self._job_states[job.job_id] = JobState.error
             else:
@@ -400,7 +403,7 @@ class JobManager:
             status for status in self.get_all_job_statuses() if status.state == state
         ]
 
-    def format_job_error(self, status: JobError) -> str:
+    def format_job_error(self, status: JobReply) -> str:
         """Format a job error message with meaningful job information."""
         job = (
             self._active_jobs.get(status.job_id)
