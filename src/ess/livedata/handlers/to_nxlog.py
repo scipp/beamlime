@@ -75,12 +75,7 @@ class ToNXlog(Accumulator[LogData, sc.DataArray]):
 
     def get(self) -> sc.DataArray:
         if self._timeseries is None:
-            # Return empty DataArray with correct structure if no data
-            values = sc.array(dims=['time'], values=[], unit=self._unit)
-            times = sc.array(
-                dims=['time'], values=[], unit=self._time_unit, dtype='int64'
-            )
-            return sc.DataArray(values, coords={'time': self._start + times})
+            raise RuntimeError("No data has been added yet.")
 
         # Return only the filled part and sort by time
         result = self._timeseries['time', : self._end]
