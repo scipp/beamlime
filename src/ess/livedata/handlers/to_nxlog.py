@@ -51,18 +51,8 @@ class ToNXlog(Accumulator[LogData, sc.DataArray]):
                 shape=[2, *arr.shape],
                 unit=self._unit,
                 dtype=arr.dtype,
+                with_variances=data.variances is not None,
             )
-            # Add variances if present in the data
-            if data.variances is not None:
-                var_arr = np.asarray(data.variances)
-                variances = sc.zeros(
-                    dims=['time', *self._data_dims],
-                    shape=[2, *var_arr.shape],
-                    unit=self._unit**2 if self._unit else None,
-                    dtype=var_arr.dtype,
-                )
-                values.variances = variances.values
-
             times = sc.zeros(
                 dims=['time'], shape=[2], unit=self._time_unit, dtype='int64'
             )
@@ -84,7 +74,7 @@ class ToNXlog(Accumulator[LogData, sc.DataArray]):
         self._end += 1
 
     def get(self) -> sc.DataArray:
-        if self._timeseries is None or self._end == 0:
+        if self._timeseries is None:
             # Return empty DataArray with correct structure if no data
             values = sc.array(dims=['time'], values=[], unit=self._unit)
             times = sc.array(
