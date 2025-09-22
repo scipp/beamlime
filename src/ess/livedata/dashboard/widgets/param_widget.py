@@ -81,10 +81,16 @@ class ParamWidget:
                 **shared_options,
             )
         elif field_type is bool:
-            # Does not support description directly
+            # Checkbox does not support description directly, add as tooltip.
             options = shared_options.copy()
-            options.pop('description', None)
-            return pn.widgets.Checkbox(value=default_value or False, **options)
+            tooltip = pn.widgets.TooltipIcon(
+                value=options.pop('description', None),
+                margin=options['margin'],
+                # Pop so tooltip is right next to checkbox, stretch applied to row
+                sizing_mode=options.pop('sizing_mode', None),
+            )
+            checkbox = pn.widgets.Checkbox(value=default_value or False, **options)
+            return pn.layout.Row(checkbox, tooltip)
         elif field_type == Path or field_type is str:
             return pn.widgets.TextInput(
                 value=str(default_value) if default_value else "",
