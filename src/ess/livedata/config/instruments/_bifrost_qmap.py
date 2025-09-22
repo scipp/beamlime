@@ -41,6 +41,9 @@ q_vectors = {
     'Qz': sc.vector([0, 0, 1]),
 }
 
+QMAX_DEFAULT = 3.0
+QBIN_DEFAULT = 100
+
 
 class CustomQAxis(pydantic.BaseModel):
     qx: int = pydantic.Field(
@@ -56,11 +59,11 @@ class CustomQAxis(pydantic.BaseModel):
 
 class BifrostQMapParams(pydantic.BaseModel):
     q_edges: QEdges = pydantic.Field(
-        default=QEdges(start=0.5, stop=1.5, num_bins=100),
+        default=QEdges(start=0.5, stop=QMAX_DEFAULT, num_bins=QBIN_DEFAULT),
         description="Q bin edges.",
     )
     energy_edges: EnergyEdges = pydantic.Field(
-        default=EnergyEdges(start=-0.1, stop=0.1, num_bins=100),
+        default=EnergyEdges(start=-0.1, stop=0.1, num_bins=QBIN_DEFAULT),
         description="Energy transfer bin edges.",
     )
 
@@ -101,11 +104,21 @@ class QAxisParams(QEdges, QAxisSelection):
 
 class BifrostElasticQMapParams(pydantic.BaseModel):
     axis1: QAxisParams = pydantic.Field(
-        default=QAxisParams(axis=QAxisOption.Qx, start=-2.0, stop=2.0, num_bins=100),
+        default=QAxisParams(
+            axis=QAxisOption.Qx,
+            start=-QMAX_DEFAULT,
+            stop=QMAX_DEFAULT,
+            num_bins=QBIN_DEFAULT,
+        ),
         description="First cut axis.",
     )
     axis2: QAxisParams = pydantic.Field(
-        default=QAxisParams(axis=QAxisOption.Qz, start=-2.0, stop=2.0, num_bins=100),
+        default=QAxisParams(
+            axis=QAxisOption.Qz,
+            start=-QMAX_DEFAULT,
+            stop=QMAX_DEFAULT,
+            num_bins=QBIN_DEFAULT,
+        ),
         description="Second cut axis.",
     )
 
@@ -116,7 +129,7 @@ class BifrostCustomElasticQMapParams(pydantic.BaseModel):
         description="Custom vector for the first cut axis.",
     )
     axis1_edges: QEdges = pydantic.Field(
-        default=QEdges(start=-2.0, stop=2.0, num_bins=100),
+        default=QEdges(start=-QMAX_DEFAULT, stop=QMAX_DEFAULT, num_bins=QBIN_DEFAULT),
         description="First cut axis edges.",
     )
     axis2: CustomQAxis = pydantic.Field(
@@ -124,7 +137,7 @@ class BifrostCustomElasticQMapParams(pydantic.BaseModel):
         description="Custom vector for the second cut axis.",
     )
     axis2_edges: QEdges = pydantic.Field(
-        default=QEdges(start=-2.0, stop=2.0, num_bins=100),
+        default=QEdges(start=-QMAX_DEFAULT, stop=QMAX_DEFAULT, num_bins=QBIN_DEFAULT),
         description="Second cut axis edges.",
     )
 
