@@ -84,7 +84,7 @@ def _bifrost_generator() -> Generator[tuple[str, tuple[int, int]]]:
     # pixels, so the generated fake events in the wrong bank will end up in the right
     # bank. As a consequence we do not lose any fake events, but the travel over Kafka
     # with the wrong source_name.
-    start = 123
+    start = 125
     ntube = 3
     for sector in range(1, 10):
         for analyzer in range(1, 6):

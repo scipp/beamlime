@@ -197,6 +197,23 @@ class QEdges(EdgesModel):
         return make_edges(model=self, dim='Q', unit=self.unit.value)
 
 
+class EnergyUnit(str, Enum):
+    ME_V = 'meV'
+    MU_EV = 'μeV'
+
+
+class EnergyEdges(EdgesModel):
+    """Model for energy transfer edges."""
+
+    unit: EnergyUnit = Field(
+        default=EnergyUnit.ME_V, description="Unit of the energy transfer edges."
+    )
+
+    def get_edges(self) -> sc.Variable:
+        """Get the edges as a scipp variable."""
+        return make_edges(model=self, dim='ΔE', unit=self.unit.value)
+
+
 def make_edges(*, model: EdgesModel, dim: str, unit: str) -> sc.Variable:
     """Convert the edges to a scipp variable."""
     op = {Scale.LINEAR: sc.linspace, Scale.LOG: sc.logspace}[model.scale]
