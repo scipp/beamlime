@@ -42,27 +42,7 @@ q_vectors = {
 }
 
 
-class CutAxisOption(str, Enum):
-    Q = '|Q|'
-    Qx = 'Qx'
-    Qy = 'Qy'
-    Qz = 'Qz'
-    dE = 'ΔE'
-
-
-class CustomQAxisOption(str, Enum):
-    CUSTOM = 'custom'
-    Q = '|Q|'
-    Qx = 'Qx'
-    Qy = 'Qy'
-    Qz = 'Qz'
-
-
-class CustomQAxisParams(pydantic.BaseModel):
-    axis: CutAxisOption = pydantic.Field(
-        default=CutAxisOption.Q,
-        description="Cut axis.",
-    )
+class CustomQAxis(pydantic.BaseModel):
     qx: int = pydantic.Field(
         default=0, title='Qx', description="Custom x component of the cut axis."
     )
@@ -130,6 +110,39 @@ class BifrostElasticQMapParams(pydantic.BaseModel):
     )
 
 
+class BifrostCustomElasticQMapParams(pydantic.BaseModel):
+    axis1: CustomQAxis = pydantic.Field(
+        default=CustomQAxis(qx=1, qy=0, qz=0),
+        description="Custom vector for the first cut axis.",
+    )
+    axis1_edges: QEdges = pydantic.Field(
+        default=QEdges(start=-2.0, stop=2.0, num_bins=100),
+        description="First cut axis edges.",
+    )
+    axis2: CustomQAxis = pydantic.Field(
+        default=CustomQAxis(qx=0, qy=0, qz=1),
+        description="Custom vector for the second cut axis.",
+    )
+    axis2_edges: QEdges = pydantic.Field(
+        default=QEdges(start=-2.0, stop=2.0, num_bins=100),
+        description="Second cut axis edges.",
+    )
+
+    def get_cut_axis1(self) -> CutAxis:
+        components = [self.axis1.qx, self.axis1.qy, self.axis1.qz]
+        vec = sc.vector(components)
+        name = f'Q_({components[0]},{components[1]},{components[2]})'
+        edges = self.axis1_edges.get_edges().rename(Q=name)
+        return CutAxis.from_q_vector(output=name, vec=vec, bins=edges)
+
+    def get_cut_axis2(self) -> CutAxis:
+        components = [self.axis2.qx, self.axis2.qy, self.axis2.qz]
+        vec = sc.vector(components)
+        name = f'Q_({components[0]},{components[1]},{components[2]})'
+        edges = self.axis2_edges.get_edges().rename(Q=name)
+        return CutAxis.from_q_vector(output=name, vec=vec, bins=edges)
+
+
 def register_qmap_workflows(
     instrument: Instrument,
 ) -> None:
@@ -137,7 +150,7 @@ def register_qmap_workflows(
         name='qmap',
         version=1,
         title='Q map',
-        description='',
+        description='Map of scattering intensity as function of Q and energy transfer.',
         source_names=['unified_detector'],
         aux_source_names=['detector_rotation', 'sample_rotation'],
     )
@@ -151,7 +164,7 @@ def register_qmap_workflows(
         name='elastic_qmap',
         version=1,
         title='Elastic Q map',
-        description='',
+        description='Elastic Q map with predefined axes.',
         source_names=['unified_detector'],
         aux_source_names=['detector_rotation', 'sample_rotation'],
     )
@@ -161,6 +174,22 @@ def register_qmap_workflows(
         wf = workflow.copy()
         wf[CutAxis1] = params.axis1.to_cut_axis()
         wf[CutAxis2] = params.axis2.to_cut_axis()
+        return _make_cut_stream_processor(wf)
+
+    @instrument.register_workflow(
+        name='elastic_qmap_custom',
+        version=1,
+        title='Elastic Q map (custom)',
+        description='Elastic Q map with custom axes.',
+        source_names=['unified_detector'],
+        aux_source_names=['detector_rotation', 'sample_rotation'],
+    )
+    def _custom_elastic_qmap_workflow(
+        params: BifrostCustomElasticQMapParams,
+    ) -> StreamProcessorWorkflow:
+        wf = workflow.copy()
+        wf[CutAxis1] = params.get_cut_axis1()
+        wf[CutAxis2] = params.get_cut_axis2()
         return _make_cut_stream_processor(wf)
 
 
