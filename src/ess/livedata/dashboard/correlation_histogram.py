@@ -323,7 +323,7 @@ class CorrelationHistogramProcessor:
 
 
 class CorrelationHistogrammer:
-    def __init__(self, edges: dict[str, sc.Variable], normalize: bool = True) -> None:
+    def __init__(self, edges: dict[str, sc.Variable], normalize: bool = False) -> None:
         self._edges = edges
         self._normalize: bool = normalize
 
