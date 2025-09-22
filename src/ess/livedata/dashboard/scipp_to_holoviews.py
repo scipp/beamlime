@@ -63,7 +63,14 @@ def convert_curve_1d(data: sc.DataArray) -> hv.Curve:
     kdims = [coord_to_dimension(coord)]
     vdims = [create_value_dimension(data)]
 
-    return hv.Curve(data=(coord.values, data.values), kdims=kdims, vdims=vdims)
+    curve = hv.Curve(data=(coord.values, data.values), kdims=kdims, vdims=vdims)
+    if data.variances is None:
+        return curve
+    return hv.ErrorBars(
+        data=(coord.values, data.values, sc.stddevs(data).values),
+        kdims=kdims,
+        vdims=[*vdims, 'yerr'],
+    )
 
 
 def convert_quadmesh_2d(data: sc.DataArray) -> hv.QuadMesh:

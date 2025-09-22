@@ -311,11 +311,17 @@ class CorrelationHistogramProcessor:
 class CorrelationHistogrammer:
     def __init__(self, edges: dict[str, sc.Variable]) -> None:
         self._edges = edges
+        self._normalize: bool = True
 
     def __call__(
         self, data: sc.DataArray, coords: dict[str, sc.DataArray]
     ) -> sc.DataArray:
         dependent = data.copy(deep=False)
+        if self._normalize:
+            times = dependent.coords['time']
+            widths = (times[1:] - times[:-1]).to(dtype='float64', unit='s')
+            widths = sc.concat([widths, widths.median()], dim='time')
+            dependent = dependent / widths
         # Note that this implementation is naive and inefficient as timeseries grow.
         # An alternative approach, streaming only the new data and directly updating
         # only the target bin may need to be considered in the future. This would have
@@ -326,4 +332,6 @@ class CorrelationHistogrammer:
         for dim in self._edges:
             lut = sc.lookup(sc.values(coords[dim]), mode='previous')
             dependent.coords[dim] = lut[dependent.coords['time']]
+        if self._normalize:
+            return dependent.bin(**self._edges).bins.mean()
         return dependent.hist(**self._edges)

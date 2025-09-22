@@ -155,7 +155,9 @@ def _make_spectrum_view(
 
 def _analyzer_counts(data: DetectorData[SampleRun]) -> AnalyzerCounts:
     time = data.bins.coords['event_time_zero'].min()
-    return AnalyzerCounts(data.sum(dim=('pixel', 'tube')).assign_coords(time=time))
+    counts = data.sum(dim=('pixel', 'tube'))
+    counts.variances = counts.values  # Poisson statistics
+    return AnalyzerCounts(counts.assign_coords(time=time))
 
 
 def _bank_counts(analyzer_counts: AnalyzerCounts) -> BankCounts:

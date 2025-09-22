@@ -74,7 +74,12 @@ class TimeseriesAccumulator(streaming.Accumulator[sc.DataArray]):
                 attrs={'units': str(value.unit)}, data_dims=tuple(value.dims)
             )
         self._to_nxlog.add(
-            0, LogData(time=value.coords['time'].value, value=value.values)
+            0,
+            LogData(
+                time=value.coords['time'].value,
+                value=value.values,
+                variances=value.variances,
+            ),
         )
 
     def clear(self) -> None:
