@@ -10,13 +10,7 @@ import numpy as np
 import pydantic
 import scipp as sc
 
-from ess.livedata.config.workflow_spec import (
-    JobId,
-    JobNumber,
-    ResultKey,
-    WorkflowId,
-    WorkflowSpec,
-)
+from ess.livedata.config.workflow_spec import JobId, JobNumber, ResultKey, WorkflowSpec
 from ess.livedata.parameter_models import EdgesModel, make_edges
 
 from .data_service import DataService
@@ -81,7 +75,9 @@ def _make_edges_field(name: str, coord: sc.DataArray) -> Any:
     )
 
 
-class CorrelationHistogramWorkflow(ConfigurationAdapter[CorrelationHistogramParams]):
+class CorrelationHistogramConfigurationAdapter(
+    ConfigurationAdapter[CorrelationHistogramParams]
+):
     """
     Combined configuration adapter and workflow controller for correlation histograms.
 
@@ -199,8 +195,7 @@ class CorrelationHistogramWorkflow(ConfigurationAdapter[CorrelationHistogramPara
                 data_key=key,
                 coord_keys=self._axis_keys,
                 edges_params=edges,
-                job_number=job_number,
-                data_service=self._controller._data_service,
+                result_callback=self._create_result_callback(key, job_number),
             )
             stream_manager = StreamManager(
                 data_service=self._controller._data_service, pipe_factory=pipe_factory
@@ -209,6 +204,23 @@ class CorrelationHistogramWorkflow(ConfigurationAdapter[CorrelationHistogramPara
             pipe = stream_manager.make_merging_stream({key: value, **axes})
             # Keep a reference to avoid garbage collection
             self._controller._pipes.append(pipe)
+
+    def _create_result_callback(
+        self, data_key: ResultKey, job_number: JobNumber
+    ) -> Callable[[sc.DataArray], None]:
+        """Create callback for handling histogram results."""
+        result_key = ResultKey(
+            workflow_id=self._workflow_spec.get_id(),
+            job_id=JobId(
+                source_name=data_key.job_id.source_name, job_number=job_number
+            ),
+            output_name=None,
+        )
+
+        def callback(result: sc.DataArray) -> None:
+            self._controller._data_service[result_key] = result
+
+        return callback
 
 
 class CorrelationHistogramController:
@@ -234,7 +246,9 @@ class CorrelationHistogramController:
     def get_timeseries(self) -> list[ResultKey]:
         return [key for key, da in self._data_service.items() if _is_timeseries(da)]
 
-    def create_config(self, axis_keys: list[ResultKey]) -> CorrelationHistogramWorkflow:
+    def create_config(
+        self, axis_keys: list[ResultKey]
+    ) -> CorrelationHistogramConfigurationAdapter:
         """
         Called by widget to get configuration for modal creation.
 
@@ -253,10 +267,8 @@ class CorrelationHistogramController:
         # will thus be shown by the widget in the "source selection" menu.
         result_keys = [key for key in self.get_timeseries() if key not in axis_keys]
 
-        return CorrelationHistogramWorkflow(
-            data_keys=result_keys,
-            axis_keys=axis_keys,
-            controller=self,
+        return CorrelationHistogramConfigurationAdapter(
+            data_keys=result_keys, axis_keys=axis_keys, controller=self
         )
 
 
@@ -268,50 +280,31 @@ def make_correlation_histogrammer_pipe_factory(
     data_key: ResultKey,
     coord_keys: list[ResultKey],
     edges_params: list[EdgesWithUnit],
-    job_number: JobNumber,
-    data_service: DataService[ResultKey, sc.DataArray],
+    result_callback: Callable[[sc.DataArray], None],
 ) -> Any:
     class CorrelationHistogrammerPipe:
         """
         Connector of Pipe expected by StreamManager to CorrelationHistogrammer.
 
-        When data is sent to the pipe, it runs the histogrammer and writes the result
-        back to the DataService.
+        When data is sent to the pipe, it runs the histogrammer and sends the result
+        via the provided callback.
         """
 
         def __init__(self, data: dict[ResultKey, sc.DataArray]) -> None:
             self._data_key = data_key
-            self._data_service = data_service
+            self._result_callback = result_callback
             self._coords = {key: key.job_id.source_name for key in coord_keys}
             edges = {
                 dim: edge.make_edges(dim=dim)
                 for dim, edge in zip(self._coords.values(), edges_params, strict=True)
             }
             self._histogrammer = CorrelationHistogrammer(edges=edges)
-            self._result_key = ResultKey(
-                workflow_id=WorkflowId(
-                    instrument=data_key.workflow_id.instrument,
-                    namespace='correlation',
-                    # Name includes coords to avoid collisions. This won't work if the
-                    # backend wants to translate from a WorkflowId to a WorkflowSpec.
-                    # Ultimately we want the WorkflowSpec.aux_source_names to carry this
-                    # information, instead of having workflows created dynamically.
-                    # As the backend is job-based and we have a UUID for the job number,
-                    # this should not be a problem.
-                    name=f'correlation_histogram_{"_".join(self._coords.values())}',
-                    version=1,
-                ),
-                job_id=JobId(
-                    source_name=data_key.job_id.source_name, job_number=job_number
-                ),
-                output_name=None,
-            )
             self.send(data)
 
         def send(self, data: dict[ResultKey, sc.DataArray]) -> None:
             coords = {name: data[key] for key, name in self._coords.items()}
             result = self._histogrammer(data[self._data_key], coords=coords)
-            self._data_service[self._result_key] = result
+            self._result_callback(result)
 
     return CorrelationHistogrammerPipe
 
