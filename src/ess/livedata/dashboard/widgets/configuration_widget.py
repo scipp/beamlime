@@ -28,9 +28,9 @@ class ConfigurationAdapter(ABC, Generic[Model]):
         """Configuration description."""
 
     @property
-    @abstractmethod
     def aux_source_names(self) -> dict[str, list[str]]:
         """Available auxiliary source names grouped by category."""
+        return {}
 
     @abstractmethod
     def model_class(self, aux_source_names: dict[str, str]) -> type[Model] | None:

@@ -136,8 +136,9 @@ class CorrelationHistogramConfigurationAdapter(
     def description(self) -> str:
         return self._workflow_spec.description
 
-    @property
-    def model_class(self) -> type[CorrelationHistogramParams]:
+    def model_class(
+        self, aux_source_names: dict[str, str]
+    ) -> type[CorrelationHistogramParams] | None:
         return self._model_class
 
     @property

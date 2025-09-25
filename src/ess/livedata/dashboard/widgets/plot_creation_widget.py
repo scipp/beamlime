@@ -47,8 +47,9 @@ class PlotConfigurationAdapter(ConfigurationAdapter):
     def description(self) -> str:
         return self._plot_spec.description
 
-    @property
-    def model_class(self) -> type[pydantic.BaseModel] | None:
+    def model_class(
+        self, aux_source_names: dict[str, str]
+    ) -> type[pydantic.BaseModel] | None:
         return self._plot_spec.params
 
     @property
