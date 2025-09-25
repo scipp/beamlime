@@ -314,7 +314,7 @@ _registry = {
     'geometry-loki-2025-01-01.nxs': 'md5:8d0e103276934a20ba26bb525e53924a',
     'geometry-loki-2025-03-26.nxs': 'md5:279dc8cf7dae1fac030d724bc45a2572',
     'geometry-bifrost-2025-01-01.nxs': 'md5:ae3caa99dd56de9495b9321eea4e4fef',
-    'geometry-odin-2025-09-25.nxs': 'md5:2b72ceebdf255fba2ad1aafd54352eea',
+    'geometry-odin-2025-09-25.nxs': 'md5:5615a6203813b4ab84a191f7478ceb3c',
 }
 
 
