@@ -9,7 +9,7 @@ frontend.
 """
 
 from abc import ABC
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 import scipp as sc
@@ -31,7 +31,7 @@ class RangeModel(BaseModel, ABC):
         return v
 
 
-class Scale(str, Enum):
+class Scale(StrEnum):
     """Allowed scales for data reduction."""
 
     LINEAR = 'linear'
@@ -66,7 +66,7 @@ class EdgesModel(BaseModel, ABC):
         return v
 
 
-class TimeUnit(str, Enum):
+class TimeUnit(StrEnum):
     """Allowed units for time."""
 
     NS = 'ns'
@@ -76,28 +76,28 @@ class TimeUnit(str, Enum):
     S = 's'
 
 
-class WavelengthUnit(str, Enum):
+class WavelengthUnit(StrEnum):
     """Allowed units for wavelength."""
 
     ANGSTROM = 'Å'
     NANOMETER = 'nm'
 
 
-class DspacingUnit(str, Enum):
+class DspacingUnit(StrEnum):
     """Allowed units for d-spacing."""
 
     ANGSTROM = 'Å'
     NANOMETER = 'nm'
 
 
-class AngleUnit(str, Enum):
+class AngleUnit(StrEnum):
     """Allowed units for angles."""
 
     DEGREE = 'deg'
     RADIAN = 'rad'
 
 
-class QUnit(str, Enum):
+class QUnit(StrEnum):
     """Allowed units for Q."""
 
     INVERSE_ANGSTROM = '1/Å'
@@ -198,15 +198,15 @@ class QEdges(EdgesModel):
 
 
 class EnergyUnit(StrEnum):
-    ME_V = 'meV'
-    MU_EV = 'μeV'
+    MILLI_EV = 'meV'
+    MICRO_EV = 'μeV'
 
 
 class EnergyEdges(EdgesModel):
     """Model for energy transfer edges."""
 
     unit: EnergyUnit = Field(
-        default=EnergyUnit.ME_V, description="Unit of the energy transfer edges."
+        default=EnergyUnit.MILLI_EV, description="Unit of the energy transfer edges."
     )
 
     def get_edges(self) -> sc.Variable:
