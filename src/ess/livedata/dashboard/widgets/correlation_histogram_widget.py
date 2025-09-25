@@ -38,6 +38,21 @@ class CorrelationHistogramWidget:
         )
         self._config_button.on_click(self._on_config_button_click)
 
+        # Create the new 1D and 2D configuration buttons
+        self._config_1d_button = pn.widgets.Button(
+            name='Create 1D Correlation Histogram',
+            disabled=True,
+            button_type='primary',
+        )
+        self._config_1d_button.on_click(self._on_config_1d_button_click)
+
+        self._config_2d_button = pn.widgets.Button(
+            name='Create 2D Correlation Histogram',
+            disabled=True,
+            button_type='primary',
+        )
+        self._config_2d_button.on_click(self._on_config_2d_button_click)
+
         # Register for updates and set up selection watching
         self._correlation_histogram_controller.register_update_subscriber(
             self._update_timeseries_list
@@ -67,6 +82,12 @@ class CorrelationHistogramWidget:
         if timeseries_keys:
             self._result_key = data.pop('result_key')
         self._tabulator.value = data
+
+        # Update button states based on available timeseries count
+        num_timeseries = len(timeseries_keys)
+        self._config_1d_button.disabled = num_timeseries < 1
+        self._config_2d_button.disabled = num_timeseries < 2
+
         self._on_selection_change()  # Update button state
 
     def _on_selection_change(self, *args: Any) -> None:
@@ -103,11 +124,44 @@ class CorrelationHistogramWidget:
         self._modal_container.append(modal.modal)
         modal.show()
 
+    def _on_config_1d_button_click(self, event: Any) -> None:
+        """Handle 1D configuration button clicks."""
+        config = self._correlation_histogram_controller.create_1d_config()
+
+        # Create and show configuration modal
+        modal = ConfigurationModal(
+            config=config, start_button_text="Create 1D Correlation Histogram"
+        )
+
+        # Clear previous modals and add the new one
+        self._modal_container.clear()
+        self._modal_container.append(modal.modal)
+        modal.show()
+
+    def _on_config_2d_button_click(self, event: Any) -> None:
+        """Handle 2D configuration button clicks."""
+        config = self._correlation_histogram_controller.create_2d_config()
+
+        # Create and show configuration modal
+        modal = ConfigurationModal(
+            config=config, start_button_text="Create 2D Correlation Histogram"
+        )
+
+        # Clear previous modals and add the new one
+        self._modal_container.clear()
+        self._modal_container.append(modal.modal)
+        modal.show()
+
     @property
     def panel(self) -> pn.Column:
         """Get the panel widget for display."""
         return pn.Column(
             pn.pane.Markdown("## Correlation Histogram Configuration"),
+            pn.pane.Markdown(
+                "Create correlation histograms or select timeseries for custom configuration:"
+            ),
+            pn.Row(self._config_1d_button, self._config_2d_button),
+            pn.pane.Markdown("**Custom Configuration:**"),
             pn.pane.Markdown(
                 "Select one or two timeseries to create a correlation histogram:"
             ),

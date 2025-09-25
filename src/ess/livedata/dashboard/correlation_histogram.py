@@ -47,9 +47,9 @@ class CorrelationHistogram2dParams(CorrelationHistogramParams):
 # WorkflowSpec format. In the future, this can be converted to WorkflowConfig and
 # submitted to a separate backend service for execution.
 def make_workflow_spec(
-    source_names: list[str], aux_source_names: list[str]
+    source_names: list[str], aux_source_names: list[str], ndim: int
 ) -> WorkflowSpec:
-    ndim = len(aux_source_names)
+    # ndim = len(aux_source_names)
     params = {1: CorrelationHistogram1dParams, 2: CorrelationHistogram2dParams}
     return WorkflowSpec(
         instrument='frontend',  # As long as we are running in the frontend
@@ -98,7 +98,7 @@ class CorrelationHistogramConfigurationAdapter(
         self._source_name_to_key: dict[str, ResultKey] = {}
 
         # Create workflow spec template
-        self._workflow_spec_template = make_workflow_spec([], [])
+        self._workflow_spec_template = make_workflow_spec([], [], ndim=ndim)
         self._workflow_spec_template.name = f'correlation_histogram_{ndim}d'
         self._workflow_spec_template.title = f'{ndim}D Correlation Histogram'
 
