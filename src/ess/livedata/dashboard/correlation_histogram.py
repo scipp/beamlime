@@ -94,10 +94,26 @@ class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter[Model], ABC)
         self._selected_aux_sources: dict[str, str] | None = None
         # All timeseries except the axis keys can be used as dependent variables. These
         # will thus be shown by the widget in the "source selection" menu.
+        timeseries = self._controller.get_timeseries()
         self._source_name_to_key = {
-            key.job_id.source_name: key for key in self._controller.get_timeseries()
+            self._format_brief_result_key(key): key for key in timeseries
         }
+        if len(self._source_name_to_key) != len(timeseries):
+            self._source_name_to_key = {
+                self._format_full_result_key(key): key for key in timeseries
+            }
         self._workflow_spec_template = make_workflow_spec(ndim=self.ndim)
+
+    def _format_brief_result_key(self, key: ResultKey) -> str:
+        """Make a brief representation of a ResultKey."""
+        if key.output_name is None:
+            return f"{key.job_id.source_name}"
+        output = key.output_name.split('.')[-1]
+        return f"{key.job_id.source_name}: {output}"
+
+    def _format_full_result_key(self, key: ResultKey) -> str:
+        """Make a full representation of a ResultKey, fallback if brief not unique."""
+        return f"{key.workflow_id}/{key.job_id}/{key.output_name or 'default'}"
 
     @property
     @abstractmethod
@@ -135,8 +151,7 @@ class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter[Model], ABC)
 
     @property
     def source_names(self) -> list[str]:
-        all_timeseries = self._controller.get_timeseries()
-        return [key.job_id.source_name for key in all_timeseries]
+        return list(self._source_name_to_key.keys())
 
     @property
     def initial_source_names(self) -> list[str]:
