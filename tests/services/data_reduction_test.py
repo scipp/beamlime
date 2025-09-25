@@ -9,7 +9,7 @@ from streaming_data_types import eventdata_ev44
 
 from ess.livedata.config import instrument_registry, workflow_spec
 from ess.livedata.config.models import ConfigKey
-from ess.livedata.core.job import JobAction, JobCommand
+from ess.livedata.core.job_manager import JobAction, JobCommand
 from ess.livedata.services.data_reduction import make_reduction_service_builder
 from tests.helpers.livedata_app import LivedataApp
 

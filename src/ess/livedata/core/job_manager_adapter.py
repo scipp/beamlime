@@ -5,8 +5,13 @@ from __future__ import annotations
 import logging
 
 from ..config.models import ConfigKey
-from ..config.workflow_spec import WorkflowConfig, WorkflowStatus, WorkflowStatusType
-from .job import DifferentInstrument, JobCommand, JobId, JobManager
+from ..config.workflow_spec import (
+    JobId,
+    WorkflowConfig,
+    WorkflowStatus,
+    WorkflowStatusType,
+)
+from .job_manager import DifferentInstrument, JobCommand, JobManager
 
 
 class JobManagerAdapter:

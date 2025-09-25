@@ -7,7 +7,8 @@ from typing import ClassVar
 
 import panel as pn
 
-from ess.livedata.core.job import JobAction, JobState, JobStatus
+from ess.livedata.core.job import JobState, JobStatus
+from ess.livedata.core.job_manager import JobAction
 from ess.livedata.dashboard.job_controller import JobController
 from ess.livedata.dashboard.job_service import JobService
 
@@ -502,7 +503,10 @@ class JobStatusListWidget:
                 try:
                     self._job_list.remove(widget_panel)
                 except ValueError:
-                    # Panel might not be in the list anymore
+                    # Panel might not be in the list, e.g., if there is a mismatch
+                    # between what job statuses we get from Kafka and which have been
+                    # added here. This might be avoided if we control topic offsets
+                    # better.
                     pass
 
     def _select_all(self, event) -> None:
