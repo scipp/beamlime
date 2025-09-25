@@ -112,7 +112,8 @@ class ConfigurationWidget:
     def _create_aux_source_selectors(self) -> dict[str, pn.widgets.Select]:
         """Create auxiliary source selection widgets."""
         selectors = {}
-        for category, options in self._config.aux_source_names.items():
+        size = len(self._config.aux_source_names)
+        for i, (category, options) in enumerate(self._config.aux_source_names.items()):
             if not options:
                 raise ValueError(
                     f"Empty options list for aux source category '{category}'"
@@ -123,7 +124,9 @@ class ConfigurationWidget:
                 options=options,
                 value=options[0],  # Default to first entry
                 sizing_mode='stretch_width',
-                margin=(0, 0, 0, 0),
+                # No left margin and no right margin for last item: Align with source
+                # selector above.
+                margin=(0, 0 if i == size - 1 else 10, 10, 0),
             )
             selector.param.watch(self._on_aux_source_changed, 'value')
             selectors[category] = selector
