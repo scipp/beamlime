@@ -3,6 +3,7 @@
 """Bifrost Q-map workflows."""
 
 from enum import Enum
+from functools import cache
 
 import pydantic
 import sciline
@@ -26,14 +27,23 @@ from ess.spectroscopy.types import (
     TimeOfFlightLookupTableFilename,
 )
 
-fname = simulated_elastic_incoherent_with_phonon()
-with snx.File(fname) as f:
-    detector_names = list(f['entry/instrument'][snx.NXdetector])
 
-workflow = BifrostQCutWorkflow(detector_names)
-workflow[Filename[SampleRun]] = fname
-workflow[TimeOfFlightLookupTableFilename] = tof_lookup_table_simulation()
-workflow[PreopenNeXusFile] = PreopenNeXusFile(True)
+@cache
+def _init_q_cut_workflow() -> sciline.Pipeline:
+    """Initialize a Bifrost Q-cut workflow with common parameters."""
+    fname = simulated_elastic_incoherent_with_phonon()
+    with snx.File(fname) as f:
+        detector_names = list(f['entry/instrument'][snx.NXdetector])
+    workflow = BifrostQCutWorkflow(detector_names)
+    workflow[Filename[SampleRun]] = fname
+    workflow[TimeOfFlightLookupTableFilename] = tof_lookup_table_simulation()
+    workflow[PreopenNeXusFile] = PreopenNeXusFile(True)
+    return workflow
+
+
+def _get_q_cut_workflow() -> sciline.Pipeline:
+    return _init_q_cut_workflow().copy()
+
 
 q_vectors = {
     'Qx': sc.vector([1, 0, 0]),
@@ -168,7 +178,7 @@ def register_qmap_workflows(
         aux_source_names=['detector_rotation', 'sample_rotation'],
     )
     def _qmap_workflow(params: BifrostQMapParams) -> StreamProcessorWorkflow:
-        wf = workflow.copy()
+        wf = _get_q_cut_workflow()
         wf[CutAxis1] = params.get_q_cut()
         wf[CutAxis2] = params.get_energy_cut()
         return _make_cut_stream_processor(wf)
@@ -184,7 +194,7 @@ def register_qmap_workflows(
     def _elastic_qmap_workflow(
         params: BifrostElasticQMapParams,
     ) -> StreamProcessorWorkflow:
-        wf = workflow.copy()
+        wf = _get_q_cut_workflow()
         wf[CutAxis1] = params.axis1.to_cut_axis()
         wf[CutAxis2] = params.axis2.to_cut_axis()
         return _make_cut_stream_processor(wf)
@@ -200,7 +210,7 @@ def register_qmap_workflows(
     def _custom_elastic_qmap_workflow(
         params: BifrostCustomElasticQMapParams,
     ) -> StreamProcessorWorkflow:
-        wf = workflow.copy()
+        wf = _get_q_cut_workflow()
         wf[CutAxis1] = params.get_cut_axis1()
         wf[CutAxis2] = params.get_cut_axis2()
         return _make_cut_stream_processor(wf)
