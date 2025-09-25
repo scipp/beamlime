@@ -20,16 +20,12 @@ class CorrelationHistogramWidget:
 
         # Create the new 1D and 2D configuration buttons
         self._config_1d_button = pn.widgets.Button(
-            name='Create 1D Correlation Histogram',
-            disabled=True,
-            button_type='primary',
+            name='1D Correlation Histogram', disabled=True, button_type='primary'
         )
         self._config_1d_button.on_click(self._on_config_1d_button_click)
 
         self._config_2d_button = pn.widgets.Button(
-            name='Create 2D Correlation Histogram',
-            disabled=True,
-            button_type='primary',
+            name='2D Correlation Histogram', disabled=True, button_type='primary'
         )
         self._config_2d_button.on_click(self._on_config_2d_button_click)
 
@@ -54,24 +50,17 @@ class CorrelationHistogramWidget:
     def _on_config_1d_button_click(self, event: Any) -> None:
         """Handle 1D configuration button clicks."""
         config = self._correlation_histogram_controller.create_1d_config()
-
-        # Create and show configuration modal
-        modal = ConfigurationModal(
-            config=config, start_button_text="Create 1D Correlation Histogram"
-        )
-
-        # Clear previous modals and add the new one
-        self._modal_container.clear()
-        self._modal_container.append(modal.modal)
-        modal.show()
+        self._create_and_show_modal(config, ndim=1)
 
     def _on_config_2d_button_click(self, event: Any) -> None:
         """Handle 2D configuration button clicks."""
         config = self._correlation_histogram_controller.create_2d_config()
+        self._create_and_show_modal(config, ndim=2)
 
+    def _create_and_show_modal(self, config: Any, ndim: int) -> None:
         # Create and show configuration modal
         modal = ConfigurationModal(
-            config=config, start_button_text="Create 2D Correlation Histogram"
+            config=config, start_button_text=f"Create {ndim}D Correlation Histogram"
         )
 
         # Clear previous modals and add the new one
@@ -83,8 +72,6 @@ class CorrelationHistogramWidget:
     def panel(self) -> pn.Column:
         """Get the panel widget for display."""
         return pn.Column(
-            pn.pane.Markdown("## Correlation Histogram Configuration"),
-            pn.pane.Markdown("Create correlation histograms:"),
             pn.Column(self._config_1d_button, self._config_2d_button),
             self._modal_container,
             sizing_mode='stretch_width',
