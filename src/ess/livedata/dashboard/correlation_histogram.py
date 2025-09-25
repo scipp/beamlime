@@ -88,22 +88,19 @@ class CorrelationHistogramConfigurationAdapter(
 
     def __init__(
         self,
-        data_keys: list[ResultKey],
-        axis_keys: list[ResultKey],
+        ndim: int,
         controller: CorrelationHistogramController,
     ) -> None:
-        self._data_keys = data_keys
-        self._axis_keys = axis_keys
+        self._ndim = ndim
         self._controller = controller
+        self._selected_aux_sources: dict[str, str] | None = None
+        self._current_model_class: type[CorrelationHistogramParams] | None = None
+        self._source_name_to_key: dict[str, ResultKey] = {}
 
-        # Create workflow spec to derive configuration
-        aux_source_names = [key.job_id.source_name for key in axis_keys]
-        source_names = [key.job_id.source_name for key in data_keys]
-        self._workflow_spec = make_workflow_spec(source_names, aux_source_names)
-
-        # Generate dynamic parameter model with bin edges
-        coords = {key.job_id.source_name: controller.get_data(key) for key in axis_keys}
-        self._model_class = self._create_dynamic_model_class(coords)
+        # Create workflow spec template
+        self._workflow_spec_template = make_workflow_spec([], [])
+        self._workflow_spec_template.name = f'correlation_histogram_{ndim}d'
+        self._workflow_spec_template.title = f'{ndim}D Correlation Histogram'
 
     def _create_dynamic_model_class(
         self, coords: dict[str, sc.DataArray]
@@ -130,20 +127,56 @@ class CorrelationHistogramConfigurationAdapter(
 
     @property
     def title(self) -> str:
-        return self._workflow_spec.title
+        return self._workflow_spec_template.title
 
     @property
     def description(self) -> str:
-        return self._workflow_spec.description
+        return self._workflow_spec_template.description
+
+    @property
+    def aux_source_names(self) -> dict[str, list[str]]:
+        all_timeseries = self._controller.get_timeseries()
+        # Build mapping from source name to key
+        self._source_name_to_key = {
+            key.job_id.source_name: key for key in all_timeseries
+        }
+        source_names = list(self._source_name_to_key.keys())
+
+        if self._ndim == 1:
+            return {'x_param': source_names}
+        elif self._ndim == 2:
+            return {'x_param': source_names, 'y_param': source_names}
+        else:
+            raise ValueError(f"Unsupported dimensionality: {self._ndim}")
 
     def model_class(
         self, aux_source_names: dict[str, str]
     ) -> type[CorrelationHistogramParams] | None:
-        return self._model_class
+        if not aux_source_names or len(aux_source_names) != self._ndim:
+            self._selected_aux_sources = None
+            self._current_model_class = None
+            return None
+
+        # Store selected aux sources for use in start_action
+        self._selected_aux_sources = aux_source_names
+
+        # Get coordinate data for selected aux sources using the cached mapping
+        coords = {}
+        for source_name in aux_source_names.values():
+            key = self._source_name_to_key.get(source_name)
+            if key is None:
+                self._selected_aux_sources = None
+                self._current_model_class = None
+                return None
+            coords[source_name] = self._controller.get_data(key)
+
+        self._current_model_class = self._create_dynamic_model_class(coords)
+        return self._current_model_class
 
     @property
     def source_names(self) -> list[str]:
-        return self._workflow_spec.source_names
+        all_timeseries = self._controller.get_timeseries()
+        return [key.job_id.source_name for key in all_timeseries]
 
     @property
     def initial_source_names(self) -> list[str]:
@@ -166,11 +199,19 @@ class CorrelationHistogramConfigurationAdapter(
         moving this into a separate backend service, after the primary services, where
         the WorkflowSpec could be converted to WorkflowConfig for submission.
         """
+        if self._selected_aux_sources is None:
+            return False
+
         data_keys = [
-            key for key in self._data_keys if key.job_id.source_name in selected_sources
+            self._source_name_to_key[source_name] for source_name in selected_sources
         ]
+        axis_keys = [
+            self._source_name_to_key[source_name]
+            for source_name in self._selected_aux_sources.values()
+        ]
+
         data = {key: self._controller.get_data(key) for key in data_keys}
-        axes = {key: self._controller.get_data(key) for key in self._axis_keys}
+        axes = {key: self._controller.get_data(key) for key in axis_keys}
         job_number = uuid.uuid4()  # New unique job number shared by all workflows
 
         if isinstance(parameter_values, CorrelationHistogram1dParams):
@@ -185,7 +226,7 @@ class CorrelationHistogramConfigurationAdapter(
         for key, value in data.items():
             processor = CorrelationHistogramProcessor(
                 data_key=key,
-                coord_keys=self._axis_keys,
+                coord_keys=axis_keys,
                 edges_params=edges,
                 result_callback=self._create_result_callback(key, job_number),
             )
@@ -197,7 +238,7 @@ class CorrelationHistogramConfigurationAdapter(
     ) -> Callable[[sc.DataArray], None]:
         """Create callback for handling histogram results."""
         result_key = ResultKey(
-            workflow_id=self._workflow_spec.get_id(),
+            workflow_id=self._workflow_spec_template.get_id(),
             job_id=JobId(
                 source_name=data_key.job_id.source_name, job_number=job_number
             ),
@@ -253,6 +294,14 @@ class CorrelationHistogramController:
 
     def get_timeseries(self) -> list[ResultKey]:
         return [key for key, da in self._data_service.items() if _is_timeseries(da)]
+
+    def create_1d_config(self) -> CorrelationHistogramConfigurationAdapter:
+        """Create configuration adapter for 1D correlation histograms."""
+        return CorrelationHistogramConfigurationAdapter(ndim=1, controller=self)
+
+    def create_2d_config(self) -> CorrelationHistogramConfigurationAdapter:
+        """Create configuration adapter for 2D correlation histograms."""
+        return CorrelationHistogramConfigurationAdapter(ndim=2, controller=self)
 
     def create_config(
         self, axis_keys: list[ResultKey]
