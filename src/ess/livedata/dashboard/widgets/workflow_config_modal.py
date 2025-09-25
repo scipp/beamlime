@@ -14,7 +14,6 @@ from .configuration_widget import (
     ConfigurationModal,
     ConfigurationWidget,
 )
-from .workflow_ui_helper import WorkflowUIHelper
 
 
 class WorkflowConfigurationAdapter(ConfigurationAdapter):
@@ -23,17 +22,16 @@ class WorkflowConfigurationAdapter(ConfigurationAdapter):
     def __init__(self, controller: BoundWorkflowController) -> None:
         """Initialize adapter with workflow controller."""
         self._controller = controller
-        self._ui_helper = WorkflowUIHelper(controller)
 
     @property
     def title(self) -> str:
         """Get workflow title."""
-        return self._ui_helper.get_workflow_title()
+        return self._controller.spec.title
 
     @property
     def description(self) -> str:
         """Get workflow description."""
-        return self._ui_helper.get_workflow_description()
+        return self._controller.spec.description
 
     @property
     def model_class(self) -> type[pydantic.BaseModel] | None:
@@ -43,17 +41,21 @@ class WorkflowConfigurationAdapter(ConfigurationAdapter):
     @property
     def source_names(self) -> list[str]:
         """Get available source names."""
-        return self._ui_helper.get_source_names()
+        return self._controller.spec.source_names
 
     @property
     def initial_source_names(self) -> list[str]:
         """Get initial source names."""
-        return self._ui_helper.get_initial_source_names()
+        persistent_config = self._controller.get_persistent_config()
+        return persistent_config.source_names if persistent_config else []
 
     @property
     def initial_parameter_values(self) -> dict[str, Any]:
         """Get initial parameter values."""
-        return self._ui_helper.get_initial_parameter_values()
+        persistent_config = self._controller.get_persistent_config()
+        if not persistent_config:
+            return {}
+        return persistent_config.config.params
 
     def start_action(self, selected_sources: list[str], parameter_values: Any) -> bool:
         """Start the workflow with given sources and parameters."""

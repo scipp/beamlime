@@ -32,11 +32,12 @@ from ess.livedata.dashboard.workflow_controller import (
 )
 
 from .workflow_config_modal import WorkflowConfigModal
-from .workflow_ui_helper import WorkflowUIHelper
 
 
 class WorkflowSelectorWidget:
     """Widget for selecting workflows from available specifications."""
+
+    _no_selection = object()
 
     def __init__(self, controller: WorkflowController) -> None:
         """
@@ -49,7 +50,6 @@ class WorkflowSelectorWidget:
         """
         self._controller = controller
         self._bound_controller: BoundWorkflowController | None = None
-        self._ui_helper: WorkflowUIHelper | None = None
         self._selector = pn.widgets.Select(name="Workflow")
         self._description_pane = pn.pane.HTML(
             "Select a workflow to see its description"
@@ -57,6 +57,27 @@ class WorkflowSelectorWidget:
         self._widget = self._create_widget()
         self._setup_callbacks()
         self._on_workflows_updated(self._controller.get_workflow_specs())
+
+    @classmethod
+    def _make_workflow_options(
+        cls, specs: dict[WorkflowId, WorkflowSpec] | None = None
+    ) -> dict[str, WorkflowId | object]:
+        """Get workflow options for selector widget."""
+        specs = specs or {}
+        select_text = "--- Click to select a workflow ---"
+        options = {select_text: cls._no_selection}
+        options.update({spec.title: workflow_id for workflow_id, spec in specs.items()})
+        return options
+
+    @classmethod
+    def _is_no_selection(cls, value: WorkflowId | object) -> bool:
+        """Check if the given value represents no workflow selection."""
+        return value is cls._no_selection
+
+    @classmethod
+    def _get_default_workflow_selection(cls) -> object:
+        """Get the default value for no workflow selection."""
+        return cls._no_selection
 
     def _create_widget(self) -> pn.Column:
         """Create the main selector widget."""
@@ -71,26 +92,23 @@ class WorkflowSelectorWidget:
         workflow_id = event.new
 
         # Create bound controller and UI helper for selected workflow
-        if WorkflowUIHelper.is_no_selection(workflow_id):
+        if self._is_no_selection(workflow_id):
             self._bound_controller = None
-            self._ui_helper = None
             text = "Select a workflow to see its description"
         else:
             self._bound_controller = self._controller.get_bound_controller(workflow_id)
             if self._bound_controller is not None:
-                self._ui_helper = WorkflowUIHelper(self._bound_controller)
-                description = self._ui_helper.get_workflow_description()
+                description = self._bound_controller.spec.description
                 text = f"<p><strong>Description:</strong> {description}</p>"
             else:
-                self._ui_helper = None
                 text = "Select a workflow to see its description"
 
         self._description_pane.object = text
 
     def _on_workflows_updated(self, specs: dict[WorkflowId, WorkflowSpec]) -> None:
         """Handle workflow specs updates."""
-        self._selector.options = WorkflowUIHelper.make_workflow_options(specs)
-        self._selector.value = WorkflowUIHelper.get_default_workflow_selection()
+        self._selector.options = self._make_workflow_options(specs)
+        self._selector.value = self._get_default_workflow_selection()
 
     @property
     def widget(self) -> pn.Column:
@@ -101,11 +119,11 @@ class WorkflowSelectorWidget:
     def selected_workflow_id(self) -> WorkflowId | None:
         """Get the currently selected workflow ID."""
         value = self._selector.value
-        return None if self._ui_helper.is_no_selection(value) else value
+        return None if self._is_no_selection(value) else value
 
     def create_modal(self) -> WorkflowConfigModal | None:
         if self._bound_controller is None:
-            return
+            return None
 
         return WorkflowConfigModal(controller=self._bound_controller)
 
@@ -151,7 +169,9 @@ class ReductionWidget:
     def _on_workflow_selected(self, event) -> None:
         """Handle workflow selection change."""
         workflow_id = event.new
-        self._configure_button.disabled = WorkflowUIHelper.is_no_selection(workflow_id)
+        self._configure_button.disabled = WorkflowSelectorWidget._is_no_selection(
+            workflow_id
+        )
 
     def _on_configure_workflow(self, event) -> None:
         """Handle configure workflow button click."""
