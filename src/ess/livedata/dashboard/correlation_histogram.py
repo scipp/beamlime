@@ -163,7 +163,11 @@ class CorrelationHistogramConfigurationAdapter(
     def model_class(
         self, aux_source_names: dict[str, str]
     ) -> type[CorrelationHistogramParams] | None:
-        if not aux_source_names or len(aux_source_names) != self._ndim:
+        if (
+            not aux_source_names
+            or (len(aux_source_names) != self._ndim)
+            or len(set(aux_source_names.values())) != len(aux_source_names)
+        ):
             self._selected_aux_sources = None
             self._current_model_class = None
             return None
