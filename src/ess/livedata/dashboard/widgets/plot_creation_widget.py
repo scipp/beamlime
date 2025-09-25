@@ -14,7 +14,9 @@ from ess.livedata.dashboard.job_service import JobService
 from ess.livedata.dashboard.plotting import PlotterSpec
 from ess.livedata.dashboard.plotting_controller import PlottingController
 
+from ..correlation_histogram import CorrelationHistogramController
 from .configuration_widget import ConfigurationAdapter, ConfigurationModal
+from .correlation_histogram_widget import CorrelationHistogramWidget
 from .job_status_widget import JobStatusListWidget
 
 
@@ -102,6 +104,12 @@ class PlotCreationWidget:
         self._selected_job: JobNumber | None = None
         self._selected_output: str | None = None
         self._plot_counter = 0  # Counter for unique plot tab names
+        self._correlation_controller = CorrelationHistogramController(
+            self._job_service._data_service
+        )
+        self._correlation_widget = CorrelationHistogramWidget(
+            correlation_histogram_controller=self._correlation_controller
+        )
 
         # Create UI components
         self._job_status_widget = JobStatusListWidget(
@@ -128,6 +136,7 @@ class PlotCreationWidget:
         self._main_tabs = pn.Tabs(
             ("Jobs", self._job_status_widget.panel()),
             ("Create Plot", self._creation_tab),
+            ("Create Correlation Histograms", self._correlation_widget.panel),
             ("Plots", self._plot_tabs),
             sizing_mode='stretch_width',
             closable=False,
@@ -145,12 +154,12 @@ class PlotCreationWidget:
             sizing_mode='stretch_width',
             selectable=1,  # Single selection
             disabled=True,
-            height=600,
+            height=500,
             groupby=['workflow_name', 'job_number'],
             configuration={
                 'columns': [
-                    {'title': 'Job Number', 'field': 'job_number', 'width': 300},
-                    {'title': 'Workflow', 'field': 'workflow_name', 'width': 200},
+                    {'title': 'Job Number', 'field': 'job_number', 'width': 100},
+                    {'title': 'Workflow', 'field': 'workflow_name', 'width': 100},
                     {'title': 'Output Name', 'field': 'output_name', 'width': 200},
                     {'title': 'Source Names', 'field': 'source_names', 'width': 600},
                 ],
@@ -211,8 +220,8 @@ class PlotCreationWidget:
                 job_output_data.append(
                     {
                         'output_name': '',
-                        'workflow_name': workflow_id.name,
                         'source_names': ', '.join(sources),
+                        'workflow_name': workflow_id.name,
                         'job_number': job_number.hex,
                     }
                 )
@@ -222,8 +231,8 @@ class PlotCreationWidget:
                     [
                         {
                             'output_name': output_name,
-                            'workflow_name': workflow_id.name,
                             'source_names': ', '.join(sources),
+                            'workflow_name': workflow_id.name,
                             'job_number': job_number.hex,
                         }
                         for output_name in sorted(output_names)
@@ -243,7 +252,7 @@ class PlotCreationWidget:
     def _on_job_output_selection_change(self, event) -> None:
         """Handle job and output selection change."""
         selection = event.new
-        if not selection:
+        if len(selection) != 1:
             self._selected_job = None
             self._selected_output = None
             self._update_dependent_widgets()
@@ -344,7 +353,7 @@ class PlotCreationWidget:
         self._plot_tabs.append((tab_name, plot_pane))
 
         # Switch to the plots tab in main container, then to the new plot
-        self._main_tabs.active = 2  # Switch to "Plots" tab
+        self._main_tabs.active = len(self._main_tabs) - 1  # Switch to "Plots" tab
         self._plot_tabs.active = len(self._plot_tabs) - 1  # Switch to new plot
 
     def _validate_selection(self) -> tuple[bool, list[str]]:
