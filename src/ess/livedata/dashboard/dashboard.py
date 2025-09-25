@@ -76,7 +76,6 @@ class DashboardBase(ServiceBase, ABC):
         self._instrument_module = get_config(instrument)
         self._processor_factory = instrument_registry[self._instrument].workflow_factory
         self._setup_workflow_management()
-        self._setup_correlation_histogram()
 
     @abstractmethod
     def create_sidebar_content(self) -> pn.viewable.Viewable:
@@ -185,9 +184,6 @@ class DashboardBase(ServiceBase, ABC):
             data_service=self._data_service,
         )
         self._reduction_widget = ReductionWidget(controller=self._workflow_controller)
-
-    def _setup_correlation_histogram(self) -> None:
-        """Initialize correlation histogram controller and widget."""
 
     def _step(self):
         """Step function for periodic updates."""
