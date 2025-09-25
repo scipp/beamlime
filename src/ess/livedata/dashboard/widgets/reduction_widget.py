@@ -123,7 +123,7 @@ class WorkflowSelectorWidget:
 
     def create_modal(self) -> WorkflowConfigModal | None:
         if self._bound_controller is None:
-            pass
+            return
 
         return WorkflowConfigModal(controller=self._bound_controller)
 
