@@ -135,6 +135,17 @@ class CorrelationHistogramConfigurationAdapter(
 
     @property
     def aux_source_names(self) -> dict[str, list[str]]:
+        """
+        The keys of the timeseries in the DataService to use for mapping a timestamp
+        of a dependent variable to a value of the coordinate variable. At this point
+        it is not know which dependent timeseries the user will want to histogram,
+        but the axis keys can be used to configure the bin edges for the (one or
+        two) dimensions of the correlation histogram. The axis keys will also be
+        forwarded to the workflow when started so that the correlation histogram
+        can be computed.
+        """
+        # All timeseries except the axis keys can be used as dependent variables. These
+        # will thus be shown by the widget in the "source selection" menu.
         all_timeseries = self._controller.get_timeseries()
         # Build mapping from source name to key
         self._source_name_to_key = {
@@ -302,30 +313,6 @@ class CorrelationHistogramController:
     def create_2d_config(self) -> CorrelationHistogramConfigurationAdapter:
         """Create configuration adapter for 2D correlation histograms."""
         return CorrelationHistogramConfigurationAdapter(ndim=2, controller=self)
-
-    def create_config(
-        self, axis_keys: list[ResultKey]
-    ) -> CorrelationHistogramConfigurationAdapter:
-        """
-        Called by widget to get configuration for modal creation.
-
-        Parameters
-        ----------
-        axis_keys:
-            The keys of the timeseries in the DataService to use for mapping a timestamp
-            of a dependent variable to a value of the coordinate variable. At this point
-            it is not know which dependent timeseries the user will want to histogram,
-            but the axis keys can be used to configure the bin edges for the (one or
-            two) dimensions of the correlation histogram. The axis keys will also be
-            forwarded to the workflow when started so that the correlation histogram
-            can be computed.
-        """
-        # All timeseries except the axis keys can be used as dependent variables. These
-        # will thus be shown by the widget in the "source selection" menu.
-        result_keys = [key for key in self.get_timeseries() if key not in axis_keys]
-        return CorrelationHistogramConfigurationAdapter(
-            data_keys=result_keys, axis_keys=axis_keys, controller=self
-        )
 
 
 def _is_timeseries(da: sc.DataArray) -> bool:
