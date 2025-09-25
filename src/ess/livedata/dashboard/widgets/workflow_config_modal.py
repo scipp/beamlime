@@ -34,7 +34,13 @@ class WorkflowConfigurationAdapter(ConfigurationAdapter):
         return self._controller.spec.description
 
     @property
-    def model_class(self) -> type[pydantic.BaseModel] | None:
+    def aux_source_names(self) -> dict[str, list[str]]:
+        """Get auxiliary source names with unique options."""
+        return {key: [key] for key in self._controller.spec.aux_source_names}
+
+    def model_class(
+        self, aux_source_names: dict[str, str]
+    ) -> type[pydantic.BaseModel] | None:
         """Get workflow parameters model class."""
         return self._controller.params_model_class
 
