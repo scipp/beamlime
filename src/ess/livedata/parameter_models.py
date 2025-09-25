@@ -197,7 +197,7 @@ class QEdges(EdgesModel):
         return make_edges(model=self, dim='Q', unit=self.unit.value)
 
 
-class EnergyUnit(str, Enum):
+class EnergyUnit(StrEnum):
     ME_V = 'meV'
     MU_EV = 'μeV'
 
