@@ -132,13 +132,17 @@ class ConfigurationWidget:
             selectors[category] = selector
         return selectors
 
-    def _create_model_widget(self) -> ModelWidget | NoParamsWidget:
+    def _create_model_widget(self) -> ModelWidget | NoParamsWidget | ErrorWidget:
         """Create model widget based on current aux source selections."""
         aux_selections = {
             category: selector.value
             for category, selector in self._aux_source_selectors.items()
         }
-        model_class = self._config.model_class(aux_selections)
+
+        try:
+            model_class = self._config.model_class(aux_selections)
+        except Exception as e:
+            return ErrorWidget(str(e))
 
         if model_class is None:
             return NoParamsWidget()
@@ -424,3 +428,32 @@ class NoParamsWidget:
 
     def clear_validation_errors(self) -> None:
         """No-op for no parameters."""
+
+
+class ErrorWidget:
+    """Widget to display error messages."""
+
+    def __init__(self, error_message: str):
+        self.widget = pn.pane.HTML(
+            f"<div style='padding: 20px; text-align: center; color: #721c24; "
+            f"font-weight: bold; border: 2px solid #f5c6cb; border-radius: 4px; "
+            f"background-color: #f8d7da;'>"
+            f"Error: {error_message}"
+            f"</div>",
+            sizing_mode='stretch_width',
+            margin=0,
+        )
+
+    @property
+    def parameter_values(self) -> None:
+        """Return None when in error state."""
+        return None
+
+    def validate_parameters(self) -> tuple[bool, list[str]]:
+        """Always invalid when in error state."""
+        return False, [
+            "Configuration error - please check auxiliary source selections."
+        ]
+
+    def clear_validation_errors(self) -> None:
+        """No-op for error widget."""

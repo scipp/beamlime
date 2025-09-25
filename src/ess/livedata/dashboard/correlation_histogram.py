@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import uuid
+from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any
+from typing import Any, TypeVar
 
 import numpy as np
 import pydantic
@@ -46,11 +47,12 @@ class CorrelationHistogram2dParams(CorrelationHistogramParams):
 # Note: make_workflow_spec encapsulates workflow configuration in the widely-used
 # WorkflowSpec format. In the future, this can be converted to WorkflowConfig and
 # submitted to a separate backend service for execution.
-def make_workflow_spec(
-    source_names: list[str], aux_source_names: list[str], ndim: int
-) -> WorkflowSpec:
-    # ndim = len(aux_source_names)
+def make_workflow_spec(ndim: int) -> WorkflowSpec:
     params = {1: CorrelationHistogram1dParams, 2: CorrelationHistogram2dParams}
+    # Note how currently (aux) source names are an empty dummy. The idea is to
+    # eventually support a "dynamic" specification of the allowed source names, such
+    # that this definition can be shared between backend and frontend. For example, we
+    # might specify "any timeseries" or similar.
     return WorkflowSpec(
         instrument='frontend',  # As long as we are running in the frontend
         namespace='correlation',
@@ -58,8 +60,8 @@ def make_workflow_spec(
         title=f'{ndim}D Correlation Histogram',
         version=1,
         description=f'{ndim}D correlation histogram workflow',
-        source_names=source_names,
-        aux_source_names=aux_source_names,
+        source_names=[],
+        aux_source_names=[],
         params=params[ndim],
     )
 
@@ -75,9 +77,10 @@ def _make_edges_field(name: str, coord: sc.DataArray) -> Any:
     )
 
 
-class CorrelationHistogramConfigurationAdapter(
-    ConfigurationAdapter[CorrelationHistogramParams]
-):
+Model = TypeVar('Model', bound=CorrelationHistogramParams)
+
+
+class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter[Model], ABC):
     """
     Combined configuration adapter and workflow controller for correlation histograms.
 
@@ -86,44 +89,26 @@ class CorrelationHistogramConfigurationAdapter(
     for UI generation while also managing the actual computation workflow.
     """
 
-    def __init__(
-        self,
-        ndim: int,
-        controller: CorrelationHistogramController,
-    ) -> None:
-        self._ndim = ndim
+    def __init__(self, controller: CorrelationHistogramController) -> None:
         self._controller = controller
         self._selected_aux_sources: dict[str, str] | None = None
-        self._current_model_class: type[CorrelationHistogramParams] | None = None
-        self._source_name_to_key: dict[str, ResultKey] = {}
+        # All timeseries except the axis keys can be used as dependent variables. These
+        # will thus be shown by the widget in the "source selection" menu.
+        self._source_name_to_key = {
+            key.job_id.source_name: key for key in self._controller.get_timeseries()
+        }
+        self._workflow_spec_template = make_workflow_spec(ndim=self.ndim)
 
-        # Create workflow spec template
-        self._workflow_spec_template = make_workflow_spec([], [], ndim=ndim)
-        self._workflow_spec_template.name = f'correlation_histogram_{ndim}d'
-        self._workflow_spec_template.title = f'{ndim}D Correlation Histogram'
+    @property
+    @abstractmethod
+    def ndim(self) -> int:
+        """Dimensionality of the correlation histogram (1 or 2)."""
 
+    @abstractmethod
     def _create_dynamic_model_class(
         self, coords: dict[str, sc.DataArray]
-    ) -> type[CorrelationHistogramParams]:
+    ) -> type[Model]:
         """Create dynamic parameter model class with appropriate bin edge fields."""
-        ndim = len(coords)
-        fields = [_make_edges_field(dim, coord) for dim, coord in coords.items()]
-
-        if ndim == 1:
-
-            class Configured1dParams(CorrelationHistogram1dParams):
-                x_edges: EdgesWithUnit = fields[0]
-
-            return Configured1dParams
-        if ndim == 2:
-
-            class Configured2dParams(CorrelationHistogram2dParams):
-                x_edges: EdgesWithUnit = fields[0]
-                y_edges: EdgesWithUnit = fields[1]
-
-            return Configured2dParams
-
-        raise ValueError("Expected 1 or 2 coordinates for correlation histogram.")
 
     @property
     def title(self) -> str:
@@ -133,60 +118,20 @@ class CorrelationHistogramConfigurationAdapter(
     def description(self) -> str:
         return self._workflow_spec_template.description
 
-    @property
-    def aux_source_names(self) -> dict[str, list[str]]:
-        """
-        The keys of the timeseries in the DataService to use for mapping a timestamp
-        of a dependent variable to a value of the coordinate variable. At this point
-        it is not know which dependent timeseries the user will want to histogram,
-        but the axis keys can be used to configure the bin edges for the (one or
-        two) dimensions of the correlation histogram. The axis keys will also be
-        forwarded to the workflow when started so that the correlation histogram
-        can be computed.
-        """
-        # All timeseries except the axis keys can be used as dependent variables. These
-        # will thus be shown by the widget in the "source selection" menu.
-        all_timeseries = self._controller.get_timeseries()
-        # Build mapping from source name to key
-        self._source_name_to_key = {
-            key.job_id.source_name: key for key in all_timeseries
-        }
-        source_names = list(self._source_name_to_key.keys())
-
-        if self._ndim == 1:
-            return {'x_param': source_names}
-        elif self._ndim == 2:
-            return {'x_param': source_names, 'y_param': source_names}
-        else:
-            raise ValueError(f"Unsupported dimensionality: {self._ndim}")
-
-    def model_class(
-        self, aux_source_names: dict[str, str]
-    ) -> type[CorrelationHistogramParams] | None:
-        if (
-            not aux_source_names
-            or (len(aux_source_names) != self._ndim)
-            or len(set(aux_source_names.values())) != len(aux_source_names)
-        ):
+    def model_class(self, aux_source_names: dict[str, str]) -> type[Model] | None:
+        if not aux_source_names:
             self._selected_aux_sources = None
-            self._current_model_class = None
             return None
+
+        coords = {
+            name: self._controller.get_data(self._source_name_to_key[name])
+            for name in aux_source_names.values()
+        }
+        model_class = self._create_dynamic_model_class(coords)
 
         # Store selected aux sources for use in start_action
         self._selected_aux_sources = aux_source_names
-
-        # Get coordinate data for selected aux sources using the cached mapping
-        coords = {}
-        for source_name in aux_source_names.values():
-            key = self._source_name_to_key.get(source_name)
-            if key is None:
-                self._selected_aux_sources = None
-                self._current_model_class = None
-                return None
-            coords[source_name] = self._controller.get_data(key)
-
-        self._current_model_class = self._create_dynamic_model_class(coords)
-        return self._current_model_class
+        return model_class
 
     @property
     def source_names(self) -> list[str]:
@@ -203,8 +148,12 @@ class CorrelationHistogramConfigurationAdapter(
     def initial_parameter_values(self) -> dict[str, Any]:
         return {}
 
+    @abstractmethod
+    def _params_to_edges(self, params: Model) -> list[EdgesWithUnit]:
+        """Convert parameter model to list of EdgesWithUnit."""
+
     def start_action(
-        self, selected_sources: list[str], parameter_values: CorrelationHistogramParams
+        self, selected_sources: list[str], parameter_values: Model
     ) -> bool:
         """
         Execute the correlation histogram workflow with the given parameters.
@@ -229,14 +178,7 @@ class CorrelationHistogramConfigurationAdapter(
         axes = {key: self._controller.get_data(key) for key in axis_keys}
         job_number = uuid.uuid4()  # New unique job number shared by all workflows
 
-        if isinstance(parameter_values, CorrelationHistogram1dParams):
-            edges = [parameter_values.x_edges]
-        elif isinstance(parameter_values, CorrelationHistogram2dParams):
-            edges = [parameter_values.x_edges, parameter_values.y_edges]
-        else:
-            # Raising instead of returning False, since this should not happen if the
-            # implementation is correct.
-            raise ValueError("Expected 1d or 2d correlation histogram parameters.")
+        edges = self._params_to_edges(parameter_values)
 
         for key, value in data.items():
             processor = CorrelationHistogramProcessor(
@@ -264,6 +206,67 @@ class CorrelationHistogramConfigurationAdapter(
             self._controller.set_data(result_key, result)
 
         return callback
+
+
+class CorrelationHistogram1dConfigurationAdapter(
+    CorrelationHistogramConfigurationAdapter[CorrelationHistogram1dParams]
+):
+    @property
+    def ndim(self) -> int:
+        return 1
+
+    @property
+    def aux_source_names(self) -> dict[str, list[str]]:
+        source_names = list(self._source_name_to_key.keys())
+        return {'x_param': source_names}
+
+    def _create_dynamic_model_class(
+        self, coords: dict[str, sc.DataArray]
+    ) -> type[CorrelationHistogram1dParams]:
+        """Create dynamic parameter model class with appropriate bin edge fields."""
+        fields = [_make_edges_field(dim, coord) for dim, coord in coords.items()]
+
+        class Configured1dParams(CorrelationHistogram1dParams):
+            x_edges: EdgesWithUnit = fields[0]
+
+        return Configured1dParams
+
+    def _params_to_edges(
+        self, params: CorrelationHistogram1dParams
+    ) -> list[EdgesWithUnit]:
+        return [params.x_edges]
+
+
+class CorrelationHistogram2dConfigurationAdapter(
+    CorrelationHistogramConfigurationAdapter[CorrelationHistogram2dParams]
+):
+    @property
+    def ndim(self) -> int:
+        return 2
+
+    @property
+    def aux_source_names(self) -> dict[str, list[str]]:
+        source_names = list(self._source_name_to_key.keys())
+        return {'x_param': source_names, 'y_param': source_names}
+
+    def _create_dynamic_model_class(
+        self, coords: dict[str, sc.DataArray]
+    ) -> type[CorrelationHistogram2dParams]:
+        """Create dynamic parameter model class with appropriate bin edge fields."""
+        if len(coords) < 2:
+            raise ValueError("Two distinct timeseries must be selected for the 2 axes.")
+        fields = [_make_edges_field(dim, coord) for dim, coord in coords.items()]
+
+        class Configured2dParams(CorrelationHistogram2dParams):
+            x_edges: EdgesWithUnit = fields[0]
+            y_edges: EdgesWithUnit = fields[1]
+
+        return Configured2dParams
+
+    def _params_to_edges(
+        self, params: CorrelationHistogram2dParams
+    ) -> list[EdgesWithUnit]:
+        return [params.x_edges, params.y_edges]
 
 
 class CorrelationHistogramController:
@@ -312,11 +315,11 @@ class CorrelationHistogramController:
 
     def create_1d_config(self) -> CorrelationHistogramConfigurationAdapter:
         """Create configuration adapter for 1D correlation histograms."""
-        return CorrelationHistogramConfigurationAdapter(ndim=1, controller=self)
+        return CorrelationHistogram1dConfigurationAdapter(controller=self)
 
     def create_2d_config(self) -> CorrelationHistogramConfigurationAdapter:
         """Create configuration adapter for 2D correlation histograms."""
-        return CorrelationHistogramConfigurationAdapter(ndim=2, controller=self)
+        return CorrelationHistogram2dConfigurationAdapter(controller=self)
 
 
 def _is_timeseries(da: sc.DataArray) -> bool:
