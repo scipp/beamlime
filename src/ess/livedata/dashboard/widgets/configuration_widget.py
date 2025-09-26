@@ -4,15 +4,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 import panel as pn
 import pydantic
 
 from .model_widget import ModelWidget
 
+Model = TypeVar('Model')
 
-class ConfigurationAdapter(ABC):
+
+class ConfigurationAdapter(ABC, Generic[Model]):
     """Abstract adapter for providing configuration data to generic widgets."""
 
     @property
@@ -26,9 +28,20 @@ class ConfigurationAdapter(ABC):
         """Configuration description."""
 
     @property
+    def aux_source_names(self) -> dict[str, list[str]]:
+        """Available auxiliary source names grouped by category."""
+        return {}
+
     @abstractmethod
-    def model_class(self) -> type[pydantic.BaseModel] | None:
-        """Pydantic model class for parameters."""
+    def model_class(self, aux_source_names: dict[str, str]) -> type[Model] | None:
+        """
+        Pydantic model class for parameters.
+
+        Parameters
+        ----------
+        aux_source_names
+            Selected auxiliary source names by category
+        """
 
     @property
     @abstractmethod
@@ -46,7 +59,9 @@ class ConfigurationAdapter(ABC):
         """Initial parameter values."""
 
     @abstractmethod
-    def start_action(self, selected_sources: list[str], parameter_values: Any) -> bool:
+    def start_action(
+        self, selected_sources: list[str], parameter_values: Model
+    ) -> bool:
         """
         Execute the start action with selected sources and parameters.
 
@@ -71,16 +86,8 @@ class ConfigurationWidget:
         """
         self._config = config
         self._source_selector = self._create_source_selector()
-        self._model_widget = (
-            NoParamsWidget()
-            if config.model_class is None
-            else ModelWidget(
-                model_class=config.model_class,
-                initial_values=config.initial_parameter_values,
-                show_descriptions=True,
-                cards_collapsed=False,
-            )
-        )
+        self._aux_source_selectors = self._create_aux_source_selectors()
+        self._model_widget = self._create_model_widget()
         self._source_error_pane = pn.pane.HTML("", sizing_mode='stretch_width')
         self._widget = self._create_widget()
 
@@ -102,16 +109,91 @@ class ConfigurationWidget:
             margin=(0, 0, 0, 0),
         )
 
+    def _create_aux_source_selectors(self) -> dict[str, pn.widgets.Select]:
+        """Create auxiliary source selection widgets."""
+        selectors = {}
+        size = len(self._config.aux_source_names)
+        for i, (category, options) in enumerate(self._config.aux_source_names.items()):
+            if not options:
+                raise ValueError(
+                    f"Empty options list for aux source category '{category}'"
+                )
+
+            selector = pn.widgets.Select(
+                name=category,
+                options=options,
+                value=options[0],  # Default to first entry
+                sizing_mode='stretch_width',
+                # No left margin and no right margin for last item: Align with source
+                # selector above.
+                margin=(0, 0 if i == size - 1 else 10, 10, 0),
+            )
+            selector.param.watch(self._on_aux_source_changed, 'value')
+            selectors[category] = selector
+        return selectors
+
+    def _create_model_widget(self) -> ModelWidget | NoParamsWidget | ErrorWidget:
+        """Create model widget based on current aux source selections."""
+        aux_selections = {
+            category: selector.value
+            for category, selector in self._aux_source_selectors.items()
+        }
+
+        try:
+            model_class = self._config.model_class(aux_selections)
+        except Exception as e:
+            return ErrorWidget(str(e))
+
+        if model_class is None:
+            return NoParamsWidget()
+        else:
+            return ModelWidget(
+                model_class=model_class,
+                initial_values=self._config.initial_parameter_values,
+                show_descriptions=True,
+                cards_collapsed=False,
+            )
+
+    def _on_aux_source_changed(self, event) -> None:
+        """Handle auxiliary source selection change."""
+        # Recreate model widget with new model class
+        old_widget = self._model_widget
+        self._model_widget = self._create_model_widget()
+
+        # Replace widget in the column
+        widget_index = None
+        for i, item in enumerate(self._widget.objects):
+            if item is old_widget.widget:
+                widget_index = i
+                break
+
+        if widget_index is not None:
+            self._widget.objects = (
+                self._widget.objects[:widget_index]
+                + [self._model_widget.widget]
+                + self._widget.objects[widget_index + 1 :]
+            )
+
     def _create_widget(self) -> pn.Column:
         """Create the main configuration widget."""
-        return pn.Column(
+        components = [
             pn.pane.HTML(
                 f"<h1>{self._config.title}</h1><p>{self._config.description}</p>"
             ),
             self._source_selector,
             self._source_error_pane,
-            self._model_widget.widget,
-        )
+        ]
+
+        # Add auxiliary source selectors if any exist
+        if self._aux_source_selectors:
+            aux_row = pn.Row(
+                *self._aux_source_selectors.values(), sizing_mode='stretch_width'
+            )
+            components.append(aux_row)
+
+        components.append(self._model_widget.widget)
+
+        return pn.Column(*components)
 
     @property
     def widget(self) -> pn.Column:
@@ -122,6 +204,14 @@ class ConfigurationWidget:
     def selected_sources(self) -> list[str]:
         """Get the selected source names."""
         return self._source_selector.value
+
+    @property
+    def selected_aux_sources(self) -> dict[str, str]:
+        """Get the selected auxiliary source names."""
+        return {
+            category: selector.value
+            for category, selector in self._aux_source_selectors.items()
+        }
 
     @property
     def parameter_values(self):
@@ -338,3 +428,32 @@ class NoParamsWidget:
 
     def clear_validation_errors(self) -> None:
         """No-op for no parameters."""
+
+
+class ErrorWidget:
+    """Widget to display error messages."""
+
+    def __init__(self, error_message: str):
+        self.widget = pn.pane.HTML(
+            f"<div style='padding: 20px; text-align: center; color: #721c24; "
+            f"font-weight: bold; border: 2px solid #f5c6cb; border-radius: 4px; "
+            f"background-color: #f8d7da;'>"
+            f"Error: {error_message}"
+            f"</div>",
+            sizing_mode='stretch_width',
+            margin=0,
+        )
+
+    @property
+    def parameter_values(self) -> None:
+        """Return None when in error state."""
+        return None
+
+    def validate_parameters(self) -> tuple[bool, list[str]]:
+        """Always invalid when in error state."""
+        return False, [
+            "Configuration error - please check auxiliary source selections."
+        ]
+
+    def clear_validation_errors(self) -> None:
+        """No-op for error widget."""

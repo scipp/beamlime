@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 """
 Bifrost with all banks merged into a single one.
 """
@@ -12,6 +14,7 @@ from scippnexus import NXdetector
 
 from ess.livedata.config import Instrument, instrument_registry
 from ess.livedata.config.env import StreamingEnv
+from ess.livedata.config.workflows import register_monitor_timeseries_workflows
 from ess.livedata.handlers.detector_data_handler import (
     DetectorLogicalView,
     LogicalViewConfig,
@@ -19,6 +22,7 @@ from ess.livedata.handlers.detector_data_handler import (
 )
 from ess.livedata.handlers.monitor_data_handler import register_monitor_workflows
 from ess.livedata.handlers.stream_processor_workflow import StreamProcessorWorkflow
+from ess.livedata.handlers.timeseries_handler import register_timeseries_workflows
 from ess.livedata.kafka import InputStreamKey, StreamLUT, StreamMapping
 from ess.reduce.nexus.types import (
     CalibratedBeamline,
@@ -30,6 +34,7 @@ from ess.reduce.nexus.types import (
 )
 from ess.spectroscopy.indirect.time_of_flight import TofWorkflow
 
+from ._bifrost_qmap import register_qmap_workflows
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
 
@@ -81,7 +86,7 @@ def _bifrost_generator() -> Generator[tuple[str, tuple[int, int]]]:
     # pixels, so the generated fake events in the wrong bank will end up in the right
     # bank. As a consequence we do not lose any fake events, but the travel over Kafka
     # with the wrong source_name.
-    start = 123
+    start = 125
     ntube = 3
     for sector in range(1, 10):
         for analyzer in range(1, 6):
@@ -118,23 +123,20 @@ def _combine_banks(*bank: sc.DataArray) -> sc.DataArray:
 
 
 SpectrumView = NewType('SpectrumView', sc.DataArray)
-DetectorRotation = NewType('DetectorRotation', sc.DataArray)
-CountsPerAngle = NewType('CountsPerAngle', sc.DataArray)
-
-_SpectrumViewTimeBins = NewType('_SpectrumViewTimeBins', int)
-_SpectrumViewPixelsPerTube = NewType('_SpectrumViewPixelsPerTube', int)
+SpectrumViewTimeBins = NewType('SpectrumViewTimeBins', int)
+SpectrumViewPixelsPerTube = NewType('SpectrumViewPixelsPerTube', int)
 
 
 def _make_spectrum_view(
     data: DetectorData[SampleRun],
-    time_bins: _SpectrumViewTimeBins,
-    pixels_per_tube: _SpectrumViewPixelsPerTube,
+    time_bins: SpectrumViewTimeBins,
+    pixels_per_tube: SpectrumViewPixelsPerTube,
 ) -> SpectrumView:
     edges = sc.linspace(
         'event_time_offset', 0, 71_000_000, num=time_bins + 1, unit='ns'
     )
     # Combine, e.g., 10 pixels into 1, so we have tubes with 10 pixels each
-    return (
+    return SpectrumView(
         data.fold('pixel', sizes={'pixel': pixels_per_tube, 'subpixel': -1})
         .drop_coords(tuple(data.coords))
         .bins.concat('subpixel')
@@ -142,19 +144,6 @@ def _make_spectrum_view(
         .hist(event_time_offset=edges)
         .assign_coords(event_time_offset=edges.to(unit='ms'))
     )
-
-
-def _make_counts_per_angle(
-    data: DetectorData[SampleRun], rotation: DetectorRotation
-) -> CountsPerAngle:
-    edges = sc.linspace('angle', 0, 91, num=46, unit='deg')
-    da = sc.DataArray(
-        sc.zeros(dims=['angle'], shape=[45], unit='counts'), coords={'angle': edges}
-    )
-    counts = sc.values(data.sum().data)
-    if rotation is not None:
-        da['angle', rotation.data[-1]] += counts
-    return CountsPerAngle(da)
 
 
 _reduction_workflow = TofWorkflow(run_types=(SampleRun,), monitor_types=())
@@ -165,10 +154,9 @@ _reduction_workflow[CalibratedBeamline[SampleRun]] = (
     .reduce(func=_combine_banks)
 )
 
-_reduction_workflow[_SpectrumViewTimeBins] = 500
-_reduction_workflow[_SpectrumViewPixelsPerTube] = 10
+_reduction_workflow[SpectrumViewTimeBins] = 500
+_reduction_workflow[SpectrumViewPixelsPerTube] = 10
 _reduction_workflow.insert(_make_spectrum_view)
-_reduction_workflow.insert(_make_counts_per_angle)
 
 _source_names = ('unified_detector',)
 
@@ -211,14 +199,17 @@ monitor_names = [
     '113_psd1',
 ]
 
+# Some example motions used for testing, probably not reflecting reality
+f144_attribute_registry = {
+    'detector_rotation': {'units': 'deg'},
+    'sample_rotation': {'units': 'deg'},
+    'sample_temperature': {'units': 'K'},
+}
 
-instrument = Instrument(
-    name='bifrost',
-    f144_attribute_registry={
-        'detector_rotation': {'units': 'deg'},
-    },
-)
+instrument = Instrument(name='bifrost', f144_attribute_registry=f144_attribute_registry)
+
 register_monitor_workflows(instrument=instrument, source_names=monitor_names)
+register_timeseries_workflows(instrument, source_names=list(f144_attribute_registry))
 instrument.add_detector('unified_detector', detector_number=detector_number)
 instrument_registry.register(instrument)
 _logical_view = DetectorLogicalView(
@@ -233,11 +224,11 @@ _logical_view = DetectorLogicalView(
     description='Spectrum view with configurable time bins and pixels per tube.',
     source_names=_source_names,
 )
-def _spectrum_view_new(params: BifrostWorkflowParams) -> StreamProcessorWorkflow:
+def _spectrum_view(params: BifrostWorkflowParams) -> StreamProcessorWorkflow:
     wf = _reduction_workflow.copy()
     view_params = params.spectrum_view
-    wf[_SpectrumViewTimeBins] = view_params.time_bins
-    wf[_SpectrumViewPixelsPerTube] = view_params.pixels_per_tube
+    wf[SpectrumViewTimeBins] = view_params.time_bins
+    wf[SpectrumViewPixelsPerTube] = view_params.pixels_per_tube
     return StreamProcessorWorkflow(
         wf,
         dynamic_keys={'unified_detector': NeXusData[NXdetector, SampleRun]},
@@ -246,42 +237,8 @@ def _spectrum_view_new(params: BifrostWorkflowParams) -> StreamProcessorWorkflow
     )
 
 
-@instrument.register_workflow(
-    name='counts_per_angle',
-    version=1,
-    title='Counts per angle',
-    source_names=_source_names,
-    aux_source_names=['detector_rotation'],
-)
-def _counts_per_angle() -> StreamProcessorWorkflow:
-    return StreamProcessorWorkflow(
-        _reduction_workflow.copy(),
-        dynamic_keys={'unified_detector': NeXusData[NXdetector, SampleRun]},
-        context_keys={'detector_rotation': DetectorRotation},
-        target_keys=(CountsPerAngle,),
-        accumulators=(CountsPerAngle,),
-    )
-
-
-@instrument.register_workflow(
-    name='all',
-    version=1,
-    title='Spectrum view and counts per angle',
-    source_names=_source_names,
-    aux_source_names=['detector_rotation'],
-)
-def _all(params: BifrostWorkflowParams) -> StreamProcessorWorkflow:
-    wf = _reduction_workflow.copy()
-    view_params = params.spectrum_view
-    wf[_SpectrumViewTimeBins] = view_params.time_bins
-    wf[_SpectrumViewPixelsPerTube] = view_params.pixels_per_tube
-    return StreamProcessorWorkflow(
-        wf,
-        dynamic_keys={'unified_detector': NeXusData[NXdetector, SampleRun]},
-        context_keys={'detector_rotation': DetectorRotation},
-        target_keys=(CountsPerAngle, SpectrumView),
-        accumulators=(CountsPerAngle, SpectrumView),
-    )
+register_qmap_workflows(instrument)
+register_monitor_timeseries_workflows(instrument, source_names=monitor_names)
 
 
 def _make_bifrost_detectors() -> StreamLUT:

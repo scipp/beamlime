@@ -42,6 +42,17 @@ class PlottingController:
         """Get the parameter model for a given plotter name."""
         return plotter_registry.get_spec(plot_name)
 
+    def get_result_key(
+        self, job_number: JobNumber, source_name: str, output_name: str | None
+    ) -> ResultKey:
+        """Get the ResultKey for a given job number and source name."""
+        workflow_id = self._job_service.job_info[job_number]
+        return ResultKey(
+            workflow_id=workflow_id,
+            job_id=JobId(job_number=job_number, source_name=source_name),
+            output_name=output_name,
+        )
+
     def create_plot(
         self,
         job_number: JobNumber,
@@ -50,12 +61,9 @@ class PlottingController:
         plot_name: str,
         params: pydantic.BaseModel,
     ) -> hv.DynamicMap:
-        workflow_id = self._job_service.job_info[job_number]
         items = {
-            ResultKey(
-                workflow_id=workflow_id,
-                job_id=JobId(job_number=job_number, source_name=source_name),
-                output_name=output_name,
+            self.get_result_key(
+                job_number=job_number, source_name=source_name, output_name=output_name
             ): self._job_service.job_data[job_number][source_name][output_name]
             for source_name in source_names
         }

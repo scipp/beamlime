@@ -47,7 +47,7 @@ dynamic = ["version"]
 test = [
     "essdiffraction>=25.08.0",
     "esssans",
-    "essspectroscopy>=25.05.0",
+    "essspectroscopy>=25.09.0",
     "holoviews",
     "panel",
     "param",
@@ -56,7 +56,7 @@ test = [
     "scippneutron>=25.07.0",
 ]
 bifrost = [
-    "essspectroscopy",
+    "essspectroscopy>=25.09.0",
 ]
 dream = [
     "essdiffraction>=25.08.0",

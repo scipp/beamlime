@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import UserDict
-from collections.abc import Hashable
+from collections.abc import Callable, Hashable
 from contextlib import contextmanager
 from typing import TypeVar
 
@@ -24,7 +24,10 @@ class DataService(UserDict[K, V]):
     def __init__(self) -> None:
         super().__init__()
         self._subscribers: list[DataSubscriber[K]] = []
+        self._key_change_subscribers: list[Callable[[set[K], set[K]], None]] = []
         self._pending_updates: set[K] = set()
+        self._pending_key_additions: set[K] = set()
+        self._pending_key_removals: set[K] = set()
         self._transaction_depth = 0
 
     @contextmanager
@@ -34,10 +37,12 @@ class DataService(UserDict[K, V]):
         try:
             yield
         finally:
+            # Stay in transaction until notifications are done. This ensures that
+            # subscribers that make further updates during their notification do not
+            # trigger intermediate notifications.
+            if self._transaction_depth == 1:
+                self._notify()
             self._transaction_depth -= 1
-            if self._transaction_depth == 0 and self._pending_updates:
-                self._notify_subscribers(self._pending_updates)
-                self._pending_updates.clear()
 
     @property
     def _in_transaction(self) -> bool:
@@ -53,6 +58,20 @@ class DataService(UserDict[K, V]):
             The subscriber to register. Must implement the DataSubscriber interface.
         """
         self._subscribers.append(subscriber)
+
+    def subscribe_to_changed_keys(
+        self, subscriber: Callable[[set[K], set[K]], None]
+    ) -> None:
+        """
+        Register a subscriber for key change updates (additions/removals).
+
+        Parameters
+        ----------
+        subscriber:
+            A callable that accepts two sets: added_keys and removed_keys.
+        """
+        self._key_change_subscribers.append(subscriber)
+        subscriber(set(self.data.keys()), set())
 
     def _notify_subscribers(self, updated_keys: set[K]) -> None:
         """
@@ -74,18 +93,40 @@ class DataService(UserDict[K, V]):
                 }
                 subscriber.trigger(subscriber_data)
 
+    def _notify_key_change_subscribers(self) -> None:
+        """Notify subscribers about key changes (additions/removals)."""
+        if not self._pending_key_additions and not self._pending_key_removals:
+            return
+
+        for subscriber in self._key_change_subscribers:
+            subscriber(
+                self._pending_key_additions.copy(), self._pending_key_removals.copy()
+            )
+
     def __setitem__(self, key: K, value: V) -> None:
+        if key not in self.data:
+            self._pending_key_additions.add(key)
         super().__setitem__(key, value)
         self._pending_updates.add(key)
-        self._notify_if_not_in_transaction(key)
+        self._notify_if_not_in_transaction()
 
     def __delitem__(self, key: K) -> None:
+        self._pending_key_removals.add(key)
         super().__delitem__(key)
         self._pending_updates.add(key)
-        self._notify_if_not_in_transaction(key)
+        self._notify_if_not_in_transaction()
 
-    def _notify_if_not_in_transaction(self, key: K) -> None:
+    def _notify_if_not_in_transaction(self) -> None:
         """Notify subscribers if not in a transaction."""
         if not self._in_transaction:
-            self._notify_subscribers({key})
+            self._notify()
+
+    def _notify(self) -> None:
+        # Some updates may have been added while notifying
+        while self._pending_updates:
+            pending = set(self._pending_updates)
             self._pending_updates.clear()
+            self._notify_subscribers(pending)
+        self._notify_key_change_subscribers()
+        self._pending_key_additions.clear()
+        self._pending_key_removals.clear()
