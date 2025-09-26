@@ -95,7 +95,7 @@ class CorrelationHistogramConfigurationAdapter(ConfigurationAdapter[Model], ABC)
         # All timeseries except the axis keys can be used as dependent variables. These
         # will thus be shown by the widget in the "source selection" menu.
         timeseries = self._controller.get_timeseries()
-        # The to make unique names for display. The might not be very readable, for
+        # Try to make unique names for display. This might not be very readable, for
         # discussions on a more general solution see also #430.
         self._source_name_to_key = {
             self._format_brief_result_key(key): key for key in timeseries
