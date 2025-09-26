@@ -155,6 +155,7 @@ class ROIBasedTOAHistogram(Accumulator[sc.DataArray, sc.DataArray]):
         self._edges_ns = toa_edges.to(unit='ns')
         self._configure_roi_filter(rx=x_range, ry=y_range)
 
+    # Make public, clear chunks, use indices instead of ranges
     def _configure_roi_filter(self, rx: RangeModel, ry: RangeModel) -> None:
         # Access to protected variables should hopefully be avoided by changing the
         # config values to send indices instead of percentages, once we have per-view

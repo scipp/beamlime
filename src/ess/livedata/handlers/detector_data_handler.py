@@ -203,7 +203,11 @@ class ROIHistogram(Workflow):
             roi_filter=detector_view.make_roi_filter(),
         )
 
-    def accumulate(self, data: dict[Hashable, Any]) -> None:
+    def accumulate(self, data: dict[str, Any]) -> None:
+        # Use aux input stream of rectangles here.
+        # For now, inject into upstream topic for testing?? Or make new topic?
+        # What about the da00 adapter? Rectangles cannot be converted to DataArray.
+        # Or should this just be a config change and we create a new job?
         if len(data) != 1:
             raise ValueError("ROIHistogram expects exactly one data item.")
         raw = next(iter(data.values()))
