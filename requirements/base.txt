@@ -27,7 +27,7 @@ ess-streaming-data-types==0.27.0
     # via -r base.in
 essreduce==25.9.0
     # via -r base.in
-flatbuffers==25.2.10
+flatbuffers==25.9.23
     # via ess-streaming-data-types
 fonttools==4.60.0
     # via matplotlib
@@ -85,14 +85,14 @@ pydantic==2.11.9
     #   scippneutron
 pydantic-core==2.33.2
     # via pydantic
-pyparsing==3.2.4
+pyparsing==3.2.5
     # via matplotlib
 python-dateutil==2.9.0.post0
     # via
     #   matplotlib
     #   scippneutron
     #   scippnexus
-pyyaml==6.0.2
+pyyaml==6.0.3
     # via -r base.in
 requests==2.32.5
     # via pooch
