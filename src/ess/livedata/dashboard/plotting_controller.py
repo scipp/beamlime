@@ -82,8 +82,11 @@ class PlottingController:
                 shared_axes=False
             )
 
-        boxes = hv.Rectangles([(0, 0, 1, 1), (1, 1, 2, 2), (2, 2, 3, 3)])
-
+        # We might want to "share" the boxes between equivalent plots, such as the
+        # cumulative and current plot of a given detector bank. While sharing the
+        # rectangles is no problem, the boxes drawn on a plot do not update when
+        # making changes to the boxes in another plot.
+        boxes = hv.Rectangles([])
         box_stream = streams.BoxEdit(
             source=boxes, num_objects=3, styles={'fill_color': ['red', 'green', 'blue']}
         )
