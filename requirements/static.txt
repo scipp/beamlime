@@ -19,7 +19,7 @@ platformdirs==4.4.0
     # via virtualenv
 pre-commit==4.3.0
     # via -r static.in
-pyyaml==6.0.2
+pyyaml==6.0.3
     # via pre-commit
 virtualenv==20.34.0
     # via pre-commit

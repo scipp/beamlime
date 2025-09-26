@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 """
 Bifrost with all banks merged into a single one.
 """
@@ -32,6 +34,7 @@ from ess.reduce.nexus.types import (
 )
 from ess.spectroscopy.indirect.time_of_flight import TofWorkflow
 
+from ._bifrost_qmap import register_qmap_workflows
 from ._ess import make_common_stream_mapping_inputs, make_dev_stream_mapping
 
 
@@ -83,7 +86,7 @@ def _bifrost_generator() -> Generator[tuple[str, tuple[int, int]]]:
     # pixels, so the generated fake events in the wrong bank will end up in the right
     # bank. As a consequence we do not lose any fake events, but the travel over Kafka
     # with the wrong source_name.
-    start = 123
+    start = 125
     ntube = 3
     for sector in range(1, 10):
         for analyzer in range(1, 6):
@@ -234,6 +237,7 @@ def _spectrum_view(params: BifrostWorkflowParams) -> StreamProcessorWorkflow:
     )
 
 
+register_qmap_workflows(instrument)
 register_monitor_timeseries_workflows(instrument, source_names=monitor_names)
 
 
