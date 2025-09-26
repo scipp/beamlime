@@ -73,7 +73,7 @@ class BifrostQMapParams(pydantic.BaseModel):
         description="Q bin edges.",
     )
     energy_edges: EnergyEdges = pydantic.Field(
-        default=EnergyEdges(start=-0.1, stop=0.1, num_bins=QBIN_DEFAULT),
+        default=EnergyEdges(start=-1.0, stop=1.0, num_bins=QBIN_DEFAULT),
         description="Energy transfer bin edges.",
     )
 
