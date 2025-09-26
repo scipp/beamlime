@@ -8,6 +8,7 @@ from typing import TypeVar
 
 import holoviews as hv
 import pydantic
+from holoviews import opts, streams
 
 from ess.livedata.config.workflow_spec import JobId, JobNumber, ResultKey
 
@@ -29,6 +30,7 @@ class PlottingController:
         self._job_service = job_service
         self._stream_manager = stream_manager
         self._logger = logger or logging.getLogger(__name__)
+        self._box_streams: dict[ResultKey, streams.BoxEdit] = {}
 
     def get_available_plotters(
         self, job_number: JobNumber, output_name: str | None
@@ -53,6 +55,9 @@ class PlottingController:
             output_name=output_name,
         )
 
+    def _log_box_stream(self, key: ResultKey, event) -> None:
+        self._logger.info("Box stream for %s: %s", key, event.new)
+
     def create_plot(
         self,
         job_number: JobNumber,
@@ -69,6 +74,28 @@ class PlottingController:
         }
         pipe = self._stream_manager.make_merging_stream(items)
         plotter = plotter_registry.create_plotter(plot_name, params=params)
-        return hv.DynamicMap(plotter, streams=[pipe], cache_size=1).opts(
-            shared_axes=False
+        # It seems we need to compose the box edit with the dynamic map, not what the
+        # dmap wraps. However, this does not seem to work if it wraps hv.Overlay or
+        # hv.Layout. For now we just bail.
+        if len(source_names) != 1:
+            return hv.DynamicMap(plotter, streams=[pipe], cache_size=1).opts(
+                shared_axes=False
+            )
+
+        boxes = hv.Rectangles([(0, 0, 1, 1), (1, 1, 2, 2), (2, 2, 3, 3)])
+
+        box_stream = streams.BoxEdit(
+            source=boxes, num_objects=3, styles={'fill_color': ['red', 'green', 'blue']}
+        )
+        result_key = next(iter(items.keys()))
+        box_stream.param.watch(
+            lambda event: self._log_box_stream(result_key, event), 'data'
+        )
+        self._box_streams[result_key] = box_stream
+
+        rect_opts = opts.Rectangles(fill_alpha=0.3)
+        interactive_boxes = boxes.opts(rect_opts)
+        return (
+            hv.DynamicMap(plotter, streams=[pipe], cache_size=1).opts(shared_axes=False)
+            * interactive_boxes
         )
