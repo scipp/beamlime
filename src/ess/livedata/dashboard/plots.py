@@ -4,7 +4,7 @@
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from typing import Any
+from typing import Any, Self
 
 import holoviews as hv
 import numpy as np
@@ -247,7 +247,7 @@ class LinePlotter(Plotter):
         }
 
     @classmethod
-    def from_params(cls, params: PlotParams1d):
+    def from_params(cls, params: PlotParams1d) -> Self:
         """Create LinePlotter from PlotParams1d."""
         return cls(
             value_margin_factor=0.1,
@@ -296,7 +296,7 @@ class ImagePlotter(Plotter):
         }
 
     @classmethod
-    def from_params(cls, params: PlotParams2d):
+    def from_params(cls, params: PlotParams2d) -> Self:
         """Create ImagePlotter from PlotParams2d."""
         return cls(
             value_margin_factor=0.1,
