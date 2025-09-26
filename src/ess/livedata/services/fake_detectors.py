@@ -26,6 +26,11 @@ def events_from_nexus(file_path: str) -> dict[str, sc.DataGroup]:
         entry = next(iter(f[snx.NXentry].values()))
         instrument = next(iter(entry[snx.NXinstrument].values()))
         detectors = instrument[snx.NXdetector]
+        # Find detector groups - assuming detector names are unique
+        detector_groups = instrument[snx.NXdetector_group]
+        for group in detector_groups.values():
+            detectors.update(group[snx.NXdetector])
+
         event_data = {name: det[snx.NXevent_data] for name, det in detectors.items()}
         return {
             name: next(iter(eg.values()))[...]
