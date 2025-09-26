@@ -14,9 +14,7 @@ from ess.livedata.dashboard.job_service import JobService
 from ess.livedata.dashboard.plotting import PlotterSpec
 from ess.livedata.dashboard.plotting_controller import PlottingController
 
-from ..correlation_histogram import CorrelationHistogramController
 from .configuration_widget import ConfigurationAdapter, ConfigurationModal
-from .correlation_histogram_widget import CorrelationHistogramWidget
 from .job_status_widget import JobStatusListWidget
 
 
@@ -47,8 +45,9 @@ class PlotConfigurationAdapter(ConfigurationAdapter):
     def description(self) -> str:
         return self._plot_spec.description
 
-    @property
-    def model_class(self) -> type[pydantic.BaseModel] | None:
+    def model_class(
+        self, aux_source_names: dict[str, str]
+    ) -> type[pydantic.BaseModel] | None:
         return self._plot_spec.params
 
     @property
@@ -104,12 +103,6 @@ class PlotCreationWidget:
         self._selected_job: JobNumber | None = None
         self._selected_output: str | None = None
         self._plot_counter = 0  # Counter for unique plot tab names
-        self._correlation_controller = CorrelationHistogramController(
-            self._job_service._data_service
-        )
-        self._correlation_widget = CorrelationHistogramWidget(
-            correlation_histogram_controller=self._correlation_controller
-        )
 
         # Create UI components
         self._job_status_widget = JobStatusListWidget(
@@ -136,7 +129,6 @@ class PlotCreationWidget:
         self._main_tabs = pn.Tabs(
             ("Jobs", self._job_status_widget.panel()),
             ("Create Plot", self._creation_tab),
-            ("Create Correlation Histograms", self._correlation_widget.panel),
             ("Plots", self._plot_tabs),
             sizing_mode='stretch_width',
             closable=False,
