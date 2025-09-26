@@ -2,7 +2,7 @@
 # Copyright (c) 2025 Scipp contributors (https://github.com/scipp)
 """Bifrost Q-map workflows."""
 
-from enum import Enum
+from enum import StrEnum
 from functools import cache
 
 import pydantic
@@ -94,7 +94,7 @@ class BifrostQMapParams(pydantic.BaseModel):
         )
 
 
-class QAxisOption(str, Enum):
+class QAxisOption(StrEnum):
     Qx = 'Qx'
     Qy = 'Qy'
     Qz = 'Qz'
