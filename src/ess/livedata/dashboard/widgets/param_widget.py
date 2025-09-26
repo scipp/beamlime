@@ -82,10 +82,21 @@ class ParamWidget:
                 **shared_options,
             )
         elif field_type is bool:
-            # Does not support description directly
             options = shared_options.copy()
-            options.pop('description', None)
-            return pn.widgets.Checkbox(value=default_value or False, **options)
+            description = options.pop('description', None)
+            # Checkbox does not support description directly, add as tooltip.
+            if description is None:
+                checkbox = pn.widgets.Checkbox(value=default_value or False, **options)
+                # Returning Row is is redundant but makes reading the value consistent
+                return pn.layout.Row(checkbox, align='center')
+            tooltip = pn.widgets.TooltipIcon(
+                value=description,
+                margin=options.get('margin'),
+                # Pop so tooltip is right next to checkbox, stretch applied to row
+                sizing_mode=options.pop('sizing_mode', None),
+            )
+            checkbox = pn.widgets.Checkbox(value=default_value or False, **options)
+            return pn.layout.Row(checkbox, tooltip, align='center')
         elif field_type == Path or field_type is str:
             return pn.widgets.TextInput(
                 value=str(default_value) if default_value else "",
@@ -122,9 +133,11 @@ class ParamWidget:
         """Get current values from all widgets."""
         values = {}
         for field_name, widget in self.widgets.items():
+            field_type = self.model_class.model_fields[field_name].annotation
+            if field_type is bool:
+                widget = widget[0]
             value = widget.value
             # Convert Path strings back to Path objects
-            field_type = self.model_class.model_fields[field_name].annotation
             if field_type == Path and isinstance(value, str):
                 value = Path(value) if value else None
             # Handle enum values - widget.value will be the enum instance for Select
