@@ -1,14 +1,28 @@
 #!/bin/bash
+# This is run (automatically) inside the kafka container to (re)create topics.
+# Usage (manually):
+# docker exec kafka-broker sh /scripts/setup-kafka-topics.sh [--skip-delete] dream
 set -e
 
+SKIP_DELETE=false
+
+# Parse optional flag
+if [ "$1" = "--skip-delete" ]; then
+  SKIP_DELETE=true
+  shift
+fi
+
 if [ -z "$1" ]; then
-  echo "Usage: $0 <LIVEDATA_INSTRUMENT>"
+  echo "Usage: $0 [--skip-delete] <LIVEDATA_INSTRUMENT>"
   exit 1
 fi
 
 LIVEDATA_INSTRUMENT=$1
 
-kafka-topics --bootstrap-server kafka:29092 --delete --topic '.*' || true
+if [ "$SKIP_DELETE" != "true" ]; then
+  kafka-topics --bootstrap-server kafka:29092 --delete --topic '.*' || true
+fi
+
 kafka-leader-election --bootstrap-server kafka:29092 --election-type PREFERRED --all-topic-partitions
 
 kafka-topics --create --bootstrap-server kafka:29092 \
