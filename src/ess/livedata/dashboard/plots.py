@@ -297,7 +297,7 @@ class ImagePlotter(Plotter):
 
     @classmethod
     def from_params(cls, params: PlotParams2d):
-        """Create SumImagePlotter from PlotParams2d."""
+        """Create ImagePlotter from PlotParams2d."""
         return cls(
             value_margin_factor=0.1,
             layout_params=params.layout,
@@ -326,27 +326,3 @@ class ImagePlotter(Plotter):
         # scale plot. The nan values will be shown as transparent.
         histogram = to_holoviews(masked)
         return histogram.opts(framewise=framewise, **self._base_opts)
-
-
-# TODO This should be implemented using, e.g., a data-transform prior to plotting.
-class SumImagePlotter(ImagePlotter):
-    """Plotter for 2D images created by summing multiple scipp DataArrays."""
-
-    @classmethod
-    def from_params(cls, params):
-        """Create SumImagePlotter from PlotParams2d."""
-        # TODO: Use params to configure the plotter
-        return cls(value_margin_factor=0.1)
-
-    def plot(self, data: dict[ResultKey, sc.DataArray]) -> hv.Image:
-        """Create a 2D plot from a dictionary of scipp DataArrays."""
-        if data is None:
-            return super().plot(data)
-        reducer = sc.reduce(list(data.values()))
-        # This is not a great check, probably the whole approach is questionable, but
-        # this probably does the job for Dream focussed vs. vanadium normalized data.
-        if next(iter(data.values())).unit == '':
-            combined = reducer.nanmean()
-        else:
-            combined = reducer.nansum()
-        return super().plot(combined)
