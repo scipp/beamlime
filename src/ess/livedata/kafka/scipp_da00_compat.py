@@ -54,7 +54,7 @@ def _to_da00_variable(name: str, var: sc.Variable) -> dataarray_da00.Variable:
 
 
 def _to_scipp_variable(var: dataarray_da00.Variable) -> sc.Variable:
-    if var.unit.startswith('datetime64'):
+    if var.unit is not None and var.unit.startswith('datetime64'):
         unit = var.unit.split('[')[1].rstrip(']')
         return sc.epoch(unit=unit) + sc.array(dims=var.axes, values=var.data, unit=unit)
     return sc.array(dims=var.axes, values=var.data, unit=var.unit)
