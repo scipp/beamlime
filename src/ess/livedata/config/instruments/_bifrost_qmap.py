@@ -56,13 +56,13 @@ QBIN_DEFAULT = 100
 
 
 class CustomQAxis(pydantic.BaseModel):
-    qx: int = pydantic.Field(
+    qx: float = pydantic.Field(
         default=0, title='Qx', description="Custom x component of the cut axis."
     )
-    qy: int = pydantic.Field(
+    qy: float = pydantic.Field(
         default=0, title='Qy', description="Custom y component of the cut axis."
     )
-    qz: int = pydantic.Field(
+    qz: float = pydantic.Field(
         default=0, title='Qz', description="Custom z component of the cut axis."
     )
 
