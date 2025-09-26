@@ -139,7 +139,7 @@ pure-eval==0.2.3
     # via stack-data
 pyarrow==21.0.0
     # via -r docs.in
-pydantic-settings==2.10.1
+pydantic-settings==2.11.0
     # via autodoc-pydantic
 pydata-sphinx-theme==0.16.1
     # via -r docs.in
@@ -231,7 +231,7 @@ traittypes==0.2.1
     # via ipydatawidgets
 tzdata==2025.2
     # via pandas
-wcwidth==0.2.13
+wcwidth==0.2.14
     # via prompt-toolkit
 webencodings==0.5.1
     # via
