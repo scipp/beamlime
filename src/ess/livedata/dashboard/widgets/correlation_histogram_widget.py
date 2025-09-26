@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import pandas as pd
 import panel as pn
 
 from ..correlation_histogram import CorrelationHistogramController
@@ -19,83 +18,49 @@ class CorrelationHistogramWidget:
     ) -> None:
         self._correlation_histogram_controller = correlation_histogram_controller
 
-        # Create the tabulator widget
-        self._tabulator = pn.widgets.Tabulator(
-            value=pd.DataFrame(columns=['source_name', 'job_id', 'output_name']),
-            selectable='checkbox-single',
-            sortable=True,
-            disabled=True,
-            pagination='remote',
-            page_size=10,
-            sizing_mode='stretch_width',
+        # Create the new 1D and 2D configuration buttons
+        self._config_1d_button = pn.widgets.Button(
+            name='1D Correlation Histogram', disabled=True, button_type='primary'
         )
+        self._config_1d_button.on_click(self._on_config_1d_button_click)
 
-        # Create the configuration button
-        self._config_button = pn.widgets.Button(
-            name='Create Configuration',
-            disabled=True,
-            button_type='primary',
+        self._config_2d_button = pn.widgets.Button(
+            name='2D Correlation Histogram', disabled=True, button_type='primary'
         )
-        self._config_button.on_click(self._on_config_button_click)
+        self._config_2d_button.on_click(self._on_config_2d_button_click)
 
-        # Register for updates and set up selection watching
+        # Register for updates
         self._correlation_histogram_controller.register_update_subscriber(
-            self._update_timeseries_list
+            self._update_button_states
         )
-        self._tabulator.param.watch(self._on_selection_change, 'selection')
 
         # Initial update
-        self._update_timeseries_list()
+        self._update_button_states()
 
         # Container for modals - they need to be part of the served structure
         self._modal_container = pn.Column()
 
-    def _update_timeseries_list(self) -> None:
-        """Update the tabulator with current timeseries data."""
+    def _update_button_states(self) -> None:
+        """Update button states based on available timeseries."""
         timeseries_keys = self._correlation_histogram_controller.get_timeseries()
-        data = pd.DataFrame(
-            [
-                {
-                    'source_name': key.job_id.source_name,
-                    'job_id': str(key.job_id.job_number)[:8],
-                    'output_name': key.output_name or '',
-                    'result_key': key,
-                }
-                for key in timeseries_keys
-            ]
-        )
-        if timeseries_keys:
-            self._result_key = data.pop('result_key')
-        self._tabulator.value = data
-        self._on_selection_change()  # Update button state
+        num_timeseries = len(timeseries_keys)
+        self._config_1d_button.disabled = num_timeseries < 1
+        self._config_2d_button.disabled = num_timeseries < 2
 
-    def _on_selection_change(self, *args: Any) -> None:
-        """Handle selection changes in the tabulator."""
-        selection = self._tabulator.selection
-        num_selected = len(selection)
+    def _on_config_1d_button_click(self, event: Any) -> None:
+        """Handle 1D configuration button clicks."""
+        config = self._correlation_histogram_controller.create_1d_config()
+        self._create_and_show_modal(config, ndim=1)
 
-        # Enable button only for 1 or 2 selections
-        self._config_button.disabled = num_selected not in (1, 2)
+    def _on_config_2d_button_click(self, event: Any) -> None:
+        """Handle 2D configuration button clicks."""
+        config = self._correlation_histogram_controller.create_2d_config()
+        self._create_and_show_modal(config, ndim=2)
 
-        # Update button text based on selection
-        if num_selected == 1:
-            self._config_button.name = 'Create 1D Configuration'
-        elif num_selected == 2:
-            self._config_button.name = 'Create 2D Configuration'
-        else:
-            self._config_button.name = 'Create Configuration'
-
-    def _on_config_button_click(self, event: Any) -> None:
-        """Handle configuration button clicks."""
-        selection = self._tabulator.selection
-        indices = self._tabulator.value.iloc[selection].index
-        config = self._correlation_histogram_controller.create_config(
-            [self._result_key.iloc[i] for i in indices]
-        )
-
+    def _create_and_show_modal(self, config: Any, ndim: int) -> None:
         # Create and show configuration modal
         modal = ConfigurationModal(
-            config=config, start_button_text="Create Correlation Histogram"
+            config=config, start_button_text=f"Create {ndim}D Correlation Histogram"
         )
 
         # Clear previous modals and add the new one
@@ -107,12 +72,7 @@ class CorrelationHistogramWidget:
     def panel(self) -> pn.Column:
         """Get the panel widget for display."""
         return pn.Column(
-            pn.pane.Markdown("## Correlation Histogram Configuration"),
-            pn.pane.Markdown(
-                "Select one or two timeseries to create a correlation histogram:"
-            ),
-            self._tabulator,
-            self._config_button,
+            pn.Column(self._config_1d_button, self._config_2d_button),
             self._modal_container,
             sizing_mode='stretch_width',
         )
