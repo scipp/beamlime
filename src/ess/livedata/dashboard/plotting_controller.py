@@ -38,11 +38,15 @@ class PlottingController:
         stream_manager: StreamManager,
         config_service: ConfigService | None = None,
         logger: logging.Logger | None = None,
+        max_persistent_configs: int = 100,
+        cleanup_fraction: float = 0.2,
     ) -> None:
         self._job_service = job_service
         self._stream_manager = stream_manager
         self._config_service = config_service
         self._logger = logger or logging.getLogger(__name__)
+        self._max_persistent_configs = max_persistent_configs
+        self._cleanup_fraction = cleanup_fraction
 
     def get_available_plotters(
         self, job_number: JobNumber, output_name: str | None
@@ -97,6 +101,34 @@ class PlottingController:
             version=workflow_id.version,
         )
 
+    def _cleanup_old_configs(self, configs: PersistentWorkflowConfigs) -> None:
+        """
+        Remove oldest configs when limit is exceeded.
+
+        In the case of workflows we simply remove workflows that do not exist anymore.
+        This approach would be more difficult here, since for every workflow there can
+        be multiple outputs, and for every output multiple applicable plotters, each of
+        which should have its config saved. Hence we simply remove the oldest ones.
+        """
+        if len(configs.configs) <= self._max_persistent_configs:
+            return
+
+        num_to_remove = int(len(configs.configs) * self._cleanup_fraction)
+        if num_to_remove == 0:
+            num_to_remove = 1
+
+        # Remove oldest configs (dict maintains insertion order, and this should work
+        # even across serialized/deserialized states)
+        oldest_keys = list(configs.configs.keys())[:num_to_remove]
+        for key in oldest_keys:
+            del configs.configs[key]
+
+        self._logger.info(
+            'Cleaned up %d old plotting configs, %d remaining',
+            num_to_remove,
+            len(configs.configs),
+        )
+
     def _save_plotting_config(
         self,
         workflow_id: WorkflowId,
@@ -118,6 +150,8 @@ class PlottingController:
         current_configs.configs[plotter_id] = PersistentWorkflowConfig(
             source_names=source_names, config=plot_config
         )
+
+        self._cleanup_old_configs(current_configs)
         self._config_service.update_config(self._plotter_config_key, current_configs)
 
     def create_plot(
